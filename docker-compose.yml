@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nirman-inventory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nirman
+      POSTGRES_PASSWORD: nirman
+      POSTGRES_DB: nirman_inventory
+    ports:
+      - "5433:5432"
+    volumes:
+      - nirman_inventory_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nirman -d nirman_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nirman_inventory_pgdata:

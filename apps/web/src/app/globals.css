@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: oklch(0.99 0.005 240);
+  --color-foreground: oklch(0.18 0.02 240);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.18 0.02 240);
+  --color-muted: oklch(0.96 0.01 240);
+  --color-muted-foreground: oklch(0.52 0.02 240);
+  --color-border: oklch(0.91 0.01 240);
+  --color-input: oklch(0.91 0.01 240);
+  --color-ring: oklch(0.55 0.18 245);
+  --color-primary: oklch(0.52 0.20 245);
+  --color-primary-foreground: oklch(0.99 0.01 245);
+  --color-accent: oklch(0.95 0.03 245);
+  --color-accent-foreground: oklch(0.30 0.10 245);
+  --color-sidebar: oklch(0.20 0.03 245);
+  --color-sidebar-foreground: oklch(0.92 0.02 240);
+  --color-sidebar-accent: oklch(0.28 0.05 245);
+  --color-sidebar-border: oklch(0.28 0.04 245);
+  --color-success: oklch(0.60 0.16 150);
+  --color-warning: oklch(0.72 0.17 70);
+  --color-danger: oklch(0.58 0.22 25);
+  --radius: 0.625rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}

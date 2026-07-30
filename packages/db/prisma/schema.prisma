@@ -1,0 +1,727 @@
+// Nirman Inventory OS — Prisma schema
+// Construction + Real Estate inventory management.
+// Two inventory universes: Materials (inputs) + Assets (outputs: land + built units).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────────────────────────────────────
+//  CORE: Company, Users, Auth, Projects
+// ───────────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  gstin     String?
+  pan       String?
+  address   String?
+  currency  String   @default("INR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects      Project[]
+  stockLocations StockLocation[]
+  purchaseOrders PurchaseOrder[]
+  landPurchases  LandPurchase[]
+  assetSales     AssetSale[]
+  expenses       Expense[]
+}
+
+// User is shared with Better-Auth (prisma adapter). Required auth fields:
+// id, email, name, emailVerified, image, createdAt, updatedAt.
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("MANAGER") // OWNER | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions       Session[]
+  accounts       Account[]
+  stockMovements StockMovement[]
+  goodsReceipts  GoodsReceipt[]
+  materialIssues MaterialIssue[]
+  auditLogs      AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                String    @id @default(cuid())
+  accountId         String
+  providerId        String
+  userId            String
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  password          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([providerId, accountId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+enum ProjectType {
+  RESIDENTIAL
+  COMMERCIAL
+  WAREHOUSE
+  MALL
+  LAND
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  companyId   String
+  name        String
+  type        ProjectType   @default(RESIDENTIAL)
+  status      ProjectStatus @default(PLANNED)
+  address     String?
+  startDate   DateTime?
+  endDate     DateTime?
+  totalBudget Decimal?      @db.Decimal(14, 2)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  stockLocations StockLocation[]
+  purchaseOrders PurchaseOrder[]
+  materialIssues MaterialIssue[]
+  landPurchases  LandPurchase[]
+  landParcels    LandParcel[]
+  builtUnits     BuiltUnit[]
+  assetSales     AssetSale[]
+  projectCosts   ProjectCost[]
+  expenses       Expense[]
+
+  @@index([companyId])
+  @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────
+//  MATERIAL INVENTORY: locations, catalog, procurement, ledger
+// ───────────────────────────────────────────────────────────
+
+enum StockLocationType {
+  COMPANY_WAREHOUSE
+  PROJECT_SITE
+}
+
+model StockLocation {
+  id        String            @id @default(cuid())
+  type      StockLocationType
+  companyId String
+  projectId String?
+  name      String
+  address   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project        Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
+  stockMovementsFrom StockMovement[] @relation("MovementFrom")
+  stockMovementsTo   StockMovement[] @relation("MovementTo")
+  materialIssues MaterialIssue[]
+  stockTransfersFrom StockTransfer[] @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("TransferTo")
+  stockCounts    StockCount[]
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model MaterialCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  unit      String   @default("NOS")
+  createdAt DateTime @default(now())
+
+  materials Material[]
+}
+
+model Material {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  categoryId    String
+  unit          String   @default("NOS")
+  hsnCode       String?
+  gstRate       Decimal  @default(0) @db.Decimal(5, 2)
+  standardCost  Decimal  @default(0) @db.Decimal(14, 2)
+  currentCost   Decimal  @default(0) @db.Decimal(14, 2)
+  minStock      Decimal? @db.Decimal(14, 3)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category          MaterialCategory   @relation(fields: [categoryId], references: [id])
+  purchaseOrderLines PurchaseOrderLine[]
+  goodsReceiptLines  GoodsReceiptLine[]
+  stockMovements    StockMovement[]
+  materialIssueLines MaterialIssueLine[]
+  stockTransferLines StockTransferLine[]
+  stockCountLines   StockCountLine[]
+
+  @@index([categoryId])
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  gstin       String?
+  phone       String?
+  email       String?
+  address     String?
+  balanceOwed Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+}
+
+enum ProcurementScope {
+  COMPANY
+  PROJECT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  ORDERED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id                    String              @id @default(cuid())
+  poNumber              String              @unique
+  supplierId            String
+  procurementScope      ProcurementScope
+  companyId             String
+  projectId             String?
+  destinationLocationId String
+  status                PurchaseOrderStatus @default(DRAFT)
+  orderDate             DateTime            @default(now())
+  expectedDate          DateTime?
+  subtotal              Decimal             @default(0) @db.Decimal(14, 2)
+  gstTotal              Decimal             @default(0) @db.Decimal(14, 2)
+  total                 Decimal             @default(0) @db.Decimal(14, 2)
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  supplier            Supplier             @relation(fields: [supplierId], references: [id])
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project             Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  destinationLocation StockLocation        @relation(fields: [destinationLocationId], references: [id])
+  lines               PurchaseOrderLine[]
+  goodsReceipts       GoodsReceipt[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model PurchaseOrderLine {
+  id             String   @id @default(cuid())
+  purchaseOrderId String
+  materialId     String
+  qtyOrdered     Decimal  @db.Decimal(14, 3)
+  qtyReceived    Decimal  @default(0) @db.Decimal(14, 3)
+  unitCost       Decimal  @db.Decimal(14, 2)
+  gstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  lineTotal      Decimal  @default(0) @db.Decimal(14, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id])
+  goodsReceiptLines GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+  @@index([materialId])
+}
+
+model GoodsReceipt {
+  id             String   @id @default(cuid())
+  purchaseOrderId String
+  locationId     String
+  receiptDate    DateTime @default(now())
+  receivedById   String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  location      StockLocation       @relation(fields: [locationId], references: [id])
+  receivedBy    User?               @relation(fields: [receivedById], references: [id])
+  lines         GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+  @@index([locationId])
+}
+
+model GoodsReceiptLine {
+  id                String  @id @default(cuid())
+  goodsReceiptId    String
+  purchaseOrderLineId String
+  materialId        String
+  qtyReceived       Decimal @db.Decimal(14, 3)
+  unitCost          Decimal @db.Decimal(14, 2)
+
+  goodsReceipt     GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id])
+  material         Material          @relation(fields: [materialId], references: [id])
+
+  @@index([goodsReceiptId])
+  @@index([materialId])
+}
+
+enum StockMovementType {
+  PURCHASE_RECEIPT
+  TRANSFER_IN
+  TRANSFER_OUT
+  ISSUE_TO_PROJECT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  RETURN
+  SALE
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  materialId     String
+  movementType   StockMovementType
+  fromLocationId String?
+  toLocationId   String?
+  qty            Decimal           @db.Decimal(14, 3)
+  unitCost       Decimal           @db.Decimal(14, 2)
+  balanceAfter   Decimal           @db.Decimal(14, 3)
+  reason         String?
+  refType        String?
+  refId          String?
+  userId         String?
+  timestamp      DateTime          @default(now())
+
+  material      Material       @relation(fields: [materialId], references: [id])
+  fromLocation  StockLocation? @relation("MovementFrom", fields: [fromLocationId], references: [id])
+  toLocation    StockLocation? @relation("MovementTo", fields: [toLocationId], references: [id])
+  user          User?          @relation(fields: [userId], references: [id])
+
+  @@index([materialId, timestamp])
+  @@index([toLocationId])
+  @@index([fromLocationId])
+  @@index([refType, refId])
+}
+
+model MaterialIssue {
+  id             String   @id @default(cuid())
+  projectId      String
+  fromLocationId String
+  issueDate      DateTime @default(now())
+  issuedById     String?
+  notes          String?
+  totalCost      Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt      DateTime @default(now())
+
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromLocation StockLocation      @relation(fields: [fromLocationId], references: [id])
+  issuedBy     User?              @relation(fields: [issuedById], references: [id])
+  lines        MaterialIssueLine[]
+
+  @@index([projectId])
+  @@index([fromLocationId])
+}
+
+model MaterialIssueLine {
+  id              String  @id @default(cuid())
+  materialIssueId String
+  materialId      String
+  qty             Decimal @db.Decimal(14, 3)
+  unitCost        Decimal @db.Decimal(14, 2)
+
+  materialIssue MaterialIssue @relation(fields: [materialIssueId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id])
+
+  @@index([materialIssueId])
+  @@index([materialId])
+}
+
+enum StockTransferStatus {
+  DRAFT
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+model StockTransfer {
+  id             String              @id @default(cuid())
+  fromLocationId String
+  toLocationId   String
+  transferDate   DateTime            @default(now())
+  status         StockTransferStatus @default(DRAFT)
+  notes          String?
+  createdAt      DateTime            @default(now())
+
+  fromLocation StockLocation         @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  toLocation   StockLocation         @relation("TransferTo", fields: [toLocationId], references: [id])
+  lines        StockTransferLine[]
+
+  @@index([fromLocationId])
+  @@index([toLocationId])
+}
+
+model StockTransferLine {
+  id              String  @id @default(cuid())
+  stockTransferId String
+  materialId      String
+  qty             Decimal @db.Decimal(14, 3)
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  material      Material      @relation(fields: [materialId], references: [id])
+
+  @@index([stockTransferId])
+  @@index([materialId])
+}
+
+enum StockCountStatus {
+  DRAFT
+  COUNTED
+  RECONCILED
+}
+
+model StockCount {
+  id          String           @id @default(cuid())
+  locationId  String
+  countDate   DateTime         @default(now())
+  status      StockCountStatus @default(DRAFT)
+  notes       String?
+  createdAt   DateTime         @default(now())
+
+  location StockLocation      @relation(fields: [locationId], references: [id])
+  lines   StockCountLine[]
+
+  @@index([locationId])
+}
+
+model StockCountLine {
+  id           String  @id @default(cuid())
+  stockCountId String
+  materialId   String
+  countedQty   Decimal @db.Decimal(14, 3)
+  systemQty    Decimal @db.Decimal(14, 3)
+  variance     Decimal @db.Decimal(14, 3)
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  material   Material   @relation(fields: [materialId], references: [id])
+
+  @@index([stockCountId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  ASSET INVENTORY: Land (with partitioning) + Built Units
+// ───────────────────────────────────────────────────────────
+
+enum AreaUnit {
+  SQFT
+  SQM
+  ACRE
+  BIGHA
+  HECTARE
+}
+
+model LandPurchase {
+  id           String   @id @default(cuid())
+  companyId    String
+  projectId    String?
+  sellerName   String
+  sellerContact String?
+  purchaseDate DateTime @default(now())
+  totalArea    Decimal  @db.Decimal(14, 3)
+  areaUnit     AreaUnit @default(SQFT)
+  totalCost    Decimal  @db.Decimal(14, 2)
+  registryNo   String?
+  location     String?
+  documentUrl  String?
+  createdAt    DateTime @default(now())
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parcels LandParcel[]
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+enum LandParcelStatus {
+  AVAILABLE
+  HOLD
+  PARTITIONED
+  SOLD
+}
+
+model LandParcel {
+  id              String           @id @default(cuid())
+  landPurchaseId  String
+  parentParcelId  String?
+  number          String
+  area            Decimal          @db.Decimal(14, 3)
+  areaUnit        AreaUnit         @default(SQFT)
+  status          LandParcelStatus @default(AVAILABLE)
+  acquisitionCost Decimal          @default(0) @db.Decimal(14, 2)
+  askingPrice     Decimal?         @db.Decimal(14, 2)
+  currentValuation Decimal         @default(0) @db.Decimal(14, 2)
+  saleId          String?
+  projectId       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  landPurchase LandPurchase  @relation(fields: [landPurchaseId], references: [id], onDelete: Cascade)
+  parentParcel LandParcel?   @relation("ParcelChildren", fields: [parentParcelId], references: [id])
+  children     LandParcel[]  @relation("ParcelChildren")
+  partitions    LandPartition[]
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([landPurchaseId])
+  @@index([parentParcelId])
+  @@index([status])
+}
+
+model LandPartition {
+  id              String   @id @default(cuid())
+  parentParcelId  String
+  partitionDate   DateTime @default(now())
+  childCount      Int
+  notes           String?
+
+  parentParcel LandParcel @relation(fields: [parentParcelId], references: [id], onDelete: Cascade)
+
+  @@index([parentParcelId])
+}
+
+enum BuiltUnitType {
+  BHK_1
+  BHK_2
+  BHK_3
+  BHK_4
+  SHOP
+  OFFICE
+  WAREHOUSE_UNIT
+  OTHER
+}
+
+enum BuiltUnitStatus {
+  PLANNED
+  UNDER_CONSTRUCTION
+  AVAILABLE
+  HOLD
+  SOLD
+}
+
+model BuiltUnit {
+  id              String           @id @default(cuid())
+  projectId       String
+  unitType        BuiltUnitType
+  unitNumber      String
+  floor           Int?
+  wing            String?
+  area            Decimal          @db.Decimal(14, 3)
+  areaUnit        AreaUnit         @default(SQFT)
+  status          BuiltUnitStatus  @default(PLANNED)
+  productionCost  Decimal          @default(0) @db.Decimal(14, 2)
+  askingPrice     Decimal?         @db.Decimal(14, 2)
+  currentValuation Decimal         @default(0) @db.Decimal(14, 2)
+  saleId          String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([unitType])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SALES: customers, asset sales, payments
+// ───────────────────────────────────────────────────────────
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?  @unique
+  email     String?
+  gstin     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assetSales AssetSale[]
+}
+
+enum AssetType {
+  LAND
+  BUILT_UNIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+model AssetSale {
+  id            String        @id @default(cuid())
+  saleNumber    String        @unique
+  assetType     AssetType
+  landParcelId  String?
+  builtUnitId   String?
+  customerId    String
+  projectId     String
+  companyId     String
+  salePrice     Decimal       @db.Decimal(14, 2)
+  saleDate      DateTime      @default(now())
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMode   String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customer  Customer            @relation(fields: [customerId], references: [id])
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  payments  AssetSalePayment[]
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([customerId])
+  @@index([paymentStatus])
+}
+
+model AssetSalePayment {
+  id          String   @id @default(cuid())
+  assetSaleId String
+  amount      Decimal  @db.Decimal(14, 2)
+  paymentDate DateTime @default(now())
+  mode        String
+  reference   String?
+  status      String   @default("RECEIVED")
+
+  assetSale AssetSale @relation(fields: [assetSaleId], references: [id], onDelete: Cascade)
+
+  @@index([assetSaleId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  FINANCE: project costs, expenses, audit
+// ───────────────────────────────────────────────────────────
+
+enum ProjectCostType {
+  LABOUR
+  OVERHEAD
+  EQUIPMENT
+  CONTRACTOR
+  PERMIT
+  OTHER
+}
+
+model ProjectCost {
+  id        String          @id @default(cuid())
+  projectId String
+  costType  ProjectCostType
+  amount    Decimal         @db.Decimal(14, 2)
+  date      DateTime        @default(now())
+  vendor    String?
+  notes     String?
+  receiptUrl String?
+  createdAt DateTime        @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([costType])
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  companyId String
+  projectId String?
+  category  String
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+
+  company Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  timestamp  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+}
