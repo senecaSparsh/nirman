@@ -25,6 +25,7 @@ model Company {
   currency  String   @default("INR")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   projects      Project[]
   stockLocations StockLocation[]
@@ -129,8 +130,13 @@ model Project {
   endDate     DateTime?
   totalBudget Decimal?      @db.Decimal(14, 2)
   description String?
+  // Cached computed fields — updated by valuationService
+  costPerSqft      Decimal?  @db.Decimal(14, 2) // total project cost / total sellable area
+  totalProjectCost Decimal?  @db.Decimal(14, 2) // materials + labour/overhead + allocated land
+  totalSellableArea Decimal? @db.Decimal(14, 3) // sum of sellable unit areas
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   stockLocations StockLocation[]
@@ -165,6 +171,7 @@ model StockLocation {
   address   String?
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  deletedAt DateTime?
 
   company        Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project        Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -176,6 +183,7 @@ model StockLocation {
   stockTransfersFrom StockTransfer[] @relation("TransferFrom")
   stockTransfersTo   StockTransfer[] @relation("TransferTo")
   stockCounts    StockCount[]
+  stockItems     StockLocationItem[]
 
   @@index([companyId])
   @@index([projectId])
@@ -186,6 +194,7 @@ model MaterialCategory {
   name      String   @unique
   unit      String   @default("NOS")
   createdAt DateTime @default(now())
+  deletedAt DateTime?
 
   materials Material[]
 }
@@ -199,11 +208,12 @@ model Material {
   hsnCode       String?
   gstRate       Decimal  @default(0) @db.Decimal(5, 2)
   standardCost  Decimal  @default(0) @db.Decimal(14, 2)
-  currentCost   Decimal  @default(0) @db.Decimal(14, 2)
+  currentCost   Decimal  @default(0) @db.Decimal(14, 2) // global fallback; per-location MAC lives in StockLocationItem
   minStock      Decimal? @db.Decimal(14, 3)
   description   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   category          MaterialCategory   @relation(fields: [categoryId], references: [id])
   purchaseOrderLines PurchaseOrderLine[]
@@ -212,6 +222,7 @@ model Material {
   materialIssueLines MaterialIssueLine[]
   stockTransferLines StockTransferLine[]
   stockCountLines   StockCountLine[]
+  stockItems        StockLocationItem[]
 
   @@index([categoryId])
 }
@@ -226,6 +237,7 @@ model Supplier {
   balanceOwed Decimal  @default(0) @db.Decimal(14, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   purchaseOrders PurchaseOrder[]
 }
@@ -345,8 +357,9 @@ model StockMovement {
   fromLocationId String?
   toLocationId   String?
   qty            Decimal           @db.Decimal(14, 3)
-  unitCost       Decimal           @db.Decimal(14, 2)
-  balanceAfter   Decimal           @db.Decimal(14, 3)
+  unitCost       Decimal           @db.Decimal(14, 2) // MAC at time of movement (for issues) or receipt unit cost
+  balanceAfter   Decimal           @db.Decimal(14, 3) // qty remaining at the affected location after this movement
+  balanceValueAfter Decimal        @default(0) @db.Decimal(14, 2) // qty × MAC after this movement (cost audit trail)
   reason         String?
   refType        String?
   refId          String?
@@ -362,6 +375,23 @@ model StockMovement {
   @@index([toLocationId])
   @@index([fromLocationId])
   @@index([refType, refId])
+}
+
+// Current-state cache per material per location — updated atomically with each StockMovement.
+// StockMovement is the immutable ledger; StockLocationItem is the derived "what's here now + at what MAC".
+model StockLocationItem {
+  id             String   @id @default(cuid())
+  locationId     String
+  materialId     String
+  qty            Decimal  @default(0) @db.Decimal(14, 3)
+  movingAvgCost  Decimal  @default(0) @db.Decimal(14, 2) // Moving Average Cost (MAC) at this location
+  updatedAt      DateTime @updatedAt
+
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  material Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@unique([locationId, materialId])
+  @@index([materialId])
 }
 
 model MaterialIssue {
@@ -495,6 +525,7 @@ model LandPurchase {
   location     String?
   documentUrl  String?
   createdAt    DateTime @default(now())
+  deletedAt    DateTime?
 
   company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -526,6 +557,7 @@ model LandParcel {
   projectId       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
 
   landPurchase LandPurchase  @relation(fields: [landPurchaseId], references: [id], onDelete: Cascade)
   parentParcel LandParcel?   @relation("ParcelChildren", fields: [parentParcelId], references: [id])
@@ -585,6 +617,7 @@ model BuiltUnit {
   saleId          String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -606,6 +639,7 @@ model Customer {
   address   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   assetSales AssetSale[]
 }

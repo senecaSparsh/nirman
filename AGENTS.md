@@ -7,6 +7,7 @@
 - `pnpm db:generate` — regenerate Prisma client after schema changes.
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
 - `pnpm db:studio` — Prisma Studio.
+- `pnpm --filter @nirman/services test` — run service unit tests (vitest).
 
 ## Conventions
 
@@ -15,9 +16,24 @@
   run `pnpm db:generate` (and `pnpm db:push` against a running Postgres).
 - **Money/quantities**: use `Decimal` (`@db.Decimal(14,2)` for money, `(14,3)` for quantities).
   Never use JS `number` for money in the DB layer.
-- **Stock ledger**: NEVER mutate stock by updating a "current stock" column. Always append a
-  `StockMovement` (immutable) with `balanceAfter`. Current stock = latest balanceAfter per
-  material+location, or Σ IN − Σ OUT.
+- **Stock ledger**: NEVER mutate stock by updating a "current stock" column directly. Always use
+  `recordMovement()` or `recordTransfer()` from `@nirman/services` — these append an immutable
+  `StockMovement` AND atomically update the `StockLocationItem` (qty + MAC) inside one
+  Serializable transaction. Current stock = `StockLocationItem.qty`; full audit = `StockMovement`.
+- **Moving Average Cost (MAC)**: material cost is tracked per-location in `StockLocationItem.movingAvgCost`.
+  On receipt: `newMAC = (oldQty×oldMAC + recvQty×recvCost) / (oldQty+recvQty)`. On issue: MAC is
+  unchanged; the issue's `unitCost` = current MAC. Transfers carry the source MAC to the destination.
+  The pure MAC function is in `@nirman/services` (`computeMovingAverageCost`) — 8 unit tests.
+- **Cost-per-sqft allocation**: bulk materials are issued to a *project*, not individual units. To
+  estimate a unit's production cost, call `reallocateProjectCosts()` from `@nirman/services`:
+  `costPerSqft = totalProjectCost / totalSellableArea`, then `unit.productionCost = costPerSqft × unit.area`.
+  Cached on `Project.costPerSqft` + `BuiltUnit.productionCost`. Re-run after material issues / project
+  costs / land purchases change.
+- **Soft deletes**: master entities (Company, Project, StockLocation, MaterialCategory, Material,
+  Supplier, Customer, LandPurchase, LandParcel, BuiltUnit) have `deletedAt: DateTime?`. NEVER hard-
+  delete these — set `deletedAt = now()`. All queries MUST filter `deletedAt: null` unless explicitly
+  querying archived records. Transactional records (StockMovement, GoodsReceipt, etc.) are already
+  immutable — no soft delete needed.
 - **Procurement scope**: every `PurchaseOrder` must set `procurementScope` (COMPANY or PROJECT).
   COMPANY → receive into a company warehouse location; PROJECT → receive into a project site.
 - **Land partition**: atomic transaction — validate Σ child area = parent area, create children,
@@ -27,6 +43,14 @@
 - **API**: Route Handlers under `apps/web/src/app/api/`. Auth via Better-Auth
   (`src/lib/auth.ts`, handler at `api/auth/[...all]`).
 - **Formatting helpers**: `formatCurrency`, `formatNumber`, `formatDate` in `@/lib/utils`.
+
+## Package layout
+
+- `packages/db` — Prisma schema + generated client (`@nirman/db`). Import `prisma` + types from here.
+- `packages/services` — business logic: stock ledger (`recordMovement`, `recordTransfer`),
+  MAC calculation, valuation (`materialInventoryValue`, `unsoldAssetValue`, `projectPnl`,
+  `reallocateProjectCosts`). Import from `@nirman/services`.
+- `apps/web` — Next.js app (UI, API routes, auth).
 
 ## Gotchas
 
