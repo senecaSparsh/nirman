@@ -1,0 +1,94 @@
+# Gap Analysis — Industrial Spec vs Current System
+
+> Comparing the comprehensive industry spec against our current schema + services.
+> Each gap is rated by impact. Critical gaps are implemented in this pass.
+
+## CRITICAL GAPS (implementing now)
+
+### G1. Equipment & Tools — completely missing
+**Spec**: "Equipment, tools and MRO supplies (heavy machinery, tools, lubricants, repair parts, safety gear)"
+**Current**: Only fungible Materials. No concept of discrete, trackable equipment.
+**Impact**: CRITICAL. An excavator is not "100 bags of cement". It's a unique asset that gets transferred between sites, depreciates, needs maintenance, and is never "consumed". This is a third inventory type alongside fungible materials and real-estate assets.
+**Fix**: New `Equipment` model + `EquipmentAssignment` (tracks which site/project has it) + `EquipmentMaintenance` log. Equipment is transferred, not issued/consumed.
+
+### G2. Material Requisition flow — missing
+**Spec**: "Project managers or site engineers raise material requisitions based on project schedules"
+**Current**: POs created directly. No request → approve → PO chain.
+**Impact**: HIGH. Without requisitions, there's no planning layer or approval gate before procurement.
+**Fix**: New `MaterialRequisition` + `MaterialRequisitionLine` model. Flow: DRAFT → SUBMITTED → APPROVED → CONVERTED (to PO) → REJECTED.
+
+### G3. Quality Inspection on Goods Receipt — missing
+**Spec**: "inspect received items (e.g. count reinforcement bars, check cement quality)"
+**Current**: GoodsReceipt has no inspection fields.
+**Impact**: HIGH. Construction materials need quality checks before acceptance.
+**Fix**: Add `inspectionStatus`, `inspectionNotes`, `inspectedById`, `inspectedAt` to GoodsReceipt. Status: PENDING → PASSED → FAILED → REJECTED.
+
+### G4. Barcode/QR — missing
+**Spec**: "Barcode/QR Scanning... scan item codes or QR labels on pallets/boxes"
+**Current**: Materials have `code` but no barcode/QR field.
+**Impact**: HIGH. Mobile PWA scanning needs this.
+**Fix**: Add `barcode` + `qrCode` to Material. Add `assetTag` to Equipment.
+
+### G5. Reorder Point + Low-Stock Alerts — missing
+**Spec**: "set reorder points or EOQ triggers", "automated low-stock alerts"
+**Current**: `minStock` exists but no `reorderPoint`, no EOQ, no alert service.
+**Impact**: HIGH. Core procurement planning feature.
+**Fix**: Add `reorderPoint` + `economicOrderQty` to Material. New `lowStockAlerts()` service function.
+
+### G6. Project Phases — missing
+**Spec**: "Each project may be multi-phase"
+**Current**: Project is a single entity, no phases.
+**Impact**: MEDIUM-HIGH. Large projects have phases (Tower A, Tower B, Phase 1, Phase 2).
+**Fix**: New `ProjectPhase` model linked to Project. StockLocations, BuiltUnits, MaterialIssues can link to a phase.
+
+### G7. Subcontractor — missing
+**Spec**: "Roles such as supplier and subcontractor may also appear as related parties"
+**Current**: Only Supplier. No Subcontractor.
+**Impact**: MEDIUM. Subcontractors receive materials and do work.
+**Fix**: New `Subcontractor` model. Link to MaterialIssue (who received the materials) and ProjectCost.
+
+### G8. Returns to Supplier — missing
+**Spec**: "Returns and Write-offs... surplus inventory can be returned to stock or liquidated"
+**Current**: RETURN movement type exists but no return-to-supplier flow.
+**Impact**: MEDIUM. Defective materials get returned to suppliers.
+**Fix**: New `SupplierReturn` + `SupplierReturnLine` model. Creates RETURN stock movement + tracks credit note.
+
+### G9. GPS/Geolocation on transactions — missing
+**Spec**: "Geolocation/GPS capture (tagging transactions with site location)"
+**Current**: StockMovement has no geo fields.
+**Impact**: MEDIUM. Field verification of where a transaction happened.
+**Fix**: Add `latitude`, `longitude` to StockMovement + MaterialIssue.
+
+### G10. Inventory Aging + NRV Write-down — missing
+**Spec**: "inventory aging (how long items sit unused)", "Lower of Cost or NRV"
+**Current**: No aging report, no NRV flagging.
+**Impact**: MEDIUM. Financial reporting requirement.
+**Fix**: New `inventoryAgingReport()` service. Add `nrvWriteDown` flag to BuiltUnit + LandParcel.
+
+## ALREADY COVERED (no action needed)
+
+- ✅ Multi-location tracking (StockLocation + StockLocationItem)
+- ✅ Company → Project hierarchy
+- ✅ Central warehouse vs project site (procurementScope)
+- ✅ Immutable stock ledger (StockMovement)
+- ✅ Moving Average Cost valuation
+- ✅ Cost-per-sqft allocation
+- ✅ Land partitioning with area conservation
+- ✅ Built unit status machine
+- ✅ Sale flow with double-sell guard + payments
+- ✅ Soft deletes with guards
+- ✅ Audit log
+- ✅ RBAC roles (User.role)
+- ✅ Stock counts/reconciliation
+- ✅ Transfers between locations
+
+## DEFERRED (future phases)
+
+- Equipment depreciation calculation (needs accounting integration)
+- WIP status tracking (complex — needs phase-level cost tracking)
+- Integration with external accounting/ERP (QuickBooks, SAP)
+- CRM integration for sales leads
+- Supplier catalog punch-out
+- Push notifications (needs a notification service)
+- Hazardous material safety data tracking
+- Approval chains for sensitive actions (needs a workflow engine)

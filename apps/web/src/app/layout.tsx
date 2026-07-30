@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Nirman Inventory OS",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="antialiased">
         <AppShell>{children}</AppShell>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

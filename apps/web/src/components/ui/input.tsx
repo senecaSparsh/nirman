@@ -44,3 +44,5 @@ export const Label = React.forwardRef<
   />
 ));
 Label.displayName = "Label";
+
+export { Textarea } from "./textarea";

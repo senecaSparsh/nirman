@@ -95,3 +95,39 @@ export {
   logAction,
   getAuditTrail,
 } from "./audit";
+
+// Equipment — discrete trackable assets (machinery, tools, vehicles)
+export {
+  createEquipment,
+  assignEquipment,
+  returnEquipment,
+  recordMaintenance,
+  completeMaintenance,
+  retireEquipment,
+  computeDepreciatedValue,
+} from "./equipment";
+
+// Requisition — material request → approve → convert to PO
+export {
+  createRequisition,
+  submitRequisition,
+  approveRequisition,
+  rejectRequisition,
+  convertRequisitionToPo,
+} from "./requisition";
+
+// Supplier Return — return defective/excess materials
+export {
+  createSupplierReturn,
+  submitSupplierReturn,
+  completeSupplierReturn,
+  cancelSupplierReturn,
+} from "./supplier-return";
+
+// Alerts & Reporting — low-stock, aging, NRV write-downs
+export {
+  lowStockAlerts,
+  inventoryAgingReport,
+  flagNrvWriteDowns,
+  computeNrvWriteDown,
+} from "./alerts";
