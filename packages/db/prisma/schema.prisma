@@ -568,6 +568,7 @@ model LandParcel {
   @@index([landPurchaseId])
   @@index([parentParcelId])
   @@index([status])
+  @@unique([landPurchaseId, number])
 }
 
 model LandPartition {
@@ -624,6 +625,7 @@ model BuiltUnit {
   @@index([projectId])
   @@index([status])
   @@index([unitType])
+  @@unique([projectId, unitNumber])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -649,6 +651,11 @@ enum AssetType {
   BUILT_UNIT
 }
 
+enum SaleStatus {
+  ACTIVE
+  CANCELLED
+}
+
 enum PaymentStatus {
   PENDING
   PARTIAL
@@ -665,7 +672,10 @@ model AssetSale {
   projectId     String
   companyId     String
   salePrice     Decimal       @db.Decimal(14, 2)
+  costBasis     Decimal       @default(0) @db.Decimal(14, 2) // acquisitionCost (land) or productionCost (unit) at time of sale
+  profit        Decimal       @default(0) @db.Decimal(14, 2) // salePrice - costBasis
   saleDate      DateTime      @default(now())
+  status        SaleStatus    @default(ACTIVE)
   paymentStatus PaymentStatus @default(PENDING)
   paymentMode   String?
   notes         String?

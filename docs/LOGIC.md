@@ -1,0 +1,545 @@
+# Nirman Inventory OS — Deep Logic Map
+
+> Every entity connection, every state machine, every constraint, every edge case.
+> This is the contract the service functions must enforce. No UI until this is solid.
+
+---
+
+## 0. The Entity Relationship Web (at a glance)
+
+```
+Company ──< Project ──< StockLocation (PROJECT_SITE)
+   │           │──< MaterialIssue ──< MaterialIssueLine
+   │           │──< BuiltUnit ─────── AssetSale
+   │           │──< LandParcel ─────── AssetSale
+   │           │──< ProjectCost
+   │           │──< Expense
+   │           │──< AssetSale
+   │           │──< LandPurchase ──< LandParcel (parent) ──< LandParcel (children)
+   │           │──< PurchaseOrder (PROJECT scope)
+   │
+   ├──< StockLocation (COMPANY_WAREHOUSE)
+   ├──< PurchaseOrder (COMPANY scope) ──< PurchaseOrderLine
+   │                                    ──< GoodsReceipt ──< GoodsReceiptLine
+   ├──< LandPurchase
+   ├──< AssetSale
+   ├──< Expense
+   │
+   StockLocation ──< StockLocationItem (qty + MAC per material)
+                 ──< StockMovement (immutable ledger)
+                 ──< StockTransfer ──< StockTransferLine
+                 ──< StockCount ──< StockCountLine
+                 ──< MaterialIssue (fromLocation)
+
+Material ──< StockLocationItem
+         ──< StockMovement
+         ──< PurchaseOrderLine
+         ──< GoodsReceiptLine
+         ──< MaterialIssueLine
+         ──< StockTransferLine
+         ──< StockCountLine
+
+Supplier ──< PurchaseOrder
+Customer ──< AssetSale ──< AssetSalePayment
+```
+
+---
+
+## 1. PROCUREMENT FLOW (Purchase Order → Goods Receipt → Stock)
+
+### 1.1 Create Purchase Order
+
+**Input**: supplier, procurementScope, companyId, projectId?, destinationLocationId, lines[]
+
+**Validations**:
+- If `procurementScope = COMPANY`:
+  - `projectId` must be null
+  - `destinationLocation.type` must be `COMPANY_WAREHOUSE`
+  - `destinationLocation.companyId` must match PO's `companyId`
+- If `procurementScope = PROJECT`:
+  - `projectId` must be set
+  - `destinationLocation.type` must be `PROJECT_SITE`
+  - `destinationLocation.projectId` must match PO's `projectId`
+  - `destinationLocation.companyId` must match PO's `companyId`
+- Supplier must not be soft-deleted
+- All materials in lines must not be soft-deleted
+- `qtyOrdered > 0`, `unitCost >= 0` for each line
+- `poNumber` must be unique (generated: `PO-YYYYMMDD-XXXX`)
+
+**Computation**:
+- Per line: `lineTotal = qtyOrdered × unitCost × (1 + gstRate/100)` ... actually GST is on top.
+  Let's be precise: `lineSubtotal = qtyOrdered × unitCost`; `lineGst = lineSubtotal × gstRate/100`;
+  `lineTotal = lineSubtotal + lineGst`
+- PO: `subtotal = Σ lineSubtotal`; `gstTotal = Σ lineGst`; `total = subtotal + gstTotal`
+
+**State**: PO created as `DRAFT`
+
+**Connections created**:
+- PurchaseOrder → Company, Supplier, (Project?), StockLocation
+- PurchaseOrderLine → PurchaseOrder, Material
+
+### 1.2 Approve / Order PO
+
+**State machine**: `DRAFT → APPROVED → ORDERED`
+- `DRAFT → APPROVED`: anyone with MANAGER+ role. No stock impact.
+- `APPROVED → ORDERED`: sets `orderDate`. No stock impact.
+- Can be cancelled from DRAFT or APPROVED: `→ CANCELLED`. No stock impact (nothing received yet).
+
+### 1.3 Receive Goods (Goods Receipt)
+
+**Input**: purchaseOrderId, locationId (must = PO.destinationLocationId), lines[{purchaseOrderLineId, qtyReceived, unitCost}]
+
+**Validations**:
+- PO must be `ORDERED` or `PARTIAL` (can't receive against DRAFT/APPROVED/CANCELLED/RECEIVED)
+- `locationId` must equal `PO.destinationLocationId` (goods go where the PO says)
+- For each line:
+  - `qtyReceived > 0`
+  - `cumulative qtyReceived (existing + new) ≤ qtyOrdered` (can't receive more than ordered)
+  - `unitCost` can differ from PO line's unitCost (actual invoice price may vary)
+  - Material must not be soft-deleted
+
+**Atomic transaction** (all or nothing):
+1. Create `GoodsReceipt` + `GoodsReceiptLine` records
+2. For each line: call `recordMovement(tx, { movementType: PURCHASE_RECEIPT, toLocationId, materialId, qty: qtyReceived, unitCost })`
+   - This appends a `StockMovement` AND updates `StockLocationItem` (qty + MAC)
+3. Update each `PurchaseOrderLine.qtyReceived += qtyReceived`
+4. Recompute PO status:
+   - If all lines fully received → `RECEIVED`
+   - If any line partially received → `PARTIAL`
+5. Update `Material.currentCost` = global average of all StockLocationItem MACs (optional, for catalog display)
+
+**Edge cases**:
+- Partial receipt: receive 50 of 100 bags. PO → `PARTIAL`. Can receive remaining 50 later.
+- Over-delivery: rejected. `cumulative qtyReceived ≤ qtyOrdered`.
+- Unit cost variance: receipt unitCost differs from PO line. MAC uses the actual receipt cost.
+- Receiving against a CANCELLED PO: rejected.
+
+### 1.4 PO Cancellation
+
+- From `DRAFT` or `APPROVED`: `→ CANCELLED`. No stock impact.
+- From `ORDERED` or `PARTIAL`: **CANNOT cancel** if any goods already received. The received goods are real stock. Must instead mark as CANCELLED with a note, but received stock stays.
+  - Actually: allow cancellation from ORDERED (nothing received yet). From PARTIAL: reject — goods already in stock.
+- From `RECEIVED`: cannot cancel (fully delivered).
+
+---
+
+## 2. TRANSFER FLOW (Company Warehouse → Project Site)
+
+### 2.1 Create Transfer
+
+**Input**: fromLocationId, toLocationId, lines[{materialId, qty}], notes
+
+**Validations**:
+- `fromLocationId ≠ toLocationId`
+- Both locations must not be soft-deleted, same company
+- For each line: material not soft-deleted, `qty > 0`
+- **Stock check**: for each material, `StockLocationItem.qty ≥ qty` at source
+  (re-checked at completion time — stock may change between DRAFT and COMPLETED)
+
+**State**: created as `DRAFT`. No stock impact yet.
+
+### 2.2 Dispatch Transfer
+
+**State machine**: `DRAFT → IN_TRANSIT`
+- Marks the transfer as dispatched. No stock movement yet (stock leaves on COMPLETED).
+- Actually — decision: **stock leaves source on IN_TRANSIT, arrives at destination on COMPLETED**.
+  This models real logistics: goods in a truck are neither at source nor destination.
+  - `DRAFT → IN_TRANSIT`: TRANSFER_OUT at source (stock leaves source, goes "into transit")
+  - `IN_TRANSIT → COMPLETED`: TRANSFER_IN at destination (stock arrives)
+  - `IN_TRANSIT → CANCELLED`: TRANSFER_IN back at source (goods returned to source)
+
+  **Simpler alternative** (chosen for v1): stock moves atomically on COMPLETED.
+  - `DRAFT → COMPLETED`: TRANSFER_OUT at source + TRANSFER_IN at destination in one transaction.
+  - `DRAFT → CANCELLED`: no stock impact.
+  - IN_TRANSIT is reserved for future (v2) when we want to track goods in transit separately.
+
+  **v1 decision**: DRAFT → COMPLETED (atomic) or DRAFT → CANCELLED. Skip IN_TRANSIT for now.
+
+### 2.3 Complete Transfer (atomic)
+
+**Transaction**:
+1. Re-validate stock availability at source (stock may have changed since DRAFT)
+2. For each line: `recordTransfer(tx, { materialId, fromLocationId, toLocationId, qty })`
+   - Creates TRANSFER_OUT (source qty decreases, MAC unchanged) + TRANSFER_IN (dest qty increases, dest MAC = source MAC)
+3. Set transfer `status = COMPLETED`
+
+**Edge cases**:
+- Insufficient stock at completion: reject entire transfer (atomic). User must adjust quantities.
+- Transfer to same location: rejected at creation.
+- Transfer between different companies: rejected (v1 is single-company; v2 multi-company transfers need inter-company pricing).
+
+---
+
+## 3. MATERIAL ISSUE FLOW (Stock Location → Project)
+
+### 3.1 Issue Materials to Project
+
+**Input**: projectId, fromLocationId, lines[{materialId, qty}], notes, issuedById
+
+**Validations**:
+- Project must not be soft-deleted, must be `ACTIVE` or `PLANNED` (can issue to planned projects for early procurement)
+- `fromLocation` must not be soft-deleted
+- For each line: material not soft-deleted, `qty > 0`
+- Stock check: `StockLocationItem.qty ≥ qty` at fromLocation (re-checked in transaction)
+
+**Atomic transaction**:
+1. Create `MaterialIssue` (header) + `MaterialIssueLine` records
+2. For each line:
+   a. `recordMovement(tx, { movementType: ISSUE_TO_PROJECT, fromLocationId, materialId, qty })`
+      - Stock decreases at source, unitCost = current MAC (captured in movement)
+   b. `MaterialIssueLine.unitCost = MAC` (the cost at time of issue)
+   c. Accumulate `MaterialIssue.totalCost += qty × MAC`
+3. **Trigger cost reallocation**: `reallocateProjectCosts(tx, projectId)`
+   - Recomputes `Project.totalProjectCost`, `costPerSqft`, and every `BuiltUnit.productionCost`
+
+**Connections**:
+- MaterialIssue → Project (cost accumulation)
+- MaterialIssue → StockLocation (source)
+- MaterialIssueLine → Material
+- StockMovement (ISSUE_TO_PROJECT) → Material, StockLocation
+
+**Edge cases**:
+- Issuing to a COMPLETED project: warn but allow (for corrections/late entries).
+- Issuing to an ON_HOLD project: reject (project is paused).
+- Insufficient stock: reject entire issue (atomic).
+- Issue from a PROJECT_SITE to a different project: allowed (project A's site has surplus, issue to project B). The fromLocation doesn't have to belong to the same project.
+
+---
+
+## 4. STOCK COUNT / ADJUSTMENT FLOW
+
+### 4.1 Create Stock Count
+
+**Input**: locationId, lines[{materialId, countedQty}]
+
+**Process**:
+1. Create `StockCount` (DRAFT) with lines. For each line, `systemQty = StockLocationItem.qty` (snapshot), `variance = countedQty - systemQty`.
+2. `DRAFT → COUNTED`: user confirms the count.
+3. `COUNTED → RECONCILED`: system applies adjustments.
+
+### 4.2 Reconcile Stock Count (atomic)
+
+For each line with `variance ≠ 0`:
+- If `variance > 0`: `recordMovement(tx, { movementType: ADJUSTMENT_IN, toLocationId, materialId, qty: variance, unitCost: currentMAC })`
+  - MAC stays the same (adjustment doesn't change cost, just quantity).
+- If `variance < 0`: `recordMovement(tx, { movementType: ADJUSTMENT_OUT, fromLocationId, materialId, qty: |variance| })`
+  - Draws at current MAC.
+
+**Edge cases**:
+- Negative adjustment larger than stock: reject (can't have negative stock). User must investigate.
+- Zero variance: skip (no movement needed).
+
+---
+
+## 5. LAND FLOW (Purchase → Parcel → Partition → Sale)
+
+### 5.1 Record Land Purchase
+
+**Input**: companyId, projectId?, sellerName, totalArea, areaUnit, totalCost, registryNo, location, documentUrl
+
+**Validations**:
+- `totalArea > 0`, `totalCost > 0`
+- Company not soft-deleted
+- If projectId set: project not soft-deleted, belongs to company
+
+**Transaction**:
+1. Create `LandPurchase`
+2. Create initial `LandParcel` (the whole plot):
+   - `number = "PLOT-1"` (or user-specified)
+   - `area = totalArea`, `areaUnit = same`
+   - `status = AVAILABLE`
+   - `acquisitionCost = totalCost` (entire cost on the single parcel)
+   - `currentValuation = totalCost` (initial valuation = acquisition cost)
+   - `parentParcelId = null` (this is a root parcel)
+   - `projectId = landPurchase.projectId`
+3. If linked to a project: trigger `reallocateProjectCosts(tx, projectId)` (land cost now flows into project cost)
+
+### 5.2 Partition a Land Parcel
+
+**Input**: parentParcelId, children[{number, area, askingPrice?}], notes
+
+**Validations**:
+- Parent parcel must be `AVAILABLE` (can't partition SOLD, HOLD, or already-PARTITIONED)
+- Parent not soft-deleted
+- **Area conservation**: `Σ children.area = parent.area` (exact match, no tolerance — land can't appear or disappear)
+  - Use Decimal comparison to 3 decimal places
+- Each child `area > 0`
+- At least 2 children (partitioning into 1 is a no-op)
+- Children numbers must be unique within the parent
+
+**Atomic transaction**:
+1. Lock parent parcel (SELECT FOR UPDATE via Prisma interactive transaction)
+2. Re-validate parent status = AVAILABLE (may have changed)
+3. Re-validate area conservation
+4. Allocate parent's `acquisitionCost` to children proportionally:
+   - `child.acquisitionCost = parent.acquisitionCost × (child.area / parent.area)`
+5. Set child `currentValuation = child.acquisitionCost` (initial)
+6. Set child `status = AVAILABLE`, `parentParcelId = parent.id`, `landPurchaseId = parent.landPurchaseId`, `projectId = parent.projectId`
+7. Set parent `status = PARTITIONED` (parent is now inactive — not sellable as a whole)
+8. Create `LandPartition` record (audit: parentParcelId, childCount, partitionDate, notes)
+9. Create all child `LandParcel` records
+
+**Edge cases**:
+- Partitioning a child (nested): allowed. A child parcel (AVAILABLE) can itself be partitioned. It becomes PARTITIONED, its children become the new sellable units. The lineage chain is preserved via `parentParcelId`.
+- Area mismatch due to rounding: reject. User must ensure areas sum exactly. (In practice, the UI should auto-calculate the last child's area as `parent.area - Σ(other children.area)` to avoid rounding errors.)
+- Partitioning a parcel linked to a project: children inherit the same `projectId`.
+- Re-partitioning a PARTITIONED parcel: rejected (already split).
+- Partitioning a SOLD parcel: rejected.
+
+### 5.3 Land Parcel Status Machine
+
+```
+AVAILABLE ──partition──> PARTITIONED (terminal, inactive)
+AVAILABLE ──hold──> HOLD
+AVAILABLE ──sell──> SOLD (terminal)
+HOLD ──release──> AVAILABLE
+HOLD ──sell──> SOLD (terminal)
+PARTITIONED → (no transitions, it's a historical record)
+SOLD → (no transitions, terminal)
+```
+
+- `PARTITIONED` and `SOLD` are terminal states.
+- `HOLD` is reversible → back to `AVAILABLE`.
+- Only `AVAILABLE` and `HOLD` parcels are sellable.
+
+### 5.4 Update Land Parcel Valuation
+
+**Input**: parcelId, currentValuation (new market valuation), askingPrice?
+
+**Validations**: parcel not soft-deleted, not SOLD, not PARTITIONED.
+**Action**: update `currentValuation` and/or `askingPrice`. No cost change (acquisitionCost is historical).
+
+---
+
+## 6. BUILT UNIT FLOW (Project → Units → Sale)
+
+### 6.1 Create Built Units
+
+**Input**: projectId, units[{unitType, unitNumber, floor, wing, area, areaUnit, askingPrice?}]
+
+**Validations**:
+- Project not soft-deleted
+- `area > 0` for each unit
+- `unitNumber` unique within project (enforced at app level or DB unique constraint)
+
+**Transaction**:
+1. Create `BuiltUnit` records with `status = PLANNED`, `productionCost = 0` (will be allocated)
+2. Trigger `reallocateProjectCosts(tx, projectId)` — new units change totalSellableArea, so costPerSqft changes for all units
+
+### 6.2 Built Unit Status Machine
+
+```
+PLANNED ──start construction──> UNDER_CONSTRUCTION
+UNDER_CONSTRUCTION ──complete──> AVAILABLE
+AVAILABLE ──hold──> HOLD
+AVAILABLE ──sell──> SOLD (terminal)
+HOLD ──release──> AVAILABLE
+HOLD ──sell──> SOLD (terminal)
+PLANNED ──cancel──> (soft delete, only if no costs allocated yet)
+```
+
+- `SOLD` is terminal.
+- Only `AVAILABLE` and `HOLD` units are sellable.
+- `PLANNED` and `UNDER_CONSTRUCTION` are not sellable (can't sell what's not built).
+
+### 6.3 Update Unit Valuation
+
+**Input**: unitId, currentValuation, askingPrice?
+**Validations**: unit not soft-deleted, not SOLD.
+**Action**: update fields. `productionCost` is system-calculated (don't allow manual override).
+
+---
+
+## 7. SALE FLOW (Asset → Customer → Payment → Profit)
+
+### 7.1 Sell an Asset (Land Parcel or Built Unit)
+
+**Input**: assetType (LAND | BUILT_UNIT), landParcelId? | builtUnitId?, customerId, salePrice, paymentMode?, notes?
+
+**Validations**:
+- Asset must be `AVAILABLE` or `HOLD` (sellable states)
+- Asset not soft-deleted
+- Customer not soft-deleted
+- `salePrice > 0`
+- For LAND: `landParcelId` set, `builtUnitId` null. For BUILT_UNIT: vice versa.
+- **Double-sell guard**: asset's `saleId` must be null (not already sold)
+- Determine `projectId`:
+  - LAND: from `LandParcel.projectId` or `LandPurchase.projectId`
+  - BUILT_UNIT: from `BuiltUnit.projectId`
+- Determine `companyId`: from the project
+
+**Atomic transaction**:
+1. Lock the asset (SELECT FOR UPDATE)
+2. Re-validate status is sellable and saleId is null
+3. Generate `saleNumber`: `SAL-YYYYMMDD-XXXX` (sequential per day)
+4. Create `AssetSale` (paymentStatus = PENDING, no payment yet)
+5. Set asset `status = SOLD`, `saleId = sale.id`
+   - LAND: update `LandParcel.status = SOLD, saleId`
+   - BUILT_UNIT: update `BuiltUnit.status = SOLD, saleId`
+6. Compute and store profit (on the sale record or derived):
+   - LAND: `profit = salePrice - parcel.acquisitionCost`
+   - BUILT_UNIT: `profit = salePrice - unit.productionCost`
+
+**Edge cases**:
+- Selling a PARTITIONED parcel: rejected (it's inactive, sell its children instead).
+- Selling a PLANNED/UNDER_CONSTRUCTION unit: rejected (not ready).
+- Sale price below cost: allowed (loss is real, system should warn but not block).
+- Selling a parcel with no projectId: `projectId` on the sale comes from the landPurchase's projectId. If that's also null, the sale's projectId is null — but AssetSale.projectId is required. **Fix needed**: make AssetSale.projectId nullable, OR require land to be linked to a project before selling. **Decision**: require a project link before selling (forces proper accounting). If land has no project, create a "LAND" type project for it.
+
+### 7.2 Record Payment (Installment)
+
+**Input**: assetSaleId, amount, mode, reference?
+
+**Validations**:
+- Sale exists, not soft-deleted
+- `amount > 0`
+- `Σ existing payments + new amount ≤ salePrice` (can't overpay)
+  - Actually: allow overpayment? No — reject. If there are extra charges, they should be separate line items (future).
+  - **Decision**: reject overpayment. `Σ payments ≤ salePrice`.
+
+**Transaction**:
+1. Create `AssetSalePayment`
+2. Recompute `paymentStatus`:
+   - `Σ payments = 0` → PENDING
+   - `0 < Σ payments < salePrice` → PARTIAL
+   - `Σ payments = salePrice` → PAID
+3. Update `AssetSale.paymentStatus`
+
+### 7.3 Cancel a Sale
+
+**Validations**: only if `paymentStatus = PENDING` (no money received yet). If payments exist, must refund first (out of scope for v1 — block cancellation).
+
+**Transaction**:
+1. Set `AssetSale` status to CANCELLED (need to add a `status` field or use soft delete)
+   - **Schema gap**: AssetSale has no `status` field. Add `status: SaleStatus { ACTIVE, CANCELLED }`.
+2. Revert asset: `status = AVAILABLE` (or HOLD if it was on hold), `saleId = null`
+
+**Decision**: Add `SaleStatus` enum to schema. `ACTIVE | CANCELLED`. Default ACTIVE.
+
+---
+
+## 8. PROJECT COST FLOW
+
+### 8.1 Add Project Cost (Labour/Overhead/Equipment/Contractor/Permit)
+
+**Input**: projectId, costType, amount, date, vendor?, notes?, receiptUrl?
+
+**Validations**: project not soft-deleted, `amount > 0`
+
+**Transaction**:
+1. Create `ProjectCost`
+2. Trigger `reallocateProjectCosts(tx, projectId)` — costs changed, so costPerSqft changes
+
+### 8.2 Cost Reallocation (the allocation routine)
+
+Already implemented in `valuation.ts`:
+1. `totalProjectCost = Σ material issues + Σ project costs + Σ linked land purchases`
+2. `totalSellableArea = Σ BuiltUnit.area (non-deleted)`
+3. `costPerSqft = totalProjectCost / totalSellableArea` (0 if no sellable area)
+4. For each unit: `productionCost = costPerSqft × unit.area`
+
+**When to trigger**:
+- After any MaterialIssue
+- After any ProjectCost create/update/delete
+- After any LandPurchase linked/unlinked to the project
+- After any BuiltUnit create/delete (area changes)
+
+---
+
+## 9. EXPENSE FLOW
+
+**Input**: companyId, projectId?, category, amount, date, notes?
+
+**Validations**: company not soft-deleted, `amount > 0`, if projectId set: project not soft-deleted + belongs to company.
+
+**Action**: create `Expense`. No stock or cost-allocation impact (expenses are company-level P&L, not project cost — though they can be project-tagged for reporting).
+
+**Distinction from ProjectCost**: ProjectCost is directly attributable to building (labour, contractor, equipment). Expense is operational (office rent, utilities, travel). Both can be project-tagged, but only ProjectCost feeds into `reallocateProjectCosts`.
+
+---
+
+## 10. SOFT DELETE FLOW
+
+### 10.1 Soft Delete a Master Entity
+
+**Entities with soft delete**: Company, Project, StockLocation, MaterialCategory, Material, Supplier, Customer, LandPurchase, LandParcel, BuiltUnit.
+
+**Guard rules** (reject soft delete if entity is in use):
+- **Material**: reject if any `StockLocationItem.qty > 0` for this material (can't delete stock you have)
+- **StockLocation**: reject if any `StockLocationItem.qty > 0` at this location (empty it first via transfers)
+- **Project**: reject if it has `status = ACTIVE` (must complete or put on hold first)
+- **Supplier**: reject if any open (non-CANCELLED, non-RECEIVED) PO exists
+- **Customer**: reject if any ACTIVE sale exists
+- **LandParcel**: reject if `status = AVAILABLE or HOLD` (must sell or explicitly remove first)
+- **BuiltUnit**: reject if `status ≠ PLANNED` (once construction starts, can't delete)
+- **LandPurchase**: reject if it has any non-sold parcels
+- **Company**: reject always (singleton, can't delete the company)
+- **MaterialCategory**: reject if it has non-deleted materials
+
+**Action**: set `deletedAt = now()`. All queries must filter `deletedAt: null`.
+
+### 10.2 Restore (un-delete)
+
+Set `deletedAt = null`. Allowed unless a uniqueness conflict arises (e.g., another material with the same code was created in the meantime).
+
+---
+
+## 11. SCHEMA GAPS IDENTIFIED
+
+1. **AssetSale needs a `status` field** — `SaleStatus { ACTIVE, CANCELLED }` — to support sale cancellation without losing the audit trail. Currently no way to cancel a sale.
+
+2. **AssetSale.projectId should be nullable** — land parcels may not be linked to a project. But we decided to require a project link before selling. So keep it required but enforce the validation: land must have a projectId (directly or via landPurchase) before it can be sold.
+
+3. **BuiltUnit.unitNumber uniqueness** — should be unique within a project. Add `@@unique([projectId, unitNumber])`.
+
+4. **LandParcel.number uniqueness** — should be unique within a landPurchase. Add `@@unique([landPurchaseId, number])`.
+
+5. **PurchaseOrder cannot be soft-deleted** — it's a transactional record. But it can be CANCELLED. That's sufficient.
+
+6. **StockTransfer needs a `companyId`** — for multi-company filtering in the future. Currently relies on locations. Add for query efficiency.
+
+7. **MaterialIssue needs a `companyId`** — same reasoning.
+
+---
+
+## 12. INVARIANTS (must always hold)
+
+1. **Stock non-negative**: `StockLocationItem.qty ≥ 0` always. Enforced by `recordMovement` (rejects OUT > available).
+2. **Area conservation**: `Σ child parcel area = parent parcel area` at every partition.
+3. **Land parcel terminal states**: PARTITIONED and SOLD parcels never change status.
+4. **Built unit terminal state**: SOLD units never change status.
+5. **No double-sell**: an asset's `saleId` is null until sold, then set once. Never sold twice.
+6. **Payment ≤ salePrice**: `Σ AssetSalePayment.amount ≤ AssetSale.salePrice`.
+7. **StockMovement immutability**: never update or delete a StockMovement. Corrections are new ADJUSTMENT movements.
+8. **MAC consistency**: `StockLocationItem.movingAvgCost` always equals the MAC computed from the movement history. `StockMovement.balanceValueAfter = qty × MAC` at the time of the movement.
+9. **Soft-delete query filter**: every read query on master entities filters `deletedAt: null` unless explicitly querying archived records.
+10. **PO receipt ≤ ordered**: `PurchaseOrderLine.qtyReceived ≤ qtyOrdered` always.
+11. **PO destination matches scope**: COMPANY scope → warehouse location; PROJECT scope → project site location.
+12. **Cost reallocation triggered**: after any cost-affecting operation (material issue, project cost, land purchase, unit create/delete), `reallocateProjectCosts` runs for the affected project.
+
+---
+
+## 13. SERVICE FUNCTION MAP
+
+```
+@nirman/services
+├── moving-average-cost.ts    [DONE] computeMovingAverageCost, stockValueAfterIssue, movementDirection
+├── stock-ledger.ts           [DONE] recordMovement, recordTransfer, withStockTransaction
+├── valuation.ts              [DONE] materialInventoryValue, unsoldAssetValue, projectPnl, reallocateProjectCosts
+├── procurement.ts            [TODO] createPurchaseOrder, approvePurchaseOrder, receiveGoods, cancelPurchaseOrder
+├── transfer.ts               [TODO] createTransfer, completeTransfer, cancelTransfer
+├── issue.ts                  [TODO] issueMaterialsToProject
+├── stock-count.ts            [TODO] createStockCount, reconcileStockCount
+├── partition.ts              [TODO] partitionLandParcel, updateParcelValuation
+├── built-unit.ts             [TODO] createBuiltUnits, updateUnitStatus, updateUnitValuation
+├── sale.ts                   [TODO] sellAsset, recordPayment, cancelSale
+├── project-cost.ts           [TODO] addProjectCost, updateProjectCost, deleteProjectCost
+├── land.ts                   [TODO] recordLandPurchase, updateLandPurchase
+├── soft-delete.ts            [TODO] softDelete (with guards), restoreEntity
+└── audit.ts                  [TODO] logAction (writes AuditLog)
+```
+
+Every service function either:
+- Runs inside `withStockTransaction` (if it touches stock), OR
+- Runs inside `prisma.$transaction` (if it touches multiple non-stock tables atomically), OR
+- Is a simple single-create (if it only creates one record + triggers reallocation).

@@ -1,0 +1,115 @@
+import { prisma, type BuiltUnitType, type BuiltUnitStatus, type AreaUnit } from "@nirman/db";
+import Decimal from "decimal.js";
+import { reallocateProjectCosts } from "./valuation";
+
+/**
+ * Built Unit Service — create and manage sellable units within a project.
+ */
+
+interface CreateBuiltUnitsInput {
+  projectId: string;
+  units: {
+    unitType: BuiltUnitType;
+    unitNumber: string;
+    floor?: number;
+    wing?: string;
+    area: Decimal | number | string;
+    areaUnit?: AreaUnit;
+    askingPrice?: Decimal | number | string;
+  }[];
+}
+
+export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
+  if (input.units.length === 0) throw new Error("Must create at least one unit");
+
+  // Validate units
+  for (const u of input.units) {
+    if (!new Decimal(u.area).gt(0)) throw new Error(`Unit ${u.unitNumber} area must be > 0`);
+  }
+  const numbers = input.units.map((u) => u.unitNumber);
+  if (new Set(numbers).size !== numbers.length) {
+    throw new Error("Unit numbers must be unique within the batch");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Validate project
+    const project = await tx.project.findFirst({
+      where: { id: input.projectId, deletedAt: null },
+    });
+    if (!project) throw new Error("Project not found or deleted");
+
+    // Check unit numbers don't conflict with existing
+    const existing = await tx.builtUnit.findMany({
+      where: { projectId: input.projectId, unitNumber: { in: numbers } },
+      select: { unitNumber: true },
+    });
+    if (existing.length > 0) {
+      throw new Error(`Unit numbers already exist: ${existing.map((e) => e.unitNumber).join(", ")}`);
+    }
+
+    // Create units
+    const created = [];
+    for (const u of input.units) {
+      const unit = await tx.builtUnit.create({
+        data: {
+          projectId: input.projectId,
+          unitType: u.unitType,
+          unitNumber: u.unitNumber,
+          floor: u.floor,
+          wing: u.wing,
+          area: new Decimal(u.area),
+          areaUnit: u.areaUnit ?? "SQFT",
+          status: "PLANNED",
+          productionCost: new Decimal(0), // will be allocated by reallocateProjectCosts
+          askingPrice: u.askingPrice ? new Decimal(u.askingPrice) : null,
+          currentValuation: new Decimal(0),
+        },
+      });
+      created.push(unit);
+    }
+
+    // Trigger reallocation — new units change totalSellableArea → costPerSqft changes for all
+    await reallocateProjectCosts(tx, input.projectId);
+
+    return created;
+  });
+}
+
+export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus) {
+  const unit = await prisma.builtUnit.findUnique({ where: { id: unitId } });
+  if (!unit) throw new Error("Unit not found");
+  if (unit.deletedAt) throw new Error("Unit is deleted");
+  if (unit.status === "SOLD") throw new Error("Cannot change status of a SOLD unit");
+
+  // Validate transitions
+  const validTransitions: Record<string, BuiltUnitStatus[]> = {
+    PLANNED: ["UNDER_CONSTRUCTION"],
+    UNDER_CONSTRUCTION: ["AVAILABLE", "PLANNED"],
+    AVAILABLE: ["HOLD", "UNDER_CONSTRUCTION"],
+    HOLD: ["AVAILABLE"],
+  };
+  const allowed = validTransitions[unit.status] ?? [];
+  if (!allowed.includes(status)) {
+    throw new Error(`Invalid status transition: ${unit.status} → ${status}. Allowed: ${allowed.join(", ")}`);
+  }
+
+  return prisma.builtUnit.update({ where: { id: unitId }, data: { status } });
+}
+
+export async function updateUnitValuation(
+  unitId: string,
+  data: { currentValuation?: Decimal | number | string; askingPrice?: Decimal | number | string },
+) {
+  const unit = await prisma.builtUnit.findUnique({ where: { id: unitId } });
+  if (!unit) throw new Error("Unit not found");
+  if (unit.deletedAt) throw new Error("Unit is deleted");
+  if (unit.status === "SOLD") throw new Error("Cannot update valuation of a SOLD unit");
+
+  return prisma.builtUnit.update({
+    where: { id: unitId },
+    data: {
+      ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
+      ...(data.askingPrice !== undefined ? { askingPrice: new Decimal(data.askingPrice) } : {}),
+    },
+  });
+}
