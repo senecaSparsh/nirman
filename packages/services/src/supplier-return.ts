@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -118,7 +118,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
       }
     }
 
-    // Record RETURN movements (stock leaves the location)
+    // Record RETURN movements (stock leaves the location back to supplier)
     for (const line of ret.lines) {
       await recordMovement(tx, {
         materialId: line.materialId,
@@ -130,6 +130,9 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         refId: ret.id,
       });
     }
+
+    // Refresh currentCost for affected materials
+    await refreshMaterialCurrentCost(tx, ret.lines.map((l) => l.materialId));
 
     return tx.supplierReturn.update({
       where: { id: input.returnId },

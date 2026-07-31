@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordTransfer, withStockTransaction } from "./stock-ledger";
+import { recordTransfer, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { logAction } from "./audit";
 
 /**
  * Transfer Service — move materials between stock locations.
@@ -13,6 +14,7 @@ interface CreateTransferInput {
   fromLocationId: string;
   toLocationId: string;
   notes?: string;
+  userId?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -48,24 +50,38 @@ export async function createTransfer(input: CreateTransferInput) {
     if (!new Decimal(line.qty).gt(0)) throw new Error("Transfer qty must be > 0");
   }
 
-  return prisma.stockTransfer.create({
-    data: {
-      fromLocationId: input.fromLocationId,
-      toLocationId: input.toLocationId,
-      notes: input.notes,
-      status: "DRAFT",
-      lines: {
-        create: input.lines.map((l) => ({
-          materialId: l.materialId,
-          qty: new Decimal(l.qty),
-        })),
+  return prisma.$transaction(async (tx) => {
+    const transfer = await tx.stockTransfer.create({
+      data: {
+        fromLocationId: input.fromLocationId,
+        toLocationId: input.toLocationId,
+        notes: input.notes,
+        status: "DRAFT",
+        lines: {
+          create: input.lines.map((l) => ({
+            materialId: l.materialId,
+            qty: new Decimal(l.qty),
+          })),
+        },
       },
-    },
-    include: { lines: true },
+      include: { lines: true },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "STOCK_TRANSFER_CREATE",
+        entityType: "StockTransfer",
+        entityId: transfer.id,
+        after: { status: transfer.status, fromLocationId: transfer.fromLocationId, toLocationId: transfer.toLocationId },
+      });
+    }
+
+    return transfer;
   });
 }
 
-export async function completeTransfer(transferId: string) {
+export async function completeTransfer(transferId: string, userId?: string) {
   return withStockTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({
       where: { id: transferId },
@@ -106,23 +122,52 @@ export async function completeTransfer(transferId: string) {
       });
     }
 
-    return tx.stockTransfer.update({
+    // Refresh currentCost for all affected materials
+    await refreshMaterialCurrentCost(tx, transfer.lines.map((l) => l.materialId));
+
+    const updated = await tx.stockTransfer.update({
       where: { id: transferId },
       data: { status: "COMPLETED" },
     });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "STOCK_TRANSFER_COMPLETE",
+        entityType: "StockTransfer",
+        entityId: transferId,
+        before: { status: transfer.status },
+        after: { status: "COMPLETED" },
+      });
+    }
+
+    return updated;
   });
 }
 
-export async function cancelTransfer(transferId: string) {
+export async function cancelTransfer(transferId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({ where: { id: transferId } });
     if (!transfer) throw new Error("Transfer not found");
     if (transfer.status !== "DRAFT") {
       throw new Error(`Cannot cancel transfer in status ${transfer.status}`);
     }
-    return tx.stockTransfer.update({
+    const updated = await tx.stockTransfer.update({
       where: { id: transferId },
       data: { status: "CANCELLED" },
     });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "STOCK_TRANSFER_CANCEL",
+        entityType: "StockTransfer",
+        entityId: transferId,
+        before: { status: transfer.status },
+        after: { status: "CANCELLED" },
+      });
+    }
+
+    return updated;
   });
 }

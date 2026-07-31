@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, stockLocationSchema, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
+  await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const locations = await prisma.stockLocation.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -32,6 +35,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = stockLocationSchema.safeParse(body);

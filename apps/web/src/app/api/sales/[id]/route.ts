@@ -1,0 +1,114 @@
+import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
+import { cancelSale, recordPayment } from "@nirman/services";
+import { apiHandler, json, toNum, paymentSchema, requirePermission } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+
+/**
+ * GET /api/sales/[id] — sale detail with payments, land parcel, built unit.
+ */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.SALES_VIEW);
+  const { id } = await params;
+  const s = await prisma.assetSale.findUnique({
+    where: { id },
+    include: {
+      customer: { select: { id: true, name: true, phone: true } },
+      project: { select: { id: true, name: true } },
+      payments: { orderBy: { paymentDate: "asc" } },
+    },
+  });
+  if (!s) return json({ error: "Sale not found" }, { status: 404 });
+
+  const [parcel, unit] = await Promise.all([
+    s.landParcelId
+      ? prisma.landParcel.findFirst({ where: { id: s.landParcelId, deletedAt: null }, select: { id: true, number: true, area: true, areaUnit: true } })
+      : null,
+    s.builtUnitId
+      ? prisma.builtUnit.findFirst({ where: { id: s.builtUnitId, deletedAt: null }, select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true } })
+      : null,
+  ]);
+
+  const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+  return json({
+    id: s.id,
+    saleNumber: s.saleNumber,
+    assetType: s.assetType,
+    landParcelId: s.landParcelId,
+    landParcelNumber: parcel?.number ?? null,
+    builtUnitId: s.builtUnitId,
+    builtUnitNumber: unit?.unitNumber ?? null,
+    builtUnitType: unit?.unitType ?? null,
+    assetArea: parcel ? toNum(parcel.area) : unit ? toNum(unit.area) : null,
+    assetAreaUnit: parcel?.areaUnit ?? unit?.areaUnit ?? null,
+    customerId: s.customerId,
+    customerName: s.customer.name,
+    customerPhone: s.customer.phone,
+    projectId: s.projectId,
+    projectName: s.project.name,
+    salePrice: toNum(s.salePrice),
+    costBasis: toNum(s.costBasis),
+    profit: toNum(s.profit),
+    saleDate: s.saleDate.toISOString(),
+    status: s.status,
+    paymentStatus: s.paymentStatus,
+    paymentMode: s.paymentMode,
+    notes: s.notes,
+    totalPaid,
+    balanceDue: toNum(s.salePrice) - totalPaid,
+    paymentCount: s.payments.length,
+    payments: s.payments.map((p) => ({
+      id: p.id,
+      amount: toNum(p.amount),
+      paymentDate: p.paymentDate.toISOString(),
+      mode: p.mode,
+      reference: p.reference,
+      status: p.status,
+    })),
+  });
+});
+
+/**
+ * PATCH /api/sales/[id] — cancel a sale (only if no payments).
+ */
+export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.SALES_MANAGE);
+  const { id } = await params;
+  const body = await req.json();
+  const action = body?.action as string;
+
+  if (action === "cancel") {
+    try {
+      await cancelSale(id);
+      return json({ ok: true });
+    } catch (err: any) {
+      return json({ error: err?.message ?? "Cancel failed" }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Invalid action. Use cancel." }, { status: 400 });
+});
+
+/**
+ * POST /api/sales/[id]/payments — record a payment against a sale.
+ */
+export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.SALES_MANAGE);
+  const { id } = await params;
+  const body = await req.json();
+  const parsed = paymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    const result = await recordPayment({
+      assetSaleId: id,
+      amount: parsed.data.amount,
+      mode: parsed.data.mode,
+      reference: parsed.data.reference ?? undefined,
+    });
+    return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
+  } catch (err: any) {
+    return json({ error: err?.message ?? "Payment failed" }, { status: 400 });
+  }
+});

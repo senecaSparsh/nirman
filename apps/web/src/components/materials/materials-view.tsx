@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { MaterialFormDialog } from "./material-form-dialog";
@@ -23,6 +24,7 @@ export function MaterialsView({
   stock,
   lowStock,
   projects,
+  permissions,
 }: {
   materials: MaterialRow[];
   categories: MaterialCategory[];
@@ -30,17 +32,19 @@ export function MaterialsView({
   stock: StockRow[];
   lowStock: LowStockRow[];
   projects: ProjectOption[];
+  permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean };
 }) {
   const [tab, setTab] = useState("catalog");
+  const canCreate = permissions?.canCreate ?? true;
+  const canEdit = permissions?.canEdit ?? true;
+  const canDelete = permissions?.canDelete ?? true;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Material Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Material catalog, stock by location, low-stock alerts, categories and stock locations.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Material Inventory"
+        description="Material catalog, stock by location, low-stock alerts, categories and stock locations."
+      />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -58,7 +62,7 @@ export function MaterialsView({
             <span className="flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" /> Low Stock
               {lowStock.length > 0 && (
-                <Badge variant="danger" className="ml-1 px-1.5 py-0">
+                <Badge variant="danger" className="ml-1 px-1.5 py-0 text-micro">
                   {lowStock.length}
                 </Badge>
               )}
@@ -77,7 +81,7 @@ export function MaterialsView({
         </TabsList>
 
         <TabsContent value="catalog">
-          <CatalogTab materials={materials} categories={categories} />
+          <CatalogTab materials={materials} categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
         </TabsContent>
         <TabsContent value="stock">
           <StockTab stock={stock} locations={locations} />
@@ -86,10 +90,10 @@ export function MaterialsView({
           <LowStockTab lowStock={lowStock} />
         </TabsContent>
         <TabsContent value="categories">
-          <CategoriesTab categories={categories} />
+          <CategoriesTab categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
         </TabsContent>
         <TabsContent value="locations">
-          <LocationsTab locations={locations} projects={projects} />
+          <LocationsTab locations={locations} projects={projects} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
         </TabsContent>
       </Tabs>
     </div>
@@ -103,9 +107,15 @@ export function MaterialsView({
 function CatalogTab({
   materials,
   categories,
+  canCreate,
+  canEdit,
+  canDelete,
 }: {
   materials: MaterialRow[];
   categories: MaterialCategory[];
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -159,12 +169,14 @@ function CatalogTab({
             ))}
           </Select>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="h-4 w-4" /> New Material
-        </Button>
+        {canCreate && (
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4" /> New Material
+          </Button>
+        )}
       </div>
 
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+      <div className="flex items-center gap-3 text-body text-muted-foreground">
         <span>
           {filtered.length} material{filtered.length !== 1 ? "s" : ""}
         </span>
@@ -176,11 +188,11 @@ function CatalogTab({
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Package className="h-8 w-8" />}
+              icon={<Package className="h-5 w-5" />}
               title="No materials found"
               description={materials.length === 0 ? "Create your first material to get started." : "Try a different search or filter."}
               action={
-                materials.length === 0 ? (
+                materials.length === 0 && canCreate ? (
                   <Button onClick={openNew} size="sm">
                     <Plus className="h-4 w-4" /> New Material
                   </Button>
@@ -205,13 +217,13 @@ function CatalogTab({
               <TBody>
                 {filtered.map((m) => (
                   <TR key={m.id}>
-                    <TD className="font-mono text-xs">{m.code}</TD>
+                    <TD className="font-mono text-caption">{m.code}</TD>
                     <TD className="font-medium">{m.name}</TD>
                     <TD className="text-muted-foreground">{m.categoryName}</TD>
                     <TD className="text-muted-foreground">{m.unit}</TD>
-                    <TD className="text-right">{formatCurrency(m.standardCost)}</TD>
-                    <TD className="text-right">{formatNumber(m.totalQty, 3)}</TD>
-                    <TD className="text-right">{formatCurrency(m.totalValue)}</TD>
+                    <TD className="tnum text-right">{formatCurrency(m.standardCost)}</TD>
+                    <TD className="tnum text-right">{formatNumber(m.totalQty, 3)}</TD>
+                    <TD className="tnum text-right">{formatCurrency(m.totalValue)}</TD>
                     <TD>
                       {m.lowStock ? (
                         <Badge variant="danger">Low</Badge>
@@ -223,18 +235,22 @@ function CatalogTab({
                     </TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(m)} title="Edit">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleting(m)}
-                          title="Delete"
-                          className="text-muted-foreground hover:text-danger"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(m)} title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleting(m)}
+                            title="Delete"
+                            className="text-muted-foreground hover:text-danger"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TD>
                   </TR>
@@ -294,7 +310,7 @@ function StockTab({ stock, locations }: { stock: StockRow[]; locations: StockLoc
             </option>
           ))}
         </Select>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-body text-muted-foreground">
           {filtered.length} line item{filtered.length !== 1 ? "s" : ""} · {formatCurrency(totalValue)}
         </span>
       </div>
@@ -303,7 +319,7 @@ function StockTab({ stock, locations }: { stock: StockRow[]; locations: StockLoc
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Boxes className="h-8 w-8" />}
+              icon={<Boxes className="h-5 w-5" />}
               title="No stock recorded"
               description="Stock appears here once goods are received against purchase orders."
             />
@@ -324,21 +340,21 @@ function StockTab({ stock, locations }: { stock: StockRow[]; locations: StockLoc
                 {filtered.map((r) => (
                   <TR key={r.id}>
                     <TD className="font-medium">{r.materialName}</TD>
-                    <TD className="font-mono text-xs text-muted-foreground">{r.materialCode}</TD>
+                    <TD className="font-mono text-caption text-muted-foreground">{r.materialCode}</TD>
                     <TD className="text-muted-foreground">{r.categoryName}</TD>
                     <TD>
                       <span className="flex items-center gap-1.5">
                         {r.locationName}
-                        <Badge variant={r.locationType === "COMPANY_WAREHOUSE" ? "default" : "muted"} className="px-1.5 py-0">
+                        <Badge variant={r.locationType === "COMPANY_WAREHOUSE" ? "default" : "muted"} className="px-1.5 py-0 text-micro">
                           {r.locationType === "COMPANY_WAREHOUSE" ? "WH" : "Site"}
                         </Badge>
                       </span>
                     </TD>
-                    <TD className="text-right">
+                    <TD className="tnum text-right">
                       {formatNumber(r.qty, 3)} {r.unit}
                     </TD>
-                    <TD className="text-right">{formatCurrency(r.mac)}</TD>
-                    <TD className="text-right font-medium">{formatCurrency(r.value)}</TD>
+                    <TD className="tnum text-right">{formatCurrency(r.mac)}</TD>
+                    <TD className="tnum text-right font-medium">{formatCurrency(r.value)}</TD>
                   </TR>
                 ))}
               </TBody>
@@ -361,7 +377,7 @@ function LowStockTab({ lowStock }: { lowStock: LowStockRow[] }) {
         <CardContent className="p-0">
           {lowStock.length === 0 ? (
             <EmptyState
-              icon={<AlertTriangle className="h-8 w-8" />}
+              icon={<AlertTriangle className="h-5 w-5" />}
               title="No low-stock alerts"
               description="Materials dropping below their minimum stock threshold will appear here."
             />
@@ -381,19 +397,19 @@ function LowStockTab({ lowStock }: { lowStock: LowStockRow[] }) {
               <TBody>
                 {lowStock.map((r) => (
                   <TR key={r.id}>
-                    <TD className="font-mono text-xs">{r.code}</TD>
+                    <TD className="font-mono text-caption">{r.code}</TD>
                     <TD className="font-medium">{r.name}</TD>
                     <TD className="text-muted-foreground">{r.categoryName}</TD>
-                    <TD className="text-right">
+                    <TD className="tnum text-right">
                       {formatNumber(r.totalQty, 3)} {r.unit}
                     </TD>
-                    <TD className="text-right">
+                    <TD className="tnum text-right">
                       {formatNumber(r.minStock, 3)} {r.unit}
                     </TD>
                     <TD className="text-right">
                       <Badge variant="danger">{formatNumber(r.shortfall, 3)} {r.unit}</Badge>
                     </TD>
-                    <TD className="text-right text-muted-foreground">
+                    <TD className="tnum text-right text-muted-foreground">
                       {formatCurrency(r.shortfall * r.standardCost)}
                     </TD>
                   </TR>
@@ -411,7 +427,7 @@ function LowStockTab({ lowStock }: { lowStock: LowStockRow[] }) {
 //  Categories tab
 // ───────────────────────────────────────────────────────────
 
-function CategoriesTab({ categories }: { categories: MaterialCategory[] }) {
+function CategoriesTab({ categories, canCreate, canEdit, canDelete }: { categories: MaterialCategory[]; canCreate: boolean; canEdit: boolean; canDelete: boolean }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialCategory | null>(null);
   const [deleting, setDeleting] = useState<MaterialCategory | null>(null);
@@ -419,24 +435,26 @@ function CategoriesTab({ categories }: { categories: MaterialCategory[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {categories.length} categor{categories.length !== 1 ? "ies" : "y"}
         </p>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> New Category
-        </Button>
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> New Category
+          </Button>
+        )}
       </div>
 
       <Card>
         <CardContent className="p-0">
           {categories.length === 0 ? (
             <EmptyState
-              icon={<Tags className="h-8 w-8" />}
+              icon={<Tags className="h-5 w-5" />}
               title="No categories yet"
               description="Create categories to group your materials."
             />
@@ -455,29 +473,33 @@ function CategoriesTab({ categories }: { categories: MaterialCategory[] }) {
                   <TR key={c.id}>
                     <TD className="font-medium">{c.name}</TD>
                     <TD className="text-muted-foreground">{c.unit}</TD>
-                    <TD className="text-right">{c._count?.materials ?? 0}</TD>
+                    <TD className="tnum text-right">{c._count?.materials ?? 0}</TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditing(c);
-                            setFormOpen(true);
-                          }}
-                          title="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleting(c)}
-                          title="Delete"
-                          className="text-muted-foreground hover:text-danger"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditing(c);
+                              setFormOpen(true);
+                            }}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleting(c)}
+                            title="Delete"
+                            className="text-muted-foreground hover:text-danger"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TD>
                   </TR>
@@ -512,9 +534,15 @@ function CategoriesTab({ categories }: { categories: MaterialCategory[] }) {
 function LocationsTab({
   locations,
   projects,
+  canCreate,
+  canEdit,
+  canDelete,
 }: {
   locations: StockLocationRow[];
   projects: ProjectOption[];
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StockLocationRow | null>(null);
@@ -523,24 +551,26 @@ function LocationsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {locations.length} location{locations.length !== 1 ? "s" : ""}
         </p>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> New Location
-        </Button>
+        {canCreate && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> New Location
+          </Button>
+        )}
       </div>
 
       <Card>
         <CardContent className="p-0">
           {locations.length === 0 ? (
             <EmptyState
-              icon={<MapPin className="h-8 w-8" />}
+              icon={<MapPin className="h-5 w-5" />}
               title="No stock locations yet"
               description="Add a company warehouse or a project site to start receiving stock."
             />
@@ -568,30 +598,34 @@ function LocationsTab({
                     </TD>
                     <TD className="text-muted-foreground">{l.projectName ?? "—"}</TD>
                     <TD className="max-w-[240px] truncate text-muted-foreground">{l.address ?? "—"}</TD>
-                    <TD className="text-right">{l.itemCount}</TD>
-                    <TD className="text-right font-medium">{formatCurrency(l.stockValue)}</TD>
+                    <TD className="tnum text-right">{l.itemCount}</TD>
+                    <TD className="tnum text-right font-medium">{formatCurrency(l.stockValue)}</TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditing(l);
-                            setFormOpen(true);
-                          }}
-                          title="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleting(l)}
-                          title="Delete"
-                          className="text-muted-foreground hover:text-danger"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditing(l);
+                              setFormOpen(true);
+                            }}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleting(l)}
+                            title="Delete"
+                            className="text-muted-foreground hover:text-danger"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TD>
                   </TR>

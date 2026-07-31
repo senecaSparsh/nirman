@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { softDelete } from "@nirman/services";
-import { apiHandler, json, projectSchema, toNum } from "@/lib/server";
+import { apiHandler, json, projectSchema, requirePermission, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROJECTS_VIEW);
   const { id } = await ctx.params;
   const project = await prisma.project.findFirst({
     where: { id, deletedAt: null },
@@ -31,6 +33,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROJECTS_MANAGE);
   const { id } = await ctx.params;
   const body = await req.json();
   const parsed = projectSchema.safeParse(body);

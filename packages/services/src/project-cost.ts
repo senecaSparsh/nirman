@@ -13,6 +13,7 @@ interface AddProjectCostInput {
   amount: Decimal | number | string;
   date?: Date;
   vendor?: string;
+  subcontractorId?: string;
   notes?: string;
   receiptUrl?: string;
 }
@@ -34,6 +35,7 @@ export async function addProjectCost(input: AddProjectCostInput) {
         amount,
         date: input.date ?? new Date(),
         vendor: input.vendor,
+        subcontractorId: input.subcontractorId,
         notes: input.notes,
         receiptUrl: input.receiptUrl,
       },

@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 
 /**
  * Stock Count Service — physical inventory reconciliation.
@@ -113,6 +113,14 @@ export async function reconcileStockCount(countId: string) {
           refId: countId,
         });
       }
+    }
+
+    // Refresh currentCost for all adjusted materials
+    const adjustedMaterials = count.lines
+      .filter((l) => !new Decimal(l.variance).isZero())
+      .map((l) => l.materialId);
+    if (adjustedMaterials.length > 0) {
+      await refreshMaterialCurrentCost(tx, adjustedMaterials);
     }
 
     return tx.stockCount.update({ where: { id: countId }, data: { status: "RECONCILED" } });

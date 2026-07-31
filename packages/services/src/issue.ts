@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
 
 /**
  * Issue Service — issue materials from a stock location to a project.
@@ -99,6 +100,16 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
 
     // Trigger cost reallocation (materials consumed → project cost changes → costPerSqft changes)
     await reallocateProjectCosts(tx, input.projectId);
+
+    if (input.issuedById) {
+      await logAction(tx, {
+        userId: input.issuedById,
+        action: "MATERIAL_ISSUE_CREATE",
+        entityType: "MaterialIssue",
+        entityId: materialIssue.id,
+        after: { projectId: input.projectId, totalCost },
+      });
+    }
 
     return { materialIssue, totalCost };
   });

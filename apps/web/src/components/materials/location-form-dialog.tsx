@@ -86,7 +86,7 @@ export function LocationFormDialog({
       description="Company warehouses hold central stock; project sites hold on-site stock."
       className="max-w-xl"
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>
             Type <span className="text-danger">*</span>

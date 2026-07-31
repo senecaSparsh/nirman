@@ -96,6 +96,7 @@ export async function returnEquipment(assignmentId: string) {
   return prisma.$transaction(async (tx) => {
     const assignment = await tx.equipmentAssignment.findUnique({
       where: { id: assignmentId },
+      include: { equipment: true },
     });
     if (!assignment) throw new Error("Assignment not found");
     if (assignment.status !== "ACTIVE") {
@@ -107,9 +108,16 @@ export async function returnEquipment(assignmentId: string) {
       data: { status: "RETURNED", returnedAt: new Date() },
     });
 
+    // Check if there's an open maintenance record — if so, equipment goes
+    // back to IN_MAINTENANCE instead of AVAILABLE.
+    const openMaintenance = await tx.equipmentMaintenance.findFirst({
+      where: { equipmentId: assignment.equipmentId, endDate: null },
+    });
+    const newStatus: EquipmentStatus = openMaintenance ? "IN_MAINTENANCE" : "AVAILABLE";
+
     await tx.equipment.update({
       where: { id: assignment.equipmentId },
-      data: { status: "AVAILABLE" },
+      data: { status: newStatus },
     });
 
     return { returned: true };

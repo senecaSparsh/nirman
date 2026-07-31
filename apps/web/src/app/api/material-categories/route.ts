@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, materialCategorySchema } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
+  await requirePermission(PERM.INVENTORY_VIEW);
   const categories = await prisma.materialCategory.findMany({
     where: { deletedAt: null },
     orderBy: { name: "asc" },
@@ -12,6 +15,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.INVENTORY_MANAGE);
   const body = await req.json();
   const parsed = materialCategorySchema.safeParse(body);
   if (!parsed.success) {

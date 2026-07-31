@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, projectPhaseSchema } from "@/lib/server";
+import { apiHandler, json, projectPhaseSchema, requirePermission } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(
   async (req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
+    await requirePermission(PERM.PROJECTS_MANAGE);
     const { phaseId } = await ctx.params;
     const body = await req.json();
     const parsed = projectPhaseSchema.safeParse(body);
@@ -28,6 +30,7 @@ export const PATCH = apiHandler(
 
 export const DELETE = apiHandler(
   async (_req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
+    await requirePermission(PERM.PROJECTS_MANAGE);
     const { phaseId } = await ctx.params;
     const phase = await prisma.projectPhase.findUnique({
       where: { id: phaseId },

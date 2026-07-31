@@ -39,21 +39,21 @@ export function Dialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 sm:p-6">
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-foreground/40 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
       <div
         className={cn(
-          "relative z-10 my-8 w-full max-w-lg rounded-xl border bg-card p-6 shadow-lg",
+          "relative z-10 my-6 w-full max-w-lg rounded-xl border bg-card p-5 shadow-xl sm:p-6",
           className,
         )}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-            {description && <p className="text-sm text-muted-foreground">{description}</p>}
+            <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+            {description && <p className="text-meta text-muted-foreground">{description}</p>}
           </div>
           <button
             className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

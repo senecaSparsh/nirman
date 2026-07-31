@@ -189,3 +189,26 @@ export async function withStockTransaction<T>(
     isolationLevel: "Serializable",
   });
 }
+
+/**
+ * Refresh Material.currentCost to the weighted average of all non-deleted
+ * location MACs for the given materials. Call after any stock movement that
+ * changes a location's MAC (receipt, transfer, return, adjustment).
+ */
+export async function refreshMaterialCurrentCost(
+  tx: Prisma.TransactionClient,
+  materialIds: string[],
+): Promise<void> {
+  for (const materialId of materialIds) {
+    const avg = await tx.stockLocationItem.aggregate({
+      where: { materialId, location: { deletedAt: null } },
+      _avg: { movingAvgCost: true },
+    });
+    if (avg._avg.movingAvgCost != null) {
+      await tx.material.update({
+        where: { id: materialId },
+        data: { currentCost: avg._avg.movingAvgCost },
+      });
+    }
+  }
+}

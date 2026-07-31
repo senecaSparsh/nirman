@@ -41,7 +41,30 @@
 - **UI**: shadcn-style primitives in `apps/web/src/components/ui/`. Use `cn()` from `@/lib/utils`.
   Tailwind v4 with theme tokens in `globals.css` (`@theme`). Sidebar nav config in `src/lib/nav.ts`.
 - **API**: Route Handlers under `apps/web/src/app/api/`. Auth via Better-Auth
-  (`src/lib/auth.ts`, handler at `api/auth/[...all]`).
+  (`src/lib/auth.ts`, handler at `api/auth/[...all]`). Every route handler MUST
+  call `requirePermission(PERM.X)` or `requireUser()` at the top of its body —
+  `apiHandler` only checks authentication, not authorization. Permission keys
+  are in `@/lib/roles` (`PERM.*`). `requirePermission` returns a typed
+  `CurrentUser` ({ id, role, companyId, ... }) and throws `ForbiddenError` (→403).
+- **RBAC**: 6 roles (OWNER, ADMIN, MANAGER, SUPERVISOR, SALES, ACCOUNTANT) with
+  a View+Manage permission matrix in `@/lib/roles.ts`. ~25 permissions covering
+  all modules + approval actions (`po.approve`, `requisition.approve`,
+  `stock.transfer`, `stock.issue`, `sale.create`, `expense.create`,
+  `asset.sell`, `land.partition`). OWNER/ADMIN = "*" (all permissions).
+  Fine-grained overrides via `RolePermission` table (additive to the matrix).
+  Multi-company via `UserCompany` join (role per membership). Server Components
+  gate UI by calling `getUserRole()` + `hasPermission()` and passing a
+  `permissions` prop to client views. Client components can use the
+  `usePermissions()` hook from `@/lib/permissions`. Nav items are role-gated
+  via the `roles` array in `src/lib/nav.ts`.
+- **Approvals**: POs go DRAFT→APPROVED (requires `po.approve`), requisitions go
+  SUBMITTED→APPROVED (requires `requisition.approve`). The `/approvals` page
+  shows the queue for approvers. Approval columns: `approvedById`/`approvedAt`
+  on PurchaseOrder and MaterialRequisition.
+- **Audit logging**: `logAction()` from `@nirman/services` writes immutable
+  `AuditLog` entries. Wired into PO create/approve/order/cancel, requisition
+  create/submit/approve/reject. `apiHandler` supports an optional `audit` opt
+  for automatic mutation logging.
 - **Formatting helpers**: `formatCurrency`, `formatNumber`, `formatDate` in `@/lib/utils`.
 
 ## Package layout
@@ -59,6 +82,24 @@
 - pnpm 11 reads build allow-list from `pnpm-workspace.yaml` (`onlyBuiltDependencies`), NOT from
   the `pnpm` field in package.json.
 - Next.js 16: Partial Prerendering is enabled via `cacheComponents: true` in `next.config.ts`
-  (not `experimental.ppr`).
+  (not `experimental.ppr`). Because PPR is on, `export const dynamic = "force-dynamic"` is
+  **not allowed** on route segments — it throws at build/runtime. To opt a Server Component
+  page into dynamic rendering (e.g. pages that read from the DB), import `connection` from
+  `next/server` and call `await connection()` inside the component.
+- **PPR + Suspense pattern**: `connection()` and Prisma calls must NOT be at the top level of
+  the default export — that blocks the whole route from prerendering and triggers the
+  "Uncached data or `connection()` was accessed outside of `<Suspense>`" warning. Instead,
+  make the default export a **sync** function that returns a static shell (PageHeader, etc.)
+  wrapping an async child component in `<Suspense fallback={<PageLoading />}>`. The async child
+  does `await connection()` + the DB fetches. Use `<PageLoading label="…" />` from
+  `@/components/page-loading` for the fallback. See `app/page.tsx` or `app/projects/page.tsx`
+  for the canonical pattern.
+- **Data flow pattern**: Server Components fetch via `prisma` directly (use `getCompany()` from
+  `@/lib/server` for the single-company scope, and `toNum()` to serialize Prisma `Decimal` →
+  number before passing to client components). Mutations go through Route Handlers under
+  `api/` (Zod-validated via schemas in `@/lib/server`); client forms `fetch()` them then call
+  `router.refresh()` to re-render the server component. Soft deletes use `softDelete()` from
+  `@nirman/services` (guards block deleting entities with stock/open orders). Toasts via `sonner`
+  (`<Toaster>` mounted in root layout).
 - The generated Prisma client is at `packages/db/src/generated/prisma` (gitignored). Always
   `pnpm db:generate` after checkout.

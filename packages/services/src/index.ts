@@ -11,6 +11,7 @@ export {
   recordMovement,
   recordTransfer,
   withStockTransaction,
+  refreshMaterialCurrentCost,
 } from "./stock-ledger";
 
 // Valuation — derived financial reporting
@@ -27,6 +28,7 @@ export {
 // Procurement — Purchase Order lifecycle
 export {
   createPurchaseOrder,
+  createPurchaseOrderTx,
   approvePurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,

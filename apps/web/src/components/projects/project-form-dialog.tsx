@@ -99,7 +99,7 @@ export function ProjectFormDialog({
       description={isEdit ? "Update project details." : "Create a new construction or development project."}
       className="max-w-xl"
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="p-name">Project Name *</Label>
           <Input
@@ -111,7 +111,7 @@ export function ProjectFormDialog({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="p-type">Type</Label>
             <Select id="p-type" value={form.type} onChange={(e) => set("type", e.target.value as ProjectFormValues["type"])}>
@@ -139,7 +139,7 @@ export function ProjectFormDialog({
           <Input id="p-address" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Site address" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="p-start">Start Date</Label>
             <Input id="p-start" type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />

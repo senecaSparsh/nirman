@@ -2,8 +2,11 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { softDelete } from "@nirman/services";
 import { apiHandler, json, stockLocationSchema } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { requirePermission } from "@/lib/server";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const parsed = stockLocationSchema.partial().safeParse(body);
@@ -14,6 +17,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (parsed.data.type === "PROJECT_SITE" && !parsed.data.projectId) {
     return json({ error: "A project site must be linked to a project" }, { status: 400 });
   }
+  // Validate project exists and isn't deleted
+  if (parsed.data.projectId) {
+    const project = await prisma.project.findFirst({
+      where: { id: parsed.data.projectId, deletedAt: null },
+    });
+    if (!project) {
+      return json({ error: "Project not found or deleted" }, { status: 400 });
+    }
+  }
   const updated = await prisma.stockLocation.update({
     where: { id },
     data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
@@ -22,6 +34,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   await softDelete("StockLocation", id);
   return json({ ok: true });

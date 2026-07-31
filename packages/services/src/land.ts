@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
 
 /**
  * Land Service — record land purchases and create initial parcels.
@@ -19,6 +20,7 @@ interface RecordLandPurchaseInput {
   location?: string;
   documentUrl?: string;
   initialParcelNumber?: string; // default "PLOT-1"
+  createdById?: string;
 }
 
 export async function recordLandPurchase(input: RecordLandPurchaseInput) {
@@ -75,6 +77,17 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
     // If linked to a project, trigger cost reallocation (land cost flows into project)
     if (input.projectId) {
       await reallocateProjectCosts(tx, input.projectId);
+    }
+
+    // Audit log
+    if (input.createdById) {
+      await logAction(tx, {
+        userId: input.createdById,
+        action: "CREATE",
+        entityType: "LandPurchase",
+        entityId: landPurchase.id,
+        after: { sellerName: input.sellerName, totalArea: totalArea.toString(), totalCost: totalCost.toString() },
+      });
     }
 
     return { landPurchase, parcel };

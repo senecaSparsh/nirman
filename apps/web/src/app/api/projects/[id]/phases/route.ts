@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, projectPhaseSchema } from "@/lib/server";
+import { apiHandler, json, projectPhaseSchema, requirePermission } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROJECTS_VIEW);
   const { id } = await ctx.params;
   const phases = await prisma.projectPhase.findMany({
     where: { projectId: id },
@@ -12,6 +14,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROJECTS_MANAGE);
   const { id } = await ctx.params;
   const project = await prisma.project.findFirst({ where: { id, deletedAt: null } });
   if (!project) return json({ error: "Project not found" }, { status: 404 });

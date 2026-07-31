@@ -17,7 +17,10 @@ type EntityType =
   | "Customer"
   | "LandPurchase"
   | "LandParcel"
-  | "BuiltUnit";
+  | "BuiltUnit"
+  | "Employee"
+  | "Subcontractor"
+  | "Equipment";
 
 export async function softDelete(entityType: EntityType, entityId: string): Promise<void> {
   // Run guard check first
@@ -50,6 +53,9 @@ function getModel(entityType: EntityType) {
     LandPurchase: prisma.landPurchase,
     LandParcel: prisma.landParcel,
     BuiltUnit: prisma.builtUnit,
+    Employee: prisma.employee,
+    Subcontractor: prisma.subcontractor,
+    Equipment: prisma.equipment,
   };
   return map[entityType];
 }
@@ -138,6 +144,38 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         where: { categoryId: entityId, deletedAt: null },
       });
       if (materials > 0) throw new Error("Cannot delete category with active materials. Delete materials first.");
+      break;
+    }
+
+    case "Employee": {
+      const employee = await prisma.employee.findUnique({ where: { id: entityId } });
+      if (!employee) throw new Error("Employee not found");
+      if (employee.active) {
+        throw new Error("Cannot delete an active employee. Mark them inactive first.");
+      }
+      break;
+    }
+
+    case "Subcontractor": {
+      const [hasCosts, hasIssues] = await Promise.all([
+        prisma.projectCost.count({ where: { subcontractorId: entityId } }),
+        prisma.materialIssue.count({ where: { subcontractorId: entityId } }),
+      ]);
+      if (hasCosts > 0 || hasIssues > 0) {
+        throw new Error("Cannot delete subcontractor with project costs or material issues.");
+      }
+      break;
+    }
+
+    case "Equipment": {
+      const equipment = await prisma.equipment.findUnique({ where: { id: entityId } });
+      if (!equipment) throw new Error("Equipment not found");
+      if (equipment.status === "ASSIGNED") {
+        throw new Error("Cannot delete assigned equipment. Return it first.");
+      }
+      if (equipment.status === "IN_MAINTENANCE") {
+        throw new Error("Cannot delete equipment in maintenance. Complete maintenance first.");
+      }
       break;
     }
   }

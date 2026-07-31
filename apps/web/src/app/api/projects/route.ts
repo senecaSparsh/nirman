@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, projectSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async () => {
+  await requirePermission(PERM.PROJECTS_VIEW);
   const company = await getCompany();
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -32,6 +34,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.PROJECTS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = projectSchema.safeParse(body);

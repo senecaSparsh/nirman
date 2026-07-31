@@ -35,6 +35,68 @@ model Company {
   expenses       Expense[]
   equipment      Equipment[]
   supplierReturns SupplierReturn[]
+  employees      Employee[]
+  userMemberships UserCompany[]
+  users          User[]
+}
+
+// ───────────────────────────────────────────────────────────
+//  MULTI-COMPANY MEMBERSHIP — a user can belong to one or more
+//  companies, with a role scoped per membership. The User.role
+//  column remains the default role (used when only one company
+//  exists or as a fallback); UserCompany.role takes precedence
+//  when the user is operating within that company's scope.
+// ───────────────────────────────────────────────────────────
+model UserCompany {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      String   @default("MANAGER") // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+// Fine-grained permission overrides per role (additive to the
+// default role matrix in roles.ts). A row grants a permission
+// to a role even if the matrix doesn't include it. Used for
+// customizing roles without code changes.
+model RolePermission {
+  id          String @id @default(cuid())
+  role        String // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  permission  String // e.g. "po.approve", "inventory.view"
+  createdAt   DateTime @default(now())
+
+  @@unique([role, permission])
+  @@index([role])
+}
+
+// ───────────────────────────────────────────────────────────
+//  Employees / workers — assignable to playground task nodes.
+//  Separate from the auth User model: tracks site labour and
+//  subcontracted crews with their trade and daily rate.
+// ───────────────────────────────────────────────────────────
+model Employee {
+  id        String   @id @default(cuid())
+  name      String
+  trade     String?  // e.g. "Masonry", "Electrical", "Plumbing", "Supervisor"
+  phone     String?
+  email     String?
+  dailyRate Decimal  @db.Decimal(14,2) @default(0)
+  active    Boolean  @default(true)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+  @@index([deletedAt])
 }
 
 // User is shared with Better-Auth (prisma adapter). Required auth fields:
@@ -45,17 +107,39 @@ model User {
   name          String
   emailVerified Boolean   @default(false)
   image         String?
-  role          String    @default("MANAGER") // OWNER | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  role          String    @default("MANAGER") // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
   active        Boolean   @default(true)
+  // Default company scope (nullable so a user can exist before being
+  // assigned to a company; resolved into a UserCompany membership on
+  // first login or via the settings UI). UserCompany.role takes
+  // precedence over this default when operating within a company.
+  companyId     String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  sessions       Session[]
-  accounts       Account[]
-  stockMovements StockMovement[]
-  goodsReceipts  GoodsReceipt[]
-  materialIssues MaterialIssue[]
-  auditLogs      AuditLog[]
+  company           Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  memberships       UserCompany[]
+  sessions          Session[]
+  accounts          Account[]
+  stockMovements    StockMovement[]
+  goodsReceipts     GoodsReceipt[]
+  materialIssues    MaterialIssue[]
+  auditLogs         AuditLog[]
+  assignedTasks     Task[] @relation("TaskAssignee")
+  assignedByTasks   Task[] @relation("TaskAssigner")
+  createdWorkflows  Workflow[]
+  // Approval / creator attribution for transactional records
+  approvedPurchaseOrders PurchaseOrder[] @relation("POApprover")
+  createdPurchaseOrders  PurchaseOrder[] @relation("POCreator")
+  requestedRequisitions  MaterialRequisition[] @relation("ReqRequester")
+  approvedRequisitions   MaterialRequisition[] @relation("ReqApprover")
+  rejectedRequisitions   MaterialRequisition[] @relation("ReqRejecter")
+  createdExpenses        Expense[]
+  createdProjectCosts    ProjectCost[]
+  createdAssetSales      AssetSale[]
+  createdStockTransfers  StockTransfer[]
+  createdSupplierReturns SupplierReturn[]
+  createdLandPurchases   LandPurchase[]
 }
 
 model Session {
@@ -340,6 +424,11 @@ model PurchaseOrder {
   gstTotal              Decimal             @default(0) @db.Decimal(14, 2)
   total                 Decimal             @default(0) @db.Decimal(14, 2)
   notes                 String?
+  // Approval workflow — DRAFT → APPROVED requires a user with po.approve
+  createdById           String?
+  approvedById          String?
+  approvedAt            DateTime?
+  approvalNotes         String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -347,6 +436,8 @@ model PurchaseOrder {
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project             Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
   destinationLocation StockLocation        @relation(fields: [destinationLocationId], references: [id])
+  createdBy           User?                @relation("POCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy          User?                @relation("POApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   lines               PurchaseOrderLine[]
   goodsReceipts       GoodsReceipt[]
 
@@ -354,6 +445,7 @@ model PurchaseOrder {
   @@index([projectId])
   @@index([supplierId])
   @@index([status])
+  @@index([approvedById])
 }
 
 model PurchaseOrderLine {
@@ -530,14 +622,17 @@ model StockTransfer {
   transferDate   DateTime            @default(now())
   status         StockTransferStatus @default(DRAFT)
   notes          String?
+  createdById    String?
   createdAt      DateTime            @default(now())
 
   fromLocation StockLocation         @relation("TransferFrom", fields: [fromLocationId], references: [id])
   toLocation   StockLocation         @relation("TransferTo", fields: [toLocationId], references: [id])
+  createdBy   User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
   lines        StockTransferLine[]
 
   @@index([fromLocationId])
   @@index([toLocationId])
+  @@index([createdById])
 }
 
 model StockTransferLine {
@@ -613,15 +708,18 @@ model LandPurchase {
   registryNo   String?
   location     String?
   documentUrl  String?
+  createdById  String?
   createdAt    DateTime @default(now())
   deletedAt    DateTime?
 
   company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
   parcels LandParcel[]
 
   @@index([companyId])
   @@index([projectId])
+  @@index([createdById])
 }
 
 enum LandParcelStatus {
@@ -829,15 +927,26 @@ model MaterialRequisition {
   neededByDate DateTime?
   notes       String?
   convertedPoId String?        // set when converted to a PO
+  // Approval workflow — SUBMITTED → APPROVED requires requisition.approve
+  approvedById String?
+  approvedAt   DateTime?
+  approvalNotes String?
+  rejectedById  String?
+  rejectedAt    DateTime?
+  rejectReason  String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
   project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   phase       ProjectPhase?    @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  requestedBy User?            @relation("ReqRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvedBy  User?            @relation("ReqApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy  User?            @relation("ReqRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
   lines       MaterialRequisitionLine[]
 
   @@index([projectId])
   @@index([status])
+  @@index([approvedById])
 }
 
 model MaterialRequisitionLine {
@@ -876,17 +985,20 @@ model SupplierReturn {
   returnDate   DateTime            @default(now())
   creditNoteNo String?
   notes        String?
+  createdById  String?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
   supplier      Supplier      @relation(fields: [supplierId], references: [id])
   company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   location      StockLocation @relation(fields: [locationId], references: [id])
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   lines         SupplierReturnLine[]
 
   @@index([supplierId])
   @@index([companyId])
   @@index([status])
+  @@index([createdById])
 }
 
 model SupplierReturnLine {
@@ -955,18 +1067,21 @@ model AssetSale {
   paymentStatus PaymentStatus @default(PENDING)
   paymentMode   String?
   notes         String?
+  createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   customer  Customer            @relation(fields: [customerId], references: [id])
   project   Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
   company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
   payments  AssetSalePayment[]
 
   @@index([projectId])
   @@index([companyId])
   @@index([customerId])
   @@index([paymentStatus])
+  @@index([createdById])
 }
 
 model AssetSalePayment {
@@ -1006,13 +1121,16 @@ model ProjectCost {
   subcontractorId String?
   notes     String?
   receiptUrl String?
+  createdById String?
   createdAt DateTime        @default(now())
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   subcontractor Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([costType])
+  @@index([createdById])
 }
 
 model Expense {
@@ -1023,13 +1141,16 @@ model Expense {
   amount    Decimal  @db.Decimal(14, 2)
   date      DateTime @default(now())
   notes     String?
+  createdById String?
   createdAt DateTime @default(now())
 
   company Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([projectId])
+  @@index([createdById])
 }
 
 model AuditLog {
@@ -1046,4 +1167,128 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([userId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CUSTOM WORKSPACES: visual playground graphs that the user
+//  composes by dragging modules onto a canvas and connecting
+//  them. Each saved workspace becomes a nav tab that renders a
+//  live drill-down hierarchy following the saved graph.
+// ───────────────────────────────────────────────────────────
+
+model CustomWorkspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String   @default("LayoutDashboard") // lucide icon name
+  rootModel   String   // ModelKey of the root node
+  graphJson   Json     // WorkspaceGraph: { nodes, edges, rootId }
+  companyId   String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tasks Task[]
+
+  @@index([deletedAt])
+  @@index([companyId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  TASKS — assigned by admin/manager to signed-in users.
+//  The admin creates a task (optionally from a playground node),
+//  adds instructions/guidance, and the assignee sees it on their
+//  dashboard with everything they need to do.
+// ───────────────────────────────────────────────────────────
+
+model Task {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  instructions String?   // step-by-step guidance from the admin
+  status       String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | CANCELLED
+  priority     String    @default("medium")  // low | medium | high | urgent
+  dueDate      DateTime?
+  assignedToId String
+  assignedById String?
+  workspaceId  String?
+  nodeLabel    String?   // label of the canvas node this task came from (if any)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignedTo User             @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignedBy User?            @relation("TaskAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  workspace  CustomWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([assignedToId])
+  @@index([assignedById])
+  @@index([status])
+  @@index([workspaceId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  WORKFLOWS — automated chains of events built on the canvas.
+//  The admin composes a sequence of action steps (create record,
+//  send notification, wait, assign task, etc.), connects them
+//  into a flow, and optionally schedules recurring execution.
+// ───────────────────────────────────────────────────────────
+
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String   @default("Workflow")
+  status      String   @default("DRAFT") // DRAFT | ACTIVE | PAUSED | ARCHIVED
+  graphJson   Json     // WorkflowGraph: { steps, edges, schedule }
+  companyId   String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  runs      WorkflowRun[]
+  schedules ScheduledWorkflow[]
+  creator   User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([deletedAt])
+  @@index([companyId])
+  @@index([status])
+}
+
+model WorkflowRun {
+  id          String    @id @default(cuid())
+  workflowId  String
+  status      String    @default("PENDING") // PENDING | RUNNING | COMPLETED | FAILED | CANCELLED
+  startedAt   DateTime?
+  completedAt DateTime?
+  currentStep Int       @default(0)
+  result      Json?
+  error       String?
+  triggeredBy String?   // "manual" | "schedule"
+  createdAt   DateTime  @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([status])
+}
+
+model ScheduledWorkflow {
+  id         String    @id @default(cuid())
+  workflowId String
+  cron       String?   // cron expression (e.g. "0 9 * * 1" = every Monday 9am)
+  intervalM  Int?      // interval in minutes (alternative to cron)
+  nextRunAt  DateTime
+  enabled    Boolean   @default(true)
+  lastRunAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([nextRunAt])
+  @@index([enabled])
 }

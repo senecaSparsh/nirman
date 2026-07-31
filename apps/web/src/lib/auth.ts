@@ -16,6 +16,17 @@ export const auth = betterAuth({
         defaultValue: "MANAGER",
         input: false,
       },
+      companyId: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+      active: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        input: false,
+      },
     },
   },
   session: {

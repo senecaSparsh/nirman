@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "sonner";
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="antialiased">
-        <AppShell>{children}</AppShell>
+        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+          <AppShell>{children}</AppShell>
+        </Suspense>
         <Toaster richColors position="top-right" />
       </body>
     </html>

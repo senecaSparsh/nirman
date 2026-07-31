@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, materialSchema, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get("categoryId");
   const q = searchParams.get("q")?.trim();
@@ -59,6 +62,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.INVENTORY_MANAGE);
   const body = await req.json();
   const parsed = materialSchema.safeParse(body);
   if (!parsed.success) {

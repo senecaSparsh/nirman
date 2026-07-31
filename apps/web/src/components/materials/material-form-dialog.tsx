@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
+import { Field } from "@/components/field";
 import type { MaterialCategory, MaterialRow } from "@/lib/types";
 
 type FormState = {
@@ -114,8 +115,8 @@ export function MaterialFormDialog({
       description={isEdit ? "Update material details." : "Add a new material to the catalog."}
       className="max-w-2xl"
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Code" required>
             <Input
               value={form.code}
@@ -208,25 +209,5 @@ export function MaterialFormDialog({
         </div>
       </form>
     </Dialog>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label>
-        {label}
-        {required && <span className="text-danger"> *</span>}
-      </Label>
-      {children}
-    </div>
   );
 }

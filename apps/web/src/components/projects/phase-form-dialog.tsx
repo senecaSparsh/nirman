@@ -90,12 +90,12 @@ export function PhaseFormDialog({
       title={isEdit ? "Edit Phase" : "Add Phase"}
       description={isEdit ? "Update phase details." : "Add a phase to this project (e.g. Tower A, Phase 1)."}
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="ph-name">Phase Name *</Label>
           <Input id="ph-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Tower A" required />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="ph-status">Status</Label>
             <Select id="ph-status" value={form.status} onChange={(e) => set("status", e.target.value as PhaseStatus)}>
@@ -117,7 +117,7 @@ export function PhaseFormDialog({
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="ph-start">Start Date</Label>
             <Input id="ph-start" type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />

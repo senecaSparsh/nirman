@@ -1,5 +1,7 @@
 import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import Decimal from "decimal.js";
+import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
 
 /**
  * Sale Service — sell land parcels or built units to customers.
@@ -28,6 +30,9 @@ interface SellAssetInput {
   salePrice: Decimal | number | string;
   paymentMode?: string;
   notes?: string;
+  initialPayment?: Decimal | number | string;
+  initialPaymentMode?: string;
+  userId?: string;
 }
 
 export async function sellAsset(input: SellAssetInput) {
@@ -143,6 +148,38 @@ export async function sellAsset(input: SellAssetInput) {
       await tx.builtUnit.update({ where: { id: builtUnitId }, data: { saleId: sale.id } });
     }
 
+    // Record initial payment atomically if provided (same tx — no orphan sale if payment fails)
+    let paymentStatus: "PENDING" | "PARTIAL" | "PAID" = "PENDING";
+    if (input.initialPayment) {
+      const initAmount = new Decimal(input.initialPayment);
+      if (initAmount.gt(0)) {
+        if (initAmount.gt(salePrice)) {
+          throw new Error(`Initial payment ${initAmount} exceeds sale price ${salePrice}`);
+        }
+        await tx.assetSalePayment.create({
+          data: {
+            assetSaleId: sale.id,
+            amount: initAmount,
+            mode: input.initialPaymentMode ?? "BANK_TRANSFER",
+          },
+        });
+        paymentStatus = initAmount.lt(salePrice) ? "PARTIAL" : "PAID";
+      }
+    }
+    if (paymentStatus !== "PENDING") {
+      await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus } });
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "ASSET_SALE_CREATE",
+        entityType: "AssetSale",
+        entityId: sale.id,
+        after: { saleNumber: sale.saleNumber, assetType: sale.assetType, salePrice: sale.salePrice, paymentStatus },
+      });
+    }
+
     return sale;
   });
 }
@@ -152,6 +189,7 @@ interface RecordPaymentInput {
   amount: Decimal | number | string;
   mode: string;
   reference?: string;
+  userId?: string;
 }
 
 export async function recordPayment(input: RecordPaymentInput) {
@@ -201,11 +239,21 @@ export async function recordPayment(input: RecordPaymentInput) {
       data: { paymentStatus },
     });
 
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "ASSET_SALE_PAYMENT",
+        entityType: "AssetSale",
+        entityId: input.assetSaleId,
+        after: { amount, mode: input.mode, paymentStatus },
+      });
+    }
+
     return { payment, paymentStatus };
   });
 }
 
-export async function cancelSale(saleId: string) {
+export async function cancelSale(saleId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: saleId },
@@ -232,10 +280,27 @@ export async function cancelSale(saleId: string) {
       });
     }
 
-    return tx.assetSale.update({
+    // Re-run cost allocation — a sold unit's production cost was cached;
+    // cancellation makes it sellable again, so allocation must be refreshed.
+    await reallocateProjectCosts(tx, sale.projectId);
+
+    const updated = await tx.assetSale.update({
       where: { id: saleId },
       data: { status: "CANCELLED" },
     });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "ASSET_SALE_CANCEL",
+        entityType: "AssetSale",
+        entityId: saleId,
+        before: { status: sale.status },
+        after: { status: "CANCELLED" },
+      });
+    }
+
+    return updated;
   });
 }
 

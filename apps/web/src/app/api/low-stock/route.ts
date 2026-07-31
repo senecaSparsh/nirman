@@ -1,11 +1,14 @@
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { requirePermission } from "@/lib/server";
 
 /**
  * GET /api/low-stock — materials whose total stock across all locations
  * has dropped below their configured minStock threshold.
  */
 export const GET = apiHandler(async () => {
+  await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const materials = await prisma.material.findMany({
     where: {

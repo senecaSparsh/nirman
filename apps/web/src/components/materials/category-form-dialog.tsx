@@ -55,7 +55,7 @@ export function CategoryFormDialog({
       title={isEdit ? "Edit Category" : "New Material Category"}
       description="Categories group materials and define a default unit of measure."
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>
             Name <span className="text-danger">*</span>

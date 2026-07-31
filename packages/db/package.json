@@ -9,13 +9,14 @@
     "push": "prisma db push",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "studio": "prisma studio",
-    "seed": "tsx prisma/seed.ts"
+    "studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
+    "@types/node": "^20.19.0",
+    "decimal.js": "^10.4.3",
     "prisma": "^6.19.3",
     "tsx": "^4.23.1",
     "typescript": "^5.9.0"

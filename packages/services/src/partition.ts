@@ -1,5 +1,6 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
+import { reallocateProjectCosts } from "./valuation";
 
 /**
  * Partition Service — land parcel subdivision.
@@ -107,6 +108,12 @@ export async function partitionLandParcel(input: PartitionInput) {
         notes: input.notes,
       },
     });
+
+    // Re-run cost allocation — parcel structure changed, so per-parcel and
+    // per-unit cost allocations must be refreshed.
+    if (parent.projectId) {
+      await reallocateProjectCosts(tx, parent.projectId);
+    }
 
     return { parent, children: childParcels };
   });

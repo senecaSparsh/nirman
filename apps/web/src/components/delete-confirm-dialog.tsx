@@ -18,6 +18,7 @@ export function DeleteConfirmDialog({
   description,
   successMessage = "Deleted",
   errorMessage = "Failed to delete",
+  redirectTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +27,7 @@ export function DeleteConfirmDialog({
   description: string;
   successMessage?: string;
   errorMessage?: string;
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -38,7 +40,8 @@ export function DeleteConfirmDialog({
       if (!res.ok) throw new Error(data.error ?? errorMessage);
       toast.success(successMessage);
       onOpenChange(false);
-      router.refresh();
+      if (redirectTo) router.push(redirectTo);
+      else router.refresh();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
