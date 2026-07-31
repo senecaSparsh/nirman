@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { recordMaintenance } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum, equipmentMaintenanceSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, equipmentMaintenanceSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const equipmentId = searchParams.get("equipmentId");
 
   const records = await prisma.equipmentMaintenance.findMany({
-    where: { ...(equipmentId ? { equipmentId } : {}) },
+    where: { equipment: { companyId: company.id }, ...(equipmentId ? { equipmentId } : {}) },
     orderBy: { startDate: "desc" },
     take: 50,
     include: { equipment: { select: { name: true, assetTag: true } } },

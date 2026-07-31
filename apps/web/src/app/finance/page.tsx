@@ -124,7 +124,7 @@ async function FinanceContent() {
     action: log.action,
     entityType: log.entityType,
     entityId: log.entityId,
-    details: null,
+    details: log.after ? JSON.stringify(log.after) : null,
     timestamp: log.timestamp.toISOString(),
   }));
 

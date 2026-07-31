@@ -66,7 +66,7 @@ async function RequisitionsContent() {
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
     }),
   ]);
 
@@ -93,7 +93,7 @@ async function RequisitionsContent() {
       phases={phases.map((p) => ({ id: p.id, name: p.name, projectId: p.projectId }))}
       materials={materials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit }))}
       suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-      locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+      locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
       permissions={perms}
     />
   );

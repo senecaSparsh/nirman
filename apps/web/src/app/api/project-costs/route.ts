@@ -31,7 +31,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       projectName: c.project.name,
       costType: c.costType,
       amount: toNum(c.amount),
-      date: c.date,
+      date: c.date.toISOString(),
       vendor: c.vendor,
       subcontractorId: c.subcontractorId,
       subcontractorName: c.subcontractor?.name ?? null,

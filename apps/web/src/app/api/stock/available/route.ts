@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, toNum } from "@/lib/server";
+import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
@@ -11,12 +11,18 @@ import { requirePermission } from "@/lib/server";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const locationId = searchParams.get("locationId");
   if (!locationId) return json({ error: "locationId is required" }, { status: 400 });
 
   const items = await prisma.stockLocationItem.findMany({
-    where: { locationId, qty: { gt: 0 }, material: { deletedAt: null } },
+    where: {
+      locationId,
+      qty: { gt: 0 },
+      material: { deletedAt: null },
+      location: { companyId: company.id },
+    },
     include: {
       material: { select: { id: true, code: true, name: true, unit: true } },
     },

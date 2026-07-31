@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { assignEquipment } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum, equipmentAssignSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, equipmentAssignSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? "ACTIVE";
 
   const assignments = await prisma.equipmentAssignment.findMany({
-    where: { ...(status ? { status: status as any } : {}) },
+    where: { equipment: { companyId: company.id }, ...(status ? { status: status as any } : {}) },
     orderBy: { assignedAt: "desc" },
     include: {
       equipment: { select: { id: true, name: true, assetTag: true } },

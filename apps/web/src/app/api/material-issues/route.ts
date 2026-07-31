@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { issueMaterialsToProject } from "@nirman/services";
-import { apiHandler, json, issueMaterialsSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, issueMaterialsSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
   const issues = await prisma.materialIssue.findMany({
+    where: { project: { companyId: company.id } },
     orderBy: { createdAt: "desc" },
     include: {
       project: { select: { id: true, name: true } },

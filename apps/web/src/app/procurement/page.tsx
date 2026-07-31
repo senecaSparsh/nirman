@@ -66,6 +66,7 @@ async function ProcurementContent() {
       },
     }),
     prisma.stockTransfer.findMany({
+      where: { fromLocation: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
       include: {
         fromLocation: { select: { id: true, name: true, type: true } },
@@ -74,6 +75,7 @@ async function ProcurementContent() {
       },
     }),
     prisma.materialIssue.findMany({
+      where: { project: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },

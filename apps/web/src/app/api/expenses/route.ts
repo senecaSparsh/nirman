@@ -36,7 +36,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       projectName: e.project?.name ?? null,
       category: e.category,
       amount: toNum(e.amount),
-      date: e.date,
+      date: e.date.toISOString(),
       notes: e.notes,
     })),
   );

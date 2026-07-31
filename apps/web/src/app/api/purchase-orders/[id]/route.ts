@@ -47,7 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
   const receipts = po.goodsReceipts.map((gr) => ({
     id: gr.id,
-    receiptDate: gr.receiptDate,
+    receiptDate: gr.receiptDate.toISOString(),
     inspectionStatus: gr.inspectionStatus,
     notes: gr.notes,
     lineCount: gr.lines.length,
@@ -69,15 +69,17 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     projectId: po.projectId,
     projectName: po.project?.name ?? null,
     destinationLocationId: po.destinationLocationId,
-    destinationLocation: po.destinationLocation,
+    destinationLocation: po.destinationLocation
+      ? { id: po.destinationLocation.id, name: po.destinationLocation.name, type: po.destinationLocation.type }
+      : null,
     status: po.status,
-    orderDate: po.orderDate,
-    expectedDate: po.expectedDate,
+    orderDate: po.orderDate?.toISOString() ?? null,
+    expectedDate: po.expectedDate?.toISOString() ?? null,
     subtotal: toNum(po.subtotal),
     gstTotal: toNum(po.gstTotal),
     total: toNum(po.total),
     notes: po.notes,
-    createdAt: po.createdAt,
+    createdAt: po.createdAt.toISOString(),
     lines,
     receipts,
   });

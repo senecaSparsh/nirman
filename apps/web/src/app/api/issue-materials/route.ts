@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { issueMaterialsToProject } from "@nirman/services";
-import { apiHandler, json, issueMaterialsSchema } from "@/lib/server";
+import { apiHandler, json, issueMaterialsSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
@@ -27,7 +27,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
   });
   return json(
-    { ok: true, materialIssueId: result.materialIssue.id, totalCost: result.totalCost.toString() },
+    { ok: true, materialIssueId: result.materialIssue.id, totalCost: toNum(result.totalCost) },
     { status: 201 },
   );
 });

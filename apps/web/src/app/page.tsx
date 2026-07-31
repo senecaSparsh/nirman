@@ -77,7 +77,7 @@ async function DashboardContent() {
       },
       select: {
         id: true, code: true, name: true, unit: true, minStock: true,
-        stockItems: { where: { location: { deletedAt: null } }, select: { qty: true } },
+        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } },
       },
     }),
     prisma.assetSale.findMany({
@@ -87,6 +87,12 @@ async function DashboardContent() {
       include: { customer: { select: { name: true } } },
     }),
     prisma.stockMovement.findMany({
+      where: {
+        OR: [
+          { fromLocation: { companyId: company.id } },
+          { toLocation: { companyId: company.id } },
+        ],
+      },
       orderBy: { timestamp: "desc" },
       take: 8,
       include: {
@@ -96,7 +102,7 @@ async function DashboardContent() {
       },
     }),
     prisma.stockTransfer.count({
-      where: { status: "DRAFT" },
+      where: { status: "DRAFT", fromLocation: { companyId: company.id } },
     }),
     prisma.equipment.count({
       where: { companyId: company.id, deletedAt: null, status: { not: "RETIRED" } },

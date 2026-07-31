@@ -21,7 +21,7 @@ type ProjectOption = { id: string; name: string };
 type PhaseOption = { id: string; name: string; projectId: string };
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
-type LocationOption = { id: string; name: string };
+type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" };
 
 const STATUS_VARIANT: Record<RequisitionStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
   DRAFT: "muted",
@@ -104,9 +104,11 @@ export function RequisitionsView({
           <Button variant="outline" onClick={() => downloadCSV(`requisitions-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "reqNumber", label: "Req Number" },
             { key: "projectName", label: "Project" },
+            { key: "phaseName", label: "Phase" },
             { key: "status", label: "Status" },
-            { key: "requestedBy", label: "Requested By" },
-            { key: "createdAt", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
+            { key: "totalQty", label: "Total Qty" },
+            { key: "requestDate", label: "Request Date", format: (v) => v ? formatDate(String(v)) : "" },
+            { key: "neededByDate", label: "Needed By", format: (v) => v ? formatDate(String(v)) : "" },
           ])} disabled={filtered.length === 0}>
             <Download className="h-4 w-4" /> Export
           </Button>
@@ -429,7 +431,9 @@ function ConvertDialog({
               <Label>Destination Location *</Label>
               <Select value={form.destinationLocationId} onChange={(e) => setForm((f) => ({ ...f, destinationLocationId: e.target.value }))} required>
                 <option value="">Select…</option>
-                {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                {locations
+                  .filter((l) => form.procurementScope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE")
+                  .map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
               </Select>
             </div>
             <div className="space-y-1.5">

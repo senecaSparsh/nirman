@@ -77,6 +77,7 @@ export function ParcelDetailDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "partition",
           parentParcelId: partitionParcel.id,
           children: children.map((c) => ({
             number: c.number.trim(),

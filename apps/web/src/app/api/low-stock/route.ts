@@ -14,6 +14,7 @@ export const GET = apiHandler(async () => {
     where: {
       deletedAt: null,
       minStock: { not: null },
+      category: { deletedAt: null },
     },
     include: {
       category: { select: { name: true } },
@@ -32,7 +33,7 @@ export const GET = apiHandler(async () => {
         id: m.id,
         code: m.code,
         name: m.name,
-        categoryName: m.category.name,
+        categoryName: m.category?.name ?? "Uncategorized",
         unit: m.unit,
         totalQty,
         minStock,

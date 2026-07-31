@@ -46,10 +46,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
         currentValue: toNum(e.currentValue),
         purchaseDate: e.purchaseDate?.toISOString() ?? null,
         notes: e.notes,
-        assignment: activeAssignment
+        activeAssignment: activeAssignment
           ? {
               id: activeAssignment.id,
+              locationId: activeAssignment.locationId,
               locationName: activeAssignment.location.name,
+              projectId: activeAssignment.projectId,
               projectName: activeAssignment.project?.name ?? null,
               assignedAt: activeAssignment.assignedAt.toISOString(),
             }

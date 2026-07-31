@@ -1,24 +1,27 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer } from "@nirman/services";
-import { apiHandler, json, toNum } from "@/lib/server";
+import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
   const transfer = await prisma.stockTransfer.findUnique({
     where: { id },
     include: {
-      fromLocation: { select: { id: true, name: true } },
+      fromLocation: { select: { id: true, name: true, companyId: true } },
       toLocation: { select: { id: true, name: true } },
       lines: {
         include: { material: { select: { id: true, code: true, name: true, unit: true } } },
       },
     },
   });
-  if (!transfer) return json({ error: "Transfer not found" }, { status: 404 });
+  if (!transfer || transfer.fromLocation.companyId !== company.id) {
+    return json({ error: "Transfer not found" }, { status: 404 });
+  }
   return json({
     id: transfer.id,
     fromLocationId: transfer.fromLocationId,
@@ -40,6 +43,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.STOCK_TRANSFER);
   const { id } = await ctx.params;
   const body = await req.json();
   const action = body?.action as string;

@@ -73,7 +73,7 @@ async function StockMovementsContent() {
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.stockLocation.findMany({
-      where: { companyId: company.id },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true },
     }),
   ]);

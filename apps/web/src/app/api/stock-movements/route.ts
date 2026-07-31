@@ -83,7 +83,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       refType: m.refType,
       refId: m.refId,
       userName: m.user?.name ?? null,
-      timestamp: m.timestamp,
+      timestamp: m.timestamp.toISOString(),
     }));
 
   return json(rows);

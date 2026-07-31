@@ -68,7 +68,7 @@ export function SalesView({
           <SalesTab sales={sales} customers={customerOptions} permissions={permissions} />
         </TabsContent>
         <TabsContent value="customers">
-          <CustomersTab customers={customers} />
+          <CustomersTab customers={customers} permissions={permissions} />
         </TabsContent>
       </Tabs>
     </div>
@@ -123,15 +123,17 @@ function SalesTab({
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+            { key: "saleNumber", label: "Sale No." },
             { key: "assetType", label: "Asset Type" },
-            { key: "assetLabel", label: "Asset" },
+            { key: "landParcelNumber", label: "Land Parcel" },
+            { key: "builtUnitNumber", label: "Built Unit" },
             { key: "customerName", label: "Customer" },
             { key: "projectName", label: "Project" },
             { key: "salePrice", label: "Sale Price", format: (v) => formatCurrency(Number(v)) },
             { key: "totalPaid", label: "Collected", format: (v) => formatCurrency(Number(v)) },
             { key: "status", label: "Status" },
             { key: "paymentStatus", label: "Payment" },
-            { key: "createdAt", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
+            { key: "saleDate", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
           ])} disabled={filtered.length === 0}>
             <Download className="h-4 w-4" /> Export
           </Button>
@@ -231,7 +233,7 @@ function SalesTab({
 //  Customers tab
 // ───────────────────────────────────────────────────────────
 
-function CustomersTab({ customers }: { customers: CustomerRow[] }) {
+function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; permissions?: { canCreateSale?: boolean; canManage?: boolean } }) {
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CustomerRow | null>(null);
@@ -251,7 +253,7 @@ function CustomersTab({ customers }: { customers: CustomerRow[] }) {
         <div className="relative sm:max-w-xs">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers…" />
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+        <Button onClick={() => { setEditing(null); setFormOpen(true); }} disabled={!(permissions?.canManage ?? true)}>
           <Plus className="h-4 w-4" /> New Customer
         </Button>
       </div>
@@ -265,7 +267,7 @@ function CustomersTab({ customers }: { customers: CustomerRow[] }) {
               description={customers.length === 0 ? "Add customers to record asset sales." : "Try a different search."}
               action={
                 customers.length === 0 ? (
-                  <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm"><Plus className="h-4 w-4" /> New Customer</Button>
+                  <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm" disabled={!(permissions?.canManage ?? true)}><Plus className="h-4 w-4" /> New Customer</Button>
                 ) : undefined
               }
             />
@@ -291,12 +293,16 @@ function CustomersTab({ customers }: { customers: CustomerRow[] }) {
                     <TD className="tnum text-right">{c.activeSales > 0 ? <Badge variant="default">{c.activeSales}</Badge> : "0"}</TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setFormOpen(true); }} title="Edit">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleting(c)} title="Delete" className="text-muted-foreground hover:text-danger">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(permissions?.canManage ?? true) && (
+                          <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setFormOpen(true); }} title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(permissions?.canManage ?? true) && (
+                          <Button variant="ghost" size="icon" onClick={() => setDeleting(c)} title="Delete" className="text-muted-foreground hover:text-danger">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TD>
                   </TR>

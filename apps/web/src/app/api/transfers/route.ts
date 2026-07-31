@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { createTransfer } from "@nirman/services";
-import { apiHandler, json, transferSchema, toNum } from "@/lib/server";
+import { apiHandler, json, transferSchema, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
   const transfers = await prisma.stockTransfer.findMany({
+    where: { fromLocation: { companyId: company.id } },
     orderBy: { createdAt: "desc" },
     include: {
       fromLocation: { select: { id: true, name: true, type: true } },

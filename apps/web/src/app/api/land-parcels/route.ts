@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { partitionLandParcel, setParcelStatus, updateParcelValuation } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -11,6 +11,7 @@ import { PERM } from "@/lib/roles";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const landPurchaseId = searchParams.get("landPurchaseId");
   const status = searchParams.get("status");
@@ -18,6 +19,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const parcels = await prisma.landParcel.findMany({
     where: {
       deletedAt: null,
+      landPurchase: { companyId: company.id },
       ...(landPurchaseId ? { landPurchaseId } : {}),
       ...(status ? { status: status as any } : {}),
     },

@@ -52,7 +52,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
   const [
     purchaseOrders, transfers, builtUnits, landParcels,
-    stockMovements, projectCosts, materialIssues, equipmentAssignments, pnlResult,
+    stockMovements, projectCosts, materialIssues, equipmentAssignments, pnlResult, openRequisitionCount,
   ] = await Promise.all([
     // POs for this project (PROJECT scope) or all company POs
     prisma.purchaseOrder.findMany({
@@ -64,7 +64,8 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       take: 20,
       include: {
         supplier: { select: { name: true } },
-        lines: { select: { qtyOrdered: true, qtyReceived: true } },
+        destinationLocation: { select: { id: true, name: true, type: true } },
+        lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } },
       },
     }),
 
@@ -122,7 +123,10 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     prisma.projectCost.findMany({
       where: { projectId: id },
       orderBy: { date: "desc" },
-      include: { project: { select: { name: true } } },
+      include: {
+        project: { select: { name: true } },
+        subcontractor: { select: { name: true } },
+      },
     }),
 
     // Material issues to this project
@@ -146,13 +150,19 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
     // P&L
     projectPnl(id),
+
+    // Open requisitions for this project
+    prisma.materialRequisition.count({
+      where: { projectId: id, status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } },
+    }),
   ]);
 
   // Map POs to rows
   const poRows: PurchaseOrderRow[] = purchaseOrders.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
     const totalReceived = po.lines.reduce((s, l) => s + toNum(l.qtyReceived), 0);
-    const subtotal = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum((l as any).unitCost ?? 0), 0);
+    const subtotal = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
+    const gstTotal = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost) * toNum(l.gstRate) / 100, 0);
     return {
       id: po.id,
       poNumber: po.poNumber,
@@ -162,14 +172,14 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       projectId: po.projectId,
       projectName: null,
       destinationLocationId: po.destinationLocationId,
-      destinationLocationName: "",
-      destinationLocationType: "COMPANY_WAREHOUSE" as const,
+      destinationLocationName: po.destinationLocation?.name ?? "",
+      destinationLocationType: po.destinationLocation?.type ?? "COMPANY_WAREHOUSE",
       status: po.status as any,
       orderDate: po.orderDate?.toISOString() ?? po.createdAt.toISOString(),
       expectedDate: po.expectedDate?.toISOString() ?? null,
       subtotal,
-      gstTotal: 0,
-      total: subtotal,
+      gstTotal,
+      total: subtotal + gstTotal,
       notes: po.notes,
       totalOrdered,
       totalReceived,
@@ -268,7 +278,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     date: c.date.toISOString(),
     vendor: c.vendor,
     subcontractorId: c.subcontractorId,
-    subcontractorName: null,
+    subcontractorName: c.subcontractor?.name ?? null,
     notes: c.notes,
     receiptUrl: c.receiptUrl,
   }));
@@ -336,7 +346,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       stockLocationCount: project.stockLocations.length,
       materialIssueCount: issueRows.length,
       openPOCount,
-      openRequisitionCount: 0,
+      openRequisitionCount,
       equipmentCount: equipmentRows.length,
     },
     pnl: {

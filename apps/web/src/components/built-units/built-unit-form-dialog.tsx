@@ -105,11 +105,11 @@ export function BuiltUnitFormDialog({
         projectId,
         unitType: r.unitType,
         unitNumber: r.unitNumber.trim(),
-        floor: r.floor ? Number(r.floor) : null,
+        floor: r.floor ? Number(r.floor) || null : null,
         wing: r.wing.trim() || null,
-        area: Number(r.area),
+        area: Number(r.area) || 0,
         areaUnit: "SQFT" as const,
-        askingPrice: r.askingPrice ? Number(r.askingPrice) : null,
+        askingPrice: r.askingPrice ? Number(r.askingPrice) || null : null,
       }));
       const res = await fetch("/api/built-units", {
         method: "POST",
