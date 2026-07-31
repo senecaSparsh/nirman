@@ -42,7 +42,7 @@ import {
   sellAsset,
   recordPayment,
   reallocateProjectCosts,
-} from "@nirman/services";
+} from "../src";
 import Decimal from "decimal.js";
 
 const prisma = new PrismaClient();
