@@ -5,16 +5,16 @@ import { apiHandler, json, requirePermission, toNum, builtUnitStatusSchema, buil
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  const user = await requirePermission(PERM.ASSETS_VIEW);
   const { id } = await params;
-  const unit = await prisma.builtUnit.findUnique({
-    where: { id },
+  const unit = await prisma.builtUnit.findFirst({
+    where: { id, project: { companyId: user.companyId ?? undefined }, deletedAt: null },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
     },
   });
-  if (!unit || unit.deletedAt) return json({ error: "Unit not found" }, { status: 404 });
+  if (!unit) return json({ error: "Unit not found" }, { status: 404 });
   return json({
     id: unit.id,
     projectId: unit.projectId,
@@ -37,7 +37,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string | undefined;
@@ -48,7 +48,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "Invalid status" }, { status: 400 });
     }
     try {
-      await updateUnitStatus(id, statusParsed.data);
+      await updateUnitStatus(id, statusParsed.data, user.id);
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Status change failed" }, { status: 400 });
@@ -64,10 +64,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
     try {
-      await updateUnitValuation(id, {
-        currentValuation: parsed.data.currentValuation,
-        askingPrice: parsed.data.askingPrice ?? undefined,
-      });
+      await updateUnitValuation(
+        id,
+        {
+          currentValuation: parsed.data.currentValuation,
+          askingPrice: parsed.data.askingPrice ?? undefined,
+        },
+        user.id,
+      );
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Valuation update failed" }, { status: 400 });
@@ -78,6 +82,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   await softDelete("BuiltUnit", id);
   return json({ ok: true });

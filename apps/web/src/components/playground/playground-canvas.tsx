@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ReactFlow,
@@ -28,17 +28,16 @@ import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
 import {
   Plus, Save, Trash2, Eye, Workflow, Layers, Search,
-  Crown, GitBranch, CheckCircle2, AlertCircle, Undo2,
-  Info, PlayCircle, HelpCircle, HardHat, Users, X, UserPlus,
-  Paperclip, Link2, FileText, Image as ImageIcon, FileSpreadsheet,
-  File, Tag, Upload, ExternalLink, Download, Maximize2,
+  Crown, GitBranch, CheckCircle2, AlertCircle,
+  Info, HelpCircle, Users, X, UserPlus,
+  Paperclip, Link2, FileText,
+  Tag, Upload, Download,
   RefreshCw, Copy, AlertTriangle, Pencil, Loader2,
-  Calendar, Clock, Flag, StickyNote, ChevronDown, MessageSquare,
+  Calendar, Clock, Flag, StickyNote, ChevronDown,
   Filter, LayoutDashboard, BarChart3, TrendingUp, GanttChart,
   MoreHorizontal, Printer,
   Package, Boxes, Truck, Wallet, ArrowRightLeft, ClipboardList,
   LandPlot, Home, Wrench, Building2,
-  Unlink, ArrowDown, ArrowUp, Send, CheckSquare,
 } from "lucide-react";
 
 import {
@@ -64,8 +63,8 @@ import {
 } from "@/lib/modules/registry";
 import { validateGraph } from "@/lib/modules/validation";
 import { TEMPLATES } from "@/lib/modules/templates";
-import { getField } from "@/lib/modules/resolver";
-import { NodeActions, useReferenceData } from "@/components/playground/node-actions";
+import { useReferenceData } from "@/components/playground/node-actions";
+import { NodePopup } from "@/components/playground/node-popup";
 import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { CategoryFormDialog } from "@/components/materials/category-form-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
@@ -152,7 +151,22 @@ type ModuleNodeData = {
   /** When linked to a real DB record, stores the record ID + display label. */
   recordId?: string | null;
   recordLabel?: string | null;
+  /** Cached record summary — fetched when the node is linked, so the node
+   *  can show the record's status + key metric without re-fetching on every
+   *  render. Refreshed after scoped actions create/update related records. */
+  recordStatus?: string | null;
+  recordMetric?: { label: string; value: string; type: "currency" | "number" | "text" } | null;
 };
+
+/** Status badge color — maps common business statuses to semantic colors. */
+function statusColor(status: string): string {
+  const s = status.toUpperCase();
+  if (["ACTIVE", "APPROVED", "RECEIVED", "COMPLETED", "SOLD", "PAID", "IN_STOCK", "AVAILABLE"].includes(s)) return "#16a34a";
+  if (["DRAFT", "PLANNED", "PENDING", "SUBMITTED", "OPEN", "ORDERED"].includes(s)) return "#6366f1";
+  if (["ON_HOLD", "PARTIAL", "PARTIALLY_RECEIVED", "IN_PROGRESS", "UNDER_CONSTRUCTION"].includes(s)) return "#f59e0b";
+  if (["CANCELLED", "REJECTED", "OVERDUE", "BLOCKED", "DEFECTIVE"].includes(s)) return "#ef4444";
+  return "#64748b";
+}
 
 interface EdgeData {
   relationLabel: string;
@@ -162,7 +176,7 @@ interface EdgeData {
   [key: string]: unknown;
 }
 function ModuleNode({ id, data, selected }: NodeProps) {
-  const { model, isRoot, kind, assigneeId, attachments, dueDate, priority, notes, recordId, recordLabel } = data as ModuleNodeData;
+  const { model, isRoot, kind, assigneeId, attachments, dueDate, priority, notes, recordId, recordLabel, recordStatus, recordMetric } = data as ModuleNodeData;
   const { employees, today, onAssignEmployee, onUnassign, onDeleteNode } = useContext(CanvasContext);
   const mod = MODULES[model as ModelKey];
   const [dragOver, setDragOver] = useState(false);
@@ -255,23 +269,6 @@ function ModuleNode({ id, data, selected }: NodeProps) {
         </button>
       )}
 
-      {/* Assignee avatar badge — floats outside the node on the right side */}
-      {assignee && (
-        <div
-          className="nodrag nopan absolute -right-3 top-1/2 z-20 flex -translate-y-1/2 translate-x-full items-center gap-1 rounded-full border border-border bg-card py-0.5 pl-0.5 pr-2 shadow-md"
-          style={{ pointerEvents: 'all' }}
-          title={`Assigned to ${assignee.name}${assignee.trade ? ` · ${assignee.trade}` : ""}`}
-        >
-          <span
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ background: kind === "active" ? "#16a34a" : kind === "assumption" ? "#d97706" : "#6366f1" }}
-          >
-            {assignee.name.charAt(0).toUpperCase()}
-          </span>
-          <span className="whitespace-nowrap text-[10px] font-medium text-foreground">{assignee.name}</span>
-        </div>
-      )}
-
       {isRoot && (
         <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
@@ -304,11 +301,36 @@ function ModuleNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Linked record badge — shows when this node is linked to a real DB record */}
+      {/* Linked record badge — shows when this node is linked to a real DB record.
+          Includes the record's status (colored badge) + key metric (compact),
+          so the node is a living summary, not just a dead label. */}
       {recordId && recordLabel && (
-        <div className="mt-1 flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5">
-          <Link2 className="h-2.5 w-2.5 shrink-0 text-primary" />
-          <span className="truncate text-[10px] font-medium text-primary">{recordLabel}</span>
+        <div className="mt-1 space-y-0.5">
+          <div className="flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5">
+            <Link2 className="h-2.5 w-2.5 shrink-0 text-primary" />
+            <span className="truncate text-[10px] font-medium text-primary">{recordLabel}</span>
+            {recordStatus && (
+              <span
+                className="ml-auto shrink-0 rounded-full px-1 py-px text-[8px] font-bold uppercase text-white"
+                style={{ background: statusColor(recordStatus) }}
+                title={`Status: ${recordStatus}`}
+              >
+                {recordStatus.length > 8 ? recordStatus.slice(0, 6) + "…" : recordStatus}
+              </span>
+            )}
+          </div>
+          {recordMetric && recordMetric.value && recordMetric.value !== "—" && (
+            <div className="flex items-center gap-1 px-1.5 text-[9px] text-muted-foreground">
+              <span className="opacity-60">{recordMetric.label}:</span>
+              <span className="font-semibold text-foreground">
+                {recordMetric.type === "currency"
+                  ? formatCurrency(Number(recordMetric.value))
+                  : recordMetric.type === "number"
+                    ? formatNumber(Number(recordMetric.value))
+                    : recordMetric.value}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -644,36 +666,7 @@ function EmployeeItem({ employee }: { employee: EmployeeInfo }) {
   );
 }
 
-// ── Live preview panel (slides in from right on node click) ──
-
-interface PreviewData {
-  model: string;
-  moduleLabel: string;
-  displayField: string;
-  secondaryField: string | null;
-  columns: { field: string; label: string; type?: string }[];
-  rows: Record<string, unknown>[];
-}
-
-/** Pick the right icon for a file based on its MIME type. */
-function fileIcon(mimeType?: string) {
-  if (!mimeType) return File;
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType.includes("csv")) return FileSpreadsheet;
-  if (mimeType === "application/pdf" || mimeType.includes("pdf")) return FileText;
-  if (mimeType.includes("word") || mimeType.includes("document")) return FileText;
-  return File;
-}
-
-/** Format file size in human-readable form. */
-function formatSize(bytes?: number): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-// ── Module-specific insights panel ────────────────────────────
+// ── Filter chip (used by the node filter bar) ────────────────
 
 function FilterChip({ label, value, onClear }: { label: string; value: string; onClear: () => void }) {
   return (
@@ -684,1371 +677,6 @@ function FilterChip({ label, value, onClear }: { label: string; value: string; o
         <X className="h-2.5 w-2.5" />
       </button>
     </span>
-  );
-}
-
-interface InsightStat {
-  label: string;
-  value: string | number;
-  type?: "currency" | "number" | "date" | "badge";
-  color?: string;
-}
-interface InsightAlert {
-  severity: "info" | "warning" | "danger";
-  message: string;
-}
-interface InsightRelated {
-  label: string;
-  count: number;
-  model?: ModelKey;
-}
-interface ModuleInsightsData {
-  model: ModelKey;
-  moduleLabel: string;
-  stats: InsightStat[];
-  alerts: InsightAlert[];
-  related: InsightRelated[];
-  timeline?: { date: string; label: string; value: number }[];
-}
-
-function ModuleInsightsPanel({ model }: { model: ModelKey }) {
-  const [data, setData] = useState<ModuleInsightsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/modules/insights?model=${encodeURIComponent(model)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) { if (d.error) setError(d.error); else setData(d); } })
-      .catch(() => { if (!cancelled) setError("Failed to load insights"); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [model]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-6 text-meta text-muted-foreground">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" /> Loading insights…
-      </div>
-    );
-  }
-  if (error || !data) {
-    return <div className="px-3 py-4 text-center text-meta text-muted-foreground">{error ?? "No insights available."}</div>;
-  }
-
-  const alertColors = { info: "#0ea5e9", warning: "#f59e0b", danger: "#ef4444" };
-  const alertIcons = { info: Info, warning: AlertCircle, danger: AlertTriangle };
-
-  return (
-    <div className="space-y-3">
-      {/* Stats grid */}
-      {data.stats.length > 0 && (
-        <div className="grid grid-cols-2 gap-1.5">
-          {data.stats.map((stat, i) => (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-2">
-              <p className="text-micro text-muted-foreground">{stat.label}</p>
-              <p
-                className="text-body font-semibold"
-                style={stat.color ? { color: stat.color } : undefined}
-              >
-                {stat.type === "currency" && typeof stat.value === "number"
-                  ? formatCurrency(stat.value)
-                  : stat.type === "number" && typeof stat.value === "number"
-                    ? formatNumber(stat.value)
-                    : String(stat.value)}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Alerts */}
-      {data.alerts.length > 0 && (
-        <div className="space-y-1">
-          {data.alerts.map((alert, i) => {
-            const Icon = alertIcons[alert.severity];
-            const color = alertColors[alert.severity];
-            return (
-              <div
-                key={alert.message + i}
-                className="flex items-start gap-2 rounded-md border border-border p-2"
-                style={{ background: `${color}08`, borderColor: `${color}30` }}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color }} />
-                <p className="text-meta" style={{ color }}>{alert.message}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Timeline mini chart */}
-      {data.timeline && data.timeline.length > 0 && (
-        <div className="rounded-lg border border-border bg-card p-2">
-          <p className="mb-1.5 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
-            Last 7 days
-          </p>
-          <div className="flex items-end justify-between gap-1 h-16">
-            {data.timeline.map((point, i) => {
-              const maxVal = Math.max(...data.timeline!.map((t) => t.value), 1);
-              const height = Math.max((point.value / maxVal) * 100, 4);
-              return (
-                <div key={point.label ?? i} className="flex flex-1 flex-col items-center gap-0.5">
-                  <div
-                    className="w-full rounded-t bg-primary/30 transition-all hover:bg-primary/50"
-                    style={{ height: `${height}%` }}
-                    title={`${point.label}: ${formatNumber(point.value)}`}
-                  />
-                  <span className="text-[9px] text-muted-foreground">{point.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Related entities */}
-      {data.related.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {data.related.map((rel, i) => (
-            <span key={rel.label} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-              {rel.label}: <span className="text-foreground">{rel.count}</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Details tab: due date, priority, notes, custom fields, summary ──
-
-function DetailsTab({
-  nodeId,
-  model,
-  kind,
-  assigneeId,
-  dueDate,
-  priority,
-  notes,
-  customFields,
-  employees,
-  recordCount,
-  attachmentCount,
-  recordId,
-  recordLabel,
-  onSetDueDate,
-  onSetPriority,
-  onAddNote,
-  onDeleteNote,
-  onAddCustomField,
-  onUpdateCustomField,
-  onDeleteCustomField,
-}: {
-  nodeId: string;
-  model: ModelKey;
-  kind?: NodeKind;
-  assigneeId: string | null;
-  dueDate: string | null;
-  priority?: Priority;
-  notes: NodeNote[];
-  customFields: CustomField[];
-  employees: EmployeeInfo[];
-  recordCount: number | null;
-  attachmentCount: number;
-  recordId: string | null;
-  recordLabel: string | null;
-  onSetDueDate: (nodeId: string, dueDate: string | null) => void;
-  onSetPriority: (nodeId: string, priority: Priority | null) => void;
-  onAddNote: (nodeId: string, text: string) => void;
-  onDeleteNote: (nodeId: string, noteId: string) => void;
-  onAddCustomField: (nodeId: string, label: string, value: string) => void;
-  onUpdateCustomField: (nodeId: string, fieldId: string, updates: Partial<CustomField>) => void;
-  onDeleteCustomField: (nodeId: string, fieldId: string) => void;
-}) {
-  const [noteText, setNoteText] = useState("");
-  const [newFieldLabel, setNewFieldLabel] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [fieldEditLabel, setFieldEditLabel] = useState("");
-  const [fieldEditValue, setFieldEditValue] = useState("");
-
-  const { today } = useContext(CanvasContext);
-  const mod = MODULES[model];
-  const assignee = assigneeId ? employees.find((e) => e.id === assigneeId) : null;
-  const ddStatus = dueDateStatusWithNow(dueDate ?? null, today);
-  const kindDef = kind ? NODE_KINDS[kind] : null;
-
-  const handleAddNote = () => {
-    const trimmed = noteText.trim();
-    if (!trimmed) return;
-    onAddNote(nodeId, trimmed);
-    setNoteText("");
-  };
-
-  const handleAddField = () => {
-    const label = newFieldLabel.trim();
-    if (!label) return;
-    onAddCustomField(nodeId, label, newFieldValue.trim());
-    setNewFieldLabel("");
-    setNewFieldValue("");
-  };
-
-  return (
-    <div className="space-y-4 p-3">
-      {/* Summary card */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Workflow className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-body font-semibold">{mod?.label ?? "Unknown"}</p>
-            <p className="text-micro text-muted-foreground">{mod?.group}</p>
-          </div>
-        </div>
-        {/* Linked record badge */}
-        {recordId && recordLabel && (
-          <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1">
-            <Link2 className="h-3 w-3 shrink-0 text-primary" />
-            <span className="truncate text-caption font-medium text-primary">{recordLabel}</span>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-1.5">
-          {kindDef && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-micro font-medium"
-              style={{ background: `${kindDef.color}18`, color: kindDef.color }}
-            >
-              <kindDef.icon className="h-2.5 w-2.5" /> {kindDef.label}
-            </span>
-          )}
-          {assignee && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-micro font-medium text-primary">
-              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary/20 text-[9px]">
-                {assignee.name.charAt(0).toUpperCase()}
-              </span>
-              {assignee.name}
-            </span>
-          )}
-          {recordCount !== null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-              <FileText className="h-2.5 w-2.5" /> {recordCount} records
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-micro font-medium text-muted-foreground">
-            <Paperclip className="h-2.5 w-2.5" /> {attachmentCount}
-          </span>
-        </div>
-      </div>
-
-      {/* Module-specific insights (stock levels, P&L, etc.) */}
-      <ModuleInsightsPanel model={model} />
-
-      {/* Due date */}
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" /> Due date
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dueDate ? dueDate.split("T")[0] : ""}
-            onChange={(e) => onSetDueDate(nodeId, e.target.value || null)}
-            className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-meta shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {dueDate && (
-            <button
-              onClick={() => onSetDueDate(nodeId, null)}
-              className="rounded-md border border-border px-2 py-1 text-caption text-muted-foreground hover:border-danger/40 hover:text-danger"
-              title="Clear due date"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        {dueDate && (
-          <p className="flex items-center gap-1 text-micro font-medium" style={{ color: ddStatus.color }}>
-            <ddStatus.icon className="h-3 w-3" /> {ddStatus.label}
-          </p>
-        )}
-      </div>
-
-      {/* Priority */}
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
-          <Flag className="h-3.5 w-3.5" /> Priority
-        </label>
-        <div className="flex flex-wrap gap-1">
-          {PRIORITY_LIST.map((p) => {
-            const active = priority === p.key;
-            return (
-              <button
-                key={p.key}
-                onClick={() => onSetPriority(nodeId, active ? null : p.key)}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-caption font-medium transition-colors",
-                  active
-                    ? "border-transparent text-white shadow-sm"
-                    : "border-border bg-card text-muted-foreground hover:bg-accent",
-                )}
-                style={active ? { background: p.color } : undefined}
-              >
-                <span className={cn("h-2 w-2 rounded-full", !active && "border border-border")} style={{ background: active ? "white" : p.color }} />
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
-          <StickyNote className="h-3.5 w-3.5" /> Notes ({notes.length})
-        </label>
-        <div className="flex gap-1.5">
-          <textarea
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAddNote(); }}
-            placeholder="Add a note… (Cmd+Enter to save)"
-            rows={2}
-            className="flex-1 rounded-md border border-input bg-card px-2 py-1.5 text-meta shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-          />
-          <Button size="sm" variant="outline" onClick={handleAddNote} disabled={!noteText.trim()}>
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-        {notes.length > 0 && (
-          <div className="space-y-1.5">
-            {notes.map((note) => (
-              <div key={note.id} className="group rounded-md border border-border bg-muted/30 p-2">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-meta whitespace-pre-wrap break-words">{note.text}</p>
-                  <button
-                    onClick={() => onDeleteNote(nodeId, note.id)}
-                    className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                    title="Delete note"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-                <p className="mt-1 text-micro text-muted-foreground/60">
-                  {formatDate(note.createdAt)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Custom fields */}
-      <div className="space-y-1.5">
-        <label className="flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
-          <MessageSquare className="h-3.5 w-3.5" /> Custom fields ({customFields.length})
-        </label>
-        {customFields.length > 0 && (
-          <div className="space-y-1">
-            {customFields.map((field) => (
-              <div key={field.id} className="group flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5">
-                {editingField === field.id ? (
-                  <>
-                    <input
-                      value={fieldEditLabel}
-                      onChange={(e) => setFieldEditLabel(e.target.value)}
-                      placeholder="Label"
-                      className="h-7 w-24 rounded border border-input bg-card px-1.5 text-micro shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                    <input
-                      value={fieldEditValue}
-                      onChange={(e) => setFieldEditValue(e.target.value)}
-                      placeholder="Value"
-                      className="h-7 flex-1 rounded border border-input bg-card px-1.5 text-micro shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                    <button
-                      onClick={() => {
-                        onUpdateCustomField(nodeId, field.id, { label: fieldEditLabel.trim() || field.label, value: fieldEditValue });
-                        setEditingField(null);
-                      }}
-                      className="rounded p-1 text-primary hover:bg-accent"
-                      title="Save"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setEditingField(null)}
-                      className="rounded p-1 text-muted-foreground hover:bg-accent"
-                      title="Cancel"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-24 shrink-0 text-micro font-medium text-muted-foreground">{field.label}</span>
-                    <span className="flex-1 truncate text-micro text-foreground">{field.value || "—"}</span>
-                    <button
-                      onClick={() => { setEditingField(field.id); setFieldEditLabel(field.label); setFieldEditValue(field.value); }}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
-                      title="Edit field"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => onDeleteCustomField(nodeId, field.id)}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                      title="Delete field"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {/* Add new field */}
-        <div className="flex gap-1.5">
-          <input
-            value={newFieldLabel}
-            onChange={(e) => setNewFieldLabel(e.target.value)}
-            placeholder="Field name"
-            className="h-7 w-28 rounded-md border border-input bg-card px-2 text-micro shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-          <input
-            value={newFieldValue}
-            onChange={(e) => setNewFieldValue(e.target.value)}
-            placeholder="Value"
-            className="h-7 flex-1 rounded-md border border-input bg-card px-2 text-micro shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onKeyDown={(e) => { if (e.key === "Enter") handleAddField(); }}
-          />
-          <Button size="sm" variant="outline" onClick={handleAddField} disabled={!newFieldLabel.trim()}>
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Link Record tab: pick an existing DB record to assign to this node ──
-
-function LinkRecordTab({
-  model,
-  recordId,
-  recordLabel,
-  data,
-  loading,
-  error,
-  onLinkRecord,
-  onUnlinkRecord,
-  nodeId,
-}: {
-  model: ModelKey;
-  recordId: string | null;
-  recordLabel: string | null;
-  data: PreviewData | null;
-  loading: boolean;
-  error: string | null;
-  onLinkRecord: (nodeId: string, recordId: string, recordLabel: string) => void;
-  onUnlinkRecord: (nodeId: string) => void;
-  nodeId: string;
-}) {
-  const [search, setSearch] = useState("");
-  const mod = MODULES[model];
-
-  // Currently linked record card
-  if (recordId && recordLabel) {
-    return (
-      <div className="space-y-3 p-3">
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-          <div className="mb-1 flex items-center gap-1.5 text-caption font-medium text-primary">
-            <Link2 className="h-3.5 w-3.5" /> Linked Record
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: `${GROUP_COLORS[mod.group]}18`, color: GROUP_COLORS[mod.group] }}
-            >
-              <mod.icon className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-body font-medium text-foreground">{recordLabel}</p>
-              <p className="truncate text-caption text-muted-foreground">{mod.label} · ID: {recordId.slice(0, 8)}…</p>
-            </div>
-          </div>
-          <button
-            onClick={() => onUnlinkRecord(nodeId)}
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-1.5 text-caption font-medium text-muted-foreground transition-colors hover:border-danger/40 hover:text-danger"
-          >
-            <Unlink className="h-3.5 w-3.5" /> Unlink Record
-          </button>
-        </div>
-        <p className="text-center text-caption text-muted-foreground">
-          Unlink to choose a different record, or switch tabs to view details.
-        </p>
-      </div>
-    );
-  }
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-meta text-muted-foreground">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" /> Loading {mod.label} records…
-      </div>
-    );
-  }
-
-  // Error state
-  if (error || !data) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <AlertCircle className="h-5 w-5 text-muted-foreground/40" />
-        <p className="text-meta text-muted-foreground">{error ?? "No data available"}</p>
-      </div>
-    );
-  }
-
-  // No records exist yet
-  if (data.rows.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <Package className="h-5 w-5 text-muted-foreground/40" />
-        <p className="text-meta text-muted-foreground">No {mod.label} records exist yet.</p>
-        <p className="text-caption text-muted-foreground/60">Use the Actions tab to create one.</p>
-      </div>
-    );
-  }
-
-  // Filter records by search
-  const filtered = search.trim()
-    ? data.rows.filter((row) =>
-        data.columns.some((c) => {
-          const val = getField(row, c.field);
-          return val != null && String(val).toLowerCase().includes(search.toLowerCase());
-        }),
-      )
-    : data.rows;
-
-  return (
-    <div className="flex flex-col">
-      {/* Search */}
-      <div className="border-b border-border p-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Search ${data.rows.length} ${mod.label} records…`}
-            className="h-8 pl-8 text-meta"
-          />
-        </div>
-        <p className="mt-1.5 text-micro text-muted-foreground">
-          Pick a record to link to this node. The node will display the record's name.
-        </p>
-      </div>
-
-      {/* Record list */}
-      <div className="divide-y divide-border/60">
-        {filtered.slice(0, 50).map((row, i) => {
-          const label = String(getField(row, data.displayField) ?? "—");
-          const secondary = data.secondaryField
-            ? String(getField(row, data.secondaryField) ?? "")
-            : "";
-          return (
-            <button
-              key={String(row.id) + i}
-              onClick={() => onLinkRecord(nodeId, String(row.id), label)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-primary/5"
-            >
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                style={{ background: `${GROUP_COLORS[mod.group]}18`, color: GROUP_COLORS[mod.group] }}
-              >
-                <mod.icon className="h-3.5 w-3.5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-body font-medium text-foreground">{label}</p>
-                {secondary && <p className="truncate text-caption text-muted-foreground">{secondary}</p>}
-              </div>
-              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            </button>
-          );
-        })}
-        {filtered.length > 50 && (
-          <p className="px-3 py-2 text-center text-caption text-muted-foreground">
-            Showing 50 of {filtered.length} {search ? "matches" : "records"} — refine your search
-          </p>
-        )}
-        {search && filtered.length === 0 && (
-          <p className="px-3 py-6 text-center text-caption text-muted-foreground">
-            No records match "{search}"
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Connections tab: show nodes connected to this node ──
-
-function ConnectionsTab({
-  connectedNodes,
-  onJumpToNode,
-}: {
-  connectedNodes: { id: string; model: ModelKey; label: string; relationLabel: string; direction: "in" | "out" }[];
-  onJumpToNode: (nodeId: string) => void;
-}) {
-  if (connectedNodes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <GitBranch className="h-5 w-5 text-muted-foreground/40" />
-        <p className="text-meta text-muted-foreground">No connections yet</p>
-        <p className="text-caption text-muted-foreground/60">
-          Drag from a node's handle to another node to create a connection.
-        </p>
-      </div>
-    );
-  }
-
-  const incoming = connectedNodes.filter((c) => c.direction === "in");
-  const outgoing = connectedNodes.filter((c) => c.direction === "out");
-
-  return (
-    <div className="space-y-3 p-3">
-      {incoming.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-caption font-medium text-muted-foreground">
-            Incoming ({incoming.length})
-          </p>
-          <div className="space-y-1.5">
-            {incoming.map((c) => {
-              const mod = MODULES[c.model];
-              const color = mod ? GROUP_COLORS[mod.group] : "#94a3b8";
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onJumpToNode(c.id)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent"
-                >
-                  {mod && (
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: `${color}18`, color }}>
-                      <mod.icon className="h-3 w-3" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body font-medium text-foreground">{c.label}</p>
-                    <p className="truncate text-micro text-muted-foreground">
-                      {mod?.label ?? c.model} · {c.relationLabel}
-                    </p>
-                  </div>
-                  <ArrowDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      {outgoing.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-caption font-medium text-muted-foreground">
-            Outgoing ({outgoing.length})
-          </p>
-          <div className="space-y-1.5">
-            {outgoing.map((c) => {
-              const mod = MODULES[c.model];
-              const color = mod ? GROUP_COLORS[mod.group] : "#94a3b8";
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onJumpToNode(c.id)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left transition-colors hover:border-primary/40 hover:bg-accent"
-                >
-                  {mod && (
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: `${color}18`, color }}>
-                      <mod.icon className="h-3 w-3" />
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body font-medium text-foreground">{c.label}</p>
-                    <p className="truncate text-micro text-muted-foreground">
-                      {mod?.label ?? c.model} · {c.relationLabel}
-                    </p>
-                  </div>
-                  <ArrowUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NodePreviewPanel({
-  nodeId,
-  model,
-  kind,
-  assigneeId,
-  attachments,
-  dueDate,
-  priority,
-  notes,
-  customFields,
-  employees,
-  recordId,
-  recordLabel,
-  connectedNodes,
-  workspaceId,
-  onClose,
-  onUploadFiles,
-  onAddLink,
-  onUpdateAttachment,
-  onRemoveAttachment,
-  onDeleteFile,
-  onSetDueDate,
-  onSetPriority,
-  onAddNote,
-  onDeleteNote,
-  onAddCustomField,
-  onUpdateCustomField,
-  onDeleteCustomField,
-  onLinkRecord,
-  onUnlinkRecord,
-  onJumpToNode,
-}: {
-  nodeId: string;
-  model: ModelKey;
-  kind?: NodeKind;
-  assigneeId: string | null;
-  attachments: Attachment[];
-  dueDate: string | null;
-  priority?: Priority;
-  notes: NodeNote[];
-  customFields: CustomField[];
-  employees: EmployeeInfo[];
-  recordId: string | null;
-  recordLabel: string | null;
-  connectedNodes: { id: string; model: ModelKey; label: string; relationLabel: string; direction: "in" | "out" }[];
-  workspaceId?: string;
-  onClose: () => void;
-  onUploadFiles: (nodeId: string, files: FileList) => Promise<void>;
-  onAddLink: (nodeId: string, url: string, title: string) => void;
-  onUpdateAttachment: (nodeId: string, attachmentId: string, updates: Partial<Attachment>) => void;
-  onRemoveAttachment: (nodeId: string, attachmentId: string) => void;
-  onDeleteFile: (attachment: Attachment) => Promise<void>;
-  onSetDueDate: (nodeId: string, dueDate: string | null) => void;
-  onSetPriority: (nodeId: string, priority: Priority | null) => void;
-  onAddNote: (nodeId: string, text: string) => void;
-  onDeleteNote: (nodeId: string, noteId: string) => void;
-  onAddCustomField: (nodeId: string, label: string, value: string) => void;
-  onUpdateCustomField: (nodeId: string, fieldId: string, updates: Partial<CustomField>) => void;
-  onDeleteCustomField: (nodeId: string, fieldId: string) => void;
-  onLinkRecord: (nodeId: string, recordId: string, recordLabel: string) => void;
-  onUnlinkRecord: (nodeId: string) => void;
-  onJumpToNode: (nodeId: string) => void;
-}) {
-  const [data, setData] = useState<PreviewData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"details" | "records" | "link" | "connections" | "attachments" | "actions">("details");
-  const [uploading, setUploading] = useState(false);
-  const [showLinkForm, setShowLinkForm] = useState(false);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkTitle, setLinkTitle] = useState("");
-  const [editingTags, setEditingTags] = useState<string | null>(null);
-  const [tagDraft, setTagDraft] = useState("");
-  const [editingTitle, setEditingTitle] = useState<string | null>(null);
-  const [titleDraft, setTitleDraft] = useState("");
-  const [recordSearch, setRecordSearch] = useState("");
-  const [noteText, setNoteText] = useState("");
-  const [newFieldLabel, setNewFieldLabel] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [assignTaskOpen, setAssignTaskOpen] = useState(false);
-  const [taskCount, setTaskCount] = useState<number>(0);
-
-  // Fetch task count for this workspace (for the badge on the Assign Task button)
-  useEffect(() => {
-    if (!workspaceId) return;
-    let cancelled = false;
-    fetch(`/api/tasks?status=PENDING,IN_PROGRESS`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((tasks: { workspace?: { id: string } | null }[]) => {
-        if (!cancelled) {
-          setTaskCount(tasks.filter((t) => t.workspace?.id === workspaceId).length);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [workspaceId, assignTaskOpen]);
-
-  // Fetch reference data for the Actions tab (lazy — only when tab is opened)
-  const { data: referenceData, refresh: refreshReferenceData } = useReferenceData(tab === "actions");
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/modules/records?model=${encodeURIComponent(model)}`)
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw new Error(json.error ?? "Failed to load");
-        return json as PreviewData;
-      })
-      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(e.message ?? "Failed to load"); setLoading(false); } });
-    return () => { cancelled = true; };
-  }, [model, recordsRefreshKey]);
-
-  const mod = MODULES[model];
-  const kindDef = kind ? NODE_KINDS[kind] : null;
-  const assignee = assigneeId ? employees.find((e) => e.id === assigneeId) : null;
-
-  function cellLabel(value: unknown, type?: string): string {
-    if (value == null || value === "") return "—";
-    if (type === "currency") return formatCurrency(Number(value));
-    if (type === "number") return formatNumber(Number(value));
-    if (type === "date") return formatDate(value as string);
-    return String(value);
-  }
-
-  // Filter records by search query across all visible columns
-  const filteredRows = useMemo(() => {
-    if (!data || !recordSearch.trim()) return data?.rows ?? [];
-    const q = recordSearch.toLowerCase();
-    return data.rows.filter((row) => {
-      return data.columns.some((c) => {
-        const val = getField(row, c.field);
-        if (val == null) return false;
-        return String(val).toLowerCase().includes(q);
-      });
-    });
-  }, [data, recordSearch]);
-
-  const commitTitle = (attachment: Attachment) => {
-    const trimmed = titleDraft.trim();
-    if (trimmed && trimmed !== attachment.title) {
-      onUpdateAttachment(nodeId, attachment.id, { title: trimmed });
-    }
-    setEditingTitle(null);
-    setTitleDraft("");
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setUploading(true);
-    try {
-      await onUploadFiles(nodeId, e.target.files);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setUploading(true);
-      try {
-        await onUploadFiles(nodeId, e.dataTransfer.files);
-      } finally {
-        setUploading(false);
-      }
-    }
-  };
-
-  const submitLink = () => {
-    if (!linkUrl.trim()) return;
-    onAddLink(nodeId, linkUrl.trim(), linkTitle.trim());
-    setLinkUrl("");
-    setLinkTitle("");
-    setShowLinkForm(false);
-  };
-
-  const handleRemoveAttachment = async (attachment: Attachment) => {
-    await onDeleteFile(attachment);
-    onRemoveAttachment(nodeId, attachment.id);
-  };
-
-  const commitTags = (attachment: Attachment) => {
-    const tags = tagDraft
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    onUpdateAttachment(nodeId, attachment.id, { tags });
-    setEditingTags(null);
-    setTagDraft("");
-  };
-
-  return (
-    <aside className="absolute right-0 top-0 z-20 flex h-full w-80 flex-col rounded-lg border-l-2 border-border bg-card shadow-xl md:w-96">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          {mod && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${GROUP_COLORS[mod.group]}18`, color: GROUP_COLORS[mod.group] }}>
-              <mod.icon className="h-4 w-4" />
-            </span>
-          )}
-          <div className="leading-tight">
-            <p className="text-body font-semibold">{mod?.label ?? model}</p>
-            <p className="text-micro text-muted-foreground">Node details</p>
-          </div>
-        </div>
-        <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Kind + assignee summary */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
-        {kindDef && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-medium"
-            style={{ background: `${kindDef.color}18`, color: kindDef.color }}
-          >
-            <kindDef.icon className="h-3 w-3" /> {kindDef.label}
-          </span>
-        )}
-        {assignee && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-caption font-medium text-primary">
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/20 text-[10px]">
-              {assignee.name.charAt(0).toUpperCase()}
-            </span>
-            {assignee.name}
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {taskCount > 0 && (
-            <a
-              href="/tasks"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-caption font-medium text-primary transition-colors hover:bg-primary/20"
-              title={`${taskCount} active task${taskCount !== 1 ? "s" : ""} linked to this workspace`}
-            >
-              <CheckSquare className="h-3 w-3" /> {taskCount}
-            </a>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAssignTaskOpen(true)}
-            title="Assign a task to a signed-in user — they'll see it on their dashboard with your guidance"
-          >
-            <Send className="h-3.5 w-3.5" /> Assign Task
-          </Button>
-        </div>
-      </div>
-
-      {/* Tab switcher — scrollable on narrow screens */}
-      <div className="flex border-b border-border overflow-x-auto scrollbar-thin">
-        <button
-          onClick={() => setTab("details")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "details" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Workflow className="h-3 w-3" /> Details
-          </span>
-        </button>
-        <button
-          onClick={() => setTab("link")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "link" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Link2 className="h-3 w-3" /> Link
-          </span>
-        </button>
-        <button
-          onClick={() => setTab("records")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "records" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Records {data ? `(${data.rows.length})` : ""}
-        </button>
-        <button
-          onClick={() => setTab("connections")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "connections" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <GitBranch className="h-3 w-3" /> ({connectedNodes.length})
-          </span>
-        </button>
-        <button
-          onClick={() => setTab("attachments")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "attachments" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Paperclip className="h-3 w-3" />
-            ({attachments.length})
-          </span>
-        </button>
-        <button
-          onClick={() => setTab("actions")}
-          className={cn(
-            "shrink-0 px-3 py-2 text-caption font-medium transition-colors",
-            tab === "actions" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Plus className="h-3 w-3" /> Actions
-          </span>
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        {tab === "details" ? (
-          <DetailsTab
-            nodeId={nodeId}
-            model={model}
-            kind={kind}
-            assigneeId={assigneeId}
-            dueDate={dueDate}
-            priority={priority}
-            notes={notes}
-            customFields={customFields}
-            employees={employees}
-            recordCount={data?.rows.length ?? null}
-            attachmentCount={attachments.length}
-            recordId={recordId}
-            recordLabel={recordLabel}
-            onSetDueDate={onSetDueDate}
-            onSetPriority={onSetPriority}
-            onAddNote={onAddNote}
-            onDeleteNote={onDeleteNote}
-            onAddCustomField={onAddCustomField}
-            onUpdateCustomField={onUpdateCustomField}
-            onDeleteCustomField={onDeleteCustomField}
-          />
-        ) : tab === "link" ? (
-          /* Link tab — pick an existing DB record to assign to this node */
-          <LinkRecordTab
-            model={model}
-            recordId={recordId}
-            recordLabel={recordLabel}
-            data={data}
-            loading={loading}
-            error={error}
-            onLinkRecord={onLinkRecord}
-            onUnlinkRecord={onUnlinkRecord}
-            nodeId={nodeId}
-          />
-        ) : tab === "connections" ? (
-          /* Connections tab — show nodes connected to this node */
-          <ConnectionsTab
-            connectedNodes={connectedNodes}
-            onJumpToNode={onJumpToNode}
-          />
-        ) : tab === "records" ? (
-          loading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-meta text-muted-foreground">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" /> Loading…
-            </div>
-          ) : error ? (
-            <div className="px-4 py-8 text-center text-meta text-danger">{error}</div>
-          ) : !data || data.rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <Workflow className="h-6 w-6 text-muted-foreground/40" />
-              <p className="text-meta text-muted-foreground">No records found for this module.</p>
-            </div>
-          ) : (
-            <>
-              {/* Records search */}
-              <div className="border-b border-border p-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={recordSearch}
-                    onChange={(e) => setRecordSearch(e.target.value)}
-                    placeholder={`Search ${data.rows.length} records…`}
-                    className="h-8 pl-8 text-meta"
-                  />
-                </div>
-              </div>
-              <div className="divide-y divide-border/60">
-              {filteredRows.slice(0, 50).map((row, i) => (
-                <div key={String(row.id) + i} className="px-3 py-2.5 hover:bg-muted/30">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-body font-medium text-foreground">
-                      {cellLabel(getField(row, data.displayField))}
-                    </span>
-                    <span className="shrink-0 text-caption text-muted-foreground">
-                      {data.columns.length > 1 ? cellLabel(getField(row, data.columns[1]!.field), data.columns[1]!.type) : ""}
-                    </span>
-                  </div>
-                  {data.secondaryField && data.secondaryField !== data.displayField && (
-                    <p className="mt-0.5 truncate text-caption text-muted-foreground">
-                      {cellLabel(getField(row, data.secondaryField))}
-                    </p>
-                  )}
-                  {data.columns.length > 2 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {data.columns.slice(2).map((c) => {
-                        const val = getField(row, c.field);
-                        if (val == null || val === "") return null;
-                        return (
-                          <span key={c.field} className="rounded bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
-                            {c.label}: {cellLabel(val, c.type)}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {filteredRows.length > 50 && (
-                <p className="px-3 py-2 text-center text-caption text-muted-foreground">
-                  Showing 50 of {filteredRows.length} {recordSearch ? "matches" : "records"}
-                </p>
-              )}
-              {recordSearch && filteredRows.length === 0 && (
-                <p className="px-3 py-6 text-center text-caption text-muted-foreground">
-                  No records match "{recordSearch}"
-                </p>
-              )}
-              </div>
-            </>
-          )
-        ) : tab === "attachments" ? (
-          /* Attachments tab */
-          <div className="flex flex-col">
-            {/* Upload zone */}
-            <div
-              className={cn(
-                "m-3 rounded-lg border-2 border-dashed p-4 text-center transition-colors",
-                dragOver ? "border-primary bg-primary/5" : "border-border",
-              )}
-              onDrop={handleDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-            >
-              {uploading ? (
-                <div className="flex items-center justify-center gap-2 text-meta text-muted-foreground">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" /> Uploading…
-                </div>
-              ) : (
-                <>
-                  <Upload className="mx-auto mb-1.5 h-6 w-6 text-muted-foreground/40" />
-                  <p className="text-meta text-muted-foreground">
-                    Drag files here or{" "}
-                    <button onClick={() => fileInputRef.current?.click()} className="font-medium text-primary hover:underline">
-                      browse
-                    </button>
-                  </p>
-                  <p className="mt-0.5 text-micro text-muted-foreground/60">
-                    Photos, PDFs, Excel, docs — up to 25 MB
-                  </p>
-                </>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-
-            {/* Add link button / form */}
-            {showLinkForm ? (
-              <div className="mx-3 mb-3 space-y-2 rounded-lg border border-border p-3">
-                <Input
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="text-meta"
-                />
-                <Input
-                  value={linkTitle}
-                  onChange={(e) => setLinkTitle(e.target.value)}
-                  placeholder="Link title (optional)"
-                  className="text-meta"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { setShowLinkForm(false); setLinkUrl(""); setLinkTitle(""); }}>Cancel</Button>
-                  <Button size="sm" onClick={submitLink} disabled={!linkUrl.trim()}>
-                    <Link2 className="h-3.5 w-3.5" /> Add Link
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="mx-3 mb-3">
-                <Button variant="outline" size="sm" className="w-full" onClick={() => setShowLinkForm(true)}>
-                  <Link2 className="h-3.5 w-3.5" /> Add a link
-                </Button>
-              </div>
-            )}
-
-            {/* Attachment list */}
-            {attachments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <Paperclip className="h-6 w-6 text-muted-foreground/40" />
-                <p className="text-meta text-muted-foreground">No attachments yet</p>
-                <p className="text-micro text-muted-foreground/60">Upload files or add links above</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border/60">
-                {attachments.map((att) => {
-                  const Icon = att.type === "link" ? Link2 : fileIcon(att.mimeType);
-                  const isImage = att.mimeType?.startsWith("image/");
-                  return (
-                    <div key={att.id} className="px-3 py-2.5">
-                      <div className="flex items-start gap-2.5">
-                        {/* Thumbnail / icon */}
-                        {isImage ? (
-                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={att.url}
-                              alt={att.title}
-                              className="h-12 w-12 rounded-md border border-border object-cover"
-                            />
-                          </a>
-                        ) : (
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
-                            <Icon className="h-5 w-5" />
-                          </span>
-                        )}
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            {editingTitle === att.id ? (
-                              <input
-                                value={titleDraft}
-                                onChange={(e) => setTitleDraft(e.target.value)}
-                                onBlur={() => commitTitle(att)}
-                                onKeyDown={(e) => { if (e.key === "Enter") commitTitle(att); if (e.key === "Escape") setEditingTitle(null); }}
-                                autoFocus
-                                className="w-full rounded border border-primary bg-card px-1.5 py-0.5 text-body font-medium shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                              />
-                            ) : (
-                              <p
-                                className="truncate text-body font-medium text-foreground cursor-text hover:text-primary"
-                                onDoubleClick={() => { setEditingTitle(att.id); setTitleDraft(att.title); }}
-                                title="Double-click to rename"
-                              >
-                                {att.title}
-                              </p>
-                            )}
-                            <div className="flex shrink-0 items-center gap-0.5">
-                              {att.type === "file" && (
-                                <a
-                                  href={att.url}
-                                  download={att.fileName}
-                                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                                  title="Download"
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {att.type === "link" && (
-                                <a
-                                  href={att.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                                  title="Open link"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              <button
-                                onClick={() => handleRemoveAttachment(att)}
-                                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-danger"
-                                title="Remove"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          <p className="truncate text-micro text-muted-foreground">
-                            {att.type === "link" ? att.url : `${att.fileName ?? att.title} · ${formatSize(att.size)}`}
-                          </p>
-
-                          {/* Tags */}
-                          {editingTags === att.id ? (
-                            <div className="mt-1.5 flex items-center gap-1">
-                              <input
-                                value={tagDraft}
-                                onChange={(e) => setTagDraft(e.target.value)}
-                                onBlur={() => commitTags(att)}
-                                onKeyDown={(e) => { if (e.key === "Enter") commitTags(att); if (e.key === "Escape") setEditingTags(null); }}
-                                placeholder="tag1, tag2, tag3"
-                                autoFocus
-                                className="flex-1 rounded border border-primary bg-card px-1.5 py-0.5 text-micro shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                              />
-                              <button onClick={() => commitTags(att)} className="text-micro text-primary hover:underline">Save</button>
-                            </div>
-                          ) : (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              {att.tags?.map((t) => (
-                                <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-micro font-medium text-primary">
-                                  <Tag className="h-2 w-2" />{t}
-                                </span>
-                              ))}
-                              <button
-                                onClick={() => { setEditingTags(att.id); setTagDraft(att.tags?.join(", ") ?? ""); }}
-                                className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-1.5 py-0.5 text-micro text-muted-foreground hover:border-primary/40 hover:text-primary"
-                              >
-                                <Plus className="h-2 w-2" />{att.tags?.length ? "edit tags" : "add tags"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : tab === "actions" ? (
-          /* Actions tab — create records for this module */
-          <NodeActions
-            model={model}
-            referenceData={referenceData}
-            onRecordCreated={() => {
-              setRecordsRefreshKey((k) => k + 1);
-              refreshReferenceData();
-            }}
-          />
-        ) : null}
-      </div>
-
-      {/* Assign Task dialog — lets the admin assign this node as a task to a signed-in user */}
-      <AssignTaskDialog
-        open={assignTaskOpen}
-        onOpenChange={setAssignTaskOpen}
-        defaultTitle={`${MODULES[model]?.label ?? "Task"} — ${recordLabel ?? "canvas node"}`}
-        nodeLabel={MODULES[model]?.label ?? model}
-        workspaceId={workspaceId}
-      />
-    </aside>
   );
 }
 
@@ -3035,7 +1663,50 @@ function CanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-fit the canvas to show all nodes when entering live mode.
+  // Batch-fetch record summaries for all pre-linked nodes.
+  // This runs once after the initial nodes are settled (from draft or
+  // initialGraph) and populates status + metric on every linked node
+  // in a single round-trip, so the canvas shows living pointers on load.
+  useEffect(() => {
+    const linked = nodes.filter((n) => {
+      const d = n.data as ModuleNodeData;
+      return d.recordId && !d.recordStatus && !d.recordMetric;
+    });
+    if (linked.length === 0) return;
+    const payload = {
+      nodes: linked.map((n) => {
+        const d = n.data as ModuleNodeData;
+        return { model: d.model, id: d.recordId };
+      }),
+    };
+    let cancelled = false;
+    fetch("/api/modules/node-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (cancelled || !res?.summaries) return;
+        const byKey = new Map<string, { status: string | null; metric: any }>();
+        for (const s of res.summaries) byKey.set(`${s.model}:${s.recordId}`, { status: s.status, metric: s.metric });
+        setNodes((nds) =>
+          nds.map((n) => {
+            const d = n.data as ModuleNodeData;
+            if (!d.recordId) return n;
+            const s = byKey.get(`${d.model}:${d.recordId}`);
+            if (!s) return n;
+            return {
+              ...n,
+              data: { ...d, recordStatus: s.status, recordMetric: s.metric } as ModuleNodeData,
+            };
+          }),
+        );
+      })
+      .catch(() => { /* non-critical */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length > 0]);
   // The remount (editorKey change) creates fresh nodes from the live graph;
   // this effect waits for React Flow to measure them, then fits the view.
   useEffect(() => {
@@ -3116,6 +1787,18 @@ function CanvasInner({
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) ?? null : null;
   const previewNode = previewNodeId ? nodes.find((n) => n.id === previewNodeId) ?? null : null;
 
+  // Compute the preview node's screen position for popover anchoring.
+  // React Flow's flowToScreenPosition converts canvas coords → screen coords.
+  const previewNodePosition = useMemo(() => {
+    if (!previewNode?.position) return undefined;
+    try {
+      const screen = flow.flowToScreenPosition(previewNode.position);
+      return { x: screen.x, y: screen.y };
+    } catch {
+      return undefined;
+    }
+  }, [previewNode, flow]);
+
   // Close the preview panel on Escape — there's no other way to dismiss it
   // when focus is inside the canvas (e.g. after clicking a node).
   useEffect(() => {
@@ -3149,7 +1832,7 @@ function CanvasInner({
           ...(d.priority ? { priority: d.priority } : {}),
           ...(d.notes && d.notes.length > 0 ? { notes: d.notes } : {}),
           ...(d.customFields && d.customFields.length > 0 ? { customFields: d.customFields } : {}),
-          ...(d.recordId ? { recordId: d.recordId, recordLabel: d.recordLabel } : {}),
+          ...(d.recordId ? { recordId: d.recordId, recordLabel: d.recordLabel, recordStatus: d.recordStatus ?? null, recordMetric: d.recordMetric ?? null } : {}),
         };
       }),
       edges: edges.map((e) => ({
@@ -3325,7 +2008,7 @@ function CanvasInner({
           ...(d.priority ? { priority: d.priority } : {}),
           ...(d.notes && d.notes.length > 0 ? { notes: d.notes } : {}),
           ...(d.customFields && d.customFields.length > 0 ? { customFields: d.customFields } : {}),
-          ...(d.recordId ? { recordId: d.recordId, recordLabel: d.recordLabel } : {}),
+          ...(d.recordId ? { recordId: d.recordId, recordLabel: d.recordLabel, recordStatus: d.recordStatus ?? null, recordMetric: d.recordMetric ?? null } : {}),
         };
       }),
       edges: edges.map((e) => ({
@@ -3501,28 +2184,132 @@ function CanvasInner({
 
   // ── Record linking ──────────────────────────────────────────
   // Link a node to an existing DB record. The record's display label
-  // is shown on the node and in the preview panel.
+  // is shown on the node and in the preview panel. We also fetch a
+  // lightweight summary (status + key metric) so the node becomes a
+  // living pointer to the record, not just a dead label.
   const linkRecord = useCallback((nodeId: string, recordId: string, recordLabel: string) => {
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id !== nodeId) return n;
         const d = n.data as ModuleNodeData;
-        return { ...n, data: { ...d, recordId, recordLabel } as ModuleNodeData };
+        return { ...n, data: { ...d, recordId, recordLabel, recordStatus: null, recordMetric: null } as ModuleNodeData };
       }),
     );
+    // Fire-and-forget summary fetch — updates the node in-place when it arrives.
+    const model = (nodes.find((n) => n.id === nodeId)?.data as ModuleNodeData | undefined)?.model;
+    if (model) {
+      fetch(`/api/modules/node-summary?model=${encodeURIComponent(model)}&id=${encodeURIComponent(recordId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((summary) => {
+          if (!summary || summary.error) return;
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id !== nodeId) return n;
+              const d = n.data as ModuleNodeData;
+              if (d.recordId !== recordId) return n; // guard against race with unlink
+              return {
+                ...n,
+                data: {
+                  ...d,
+                  recordStatus: summary.status ?? null,
+                  recordMetric: summary.metric ?? null,
+                } as ModuleNodeData,
+              };
+            }),
+          );
+        })
+        .catch(() => { /* non-critical — node still shows label */ });
+    }
     toast.success(`Linked to "${recordLabel}"`);
-  }, [setNodes]);
+  }, [nodes, setNodes]);
 
   const unlinkRecord = useCallback((nodeId: string) => {
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id !== nodeId) return n;
         const d = n.data as ModuleNodeData;
-        return { ...n, data: { ...d, recordId: null, recordLabel: null } as ModuleNodeData };
+        return { ...n, data: { ...d, recordId: null, recordLabel: null, recordStatus: null, recordMetric: null } as ModuleNodeData };
       }),
     );
     toast.info("Record unlinked");
   }, [setNodes]);
+
+  // ── Spawn child node ─────────────────────────────────────────
+  // Creates a new node on the canvas connected to a parent via an edge.
+  // If childRecordId is non-empty, the child is linked to that DB record
+  // and we fetch its summary for the status + metric display.
+  const spawnChildNode = useCallback((
+    parentId: string,
+    childModel: ModelKey,
+    childRecordId: string,
+    childLabel: string,
+    relation: RelationDef,
+  ) => {
+    const parent = nodes.find((n) => n.id === parentId);
+    if (!parent) return;
+    const childId = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const childMod = MODULES[childModel];
+    const childColor = childMod ? GROUP_COLORS[childMod.group] : "#6366f1";
+
+    // Position the child below-right of the parent
+    const childX = (parent.position?.x ?? 0) + 260;
+    const childY = (parent.position?.y ?? 0) + 160;
+
+    const newNode: Node = {
+      id: childId,
+      type: "module",
+      position: { x: childX, y: childY },
+      data: {
+        model: childModel,
+        recordId: childRecordId || null,
+        recordLabel: childLabel || null,
+        recordStatus: null,
+        recordMetric: null,
+      } as ModuleNodeData,
+    };
+
+    const newEdge: Edge = {
+      id: `e_${parentId}_${childId}`,
+      source: parentId,
+      target: childId,
+      type: "relation",
+      data: {
+        relationLabel: relation.label,
+        hops: relation.hops,
+        toModel: relation.toModel,
+        label: relation.label,
+        isLive: false,
+      } as unknown as EdgeData,
+      style: { stroke: childColor, strokeWidth: 2 },
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    setEdges((eds) => [...eds, newEdge]);
+
+    // If the child is linked, fetch its summary for status + metric display
+    if (childRecordId) {
+      fetch(`/api/modules/node-summary?model=${encodeURIComponent(childModel)}&id=${encodeURIComponent(childRecordId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((summary) => {
+          if (!summary || summary.error) return;
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id !== childId) return n;
+              const d = n.data as ModuleNodeData;
+              return {
+                ...n,
+                data: {
+                  ...d,
+                  recordStatus: summary.status ?? null,
+                  recordMetric: summary.metric ?? null,
+                } as ModuleNodeData,
+              };
+            }),
+          );
+        })
+        .catch(() => {});
+    }
+  }, [nodes, setNodes, setEdges]);
 
   // ── Connected nodes ──────────────────────────────────────────
   // Build a list of nodes connected to the given node (incoming + outgoing),
@@ -4469,9 +3256,9 @@ function CanvasInner({
               <SupplierFormDialog open={quickCreateDialog === "supplier"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} supplier={null} />
               <PurchaseOrderFormDialog open={quickCreateDialog === "po"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} suppliers={toolbarRefData.suppliers} materials={toolbarRefData.materials} locations={toolbarRefData.locations} projects={toolbarRefData.projects} />
               <TransferFormDialog open={quickCreateDialog === "transfer"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} locations={toolbarRefData.locations} />
-              <IssueFormDialog open={quickCreateDialog === "issue"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} locations={toolbarRefData.locationOptions} materials={toolbarRefData.materialOptions} />
+              <IssueFormDialog open={quickCreateDialog === "issue"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} locations={toolbarRefData.locationOptions} materials={toolbarRefData.materialOptions} departments={toolbarRefData.departments} />
               <LandPurchaseFormDialog open={quickCreateDialog === "land"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} />
-              <BuiltUnitFormDialog open={quickCreateDialog === "unit"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} />
+              <BuiltUnitFormDialog open={quickCreateDialog === "unit"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} phases={toolbarRefData.phases} />
               <CustomerFormDialog open={quickCreateDialog === "customer"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} customer={null} />
               <ProjectCostFormDialog open={quickCreateDialog === "cost"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} subcontractors={toolbarRefData.subcontractors} />
               <ExpenseFormDialog open={quickCreateDialog === "expense"} onOpenChange={(o) => { if (!o) { setQuickCreateDialog(null); refreshToolbarRef(); router.refresh(); } }} projects={toolbarRefData.projects} />
@@ -4608,9 +3395,9 @@ function CanvasInner({
           </div>
         </aside>
 
-        {/* Live preview panel — slides in from right */}
+        {/* Node popup — popover/aside with planning, KPIs, actions, tabs */}
         {previewNode && (
-          <NodePreviewPanel
+          <NodePopup
             nodeId={previewNode.id}
             model={(previewNode.data as ModuleNodeData).model}
             kind={(previewNode.data as ModuleNodeData).kind}
@@ -4624,7 +3411,9 @@ function CanvasInner({
             recordLabel={(previewNode.data as ModuleNodeData).recordLabel ?? null}
             connectedNodes={getConnectedNodes(previewNode.id)}
             employees={employees}
+            today={today}
             workspaceId={workspaceId}
+            nodePosition={previewNodePosition}
             onClose={() => setPreviewNodeId(null)}
             onUploadFiles={uploadFiles}
             onAddLink={addLink}
@@ -4641,6 +3430,10 @@ function CanvasInner({
             onLinkRecord={linkRecord}
             onUnlinkRecord={unlinkRecord}
             onJumpToNode={(id) => { setPreviewNodeId(id); setSelectedNodeId(id); }}
+            onSetKind={setNodeKind}
+            onAssignEmployee={onAssignEmployee}
+            onUnassign={onUnassign}
+            onSpawnChild={spawnChildNode}
           />
         )}
 

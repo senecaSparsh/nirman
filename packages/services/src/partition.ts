@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
 
 /**
  * Partition Service — land parcel subdivision.
@@ -20,10 +21,13 @@ import { reallocateProjectCosts } from "./valuation";
 
 interface PartitionInput {
   parentParcelId: string;
+  userId?: string;
   children: {
     number: string;
     area: Decimal | number | string;
     askingPrice?: Decimal | number | string;
+    /** Optional polygon geometry from the CAD canvas — normalized [0,1] vertices. */
+    geometry?: unknown;
   }[];
   notes?: string;
 }
@@ -89,6 +93,7 @@ export async function partitionLandParcel(input: PartitionInput) {
           askingPrice: child.askingPrice ? new Decimal(child.askingPrice) : null,
           currentValuation: childAcquisitionCost, // initial valuation = cost
           projectId: parent.projectId,
+          ...(child.geometry ? { geometry: child.geometry as any } : {}),
         },
       });
       childParcels.push(parcel);
@@ -115,6 +120,15 @@ export async function partitionLandParcel(input: PartitionInput) {
       await reallocateProjectCosts(tx, parent.projectId);
     }
 
+    await logAction(tx, {
+      userId: input.userId,
+      action: "LAND_PARTITION",
+      entityType: "LandParcel",
+      entityId: parent.id,
+      before: { status: "AVAILABLE", area: parent.area },
+      after: { status: "PARTITIONED", childCount: input.children.length, childIds: childParcels.map((c) => c.id) },
+    });
+
     return { parent, children: childParcels };
   });
 }
@@ -126,6 +140,7 @@ export async function partitionLandParcel(input: PartitionInput) {
 export async function updateParcelValuation(
   parcelId: string,
   data: { currentValuation?: Decimal | number | string; askingPrice?: Decimal | number | string },
+  userId?: string,
 ) {
   const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId } });
   if (!parcel) throw new Error("Parcel not found");
@@ -133,26 +148,48 @@ export async function updateParcelValuation(
   if (parcel.status === "SOLD") throw new Error("Cannot update valuation of a SOLD parcel");
   if (parcel.status === "PARTITIONED") throw new Error("Cannot update valuation of a PARTITIONED parcel");
 
-  return prisma.landParcel.update({
-    where: { id: parcelId },
-    data: {
-      ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
-      ...(data.askingPrice !== undefined ? { askingPrice: new Decimal(data.askingPrice) } : {}),
-    },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.landParcel.update({
+      where: { id: parcelId },
+      data: {
+        ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
+        ...(data.askingPrice !== undefined ? { askingPrice: new Decimal(data.askingPrice) } : {}),
+      },
+    });
+    await logAction(tx, {
+      userId,
+      action: "LAND_PARCEL_VALUATION",
+      entityType: "LandParcel",
+      entityId: parcelId,
+      before: { currentValuation: parcel.currentValuation, askingPrice: parcel.askingPrice },
+      after: { currentValuation: updated.currentValuation, askingPrice: updated.askingPrice },
+    });
+    return updated;
   });
 }
 
 /**
  * Change parcel status between AVAILABLE and HOLD.
  */
-export async function setParcelStatus(parcelId: string, status: "AVAILABLE" | "HOLD") {
+export async function setParcelStatus(parcelId: string, status: "AVAILABLE" | "HOLD", userId?: string) {
   const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId } });
   if (!parcel) throw new Error("Parcel not found");
   if (parcel.deletedAt) throw new Error("Parcel is deleted");
   if (parcel.status === "SOLD") throw new Error("Cannot change status of a SOLD parcel");
   if (parcel.status === "PARTITIONED") throw new Error("Cannot change status of a PARTITIONED parcel");
 
-  return prisma.landParcel.update({ where: { id: parcelId }, data: { status } });
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.landParcel.update({ where: { id: parcelId }, data: { status } });
+    await logAction(tx, {
+      userId,
+      action: "LAND_PARCEL_STATUS_CHANGE",
+      entityType: "LandParcel",
+      entityId: parcelId,
+      before: { status: parcel.status },
+      after: { status },
+    });
+    return updated;
+  });
 }
 
 /**

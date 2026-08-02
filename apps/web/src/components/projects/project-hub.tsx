@@ -7,6 +7,7 @@ import {
   ArrowRight, TrendingUp, TrendingDown, AlertTriangle, Check, Clock,
   Plus, Layers, MapPin,
 } from "lucide-react";
+import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { KpiCard } from "@/components/kpi-card";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
@@ -118,7 +118,7 @@ export function ProjectHub({
   editInitial,
 }: {
   data: ProjectHubData;
-  editInitial: any;
+  editInitial: ProjectFormValues;
 }) {
   const [tab, setTab] = useState("overview");
   const { project, stats, pnl } = data;
@@ -147,37 +147,35 @@ export function ProjectHub({
         <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDate(project.startDate)} → {formatDate(project.endDate)}</span>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Budget" value={project.totalBudget ? formatCurrency(project.totalBudget) : "—"} icon={<Wallet className="h-[18px] w-[18px]" />} />
-        <KpiCard label="Project Cost" value={project.totalProjectCost ? formatCurrency(project.totalProjectCost) : "—"} icon={<Wallet className="h-[18px] w-[18px]" />} accent="success" />
-        <KpiCard label="Cost / Sqft" value={project.costPerSqft ? formatCurrency(project.costPerSqft) : "—"} icon={<Layers className="h-[18px] w-[18px]" />} accent="warning" />
-        <KpiCard label="Sellable Area" value={project.totalSellableArea ? `${formatNumber(project.totalSellableArea, 0)} sqft` : "—"} icon={<LandPlot className="h-[18px] w-[18px]" />} />
-      </div>
-
-      {/* P&L strip */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center justify-between p-4">
-            <div><p className="text-caption text-muted-foreground">Total Cost</p><p className="tnum text-lg font-bold">{formatCurrency(pnl.totalCost)}</p></div>
-            <TrendingDown className="h-5 w-5 text-danger" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center justify-between p-4">
-            <div><p className="text-caption text-muted-foreground">Revenue</p><p className="tnum text-lg font-bold">{formatCurrency(pnl.revenue)}</p></div>
-            <TrendingUp className="h-5 w-5 text-success" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-caption text-muted-foreground">Profit · Margin</p>
-              <p className="tnum text-lg font-bold">{formatCurrency(pnl.profit)}</p>
-            </div>
+      {/* Stats strip — inline, no cards */}
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Budget</span>
+          <span className="tnum text-body font-semibold text-foreground">{project.totalBudget ? formatCurrency(project.totalBudget) : "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Cost</span>
+          <span className="tnum text-body font-semibold text-foreground">{project.totalProjectCost ? formatCurrency(project.totalProjectCost) : "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Cost/Sqft</span>
+          <span className="tnum text-body font-semibold text-foreground">{project.costPerSqft ? formatCurrency(project.costPerSqft) : "—"}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Area</span>
+          <span className="tnum text-body font-semibold text-foreground">{project.totalSellableArea ? `${formatNumber(project.totalSellableArea, 0)} sqft` : "—"}</span>
+        </div>
+        <div className="ml-auto flex items-baseline gap-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Revenue</span>
+            <span className="tnum text-body font-semibold text-success">{formatCurrency(pnl.revenue)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Profit</span>
+            <span className={`tnum text-body font-semibold ${pnl.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(pnl.profit)}</span>
             <Badge variant={pnl.profit >= 0 ? "success" : "danger"}>{pnl.margin.toFixed(1)}%</Badge>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -213,122 +211,207 @@ function CountBadge({ n }: { n: number }) {
   return <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground">{n}</span>;
 }
 
-function TabLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
-  return (
-    <Link href={href} className="flex items-center justify-between rounded-md border px-3 py-2.5 text-body transition-colors hover:bg-accent">
-      <span className="flex items-center gap-3"><span className="text-muted-foreground">{icon}</span>{label}</span>
-      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-    </Link>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Overview tab — the "at a glance" summary
-// ───────────────────────────────────────────────────────────
-
 function OverviewTab({ data }: { data: ProjectHubData }) {
-  const { stats, project } = data;
+  const { stats, project, pnl } = data;
+  const budget = project.totalBudget ?? 0;
+  const actualCost = pnl.totalCost || project.totalProjectCost || 0;
+  const budgetBurnPct = budget > 0 ? Math.min(100, (actualCost / budget) * 100) : 0;
+  const isOverBudget = budget > 0 && actualCost > budget;
+  const salesPct = stats.builtUnitCount > 0 ? (stats.soldUnits / stats.builtUnitCount) * 100 : 0;
+
+  // Timeline progress
+  const now = new Date();
+  const start = project.startDate ? new Date(project.startDate) : null;
+  const end = project.endDate ? new Date(project.endDate) : null;
+  let timelinePct = 0;
+  if (start && end) {
+    const total = end.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    timelinePct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+  }
+
   return (
-    <div className="space-y-5">
-      {/* Quick stats grid */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MiniStatCard label="Built Units" value={stats.builtUnitCount} sub={`${stats.availableUnits} available · ${stats.soldUnits} sold`} icon={<Home className="h-4 w-4" />} href={`/units?project=${project.id}`} />
-        <MiniStatCard label="Land Parcels" value={stats.landParcelCount} icon={<LandPlot className="h-4 w-4" />} href={`/land?project=${project.id}`} />
-        <MiniStatCard label="Open POs" value={stats.openPOCount} icon={<Truck className="h-4 w-4" />} href="/procurement" />
-        <MiniStatCard label="Equipment" value={stats.equipmentCount} icon={<Wrench className="h-4 w-4" />} href="/equipment" />
+    <div className="space-y-6">
+      {/* ── Health bars — the project's vital signs ─────────────── */}
+      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+        {/* Budget burn */}
+        {budget > 0 && (
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-label text-muted-foreground/70">Budget Burn</span>
+              <span className={`text-caption tnum ${isOverBudget ? "text-danger font-semibold" : "text-muted-foreground"}`}>
+                {budgetBurnPct.toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className={`h-full ${isOverBudget ? "bg-danger" : budgetBurnPct > 80 ? "bg-warning" : "bg-success"}`} style={{ width: `${Math.min(100, budgetBurnPct)}%` }} />
+            </div>
+            <div className="mt-1 text-micro text-muted-foreground tnum">
+              {formatCurrency(actualCost)} / {formatCurrency(budget)}
+            </div>
+          </div>
+        )}
+
+        {/* Unit sales */}
+        {stats.builtUnitCount > 0 && (
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-label text-muted-foreground/70">Units Sold</span>
+              <span className="text-caption tnum text-muted-foreground">{salesPct.toFixed(0)}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-foreground" style={{ width: `${salesPct}%` }} />
+            </div>
+            <div className="mt-1 text-micro text-muted-foreground tnum">
+              {stats.soldUnits} sold · {stats.availableUnits} available · {stats.builtUnitCount} total
+            </div>
+          </div>
+        )}
+
+        {/* Timeline */}
+        {start && end && (
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-label text-muted-foreground/70">Timeline</span>
+              <span className="text-caption tnum text-muted-foreground">{timelinePct.toFixed(0)}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className={`h-full ${timelinePct >= 100 ? "bg-muted-foreground" : "bg-foreground"}`} style={{ width: `${timelinePct}%` }} />
+            </div>
+            <div className="mt-1 text-micro text-muted-foreground tnum">
+              {formatDate(project.startDate)} → {formatDate(project.endDate)}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Phases + Stock locations side by side */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Project Phases</CardTitle></CardHeader>
-          <CardContent>
-            <PhasesSection projectId={project.id} phases={data.phases} />
-          </CardContent>
-        </Card>
+      {/* ── Two-column: Activity feed + Context sidebar ─────────── */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Activity feed — recent stock movements as a timeline */}
+        <div className="lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-label text-muted-foreground">Recent Activity</h2>
+            <Link href="/stock-movements" className="text-caption text-muted-foreground transition-colors hover:text-foreground">View all →</Link>
+          </div>
 
-        <Card>
-          <CardHeader><CardTitle>Stock Locations</CardTitle></CardHeader>
-          <CardContent>
-            {data.stockLocations.length === 0 ? (
-              <p className="text-body text-muted-foreground">No site stores linked to this project.</p>
-            ) : (
-              <ul className="space-y-2">
+          {data.stockMovements.length === 0 ? (
+            <EmptyState icon={<Package className="h-5 w-5" />} title="No movements" description="Stock movements for this project will appear here." />
+          ) : (
+            <div className="relative">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+              <div className="space-y-0.5">
+                {data.stockMovements.slice(0, 10).map((m) => {
+                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+                  const dotColor =
+                    m.movementType === "PURCHASE_RECEIPT" || m.movementType === "ADJUSTMENT_IN" ? "bg-success" :
+                    m.movementType === "ADJUSTMENT_OUT" ? "bg-danger" :
+                    m.movementType === "ISSUE_TO_PROJECT" || m.movementType === "TRANSFER_OUT" ? "bg-warning" :
+                    "bg-foreground/40";
+                  return (
+                    <div key={m.id} className="relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
+                      <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${dotColor}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="truncate text-body font-medium text-foreground">{m.materialName}</span>
+                          <span className={`shrink-0 text-caption tnum ${isIn ? "text-success" : "text-foreground"}`}>
+                            {isIn ? "+" : "−"}{formatNumber(m.qty, 3)} {m.unit}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                          <span>{m.movementLabel}</span>
+                          <span>·</span>
+                          <span className="truncate">{m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}</span>
+                          <span className="ml-auto shrink-0 tnum">{formatDate(m.timestamp)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Context sidebar — inventory counts + phases + locations + actions */}
+        <div className="space-y-5">
+          {/* Inventory counts */}
+          <div>
+            <h2 className="mb-3 text-label text-muted-foreground">Inventory</h2>
+            <div className="space-y-2">
+              <ContextLink href={`/units?project=${project.id}`} label="Built Units" value={stats.builtUnitCount} sub={`${stats.availableUnits} available · ${stats.soldUnits} sold`} />
+              <ContextLink href={`/land?project=${project.id}`} label="Land Parcels" value={stats.landParcelCount} />
+              <ContextLink href="/procurement" label="Open POs" value={stats.openPOCount} />
+              <ContextLink href="/equipment" label="Equipment" value={stats.equipmentCount} />
+            </div>
+          </div>
+
+          {/* Stock locations */}
+          {data.stockLocations.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-label text-muted-foreground">Stock Locations</h2>
+              <div className="space-y-1.5">
                 {data.stockLocations.map((loc) => (
-                  <li key={loc.id} className="flex items-center justify-between rounded-md border px-3 py-2.5 text-body">
-                    <div>
-                      <p className="font-medium">{loc.name}</p>
-                      {loc.address && <p className="text-caption text-muted-foreground">{loc.address}</p>}
+                  <div key={loc.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-body">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-foreground">{loc.name}</div>
+                      {loc.address && <div className="truncate text-caption text-muted-foreground">{loc.address}</div>}
                     </div>
                     <Badge variant={loc.type === "COMPANY_WAREHOUSE" ? "default" : "muted"}>
                       {loc.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"}
                     </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent activity */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>Recent Stock Movements</CardTitle>
-            <Link href="/stock-movements" className="text-caption text-primary hover:underline">View all</Link>
-          </CardHeader>
-          <CardContent>
-            {data.stockMovements.length === 0 ? (
-              <EmptyState icon={<Package className="h-5 w-5" />} title="No movements" description="Stock movements for this project will appear here." />
-            ) : (
-              <div className="space-y-2">
-                {data.stockMovements.slice(0, 6).map((m) => (
-                  <div key={m.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-body">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{m.materialName}</p>
-                      <p className="text-caption text-muted-foreground">{m.movementLabel} · {m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}</p>
-                    </div>
-                    <div className="ml-2 text-right">
-                      <p className="tnum font-medium">{formatNumber(m.qty, 3)} {m.unit}</p>
-                      <p className="text-caption text-muted-foreground">{formatDate(m.timestamp)}</p>
-                    </div>
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
 
-        <Card>
-          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <TabLink href="/procurement" label="Create Purchase Order" icon={<Truck className="h-4 w-4" />} />
-            <TabLink href="/stock-movements" label="Issue Materials to Project" icon={<Package className="h-4 w-4" />} />
-            <TabLink href="/units" label="Add Built Units" icon={<Home className="h-4 w-4" />} />
-            <TabLink href="/sales" label="Record a Sale" icon={<TrendingUp className="h-4 w-4" />} />
-            <TabLink href="/finance" label="Add Project Cost" icon={<Wallet className="h-4 w-4" />} />
-            <TabLink href="/equipment" label="Assign Equipment" icon={<Wrench className="h-4 w-4" />} />
-          </CardContent>
-        </Card>
+          {/* Phases */}
+          {data.phases.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-label text-muted-foreground">Phases</h2>
+              <PhasesSection projectId={project.id} phases={data.phases} />
+            </div>
+          )}
+
+          {/* Quick actions */}
+          <div>
+            <h2 className="mb-3 text-label text-muted-foreground">Quick Actions</h2>
+            <div className="space-y-1">
+              <ActionLink href="/procurement" label="Create Purchase Order" icon={<Truck className="h-3.5 w-3.5" />} />
+              <ActionLink href="/stock-movements" label="Issue Materials" icon={<Package className="h-3.5 w-3.5" />} />
+              <ActionLink href="/units" label="Add Built Units" icon={<Home className="h-3.5 w-3.5" />} />
+              <ActionLink href="/sales" label="Record a Sale" icon={<TrendingUp className="h-3.5 w-3.5" />} />
+              <ActionLink href="/finance" label="Add Project Cost" icon={<Wallet className="h-3.5 w-3.5" />} />
+              <ActionLink href="/equipment" label="Assign Equipment" icon={<Wrench className="h-3.5 w-3.5" />} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function MiniStatCard({ label, value, sub, icon, href }: { label: string; value: number; sub?: string; icon: React.ReactNode; href: string }) {
+function ContextLink({ href, label, value, sub }: { href: string; label: string; value: number; sub?: string }) {
   return (
-    <Link href={href}>
-      <Card className="transition-shadow hover:shadow-md">
-        <CardContent className="flex items-center gap-3 p-4">
-          <span className="text-muted-foreground">{icon}</span>
-          <div>
-            <p className="text-caption text-muted-foreground">{label}</p>
-            <p className="tnum text-lg font-semibold">{value}</p>
-            {sub && <p className="text-caption text-muted-foreground">{sub}</p>}
-          </div>
-        </CardContent>
-      </Card>
+    <Link href={href} className="group flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-foreground/20 hover:bg-muted/30">
+      <div>
+        <div className="text-body font-medium text-foreground">{label}</div>
+        {sub && <div className="text-caption text-muted-foreground">{sub}</div>}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-body font-semibold tnum text-foreground">{value}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
+      </div>
+    </Link>
+  );
+}
+
+function ActionLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
+  return (
+    <Link href={href} className="group flex items-center gap-2.5 rounded-md px-3 py-2 text-body text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground">
+      <span className="text-muted-foreground/60 transition-colors group-hover:text-foreground">{icon}</span>
+      <span>{label}</span>
+      <ArrowRight className="ml-auto h-3 w-3 text-muted-foreground/0 transition-all group-hover:text-muted-foreground" />
     </Link>
   );
 }
@@ -346,63 +429,60 @@ function ProcurementTab({ data }: { data: ProjectHubData }) {
 
   return (
     <div className="space-y-5">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Purchase Orders</CardTitle>
+      {/* Purchase Orders */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Purchase Orders</h2>
           <Link href="/procurement"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New PO</Button></Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          {projectPOs.length === 0 ? (
-            <EmptyState icon={<Truck className="h-5 w-5" />} title="No purchase orders" description="POs for this project will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>PO Number</TH><TH>Supplier</TH><TH>Status</TH><TH className="text-right">Total</TH><TH>Progress</TH><TH>Expected</TH></TR></THead>
-              <TBody>
-                {projectPOs.map((po) => (
-                  <TR key={po.id}>
-                    <TD className="font-mono text-caption font-medium">{po.poNumber}</TD>
-                    <TD className="font-medium">{po.supplierName}</TD>
-                    <TD><Badge variant={PO_STATUS_VARIANT[po.status] ?? "muted"}>{po.status.replace("_", " ")}</Badge></TD>
-                    <TD className="tnum text-right font-medium">{formatCurrency(po.total)}</TD>
-                    <TD>
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                          <div className={`h-full ${po.receivedPct === 100 ? "bg-success" : po.receivedPct > 0 ? "bg-warning" : "bg-muted-foreground/30"}`} style={{ width: `${po.receivedPct}%` }} />
-                        </div>
-                        <span className="text-caption text-muted-foreground">{po.receivedPct}%</span>
-                      </div>
-                    </TD>
-                    <TD className="text-muted-foreground">{formatDate(po.expectedDate)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {projectPOs.length === 0 ? (
+          <EmptyState icon={<Truck className="h-5 w-5" />} title="No purchase orders" description="POs for this project will appear here." />
+        ) : (
+          <div className="divide-y divide-border rounded-lg border border-border">
+            {projectPOs.map((po) => (
+              <Link
+                key={po.id}
+                href={`/procurement/${po.id}`}
+                className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30"
+              >
+                <span className="w-28 shrink-0 font-mono text-caption font-medium text-foreground">{po.poNumber}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{po.supplierName}</span>
+                <Badge variant={PO_STATUS_VARIANT[po.status] ?? "muted"}>{po.status.replace("_", " ")}</Badge>
+                <span className="w-28 shrink-0 text-right tnum font-medium text-foreground">{formatCurrency(po.total)}</span>
+                <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(po.expectedDate)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>Transfers Involving This Project</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          {projectTransfers.length === 0 ? (
-            <EmptyState icon={<ArrowRight className="h-5 w-5" />} title="No transfers" description="Stock transfers to/from this project's locations will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Route</TH><TH>Status</TH><TH className="text-right">Lines</TH><TH>Date</TH></TR></THead>
-              <TBody>
-                {projectTransfers.map((t) => (
-                  <TR key={t.id}>
-                    <TD><span className="font-medium">{t.fromLocationName}</span> → <span className="font-medium">{t.toLocationName}</span></TD>
-                    <TD><Badge variant={t.status === "COMPLETED" ? "success" : t.status === "CANCELLED" ? "danger" : "muted"}>{t.status.replace("_", " ").toLowerCase()}</Badge></TD>
-                    <TD className="tnum text-right">{t.lineCount}</TD>
-                    <TD className="text-muted-foreground">{formatDate(t.transferDate)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Transfers */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Transfers Involving This Project</h2>
+        </div>
+        {projectTransfers.length === 0 ? (
+          <EmptyState icon={<ArrowRight className="h-5 w-5" />} title="No transfers" description="Stock transfers to/from this project's locations will appear here." />
+        ) : (
+          <div className="divide-y divide-border rounded-lg border border-border">
+            {projectTransfers.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium text-foreground">{t.fromLocationName}</span>
+                  <ArrowRight className="mx-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-medium text-foreground">{t.toLocationName}</span>
+                </span>
+                <Badge variant={t.status === "COMPLETED" ? "success" : t.status === "CANCELLED" ? "danger" : "muted"}>{t.status.replace("_", " ").toLowerCase()}</Badge>
+                <span className="w-16 shrink-0 text-right tnum text-muted-foreground">{t.lineCount} lines</span>
+                <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(t.transferDate)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -414,56 +494,91 @@ function ProcurementTab({ data }: { data: ProjectHubData }) {
 function StockTab({ data }: { data: ProjectHubData }) {
   return (
     <div className="space-y-5">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Material Issues to Project</CardTitle>
+      {/* Material Issues — timeline feed */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Material Issues to Project</h2>
           <Link href="/stock-movements"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Issue Materials</Button></Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          {data.materialIssues.length === 0 ? (
-            <EmptyState icon={<Package className="h-5 w-5" />} title="No material issues" description="Materials issued from stock to this project will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>From Location</TH><TH className="text-right">Lines</TH><TH className="text-right">Total Cost</TH><TH>Date</TH></TR></THead>
-              <TBody>
-                {data.materialIssues.map((i) => (
-                  <TR key={i.id}>
-                    <TD className="font-medium">{i.fromLocationName}</TD>
-                    <TD className="tnum text-right">{i.lineCount}</TD>
-                    <TD className="tnum text-right font-medium">{formatCurrency(i.totalCost)}</TD>
-                    <TD className="text-muted-foreground">{formatDate(i.issueDate)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {data.materialIssues.length === 0 ? (
+          <EmptyState icon={<Package className="h-5 w-5" />} title="No material issues" description="Materials issued from stock to this project will appear here." />
+        ) : (
+          <div className="relative">
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+            <div className="space-y-0.5">
+              {data.materialIssues.map((i) => (
+                <div key={i.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
+                  <span className="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background bg-warning" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-body font-medium text-foreground">{i.fromLocationName}</span>
+                      <span className="shrink-0 text-body font-semibold tnum text-danger">−{formatCurrency(i.totalCost)}</span>
+                    </div>
+                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                      <span className="tnum">{i.lineCount} lines</span>
+                      <span>·</span>
+                      <span className="tnum">{formatDate(i.issueDate)}</span>
+                      {i.notes && <span className="truncate">· {i.notes}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>Recent Stock Movements</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          {data.stockMovements.length === 0 ? (
-            <EmptyState icon={<Package className="h-5 w-5" />} title="No movements" description="Stock movements at this project's locations will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Type</TH><TH>Material</TH><TH>Route</TH><TH className="text-right">Qty</TH><TH className="text-right">Unit Cost</TH><TH>Date</TH></TR></THead>
-              <TBody>
-                {data.stockMovements.slice(0, 20).map((m) => (
-                  <TR key={m.id}>
-                    <TD><Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{m.movementLabel}</Badge></TD>
-                    <TD className="font-medium">{m.materialName}</TD>
-                    <TD className="text-caption text-muted-foreground">{m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}</TD>
-                    <TD className="tnum text-right">{formatNumber(m.qty, 3)} {m.unit}</TD>
-                    <TD className="tnum text-right">{m.unitCost > 0 ? formatCurrency(m.unitCost) : "—"}</TD>
-                    <TD className="text-muted-foreground">{formatDate(m.timestamp)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Stock Movements — timeline feed */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Recent Stock Movements</h2>
+        </div>
+        {data.stockMovements.length === 0 ? (
+          <EmptyState icon={<Package className="h-5 w-5" />} title="No movements" description="Stock movements at this project's locations will appear here." />
+        ) : (
+          <div className="relative">
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+            <div className="space-y-0.5">
+              {data.stockMovements.slice(0, 20).map((m) => {
+                const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+                const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ADJUSTMENT_OUT", "SALE"].includes(m.movementType);
+                const dotColor =
+                  m.movementType === "PURCHASE_RECEIPT" || m.movementType === "ADJUSTMENT_IN" ? "bg-success" :
+                  m.movementType === "ADJUSTMENT_OUT" ? "bg-danger" :
+                  m.movementType === "ISSUE_TO_PROJECT" || m.movementType === "TRANSFER_OUT" ? "bg-warning" :
+                  "bg-foreground/40";
+                return (
+                  <div key={m.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
+                    <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${dotColor}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="text-body font-medium text-foreground">{m.materialName}</span>
+                        </div>
+                        <span className={`shrink-0 text-body font-semibold tnum ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>
+                          {isIn ? "+" : isOut ? "−" : ""}{formatNumber(m.qty, 3)} <span className="text-caption font-normal text-muted-foreground">{m.unit}</span>
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                        <Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{m.movementLabel}</Badge>
+                        <span className="truncate">
+                          {m.fromLocationName ?? "—"}
+                          <ArrowRight className="mx-1 inline h-3 w-3" />
+                          {m.toLocationName ?? "—"}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-3 text-micro text-muted-foreground">
+                        <span className="tnum">{formatDate(m.timestamp)}</span>
+                        {m.unitCost > 0 && <span className="tnum">@ {formatCurrency(m.unitCost)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -490,30 +605,63 @@ function UnitsTab({ data }: { data: ProjectHubData }) {
         <Link href="/units"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Add Units</Button></Link>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {units.length === 0 ? (
-            <EmptyState icon={<Home className="h-5 w-5" />} title="No built units" description="Add built units (flats, shops, offices) to this project." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Unit</TH><TH>Type</TH><TH>Floor/Wing</TH><TH className="text-right">Area</TH><TH>Status</TH><TH className="text-right">Prod. Cost</TH><TH className="text-right">Asking</TH></TR></THead>
-              <TBody>
-                {units.map((u) => (
-                  <TR key={u.id}>
-                    <TD className="font-mono font-medium">{u.unitNumber}</TD>
-                    <TD>{UNIT_TYPE_LABELS[u.unitType] ?? u.unitType}</TD>
-                    <TD className="text-muted-foreground">{u.floor != null ? `Floor ${u.floor}` : "—"}{u.wing ? ` · ${u.wing}` : ""}</TD>
-                    <TD className="tnum text-right">{formatNumber(u.area, 0)} {u.areaUnit}</TD>
-                    <TD><Badge variant={UNIT_STATUS_VARIANT[u.status] ?? "muted"}>{u.status.replace("_", " ")}</Badge></TD>
-                    <TD className="tnum text-right">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</TD>
-                    <TD className="tnum text-right">{u.askingPrice ? formatCurrency(u.askingPrice) : "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {units.length === 0 ? (
+        <EmptyState icon={<Home className="h-5 w-5" />} title="No built units" description="Add built units (flats, shops, offices) to this project." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {units.map((u) => {
+            const statusColor =
+              u.status === "AVAILABLE" ? "var(--color-stage-sell)" :
+              u.status === "UNDER_CONSTRUCTION" ? "var(--color-warning)" :
+              u.status === "SOLD" ? "var(--color-danger)" :
+              u.status === "HOLD" ? "var(--color-stage-manage)" :
+              "var(--color-muted-foreground)";
+            return (
+              <div
+                key={u.id}
+                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
+                style={{ borderLeft: `3px solid ${statusColor}` }}
+              >
+                {/* Header: unit number + type + status dot */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-body font-semibold text-foreground">{u.unitNumber}</div>
+                    <div className="text-caption text-muted-foreground">{UNIT_TYPE_LABELS[u.unitType] ?? u.unitType}</div>
+                  </div>
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+                </div>
+
+                {/* Floor/wing */}
+                {(u.floor != null || u.wing) && (
+                  <div className="mt-1 text-caption text-muted-foreground">
+                    {u.floor != null && `Floor ${u.floor}`}
+                    {u.floor != null && u.wing && " · "}
+                    {u.wing && `Wing ${u.wing}`}
+                  </div>
+                )}
+
+                {/* Area + costs */}
+                <div className="mt-3 space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-caption text-muted-foreground">Area</span>
+                    <span className="text-body font-semibold tnum text-foreground">{formatNumber(u.area, 0)} <span className="text-caption font-normal text-muted-foreground">{u.areaUnit}</span></span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-caption text-muted-foreground">Prod. Cost</span>
+                    <span className="text-body tnum text-foreground">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</span>
+                  </div>
+                  {u.askingPrice && (
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-caption text-muted-foreground">Asking</span>
+                      <span className="text-body font-semibold tnum text-foreground">{formatCurrency(u.askingPrice)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -540,30 +688,65 @@ function LandTab({ data }: { data: ProjectHubData }) {
         <Link href="/land"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Manage Land</Button></Link>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {parcels.length === 0 ? (
-            <EmptyState icon={<LandPlot className="h-5 w-5" />} title="No land parcels" description="Land parcels linked to this project will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Number</TH><TH>Parent</TH><TH className="text-right">Area</TH><TH>Status</TH><TH className="text-right">Acquisition</TH><TH className="text-right">Asking</TH><TH className="text-right">Valuation</TH></TR></THead>
-              <TBody>
-                {parcels.map((p) => (
-                  <TR key={p.id}>
-                    <TD className="font-mono font-medium">{p.number}</TD>
-                    <TD className="text-muted-foreground">{p.parentParcelNumber ?? "—"}</TD>
-                    <TD className="tnum text-right">{formatNumber(p.area, 0)} {p.areaUnit}</TD>
-                    <TD><Badge variant={PARCEL_STATUS_VARIANT[p.status] ?? "muted"}>{p.status.replace("_", " ").toLowerCase()}</Badge></TD>
-                    <TD className="tnum text-right">{formatCurrency(p.acquisitionCost)}</TD>
-                    <TD className="tnum text-right">{p.askingPrice ? formatCurrency(p.askingPrice) : "—"}</TD>
-                    <TD className="tnum text-right">{formatCurrency(p.currentValuation)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {parcels.length === 0 ? (
+        <EmptyState icon={<LandPlot className="h-5 w-5" />} title="No land parcels" description="Land parcels linked to this project will appear here." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {parcels.map((p) => {
+            const statusColor =
+              p.status === "AVAILABLE" ? "var(--color-stage-sell)" :
+              p.status === "HOLD" ? "var(--color-warning)" :
+              p.status === "SOLD" ? "var(--color-danger)" :
+              "var(--color-muted-foreground)";
+            return (
+              <div
+                key={p.id}
+                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
+                style={{ borderLeft: `3px solid ${statusColor}` }}
+              >
+                {/* Header: number + parent + status dot */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono text-micro text-muted-foreground">{p.number}</div>
+                    {p.parentParcelNumber && (
+                      <div className="text-micro text-muted-foreground/60">from {p.parentParcelNumber}</div>
+                    )}
+                  </div>
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+                </div>
+
+                {/* Area — the primary metric */}
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Area</span>
+                  <span className="text-body font-semibold tnum text-foreground">
+                    {formatNumber(p.area, 0)} <span className="text-caption font-normal text-muted-foreground">{p.areaUnit}</span>
+                  </span>
+                </div>
+
+                {/* Acquisition cost */}
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Acquisition</span>
+                  <span className="text-body tnum text-foreground">{formatCurrency(p.acquisitionCost)}</span>
+                </div>
+
+                {/* Valuation */}
+                <div className="mt-1 flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Valuation</span>
+                  <span className="text-body font-semibold tnum text-foreground">{formatCurrency(p.currentValuation)}</span>
+                </div>
+
+                {/* Asking price (if set) */}
+                {p.askingPrice && (
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="text-caption text-muted-foreground">Asking</span>
+                    <span className="text-body tnum text-muted-foreground">{formatCurrency(p.askingPrice)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -575,44 +758,67 @@ function LandTab({ data }: { data: ProjectHubData }) {
 function FinanceTab({ data }: { data: ProjectHubData }) {
   const costs = data.projectCosts;
   const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
+  const materialIssuesTotal = data.materialIssues.reduce((s, i) => s + i.totalCost, 0);
   const { pnl } = data;
 
   return (
     <div className="space-y-5">
-      {/* P&L summary */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Card><CardContent className="p-4"><p className="text-caption text-muted-foreground">Material Issues</p><p className="tnum text-lg font-bold">{formatCurrency(data.materialIssues.reduce((s, i) => s + i.totalCost, 0))}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-caption text-muted-foreground">Other Project Costs</p><p className="tnum text-lg font-bold">{formatCurrency(totalCosts)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-caption text-muted-foreground">Revenue</p><p className="tnum text-lg font-bold text-success">{formatCurrency(pnl.revenue)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-caption text-muted-foreground">Profit</p><p className="tnum text-lg font-bold">{formatCurrency(pnl.profit)}</p></CardContent></Card>
+      {/* Inline stats strip — like the project header stats */}
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Material Issues</span>
+          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(materialIssuesTotal)}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Other Costs</span>
+          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(totalCosts)}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Revenue</span>
+          <span className="tnum text-body font-semibold text-success">{formatCurrency(pnl.revenue)}</span>
+        </div>
+        <div className="ml-auto flex items-baseline gap-1.5">
+          <span className="text-label text-muted-foreground/70">Profit</span>
+          <span className={`tnum text-body font-semibold ${pnl.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(pnl.profit)}</span>
+          <Badge variant={pnl.profit >= 0 ? "success" : "danger"}>{pnl.margin.toFixed(1)}%</Badge>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Project Costs</CardTitle>
+      {/* Project Costs — timeline feed */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Project Costs</h2>
           <Link href="/finance"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Add Cost</Button></Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          {costs.length === 0 ? (
-            <EmptyState icon={<Wallet className="h-5 w-5" />} title="No project costs" description="Labour, overhead, equipment, and contractor costs will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Type</TH><TH className="text-right">Amount</TH><TH>Date</TH><TH>Vendor</TH><TH>Notes</TH></TR></THead>
-              <TBody>
-                {costs.map((c) => (
-                  <TR key={c.id}>
-                    <TD><Badge variant="outline">{c.costType}</Badge></TD>
-                    <TD className="tnum text-right font-medium">{formatCurrency(c.amount)}</TD>
-                    <TD className="text-muted-foreground">{formatDate(c.date)}</TD>
-                    <TD className="text-muted-foreground">{c.vendor ?? "—"}</TD>
-                    <TD className="max-w-[200px] truncate text-muted-foreground">{c.notes ?? "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {costs.length === 0 ? (
+          <EmptyState icon={<Wallet className="h-5 w-5" />} title="No project costs" description="Labour, overhead, equipment, and contractor costs will appear here." />
+        ) : (
+          <div className="relative">
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+            <div className="space-y-0.5">
+              {costs.map((c) => (
+                <div key={c.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
+                  <span className="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background bg-warning" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-body font-medium text-foreground">{c.costType}</span>
+                        <span className="ml-2 text-caption text-muted-foreground">Project Cost</span>
+                      </div>
+                      <span className="shrink-0 text-body font-semibold tnum text-danger">−{formatCurrency(c.amount)}</span>
+                    </div>
+                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                      <span className="tnum">{formatDate(c.date)}</span>
+                      {c.vendor && <><span>·</span><span className="truncate">{c.vendor}</span></>}
+                      {c.notes && <><span>·</span><span className="truncate">{c.notes}</span></>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -636,29 +842,48 @@ function EquipmentTab({ data }: { data: ProjectHubData }) {
         <Link href="/equipment"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Manage Equipment</Button></Link>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {equipment.length === 0 ? (
-            <EmptyState icon={<Wrench className="h-5 w-5" />} title="No equipment assigned" description="Equipment assigned to this project's site will appear here." />
-          ) : (
-            <Table>
-              <THead><TR className="hover:bg-transparent"><TH>Asset Tag</TH><TH>Name</TH><TH>Category</TH><TH>Status</TH><TH className="text-right">Current Value</TH><TH>Assigned</TH></TR></THead>
-              <TBody>
-                {equipment.map((e) => (
-                  <TR key={e.id}>
-                    <TD className="font-mono text-caption font-medium">{e.assetTag}</TD>
-                    <TD className="font-medium">{e.name}</TD>
-                    <TD className="text-muted-foreground">{e.category ?? "—"}</TD>
-                    <TD><Badge variant={e.status === "AVAILABLE" ? "success" : e.status === "ASSIGNED" ? "default" : e.status === "IN_MAINTENANCE" ? "warning" : "muted"}>{e.status.replace("_", " ")}</Badge></TD>
-                    <TD className="tnum text-right">{formatCurrency(e.currentValue)}</TD>
-                    <TD className="text-muted-foreground">{e.assignedAt ? formatDate(e.assignedAt) : "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {equipment.length === 0 ? (
+        <EmptyState icon={<Wrench className="h-5 w-5" />} title="No equipment assigned" description="Equipment assigned to this project's site will appear here." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {equipment.map((e) => {
+            const statusColor =
+              e.status === "AVAILABLE" ? "var(--color-stage-sell)" :
+              e.status === "ASSIGNED" ? "var(--color-stage-manage)" :
+              e.status === "IN_MAINTENANCE" ? "var(--color-warning)" :
+              "var(--color-muted-foreground)";
+            return (
+              <div
+                key={e.id}
+                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
+                style={{ borderLeft: `3px solid ${statusColor}` }}
+              >
+                {/* Header: asset tag + name + status dot */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono text-micro text-muted-foreground">{e.assetTag}</div>
+                    <div className="mt-0.5 truncate text-body font-medium text-foreground">{e.name}</div>
+                  </div>
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+                </div>
+
+                {/* Category */}
+                {e.category && (
+                  <div className="mt-1 text-caption text-muted-foreground">{e.category}</div>
+                )}
+
+                {/* Current value — the primary metric */}
+                <div className="mt-3 text-body font-semibold tnum text-foreground">{formatCurrency(e.currentValue)}</div>
+
+                {/* Assigned date */}
+                <div className="mt-1 text-caption text-muted-foreground">
+                  {e.assignedAt ? `Assigned ${formatDate(e.assignedAt)}` : "Not assigned"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

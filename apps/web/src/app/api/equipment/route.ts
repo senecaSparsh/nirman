@@ -62,7 +62,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = equipmentSchema.safeParse(body);
@@ -80,6 +80,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       acquisitionCost: parsed.data.acquisitionCost,
       purchaseDate: parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : undefined,
       notes: parsed.data.notes ?? undefined,
+      userId: user.id,
     });
     return json({ ok: true, id: eq.id }, { status: 201 });
   } catch (err: any) {

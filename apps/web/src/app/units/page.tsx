@@ -3,22 +3,15 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { PageHeader } from "@/components/page-header";
 import { BuiltUnitsView } from "@/components/built-units/built-units-view";
 import { PageLoading } from "@/components/page-loading";
-import type { BuiltUnitRow, ProjectOption } from "@/lib/types";
+import type { BuiltUnitRow, ProjectOption, PhaseOption } from "@/lib/types";
 
 export default function BuiltUnitsPage() {
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Built Units"
-        description="Sellable units within projects — status, valuation, and NRV write-downs."
-      />
-      <Suspense fallback={<PageLoading label="Loading built units…" />}>
-        <BuiltUnitsContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={<PageLoading label="Loading built units…" variant="cards" />}>
+      <BuiltUnitsContent />
+    </Suspense>
   );
 }
 
@@ -40,7 +33,7 @@ async function BuiltUnitsContent() {
     canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
   };
 
-  const [builtUnits, projects] = await Promise.all([
+  const [builtUnits, projects, phases] = await Promise.all([
     prisma.builtUnit.findMany({
       where: { deletedAt: null, project: { companyId: company.id } },
       orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
@@ -53,6 +46,11 @@ async function BuiltUnitsContent() {
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
+    }),
+    prisma.projectPhase.findMany({
+      where: { project: { companyId: company.id, deletedAt: null } },
+      orderBy: [{ projectId: "asc" }, { sortOrder: "asc" }],
+      select: { id: true, name: true, status: true, projectId: true },
     }),
   ]);
 
@@ -72,6 +70,7 @@ async function BuiltUnitsContent() {
     productionCost: toNum(u.productionCost),
     askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
     currentValuation: toNum(u.currentValuation),
+    nrvWriteDown: toNum(u.nrvWriteDown),
     saleId: u.saleId,
   }));
 
@@ -79,7 +78,16 @@ async function BuiltUnitsContent() {
     id: p.id, name: p.name, type: p.type, status: p.status,
   }));
 
+  const phaseRows: PhaseOption[] = phases.map((p) => ({
+    id: p.id, projectId: p.projectId, name: p.name, status: p.status,
+  }));
+
   return (
-    <BuiltUnitsView units={unitRows} projects={projectRows} permissions={perms} />
+    <BuiltUnitsView
+      units={unitRows}
+      projects={projectRows}
+      phases={phaseRows}
+      permissions={perms}
+    />
   );
 }

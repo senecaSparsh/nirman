@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { SalesView } from "@/components/sales/sales-view";
@@ -11,11 +12,7 @@ import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 export default function SalesPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Sales"
-        description="Asset sales — land parcels and built units. Payments, profit, and cancellation."
-      />
-      <Suspense fallback={<PageLoading label="Loading sales…" />}>
+      <Suspense fallback={<PageLoading label="Loading sales…" variant="list" />}>
         <SalesContent />
       </Suspense>
     </div>
@@ -125,5 +122,21 @@ async function SalesContent() {
     canManage: hasPermission(role, PERM.SALES_MANAGE),
   };
 
-  return <SalesView sales={saleRows} customers={customerRows} permissions={perms} />;
+  const revenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.salePrice, 0);
+  const collected = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.totalPaid, 0);
+
+  return (
+    <>
+      <PageHeader
+        title="Sales"
+        description="Asset sales — land parcels and built units. Payments, profit, and cancellation."
+        stats={[
+          { label: "Sales", value: saleRows.length },
+          { label: "Revenue", value: formatCurrency(revenue) },
+          { label: "Collected", value: formatCurrency(collected) },
+        ]}
+      />
+      <SalesView sales={saleRows} customers={customerRows} permissions={perms} />
+    </>
+  );
 }

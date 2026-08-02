@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ShoppingCart, Users, ArrowRight, Eye, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, ShoppingCart, Users, ArrowRight, Eye, Download, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CustomerFormDialog } from "./customer-form-dialog";
 import { SellAssetDialog } from "./sell-asset-dialog";
@@ -49,11 +48,6 @@ export function SalesView({
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Customers & Sales"
-        description="Manage customers, record asset sales (land or built units), and track payments."
-      />
-
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="sales">
@@ -65,7 +59,7 @@ export function SalesView({
         </TabsList>
 
         <TabsContent value="sales">
-          <SalesTab sales={sales} customers={customerOptions} permissions={permissions} />
+          <SalesTab sales={sales} customers={customerOptions} permissions={permissions} onAddCustomer={() => setTab("customers")} />
         </TabsContent>
         <TabsContent value="customers">
           <CustomersTab customers={customers} permissions={permissions} />
@@ -83,10 +77,12 @@ function SalesTab({
   sales,
   customers,
   permissions,
+  onAddCustomer,
 }: {
   sales: AssetSaleRow[];
   customers: { id: string; name: string }[];
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
+  onAddCustomer?: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
@@ -146,76 +142,119 @@ function SalesTab({
       </div>
 
       <div className="flex items-center gap-3 text-caption text-muted-foreground">
-        <span>{filtered.length} sale{filtered.length !== 1 ? "s" : ""}</span>
+        <span>{filtered.length} sales</span>
         <span>·</span>
         <span>Revenue: {formatCurrency(totalRevenue)}</span>
         <span>·</span>
         <span>Collected: {formatCurrency(totalCollected)}</span>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<ShoppingCart className="h-5 w-5" />}
-              title={sales.length === 0 ? "No sales yet" : "No sales match the filters"}
-              description={
-                sales.length === 0
-                  ? customers.length === 0
-                    ? "Create a customer first, then record your first sale."
-                    : "Record your first asset sale (land or built unit)."
-                  : "Try a different status or payment filter."
-              }
-              action={
-                sales.length === 0 && customers.length > 0 && (permissions?.canCreateSale ?? true) ? (
-                  <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Sale</Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <Table>
-              <THead>
-                <TR className="hover:bg-transparent">
-                  <TH>Sale Number</TH>
-                  <TH>Asset</TH>
-                  <TH>Customer</TH>
-                  <TH>Project</TH>
-                  <TH className="text-right">Sale Price</TH>
-                  <TH className="text-right">Paid</TH>
-                  <TH className="text-right">Balance</TH>
-                  <TH className="text-right">Profit</TH>
-                  <TH>Status</TH>
-                  <TH>Payment</TH>
-                  <TH>Date</TH>
-                  <TH></TH>
-                </TR>
-              </THead>
-              <TBody>
-                {filtered.map((s) => (
-                  <TR key={s.id} className="cursor-pointer" onClick={() => setSelected(s)}>
-                    <TD className="font-mono text-caption font-medium">{s.saleNumber}</TD>
-                    <TD className="font-medium">
-                      {s.assetType === "LAND"
-                        ? `Plot ${s.landParcelNumber ?? "—"}`
-                        : `Unit ${s.builtUnitNumber ?? "—"}`}
-                    </TD>
-                    <TD>{s.customerName}</TD>
-                    <TD className="text-muted-foreground">{s.projectName}</TD>
-                    <TD className="tnum text-right font-medium">{formatCurrency(s.salePrice)}</TD>
-                    <TD className="tnum text-right">{formatCurrency(s.totalPaid)}</TD>
-                    <TD className="tnum text-right">{s.balanceDue > 0 ? <span className="text-warning">{formatCurrency(s.balanceDue)}</span> : "—"}</TD>
-                    <TD className={`tnum text-right font-medium ${s.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(s.profit)}</TD>
-                    <TD><Badge variant={SALE_STATUS_VARIANT[s.status] ?? "muted"}>{s.status}</Badge></TD>
-                    <TD><Badge variant={PAYMENT_STATUS_VARIANT[s.paymentStatus] ?? "muted"}>{s.paymentStatus}</Badge></TD>
-                    <TD className="text-muted-foreground">{formatDate(s.saleDate)}</TD>
-                    <TD><ArrowRight className="h-4 w-4 text-muted-foreground" /></TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<ShoppingCart className="h-5 w-5" />}
+          title={sales.length === 0 ? "No sales yet" : "No sales match the filters"}
+          description={
+            sales.length === 0
+              ? customers.length === 0
+                ? "Create a customer first, then record your first sale."
+                : "Record your first asset sale (land or built unit)."
+              : "Try a different status or payment filter."
+          }
+          action={
+            sales.length === 0 && customers.length > 0 && (permissions?.canCreateSale ?? true) ? (
+              <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Sale</Button>
+            ) : sales.length === 0 && customers.length === 0 ? (
+              <Button onClick={() => onAddCustomer?.()} size="sm"><Users className="h-4 w-4" /> Add a customer</Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        /* ── Timeline of sale events ──
+           Not a table. Sales are chronological events — you see the
+           most recent sale at the top, with a vertical line connecting
+           them. Each event shows the asset sold, customer, price, and
+           payment progress as a visual bar. This is the temporal nature
+           of sales made visual. */
+        <div className="relative">
+          {/* Vertical timeline line */}
+          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+
+          <div className="space-y-1">
+            {filtered.map((s) => {
+              const payPct = s.salePrice > 0 ? Math.min(100, (s.totalPaid / s.salePrice) * 100) : 0;
+              const isCancelled = s.status === "CANCELLED";
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelected(s)}
+                  className="group relative flex w-full items-start gap-4 rounded-lg p-2.5 pl-0 text-left transition-colors hover:bg-muted/30"
+                >
+                  {/* Timeline dot */}
+                  <span
+                    className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${
+                      isCancelled ? "bg-danger" :
+                      s.paymentStatus === "PAID" ? "bg-success" :
+                      s.paymentStatus === "PARTIAL" ? "bg-warning" :
+                      "bg-muted-foreground/40"
+                    }`}
+                  />
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="font-mono text-caption font-semibold text-foreground">{s.saleNumber}</span>
+                        <span className="ml-2 text-body font-medium text-foreground">
+                          {s.assetType === "LAND"
+                            ? `Plot ${s.landParcelNumber ?? "—"}`
+                            : `Unit ${s.builtUnitNumber ?? "—"}`}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-body font-semibold tnum text-foreground">{formatCurrency(s.salePrice)}</span>
+                    </div>
+
+                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                      <span className="truncate">{s.customerName}</span>
+                      <span>·</span>
+                      <span className="truncate">{s.projectName}</span>
+                      <span className="ml-auto shrink-0">{formatDate(s.saleDate)}</span>
+                    </div>
+
+                    {/* Payment progress bar */}
+                    {!isCancelled && s.salePrice > 0 && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={`h-full ${payPct === 100 ? "bg-success" : payPct > 0 ? "bg-warning" : "bg-muted-foreground/20"}`}
+                            style={{ width: `${payPct}%` }}
+                          />
+                        </div>
+                        <span className="text-micro tnum text-muted-foreground">
+                          {formatCurrency(s.totalPaid)} / {formatCurrency(s.salePrice)}
+                        </span>
+                        {s.balanceDue > 0 && (
+                          <span className="text-micro font-medium text-warning">{formatCurrency(s.balanceDue)} due</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Status badges */}
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Badge variant={SALE_STATUS_VARIANT[s.status] ?? "muted"}>{s.status}</Badge>
+                      <Badge variant={PAYMENT_STATUS_VARIANT[s.paymentStatus] ?? "muted"}>{s.paymentStatus}</Badge>
+                      {s.profit !== 0 && (
+                        <span className={`text-micro tnum font-medium ${s.profit >= 0 ? "text-success" : "text-danger"}`}>
+                          {s.profit >= 0 ? "+" : ""}{formatCurrency(s.profit)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {customers.length === 0 && (
         <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
@@ -247,6 +286,9 @@ function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; pe
     );
   }, [customers, query]);
 
+  const initials = (name: string) =>
+    name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -258,60 +300,87 @@ function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; pe
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<Users className="h-5 w-5" />}
-              title={customers.length === 0 ? "No customers yet" : "No customers match the search"}
-              description={customers.length === 0 ? "Add customers to record asset sales." : "Try a different search."}
-              action={
-                customers.length === 0 ? (
-                  <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm" disabled={!(permissions?.canManage ?? true)}><Plus className="h-4 w-4" /> New Customer</Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <Table>
-              <THead>
-                <TR className="hover:bg-transparent">
-                  <TH>Name</TH>
-                  <TH>Phone</TH>
-                  <TH>Email</TH>
-                  <TH>GSTIN</TH>
-                  <TH className="text-right">Active Sales</TH>
-                  <TH className="text-right">Actions</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {filtered.map((c) => (
-                  <TR key={c.id}>
-                    <TD className="font-medium">{c.name}</TD>
-                    <TD className="text-muted-foreground">{c.phone ?? "—"}</TD>
-                    <TD className="text-muted-foreground">{c.email ?? "—"}</TD>
-                    <TD className="font-mono text-caption text-muted-foreground">{c.gstin ?? "—"}</TD>
-                    <TD className="tnum text-right">{c.activeSales > 0 ? <Badge variant="default">{c.activeSales}</Badge> : "0"}</TD>
-                    <TD className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {(permissions?.canManage ?? true) && (
-                          <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setFormOpen(true); }} title="Edit">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(permissions?.canManage ?? true) && (
-                          <Button variant="ghost" size="icon" onClick={() => setDeleting(c)} title="Delete" className="text-muted-foreground hover:text-danger">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-5 w-5" />}
+          title={customers.length === 0 ? "No customers yet" : "No customers match the search"}
+          description={customers.length === 0 ? "Add customers to record asset sales." : "Try a different search."}
+          action={
+            customers.length === 0 ? (
+              <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm" disabled={!(permissions?.canManage ?? true)}><Plus className="h-4 w-4" /> New Customer</Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        /* ── Contact card grid — matches the standalone Customers page ── */
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((c) => (
+            <div
+              key={c.id}
+              className="group relative rounded-lg border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background">
+                  {initials(c.name)}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-body font-semibold text-foreground">{c.name}</div>
+                  {c.gstin && (
+                    <div className="truncate font-mono text-micro text-muted-foreground">{c.gstin}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-1">
+                {c.phone && (
+                  <div className="flex items-center gap-2 text-caption text-muted-foreground">
+                    <Phone className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{c.phone}</span>
+                  </div>
+                )}
+                {c.email && (
+                  <div className="flex items-center gap-2 text-caption text-muted-foreground">
+                    <Mail className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{c.email}</span>
+                  </div>
+                )}
+                {!c.phone && !c.email && (
+                  <div className="text-caption text-muted-foreground/50">No contact info</div>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-caption text-muted-foreground">Active sales</span>
+                  <span className={`text-body font-semibold tnum ${c.activeSales > 0 ? "text-foreground" : "text-muted-foreground"}`}>
+                    {c.activeSales}
+                  </span>
+                </div>
+                <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  {(permissions?.canManage ?? true) && (
+                    <button
+                      onClick={() => { setEditing(c); setFormOpen(true); }}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {(permissions?.canManage ?? true) && (
+                    <button
+                      onClick={() => setDeleting(c)}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <CustomerFormDialog open={formOpen} onOpenChange={setFormOpen} customer={editing} />
       <DeleteConfirmDialog

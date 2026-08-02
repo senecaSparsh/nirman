@@ -1,6 +1,8 @@
 import { prisma, type ProjectCostType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
+import { postProjectCost } from "./gl-posting";
 
 /**
  * Project Cost Service — labour, overhead, equipment, contractor, permit costs.
@@ -16,6 +18,7 @@ interface AddProjectCostInput {
   subcontractorId?: string;
   notes?: string;
   receiptUrl?: string;
+  userId?: string;
 }
 
 export async function addProjectCost(input: AddProjectCostInput) {
@@ -44,11 +47,27 @@ export async function addProjectCost(input: AddProjectCostInput) {
     // Trigger reallocation — project cost changed → costPerSqft changes
     await reallocateProjectCosts(tx, input.projectId);
 
+    // Post to the General Ledger: capitalise the cost into WIP, credit cash.
+    await postProjectCost(tx, {
+      companyId: project.companyId,
+      projectCostId: cost.id,
+      projectId: input.projectId,
+      amount,
+      postedById: input.userId,
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "PROJECT_COST_ADD",
+      entityType: "ProjectCost",
+      entityId: cost.id,
+      after: { projectId: input.projectId, costType: input.costType, amount },
+    });
     return cost;
   });
 }
 
-export async function deleteProjectCost(costId: string) {
+export async function deleteProjectCost(costId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const cost = await tx.projectCost.findUnique({ where: { id: costId } });
     if (!cost) throw new Error("Project cost not found");
@@ -58,6 +77,13 @@ export async function deleteProjectCost(costId: string) {
     // Trigger reallocation — cost removed → costPerSqft changes
     await reallocateProjectCosts(tx, cost.projectId);
 
+    await logAction(tx, {
+      userId,
+      action: "PROJECT_COST_DELETE",
+      entityType: "ProjectCost",
+      entityId: costId,
+      before: { projectId: cost.projectId, costType: cost.costType, amount: cost.amount },
+    });
     return { deleted: true, projectId: cost.projectId };
   });
 }

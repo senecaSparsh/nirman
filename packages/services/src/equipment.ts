@@ -1,5 +1,6 @@
 import { prisma, type EquipmentStatus, type MaintenanceType } from "@nirman/db";
 import Decimal from "decimal.js";
+import { logAction } from "./audit";
 
 /**
  * Equipment Service — manage discrete, trackable assets (machinery, tools, vehicles).
@@ -11,6 +12,7 @@ import Decimal from "decimal.js";
  *   AVAILABLE → ASSIGNED (assign to site) → AVAILABLE (return)
  *   AVAILABLE/ASSIGNED → IN_MAINTENANCE → AVAILABLE (maintenance done)
  *   any → RETIRED (terminal)
+ *   RETIRED → AVAILABLE (un-retire, restores to serviceable pool)
  */
 
 interface CreateEquipmentInput {
@@ -23,6 +25,7 @@ interface CreateEquipmentInput {
   acquisitionCost: Decimal | number | string;
   purchaseDate?: Date;
   notes?: string;
+  userId?: string;
 }
 
 export async function createEquipment(input: CreateEquipmentInput) {
@@ -33,20 +36,30 @@ export async function createEquipment(input: CreateEquipmentInput) {
   const existing = await prisma.equipment.findUnique({ where: { assetTag: input.assetTag } });
   if (existing) throw new Error(`Equipment with assetTag ${input.assetTag} already exists`);
 
-  return prisma.equipment.create({
-    data: {
-      assetTag: input.assetTag,
-      name: input.name,
-      model: input.model,
-      serialNumber: input.serialNumber,
-      category: input.category,
-      companyId: input.companyId,
-      acquisitionCost: cost,
-      currentValue: cost, // initial value = acquisition cost (depreciation applied later)
-      purchaseDate: input.purchaseDate,
-      notes: input.notes,
-      status: "AVAILABLE",
-    },
+  return prisma.$transaction(async (tx) => {
+    const equipment = await tx.equipment.create({
+      data: {
+        assetTag: input.assetTag,
+        name: input.name,
+        model: input.model,
+        serialNumber: input.serialNumber,
+        category: input.category,
+        companyId: input.companyId,
+        acquisitionCost: cost,
+        currentValue: cost, // initial value = acquisition cost (depreciation applied later)
+        purchaseDate: input.purchaseDate,
+        notes: input.notes,
+        status: "AVAILABLE",
+      },
+    });
+    await logAction(tx, {
+      userId: input.userId,
+      action: "EQUIPMENT_CREATE",
+      entityType: "Equipment",
+      entityId: equipment.id,
+      after: { assetTag: equipment.assetTag, name: equipment.name, acquisitionCost: cost, status: "AVAILABLE" },
+    });
+    return equipment;
   });
 }
 
@@ -55,6 +68,7 @@ interface AssignEquipmentInput {
   locationId: string;
   projectId?: string;
   notes?: string;
+  userId?: string;
 }
 
 export async function assignEquipment(input: AssignEquipmentInput) {
@@ -88,11 +102,18 @@ export async function assignEquipment(input: AssignEquipmentInput) {
       data: { status: "ASSIGNED" },
     });
 
+    await logAction(tx, {
+      userId: input.userId,
+      action: "EQUIPMENT_ASSIGN",
+      entityType: "EquipmentAssignment",
+      entityId: assignment.id,
+      after: { equipmentId: input.equipmentId, locationId: input.locationId, projectId: input.projectId ?? null, status: "ACTIVE" },
+    });
     return assignment;
   });
 }
 
-export async function returnEquipment(assignmentId: string) {
+export async function returnEquipment(assignmentId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const assignment = await tx.equipmentAssignment.findUnique({
       where: { id: assignmentId },
@@ -120,6 +141,14 @@ export async function returnEquipment(assignmentId: string) {
       data: { status: newStatus },
     });
 
+    await logAction(tx, {
+      userId,
+      action: "EQUIPMENT_RETURN",
+      entityType: "EquipmentAssignment",
+      entityId: assignmentId,
+      before: { status: "ACTIVE" },
+      after: { status: "RETURNED", equipmentStatus: newStatus },
+    });
     return { returned: true };
   });
 }
@@ -131,6 +160,7 @@ interface RecordMaintenanceInput {
   vendor?: string;
   notes?: string;
   endDate?: Date;
+  userId?: string;
 }
 
 export async function recordMaintenance(input: RecordMaintenanceInput) {
@@ -159,11 +189,18 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
       });
     }
 
+    await logAction(tx, {
+      userId: input.userId,
+      action: "EQUIPMENT_MAINTENANCE_RECORD",
+      entityType: "EquipmentMaintenance",
+      entityId: maintenance.id,
+      after: { equipmentId: input.equipmentId, type: input.type, cost: input.cost ?? 0 },
+    });
     return maintenance;
   });
 }
 
-export async function completeMaintenance(equipmentId: string) {
+export async function completeMaintenance(equipmentId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
     if (!equipment) throw new Error("Equipment not found");
@@ -177,21 +214,81 @@ export async function completeMaintenance(equipmentId: string) {
       data: { endDate: new Date() },
     });
 
-    return tx.equipment.update({
+    const updated = await tx.equipment.update({
       where: { id: equipmentId },
       data: { status: "AVAILABLE" },
     });
+
+    await logAction(tx, {
+      userId,
+      action: "EQUIPMENT_MAINTENANCE_COMPLETE",
+      entityType: "Equipment",
+      entityId: equipmentId,
+      before: { status: "IN_MAINTENANCE" },
+      after: { status: "AVAILABLE" },
+    });
+    return updated;
   });
 }
 
-export async function retireEquipment(equipmentId: string) {
-  const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId } });
-  if (!equipment) throw new Error("Equipment not found");
-  if (equipment.status === "RETIRED") throw new Error("Equipment already retired");
+export async function retireEquipment(equipmentId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
+    if (!equipment) throw new Error("Equipment not found");
+    if (equipment.status === "RETIRED") throw new Error("Equipment already retired");
 
-  return prisma.equipment.update({
-    where: { id: equipmentId },
-    data: { status: "RETIRED" },
+    const updated = await tx.equipment.update({
+      where: { id: equipmentId },
+      data: { status: "RETIRED" },
+    });
+
+    await logAction(tx, {
+      userId,
+      action: "EQUIPMENT_RETIRE",
+      entityType: "Equipment",
+      entityId: equipmentId,
+      before: { status: equipment.status },
+      after: { status: "RETIRED" },
+    });
+    return updated;
+  });
+}
+
+/**
+ * Un-retire equipment: restore a retired asset to the AVAILABLE pool.
+ * Refuses if there is an open (non-returned) assignment or incomplete maintenance,
+ * since those would conflict with the AVAILABLE status.
+ */
+export async function unretireEquipment(equipmentId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
+    if (!equipment) throw new Error("Equipment not found");
+    if (equipment.status !== "RETIRED") throw new Error("Only retired equipment can be un-retired");
+
+    const openAssignment = await tx.equipmentAssignment.findFirst({
+      where: { equipmentId, status: "ACTIVE" },
+    });
+    if (openAssignment) throw new Error("Cannot un-retire equipment with an active assignment");
+
+    const openMaintenance = await tx.equipmentMaintenance.findFirst({
+      where: { equipmentId, endDate: null },
+    });
+    if (openMaintenance) throw new Error("Cannot un-retire equipment with open maintenance");
+
+    const updated = await tx.equipment.update({
+      where: { id: equipmentId },
+      data: { status: "AVAILABLE" },
+    });
+
+    await logAction(tx, {
+      userId,
+      action: "EQUIPMENT_UNRETIRE",
+      entityType: "Equipment",
+      entityId: equipmentId,
+      before: { status: "RETIRED" },
+      after: { status: "AVAILABLE" },
+    });
+    return updated;
   });
 }
 

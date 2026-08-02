@@ -3,16 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ClipboardList, ArrowRight, X, Check, RotateCcw, ShoppingCart, Trash2, Download } from "lucide-react";
+import { Plus, ClipboardList, ArrowRight, X, Check, RotateCcw, ShoppingCart, Trash2, Download, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
-import { KpiCard } from "@/components/kpi-card";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import type { RequisitionRow, RequisitionStatus } from "@/lib/types";
@@ -21,7 +18,7 @@ type ProjectOption = { id: string; name: string };
 type PhaseOption = { id: string; name: string; projectId: string };
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
-type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" };
+type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" };
 
 const STATUS_VARIANT: Record<RequisitionStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
   DRAFT: "muted",
@@ -54,12 +51,24 @@ export function RequisitionsView({
   const [convertTarget, setConvertTarget] = useState<RequisitionRow | null>(null);
   const [deleting, setDeleting] = useState<RequisitionRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoProjectId, setAutoProjectId] = useState("");
+  const [autoLoading, setAutoLoading] = useState(false);
   const router = useRouter();
 
   const filtered = statusFilter ? requisitions.filter((r) => r.status === statusFilter) : requisitions;
   const draftCount = requisitions.filter((r) => r.status === "DRAFT").length;
   const submittedCount = requisitions.filter((r) => r.status === "SUBMITTED").length;
   const approvedCount = requisitions.filter((r) => r.status === "APPROVED").length;
+
+  const rejectedItems = filtered.filter((r) => r.status === "REJECTED");
+  const convertedItems = filtered.filter((r) => r.status === "CONVERTED");
+
+  const pipelineColumns: { status: RequisitionStatus; label: string; color: string }[] = [
+    { status: "DRAFT", label: "Draft", color: "var(--color-stage-system)" },
+    { status: "SUBMITTED", label: "Submitted", color: "var(--color-stage-manage)" },
+    { status: "APPROVED", label: "Approved", color: "var(--color-stage-procure)" },
+  ];
 
   async function action(reqId: string, action: string) {
     try {
@@ -77,18 +86,47 @@ export function RequisitionsView({
     }
   }
 
+  async function generateAuto() {
+    if (!autoProjectId) {
+      toast.error("Select a project first");
+      return;
+    }
+    setAutoLoading(true);
+    try {
+      const res = await fetch("/api/requisitions/auto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: autoProjectId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.generated) {
+        toast.success(
+          `Generated ${data.reqNumber} — ${data.lineCount} material(s) below reorder point.`,
+        );
+        setAutoOpen(false);
+        setAutoProjectId("");
+      } else {
+        toast.info(data.message ?? "Nothing to generate.");
+      }
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Auto-generation failed");
+    } finally {
+      setAutoLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Material Requisitions"
-        description="Request materials for projects, get approval, then convert to purchase orders."
-      />
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Total" value={String(requisitions.length)} />
-        <KpiCard label="Drafts" value={String(draftCount)} accent="muted" />
-        <KpiCard label="Pending Approval" value={String(submittedCount)} accent="warning" />
-        <KpiCard label="Approved" value={String(approvedCount)} accent="success" />
+      <div className="flex items-center gap-4 text-body">
+        <span className="text-muted-foreground">{requisitions.length} requisitions</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="font-medium">{draftCount} drafts</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-warning font-medium">{submittedCount} pending</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-success font-medium">{approvedCount} approved</span>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -113,75 +151,147 @@ export function RequisitionsView({
             <Download className="h-4 w-4" /> Export
           </Button>
           {canCreate && (
-            <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
-              <Plus className="h-4 w-4" /> New Requisition
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setAutoOpen(true)} disabled={projects.length === 0}>
+                <Zap className="h-4 w-4" /> Auto-generate
+              </Button>
+              <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
+                <Plus className="h-4 w-4" /> New Requisition
+              </Button>
+            </>
           )}
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No requisitions" description="Create a material requisition to request materials for a project." />
-          ) : (
-            <Table>
-              <THead>
-                <TR className="hover:bg-transparent">
-                  <TH>Req #</TH>
-                  <TH>Project</TH>
-                  <TH>Lines</TH>
-                  <TH>Needed By</TH>
-                  <TH>Status</TH>
-                  <TH className="text-right">Actions</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {filtered.map((r) => (
-                  <TR key={r.id}>
-                    <TD className="font-mono text-caption font-medium">{r.reqNumber}</TD>
-                    <TD className="text-body font-medium">
-                      {r.projectName}
-                      {r.phaseName && <span className="block text-caption text-muted-foreground">{r.phaseName}</span>}
-                    </TD>
-                    <TD className="text-caption text-muted-foreground">
-                      {r.lineCount} item{r.lineCount !== 1 ? "s" : ""}
-                    </TD>
-                    <TD className="text-caption text-muted-foreground">{r.neededByDate ? formatDate(r.neededByDate) : "—"}</TD>
-                    <TD><Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge></TD>
-                    <TD>
-                      <div className="flex justify-end gap-1">
-                        {r.status === "DRAFT" && (
-                          <Button size="sm" variant="outline" onClick={() => action(r.id, "submit")}>Submit</Button>
-                        )}
-                        {r.status === "SUBMITTED" && canApprove && (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => action(r.id, "approve")}><Check className="h-3.5 w-3.5" /> Approve</Button>
-                            <Button size="sm" variant="outline" onClick={() => action(r.id, "reject")}><X className="h-3.5 w-3.5" /> Reject</Button>
-                          </>
-                        )}
-                        {r.status === "APPROVED" && (
-                          <Button size="sm" onClick={() => setConvertTarget(r)}>
-                            <ShoppingCart className="h-3.5 w-3.5" /> Convert to PO
-                          </Button>
-                        )}
-                        {r.status === "CONVERTED" && r.convertedPoId && (
-                          <span className="text-caption text-muted-foreground">PO created</span>
-                        )}
-                        {(r.status === "DRAFT" || r.status === "REJECTED") && (
-                          <Button variant="ghost" size="icon" onClick={() => setDeleting(r)} title="Delete" className="text-muted-foreground hover:text-danger">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
+      {filtered.length === 0 ? (
+        <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No requisitions" description="Create a material requisition to request materials for a project." />
+      ) : (
+        <>
+          {/* ── Pipeline (kanban by status) ───────────────────────────
+              Requisitions flow Draft → Submitted → Approved → Converted.
+              Rejected drop out to a compact section below. Each card
+              shows the key info and the action available at that stage. */}
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {pipelineColumns.map((col) => {
+              const items = filtered.filter((r) => r.status === col.status);
+              return (
+                <div key={col.status} className="flex w-64 shrink-0 flex-col">
+                  {/* Column header */}
+                  <div className="mb-2 flex items-center gap-2 px-1">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
+                    <span className="text-label text-muted-foreground">{col.label}</span>
+                    <span className="ml-auto text-caption font-semibold tnum text-muted-foreground">{items.length}</span>
+                  </div>
+
+                  {/* Column body */}
+                  <div className="flex-1 space-y-2">
+                    {items.length === 0 && (
+                      <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground/50">
+                        empty
                       </div>
-                    </TD>
-                  </TR>
+                    )}
+                    {items.map((r) => {
+                      const isOverdue = r.neededByDate && new Date(r.neededByDate) < new Date();
+                      return (
+                        <div key={r.id} className="rounded-lg border border-border bg-card p-3 transition-all hover:border-foreground/20 hover:shadow-sm">
+                          {/* Req number + status badge */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-caption font-bold text-foreground">{r.reqNumber}</span>
+                            <Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge>
+                          </div>
+
+                          {/* Project + phase */}
+                          <div className="mt-1.5 truncate text-body font-medium text-foreground">{r.projectName}</div>
+                          {r.phaseName && <div className="truncate text-caption text-muted-foreground">{r.phaseName}</div>}
+
+                          {/* Line count + needed-by */}
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-caption text-muted-foreground">{r.lineCount} item{r.lineCount !== 1 ? "s" : ""}</span>
+                            <span className={`text-caption tnum ${isOverdue ? "text-danger font-semibold" : "text-muted-foreground"}`}>
+                              {r.neededByDate ? formatDate(r.neededByDate) : "—"}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="mt-2.5 flex gap-1.5">
+                            {r.status === "DRAFT" && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "submit")}>Submit</Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-danger" onClick={() => setDeleting(r)} title="Delete">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                            {r.status === "SUBMITTED" && canApprove && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "approve")}><Check className="h-3.5 w-3.5" /> Approve</Button>
+                                <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "reject")}><X className="h-3.5 w-3.5" /> Reject</Button>
+                              </>
+                            )}
+                            {r.status === "SUBMITTED" && !canApprove && (
+                              <span className="text-micro text-muted-foreground">Awaiting approval</span>
+                            )}
+                            {r.status === "APPROVED" && (
+                              <Button size="sm" className="h-7 w-full" onClick={() => setConvertTarget(r)}>
+                                <ShoppingCart className="h-3.5 w-3.5" /> Convert to PO
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Rejected (compact section) ──────────────────────────── */}
+          {rejectedItems.length > 0 && (
+            <div className="rounded-lg border border-border">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--color-danger)" }} />
+                <span className="text-label text-muted-foreground">Rejected</span>
+                <span className="ml-auto text-caption font-semibold tnum text-muted-foreground">{rejectedItems.length}</span>
+              </div>
+              <div className="divide-y divide-border">
+                {rejectedItems.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2">
+                    <span className="font-mono text-caption font-bold text-foreground w-28 shrink-0">{r.reqNumber}</span>
+                    <span className="flex-1 truncate text-body font-medium">{r.projectName}</span>
+                    <span className="text-caption text-muted-foreground shrink-0">{r.lineCount} item{r.lineCount !== 1 ? "s" : ""}</span>
+                    <Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-danger" onClick={() => setDeleting(r)} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 ))}
-              </TBody>
-            </Table>
+              </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+
+          {/* ── Converted (compact section) ─────────────────────────── */}
+          {convertedItems.length > 0 && (
+            <div className="rounded-lg border border-border">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--color-success)" }} />
+                <span className="text-label text-muted-foreground">Converted</span>
+                <span className="ml-auto text-caption font-semibold tnum text-muted-foreground">{convertedItems.length}</span>
+              </div>
+              <div className="divide-y divide-border">
+                {convertedItems.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2">
+                    <span className="font-mono text-caption font-bold text-foreground w-28 shrink-0">{r.reqNumber}</span>
+                    <span className="flex-1 truncate text-body font-medium">{r.projectName}</span>
+                    <span className="text-caption text-muted-foreground shrink-0">{r.lineCount} item{r.lineCount !== 1 ? "s" : ""}</span>
+                    <span className="text-caption text-success font-medium shrink-0">PO created</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {formOpen && (
         <RequisitionFormDialog
@@ -210,6 +320,36 @@ export function RequisitionsView({
           successMessage="Requisition deleted"
         />
       )}
+
+      <Dialog
+        open={autoOpen}
+        onOpenChange={setAutoOpen}
+        title="Auto-generate requisition"
+        description="Creates a DRAFT requisition for every material at or below its reorder point. You still review and submit it."
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Project</Label>
+            <Select value={autoProjectId} onChange={(e) => setAutoProjectId(e.target.value)}>
+              <option value="">Select a project…</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
+          </div>
+          <p className="text-meta text-muted-foreground">
+            Materials already covered by an open requisition for this project are skipped. Quantities use the
+            material&apos;s EOQ when set, otherwise replenish to 2× reorder point.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setAutoOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={generateAuto} disabled={autoLoading || !autoProjectId}>
+              {autoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Generate
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -277,61 +417,64 @@ function RequisitionFormDialog({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => onOpenChange(false)}>
-      <div className="w-full max-w-2xl rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-lg font-semibold">New Material Requisition</h2>
-        <form onSubmit={save} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Project *</Label>
-              <Select value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value, phaseId: "" }))} required>
-                <option value="">Select…</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phase</Label>
-              <Select value={form.phaseId} onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value }))} disabled={filteredPhases.length === 0}>
-                <option value="">None</option>
-                {filteredPhases.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </Select>
-            </div>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="New Material Requisition"
+      description="Request materials for a project. Submit it for approval, then convert to a purchase order."
+      className="max-w-2xl"
+    >
+      <form onSubmit={save} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Project *</Label>
+            <Select value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value, phaseId: "" }))} required>
+              <option value="">Select…</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Needed By Date</Label>
-            <Input type="date" value={form.neededByDate} onChange={(e) => setForm((f) => ({ ...f, neededByDate: e.target.value }))} />
+            <Label>Phase</Label>
+            <Select value={form.phaseId} onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value }))} disabled={filteredPhases.length === 0}>
+              <option value="">None</option>
+              {filteredPhases.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Needed By Date</Label>
+          <Input type="date" value={form.neededByDate} onChange={(e) => setForm((f) => ({ ...f, neededByDate: e.target.value }))} />
+        </div>
 
-          <div className="space-y-2">
-            <Label>Lines</Label>
-            {lines.map((line, i) => (
-              <div key={line.id} className="flex gap-2">
-                <Select value={line.materialId} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: e.target.value } : l))} className="flex-1">
-                  <option value="">Select material…</option>
-                  {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
-                </Select>
-                <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
-                <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", notes: "" }])}>
-              <Plus className="h-3.5 w-3.5" /> Add Line
-            </Button>
-          </div>
+        <div className="space-y-2">
+          <Label>Lines</Label>
+          {lines.map((line, i) => (
+            <div key={line.id} className="flex gap-2">
+              <Select value={line.materialId} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: e.target.value } : l))} className="flex-1">
+                <option value="">Select material…</option>
+                {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
+              </Select>
+              <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
+              <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", notes: "" }])}>
+            <Plus className="h-3.5 w-3.5" /> Add Line
+          </Button>
+        </div>
 
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -363,7 +506,7 @@ function ConvertDialog({
     fetch(`/api/requisitions/${requisition.id}`)
       .then((r) => r.json())
       .then((d) => setDetail(d))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load requisition details"));
   }, [requisition.id]);
 
   async function convert(e: React.FormEvent) {
@@ -405,74 +548,76 @@ function ConvertDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => onOpenChange(false)}>
-      <div className="w-full max-w-2xl rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-1 text-lg font-semibold">Convert Requisition to PO</h2>
-        <p className="mb-4 text-body text-muted-foreground">{requisition.reqNumber} · {requisition.projectName}</p>
-        <form onSubmit={convert} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Supplier *</Label>
-              <Select value={form.supplierId} onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))} required>
-                <option value="">Select…</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Procurement Scope</Label>
-              <Select value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as any }))}>
-                <option value="PROJECT">Project</option>
-                <option value="COMPANY">Company</option>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Destination Location *</Label>
-              <Select value={form.destinationLocationId} onChange={(e) => setForm((f) => ({ ...f, destinationLocationId: e.target.value }))} required>
-                <option value="">Select…</option>
-                {locations
-                  .filter((l) => form.procurementScope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE")
-                  .map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Expected Date</Label>
-              <Input type="date" value={form.expectedDate} onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))} />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Line Costs (unit cost per material)</Label>
-            {!detail ? (
-              <p className="text-body text-muted-foreground">Loading lines…</p>
-            ) : (
-              detail.lines.map((line) => (
-                <div key={line.id} className="flex items-center gap-2">
-                  <span className="flex-1 text-body">{line.materialName} ({line.materialCode})</span>
-                  <span className="tnum text-body text-muted-foreground">{formatNumber(line.qtyRequested, 3)} {line.unit}</span>
-                  <Input
-                    type="number"
-                    placeholder="Unit cost"
-                    value={lineCosts[line.materialId] ?? ""}
-                    onChange={(e) => setLineCosts((c) => ({ ...c, [line.materialId]: e.target.value }))}
-                    className="w-32"
-                  />
-                </div>
-              ))
-            )}
-          </div>
-
+    <Dialog
+      open
+      onOpenChange={onOpenChange}
+      title="Convert Requisition to PO"
+      description={`${requisition.reqNumber} · ${requisition.projectName}`}
+      className="max-w-2xl"
+    >
+      <form onSubmit={convert} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+            <Label>Supplier *</Label>
+            <Select value={form.supplierId} onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))} required>
+              <option value="">Select…</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Converting…" : "Convert to PO"}</Button>
+          <div className="space-y-1.5">
+            <Label>Procurement Scope</Label>
+            <Select value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as any }))}>
+              <option value="PROJECT">Project</option>
+              <option value="COMPANY">Company</option>
+            </Select>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Destination Location *</Label>
+            <Select value={form.destinationLocationId} onChange={(e) => setForm((f) => ({ ...f, destinationLocationId: e.target.value }))} required>
+              <option value="">Select…</option>
+              {locations
+                .filter((l) => form.procurementScope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE")
+                .map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Expected Date</Label>
+            <Input type="date" value={form.expectedDate} onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Line Costs (unit cost per material)</Label>
+          {!detail ? (
+            <p className="text-body text-muted-foreground">Loading lines…</p>
+          ) : (
+            detail.lines.map((line) => (
+              <div key={line.id} className="flex items-center gap-2">
+                <span className="flex-1 text-body">{line.materialName} ({line.materialCode})</span>
+                <span className="tnum text-body text-muted-foreground">{formatNumber(line.qtyRequested, 3)} {line.unit}</span>
+                <Input
+                  type="number"
+                  placeholder="Unit cost"
+                  value={lineCosts[line.materialId] ?? ""}
+                  onChange={(e) => setLineCosts((c) => ({ ...c, [line.materialId]: e.target.value }))}
+                  className="w-32"
+                />
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Converting…" : "Convert to PO"}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

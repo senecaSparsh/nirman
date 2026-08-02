@@ -11,6 +11,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
+import { usePermissions } from "@/lib/permissions";
 import { cn, formatDate } from "@/lib/utils";
 
 interface MyTask {
@@ -66,10 +68,12 @@ function dueDateStatus(dueDateRaw: string | null): { label: string; color: strin
 
 export function MyTasksPanel({ limit }: { limit?: number }) {
   const router = useRouter();
+  const { userId, canAssignTasks } = usePermissions();
   const [tasks, setTasks] = useState<MyTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -188,9 +192,12 @@ export function MyTasksPanel({ limit }: { limit?: number }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className={cn("text-body font-medium", task.status === "COMPLETED" && "text-muted-foreground line-through")}>
+                      <button
+                        onClick={() => setDrawerTaskId(task.id)}
+                        className={cn("text-left text-body font-medium hover:text-primary hover:underline", task.status === "COMPLETED" && "text-muted-foreground line-through")}
+                      >
                         {task.title}
-                      </p>
+                      </button>
                       {task.description && (
                         <p className="truncate text-caption text-muted-foreground">{task.description}</p>
                       )}
@@ -289,6 +296,15 @@ export function MyTasksPanel({ limit }: { limit?: number }) {
           </>
         )}
       </CardContent>
+
+      <TaskDetailDrawer
+        taskId={drawerTaskId}
+        open={drawerTaskId !== null}
+        onClose={() => setDrawerTaskId(null)}
+        users={[]}
+        canManage={canAssignTasks()}
+        currentUserId={userId ?? ""}
+      />
     </Card>
   );
 }

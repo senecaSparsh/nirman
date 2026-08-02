@@ -6,13 +6,14 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { StockMovementsView } from "@/components/stock-movements/stock-movements-view";
 import { PageLoading } from "@/components/page-loading";
-import type { ProjectOption, StockLocationRow, StockMovementRow } from "@/lib/types";
+import type { ProjectOption, StockLocationRow, StockMovementRow, DepartmentOption } from "@/lib/types";
 
 const MOVEMENT_LABELS: Record<string, string> = {
   PURCHASE_RECEIPT: "Receipt",
   TRANSFER_IN: "Transfer In",
   TRANSFER_OUT: "Transfer Out",
   ISSUE_TO_PROJECT: "Issue to Project",
+  ISSUE_TO_DEPARTMENT: "Issue to Dept",
   ADJUSTMENT_IN: "Adjustment (+)",
   ADJUSTMENT_OUT: "Adjustment (−)",
   RETURN: "Return",
@@ -22,11 +23,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
 export default function StockMovementsPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Stock Movements"
-        description="Immutable audit trail of every stock movement — receipts, transfers, issues, adjustments."
-      />
-      <Suspense fallback={<PageLoading label="Loading stock movements…" />}>
+      <Suspense fallback={<PageLoading label="Loading stock movements…" variant="list" />}>
         <StockMovementsContent />
       </Suspense>
     </div>
@@ -51,7 +48,7 @@ async function StockMovementsContent() {
     canIssue: hasPermission(role, PERM.STOCK_ISSUE),
   };
 
-  const [movements, locations, projects, companyLocations] = await Promise.all([
+  const [movements, locations, projects, companyLocations, departments] = await Promise.all([
     prisma.stockMovement.findMany({
       orderBy: { timestamp: "desc" },
       take: 200,
@@ -75,6 +72,11 @@ async function StockMovementsContent() {
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: { id: true },
+    }),
+    prisma.department.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, name: true },
     }),
   ]);
 
@@ -128,7 +130,20 @@ async function StockMovementsContent() {
     status: p.status,
   }));
 
+  const departmentRows: DepartmentOption[] = departments.map((d) => ({
+    id: d.id, code: d.code, name: d.name,
+  }));
+
   return (
-    <StockMovementsView movements={movementRows} locations={locationRows} projects={projectRows} permissions={perms} />
+    <>
+      <PageHeader
+        title="Stock Movements"
+        description="Immutable audit trail of every stock movement — receipts, transfers, issues, adjustments."
+        stats={[
+          { label: "Movements", value: movementRows.length },
+        ]}
+      />
+      <StockMovementsView movements={movementRows} locations={locationRows} projects={projectRows} departments={departmentRows} permissions={perms} />
+    </>
   );
 }

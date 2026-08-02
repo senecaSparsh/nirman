@@ -46,6 +46,7 @@ export function SellAssetDialog({
     fetch(`/api/sellable-assets?type=${form.assetType}`)
       .then((r) => r.json())
       .then((d) => { if (Array.isArray(d)) setAssets(d); })
+      .catch(() => toast.error("Failed to load sellable assets"))
       .finally(() => setLoadingAssets(false));
   }, [open, form.assetType]);
 

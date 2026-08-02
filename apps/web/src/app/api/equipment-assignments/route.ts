@@ -39,7 +39,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const body = await req.json();
   const parsed = equipmentAssignSchema.safeParse(body);
   if (!parsed.success) {
@@ -51,6 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       locationId: parsed.data.locationId,
       projectId: parsed.data.projectId ?? undefined,
       notes: parsed.data.notes ?? undefined,
+      userId: user.id,
     });
     return json({ ok: true, id: assignment.id }, { status: 201 });
   } catch (err: any) {

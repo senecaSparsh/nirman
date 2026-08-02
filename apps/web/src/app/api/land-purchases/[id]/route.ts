@@ -5,10 +5,10 @@ import { apiHandler, json, requirePermission, toNum, landPurchaseSchema } from "
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  const user = await requirePermission(PERM.ASSETS_VIEW);
   const { id } = await ctx.params;
-  const lp = await prisma.landPurchase.findUnique({
-    where: { id },
+  const lp = await prisma.landPurchase.findFirst({
+    where: { id, companyId: user.companyId ?? undefined, deletedAt: null },
     include: {
       project: { select: { name: true } },
       parcels: {
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       },
     },
   });
-  if (!lp || lp.deletedAt) return json({ error: "Land purchase not found" }, { status: 404 });
+  if (!lp) return json({ error: "Land purchase not found" }, { status: 404 });
   return json({
     id: lp.id,
     projectId: lp.projectId,
@@ -74,6 +74,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await ctx.params;
   try {
     await softDelete("LandPurchase", id);

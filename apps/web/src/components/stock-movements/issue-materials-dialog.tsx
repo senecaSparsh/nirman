@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { formatCurrency } from "@/lib/utils";
-import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
+import type { AvailableStockRow, DepartmentOption, ProjectOption, StockLocationRow } from "@/lib/types";
 
 type Line = { key: string; materialId: string; qty: string };
 let lineKey = 0;
@@ -17,19 +17,25 @@ function newLine(): Line {
   return { key: `i${++lineKey}`, materialId: "", qty: "" };
 }
 
+type Target = "PROJECT" | "DEPARTMENT";
+
 export function IssueMaterialsDialog({
   open,
   onOpenChange,
   locations,
   projects,
+  departments,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locations: StockLocationRow[];
   projects: ProjectOption[];
+  departments: DepartmentOption[];
 }) {
   const router = useRouter();
+  const [target, setTarget] = useState<Target>("PROJECT");
   const [projectId, setProjectId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
@@ -44,7 +50,7 @@ export function IssueMaterialsDialog({
     fetch(`/api/stock/available?locationId=${fromLocationId}`)
       .then((r) => r.json())
       .then((data) => setAvailable(Array.isArray(data) ? data : []))
-      .catch(() => setAvailable([]));
+      .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
   }, [fromLocationId]);
 
   function updateLine(key: string, patch: Partial<Line>) {
@@ -66,7 +72,8 @@ export function IssueMaterialsDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return toast.error("Select a project");
+    if (target === "PROJECT" && !projectId) return toast.error("Select a project");
+    if (target === "DEPARTMENT" && !departmentId) return toast.error("Select a department");
     if (!fromLocationId) return toast.error("Select a source location");
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
     if (validLines.length === 0) return toast.error("Add at least one line item");
@@ -85,7 +92,8 @@ export function IssueMaterialsDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId,
+          projectId: target === "PROJECT" ? projectId : null,
+          departmentId: target === "DEPARTMENT" ? departmentId : null,
           fromLocationId,
           notes: notes.trim() || null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
@@ -93,9 +101,9 @@ export function IssueMaterialsDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to issue materials");
-      toast.success("Materials issued to project");
+      toast.success(target === "PROJECT" ? "Materials issued to project" : "Materials issued to department");
       onOpenChange(false);
-      setProjectId(""); setFromLocationId(""); setNotes(""); setLines([newLine()]);
+      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes(""); setLines([newLine()]);
       router.refresh();
     } catch (err: any) {
       toast.error(err.message);
@@ -104,29 +112,66 @@ export function IssueMaterialsDialog({
     }
   }
 
+  const targetLabel = target === "PROJECT" ? "Project" : "Cost Center";
+
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Issue Materials to Project"
-      description="Materials leave stock at MAC and accumulate as the project's material cost."
+      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Center"}
+      description={
+        target === "PROJECT"
+          ? "Materials leave stock at MAC and accumulate as the project's material cost (WIP)."
+          : "Materials leave stock at MAC and are expensed to the department (Operating Expenses)."
+      }
       className="max-w-2xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
+        {/* Target toggle — segmented control */}
+        <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1">
+          <button
+            type="button"
+            onClick={() => setTarget("PROJECT")}
+            className={`rounded px-3 py-1.5 text-body font-medium transition-colors ${
+              target === "PROJECT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Project
+          </button>
+          <button
+            type="button"
+            onClick={() => setTarget("DEPARTMENT")}
+            className={`rounded px-3 py-1.5 text-body font-medium transition-colors ${
+              target === "DEPARTMENT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Cost Center
+          </button>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Project" required>
-            <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
-              <option value="" disabled>Select project…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
+          <Field label={targetLabel} required>
+            {target === "PROJECT" ? (
+              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
+                <option value="" disabled>Select project…</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            ) : (
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
+                <option value="" disabled>Select department…</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.code} — {d.name}</option>
+                ))}
+              </Select>
+            )}
           </Field>
           <Field label="From Location" required>
             <Select value={fromLocationId} onChange={(e) => { setFromLocationId(e.target.value); setLines([newLine()]); }} required>
               <option value="" disabled>Select location…</option>
               {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : "Site"})</option>
+                <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "PROJECT_SITE" ? "Site" : "Dept"})</option>
               ))}
             </Select>
           </Field>
@@ -182,7 +227,7 @@ export function IssueMaterialsDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={saving || !fromLocationId}>{saving ? "Issuing…" : "Issue materials"}</Button>
+          <Button type="submit" disabled={saving || !fromLocationId}>{saving ? "Issuing…" : `Issue to ${targetLabel}`}</Button>
         </div>
       </form>
     </Dialog>

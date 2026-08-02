@@ -26,7 +26,7 @@ export type MaterialRow = {
 
 export type StockLocationRow = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   address: string | null;
   projectId: string | null;
@@ -39,7 +39,7 @@ export type StockRow = {
   id: string;
   locationId: string;
   locationName: string;
-  locationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  locationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   materialId: string;
   materialCode: string;
   materialName: string;
@@ -95,7 +95,7 @@ export type PurchaseOrderRow = {
   projectName: string | null;
   destinationLocationId: string;
   destinationLocationName: string;
-  destinationLocationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  destinationLocationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   status: "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
   orderDate: string;
   expectedDate: string | null;
@@ -242,7 +242,7 @@ export type PhaseRow = {
 
 export type StockLocationLite = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   address: string | null;
 };
@@ -270,16 +270,36 @@ export type SupplierOption = {
 
 export type StockLocationOption = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   projectId: string | null;
   projectName: string | null;
 };
 
+export type DepartmentRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  stockLocationId: string | null;
+  stockLocationName: string | null;
+  issueCount: number;
+};
+
+export type DepartmentOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 export type MaterialIssueListRow = {
   id: string;
-  projectId: string;
-  projectName: string;
+  projectId: string | null;
+  projectName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  departmentCode: string | null;
   fromLocationId: string;
   fromLocationName: string;
   issueDate: string;
@@ -329,6 +349,19 @@ export type StockTransferListRow = {
 export type LandParcelStatus = "AVAILABLE" | "HOLD" | "PARTITIONED" | "SOLD";
 export type AreaUnit = "SQFT" | "SQM" | "ACRE" | "BIGHA" | "HECTARE";
 
+/** A lightweight parcel summary embedded inside a LandPurchaseRow for card rendering. */
+export type LandParcelSummary = {
+  id: string;
+  number: string;
+  status: LandParcelStatus;
+  area: number;
+  acquisitionCost: number;
+  currentValuation: number;
+  parentParcelId: string | null;
+  childCount: number;
+  geometry?: unknown;
+};
+
 export type LandPurchaseRow = {
   id: string;
   projectId: string | null;
@@ -343,6 +376,18 @@ export type LandPurchaseRow = {
   location: string | null;
   parcelCount: number;
   availableArea: number;
+  // ── Aggregates for the rich card + portfolio ──
+  parcels: LandParcelSummary[];
+  soldCount: number;
+  soldRevenue: number;       // Σ salePrice of sold parcels under this purchase
+  soldProfit: number;        // Σ profit of sold parcels
+  availableCount: number;
+  holdCount: number;
+  partitionedCount: number;
+  unsoldValue: number;       // Σ currentValuation of AVAILABLE + HOLD parcels
+  costBasis: number;         // Σ acquisitionCost of unsold (AVAILABLE + HOLD) parcels
+  valuationGain: number;     // unsoldValue - costBasis
+  hasChildren: boolean;      // any parcel with a parentParcelId (i.e. partitioned)
 };
 
 export type LandParcelRow = {
@@ -360,6 +405,31 @@ export type LandParcelRow = {
   projectId: string | null;
   projectName: string | null;
   childCount: number;
+  geometry: unknown;
+  // ── Sale info (only present for SOLD parcels; optional elsewhere) ──
+  salePrice?: number | null;
+  saleProfit?: number | null;
+  saleNumber?: string | null;
+  saleDate?: string | null;
+  customerName?: string | null;
+};
+
+/** Company-wide land portfolio rollup shown in the portfolio strip. */
+export type LandPortfolio = {
+  purchaseCount: number;
+  totalArea: number;
+  parcelCount: number;
+  availableCount: number;
+  holdCount: number;
+  soldCount: number;
+  partitionedCount: number;
+  availableArea: number;
+  costBasis: number;         // Σ acquisitionCost of unsold parcels
+  unsoldValue: number;       // Σ currentValuation of unsold parcels
+  unrealizedGain: number;    // unsoldValue - costBasis
+  soldRevenue: number;       // Σ salePrice of sold parcels
+  soldProfit: number;        // Σ profit of sold parcels
+  totalValue: number;        // unsoldValue + soldRevenue
 };
 
 // ───────────────────────────────────────────────────────────
@@ -385,7 +455,15 @@ export type BuiltUnitRow = {
   productionCost: number;
   askingPrice: number | null;
   currentValuation: number;
+  nrvWriteDown: number;
   saleId: string | null;
+};
+
+export type PhaseOption = {
+  id: string;
+  projectId: string;
+  name: string;
+  status?: string;
 };
 
 // ───────────────────────────────────────────────────────────

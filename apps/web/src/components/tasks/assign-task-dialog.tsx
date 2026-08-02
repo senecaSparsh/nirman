@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Plus, X, ListChecks } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -36,6 +37,7 @@ export function AssignTaskDialog({
   workspaceId,
   onCreated,
 }: AssignTaskDialogProps) {
+  const router = useRouter();
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +48,9 @@ export function AssignTaskDialog({
   const [assignedToId, setAssignedToId] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
+  const [estimateMins, setEstimateMins] = useState("");
+  const [steps, setSteps] = useState<string[]>([]);
+  const [newStep, setNewStep] = useState("");
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -56,6 +61,9 @@ export function AssignTaskDialog({
       setAssignedToId("");
       setPriority("medium");
       setDueDate("");
+      setEstimateMins("");
+      setSteps([]);
+      setNewStep("");
     }
   }, [open, defaultTitle]);
 
@@ -99,6 +107,8 @@ export function AssignTaskDialog({
           dueDate: dueDate || null,
           workspaceId: workspaceId ?? null,
           nodeLabel: nodeLabel ?? null,
+          estimateMins: estimateMins ? Number(estimateMins) : null,
+          subtasks: steps.filter((s) => s.trim().length > 0),
         }),
       });
       if (!res.ok) {
@@ -108,6 +118,7 @@ export function AssignTaskDialog({
         toast.success("Task assigned — the assignee will see it on their dashboard");
         onOpenChange(false);
         onCreated?.();
+        router.refresh();
       }
     } catch {
       toast.error("Network error");
@@ -203,6 +214,68 @@ export function AssignTaskDialog({
           <p className="text-caption text-muted-foreground">
             This guidance will be shown to the assignee on their dashboard.
           </p>
+        </div>
+
+        {/* Checklist steps — become checkable SubTasks in the detail drawer */}
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5"><ListChecks className="h-3.5 w-3.5" /> Checklist Steps (optional)</Label>
+          <p className="text-caption text-muted-foreground">Break the task into checkable steps. Progress is tracked automatically.</p>
+          {steps.length > 0 && (
+            <div className="space-y-1">
+              {steps.map((step, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                  <span className="text-caption font-semibold text-muted-foreground tnum">{i + 1}.</span>
+                  <span className="min-w-0 flex-1 truncate text-body">{step}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
+                    className="rounded p-0.5 text-muted-foreground hover:text-danger"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={newStep}
+              onChange={(e) => setNewStep(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const v = newStep.trim();
+                  if (v) { setSteps([...steps, v]); setNewStep(""); }
+                }
+              }}
+              placeholder="Add a step and press Enter…"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const v = newStep.trim();
+                if (v) { setSteps([...steps, v]); setNewStep(""); }
+              }}
+              disabled={!newStep.trim()}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="task-estimate">Time Estimate (minutes, optional)</Label>
+          <Input
+            id="task-estimate"
+            type="number"
+            min={1}
+            value={estimateMins}
+            onChange={(e) => setEstimateMins(e.target.value)}
+            placeholder="e.g. 120"
+          />
+          <p className="text-caption text-muted-foreground">Planned effort. Compared against logged time in the Time tab.</p>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">

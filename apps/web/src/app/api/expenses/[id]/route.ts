@@ -13,10 +13,10 @@ const expenseUpdateSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  const user = await requirePermission(PERM.FINANCE_VIEW);
   const { id } = await params;
-  const expense = await prisma.expense.findUnique({
-    where: { id },
+  const expense = await prisma.expense.findFirst({
+    where: { id, companyId: user.companyId ?? undefined },
     include: { project: { select: { id: true, name: true } } },
   });
   if (!expense) return json({ error: "Expense not found" }, { status: 404 });
@@ -26,7 +26,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     projectName: expense.project?.name ?? null,
     category: expense.category,
     amount: toNum(expense.amount),
-    date: expense.date,
+    date: expense.date.toISOString(),
     notes: expense.notes,
   });
 });

@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Boxes, ChevronLeft, Menu, X, Workflow } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Boxes, ChevronLeft, Menu, X, Workflow, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { navGroups, navItems, type NavItem, type WorkspaceNavItem } from "@/lib/nav";
+import { navGroups, navItems, STAGE_COLORS, type NavItem, type WorkspaceNavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CommandPalette } from "@/components/command-palette";
+import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session, isPending: sessionLoading } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [companyName, setCompanyName] = useState("Nirman");
   // Saved playground workspaces become dynamic nav tabs. Fetched client-side so
@@ -19,6 +23,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   // Current user's role for role-based nav filtering
   const [userRole, setUserRole] = useState<string>("MANAGER");
+
+  // ── Auth guard ───────────────────────────────────────────────
+  // If the session is gone (expired, DB re-seed, manual sign-out),
+  // redirect to /sign-in immediately. This runs on every render so
+  // a session expiring mid-page doesn't leave the user on a broken UI.
+  // In dev mode (AUTH_BYPASS), useSession returns null but we don't
+  // redirect because the server-side getSession() returns a synthetic dev user.
+  useEffect(() => {
+    // Dev mode: skip the client-side auth gate entirely.
+    // The server returns a synthetic "dev" user without a real session,
+    // so useSession() will return null — that's expected, not an auth failure.
+    if (process.env.NODE_ENV !== "production") return;
+    if (!sessionLoading && !session) {
+      authSignOut().catch(() => {});
+      router.replace("/sign-in");
+    }
+  }, [session, sessionLoading, router]);
+
+  // ── Global 401 interceptor (backup safety net) ──────────────
+  // Catches 401s from API calls that happen between session checks
+  // (e.g. session expires right after the guard runs). Redirects to
+  // /sign-in so the user doesn't see a flood of broken API errors.
+  useEffect(() => {
+    if ((window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled) return;
+    (window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled = true;
+    const originalFetch = window.fetch;
+    let redirecting = false;
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (!url.startsWith("/api/") || url.startsWith("/api/auth/")) {
+        return originalFetch(input, init);
+      }
+      return originalFetch(input, init).then((res) => {
+        if (res.status === 401 && !redirecting) {
+          redirecting = true;
+          authSignOut().catch(() => {});
+          router.replace("/sign-in");
+        }
+        return res;
+      });
+    };
+    return () => {
+      window.fetch = originalFetch;
+      (window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled = false;
+    };
+  }, [router]);
+
+  // Show a loading spinner while the session is being checked (production only).
+  // In dev mode, sessionLoading may be true but we don't want to block the UI
+  // because the server-side getSession() handles auth via AUTH_BYPASS.
+  if (process.env.NODE_ENV === "production" && sessionLoading && !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -122,16 +183,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-body">{companyName}</span>
           </Link>
           <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => {
+                window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+              }}
+              className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-caption text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+              title="Search (⌘K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden sm:inline rounded border border-border bg-muted px-1 py-0.5 text-micro font-mono text-muted-foreground">⌘K</kbd>
+            </button>
             <span className="hidden text-meta text-muted-foreground sm:inline">
               {companyName}
             </span>
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-caption font-semibold text-primary">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background">
               {initials}
             </div>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="flex-1 p-4 lg:p-8">{children}</main>
       </div>
+      <CommandPalette userRole={userRole} />
     </div>
   );
 }
@@ -151,31 +224,31 @@ function SidebarContent({
 }) {
   return (
     <>
+      {/* ── Brand header — minimal ─────────────────────────────────── */}
       <div className="flex h-13 items-center gap-2.5 border-b border-sidebar-border px-4">
         <Link href="/" className="flex items-center gap-2.5" onClick={onNavigate}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-            <Boxes className="h-[18px] w-[18px]" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-white">
+            <Boxes className="h-4 w-4" />
           </span>
-          <span className="text-body font-semibold tracking-tight text-white">
-            Nirman Inventory
-          </span>
+          <span className="text-body font-semibold tracking-tight text-white">Nirman</span>
         </Link>
       </div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-2.5 py-4 scrollbar-thin">
+
+      {/* ── Nav — clean, minimal, stage dots ──────────────────────── */}
+      <nav className="flex-1 space-y-4 overflow-y-auto px-2 py-3 scrollbar-thin">
         {navGroups.map((group) => {
           const items = navItems.filter((item) => item.group === group && (!item.roles || item.roles.includes(userRole)));
           if (items.length === 0) return null;
+          const stageColor = STAGE_COLORS[group];
           return (
             <div key={group}>
-              <p className="px-3 pb-1.5 text-micro font-semibold uppercase tracking-wider text-sidebar-foreground/35">
-                {group}
-              </p>
-              <ul className="space-y-0.5">
+              <div className="flex items-center gap-2 px-3 pb-1.5">
+                <span className="h-1 w-1 rounded-full" style={{ backgroundColor: stageColor }} />
+                <p className="text-label text-sidebar-foreground/35">{group}</p>
+              </div>
+              <ul className="space-y-px">
                 {items.map((item) => {
-                  const active =
-                    item.href === "/"
-                      ? pathname === "/"
-                      : pathname.startsWith(item.href);
+                  const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
                   const Icon = item.icon;
                   const badge = badgeCounts[item.href];
                   return (
@@ -186,28 +259,17 @@ function SidebarContent({
                         className={cn(
                           "group flex items-center gap-2.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors",
                           active
-                            ? "bg-sidebar-accent text-white"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white"
+                            ? "bg-white/10 text-white"
+                            : "text-sidebar-foreground/55 hover:bg-white/5 hover:text-sidebar-foreground/90"
                         )}
                       >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 shrink-0 transition-colors",
-                            active
-                              ? "text-primary-foreground/90"
-                              : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"
-                          )}
-                        />
+                        <Icon className={cn(
+                          "h-4 w-4 shrink-0 transition-colors",
+                          active ? "text-white" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70"
+                        )} />
                         <span className="flex-1 truncate">{item.label}</span>
                         {badge != null && badge > 0 && (
-                          <span
-                            className={cn(
-                              "ml-auto inline-flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1.5 text-micro font-semibold",
-                              active
-                                ? "bg-white/20 text-white"
-                                : "bg-primary/80 text-white",
-                            )}
-                          >
+                          <span className="ml-auto rounded px-1.5 py-px text-micro font-semibold tnum bg-white/10 text-white">
                             {badge > 99 ? "99+" : badge}
                           </span>
                         )}
@@ -215,9 +277,8 @@ function SidebarContent({
                     </li>
                   );
                 })}
-                {/* Saved playground workspaces under the Workspaces group */}
-                {group === "Workspaces" && workspaceNav.length > 0 && (
-                  <li className="mt-1 space-y-0.5 border-l border-sidebar-border/60 pl-2.5">
+                {group === "System" && workspaceNav.length > 0 && (
+                  <li className="mt-1 space-y-px border-l border-sidebar-border/60 pl-2.5">
                     {workspaceNav.map((w) => {
                       const active = pathname === w.href;
                       return (
@@ -228,18 +289,14 @@ function SidebarContent({
                           className={cn(
                             "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-caption font-medium transition-colors",
                             active
-                              ? "bg-sidebar-accent text-white"
-                              : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-white"
+                              ? "bg-white/10 text-white"
+                              : "text-sidebar-foreground/55 hover:bg-white/5 hover:text-sidebar-foreground/90"
                           )}
                         >
-                          <Workflow
-                            className={cn(
-                              "h-3.5 w-3.5 shrink-0 transition-colors",
-                              active
-                                ? "text-primary-foreground/90"
-                                : "text-sidebar-foreground/45 group-hover:text-sidebar-foreground/80"
-                            )}
-                          />
+                          <Workflow className={cn(
+                            "h-3.5 w-3.5 shrink-0",
+                            active ? "text-white" : "text-sidebar-foreground/35 group-hover:text-sidebar-foreground/70"
+                          )} />
                           <span className="truncate">{w.label}</span>
                         </Link>
                       );
@@ -251,14 +308,10 @@ function SidebarContent({
           );
         })}
       </nav>
-      <div className="border-t border-sidebar-border px-3 py-2.5">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-caption text-sidebar-foreground/50 transition-colors hover:text-white"
-        >
-          <ChevronLeft className="h-3 w-3" />
-          v0.1.0 · Phase 0
-        </Link>
+
+      {/* ── Footer ─────────────────────────────────────────────────── */}
+      <div className="border-t border-sidebar-border px-4 py-2.5">
+        <span className="text-micro text-sidebar-foreground/30">⌘K to search</span>
       </div>
     </>
   );

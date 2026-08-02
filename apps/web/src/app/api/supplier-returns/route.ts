@@ -52,7 +52,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = supplierReturnSchema.safeParse(body);
@@ -66,6 +66,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       purchaseOrderId: parsed.data.purchaseOrderId ?? undefined,
       locationId: parsed.data.locationId,
       notes: parsed.data.notes ?? undefined,
+      userId: user.id,
       lines: parsed.data.lines.map((l) => ({
         materialId: l.materialId,
         qty: l.qty,

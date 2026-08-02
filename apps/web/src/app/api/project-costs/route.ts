@@ -42,7 +42,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requirePermission(PERM.FINANCE_MANAGE);
   const body = await req.json();
   const parsed = projectCostSchema.safeParse(body);
   if (!parsed.success) {
@@ -57,6 +57,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       vendor: parsed.data.vendor ?? undefined,
       notes: parsed.data.notes ?? undefined,
       receiptUrl: parsed.data.receiptUrl ?? undefined,
+      userId: user.id,
       ...(body?.subcontractorId ? { subcontractorId: body.subcontractorId } : {}),
     } as any);
     return json({ ok: true, id: cost.id }, { status: 201 });
@@ -66,12 +67,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requirePermission(PERM.FINANCE_MANAGE);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return json({ error: "id query param is required" }, { status: 400 });
   try {
-    await deleteProjectCost(id);
+    await deleteProjectCost(id, user.id);
     return json({ ok: true });
   } catch (err: any) {
     return json({ error: err?.message ?? "Failed to delete cost" }, { status: 400 });

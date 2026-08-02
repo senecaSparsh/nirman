@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import type { MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import type { DepartmentOption, MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
+
+type Target = "PROJECT" | "DEPARTMENT";
 
 export function IssueFormDialog({
   open,
@@ -16,19 +17,34 @@ export function IssueFormDialog({
   projects,
   locations,
   materials,
+  departments,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   locations: StockLocationOption[];
   materials: MaterialOption[];
+  departments: DepartmentOption[];
+  /** Pre-fill fields (e.g. { projectId: "abc" } when scoped to a project node). */
+  defaults?: { projectId?: string; fromLocationId?: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [target, setTarget] = useState<Target>("PROJECT");
   const [projectId, setProjectId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<{ id: string; materialId: string; qty: string }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "" }]);
+
+  // Apply defaults when the dialog opens
+  useEffect(() => {
+    if (open && defaults) {
+      if (defaults.projectId) { setProjectId(defaults.projectId); setTarget("PROJECT"); }
+      if (defaults.fromLocationId) setFromLocationId(defaults.fromLocationId);
+    }
+  }, [open, defaults]);
 
   function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "" }]); }
   function removeLine(idx: number) { setLines((ls) => ls.filter((_, i) => i !== idx)); }
@@ -38,7 +54,8 @@ export function IssueFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return toast.error("Select a project");
+    if (target === "PROJECT" && !projectId) return toast.error("Select a project");
+    if (target === "DEPARTMENT" && !departmentId) return toast.error("Select a department");
     if (!fromLocationId) return toast.error("Select a source location");
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
     if (validLines.length === 0) return toast.error("Add at least one line");
@@ -49,7 +66,8 @@ export function IssueFormDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId,
+          projectId: target === "PROJECT" ? projectId : null,
+          departmentId: target === "DEPARTMENT" ? departmentId : null,
           fromLocationId,
           notes: notes.trim() || null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
@@ -57,11 +75,9 @@ export function IssueFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to issue materials");
-      toast.success("Materials issued to project");
+      toast.success(target === "PROJECT" ? "Materials issued to project" : "Materials issued to department");
       onOpenChange(false);
-      setProjectId("");
-      setFromLocationId("");
-      setNotes("");
+      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
       setLines([{ id: crypto.randomUUID(), materialId: "", qty: "" }]);
       router.refresh();
     } catch (err: any) {
@@ -71,16 +87,57 @@ export function IssueFormDialog({
     }
   }
 
+  const targetLabel = target === "PROJECT" ? "Project" : "Cost Center";
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Issue Materials to Project" description="Materials leave stock at MAC and accumulate as project WIP cost." className="max-w-2xl">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Center"}
+      description={
+        target === "PROJECT"
+          ? "Materials leave stock at MAC and accumulate as project WIP cost."
+          : "Materials leave stock at MAC and are expensed to the department (Operating Expenses)."
+      }
+      className="max-w-2xl"
+    >
       <form onSubmit={onSubmit} className="space-y-3">
+        {/* Target toggle — segmented control */}
+        <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1">
+          <button
+            type="button"
+            onClick={() => setTarget("PROJECT")}
+            className={`rounded px-3 py-1.5 text-body font-medium transition-colors ${
+              target === "PROJECT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Project
+          </button>
+          <button
+            type="button"
+            onClick={() => setTarget("DEPARTMENT")}
+            className={`rounded px-3 py-1.5 text-body font-medium transition-colors ${
+              target === "DEPARTMENT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Cost Center
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Project *</Label>
-            <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">Select…</option>
-              {projects.filter((p) => p.status !== "ON_HOLD").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
+            <Label>{targetLabel} *</Label>
+            {target === "PROJECT" ? (
+              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">Select…</option>
+                {projects.filter((p) => p.status !== "ON_HOLD").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </Select>
+            ) : (
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+                <option value="">Select…</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
+              </Select>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>From Location *</Label>
@@ -130,7 +187,7 @@ export function IssueFormDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Issuing…" : "Issue Materials"}</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Issuing…" : `Issue to ${targetLabel}`}</Button>
         </div>
       </form>
     </Dialog>

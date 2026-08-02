@@ -223,6 +223,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     productionCost: toNum(u.productionCost),
     askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
     currentValuation: toNum(u.currentValuation),
+    nrvWriteDown: toNum(u.nrvWriteDown),
     saleId: u.saleId,
   }));
 
@@ -241,6 +242,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     currentValuation: toNum(p.currentValuation),
     projectId: p.projectId,
     projectName: project.name,
+    geometry: p.geometry,
     childCount: 0,
   }));
 
@@ -288,6 +290,9 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     id: i.id,
     projectId: i.projectId,
     projectName: project.name,
+    departmentId: i.departmentId,
+    departmentName: null,
+    departmentCode: null,
     fromLocationId: i.fromLocationId,
     fromLocationName: i.fromLocation?.name ?? "—",
     issueDate: i.issueDate.toISOString(),
@@ -374,8 +379,8 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
   const editInitial = {
     name: project.name,
-    type: project.type as any,
-    status: project.status as any,
+    type: project.type,
+    status: project.status,
     address: project.address ?? "",
     startDate: project.startDate?.toISOString().slice(0, 10) ?? "",
     endDate: project.endDate?.toISOString().slice(0, 10) ?? "",

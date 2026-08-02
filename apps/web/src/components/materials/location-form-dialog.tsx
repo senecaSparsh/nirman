@@ -9,7 +9,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { ProjectOption, StockLocationRow } from "@/lib/types";
 
 type FormState = {
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   projectId: string;
   address: string;
@@ -98,6 +98,7 @@ export function LocationFormDialog({
           >
             <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
             <option value="PROJECT_SITE">Project Site</option>
+            <option value="DEPARTMENT">Department / Cost Center</option>
           </Select>
         </div>
         <div className="space-y-1.5">

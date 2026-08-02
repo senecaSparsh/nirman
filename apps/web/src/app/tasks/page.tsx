@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { TasksManager } from "@/components/tasks/tasks-manager";
 import { formatDate } from "@/lib/utils";
-import { getUserRole } from "@/lib/server";
+import { getCurrentUser, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const metadata = { title: "Task Management · Nirman" };
@@ -27,6 +27,7 @@ export default function TasksPage() {
 async function TasksContent() {
   await connection();
   const role = await getUserRole();
+  const currentUser = await getCurrentUser();
 
   const [tasks, users] = await Promise.all([
     prisma.task.findMany({
@@ -64,6 +65,8 @@ async function TasksContent() {
       }))}
       users={users}
       canAssign={hasPermission(role, PERM.TASKS_ASSIGN)}
+      canManage={hasPermission(role, PERM.TASKS_ASSIGN)}
+      currentUserId={currentUser?.id ?? ""}
     />
   );
 }

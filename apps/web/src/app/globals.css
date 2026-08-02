@@ -1,41 +1,57 @@
 @import "tailwindcss";
 
 @theme {
-  /* Typography */
+  /* Typography — Plus Jakarta Sans (geometric, clean, premium) + JetBrains Mono for data */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
     monospace;
 
-  /* Surfaces — refined cool neutrals */
-  --color-background: oklch(0.985 0.004 250);
-  --color-foreground: oklch(0.21 0.02 255);
+  /* ── Surfaces — clean, minimal, lots of whitespace ───────────────
+     No grid texture, no busy backgrounds. Just clean neutrals with
+     a single accent color. Less is more. */
+  --color-background: oklch(0.99 0.001 240);
+  --color-foreground: oklch(0.16 0.01 255);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.21 0.02 255);
-  --color-muted: oklch(0.965 0.006 255);
-  --color-muted-foreground: oklch(0.52 0.02 255);
-  --color-border: oklch(0.915 0.008 255);
-  --color-input: oklch(0.915 0.008 255);
-  --color-ring: oklch(0.55 0.18 245);
+  --color-card-foreground: oklch(0.16 0.01 255);
+  --color-muted: oklch(0.96 0.003 240);
+  --color-muted-foreground: oklch(0.50 0.012 255);
+  --color-border: oklch(0.92 0.004 240);
+  --color-input: oklch(0.92 0.004 240);
+  --color-ring: oklch(0.16 0.01 255);
 
-  /* Brand — indigo */
-  --color-primary: oklch(0.52 0.20 245);
-  --color-primary-foreground: oklch(0.99 0.01 245);
-  --color-accent: oklch(0.95 0.03 245);
-  --color-accent-foreground: oklch(0.30 0.10 245);
+  /* ── Brand — near-black, not a color ─────────────────────────────
+     The accent is the absence of color. Pure, confident, minimal.
+     Like Linear or Vercel — the UI is the content, not the chrome. */
+  --color-primary: oklch(0.16 0.01 255);
+  --color-primary-foreground: oklch(0.99 0.001 240);
+  --color-accent: oklch(0.95 0.005 240);
+  --color-accent-foreground: oklch(0.20 0.01 255);
 
-  /* Sidebar — deep indigo-charcoal */
-  --color-sidebar: oklch(0.22 0.03 255);
-  --color-sidebar-foreground: oklch(0.88 0.02 250);
-  --color-sidebar-accent: oklch(0.30 0.05 245);
-  --color-sidebar-border: oklch(0.30 0.035 255);
+  /* ── Sidebar — pure black, not navy ──────────────────────────────
+     No tinted dark. Just black. Maximum contrast, maximum confidence. */
+  --color-sidebar: oklch(0.10 0.005 255);
+  --color-sidebar-foreground: oklch(0.85 0.005 250);
+  --color-sidebar-accent: oklch(0.18 0.008 255);
+  --color-sidebar-border: oklch(0.20 0.008 255);
 
-  /* Semantic */
-  --color-success: oklch(0.60 0.16 150);
-  --color-warning: oklch(0.72 0.17 70);
-  --color-danger: oklch(0.58 0.22 25);
+  /* ── Stage colors — subtle, used sparingly ───────────────────────
+     Only as small dots/borders, not large fills. Clean. */
+  --color-stage-procure: oklch(0.62 0.17 65);
+  --color-stage-build: oklch(0.60 0.13 210);
+  --color-stage-sell: oklch(0.58 0.15 150);
+  --color-stage-account: oklch(0.55 0.18 290);
+  --color-stage-manage: oklch(0.58 0.15 250);
+  --color-stage-system: oklch(0.55 0.01 255);
 
-  --radius: 0.625rem;
+  /* Semantic — muted, not loud */
+  --color-success: oklch(0.55 0.14 150);
+  --color-warning: oklch(0.68 0.15 65);
+  --color-danger: oklch(0.55 0.20 25);
+  --color-info: oklch(0.55 0.13 210);
+
+  /* Clean radius — not too sharp, not too round */
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -45,7 +61,6 @@
 
   html {
     font-family: var(--font-sans);
-    /* Slightly smaller root so the 10–13px scale reads as a tight, data-dense system */
     font-size: 15px;
     -webkit-text-size-adjust: 100%;
   }
@@ -53,7 +68,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "cv11" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -61,28 +76,24 @@
     line-height: 1.5;
   }
 
-  /* Tabular numbers everywhere numbers matter — keeps tables/KPIs aligned */
+  /* Numbers in monospace — data should look like data */
   .tnum {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
+    font-family: var(--font-mono);
   }
 
   ::selection {
-    background-color: color-mix(in oklch, var(--color-primary) 25%, transparent);
+    background-color: oklch(0.16 0.01 255);
+    color: oklch(0.99 0.001 240);
   }
 
-  /* Refined focus ring */
   :focus-visible {
     outline: none;
   }
 }
 
-/* ── Typographic scale helpers (smart 10–13px system) ─────────────── */
-/* micro   → 10px  : badges counts, timestamps, table meta, code chips */
-/* caption → 11px  : secondary labels, helper text, table sub-lines     */
-/* meta    → 12px  : muted body, sidebar labels, form hints             */
-/* base    → 13px  : default body, table cells, list rows               */
-
+/* ── Typographic scale ──────────────────────────────────────────── */
 @utility text-micro {
   font-size: 10px;
   line-height: 1.4;
@@ -91,7 +102,6 @@
 @utility text-caption {
   font-size: 11px;
   line-height: 1.45;
-  letter-spacing: 0.01em;
 }
 @utility text-meta {
   font-size: 12px;
@@ -100,6 +110,23 @@
 @utility text-body {
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* ── Page title — strong hierarchy anchor ──────────────────────── */
+@utility text-title {
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* ── Technical label — uppercase tracked ────────────────────────── */
+@utility text-label {
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 @utility scrollbar-thin {
@@ -113,55 +140,69 @@
   }
 }
 
-/* Subtle card lift on interactive cards */
 @utility card-interactive {
-  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   &:hover {
-    box-shadow: 0 1px 2px oklch(0.21 0.02 255 / 0.06),
-      0 8px 24px -12px oklch(0.21 0.02 255 / 0.18);
-    transform: translateY(-1px);
+    border-color: oklch(0.80 0.004 240);
+    box-shadow: 0 2px 8px -4px oklch(0.16 0.01 255 / 0.08);
   }
 }
 
-/* ── React Flow resize controls ── ensure handles are visible and grabbable */
-.react-flow__resize-control.handle {
-  pointer-events: all;
-}
-.react-flow__resize-control.line {
-  pointer-events: all;
-}
-.react-flow-resize-handle {
-  pointer-events: all !important;
-}
-.react-flow-resize-line {
-  pointer-events: all !important;
-}
+/* ── Stage accent borders ── */
+@utility stage-procure { border-left: 2px solid var(--color-stage-procure); }
+@utility stage-build { border-left: 2px solid var(--color-stage-build); }
+@utility stage-sell { border-left: 2px solid var(--color-stage-sell); }
+@utility stage-account { border-left: 2px solid var(--color-stage-account); }
+@utility stage-manage { border-left: 2px solid var(--color-stage-manage); }
+@utility stage-system { border-left: 2px solid var(--color-stage-system); }
 
-/* ── Node kind pulse animations ── */
+/* ── React Flow ── */
+.react-flow__resize-control.handle { pointer-events: all; }
+.react-flow__resize-control.line { pointer-events: all; }
+.react-flow-resize-handle { pointer-events: all !important; }
+.react-flow-resize-line { pointer-events: all !important; }
+
+/* ── Node pulse animations ── */
 @keyframes node-pulse-active {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.19 149 / 0.5), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
-  50% { box-shadow: 0 0 0 5px oklch(0.72 0.19 149 / 0), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.14 150 / 0.4); }
+  50% { box-shadow: 0 0 0 4px oklch(0.55 0.14 150 / 0); }
 }
 @keyframes node-pulse-assumption {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.75 0.18 70 / 0.45), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
-  50% { box-shadow: 0 0 0 5px oklch(0.75 0.18 70 / 0), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.68 0.15 65 / 0.35); }
+  50% { box-shadow: 0 0 0 4px oklch(0.68 0.15 65 / 0); }
 }
 @keyframes node-pulse-overdue {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.58 0.22 27 / 0.5), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
-  50% { box-shadow: 0 0 0 5px oklch(0.58 0.22 27 / 0), 0 4px 12px oklch(0.21 0.02 255 / 0.08); }
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.20 25 / 0.4); }
+  50% { box-shadow: 0 0 0 4px oklch(0.55 0.20 25 / 0); }
 }
 
-.node-kind-active {
-  animation: node-pulse-active 2s ease-in-out infinite;
-  border-color: oklch(0.72 0.19 149) !important;
+.node-kind-active { animation: node-pulse-active 2s ease-in-out infinite; }
+.node-kind-assumption { animation: node-pulse-assumption 2.5s ease-in-out infinite; }
+.node-kind-overdue { animation: node-pulse-overdue 1.5s ease-in-out infinite; }
+
+/* ── Pipeline flow animation ── */
+@keyframes flow-dash {
+  to { stroke-dashoffset: -12; }
 }
-.node-kind-assumption {
-  animation: node-pulse-assumption 2.5s ease-in-out infinite;
+.flow-line {
+  stroke-dasharray: 4 4;
+  animation: flow-dash 1s linear infinite;
 }
-.node-kind-finished {
-  border-color: oklch(0.72 0.19 149) !important;
-  box-shadow: 0 0 0 1px oklch(0.72 0.19 149 / 0.2), 0 4px 12px oklch(0.21 0.02 255 / 0.08);
+
+/* ── Slide-over drawer ── */
+@keyframes drawer-slide-in {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
 }
-.node-kind-overdue {
-  animation: node-pulse-overdue 1.5s ease-in-out infinite;
+@keyframes drawer-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.drawer-panel { animation: drawer-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+.drawer-backdrop { animation: drawer-backdrop-in 0.2s ease-out; }
+
+/* ── Progress ring (conic-gradient) ── */
+@keyframes progress-fill {
+  from { stroke-dashoffset: var(--circ); }
+  to { stroke-dashoffset: var(--offset); }
 }

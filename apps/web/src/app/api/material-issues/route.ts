@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { issueMaterialsToProject } from "@nirman/services";
+import { issueMaterialsToProject, issueMaterialsToDepartment } from "@nirman/services";
 import { apiHandler, getCompany, json, issueMaterialsSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
@@ -8,11 +8,18 @@ import { requirePermission } from "@/lib/server";
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
+  // Issues to a project (project.companyId) OR to a department (department.companyId)
   const issues = await prisma.materialIssue.findMany({
-    where: { project: { companyId: company.id } },
+    where: {
+      OR: [
+        { project: { companyId: company.id } },
+        { department: { companyId: company.id } },
+      ],
+    },
     orderBy: { createdAt: "desc" },
     include: {
       project: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true, code: true } },
       fromLocation: { select: { id: true, name: true } },
       lines: { include: { material: { select: { name: true } } } },
     },
@@ -21,7 +28,10 @@ export const GET = apiHandler(async () => {
     issues.map((i) => ({
       id: i.id,
       projectId: i.projectId,
-      projectName: i.project.name,
+      projectName: i.project?.name ?? null,
+      departmentId: i.departmentId,
+      departmentName: i.department?.name ?? null,
+      departmentCode: i.department?.code ?? null,
       fromLocationId: i.fromLocationId,
       fromLocationName: i.fromLocation.name,
       issueDate: i.issueDate.toISOString(),
@@ -40,13 +50,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
-    const result = await issueMaterialsToProject({
-      projectId: parsed.data.projectId,
+    const common = {
       fromLocationId: parsed.data.fromLocationId,
       issuedById: user.id,
       notes: parsed.data.notes ?? undefined,
       lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
-    });
+    };
+    const result = parsed.data.departmentId
+      ? await issueMaterialsToDepartment({ ...common, departmentId: parsed.data.departmentId })
+      : await issueMaterialsToProject({ ...common, projectId: parsed.data.projectId! });
     return json(
       { ok: true, materialIssueId: result.materialIssue.id, totalCost: toNum(result.totalCost) },
       { status: 201 },

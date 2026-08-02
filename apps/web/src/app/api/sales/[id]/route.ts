@@ -8,10 +8,10 @@ import { PERM } from "@/lib/roles";
  * GET /api/sales/[id] — sale detail with payments, land parcel, built unit.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.SALES_VIEW);
+  const user = await requirePermission(PERM.SALES_VIEW);
   const { id } = await params;
-  const s = await prisma.assetSale.findUnique({
-    where: { id },
+  const s = await prisma.assetSale.findFirst({
+    where: { id, companyId: user.companyId ?? undefined },
     include: {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },

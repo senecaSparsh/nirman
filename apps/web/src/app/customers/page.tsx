@@ -13,11 +13,7 @@ export const metadata = { title: "Customers · Nirman" };
 export default function CustomersPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Customers"
-        description="Customers who buy land parcels and built units."
-      />
-      <Suspense fallback={<PageLoading label="Loading customers…" />}>
+      <Suspense fallback={<PageLoading label="Loading customers…" variant="cards" />}>
         <CustomersContent />
       </Suspense>
     </div>
@@ -60,5 +56,19 @@ async function CustomersContent() {
     canDelete: hasPermission(role, PERM.SALES_MANAGE),
   };
 
-  return <CustomersView customers={customerRows} permissions={perms} />;
+  const activeSalesTotal = customerRows.reduce((s, c) => s + c.activeSales, 0);
+
+  return (
+    <>
+      <PageHeader
+        title="Customers"
+        description="Customers who buy land parcels and built units."
+        stats={[
+          { label: "Customers", value: customerRows.length },
+          { label: "Active sales", value: activeSalesTotal },
+        ]}
+      />
+      <CustomersView customers={customerRows} permissions={perms} />
+    </>
+  );
 }

@@ -1,16 +1,18 @@
 import { NextRequest } from "next/server";
-import { issueMaterialsToProject } from "@nirman/services";
+import { issueMaterialsToProject, issueMaterialsToDepartment } from "@nirman/services";
 import { apiHandler, json, issueMaterialsSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
 /**
- * POST /api/issue-materials — issue materials from a stock location to a project.
+ * POST /api/issue-materials — issue materials from a stock location to a
+ * project OR a department (cost center). The schema enforces that exactly
+ * one of projectId / departmentId is set.
  *
- * Delegates to the issue service which atomically:
- *  - records ISSUE_TO_PROJECT movements (deducts stock at MAC)
- *  - creates a MaterialIssue + lines (audit record)
- *  - triggers cost-per-sqft reallocation for the project
+ * Both paths atomically record the stock movements (deduct at MAC), create a
+ * MaterialIssue + lines (audit record), and post a balanced GL entry. Project
+ * issues additionally trigger cost-per-sqft reallocation and post to WIP;
+ * department issues post to Operating Expenses.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.STOCK_ISSUE);
@@ -19,15 +21,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const result = await issueMaterialsToProject({
-    projectId: parsed.data.projectId,
-    fromLocationId: parsed.data.fromLocationId,
-    issuedById: user.id,
-    notes: parsed.data.notes ?? undefined,
-    lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
-  });
-  return json(
-    { ok: true, materialIssueId: result.materialIssue.id, totalCost: toNum(result.totalCost) },
-    { status: 201 },
-  );
+  try {
+    const common = {
+      fromLocationId: parsed.data.fromLocationId,
+      issuedById: user.id,
+      notes: parsed.data.notes ?? undefined,
+      lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
+    };
+    const result = parsed.data.departmentId
+      ? await issueMaterialsToDepartment({ ...common, departmentId: parsed.data.departmentId })
+      : await issueMaterialsToProject({ ...common, projectId: parsed.data.projectId! });
+    return json(
+      { ok: true, materialIssueId: result.materialIssue.id, totalCost: toNum(result.totalCost) },
+      { status: 201 },
+    );
+  } catch (err: any) {
+    return json({ error: err?.message ?? "Failed to issue materials" }, { status: 400 });
+  }
 });

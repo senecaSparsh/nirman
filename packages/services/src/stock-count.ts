@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { logAction } from "./audit";
 
 /**
  * Stock Count Service — physical inventory reconciliation.
@@ -12,6 +13,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 interface CreateStockCountInput {
   locationId: string;
   notes?: string;
+  userId?: string;
   lines: {
     materialId: string;
     countedQty: Decimal | number | string;
@@ -30,38 +32,57 @@ export async function createStockCount(input: CreateStockCountInput) {
   });
   const systemQtyMap = new Map(items.map((i) => [i.materialId, new Decimal(i.qty)]));
 
-  return prisma.stockCount.create({
-    data: {
-      locationId: input.locationId,
-      notes: input.notes,
-      status: "DRAFT",
-      lines: {
-        create: input.lines.map((l) => {
-          const counted = new Decimal(l.countedQty);
-          const system = systemQtyMap.get(l.materialId) ?? new Decimal(0);
-          return {
-            materialId: l.materialId,
-            countedQty: counted,
-            systemQty: system,
-            variance: counted.minus(system),
-          };
-        }),
+  return prisma.$transaction(async (tx) => {
+    const count = await tx.stockCount.create({
+      data: {
+        locationId: input.locationId,
+        notes: input.notes,
+        status: "DRAFT",
+        lines: {
+          create: input.lines.map((l) => {
+            const counted = new Decimal(l.countedQty);
+            const system = systemQtyMap.get(l.materialId) ?? new Decimal(0);
+            return {
+              materialId: l.materialId,
+              countedQty: counted,
+              systemQty: system,
+              variance: counted.minus(system),
+            };
+          }),
+        },
       },
-    },
-    include: { lines: true },
+      include: { lines: true },
+    });
+    await logAction(tx, {
+      userId: input.userId,
+      action: "STOCK_COUNT_CREATE",
+      entityType: "StockCount",
+      entityId: count.id,
+      after: { locationId: input.locationId, lineCount: input.lines.length, status: "DRAFT" },
+    });
+    return count;
   });
 }
 
-export async function confirmStockCount(countId: string) {
+export async function confirmStockCount(countId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
     if (!count) throw new Error("Stock count not found");
     if (count.status !== "DRAFT") throw new Error(`Cannot confirm count in status ${count.status}`);
-    return tx.stockCount.update({ where: { id: countId }, data: { status: "COUNTED" } });
+    const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "COUNTED" } });
+    await logAction(tx, {
+      userId,
+      action: "STOCK_COUNT_CONFIRM",
+      entityType: "StockCount",
+      entityId: countId,
+      before: { status: "DRAFT" },
+      after: { status: "COUNTED" },
+    });
+    return updated;
   });
 }
 
-export async function reconcileStockCount(countId: string) {
+export async function reconcileStockCount(countId: string, userId?: string) {
   return withStockTransaction(async (tx) => {
     const count = await tx.stockCount.findUnique({
       where: { id: countId },
@@ -84,6 +105,7 @@ export async function reconcileStockCount(countId: string) {
           reason: `Stock count adjustment (+${variance})`,
           refType: "STOCK_COUNT",
           refId: countId,
+          userId,
         });
       } else {
         // Negative variance → ADJUSTMENT_OUT (stock missing)
@@ -111,6 +133,7 @@ export async function reconcileStockCount(countId: string) {
           reason: `Stock count adjustment (-${absVariance})`,
           refType: "STOCK_COUNT",
           refId: countId,
+          userId,
         });
       }
     }
@@ -123,6 +146,15 @@ export async function reconcileStockCount(countId: string) {
       await refreshMaterialCurrentCost(tx, adjustedMaterials);
     }
 
-    return tx.stockCount.update({ where: { id: countId }, data: { status: "RECONCILED" } });
+    const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "RECONCILED" } });
+    await logAction(tx, {
+      userId,
+      action: "STOCK_COUNT_RECONCILE",
+      entityType: "StockCount",
+      entityId: countId,
+      before: { status: "COUNTED" },
+      after: { status: "RECONCILED", adjustedLines: adjustedMaterials.length },
+    });
+    return updated;
   });
 }

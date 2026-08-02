@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Building2, Loader2 } from "lucide-react";
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Clear any stale session on mount (e.g. after DB re-seed) so the
+  // sign-in form starts clean. Fire-and-forget — if there's no session
+  // the call is a no-op.
+  useEffect(() => {
+    authClient.signOut().catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +32,9 @@ export default function SignInPage() {
       setLoading(false);
       return;
     }
-    router.push("/");
+    // Redirect to the originally requested page (from middleware) or home
+    const redirect = searchParams.get("redirect");
+    router.push(redirect ?? "/");
     router.refresh();
   }
 
@@ -75,5 +85,17 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   );
 }

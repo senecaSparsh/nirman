@@ -1,11 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   X, Link2, Unlink, ExternalLink, Maximize2, Minimize2, ChevronDown, ChevronRight,
   Workflow, GitBranch, Paperclip, Plus, Search, Info, AlertCircle, AlertTriangle,
-  Calendar, Clock, Flag, StickyNote, MessageSquare, Trash2, FileText,
+  Clock, Flag, StickyNote, MessageSquare, Trash2, FileText,
   Send, CheckSquare, Package, Loader2, ArrowDown, ArrowUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -99,14 +99,6 @@ function dueDateStatusWithNow(dueDate: string | null, now: Date | null): { label
   if (diffDays === 0) return { label: "Due today", color: "#f59e0b", icon: Clock };
   if (diffDays <= 3) return { label: `${diffDays}d left`, color: "#f59e0b", icon: Clock };
   return { label: `${diffDays}d left`, color: "#64748b", icon: Clock };
-}
-
-function cellLabel(value: unknown, type?: string): string {
-  if (value == null || value === "") return "—";
-  if (type === "currency") return formatCurrency(Number(value));
-  if (type === "number") return formatNumber(Number(value));
-  if (type === "date") return formatDate(value as string);
-  return String(value);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -230,6 +222,9 @@ export function NodePopup(props: NodePopupProps) {
 }
 
 // ── Popover wrapper — anchors near the node, dismisses on outside click ──
+// The popover is draggable by its top grip bar so the user can reposition
+// it without closing. Dragging is suppressed from interactive elements
+// (buttons, inputs, links) inside the popover body.
 
 function PopoverWrapper({
   children,
@@ -241,30 +236,67 @@ function PopoverWrapper({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ mouseX: number; mouseY: number; posTop: number; posLeft: number } | null>(null);
 
-  // Click-outside to close (but not on the popover itself)
+  // Initialize position from nodePosition (once, when popover opens)
+  useEffect(() => {
+    if (!nodePosition) { setPos({ top: 80, right: 16 } as unknown as { top: number; left: number }); return; }
+    setPos({
+      top: Math.min(nodePosition.y + 60, window.innerHeight - 400),
+      left: Math.min(nodePosition.x + 220, window.innerWidth - 340),
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Click-outside to close (but not on the popover itself, and not while dragging)
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
+      if (dragging) return;
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        // Don't close if clicking on a ReactFlow node (those have their own handlers)
         const target = e.target as HTMLElement;
         if (target.closest(".react-flow__node")) return;
         onClose();
       }
     };
-    // Delay to avoid the same click that opened the popover from closing it
     const timer = setTimeout(() => document.addEventListener("mousedown", onClick), 100);
     return () => { clearTimeout(timer); document.removeEventListener("mousedown", onClick); };
-  }, [onClose]);
+  }, [onClose, dragging]);
 
-  // Position: prefer below-right of the node, clamp to viewport
-  const style = useMemo(() => {
-    if (!nodePosition) return { top: 80, right: 16 };
-    return {
-      top: Math.min(nodePosition.y + 60, window.innerHeight - 400),
-      left: Math.min(nodePosition.x + 220, window.innerWidth - 340),
+  // Drag handlers
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    // Don't start drag from interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea, [role='button']")) return;
+    e.preventDefault();
+    if (!pos || pos.left === undefined) return;
+    dragStart.current = { mouseX: e.clientX, mouseY: e.clientY, posTop: pos.top, posLeft: pos.left };
+    setDragging(true);
+  }, [pos]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      if (!dragStart.current) return;
+      const dx = e.clientX - dragStart.current.mouseX;
+      const dy = e.clientY - dragStart.current.mouseY;
+      const newLeft = Math.max(0, Math.min(dragStart.current.posLeft + dx, window.innerWidth - 320));
+      const newTop = Math.max(0, Math.min(dragStart.current.posTop + dy, window.innerHeight - 100));
+      setPos({ top: newTop, left: newLeft });
     };
-  }, [nodePosition]);
+    const onUp = () => {
+      setDragging(false);
+      dragStart.current = null;
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  const style = pos ?? { top: 80, left: 16 };
 
   return (
     <div
@@ -272,6 +304,17 @@ function PopoverWrapper({
       className="absolute z-30 w-80 rounded-xl border-2 border-border bg-card shadow-2xl"
       style={style}
     >
+      {/* Drag grip bar — grab here to move the popover */}
+      <div
+        onMouseDown={onDragStart}
+        className={cn(
+          "flex h-2.5 cursor-grab items-center justify-center rounded-t-[10px] border-b border-border/50 bg-muted/30 transition-colors",
+          dragging ? "cursor-grabbing bg-primary/10" : "hover:bg-muted/60",
+        )}
+        title="Drag to reposition"
+      >
+        <div className="h-1 w-10 rounded-full bg-border" />
+      </div>
       {children}
     </div>
   );
@@ -311,6 +354,28 @@ function PopupShell(
   const [assignTaskOpen, setAssignTaskOpen] = useState(false);
   const [linkPickerOpen, setLinkPickerOpen] = useState(false);
 
+  // ── Shared record detail (linked only) ──────────────────────
+  // Fetched once here and passed to KpiStrip, RecordOverview, and
+  // RelatedTab — eliminates 2 redundant fetches of the same endpoint.
+  const [recordDetail, setRecordDetail] = useState<RecordDetail | null>(null);
+  const [recordLoading, setRecordLoading] = useState(true);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isLinked || !recordId) { setRecordDetail(null); setRecordLoading(false); setRecordError(null); return; }
+    let cancelled = false;
+    setRecordLoading(true);
+    setRecordError(null);
+    fetch(`/api/modules/record?model=${encodeURIComponent(model)}&id=${encodeURIComponent(recordId)}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to load");
+        return json as RecordDetail;
+      })
+      .then((d) => { if (!cancelled) { setRecordDetail(d); setRecordLoading(false); } })
+      .catch((e) => { if (!cancelled) { setRecordError(e.message ?? "Failed to load"); setRecordLoading(false); } });
+    return () => { cancelled = true; };
+  }, [model, recordId, isLinked]);
+
   // Task count badge
   const [taskCount, setTaskCount] = useState(0);
   useEffect(() => {
@@ -327,13 +392,38 @@ function PopupShell(
 
   const isAside = mode === "aside";
 
-  // Build action list from popup config
+  // Build action list from popup config.
+  // When scoped (linked record), each action may carry a `defaultsKey`
+  // (e.g. "projectId") — we pass the recordId as that field's value
+  // so the form dialog opens pre-filled with the parent record.
   const actions = isLinked ? popup?.scopedActions : popup?.unscopedActions;
   const actionDefs: ActionDef[] | undefined = actions?.map((a) => ({
     label: a.label,
     icon: a.icon ?? Plus,
     dialog: a.dialog as ActionDef["dialog"],
+    defaultsKey: (a as { defaultsKey?: string }).defaultsKey,
   }));
+
+  // Build defaults map from the linked record's ID.
+  // The key is the form field name (defaultsKey), the value is the recordId.
+  // Special cases: some models need a different key name (e.g. Equipment → equipmentId).
+  const actionDefaults = useMemo(() => {
+    if (!isLinked || !recordId) return undefined;
+    const defaults: Record<string, string> = {};
+    for (const a of actions ?? []) {
+      const dk = (a as { defaultsKey?: string }).defaultsKey;
+      if (dk) {
+        // Map common defaultsKey patterns to the actual form field name
+        if (dk === "equipmentId") defaults.equipmentId = recordId;
+        else if (dk === "assetSaleId") defaults.assetSaleId = recordId;
+        else if (dk === "poId") defaults.poId = recordId;
+        else if (dk === "fromLocationId") defaults.fromLocationId = recordId;
+        else if (dk === "locationId") defaults.fromLocationId = recordId;
+        else defaults[dk] = recordId;
+      }
+    }
+    return Object.keys(defaults).length > 0 ? defaults : undefined;
+  }, [isLinked, recordId, actions]);
 
   return (
     <div
@@ -361,7 +451,8 @@ function PopupShell(
             </p>
             <p className="truncate text-micro text-muted-foreground">
               {mod?.label ?? model}
-              {isLinked && " · linked"}
+              {isLinked && recordDetail?.secondaryLabel && ` · ${recordDetail.secondaryLabel}`}
+              {isLinked && !recordDetail?.secondaryLabel && " · linked"}
               {isSystem && " · read-only"}
             </p>
           </div>
@@ -429,13 +520,14 @@ function PopupShell(
 
       {/* ── KPI strip (linked only) ── */}
       {isLinked && (
-        <KpiStrip model={model} recordId={recordId!} />
+        <KpiStrip model={model} recordId={recordId!} detail={recordDetail} loading={recordLoading} />
       )}
 
       {/* ── Contextual action bar ── */}
       <ActionBar
         model={model}
         actionDefs={actionDefs}
+        defaults={actionDefaults}
         workspaceId={workspaceId}
         taskCount={taskCount}
         onAssignTaskOpen={() => setAssignTaskOpen(true)}
@@ -477,12 +569,12 @@ function PopupShell(
       <div className={cn("overflow-y-auto scrollbar-thin", isAside ? "flex-1" : "max-h-[40vh]")}>
         {tab === "overview" ? (
           isLinked ? (
-            <RecordOverview model={model} recordId={recordId!} onSpawnChild={onSpawnChild} nodeId={nodeId} />
+            <RecordOverview detail={recordDetail} loading={recordLoading} error={recordError} />
           ) : (
             <InsightsOverview model={model} />
           )
         ) : tab === "related" && isLinked ? (
-          <RelatedTab model={model} recordId={recordId!} onSpawnChild={onSpawnChild} onJumpToNode={onJumpToNode} />
+          <RelatedTab nodeId={nodeId} onSpawnChild={onSpawnChild} detail={recordDetail} loading={recordLoading} error={recordError} />
         ) : tab === "records" && !isLinked ? (
           <RecordsTab
             model={model}
@@ -505,7 +597,7 @@ function PopupShell(
         ) : (
           // Fallback (popover mode with a non-overview tab selected)
           isLinked ? (
-            <RecordOverview model={model} recordId={recordId!} onSpawnChild={onSpawnChild} nodeId={nodeId} />
+            <RecordOverview detail={recordDetail} loading={recordLoading} error={recordError} />
           ) : (
             <InsightsOverview model={model} />
           )
@@ -838,41 +930,38 @@ function PlanningStrip({
 }
 
 // ════════════════════════════════════════════════════════════════
-//  KPI Strip — status + stats + alerts + deep link (linked only)
+//  KPI Strip — record-specific key fields + deep link (linked only)
+//  Shows a compact summary of the linked record's most important
+//  fields (currency, number, badge types) as stat cards. This is
+//  always visible above the tab content, regardless of active tab.
 // ════════════════════════════════════════════════════════════════
 
-function KpiStrip({ model, recordId }: { model: ModelKey; recordId: string }) {
-  const [data, setData] = useState<ModuleInsightsData | null>(null);
-  const [loading, setLoading] = useState(true);
+function KpiStrip({
+  model, recordId, detail, loading,
+}: {
+  model: ModelKey;
+  recordId: string;
+  detail: RecordDetail | null;
+  loading: boolean;
+}) {
   const mod = MODULES[model];
   const popup = mod?.popup;
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/modules/insights?model=${encodeURIComponent(model)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) { if (d.error) setData(null); else setData(d); } })
-      .catch(() => { if (!cancelled) setData(null); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [model]);
-
   const deepLink = popup?.deepLink ? popup.deepLink(recordId) : null;
-  const alertColors = { info: "#0ea5e9", warning: "#f59e0b", danger: "#ef4444" };
-  const alertIcons = { info: Info, warning: AlertCircle, danger: AlertTriangle };
-
-  // Show top 4 stats + top 2 alerts
-  const topStats = data?.stats.slice(0, 4) ?? [];
-  const topAlerts = data?.alerts.slice(0, 2) ?? [];
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 border-b border-border px-3 py-2 text-meta text-muted-foreground">
-        <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted border-t-primary" /> Loading KPIs…
+        <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted border-t-primary" /> Loading…
       </div>
     );
   }
+  if (!detail) return null;
+
+  // Pick the top 4 stat-worthy fields: prefer currency + number + badge types
+  const statFields = detail.fields
+    .filter((f) => f.type === "currency" || f.type === "number" || f.type === "badge")
+    .filter((f) => f.value !== "—")
+    .slice(0, 4);
 
   return (
     <div className="space-y-2 border-b border-border bg-muted/20 px-3 py-2.5">
@@ -886,41 +975,21 @@ function KpiStrip({ model, recordId }: { model: ModelKey; recordId: string }) {
         </a>
       )}
 
-      {/* Stats grid */}
-      {topStats.length > 0 && (
+      {/* Record-specific stats grid */}
+      {statFields.length > 0 && (
         <div className="grid grid-cols-2 gap-1.5">
-          {topStats.map((stat) => (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-2">
-              <p className="text-micro text-muted-foreground">{stat.label}</p>
-              <p className="text-body font-semibold" style={stat.color ? { color: stat.color } : undefined}>
-                {stat.type === "currency" && typeof stat.value === "number"
-                  ? formatCurrency(stat.value)
-                  : stat.type === "number" && typeof stat.value === "number"
-                    ? formatNumber(stat.value)
-                    : String(stat.value)}
+          {statFields.map((field) => (
+            <div key={field.label} className="rounded-lg border border-border bg-card p-2">
+              <p className="text-micro text-muted-foreground">{field.label}</p>
+              <p className="text-body font-semibold">
+                {field.type === "currency"
+                  ? formatCurrency(Number(field.value))
+                  : field.type === "number"
+                    ? formatNumber(Number(field.value))
+                    : field.value}
               </p>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Alerts */}
-      {topAlerts.length > 0 && (
-        <div className="space-y-1">
-          {topAlerts.map((alert, i) => {
-            const Icon = alertIcons[alert.severity];
-            const color = alertColors[alert.severity];
-            return (
-              <div
-                key={alert.message + i}
-                className="flex items-start gap-2 rounded-md border border-border p-2"
-                style={{ background: `${color}08`, borderColor: `${color}30` }}
-              >
-                <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color }} />
-                <p className="text-meta" style={{ color }}>{alert.message}</p>
-              </div>
-            );
-          })}
         </div>
       )}
     </div>
@@ -932,10 +1001,11 @@ function KpiStrip({ model, recordId }: { model: ModelKey; recordId: string }) {
 // ════════════════════════════════════════════════════════════════
 
 function ActionBar({
-  model, actionDefs, workspaceId, taskCount, onAssignTaskOpen,
+  model, actionDefs, defaults, workspaceId, taskCount, onAssignTaskOpen,
 }: {
   model: ModelKey;
   actionDefs?: ActionDef[];
+  defaults?: Record<string, string>;
   workspaceId?: string;
   taskCount: number;
   onAssignTaskOpen: () => void;
@@ -971,6 +1041,7 @@ function ActionBar({
         onRecordCreated={closeDialog}
         actions={actionDefs}
         variant="bar"
+        defaults={defaults}
       />
       <div className="ml-auto flex items-center gap-2">
         {taskCount > 0 && (
@@ -1106,32 +1177,12 @@ function InsightsOverview({ model }: { model: ModelKey }) {
 }
 
 function RecordOverview({
-  model, recordId, onSpawnChild, nodeId,
+  detail, loading, error,
 }: {
-  model: ModelKey;
-  recordId: string;
-  onSpawnChild: (parentId: string, childModel: ModelKey, childRecordId: string, childLabel: string, relation: RelationDef) => void;
-  nodeId: string;
+  detail: RecordDetail | null;
+  loading: boolean;
+  error: string | null;
 }) {
-  const [data, setData] = useState<RecordDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`/api/modules/record?model=${encodeURIComponent(model)}&id=${encodeURIComponent(recordId)}`)
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw new Error(json.error ?? "Failed to load");
-        return json as RecordDetail;
-      })
-      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(e.message ?? "Failed to load"); setLoading(false); } });
-    return () => { cancelled = true; };
-  }, [model, recordId]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-8 text-meta text-muted-foreground">
@@ -1139,36 +1190,18 @@ function RecordOverview({
       </div>
     );
   }
-  if (error || !data) {
+  if (error || !detail) {
     return <div className="px-3 py-6 text-center text-meta text-danger">{error ?? "Record not found."}</div>;
   }
 
-  const mod = MODULES[model];
-  const color = mod ? GROUP_COLORS[mod.group] : "#6366f1";
-
   return (
     <div className="space-y-3 p-3">
-      {/* Record identity */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
-        <div className="flex items-center gap-2">
-          {mod && (
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${color}18`, color }}>
-              <mod.icon className="h-4 w-4" />
-            </span>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-body font-semibold">{data.displayLabel}</p>
-            {data.secondaryLabel && <p className="truncate text-caption text-muted-foreground">{data.secondaryLabel}</p>}
-          </div>
-        </div>
-      </div>
-
       {/* Fields */}
-      {data.fields.length > 0 && (
+      {detail.fields.length > 0 && (
         <div className="space-y-1">
           <p className="text-caption font-semibold text-muted-foreground">Fields</p>
           <div className="divide-y divide-border/60 rounded-lg border border-border">
-            {data.fields.map((field) => (
+            {detail.fields.map((field) => (
               <div key={field.label} className="flex items-center justify-between gap-2 px-2.5 py-2">
                 <span className="text-caption text-muted-foreground">{field.label}</span>
                 <span className="truncate text-body font-medium text-foreground">
@@ -1180,28 +1213,28 @@ function RecordOverview({
         </div>
       )}
 
-      {/* Related summary (spawn-able children) */}
-      {data.related.length > 0 && (
+      {/* Related summary — counts only (spawn from the Related tab) */}
+      {detail.related.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-caption font-semibold text-muted-foreground">Related ({data.related.reduce((s, g) => s + g.count, 0)})</p>
+          <p className="text-caption font-semibold text-muted-foreground">
+            Related ({detail.related.reduce((s, g) => s + g.count, 0)})
+          </p>
           <div className="flex flex-wrap gap-1.5">
-            {data.related.map((group) => {
+            {detail.related.map((group) => {
               const childMod = MODULES[group.relation.toModel];
               const childColor = childMod ? GROUP_COLORS[childMod.group] : "#94a3b8";
               return (
-                <button
+                <span
                   key={group.relation.label}
-                  onClick={() => onSpawnChild(nodeId, group.relation.toModel, "", "", group.relation)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-caption font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
-                  title={`Spawn ${group.relation.label} nodes on canvas`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-caption font-medium text-foreground"
                 >
                   {childMod && <childMod.icon className="h-3 w-3" style={{ color: childColor }} />}
                   {group.relation.label} ({group.count})
-                </button>
+                </span>
               );
             })}
           </div>
-          <p className="text-micro text-muted-foreground/70">Click a related group to spawn child nodes on the canvas, or use the Related tab for individual records.</p>
+          <p className="text-micro text-muted-foreground/70">Switch to the Related tab to spawn individual records on the canvas.</p>
         </div>
       )}
     </div>
@@ -1213,31 +1246,15 @@ function RecordOverview({
 // ════════════════════════════════════════════════════════════════
 
 function RelatedTab({
-  model, recordId, onSpawnChild, onJumpToNode,
+  nodeId, onSpawnChild, detail, loading, error,
 }: {
-  model: ModelKey;
-  recordId: string;
+  nodeId: string;
   onSpawnChild: (parentId: string, childModel: ModelKey, childRecordId: string, childLabel: string, relation: RelationDef) => void;
-  onJumpToNode: (nodeId: string) => void;
+  detail: RecordDetail | null;
+  loading: boolean;
+  error: string | null;
 }) {
-  const [data, setData] = useState<RecordDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/modules/record?model=${encodeURIComponent(model)}&id=${encodeURIComponent(recordId)}`)
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw new Error(json.error ?? "Failed to load");
-        return json as RecordDetail;
-      })
-      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(e.message ?? "Failed to load"); setLoading(false); } });
-    return () => { cancelled = true; };
-  }, [model, recordId]);
 
   if (loading) {
     return (
@@ -1246,11 +1263,11 @@ function RelatedTab({
       </div>
     );
   }
-  if (error || !data) {
+  if (error || !detail) {
     return <div className="px-3 py-6 text-center text-meta text-danger">{error ?? "Record not found."}</div>;
   }
 
-  if (data.related.length === 0 || data.related.every((g) => g.count === 0)) {
+  if (detail.related.length === 0 || detail.related.every((g) => g.count === 0)) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
         <GitBranch className="h-6 w-6 text-muted-foreground/40" />
@@ -1271,7 +1288,7 @@ function RelatedTab({
 
   return (
     <div className="divide-y divide-border/60">
-      {data.related.map((group) => {
+      {detail.related.map((group) => {
         const childMod = MODULES[group.relation.toModel];
         const childColor = childMod ? GROUP_COLORS[childMod.group] : "#94a3b8";
         const isExpanded = expandedGroups.has(group.relation.label);
@@ -1304,9 +1321,9 @@ function RelatedTab({
                         {child.secondary && <p className="truncate text-micro text-muted-foreground">{child.secondary}</p>}
                       </div>
                       <button
-                        onClick={() => onSpawnChild("", group.relation.toModel, child.id, child.label, group.relation)}
+                        onClick={() => onSpawnChild(nodeId, group.relation.toModel, child.id, child.label, group.relation)}
                         className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
-                        title="Spawn as canvas node"
+                        title="Spawn as linked canvas node"
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </button>

@@ -21,12 +21,15 @@ export function ProjectCostFormDialog({
   projects,
   subcontractors,
   editing,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   subcontractors?: { id: string; name: string; trade: string | null }[];
   editing?: ProjectCostRow | null;
+  /** Pre-fill fields (e.g. { projectId: "abc" } when scoped to a project node). */
+  defaults?: { projectId?: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -53,9 +56,9 @@ export function ProjectCostFormDialog({
         notes: editing.notes ?? "",
       });
     } else if (open && !editing) {
-      setForm({ projectId: "", costType: "LABOUR", amount: "", date: todayISO(), vendor: "", subcontractorId: "", notes: "" });
+      setForm({ projectId: defaults?.projectId ?? "", costType: "LABOUR", amount: "", date: todayISO(), vendor: "", subcontractorId: "", notes: "" });
     }
-  }, [open, editing]);
+  }, [open, editing, defaults]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

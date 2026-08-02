@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
+import { postPurchaseReceipt } from "./gl-posting";
 
 /**
  * Procurement Service — Purchase Order lifecycle.
@@ -337,6 +338,24 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
 
     // 5. Refresh Material.currentCost (weighted average of all location MACs)
     await refreshMaterialCurrentCost(tx, input.lines.map((l) => l.materialId));
+
+    // 6. Post the receipt to the General Ledger (inventory + input GST + AP).
+    //    Uses each PO line's gstRate to compute the recoverable input tax.
+    await postPurchaseReceipt(tx, {
+      companyId: po.companyId,
+      purchaseOrderId: input.purchaseOrderId,
+      goodsReceiptId: goodsReceipt.id,
+      postedById: input.receivedById,
+      lines: input.lines.map((l) => {
+        const poLine = po.lines.find((pl) => pl.id === l.purchaseOrderLineId)!;
+        return {
+          materialId: l.materialId,
+          qty: new Decimal(l.qtyReceived),
+          unitCost: new Decimal(l.unitCost),
+          gstRate: new Decimal(poLine.gstRate),
+        };
+      }),
+    });
 
     return { goodsReceipt, newStatus };
   });

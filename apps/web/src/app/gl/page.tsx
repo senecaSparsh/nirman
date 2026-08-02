@@ -1,0 +1,70 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
+import { prisma } from "@nirman/db";
+import { trialBalance } from "@nirman/services";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { PageHeader } from "@/components/page-header";
+import { PageLoading } from "@/components/page-loading";
+import { GeneralLedgerView } from "@/components/finance/general-ledger-view";
+
+export const metadata = { title: "General Ledger · Nirman" };
+
+export default function GeneralLedgerPage() {
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="General Ledger"
+        description="Double-entry bookkeeping and GST posting. Every financial mutation posts a balanced journal entry."
+      />
+      <Suspense fallback={<PageLoading label="Loading trial balance…" />}>
+        <GeneralLedgerContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function GeneralLedgerContent() {
+  await connection();
+  const role = await getUserRole();
+  const company = await getCompany();
+
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
+        You don&apos;t have permission to view the general ledger.
+      </div>
+    );
+  }
+
+  const [tb, accounts] = await Promise.all([
+    trialBalance(company.id),
+    prisma.glAccount.findMany({ orderBy: { code: "asc" } }),
+  ]);
+
+  const accountRows = accounts.map((a) => ({
+    code: a.code,
+    name: a.name,
+    type: a.type,
+    isSystem: a.isSystem,
+  }));
+
+  const tbRows = tb.accounts.map((a) => ({
+    code: a.code,
+    name: a.name,
+    type: a.type,
+    debit: toNum(a.debit),
+    credit: toNum(a.credit),
+    balance: toNum(a.balance),
+  }));
+
+  return (
+    <GeneralLedgerView
+      accounts={accountRows}
+      trialBalance={tbRows}
+      totalDebit={toNum(tb.totalDebit)}
+      totalCredit={toNum(tb.totalCredit)}
+      isBalanced={tb.isBalanced}
+    />
+  );
+}

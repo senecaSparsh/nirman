@@ -32,11 +32,14 @@ export function ExpenseFormDialog({
   onOpenChange,
   projects,
   editing,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   editing?: { id: string; projectId: string | null; category: string; amount: number; date: string; notes: string | null } | null;
+  /** Pre-fill fields (e.g. { projectId: "abc" } when scoped to a project node). */
+  defaults?: { projectId?: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -59,9 +62,9 @@ export function ExpenseFormDialog({
         notes: editing.notes ?? "",
       });
     } else if (open && !editing) {
-      setForm({ projectId: "", category: "", amount: "", date: todayISO(), notes: "" });
+      setForm({ projectId: defaults?.projectId ?? "", category: "", amount: "", date: todayISO(), notes: "" });
     }
-  }, [open, editing]);
+  }, [open, editing, defaults]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

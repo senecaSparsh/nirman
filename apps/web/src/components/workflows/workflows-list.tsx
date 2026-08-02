@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Workflow as WorkflowIcon, Play, Clock, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 interface WorkflowRow {
   id: string;
@@ -25,9 +28,11 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
   const router = useRouter();
   const { canManageWorkflows } = usePermissions();
   const canEdit = canManageWorkflows();
+  const [delTarget, setDelTarget] = useState<WorkflowRow | null>(null);
+  const [runTarget, setRunTarget] = useState<WorkflowRow | null>(null);
+  const [running, setRunning] = useState(false);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete workflow "${name}"? This cannot be undone.`)) return;
+  const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -43,6 +48,7 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
   };
 
   const handleRun = async (id: string) => {
+    setRunning(true);
     try {
       const res = await fetch(`/api/workflows/${id}/runs`, { method: "POST" });
       const data = await res.json();
@@ -50,9 +56,13 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
         toast.error(data.error ?? "Failed to run");
       } else {
         toast.success(`Workflow run: ${data.status}`);
+        router.refresh();
       }
     } catch {
       toast.error("Network error");
+    } finally {
+      setRunning(false);
+      setRunTarget(null);
     }
   };
 
@@ -119,10 +129,10 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
 
                 {canEdit && (
                   <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                    <Button size="sm" variant="outline" onClick={() => handleRun(w.id)}>
+                    <Button size="sm" variant="outline" onClick={() => setRunTarget(w)}>
                       <Play className="h-3 w-3" /> Run
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(w.id, w.name)}>
+                    <Button size="sm" variant="ghost" onClick={() => setDelTarget(w)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -131,6 +141,36 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
             </Card>
           ))}
         </div>
+      )}
+
+      {delTarget && (
+        <DeleteConfirmDialog
+          open={Boolean(delTarget)}
+          onOpenChange={(o) => { if (!o) setDelTarget(null); }}
+          endpoint={`/api/workflows/${delTarget.id}`}
+          title="Delete workflow"
+          description={`Delete “${delTarget.name}”? This cannot be undone.`}
+          successMessage="Workflow deleted"
+        />
+      )}
+
+      {runTarget && (
+        <Dialog
+          open={Boolean(runTarget)}
+          onOpenChange={(o) => { if (!o) setRunTarget(null); }}
+          title="Run workflow"
+          description={`Run “${runTarget.name}” now? This will execute every step in the workflow graph.`}
+        >
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setRunTarget(null)} disabled={running}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => handleRun(runTarget.id)} disabled={running}>
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {running ? "Running…" : "Run now"}
+            </Button>
+          </div>
+        </Dialog>
       )}
     </div>
   );

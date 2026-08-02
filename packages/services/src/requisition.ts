@@ -2,6 +2,7 @@ import { prisma, type RequisitionStatus } from "@nirman/db";
 import Decimal from "decimal.js";
 import { createPurchaseOrderTx } from "./procurement";
 import { logAction } from "./audit";
+import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -55,6 +56,12 @@ export async function createRequisition(input: CreateRequisitionInput) {
     if (!new Decimal(line.qtyRequested).gt(0)) throw new Error("Requested qty must be > 0");
   }
 
+  // Validate requesting user exists (prevents FK violation on create)
+  if (input.requestedById) {
+    const user = await prisma.user.findUnique({ where: { id: input.requestedById }, select: { id: true } });
+    if (!user) throw new Error("Requesting user not found — your session may be stale. Please sign out and sign in again.");
+  }
+
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.create({
       data: {
@@ -87,7 +94,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
 }
 
 export async function submitRequisition(reqId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
     if (!req) throw new Error("Requisition not found");
     if (req.status !== "DRAFT") throw new Error(`Cannot submit requisition in status ${req.status}`);
@@ -102,6 +109,18 @@ export async function submitRequisition(reqId: string, userId?: string) {
     });
     return updated;
   });
+
+  // Logistics Decision Engine — evaluate routing on submit so the approver sees
+  // the recommended procurement scope (COMPANY vs PROJECT). Runs after the status
+  // transition commits; a routing failure must not block submission.
+  try {
+    await evaluateRequisitionRouting(reqId);
+  } catch (err) {
+    // Non-fatal: routing is a recommendation, not a gate. Log and continue.
+    console.error(`[lci] evaluateRequisitionRouting failed for ${reqId}:`, err);
+  }
+
+  return updated;
 }
 
 export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string) {
@@ -159,14 +178,41 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
 interface ConvertRequisitionInput {
   requisitionId: string;
   supplierId: string;
-  procurementScope: "COMPANY" | "PROJECT";
+  /** Procurement scope. If omitted, the Logistics Decision Engine's cached
+   *  recommendation (MaterialRequisition.lciDecision.recommendedScope) is used,
+   *  falling back to PROJECT. Pass explicitly to override the engine. */
+  procurementScope?: "COMPANY" | "PROJECT";
   destinationLocationId: string;
   lineCosts: Record<string, Decimal | number | string>; // materialId → unitCost
   expectedDate?: Date;
   notes?: string;
+  /** Distance vendor→site (km). If provided, re-evaluates routing with this input
+   *  before deciding scope (refines S_lead/D once a supplier is known). */
+  distanceKm?: Decimal | number | string;
 }
 
 export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
+  // Resolve procurement scope BEFORE opening the convert transaction — the
+  // Logistics Decision Engine uses the global prisma client, not the tx.
+  // Explicit override → re-evaluate now that supplier is known → cached LCI → PROJECT.
+  let procurementScope: "COMPANY" | "PROJECT";
+  if (input.procurementScope) {
+    procurementScope = input.procurementScope;
+  } else {
+    let resolved: "COMPANY" | "PROJECT" | null = null;
+    try {
+      const decision = await evaluateRequisitionRouting(input.requisitionId, {
+        supplierId: input.supplierId,
+        distanceKm: input.distanceKm,
+      });
+      resolved = decision.recommendedScope;
+    } catch (err) {
+      console.error(`[lci] re-evaluate failed for ${input.requisitionId}:`, err);
+      resolved = await getCachedRoutingScope(input.requisitionId).catch(() => null);
+    }
+    procurementScope = resolved ?? "PROJECT";
+  }
+
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: input.requisitionId },
@@ -188,9 +234,9 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     // requisition status update rolls back too (no stuck CONVERTED state).
     const po = await createPurchaseOrderTx(tx, {
       supplierId: input.supplierId,
-      procurementScope: input.procurementScope,
+      procurementScope,
       companyId: req.project.companyId,
-      projectId: input.procurementScope === "PROJECT" ? req.projectId : undefined,
+      projectId: procurementScope === "PROJECT" ? req.projectId : undefined,
       destinationLocationId: input.destinationLocationId,
       expectedDate: input.expectedDate,
       notes: input.notes,

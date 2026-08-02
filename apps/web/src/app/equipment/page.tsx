@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { EquipmentView } from "@/components/equipment/equipment-view";
@@ -13,11 +14,7 @@ import type {
 export default function EquipmentPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Equipment"
-        description="Trackable assets — machinery, tools, vehicles. Assignments, maintenance, and depreciation."
-      />
-      <Suspense fallback={<PageLoading label="Loading equipment…" />}>
+      <Suspense fallback={<PageLoading label="Loading equipment…" variant="board" />}>
         <EquipmentContent />
       </Suspense>
     </div>
@@ -117,12 +114,30 @@ async function EquipmentContent() {
     status: p.status,
   }));
 
+  const available = equipmentRows.filter((e) => e.status === "AVAILABLE").length;
+  const assigned = equipmentRows.filter((e) => e.status === "ASSIGNED").length;
+  const maintenance = equipmentRows.filter((e) => e.status === "IN_MAINTENANCE").length;
+  const totalValue = equipmentRows.reduce((s, e) => s + e.currentValue, 0);
+
   return (
-    <EquipmentView
-      equipment={equipmentRows}
-      locations={locationRows}
-      projects={projectRows}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Equipment"
+        description="Trackable assets — machinery, tools, vehicles. Assignments, maintenance, and depreciation."
+        stats={[
+          { label: "Total", value: equipmentRows.length },
+          { label: "Available", value: available },
+          { label: "Assigned", value: assigned },
+          { label: "Maintenance", value: maintenance },
+          { label: "Value", value: formatCurrency(totalValue) },
+        ]}
+      />
+      <EquipmentView
+        equipment={equipmentRows}
+        locations={locationRows}
+        projects={projectRows}
+        permissions={perms}
+      />
+    </>
   );
 }

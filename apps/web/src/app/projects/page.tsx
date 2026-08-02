@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { Building2, Layers, Boxes } from "lucide-react";
 import { prisma } from "@nirman/db";
+import { projectPnl } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
-import { KpiCard } from "@/components/kpi-card";
 import { PageLoading } from "@/components/page-loading";
 import { ProjectsView } from "@/components/projects/projects-view";
 
@@ -19,21 +18,10 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PLANNED: "muted",
-  ACTIVE: "success",
-  COMPLETED: "default",
-  ON_HOLD: "warning",
-};
-
 export default function ProjectsPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Projects"
-        description="Residential, commercial, warehouse, mall and land projects — with P&L, units and material consumption."
-      />
-      <Suspense fallback={<PageLoading label="Loading projects…" />}>
+      <Suspense fallback={<PageLoading label="Loading projects…" variant="cards" />}>
         <ProjectsContent />
       </Suspense>
     </div>
@@ -57,9 +45,12 @@ async function ProjectsContent() {
     where: { companyId: company.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
+      builtUnits: {
+        where: { deletedAt: null },
+        select: { status: true },
+      },
       _count: {
         select: {
-          builtUnits: { where: { deletedAt: null } },
           stockLocations: { where: { deletedAt: null } },
           phases: true,
         },
@@ -67,39 +58,67 @@ async function ProjectsContent() {
     },
   });
 
-  const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
-  const plannedCount = projects.filter((p) => p.status === "PLANNED").length;
-  const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
-  const totalBudget = projects.reduce((s, p) => s + toNum(p.totalBudget), 0);
+  // Compute P&L for each project (parallel)
+  const pnlResults = await Promise.all(
+    projects.map(async (p) => {
+      const pnl = await projectPnl(p.id);
+      return {
+        projectId: p.id,
+        totalCost: toNum(pnl.total),
+        revenue: toNum(pnl.revenue),
+        profit: toNum(pnl.profit),
+        margin: toNum(pnl.margin),
+      };
+    }),
+  );
+  const pnlMap = new Map(pnlResults.map((r) => [r.projectId, r]));
 
-  // Serialize for client component
-  const projectRows = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    type: p.type,
-    status: p.status,
-    address: p.address,
-    startDate: p.startDate?.toISOString() ?? null,
-    totalBudget: toNum(p.totalBudget),
-    phaseCount: p._count.phases,
-    unitCount: p._count.builtUnits,
-    locationCount: p._count.stockLocations,
-  }));
+  const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
+  const totalBudget = projects.reduce((s, p) => s + toNum(p.totalBudget), 0);
+  const totalProfit = pnlResults.reduce((s, r) => s + r.profit, 0);
+
+  // Serialize for client component — with health data
+  const projectRows = projects.map((p) => {
+    const units = p.builtUnits;
+    const soldUnits = units.filter((u) => u.status === "SOLD").length;
+    const availableUnits = units.filter((u) => u.status === "AVAILABLE").length;
+    const totalUnits = units.length;
+    const pnl = pnlMap.get(p.id);
+    const budget = toNum(p.totalBudget);
+    const actualCost = toNum(p.totalProjectCost);
+    return {
+      id: p.id,
+      name: p.name,
+      type: p.type,
+      status: p.status,
+      address: p.address,
+      startDate: p.startDate?.toISOString() ?? null,
+      endDate: p.endDate?.toISOString() ?? null,
+      totalBudget: budget,
+      totalProjectCost: actualCost,
+      phaseCount: p._count.phases,
+      unitCount: totalUnits,
+      soldUnits,
+      availableUnits,
+      locationCount: p._count.stockLocations,
+      pnl: pnl ?? { totalCost: 0, revenue: 0, profit: 0, margin: 0 },
+    };
+  });
 
   return (
     <>
-      {/* KPI summary */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Total Projects" value={String(projects.length)} icon={<Building2 className="h-[18px] w-[18px]" />} />
-        <KpiCard label="Active" value={String(activeCount)} icon={<Layers className="h-[18px] w-[18px]" />} accent="success" />
-        <KpiCard label="Planned" value={String(plannedCount)} icon={<Boxes className="h-[18px] w-[18px]" />} accent="warning" />
-        <KpiCard label="Combined Budget" value={formatCurrency(totalBudget)} icon={<Building2 className="h-[18px] w-[18px]" />} accent="muted" />
-      </div>
-
+      <PageHeader
+        title="Projects"
+        stats={[
+          { label: "Total", value: projects.length },
+          { label: "Active", value: activeCount },
+          { label: "Budget", value: formatCurrency(totalBudget) },
+          { label: "Profit", value: formatCurrency(totalProfit) },
+        ]}
+      />
       <ProjectsView
         projects={projectRows}
         typeLabels={TYPE_LABELS}
-        statusVariant={STATUS_VARIANT}
         permissions={{
           canCreate: hasPermission(role, PERM.PROJECTS_MANAGE),
           canEdit: hasPermission(role, PERM.PROJECTS_MANAGE),

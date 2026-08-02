@@ -56,6 +56,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROJECTS_MANAGE);
   const { id } = await ctx.params;
   try {
     await softDelete("Project", id);

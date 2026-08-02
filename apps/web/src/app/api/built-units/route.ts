@@ -51,7 +51,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const body = await req.json();
   // Support both single-unit and batch creation
   const units = Array.isArray(body) ? body : [body];
@@ -72,6 +72,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   try {
     const created = await createBuiltUnits({
       projectId,
+      userId: user.id,
       units: valid.map((u) => ({
         unitType: u!.unitType,
         unitNumber: u!.unitNumber,
@@ -80,6 +81,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         area: u!.area,
         areaUnit: u!.areaUnit,
         askingPrice: u!.askingPrice ?? undefined,
+        phaseId: u!.phaseId ?? null,
       })),
     });
     return json({ ok: true, count: created.length }, { status: 201 });

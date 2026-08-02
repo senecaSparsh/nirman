@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { postExpense } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -50,16 +51,26 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const expense = await prisma.expense.create({
-    data: {
+  const expense = await prisma.$transaction(async (tx) => {
+    const created = await tx.expense.create({
+      data: {
+        companyId: company.id,
+        projectId: parsed.data.projectId ?? null,
+        category: parsed.data.category,
+        amount: parsed.data.amount,
+        date: parsed.data.date ? new Date(parsed.data.date) : new Date(),
+        notes: parsed.data.notes ?? null,
+        createdById: user.id,
+      },
+    });
+    // Post to the General Ledger: expense it (not capitalised), credit cash.
+    await postExpense(tx, {
       companyId: company.id,
-      projectId: parsed.data.projectId ?? null,
-      category: parsed.data.category,
+      expenseId: created.id,
       amount: parsed.data.amount,
-      date: parsed.data.date ? new Date(parsed.data.date) : new Date(),
-      notes: parsed.data.notes ?? null,
-      createdById: user.id,
-    },
+      postedById: user.id,
+    });
+    return created;
   });
   return json({ ok: true, id: expense.id }, { status: 201 });
 });

@@ -2,6 +2,7 @@ import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
+import { postAssetSale, postPaymentReceived } from "./gl-posting";
 
 /**
  * Sale Service — sell land parcels or built units to customers.
@@ -170,6 +171,38 @@ export async function sellAsset(input: SellAssetInput) {
       await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus } });
     }
 
+    // Post the sale to the General Ledger: recognise revenue + receivable,
+    // and relieve the asset at cost (COGS). Done inside the sale transaction
+    // so the books never diverge from the sale record.
+    await postAssetSale(tx, {
+      companyId,
+      assetSaleId: sale.id,
+      assetType: input.assetType,
+      salePrice,
+      costBasis,
+      postedById: input.userId,
+    });
+
+    // If an initial payment was recorded, post it too (cash settles the receivable).
+    if (input.initialPayment) {
+      const initAmount = new Decimal(input.initialPayment);
+      if (initAmount.gt(0)) {
+        const payment = await tx.assetSalePayment.findFirst({
+          where: { assetSaleId: sale.id },
+          orderBy: { paymentDate: "desc" },
+        });
+        if (payment) {
+          await postPaymentReceived(tx, {
+            companyId,
+            assetSaleId: sale.id,
+            paymentId: payment.id,
+            amount: initAmount,
+            postedById: input.userId,
+          });
+        }
+      }
+    }
+
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
@@ -237,6 +270,15 @@ export async function recordPayment(input: RecordPaymentInput) {
     await tx.assetSale.update({
       where: { id: input.assetSaleId },
       data: { paymentStatus },
+    });
+
+    // Post the payment to the General Ledger: cash settles the receivable.
+    await postPaymentReceived(tx, {
+      companyId: sale.companyId,
+      assetSaleId: input.assetSaleId,
+      paymentId: payment.id,
+      amount,
+      postedById: input.userId,
     });
 
     if (input.userId) {

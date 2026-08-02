@@ -17,18 +17,22 @@ import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialo
 import { PurchaseOrderFormDialog } from "@/components/procurement/purchase-order-form-dialog";
 import { TransferFormDialog } from "@/components/procurement/transfer-form-dialog";
 import { IssueFormDialog } from "@/components/procurement/issue-form-dialog";
+import { ReceiveGoodsDialog } from "@/components/procurement/receive-goods-dialog";
 import { LandPurchaseFormDialog } from "@/components/land/land-purchase-form-dialog";
 import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
+import { PaymentDialog } from "@/components/sales/payment-dialog";
 import { ProjectCostFormDialog } from "@/components/finance/project-cost-form-dialog";
 import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
 import { EquipmentFormDialog } from "@/components/equipment/equipment-form-dialog";
+import { AssignDialog } from "@/components/equipment/assign-dialog";
+import { MaintenanceDialog } from "@/components/equipment/maintenance-dialog";
 import { RequisitionFormDialog } from "@/components/requisitions/requisition-form-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 
 import type {
   MaterialCategory, MaterialRow, StockLocationRow, SupplierRow, ProjectOption,
-  StockLocationOption, MaterialOption,
+  StockLocationOption, MaterialOption, DepartmentOption,
 } from "@/lib/types";
 
 // ── Reference data types ──
@@ -43,6 +47,7 @@ export interface ReferenceData {
   categories: MaterialCategory[];
   phases: { id: string; name: string; projectId: string }[];
   subcontractors: { id: string; name: string; trade: string | null }[];
+  departments: DepartmentOption[];
 }
 
 // ── Hook: fetch all reference data in parallel ──
@@ -68,8 +73,9 @@ export function useReferenceData(enabled: boolean): {
       fetch("/api/suppliers").then((r) => r.json()),
       fetch("/api/material-categories").then((r) => r.json()),
       fetch("/api/subcontractors").then((r) => r.json()),
+      fetch("/api/departments").then((r) => r.json()),
     ])
-      .then(async ([projects, materials, locations, suppliers, categories, subcontractors]) => {
+      .then(async ([projects, materials, locations, suppliers, categories, subcontractors, departments]) => {
         const projectList: ProjectOption[] = (Array.isArray(projects) ? projects : []).map((p: any) => ({
           id: p.id, name: p.name, type: p.type, status: p.status,
         }));
@@ -104,6 +110,9 @@ export function useReferenceData(enabled: boolean): {
           categories: Array.isArray(categories) ? categories : [],
           phases: allPhases,
           subcontractors: Array.isArray(subcontractors) ? subcontractors : [],
+          departments: (Array.isArray(departments) ? departments : []).map((d: any) => ({
+            id: d.id, code: d.code, name: d.name,
+          })),
         });
         setLoading(false);
       })
@@ -120,8 +129,16 @@ export function useReferenceData(enabled: boolean): {
 export interface ActionDef {
   label: string;
   icon: typeof Plus;
-  dialog: "material" | "category" | "location" | "supplier" | "po" | "transfer" | "issue" | "land" | "unit" | "customer" | "cost" | "expense" | "equipment" | "requisition" | "project";
+  dialog: "material" | "category" | "location" | "supplier" | "po" | "transfer" | "issue" | "land" | "unit" | "customer" | "cost" | "expense" | "equipment" | "requisition" | "project" | "payment" | "receipt" | "assignment" | "maintenance" | "count";
+  /** When this action is scoped to a linked record, the field name to
+   *  pre-fill in the dialog (e.g. "projectId" → the dialog opens with
+   *  that project already selected). */
+  defaultsKey?: string;
 }
+
+/** Default values to pre-fill in form dialogs when an action is scoped
+ *  to a linked record. The key matches the form field name. */
+export type ActionDefaults = Record<string, string>;
 
 const MODULE_ACTIONS: Partial<Record<ModelKey, ActionDef[]>> = {
   Material: [
@@ -187,6 +204,7 @@ export function NodeActions({
   onRecordCreated,
   actions: actionsOverride,
   variant = "list",
+  defaults,
 }: {
   model: ModelKey;
   referenceData: ReferenceData | null;
@@ -195,6 +213,9 @@ export function NodeActions({
   actions?: ActionDef[];
   /** "list" = full-width buttons (tab content), "bar" = compact inline buttons (action bar). */
   variant?: "list" | "bar";
+  /** Pre-fill values for scoped actions (e.g. { projectId: "abc" }
+   *  when the action is on a linked Project node). */
+  defaults?: ActionDefaults;
 }) {
   const router = useRouter();
   const [openDialog, setOpenDialog] = useState<string | null>(null);
@@ -248,7 +269,7 @@ export function NodeActions({
             </button>
           ))}
         </div>
-        {renderDialogs(openDialog, closeDialog, ref)}
+        {renderDialogs(openDialog, closeDialog, ref, defaults)}
       </>
     );
   }
@@ -272,17 +293,29 @@ export function NodeActions({
       </div>
 
       {/* Form Dialogs */}
-      {renderDialogs(openDialog, closeDialog, ref)}
+      {renderDialogs(openDialog, closeDialog, ref, defaults)}
     </div>
   );
 }
 
-/** Shared dialog renderer — used by both the "list" and "bar" variants. */
+/** Shared dialog renderer — used by both the "list" and "bar" variants.
+ *  `defaults` pre-fills form fields for scoped actions (e.g. when the
+ *  action is triggered from a linked Project node, defaults.projectId
+ *  is set so the dialog opens with that project already selected). */
 function renderDialogs(
   openDialog: string | null,
   closeDialog: () => void,
   ref: ReferenceData,
+  defaults?: ActionDefaults,
 ) {
+  // Build a defaults object for each dialog type from the scoped defaults.
+  // The key matches the form field name in the target dialog.
+  const issueDefaults = defaults?.projectId ? { projectId: defaults.projectId } : undefined;
+  const costDefaults = defaults?.projectId ? { projectId: defaults.projectId } : undefined;
+  const unitDefaults = defaults?.projectId ? { projectId: defaults.projectId } : undefined;
+  const expenseDefaults = defaults?.projectId ? { projectId: defaults.projectId } : undefined;
+  const transferDefaults = defaults?.fromLocationId ? { fromLocationId: defaults.fromLocationId } : undefined;
+
   return (
     <>
       <MaterialFormDialog
@@ -319,6 +352,7 @@ function renderDialogs(
         open={openDialog === "transfer"}
         onOpenChange={(o) => !o && closeDialog()}
         locations={ref.locations}
+        defaults={transferDefaults}
       />
       <IssueFormDialog
         open={openDialog === "issue"}
@@ -326,6 +360,8 @@ function renderDialogs(
         projects={ref.projects}
         locations={ref.locationOptions}
         materials={ref.materialOptions}
+        departments={ref.departments}
+        defaults={issueDefaults}
       />
       <LandPurchaseFormDialog
         open={openDialog === "land"}
@@ -336,6 +372,8 @@ function renderDialogs(
         open={openDialog === "unit"}
         onOpenChange={(o) => !o && closeDialog()}
         projects={ref.projects}
+        phases={ref.phases}
+        defaults={unitDefaults}
       />
       <CustomerFormDialog
         open={openDialog === "customer"}
@@ -347,11 +385,13 @@ function renderDialogs(
         onOpenChange={(o) => !o && closeDialog()}
         projects={ref.projects}
         subcontractors={ref.subcontractors}
+        defaults={costDefaults}
       />
       <ExpenseFormDialog
         open={openDialog === "expense"}
         onOpenChange={(o) => !o && closeDialog()}
         projects={ref.projects}
+        defaults={expenseDefaults}
       />
       <EquipmentFormDialog
         open={openDialog === "equipment"}
@@ -368,6 +408,37 @@ function renderDialogs(
         open={openDialog === "project"}
         onOpenChange={(o) => !o && closeDialog()}
       />
+      {/* ── Scoped dialogs that require a parent record context ── */}
+      {defaults?.assetSaleId && (
+        <PaymentDialog
+          open={openDialog === "payment"}
+          onOpenChange={(o) => !o && closeDialog()}
+          sale={null}
+        />
+      )}
+      {defaults?.poId && (
+        <ReceiveGoodsDialog
+          open={openDialog === "receipt"}
+          onOpenChange={(o) => !o && closeDialog()}
+          po={null}
+        />
+      )}
+      {defaults?.equipmentId && (
+        <>
+          <AssignDialog
+            open={openDialog === "assignment"}
+            onOpenChange={(o) => !o && closeDialog()}
+            equipmentId={defaults.equipmentId}
+            locations={ref.locations}
+            projects={ref.projects}
+          />
+          <MaintenanceDialog
+            open={openDialog === "maintenance"}
+            onOpenChange={(o) => !o && closeDialog()}
+            equipmentId={defaults.equipmentId}
+          />
+        </>
+      )}
     </>
   );
 }

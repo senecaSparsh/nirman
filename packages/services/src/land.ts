@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
+import { postLandPurchase } from "./gl-posting";
 
 /**
  * Land Service — record land purchases and create initial parcels.
@@ -78,6 +79,14 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
     if (input.projectId) {
       await reallocateProjectCosts(tx, input.projectId);
     }
+
+    // Post to the General Ledger: capitalise the land as an unsold asset, credit cash.
+    await postLandPurchase(tx, {
+      companyId: input.companyId,
+      landPurchaseId: landPurchase.id,
+      totalCost,
+      postedById: input.createdById,
+    });
 
     // Audit log
     if (input.createdById) {

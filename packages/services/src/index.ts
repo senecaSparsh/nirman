@@ -35,15 +35,19 @@ export {
   receiveGoods,
 } from "./procurement";
 
-// Transfer — company→project stock movements
+// Transfer — company→project stock movements (intra + inter-company STO)
 export {
   createTransfer,
   completeTransfer,
   cancelTransfer,
+  computeTransferPrice,
+  type TransferPriceLineInput,
+  type TransferPriceLineResult,
+  type TransferPriceResult,
 } from "./transfer";
 
-// Issue — material consumption into projects
-export { issueMaterialsToProject } from "./issue";
+// Issue — material consumption into projects or departments (cost centers)
+export { issueMaterialsToProject, issueMaterialsToDepartment } from "./issue";
 
 // Stock Count — physical reconciliation
 export {
@@ -106,6 +110,7 @@ export {
   recordMaintenance,
   completeMaintenance,
   retireEquipment,
+  unretireEquipment,
   computeDepreciatedValue,
 } from "./equipment";
 
@@ -117,6 +122,25 @@ export {
   rejectRequisition,
   convertRequisitionToPo,
 } from "./requisition";
+
+// Auto-Requisition — generate DRAFT requisitions from reorder-point breaches
+export { generateAutoRequisition, type AutoRequisitionResult } from "./auto-requisition";
+
+// Procurement Routing — Logistics Decision Engine (LCI → central vs direct buying)
+export {
+  computeLogisticsComplexityIndex,
+  decideProcurementScope,
+  parseLciWeights,
+  evaluateRequisitionRouting,
+  getCachedRoutingScope,
+  DEFAULT_LCI_WEIGHTS,
+  DEFAULT_LCI_THRESHOLD,
+  type LciWeights,
+  type LciFactors,
+  type LineRoutingResult,
+  type RoutingDecision,
+  type ProcurementScope as RoutingProcurementScope,
+} from "./procurement-routing";
 
 // Supplier Return — return defective/excess materials
 export {
@@ -133,3 +157,76 @@ export {
   flagNrvWriteDowns,
   computeNrvWriteDown,
 } from "./alerts";
+
+// General Ledger — double-entry bookkeeping + GST posting
+export {
+  seedChartOfAccounts,
+  postJournalEntry,
+  postPurchaseReceipt,
+  postMaterialIssue,
+  postMaterialIssueToDepartment,
+  postAssetSale,
+  postPaymentReceived,
+  postProjectCost,
+  postExpense,
+  postSupplierReturn,
+  postLandPurchase,
+  trialBalance,
+  accountLedger,
+  CHART_OF_ACCOUNTS,
+  ACCT,
+  type JournalLineInput,
+  type PostJournalInput,
+} from "./gl-posting";
+
+// Task Service — execution engine (subtasks, comments, activity, dependencies, time)
+export {
+  createTask,
+  updateTaskStatus,
+  reassignTask,
+  addSubTask,
+  toggleSubTask,
+  deleteSubTask,
+  reorderSubTasks,
+  addComment,
+  deleteComment,
+  addDependency,
+  removeDependency,
+  startTimer,
+  stopTimer,
+  getTaskDetail,
+  computeProgress,
+  isBlocked,
+  formatDuration,
+  totalLoggedMinutes,
+  TaskError,
+  type CreateTaskInput,
+  type StatusChangeInput,
+  type ReassignInput,
+} from "./task";
+
+// Partition geometry — pure polygon functions for the CAD/GIS partition canvas
+export {
+  signedArea,
+  polygonArea,
+  ensureCCW,
+  segmentIntersection,
+  pointInPolygon,
+  centroid,
+  splitConvexPolygon,
+  rectangle,
+  centeredRectangle,
+  areaRatios,
+  boundingBox,
+  normalizePolygon,
+  toSvgPath,
+  sub,
+  add,
+  scale,
+  cross,
+  dot,
+  length,
+  type Point,
+  type Polygon,
+  type Segment,
+} from "./geometry";

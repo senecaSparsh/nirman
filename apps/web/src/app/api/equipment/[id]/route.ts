@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { completeMaintenance, retireEquipment, softDelete } from "@nirman/services";
+import { completeMaintenance, retireEquipment, unretireEquipment, softDelete } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  const user = await requirePermission(PERM.ASSETS_VIEW);
   const { id } = await params;
   const eq = await prisma.equipment.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: user.companyId ?? undefined, deletedAt: null },
     include: {
       assignments: {
         orderBy: { assignedAt: "desc" },
@@ -62,23 +62,32 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string;
 
   if (action === "retire") {
     try {
-      await retireEquipment(id);
+      await retireEquipment(id, user.id);
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Retire failed" }, { status: 400 });
     }
   }
 
+  if (action === "unretire") {
+    try {
+      await unretireEquipment(id, user.id);
+      return json({ ok: true });
+    } catch (err: any) {
+      return json({ error: err?.message ?? "Un-retire failed" }, { status: 400 });
+    }
+  }
+
   if (action === "complete-maintenance") {
     try {
-      await completeMaintenance(id);
+      await completeMaintenance(id, user.id);
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Complete maintenance failed" }, { status: 400 });
@@ -99,10 +108,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ ok: true, id: updated.id });
   }
 
-  return json({ error: "Invalid action. Use retire, complete-maintenance, or update." }, { status: 400 });
+  return json({ error: "Invalid action. Use retire, unretire, complete-maintenance, or update." }, { status: 400 });
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   try {
     await softDelete("Equipment", id);

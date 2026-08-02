@@ -47,6 +47,7 @@ export function SaleDetailDialog({
       fetch(`/api/sales/${sale.id}`)
         .then((r) => r.json())
         .then((d) => { if (!d.error) setDetail(d); })
+        .catch(() => toast.error("Failed to load sale details"))
         .finally(() => setLoading(false));
     }
   }, [open, sale]);

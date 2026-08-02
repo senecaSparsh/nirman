@@ -9,6 +9,13 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ProjectOption, LandPurchaseRow } from "@/lib/types";
 
+/** The subset of a LandPurchaseRow needed to populate the edit form. */
+export type LandPurchaseEditInitial = Pick<
+  LandPurchaseRow,
+  "id" | "projectId" | "sellerName" | "sellerContact" | "purchaseDate" |
+  "totalArea" | "areaUnit" | "totalCost" | "registryNo" | "location"
+>;
+
 export function LandPurchaseFormDialog({
   open,
   onOpenChange,
@@ -18,7 +25,7 @@ export function LandPurchaseFormDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
-  editing?: LandPurchaseRow | null;
+  editing?: LandPurchaseEditInitial | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);

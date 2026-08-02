@@ -67,6 +67,7 @@ describe("movementDirection", () => {
   it("classifies outbound movements", () => {
     expect(movementDirection("TRANSFER_OUT")).toBe("OUT");
     expect(movementDirection("ISSUE_TO_PROJECT")).toBe("OUT");
+    expect(movementDirection("ISSUE_TO_DEPARTMENT")).toBe("OUT");
     expect(movementDirection("ADJUSTMENT_OUT")).toBe("OUT");
     expect(movementDirection("SALE")).toBe("OUT");
   });

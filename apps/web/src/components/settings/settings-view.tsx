@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, UserPlus, Shield, Loader2 } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, UserPlus, Shield, Loader2, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { PageHeader } from "@/components/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { canManageUsers, ROLE_LIST, type Role } from "@/lib/roles";
@@ -191,8 +190,6 @@ export function SettingsView({
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Settings" description="Company profile, users & roles, and stock locations." />
-
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="company">
@@ -259,42 +256,34 @@ export function SettingsView({
               <Button onClick={() => setLocFormOpen(true)}><Plus className="h-4 w-4" /> New Location</Button>
             </div>
 
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Name</TH>
-                      <TH>Type</TH>
-                      <TH>Project</TH>
-                      <TH>Address</TH>
-                      <TH className="text-right">Stock Value</TH>
-                      <TH className="text-right">Items</TH>
-                      <TH className="text-right">Actions</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {locations.map((l) => (
-                      <TR key={l.id}>
-                        <TD className="font-medium">{l.name}</TD>
-                        <TD><Badge variant="outline">{l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Project Site"}</Badge></TD>
-                        <TD className="text-muted-foreground">{l.projectName ?? "—"}</TD>
-                        <TD className="text-muted-foreground">{l.address ?? "—"}</TD>
-                        <TD className="tnum text-right">{formatCurrency(l.stockValue)}</TD>
-                        <TD className="tnum text-right">{l.itemCount}</TD>
-                        <TD>
-                          <div className="flex justify-end">
-                            <Button variant="ghost" size="icon" onClick={() => setDeletingLoc(l)} disabled={l.itemCount > 0}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {locations.map((l) => (
+                <Card key={l.id} className="group relative">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 min-w-0">
+                        <div className="font-semibold truncate">{l.name}</div>
+                        <Badge variant="outline">{l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Project Site"}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingLoc(l)} disabled={l.itemCount > 0} title={l.itemCount > 0 ? "Cannot delete location with stock items" : "Delete location"}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {l.projectName && <div className="text-sm text-muted-foreground truncate">{l.projectName}</div>}
+                    {l.address && (
+                      <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        <span className="truncate">{l.address}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-1 border-t">
+                      <span className="tnum font-bold">{formatCurrency(l.stockValue)}</span>
+                      <span className="text-sm text-muted-foreground">{l.itemCount} item{l.itemCount !== 1 ? "s" : ""}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </TabsContent>
         <TabsContent value="subcontractors">
@@ -304,43 +293,37 @@ export function SettingsView({
               <Button onClick={() => setSubFormOpen(true)}><Plus className="h-4 w-4" /> New Subcontractor</Button>
             </div>
 
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Name</TH>
-                      <TH>Trade</TH>
-                      <TH>Phone</TH>
-                      <TH>Email</TH>
-                      <TH className="text-right">Actions</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {subcontractors.map((s) => (
-                      <TR key={s.id}>
-                        <TD className="font-medium">{s.name}</TD>
-                        <TD className="text-muted-foreground">{s.trade ?? "—"}</TD>
-                        <TD className="text-muted-foreground">{s.phone ?? "—"}</TD>
-                        <TD className="text-muted-foreground">{s.email ?? "—"}</TD>
-                        <TD>
-                          <div className="flex justify-end">
-                            <Button variant="ghost" size="icon" onClick={() => setDeletingSub(s.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TD>
-                      </TR>
-                    ))}
-                    {subcontractors.length === 0 && (
-                      <TR>
-                        <TD colSpan={5} className="py-10 text-center text-muted-foreground">No subcontractors yet</TD>
-                      </TR>
-                    )}
-                  </TBody>
-                </Table>
-              </CardContent>
-            </Card>
+            {subcontractors.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">No subcontractors yet</div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {subcontractors.map((s) => (
+                  <Card key={s.id} className="group relative">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold truncate">{s.name}</div>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingSub(s.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {s.trade ? <Badge variant="outline">{s.trade}</Badge> : <span className="text-sm text-muted-foreground">No trade set</span>}
+                      {s.phone && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{s.phone}</span>
+                        </div>
+                      )}
+                      {s.email && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{s.email}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
         <TabsContent value="employees">
@@ -349,45 +332,30 @@ export function SettingsView({
               <span className="text-body text-muted-foreground">{employees.length} employee{employees.length !== 1 ? "s" : ""}</span>
               <Button onClick={() => setEmpFormOpen(true)}><Plus className="h-4 w-4" /> New Employee</Button>
             </div>
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Name</TH>
-                      <TH>Trade</TH>
-                      <TH>Phone</TH>
-                      <TH>Daily Rate</TH>
-                      <TH>Status</TH>
-                      <TH className="text-right">Actions</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {employees.map((e) => (
-                      <TR key={e.id}>
-                        <TD className="font-medium">{e.name}</TD>
-                        <TD className="text-muted-foreground">{e.trade ?? "—"}</TD>
-                        <TD className="text-muted-foreground">{e.phone ?? "—"}</TD>
-                        <TD className="text-muted-foreground">{formatCurrency(e.dailyRate)}</TD>
-                        <TD><Badge variant={e.active ? "success" : "muted"}>{e.active ? "Active" : "Inactive"}</Badge></TD>
-                        <TD>
-                          <div className="flex justify-end">
-                            <Button variant="ghost" size="icon" onClick={() => setDeletingEmp(e.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TD>
-                      </TR>
-                    ))}
-                    {employees.length === 0 && (
-                      <TR>
-                        <TD colSpan={6} className="py-10 text-center text-muted-foreground">No employees yet — add people to assign to playground task nodes</TD>
-                      </TR>
-                    )}
-                  </TBody>
-                </Table>
-              </CardContent>
-            </Card>
+            {employees.length === 0 ? (
+              <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">No employees yet — add people to assign to playground task nodes</div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {employees.map((e) => (
+                  <Card key={e.id} className="group relative">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold truncate">{e.name}</div>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingEmp(e.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {e.trade && <div className="text-sm text-muted-foreground">{e.trade}</div>}
+                      <div className="flex items-center justify-between pt-1 border-t">
+                        <span className="tnum font-bold">{formatCurrency(e.dailyRate)}</span>
+                        <span className="text-sm text-muted-foreground">/day</span>
+                      </div>
+                      <Badge variant={e.active ? "success" : "muted"}>{e.active ? "Active" : "Inactive"}</Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -550,6 +518,7 @@ export function SettingsView({
 // ── Users Manager — role + active status management ──────────
 
 function UsersManager({ users }: { users: UserRow[] }) {
+  const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
   const [saving, setSaving] = useState<string | null>(null);
@@ -567,6 +536,7 @@ function UsersManager({ users }: { users: UserRow[] }) {
         toast.error(data.error ?? "Failed to update role");
       } else {
         toast.success("Role updated");
+        router.refresh();
       }
     } catch {
       toast.error("Network error");
@@ -588,6 +558,7 @@ function UsersManager({ users }: { users: UserRow[] }) {
         toast.error(data.error ?? "Failed to update status");
       } else {
         toast.success(active ? "User activated" : "User deactivated");
+        router.refresh();
       }
     } catch {
       toast.error("Network error");

@@ -16,7 +16,7 @@ type SupplierOption = { id: string; name: string };
 type LocationOption = {
   id: string;
   name: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   projectId: string | null;
 };
 
@@ -72,6 +72,7 @@ export function RequisitionDetailDialog({
       toast.success(`Requisition ${action}ted`);
       // Re-fetch detail
       const r2 = await fetch(`/api/requisitions/${requisition.id}`);
+      if (!r2.ok) throw new Error("Failed to re-fetch requisition details");
       const d2 = await r2.json();
       if (!d2.error) setDetail(d2);
       router.refresh();

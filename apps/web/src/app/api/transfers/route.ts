@@ -45,7 +45,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
-    const transfer = await createTransfer({ ...parsed.data, notes: parsed.data.notes ?? undefined });
+    const transfer = await createTransfer({
+      fromLocationId: parsed.data.fromLocationId,
+      toLocationId: parsed.data.toLocationId,
+      notes: parsed.data.notes ?? undefined,
+      freight: parsed.data.freight,
+      handlingFee: parsed.data.handlingFee,
+      markupPct: parsed.data.markupPct,
+      lines: parsed.data.lines,
+    });
     return json(transfer, { status: 201 });
   } catch (err: any) {
     return json({ error: err?.message ?? "Failed to create transfer" }, { status: 400 });

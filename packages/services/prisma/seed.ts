@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Seed script — bootstraps a realistic construction firm ("Nirman Constructions")
  * with end-to-end data that exercises EVERY module of the platform exactly the way
@@ -42,6 +43,7 @@ import {
   sellAsset,
   recordPayment,
   reallocateProjectCosts,
+  seedChartOfAccounts,
 } from "../src";
 import Decimal from "decimal.js";
 
@@ -74,6 +76,9 @@ async function wipe(model: string) {
 async function wipeTransactional() {
   // Audit + finance
   await wipe("auditLog");
+  // GL — wipe journal lines then entries (FK order), keep GlAccount (seeded, not transactional)
+  await wipe("journalLine");
+  await wipe("journalEntry");
   await wipe("expense");
   await wipe("projectCost");
   // Sales
@@ -110,6 +115,13 @@ async function wipeTransactional() {
 async function main() {
   console.log("Wiping existing transactional data…");
   await wipeTransactional();
+
+  // ── 0. Chart of accounts ────────────────────────────────────
+  // Must be seeded BEFORE any mutation that posts a journal entry (receiveGoods,
+  // issueMaterials, sellAsset, etc.) — otherwise the FK on JournalLine.accountCode
+  // fails. Idempotent — upserts each account.
+  console.log("Seeding chart of accounts…");
+  await seedChartOfAccounts();
 
   // ── 1. Company ──────────────────────────────────────────────
   const company = await ensure<{ id: string; name: string }>(

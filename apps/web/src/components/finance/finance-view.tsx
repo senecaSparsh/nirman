@@ -1,18 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, ScrollText, Download } from "lucide-react";
+import { Plus, Trash2, Pencil, TrendingDown, ScrollText, Download, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
-import { KpiCard } from "@/components/kpi-card";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
@@ -45,268 +40,260 @@ export function FinanceView({
   subcontractors: { id: string; name: string; trade: string | null }[];
   permissions?: { canCreateExpense?: boolean; canManageCosts?: boolean; canDelete?: boolean };
 }) {
-  const [tab, setTab] = useState("overview");
   const [costFormOpen, setCostFormOpen] = useState(false);
   const [expenseFormOpen, setExpenseFormOpen] = useState(false);
-  const [costProjectFilter, setCostProjectFilter] = useState("");
   const [editingCost, setEditingCost] = useState<ProjectCostRow | null>(null);
   const [editingExpense, setEditingExpense] = useState<{ id: string; projectId: string | null; category: string; amount: number; date: string; notes: string | null } | null>(null);
   const [deletingCost, setDeletingCost] = useState<ProjectCostRow | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<{ id: string; category: string; amount: number } | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
   const router = useRouter();
 
-  const filteredCosts = costProjectFilter ? projectCosts.filter((c) => c.projectId === costProjectFilter) : projectCosts;
   const totalCosts = projectCosts.reduce((s, c) => s + c.amount, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalAssets = materialInventoryValue + unsoldAssetValue.total;
+  const outstanding = totalRevenue - totalCollected;
+
+  // Merge costs + expenses into a unified money flow timeline
+  type FlowEvent = { id: string; date: string; amount: number; type: "cost" | "expense"; category: string; projectName: string | null; notes: string | null; raw: ProjectCostRow | { id: string; projectId: string | null; projectName: string | null; category: string; amount: number; date: string; notes: string | null } };
+  const moneyFlow: FlowEvent[] = useMemo(() => {
+    const costs: FlowEvent[] = projectCosts.map((c) => ({
+      id: c.id, date: c.date, amount: c.amount, type: "cost" as const,
+      category: c.costType, projectName: c.projectName, notes: c.notes, raw: c,
+    }));
+    const exps: FlowEvent[] = expenses.map((e) => ({
+      id: e.id, date: e.date, amount: e.amount, type: "expense" as const,
+      category: e.category, projectName: e.projectName, notes: e.notes, raw: e,
+    }));
+    return [...costs, ...exps].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [projectCosts, expenses]);
+
+  // Max value for P&L bar scaling
+  const maxPnlValue = Math.max(
+    ...projectPnls.map((p) => Math.max(p.totalCost, p.revenue)),
+    1,
+  );
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Finance & Reports"
-        description="Project P&L, inventory valuation, unsold assets, costs, expenses, and audit log."
-      />
+    <div className="space-y-6">
+      {/* ── Zone 1: Company Position ──────────────────────────────────
+         The big picture. Not cards — a horizontal strip of big numbers
+         with labels. You see what the company is worth at a glance. */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-b border-border pb-5 sm:grid-cols-4">
+        <PositionStat label="Total Assets" value={totalAssets} sub={`${formatCurrency(materialInventoryValue)} inventory · ${formatCurrency(unsoldAssetValue.total)} real estate`} />
+        <PositionStat label="Revenue" value={totalRevenue} sub={`${formatCurrency(totalCollected)} collected`} accent="success" />
+        <PositionStat label="Outstanding" value={outstanding} sub={`${formatCurrency(totalCollected)} of ${formatCurrency(totalRevenue)} received`} accent={outstanding > 0 ? "warning" : "muted"} />
+        <PositionStat label="Costs + Expenses" value={totalCosts + totalExpenses} sub={`${formatCurrency(totalCosts)} project · ${formatCurrency(totalExpenses)} company`} accent="danger" />
+      </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="costs">Project Costs</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="audit">Audit Log</TabsTrigger>
-        </TabsList>
+      {/* ── Zone 2: Project P&L Bar Comparison ────────────────────────
+         Not a table. Each project gets a horizontal bar comparison:
+         cost (amber) vs revenue (green), scaled relative to the max.
+         You SEE which projects are profitable by the bar lengths.
+         The gap between cost and revenue bars IS the profit/loss. */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Project P&L Comparison</h2>
+          <div className="flex items-center gap-3 text-micro text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-warning" /> Cost</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-success" /> Revenue</span>
+          </div>
+        </div>
 
-        <TabsContent value="overview">
-          <div className="space-y-4">
-            {/* KPI cards */}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="Material Inventory" value={formatCurrency(materialInventoryValue)} icon={<Wallet className="h-[18px] w-[18px]" />} />
-              <KpiCard label="Unsold Land Value" value={formatCurrency(unsoldAssetValue.land)} icon={<TrendingUp className="h-[18px] w-[18px]" />} />
-              <KpiCard label="Unsold Units Value" value={formatCurrency(unsoldAssetValue.builtUnits)} icon={<TrendingUp className="h-[18px] w-[18px]" />} />
-              <KpiCard label="Total Revenue" value={formatCurrency(totalRevenue)} icon={<TrendingUp className="h-[18px] w-[18px]" />} accent="success" />
-            </div>
+        {projectPnls.length === 0 ? (
+          <EmptyState icon={<TrendingDown className="h-5 w-5" />} title="No projects" description="Create projects to see P&L data." />
+        ) : (
+          <div className="space-y-2.5">
+            {projectPnls.map((p) => {
+              const costPct = (p.totalCost / maxPnlValue) * 100;
+              const revPct = (p.revenue / maxPnlValue) * 100;
+              const isProfit = p.profit >= 0;
+              return (
+                <div key={p.projectId} className="group rounded-md p-2 transition-colors hover:bg-muted/30">
+                  {/* Project name + profit */}
+                  <div className="mb-1.5 flex items-baseline justify-between">
+                    <span className="text-body font-medium text-foreground">{p.projectName}</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-body font-semibold tnum ${isProfit ? "text-success" : "text-danger"}`}>
+                        {isProfit ? "+" : ""}{formatCurrency(p.profit)}
+                      </span>
+                      {p.revenue > 0 && (
+                        <Badge variant={p.margin >= 15 ? "success" : p.margin >= 0 ? "warning" : "danger"}>
+                          <span className="tnum">{p.margin.toFixed(1)}%</span>
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
 
-            {/* Project P&L */}
-            <Card>
-              <CardContent className="p-0">
-                <div className="border-b p-4">
-                  <p className="text-body font-medium">Project P&L</p>
+                  {/* Cost bar */}
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.totalCost)}</span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div className="h-full bg-warning" style={{ width: `${costPct}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Revenue bar */}
+                  <div className="flex items-center gap-2">
+                    <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.revenue)}</span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+                      <div className="h-full bg-success" style={{ width: `${revPct}%` }} />
+                    </div>
+                  </div>
                 </div>
-                {projectPnls.length === 0 ? (
-                  <EmptyState icon={<TrendingDown className="h-5 w-5" />} title="No projects" description="Create projects to see P&L data." />
-                ) : (
-                  <Table>
-                    <THead>
-                      <TR className="hover:bg-transparent">
-                        <TH>Project</TH>
-                        <TH className="text-right">Total Cost</TH>
-                        <TH className="text-right">Revenue</TH>
-                        <TH className="text-right">Profit</TH>
-                        <TH className="text-right">Margin</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {projectPnls.map((p) => (
-                        <TR key={p.projectId}>
-                          <TD className="text-body font-medium">{p.projectName}</TD>
-                          <TD className="tnum text-right">{formatCurrency(p.totalCost)}</TD>
-                          <TD className="tnum text-right">{formatCurrency(p.revenue)}</TD>
-                          <TD className={`tnum text-right font-medium ${p.profit >= 0 ? "text-success" : "text-destructive"}`}>
-                            {formatCurrency(p.profit)}
-                          </TD>
-                          <TD className="text-right">
-                            <Badge variant={p.margin >= 15 ? "success" : p.margin >= 0 ? "warning" : "danger"}>
-                              <span className="tnum">{p.margin.toFixed(1)}%</span>
-                            </Badge>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+              );
+            })}
           </div>
-        </TabsContent>
+        )}
+      </div>
 
-        <TabsContent value="costs">
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <Select value={costProjectFilter} onChange={(e) => setCostProjectFilter(e.target.value)} className="sm:max-w-[200px]">
-                  <option value="">All projects</option>
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
-                <span className="text-body text-muted-foreground">{filteredCosts.length} costs · {formatCurrency(filteredCosts.reduce((s, c) => s + c.amount, 0))}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => downloadCSV(`project-costs-${new Date().toISOString().slice(0,10)}.csv`, filteredCosts as unknown as Record<string, unknown>[], [
-                  { key: "projectName", label: "Project" },
-                  { key: "costType", label: "Type" },
-                  { key: "amount", label: "Amount", format: (v) => formatCurrency(Number(v)) },
-                  { key: "vendor", label: "Vendor" },
-                  { key: "date", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
-                  { key: "notes", label: "Notes" },
-                ])} disabled={filteredCosts.length === 0}>
-                  <Download className="h-4 w-4" /> Export
-                </Button>
-                {(permissions?.canManageCosts ?? true) && (
-                  <Button onClick={() => { setEditingCost(null); setCostFormOpen(true); }} disabled={projects.length === 0}>
-                    <Plus className="h-4 w-4" /> Add Project Cost
-                  </Button>
-                )}
-              </div>
+      {/* ── Zone 3: Money Flow Timeline ───────────────────────────────
+         Unified feed of project costs and company expenses, merged
+         chronologically. Not two separate tabs with two tables.
+         You see where money is flowing OUT, in one stream. */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-label text-muted-foreground">Money Flow</h2>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadCSV(`project-costs-${new Date().toISOString().slice(0,10)}.csv`, projectCosts as unknown as Record<string, unknown>[], [
+              { key: "projectName", label: "Project" },
+              { key: "costType", label: "Type" },
+              { key: "amount", label: "Amount", format: (v) => formatCurrency(Number(v)) },
+              { key: "vendor", label: "Vendor" },
+              { key: "date", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
+              { key: "notes", label: "Notes" },
+            ])} disabled={projectCosts.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Costs
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadCSV(`expenses-${new Date().toISOString().slice(0,10)}.csv`, expenses as unknown as Record<string, unknown>[], [
+              { key: "projectName", label: "Project" },
+              { key: "category", label: "Category" },
+              { key: "amount", label: "Amount", format: (v) => formatCurrency(Number(v)) },
+              { key: "date", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
+              { key: "notes", label: "Notes" },
+            ])} disabled={expenses.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Expenses
+            </Button>
+            {(permissions?.canManageCosts ?? true) && (
+              <Button size="sm" onClick={() => { setEditingCost(null); setCostFormOpen(true); }} disabled={projects.length === 0}>
+                <Plus className="h-3.5 w-3.5" /> Cost
+              </Button>
+            )}
+            {(permissions?.canCreateExpense ?? true) && (
+              <Button size="sm" onClick={() => { setEditingExpense(null); setExpenseFormOpen(true); }}>
+                <Plus className="h-3.5 w-3.5" /> Expense
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {moneyFlow.length === 0 ? (
+          <EmptyState icon={<Wallet className="h-5 w-5" />} title="No costs or expenses" description="Add project costs and company expenses to see money flow." />
+        ) : (
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+            <div className="space-y-0.5">
+              {moneyFlow.slice(0, 30).map((ev) => {
+                const isCost = ev.type === "cost";
+                return (
+                  <div
+                    key={`${ev.type}-${ev.id}`}
+                    className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30"
+                  >
+                    {/* Timeline dot */}
+                    <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${isCost ? "bg-warning" : "bg-danger"}`} />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="text-body font-medium text-foreground">{ev.category}</span>
+                          <span className="ml-2 text-caption text-muted-foreground">{isCost ? "Project Cost" : "Expense"}</span>
+                        </div>
+                        <span className="shrink-0 text-body font-semibold tnum text-danger">
+                          −{formatCurrency(ev.amount)}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
+                        {ev.projectName && <span className="truncate">{ev.projectName}</span>}
+                        {ev.projectName && <span>·</span>}
+                        <span className="tnum">{formatDate(ev.date)}</span>
+                        {ev.notes && <span className="truncate">· {ev.notes}</span>}
+                      </div>
+                    </div>
+
+                    {/* Edit/delete on hover */}
+                    <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      {isCost && (permissions?.canManageCosts ?? true) && (
+                        <button
+                          onClick={() => { setEditingCost(ev.raw as ProjectCostRow); setCostFormOpen(true); }}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {isCost && (permissions?.canDelete ?? true) && (
+                        <button
+                          onClick={() => setDeletingCost(ev.raw as ProjectCostRow)}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                      {!isCost && (permissions?.canCreateExpense ?? true) && (
+                        <button
+                          onClick={() => { setEditingExpense(ev.raw as typeof editingExpense); setExpenseFormOpen(true); }}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {!isCost && (permissions?.canDelete ?? true) && (
+                        <button
+                          onClick={() => setDeletingExpense(ev.raw as { id: string; category: string; amount: number })}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <Card>
-              <CardContent className="p-0">
-                {filteredCosts.length === 0 ? (
-                  <EmptyState icon={<Wallet className="h-5 w-5" />} title="No project costs" description="Add labour, overhead, equipment, contractor, permit, or other costs." />
-                ) : (
-                  <Table>
-                    <THead>
-                      <TR className="hover:bg-transparent">
-                        <TH>Project</TH>
-                        <TH>Type</TH>
-                        <TH className="text-right">Amount</TH>
-                        <TH>Vendor</TH>
-                        <TH>Date</TH>
-                        <TH>Notes</TH>
-                        <TH className="text-right">Actions</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {filteredCosts.map((c) => (
-                        <TR key={c.id}>
-                          <TD className="text-body font-medium">{c.projectName}</TD>
-                          <TD><Badge variant="outline">{c.costType}</Badge></TD>
-                          <TD className="tnum text-right">{formatCurrency(c.amount)}</TD>
-                          <TD className="text-caption text-muted-foreground">{c.vendor ?? "—"}</TD>
-                          <TD className="text-caption text-muted-foreground">{formatDate(c.date)}</TD>
-                          <TD className="max-w-[200px] truncate text-caption text-muted-foreground">{c.notes ?? "—"}</TD>
-                          <TD>
-                            <div className="flex justify-end gap-1">
-                              {(permissions?.canManageCosts ?? true) && (
-                                <Button variant="ghost" size="icon" onClick={() => { setEditingCost(c); setCostFormOpen(true); }} title="Edit" className="text-muted-foreground hover:text-foreground">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {(permissions?.canDelete ?? true) && (
-                                <Button variant="ghost" size="icon" onClick={() => setDeletingCost(c)} title="Delete" className="text-muted-foreground hover:text-danger">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
           </div>
-        </TabsContent>
+        )}
+      </div>
 
-        <TabsContent value="expenses">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body text-muted-foreground">{expenses.length} expenses · {formatCurrency(totalExpenses)}</span>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => downloadCSV(`expenses-${new Date().toISOString().slice(0,10)}.csv`, expenses as unknown as Record<string, unknown>[], [
-                  { key: "projectName", label: "Project" },
-                  { key: "category", label: "Category" },
-                  { key: "amount", label: "Amount", format: (v) => formatCurrency(Number(v)) },
-                  { key: "date", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
-                  { key: "notes", label: "Notes" },
-                ])} disabled={expenses.length === 0}>
-                  <Download className="h-4 w-4" /> Export
-                </Button>
-                {(permissions?.canCreateExpense ?? true) && (
-                  <Button onClick={() => { setEditingExpense(null); setExpenseFormOpen(true); }}>
-                    <Plus className="h-4 w-4" /> Add Expense
-                  </Button>
-                )}
-              </div>
-            </div>
+      {/* ── Zone 4: Audit Log (collapsible) ─────────────────────────── */}
+      <div>
+        <button
+          onClick={() => setShowAudit(!showAudit)}
+          className="mb-3 flex items-center gap-2 text-label text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ScrollText className="h-3.5 w-3.5" />
+          Audit Log
+          <span className="text-micro text-muted-foreground/60 tnum">{auditLogs.length}</span>
+          <span className="text-muted-foreground/40">{showAudit ? "−" : "+"}</span>
+        </button>
 
-            <Card>
-              <CardContent className="p-0">
-                {expenses.length === 0 ? (
-                  <EmptyState icon={<Wallet className="h-5 w-5" />} title="No expenses" description="Record general company expenses." />
-                ) : (
-                  <Table>
-                    <THead>
-                      <TR className="hover:bg-transparent">
-                        <TH>Project</TH>
-                        <TH>Category</TH>
-                        <TH className="text-right">Amount</TH>
-                        <TH>Date</TH>
-                        <TH>Notes</TH>
-                        <TH className="text-right">Actions</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {expenses.map((e) => (
-                        <TR key={e.id}>
-                          <TD className="text-caption text-muted-foreground">{e.projectName ?? "—"}</TD>
-                          <TD><Badge variant="outline">{e.category}</Badge></TD>
-                          <TD className="tnum text-right">{formatCurrency(e.amount)}</TD>
-                          <TD className="text-caption text-muted-foreground">{formatDate(e.date)}</TD>
-                          <TD className="max-w-[200px] truncate text-caption text-muted-foreground">{e.notes ?? "—"}</TD>
-                          <TD>
-                            <div className="flex justify-end gap-1">
-                              {(permissions?.canCreateExpense ?? true) && (
-                                <Button variant="ghost" size="icon" onClick={() => { setEditingExpense(e); setExpenseFormOpen(true); }} title="Edit" className="text-muted-foreground hover:text-foreground">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {(permissions?.canDelete ?? true) && (
-                                <Button variant="ghost" size="icon" onClick={() => setDeletingExpense(e)} title="Delete" className="text-muted-foreground hover:text-danger">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+        {showAudit && (
+          <div className="divide-y divide-border rounded-lg border border-border">
+            {auditLogs.length === 0 ? (
+              <div className="py-6 text-center text-caption text-muted-foreground">No audit entries</div>
+            ) : (
+              auditLogs.slice(0, 20).map((log) => (
+                <div key={log.id} className="flex items-center gap-3 px-3 py-2 text-caption">
+                  <span className="font-medium text-foreground">{log.action}</span>
+                  <span className="text-muted-foreground">{log.entityType}</span>
+                  <span className="text-muted-foreground/60">{log.userName ?? "—"}</span>
+                  <span className="ml-auto tnum text-muted-foreground/60">{formatDate(log.timestamp)}</span>
+                </div>
+              ))
+            )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="audit">
-          <Card>
-            <CardContent className="p-0">
-              {auditLogs.length === 0 ? (
-                <EmptyState icon={<ScrollText className="h-5 w-5" />} title="No audit entries" description="Actions across the system are logged here." />
-              ) : (
-                <Table>
-                  <THead>
-                    <TR className="hover:bg-transparent">
-                      <TH>Action</TH>
-                      <TH>Entity</TH>
-                      <TH>User</TH>
-                      <TH>Timestamp</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {auditLogs.map((log) => (
-                      <TR key={log.id}>
-                        <TD className="text-body font-medium">{log.action}</TD>
-                        <TD className="text-caption text-muted-foreground">{log.entityType}{log.entityId ? ` · ${log.entityId.slice(-6)}` : ""}</TD>
-                        <TD className="text-caption text-muted-foreground">{log.userName ?? "—"}</TD>
-                        <TD className="text-caption text-muted-foreground">{formatDate(log.timestamp)}</TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       <ProjectCostFormDialog
         open={costFormOpen}
@@ -341,6 +328,22 @@ export function FinanceView({
           successMessage="Expense deleted"
         />
       )}
+    </div>
+  );
+}
+
+// ── Position stat — big number with label and sub-text ──────────────
+function PositionStat({ label, value, sub, accent }: { label: string; value: number; sub?: string; accent?: "success" | "warning" | "danger" | "muted" }) {
+  const color =
+    accent === "success" ? "text-success" :
+    accent === "warning" ? "text-warning" :
+    accent === "danger" ? "text-danger" :
+    "text-foreground";
+  return (
+    <div>
+      <div className="text-label text-muted-foreground/70">{label}</div>
+      <div className={`text-title tnum ${color}`}>{formatCurrency(value)}</div>
+      {sub && <div className="mt-0.5 text-micro text-muted-foreground">{sub}</div>}
     </div>
   );
 }

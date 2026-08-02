@@ -23,6 +23,9 @@ model Company {
   pan       String?
   address   String?
   currency  String   @default("INR")
+  // Logistics Complexity Index (LCI) — procurement routing config. See procurement-routing.ts.
+  lciThresholdDefault Decimal? @db.Decimal(5, 2) // default LCI threshold for projects without an explicit override
+  lciWeights          Json?    // { w1, w2, w3, w4 } normalized weighting coefficients
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -36,6 +39,7 @@ model Company {
   equipment      Equipment[]
   supplierReturns SupplierReturn[]
   employees      Employee[]
+  departments    Department[]
   userMemberships UserCompany[]
   users          User[]
 }
@@ -127,6 +131,10 @@ model User {
   auditLogs         AuditLog[]
   assignedTasks     Task[] @relation("TaskAssignee")
   assignedByTasks   Task[] @relation("TaskAssigner")
+  completedSubTasks SubTask[]
+  taskComments      TaskComment[]
+  taskActivities    TaskActivity[]
+  taskTimeLogs      TaskTimeLog[]
   createdWorkflows  Workflow[]
   // Approval / creator attribution for transactional records
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprover")
@@ -220,6 +228,7 @@ model Project {
   costPerSqft      Decimal?  @db.Decimal(14, 2) // total project cost / total sellable area
   totalProjectCost Decimal?  @db.Decimal(14, 2) // materials + labour/overhead + allocated land
   totalSellableArea Decimal? @db.Decimal(14, 3) // sum of sellable unit areas
+  lciThreshold       Decimal? @db.Decimal(5, 2)  // per-project LCI threshold override (null → company default)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
@@ -277,6 +286,7 @@ model ProjectPhase {
 enum StockLocationType {
   COMPANY_WAREHOUSE
   PROJECT_SITE
+  DEPARTMENT // operational cost-center stock room (e.g. Workshop, Boiler house)
 }
 
 model StockLocation {
@@ -285,6 +295,7 @@ model StockLocation {
   companyId String
   projectId String?
   phaseId   String?
+  departmentId String?        @unique // set when type = DEPARTMENT (1:1 — a department has at most one stock room)
   name      String
   address   String?
   createdAt DateTime          @default(now())
@@ -294,6 +305,7 @@ model StockLocation {
   company        Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project        Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   phase          ProjectPhase?     @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  department     Department?       @relation("DepartmentLocation", fields: [departmentId], references: [id], onDelete: SetNull)
   purchaseOrders PurchaseOrder[]
   goodsReceipts  GoodsReceipt[]
   stockMovementsFrom StockMovement[] @relation("MovementFrom")
@@ -309,6 +321,7 @@ model StockLocation {
   @@index([companyId])
   @@index([projectId])
   @@index([phaseId])
+  @@index([departmentId])
 }
 
 enum MaterialClass {
@@ -344,6 +357,11 @@ model Material {
   minStock         Decimal? @db.Decimal(14, 3)
   reorderPoint     Decimal? @db.Decimal(14, 3) // trigger to reorder
   economicOrderQty Decimal? @db.Decimal(14, 3) // EOQ — optimal order quantity
+  // LCI inputs — see procurement-routing.ts. Used by the Logistics Decision Engine
+  // to auto-route requisitions between Central (COMPANY) and Direct (PROJECT) procurement.
+  volumetricDensity  Decimal? @db.Decimal(10, 3) // V/W ratio — higher = bulkier / harder to transport
+  bulkDiscountPct    Decimal? @db.Decimal(5, 2)  // enterprise volume discount % via centralised bulk buying
+  isCorporateCommodity Boolean @default(false)   // force central procurement routing
   description      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -371,6 +389,7 @@ model Supplier {
   email       String?
   address     String?
   balanceOwed Decimal  @default(0) @db.Decimal(14, 2)
+  leadTimeDays Int?    // average vendor lead time in days — LCI input (S_lead)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
@@ -393,6 +412,35 @@ model Subcontractor {
 
   materialIssues MaterialIssue[]
   projectCosts   ProjectCost[]
+}
+
+// ───────────────────────────────────────────────────────────
+//  DEPARTMENT / COST CENTER — operational consumption target
+//  for raw materials (manufacturing/processing lines, workshop,
+//  lab, admin). Distinct from a Project: a department is an
+//  ongoing cost center, not a capitalised build. Materials
+//  issued to a department hit Operating Expenses (not WIP).
+//  Modeled on the Testify Overseas paper trail (Boiler, Dryer,
+//  MP-1/2/3, R.O. Plant, Workshop, etc.).
+// ───────────────────────────────────────────────────────────
+model Department {
+  id          String   @id @default(cuid())
+  companyId   String
+  code        String   // short stable code, e.g. "BOILER", "MP-2"
+  name        String   // display name, e.g. "Boiler House"
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stockLocation StockLocation? @relation("DepartmentLocation") // optional own stock room
+  materialIssues MaterialIssue[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([deletedAt])
 }
 
 enum ProcurementScope {
@@ -517,6 +565,7 @@ enum StockMovementType {
   TRANSFER_IN
   TRANSFER_OUT
   ISSUE_TO_PROJECT
+  ISSUE_TO_DEPARTMENT // raw-material consumption by an operational cost center
   ADJUSTMENT_IN
   ADJUSTMENT_OUT
   RETURN
@@ -572,7 +621,11 @@ model StockLocationItem {
 
 model MaterialIssue {
   id             String   @id @default(cuid())
-  projectId      String
+  // Consumption target — exactly one of projectId / departmentId is set
+  // (enforced in the service layer + Zod). Project issues capitalise into
+  // WIP; department issues hit Operating Expenses.
+  projectId      String?
+  departmentId   String?
   phaseId        String?
   fromLocationId String
   subcontractorId String?
@@ -582,7 +635,8 @@ model MaterialIssue {
   totalCost      Decimal  @default(0) @db.Decimal(14, 2)
   createdAt      DateTime @default(now())
 
-  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project       Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   phase         ProjectPhase?      @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   fromLocation  StockLocation      @relation(fields: [fromLocationId], references: [id])
   subcontractor Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
@@ -590,6 +644,7 @@ model MaterialIssue {
   lines         MaterialIssueLine[]
 
   @@index([projectId])
+  @@index([departmentId])
   @@index([fromLocationId])
   @@index([phaseId])
 }
@@ -623,6 +678,17 @@ model StockTransfer {
   status         StockTransferStatus @default(DRAFT)
   notes          String?
   createdById    String?
+  // Inter-company Stock Transfer Order (STO) fields. When from/to locations belong
+  // to different companies (SPVs), isInterCompany=true and the destination receives
+  // at a Transfer Price (TP) = source MAC + freight + handling + markup%, not at the
+  // bare source MAC. This carries the inter-company markup into the destination's MAC.
+  // Full inter-company AP/AR + consolidation elimination is a future GL concern; the
+  // TP is captured here as the prerequisite. See transfer.ts · computeTransferPrice.
+  isInterCompany     Boolean  @default(false)
+  freight            Decimal  @default(0) @db.Decimal(14, 2) // header freight, allocated by line cost weight
+  handlingFee        Decimal  @default(0) @db.Decimal(14, 2) // header handling, allocated by line cost weight
+  markupPct          Decimal  @default(0) @db.Decimal(5, 2)   // inter-company markup % applied to each line base cost
+  transferPriceTotal Decimal? @db.Decimal(14, 2)             // Σ line transfer totals — set on completion
   createdAt      DateTime            @default(now())
 
   fromLocation StockLocation         @relation("TransferFrom", fields: [fromLocationId], references: [id])
@@ -633,6 +699,7 @@ model StockTransfer {
   @@index([fromLocationId])
   @@index([toLocationId])
   @@index([createdById])
+  @@index([isInterCompany])
 }
 
 model StockTransferLine {
@@ -640,6 +707,13 @@ model StockTransferLine {
   stockTransferId String
   materialId      String
   qty             Decimal @db.Decimal(14, 3)
+  // Captured at completion (inter-company only). unitCostAtSource = source MAC at
+  // the moment of issue; unitTransferPrice = (base + freight + handling + markup)/qty;
+  // lineTransferTotal = qty × unitTransferPrice. Null for intra-company transfers
+  // (those carry the bare source MAC to the destination, no markup).
+  unitCostAtSource   Decimal? @db.Decimal(14, 2)
+  unitTransferPrice  Decimal? @db.Decimal(14, 2)
+  lineTransferTotal  Decimal? @db.Decimal(14, 2)
 
   stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
   material      Material      @relation(fields: [materialId], references: [id])
@@ -743,6 +817,11 @@ model LandParcel {
   nrvWriteDown     Decimal         @default(0) @db.Decimal(14, 2) // NRV < cost → write-down amount
   saleId          String?
   projectId       String?
+  /// Polygon vertices in normalized [0,1] coordinates relative to the parcel's
+  /// bounding box. Stored as [{x,y},...]. null for parcels created without the
+  /// CAD canvas (form-based partition). Used by the partition canvas to render
+  /// and further subdivide existing parcels.
+  geometry        Json?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
@@ -927,6 +1006,9 @@ model MaterialRequisition {
   neededByDate DateTime?
   notes       String?
   convertedPoId String?        // set when converted to a PO
+  // Logistics Decision Engine output — computed on submit, used to recommend
+  // procurementScope (COMPANY vs PROJECT) at PO conversion. See procurement-routing.ts.
+  lciDecision  Json?           // { perLine, recommendedScope, threshold, weights, computedAt, ... }
   // Approval workflow — SUBMITTED → APPROVED requires requisition.approve
   approvedById String?
   approvedAt   DateTime?
@@ -1163,10 +1245,91 @@ model AuditLog {
   after      Json?
   timestamp  DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([userId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  GENERAL LEDGER — double-entry bookkeeping + GST posting.
+//
+//  Every financial mutation (PO receipt, material issue, asset sale,
+//  payment, project cost, expense, supplier return) posts a balanced
+//  JournalEntry with two or more JournalLines. The chart of accounts
+//  (Account) is seeded with a default construction-industry set.
+//
+//  This is the accounting layer behind the costing: the stock ledger
+//  tracks quantities + MAC; the GL tracks the money. Together they let
+//  an accountant close the books and produce a trial balance.
+// ───────────────────────────────────────────────────────────
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model GlAccount {
+  code        String       @id
+  name        String
+  type        AccountType
+  isSystem    Boolean       @default(true) // system accounts can't be deleted
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  journalLines JournalLine[]
+
+  @@index([type])
+}
+
+enum JournalEntryStatus {
+  POSTED
+  REVERSED
+}
+
+model JournalEntry {
+  id          String             @id @default(cuid())
+  entryNumber String             @unique
+  entryDate    DateTime          @default(now())
+  sourceType   String             // PO_RECEIPT | MATERIAL_ISSUE | ASSET_SALE | PAYMENT_RECEIVED | PROJECT_COST | EXPENSE | SUPPLIER_RETURN | LAND_PURCHASE | OPENING
+  sourceId     String?
+  memo        String?
+  companyId   String
+  postedById  String?
+  status      JournalEntryStatus @default(POSTED)
+  totalDebit  Decimal            @default(0) @db.Decimal(14, 2)
+  totalCredit Decimal            @default(0) @db.Decimal(14, 2)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  lines JournalLine[]
+
+  @@index([companyId])
+  @@index([sourceType, sourceId])
+  @@index([entryDate])
+}
+
+model JournalLine {
+  id             String   @id @default(cuid())
+  journalEntryId String
+  accountCode    String
+  debit          Decimal  @default(0) @db.Decimal(14, 2)
+  credit         Decimal  @default(0) @db.Decimal(14, 2)
+  // Optional analytic dimensions — which material / project / party this line concerns
+  entityType     String?
+  entityId       String?
+  memo           String?
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      GlAccount     @relation(fields: [accountCode], references: [code])
+
+  @@index([journalEntryId])
+  @@index([accountCode])
+  @@index([entityType, entityId])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1214,6 +1377,7 @@ model Task {
   assignedById String?
   workspaceId  String?
   nodeLabel    String?   // label of the canvas node this task came from (if any)
+  estimateMins Int?      // planned effort in minutes (optional)
   completedAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -1222,10 +1386,113 @@ model Task {
   assignedBy User?            @relation("TaskAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
   workspace  CustomWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  subtasks      SubTask[]
+  comments      TaskComment[]
+  activities    TaskActivity[]
+  timeLogs      TaskTimeLog[]
+  // Dependencies: this task is blocked by `blocking` tasks, and blocks `blockedBy` tasks.
+  blocking      TaskDependency[] @relation("BlockedTask")
+  blockedBy     TaskDependency[] @relation("BlockingTask")
+
   @@index([assignedToId])
   @@index([assignedById])
   @@index([status])
   @@index([workspaceId])
+}
+
+// Checkable steps within a task. Completion drives the task's progress %
+// (completed subtasks / total subtasks). Ordered by `order`.
+model SubTask {
+  id          String   @id @default(cuid())
+  taskId      String
+  title       String
+  completed   Boolean  @default(false)
+  order       Int      @default(0)
+  completedAt DateTime?
+  completedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completedBy User?    @relation(fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+}
+
+// Threaded discussion on a task. `parentId` enables replies (one level deep).
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  body      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent TaskComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies TaskComment[] @relation("CommentReplies")
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+// Immutable, human-readable activity feed for a task. Written inside the same
+// transaction as the mutation that triggered it, so the feed never diverges
+// from reality. Distinct from AuditLog (which is the system-wide audit trail);
+// this is the per-task timeline shown in the detail drawer.
+model TaskActivity {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String?
+  kind      String   // CREATED | STATUS_CHANGED | ASSIGNED | PRIORITY_CHANGED | DUE_DATE_CHANGED | SUBTASK_ADDED | SUBTASK_TOGGLED | SUBTASK_DELETED | COMMENTED | DEPENDENCY_ADDED | DEPENDENCY_REMOVED | TIMER_STARTED | TIMER_STOPED | COMPLETED | REOPENED
+  message   String   // pre-rendered human-readable summary
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  task   Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([createdAt])
+}
+
+// A → B means "A blocks B" (B cannot start until A is completed).
+// `blockerId` = A, `blockedById` = B. Enforced in the service layer.
+model TaskDependency {
+  id          String @id @default(cuid())
+  blockerId   String
+  blockedById String
+  createdAt   DateTime @default(now())
+
+  blocker  Task @relation("BlockingTask", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedBy Task @relation("BlockedTask", fields: [blockedById], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedById])
+  @@index([blockerId])
+  @@index([blockedById])
+}
+
+// Time tracking entries. An open timer = endedAt null. Stopping sets endedAt
+// and durationMins. Multiple entries per task are allowed.
+model TaskTimeLog {
+  id           String    @id @default(cuid())
+  taskId       String
+  userId       String
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  durationMins Int?
+  note         String?
+  createdAt    DateTime  @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([endedAt])
 }
 
 // ───────────────────────────────────────────────────────────

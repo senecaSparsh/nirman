@@ -45,6 +45,7 @@ export function PurchaseOrderDetailDialog({
       fetch(`/api/purchase-orders/${po.id}`)
         .then((r) => r.json())
         .then((d) => { if (!d.error) setDetail(d); })
+        .catch(() => toast.error("Failed to load purchase order details"))
         .finally(() => setLoading(false));
     }
   }, [open, po]);
@@ -63,6 +64,7 @@ export function PurchaseOrderDetailDialog({
       toast.success(`PO ${action}d`);
       // Re-fetch detail
       const r2 = await fetch(`/api/purchase-orders/${po.id}`);
+      if (!r2.ok) throw new Error("Failed to re-fetch purchase order details");
       const d2 = await r2.json();
       if (!d2.error) setDetail(d2);
       router.refresh();

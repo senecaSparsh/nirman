@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Wrench, Check, Ban } from "lucide-react";
+import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,8 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AssignDialog } from "./assign-dialog";
 import { MaintenanceDialog } from "./maintenance-dialog";
+import { EquipmentEditDialog } from "./equipment-edit-dialog";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import type {
   EquipmentDetail, EquipmentRow, EquipmentStatus,
   StockLocationRow, ProjectOption,
@@ -35,19 +37,25 @@ export function EquipmentDetailDialog({
   equipment,
   locations,
   projects,
+  permissions,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   equipment: EquipmentRow | null;
   locations: StockLocationRow[];
   projects: ProjectOption[];
+  permissions?: { canCreate?: boolean; canEdit?: boolean };
 }) {
   const router = useRouter();
+  const canEdit = permissions?.canEdit ?? true;
   const [detail, setDetail] = useState<EquipmentDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [maintOpen, setMaintOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [retireOpen, setRetireOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
 
   useEffect(() => {
     if (open && equipment) {
@@ -56,15 +64,21 @@ export function EquipmentDetailDialog({
       fetch(`/api/equipment/${equipment.id}`)
         .then((r) => r.json())
         .then((d) => { if (!d.error) setDetail(d); })
+        .catch(() => toast.error("Failed to load equipment details"))
         .finally(() => setLoading(false));
     }
   }, [open, equipment]);
 
   async function refetchDetail() {
     if (!equipment) return;
-    const r = await fetch(`/api/equipment/${equipment.id}`);
-    const d = await r.json();
-    if (!d.error) setDetail(d);
+    try {
+      const r = await fetch(`/api/equipment/${equipment.id}`);
+      if (!r.ok) throw new Error("Failed to re-fetch equipment details");
+      const d = await r.json();
+      if (!d.error) setDetail(d);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   }
 
   async function doReturn() {
@@ -126,6 +140,28 @@ export function EquipmentDetailDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Retire failed");
       toast.success("Equipment retired");
+      setRetireOpen(false);
+      await refetchDetail();
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function doUnretire() {
+    if (!equipment) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/equipment/${equipment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unretire" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Un-retire failed");
+      toast.success("Equipment restored to available");
       await refetchDetail();
       router.refresh();
     } catch (err: any) {
@@ -168,7 +204,7 @@ export function EquipmentDetailDialog({
                   <Button size="sm" variant="outline" onClick={() => setMaintOpen(true)}>
                     <Wrench className="h-4 w-4" /> Maintenance
                   </Button>
-                  <Button size="sm" variant="outline" onClick={doRetire} disabled={acting} className="text-muted-foreground hover:text-danger">
+                  <Button size="sm" variant="outline" onClick={() => setRetireOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
                     <Ban className="h-4 w-4" /> Retire
                   </Button>
                 </>
@@ -187,6 +223,21 @@ export function EquipmentDetailDialog({
                 <Button size="sm" onClick={doCompleteMaintenance} disabled={acting}>
                   <Check className="h-4 w-4" /> Complete Maintenance
                 </Button>
+              )}
+              {status === "RETIRED" && (
+                <Button size="sm" variant="outline" onClick={doUnretire} disabled={acting}>
+                  <RotateCcw className="h-4 w-4" /> Restore to Available
+                </Button>
+              )}
+              {canEdit && (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
+                    <Pencil className="h-4 w-4" /> Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-danger" onClick={() => setDelOpen(true)}>
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </Button>
+                </>
               )}
             </div>
 
@@ -331,6 +382,41 @@ export function EquipmentDetailDialog({
             onOpenChange={setMaintOpen}
             equipmentId={equipment.id}
           />
+          <EquipmentEditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            equipmentId={equipment.id}
+            initial={{
+              name: detail?.name ?? equipment.name,
+              model: detail?.model ?? equipment.model,
+              serialNumber: detail?.serialNumber ?? equipment.serialNumber,
+              category: detail?.category ?? equipment.category,
+              notes: detail?.notes ?? equipment.notes,
+            }}
+          />
+          <DeleteConfirmDialog
+            open={delOpen}
+            onOpenChange={setDelOpen}
+            endpoint={`/api/equipment/${equipment.id}`}
+            title="Delete equipment"
+            description={`Delete “${equipment.name}” (${equipment.assetTag})? Assigned or in-maintenance equipment cannot be deleted.`}
+            successMessage="Equipment deleted"
+          />
+          <Dialog
+            open={retireOpen}
+            onOpenChange={setRetireOpen}
+            title="Retire equipment"
+            description={`Retire “${equipment.name}”? A retired asset is removed from the available pool but kept on record. You can restore it later.`}
+          >
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setRetireOpen(false)} disabled={acting}>
+                Cancel
+              </Button>
+              <Button type="button" variant="destructive" onClick={doRetire} disabled={acting}>
+                {acting ? "Retiring…" : "Retire"}
+              </Button>
+            </div>
+          </Dialog>
         </>
       )}
     </>

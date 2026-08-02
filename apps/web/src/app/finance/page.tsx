@@ -8,6 +8,7 @@ import {
 } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { FinanceView } from "@/components/finance/finance-view";
 import { PageLoading } from "@/components/page-loading";
@@ -16,11 +17,7 @@ import type { ProjectPnlRow, ProjectCostRow, ExpenseRow, AuditLogRow, ProjectOpt
 export default function FinancePage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Finance"
-        description="Inventory valuation, project P&L, expenses, and audit logs."
-      />
-      <Suspense fallback={<PageLoading label="Loading finance…" />}>
+      <Suspense fallback={<PageLoading label="Loading finance…" variant="list" />}>
         <FinanceContent />
       </Suspense>
     </div>
@@ -139,22 +136,33 @@ async function FinanceContent() {
   };
 
   return (
-    <FinanceView
-      permissions={perms}
-      materialInventoryValue={toNum(inventoryVal)}
-      unsoldAssetValue={{
-        land: toNum(unsoldAssets.land),
-        builtUnits: toNum(unsoldAssets.builtUnits),
-        total: toNum(unsoldAssets.total),
-      }}
-      totalRevenue={totalRevenue}
-      totalCollected={totalCollected}
-      projectPnls={pnlResults}
-      projectCosts={projectCostRows}
-      expenses={expenseRows}
-      auditLogs={auditRows}
-      projects={projectOptions}
-      subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade }))}
-    />
+    <>
+      <PageHeader
+        title="Finance"
+        stats={[
+          { label: "Inventory", value: formatCurrency(toNum(inventoryVal)) },
+          { label: "Unsold Assets", value: formatCurrency(toNum(unsoldAssets.total)) },
+          { label: "Revenue", value: formatCurrency(totalRevenue) },
+          { label: "Collected", value: formatCurrency(totalCollected) },
+        ]}
+      />
+      <FinanceView
+        permissions={perms}
+        materialInventoryValue={toNum(inventoryVal)}
+        unsoldAssetValue={{
+          land: toNum(unsoldAssets.land),
+          builtUnits: toNum(unsoldAssets.builtUnits),
+          total: toNum(unsoldAssets.total),
+        }}
+        totalRevenue={totalRevenue}
+        totalCollected={totalCollected}
+        projectPnls={pnlResults}
+        projectCosts={projectCostRows}
+        expenses={expenseRows}
+        auditLogs={auditRows}
+        projects={projectOptions}
+        subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade }))}
+      />
+    </>
   );
 }

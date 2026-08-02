@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCurrentUser, json, requirePermission, taskSchema, toNum } from "@/lib/server";
-import { PERM, hasPermission, normalizeRole } from "@/lib/roles";
+import { createTask } from "@nirman/services";
+import { apiHandler, getCurrentUser, json, requirePermission, taskSchema } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -83,18 +84,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Cannot assign a task to an inactive user" }, { status: 400 });
   }
 
-  const created = await prisma.task.create({
-    data: {
-      title: parsed.data.title,
-      description: parsed.data.description ?? null,
-      instructions: parsed.data.instructions ?? null,
-      assignedToId: parsed.data.assignedToId,
-      assignedById: user.id,
-      priority: parsed.data.priority,
-      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-      workspaceId: parsed.data.workspaceId ?? null,
-      nodeLabel: parsed.data.nodeLabel ?? null,
-    },
+  const created = await createTask({
+    title: parsed.data.title,
+    description: parsed.data.description ?? null,
+    instructions: parsed.data.instructions ?? null,
+    assignedToId: parsed.data.assignedToId,
+    assignedById: user.id,
+    priority: parsed.data.priority,
+    dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+    workspaceId: parsed.data.workspaceId ?? null,
+    nodeLabel: parsed.data.nodeLabel ?? null,
+    estimateMins: parsed.data.estimateMins ?? null,
+    subtasks: parsed.data.subtasks?.filter((s) => s.trim().length > 0),
+    userId: user.id,
   });
 
   return json({ ok: true, id: created.id }, { status: 201 });

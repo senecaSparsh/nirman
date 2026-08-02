@@ -34,7 +34,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const body = await req.json();
   const parsed = equipmentMaintenanceSchema.safeParse(body);
   if (!parsed.success) {
@@ -48,6 +48,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       vendor: parsed.data.vendor ?? undefined,
       notes: parsed.data.notes ?? undefined,
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
+      userId: user.id,
     });
     return json({ ok: true, id: m.id }, { status: 201 });
   } catch (err: any) {

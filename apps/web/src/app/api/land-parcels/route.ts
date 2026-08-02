@@ -50,6 +50,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       projectId: p.projectId,
       projectName: p.project?.name ?? null,
       saleId: p.saleId,
+      geometry: p.geometry,
       childCount: p.children.length,
       children: p.children.map((c) => ({
         id: c.id,
@@ -70,7 +71,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const action = body?.action as string;
 
   if (action === "partition") {
-    await requirePermission(PERM.LAND_PARTITION);
+    const user = await requirePermission(PERM.LAND_PARTITION);
     const { partitionSchema } = await import("@/lib/server");
     const parsed = partitionSchema.safeParse(body);
     if (!parsed.success) {
@@ -79,10 +80,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     try {
       const result = await partitionLandParcel({
         parentParcelId: parsed.data.parentParcelId,
+        userId: user.id,
         children: parsed.data.children.map((c) => ({
           number: c.number,
           area: c.area,
           askingPrice: c.askingPrice,
+          geometry: c.geometry,
         })),
         notes: parsed.data.notes,
       });
@@ -96,14 +99,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "status") {
-    await requirePermission(PERM.ASSETS_MANAGE);
+    const user = await requirePermission(PERM.ASSETS_MANAGE);
     const parcelId = body?.parcelId as string;
     const status = body?.status as "AVAILABLE" | "HOLD";
     if (!parcelId || !status) {
       return json({ error: "parcelId and status are required" }, { status: 400 });
     }
     try {
-      await setParcelStatus(parcelId, status);
+      await setParcelStatus(parcelId, status, user.id);
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Status change failed" }, { status: 400 });
@@ -111,7 +114,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "valuation") {
-    await requirePermission(PERM.ASSETS_MANAGE);
+    const user = await requirePermission(PERM.ASSETS_MANAGE);
     const { parcelValuationSchema } = await import("@/lib/server");
     const parcelId = body?.parcelId as string;
     if (!parcelId) return json({ error: "parcelId is required" }, { status: 400 });
@@ -120,10 +123,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
     try {
-      await updateParcelValuation(parcelId, {
-        currentValuation: parsed.data.currentValuation,
-        askingPrice: parsed.data.askingPrice === null ? undefined : parsed.data.askingPrice,
-      });
+      await updateParcelValuation(
+        parcelId,
+        {
+          currentValuation: parsed.data.currentValuation,
+          askingPrice: parsed.data.askingPrice === null ? undefined : parsed.data.askingPrice,
+        },
+        user.id,
+      );
       return json({ ok: true });
     } catch (err: any) {
       return json({ error: err?.message ?? "Valuation update failed" }, { status: 400 });

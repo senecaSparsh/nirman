@@ -5,10 +5,10 @@ import { apiHandler, json, toNum, projectCostSchema, requirePermission } from "@
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  const user = await requirePermission(PERM.FINANCE_VIEW);
   const { id } = await params;
-  const cost = await prisma.projectCost.findUnique({
-    where: { id },
+  const cost = await prisma.projectCost.findFirst({
+    where: { id, project: { companyId: user.companyId ?? undefined } },
     include: {
       project: { select: { id: true, name: true } },
       subcontractor: { select: { id: true, name: true } },
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     projectName: cost.project.name,
     costType: cost.costType,
     amount: toNum(cost.amount),
-    date: cost.date,
+    date: cost.date.toISOString(),
     vendor: cost.vendor,
     subcontractorId: cost.subcontractorId,
     subcontractorName: cost.subcontractor?.name ?? null,
@@ -57,10 +57,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requirePermission(PERM.FINANCE_MANAGE);
   const { id } = await params;
   try {
-    await deleteProjectCost(id);
+    await deleteProjectCost(id, user.id);
     return json({ ok: true });
   } catch (err: any) {
     return json({ error: err?.message ?? "Failed to delete cost" }, { status: 400 });

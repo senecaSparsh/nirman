@@ -1,6 +1,8 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { logAction } from "./audit";
+import { postSupplierReturn } from "./gl-posting";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -23,6 +25,7 @@ interface CreateSupplierReturnInput {
   purchaseOrderId?: string;
   locationId: string;
   notes?: string;
+  userId?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -55,40 +58,60 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
     if (!new Decimal(line.qty).gt(0)) throw new Error("Return qty must be > 0");
   }
 
-  return prisma.supplierReturn.create({
-    data: {
-      returnNumber: generateReturnNumber(),
-      supplierId: input.supplierId,
-      companyId: input.companyId,
-      purchaseOrderId: input.purchaseOrderId,
-      locationId: input.locationId,
-      notes: input.notes,
-      status: "DRAFT",
-      lines: {
-        create: input.lines.map((l) => ({
-          materialId: l.materialId,
-          qty: new Decimal(l.qty),
-          unitCost: new Decimal(l.unitCost),
-          reason: l.reason,
-        })),
+  return prisma.$transaction(async (tx) => {
+    const ret = await tx.supplierReturn.create({
+      data: {
+        returnNumber: generateReturnNumber(),
+        supplierId: input.supplierId,
+        companyId: input.companyId,
+        purchaseOrderId: input.purchaseOrderId,
+        locationId: input.locationId,
+        notes: input.notes,
+        status: "DRAFT",
+        lines: {
+          create: input.lines.map((l) => ({
+            materialId: l.materialId,
+            qty: new Decimal(l.qty),
+            unitCost: new Decimal(l.unitCost),
+            reason: l.reason,
+          })),
+        },
       },
-    },
-    include: { lines: true },
+      include: { lines: true },
+    });
+    await logAction(tx, {
+      userId: input.userId,
+      action: "SUPPLIER_RETURN_CREATE",
+      entityType: "SupplierReturn",
+      entityId: ret.id,
+      after: { returnNumber: ret.returnNumber, supplierId: input.supplierId, status: "DRAFT", lineCount: input.lines.length },
+    });
+    return ret;
   });
 }
 
-export async function submitSupplierReturn(returnId: string) {
+export async function submitSupplierReturn(returnId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
     if (!ret) throw new Error("Return not found");
     if (ret.status !== "DRAFT") throw new Error(`Cannot submit return in status ${ret.status}`);
-    return tx.supplierReturn.update({ where: { id: returnId }, data: { status: "SUBMITTED" } });
+    const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "SUBMITTED" } });
+    await logAction(tx, {
+      userId,
+      action: "SUPPLIER_RETURN_SUBMIT",
+      entityType: "SupplierReturn",
+      entityId: returnId,
+      before: { status: "DRAFT" },
+      after: { status: "SUBMITTED" },
+    });
+    return updated;
   });
 }
 
 interface CompleteSupplierReturnInput {
   returnId: string;
   creditNoteNo?: string;
+  userId?: string;
 }
 
 export async function completeSupplierReturn(input: CompleteSupplierReturnInput) {
@@ -128,27 +151,64 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         reason: `Return to supplier: ${line.reason ?? "N/A"}`,
         refType: "SUPPLIER_RETURN",
         refId: ret.id,
+        userId: input.userId,
       });
     }
 
     // Refresh currentCost for affected materials
     await refreshMaterialCurrentCost(tx, ret.lines.map((l) => l.materialId));
 
-    return tx.supplierReturn.update({
+    // Post to the General Ledger: relieve AP, return stock to inventory, reverse input GST.
+    // Uses each material's gstRate (the return line doesn't carry its own rate).
+    const materialsForGl = await tx.material.findMany({
+      where: { id: { in: ret.lines.map((l) => l.materialId) } },
+      select: { id: true, gstRate: true },
+    });
+    const gstByMaterial = new Map(materialsForGl.map((m) => [m.id, new Decimal(m.gstRate)]));
+    await postSupplierReturn(tx, {
+      companyId: ret.companyId,
+      supplierReturnId: ret.id,
+      postedById: input.userId,
+      lines: ret.lines.map((l) => ({
+        qty: new Decimal(l.qty),
+        unitCost: new Decimal(l.unitCost),
+        gstRate: gstByMaterial.get(l.materialId) ?? new Decimal(0),
+      })),
+    });
+
+    const updated = await tx.supplierReturn.update({
       where: { id: input.returnId },
       data: {
         status: "COMPLETED",
         creditNoteNo: input.creditNoteNo,
       },
     });
+    await logAction(tx, {
+      userId: input.userId,
+      action: "SUPPLIER_RETURN_COMPLETE",
+      entityType: "SupplierReturn",
+      entityId: input.returnId,
+      before: { status: "SUBMITTED" },
+      after: { status: "COMPLETED", creditNoteNo: input.creditNoteNo ?? null },
+    });
+    return updated;
   });
 }
 
-export async function cancelSupplierReturn(returnId: string) {
+export async function cancelSupplierReturn(returnId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
     if (!ret) throw new Error("Return not found");
     if (ret.status === "COMPLETED") throw new Error("Cannot cancel a completed return");
-    return tx.supplierReturn.update({ where: { id: returnId }, data: { status: "CANCELLED" } });
+    const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "CANCELLED" } });
+    await logAction(tx, {
+      userId,
+      action: "SUPPLIER_RETURN_CANCEL",
+      entityType: "SupplierReturn",
+      entityId: returnId,
+      before: { status: ret.status },
+      after: { status: "CANCELLED" },
+    });
+    return updated;
   });
 }

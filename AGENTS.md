@@ -62,10 +62,59 @@
   shows the queue for approvers. Approval columns: `approvedById`/`approvedAt`
   on PurchaseOrder and MaterialRequisition.
 - **Audit logging**: `logAction()` from `@nirman/services` writes immutable
-  `AuditLog` entries. Wired into PO create/approve/order/cancel, requisition
-  create/submit/approve/reject. `apiHandler` supports an optional `audit` opt
-  for automatic mutation logging.
+  `AuditLog` entries. Wired into EVERY mutation across all services: PO
+  create/approve/order/cancel/receive, requisition create/submit/approve/reject/
+  convert, transfer create, sale create/payment/cancel, issue create, equipment
+  create/assign/return/maintenance/retire, stock-count create/confirm/reconcile,
+  supplier-return create/submit/complete/cancel, built-unit create/status/valuation,
+  project-cost add/delete, land purchase + partition + valuation + status, and
+  auto-requisition generation. Every mutation service function takes an optional
+  `userId` and wraps its writes in a transaction that includes the `logAction` call.
+- **General Ledger (GL) + GST**: `postJournalEntry()` and the domain helpers
+  (`postPurchaseReceipt`, `postMaterialIssue`, `postAssetSale`,
+  `postPaymentReceived`, `postProjectCost`, `postExpense`, `postSupplierReturn`,
+  `postLandPurchase`) from `@nirman/services` post balanced double-entry
+  `JournalEntry` + `JournalLine` rows INSIDE the same transaction as the source
+  mutation (so the books never diverge from reality). The chart of accounts is
+  `GlAccount` (13 system accounts: 7 asset, 2 liability, 1 equity, 1 revenue,
+  2 expense). Account codes are in the `ACCT` const. Input GST (ITC) is debited
+  on purchases; Output GST is credited on sales. Seed via `seedChartOfAccounts()`.
+  Reporting: `trialBalance()` + `accountLedger()`. UI at `/gl` (PPR page +
+  client drill-down). API at `/api/gl/trial-balance`, `/api/gl/ledger`,
+  `/api/gl/accounts`.
+- **Auto-requisition**: `generateAutoRequisition()` from `@nirman/services`
+  operationalizes the `reorderPoint` / `economicOrderQty` fields — when a
+  material's total stock drops to/below its reorderPoint, it raises a DRAFT
+  `MaterialRequisition` (one per call, batching all due materials for a
+  project). De-duplicates against open requisitions. Qty = EOQ if set, else
+  replenish-to-2×-reorder. Humans still review/submit — automation raises the
+  request, humans approve the spend. API at `POST /api/requisitions/auto`.
+  UI: "Auto-generate" button on the Requisitions page.
+- **PWA / Field receiving**: `/field` page + `FieldReceive` client component
+  with BarcodeDetector camera scanning + offline mutation queue
+  (`@/lib/offline/queue`). Service worker at `public/sw.js`, registered by
+  `SwRegister` in the root layout (production only). Manifest at
+  `public/manifest.webmanifest`.
 - **Formatting helpers**: `formatCurrency`, `formatNumber`, `formatDate` in `@/lib/utils`.
+- **Task execution engine**: Tasks are not flat to-do lines — they are units of
+  work composed of SubTasks (checkable steps driving a live progress %),
+  TaskComments (threaded discussion), TaskActivity (an immutable, auto-generated
+  per-task timeline), TaskDependencies (A blocks B; enforced server-side — a
+  blocked task cannot move to IN_PROGRESS), and TaskTimeLogs (start/stop timers
+  tracking real effort vs estimate). All mutations go through `@nirman/services`
+  (`createTask`, `updateTaskStatus`, `reassignTask`, `addSubTask`,
+  `toggleSubTask`, `deleteSubTask`, `addComment`, `deleteComment`,
+  `addDependency`, `removeDependency`, `startTimer`, `stopTimer`,
+  `getTaskDetail`) — each runs inside a Serializable transaction that appends a
+  `TaskActivity` row (the per-task feed) AND an `AuditLog` row. The feed never
+  diverges from reality. `TaskError` is a status-bearing error (→400/403/404/409).
+  Pure helpers (`computeProgress`, `isBlocked`, `formatDuration`,
+  `totalLoggedMinutes`) are unit-tested (17 tests). UI: the TaskDetailDrawer
+  (slide-over) is the execution surface — tabs for Steps, Discussion, Activity,
+  Links (dependencies), and Time. Wired into both `/tasks` (TasksManager) and
+  `/my-tasks` (MyTasksPanel). The AssignTaskDialog supports initial subtask
+  steps + a time estimate. API routes under `api/tasks/[id]/{subtasks,comments,
+  dependencies,time}`.
 
 ## Package layout
 

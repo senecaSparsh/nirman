@@ -21,10 +21,13 @@ export function TransferFormDialog({
   open,
   onOpenChange,
   locations,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locations: StockLocationRow[];
+  /** Pre-fill fields (e.g. { fromLocationId: "abc" } when scoped to a location node). */
+  defaults?: { fromLocationId?: string };
 }) {
   const router = useRouter();
   const [fromLocationId, setFromLocationId] = useState("");
@@ -33,6 +36,11 @@ export function TransferFormDialog({
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState<AvailableStockRow[]>([]);
+
+  // Apply defaults when the dialog opens
+  useEffect(() => {
+    if (open && defaults?.fromLocationId) setFromLocationId(defaults.fromLocationId);
+  }, [open, defaults]);
 
   // Fetch available stock when source location changes
   useEffect(() => {
@@ -43,7 +51,7 @@ export function TransferFormDialog({
     fetch(`/api/stock/available?locationId=${fromLocationId}`)
       .then((r) => r.json())
       .then((data) => setAvailable(Array.isArray(data) ? data : []))
-      .catch(() => setAvailable([]));
+      .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
   }, [fromLocationId]);
 
   const otherLocations = locations.filter((l) => l.id !== fromLocationId);

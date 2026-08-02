@@ -159,15 +159,25 @@ export const transferSchema = z.object({
   fromLocationId: z.string().min(1, "Source location is required"),
   toLocationId: z.string().min(1, "Destination location is required"),
   notes: z.string().max(2000).optional().nullable(),
+  // Inter-company STO charges (only applied when from/to belong to different companies).
+  freight: z.coerce.number().min(0).optional(),
+  handlingFee: z.coerce.number().min(0).optional(),
+  markupPct: z.coerce.number().min(0).max(100).optional(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
 });
 
 export const issueMaterialsSchema = z.object({
-  projectId: z.string().min(1, "Project is required"),
+  // Consumption target — exactly one of projectId / departmentId must be set.
+  // Enforced with a refine() below so the error message is meaningful.
+  projectId: z.string().min(1).optional().nullable(),
+  departmentId: z.string().min(1).optional().nullable(),
   fromLocationId: z.string().min(1, "Source location is required"),
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
-});
+}).refine(
+  (data) => (data.projectId ? !data.departmentId : !!data.departmentId),
+  { message: "Specify either a project or a department (cost center) — not both, not neither.", path: ["projectId"] },
+);
 
 // ── Land ──
 export const landPurchaseSchema = z.object({
@@ -190,6 +200,7 @@ export const partitionSchema = z.object({
     number: z.string().min(1, "Parcel number is required"),
     area: z.coerce.number().positive("Area must be > 0"),
     askingPrice: z.coerce.number().positive().optional(),
+    geometry: z.any().optional(),
   })).min(2, "At least 2 children required"),
   notes: z.string().optional(),
 });
@@ -322,6 +333,14 @@ export const employeeSchema = z.object({
   active: z.boolean().optional(),
 });
 
+// ── Department / cost center ──
+export const departmentSchema = z.object({
+  code: z.string().min(1, "Code is required").max(40).trim().toUpperCase(),
+  name: z.string().min(1, "Name is required").max(120),
+  description: z.string().max(500).optional().nullable(),
+  active: z.boolean().optional(),
+});
+
 // ── Supplier Return ──
 export const supplierReturnLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
@@ -349,9 +368,15 @@ export const taskSchema = z.object({
   dueDate: z.string().optional().nullable(),
   workspaceId: z.string().optional().nullable(),
   nodeLabel: z.string().max(200).optional().nullable(),
+  estimateMins: z.coerce.number().int().min(1).max(60000).optional().nullable(),
+  subtasks: z.array(z.string().min(1).max(200)).max(100).optional(),
 });
 
 export const taskStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+
+export const subTaskSchema = z.object({
+  title: z.string().min(1, "Step title is required").max(200),
+});
 
 // ── Workflows ──
 export const workflowSchema = z.object({
@@ -422,6 +447,14 @@ export interface CurrentUser {
  * Get the authenticated user as a typed object, or null. Resolves the
  * effective role from the default `User.role` (and, when a company
  * scope is active, the `UserCompany.role` membership takes precedence).
+ *
+ * Validates the user still exists in the DB — a stale session cookie
+ * (e.g. after a DB re-seed) would otherwise produce FK violations when
+ * the user ID is used as a foreign key in transactional records.
+ *
+ * In dev-bypass mode (AUTH_BYPASS=true or non-production NODE_ENV), the
+ * synthetic "dev" user is returned without DB validation since it doesn't
+ * exist in the DB — this is intentional for local development.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const session = await getSession();
@@ -434,14 +467,36 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     companyId?: string | null;
     active?: boolean;
   };
-  const role = normalizeRole(u.role);
+
+  // Dev-bypass mode: return the synthetic user without DB validation.
+  // The synthetic "dev" user doesn't exist in the DB — validating it
+  // would break all API calls in development.
+  const isDevBypass = process.env.AUTH_BYPASS === "true" || process.env.NODE_ENV !== "production";
+  if (isDevBypass && u.id === "dev") {
+    return {
+      id: u.id,
+      email: u.email ?? "",
+      name: u.name ?? "",
+      role: normalizeRole(u.role),
+      companyId: u.companyId ?? null,
+      active: u.active ?? true,
+    };
+  }
+
+  // Production / real session: validate the user still exists in the DB.
+  const exists = await prisma.user.findUnique({
+    where: { id: u.id },
+    select: { id: true, role: true, companyId: true, active: true },
+  });
+  if (!exists) return null;
+  const role = normalizeRole(exists.role ?? u.role);
   return {
     id: u.id,
     email: u.email ?? "",
     name: u.name ?? "",
     role,
-    companyId: u.companyId ?? null,
-    active: u.active ?? true,
+    companyId: exists.companyId ?? null,
+    active: exists.active ?? true,
   };
 }
 

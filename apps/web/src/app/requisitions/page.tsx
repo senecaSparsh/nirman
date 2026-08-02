@@ -27,6 +27,14 @@ async function RequisitionsContent() {
   const role = await getUserRole();
   const company = await getCompany();
 
+  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
+        You don&apos;t have permission to view requisitions.
+      </div>
+    );
+  }
+
   const perms = {
     canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
     canApprove: hasPermission(role, PERM.REQUISITION_APPROVE),

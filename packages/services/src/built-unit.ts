@@ -1,6 +1,7 @@
 import { prisma, type BuiltUnitType, type BuiltUnitStatus, type AreaUnit } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
+import { logAction } from "./audit";
 
 /**
  * Built Unit Service — create and manage sellable units within a project.
@@ -8,6 +9,7 @@ import { reallocateProjectCosts } from "./valuation";
 
 interface CreateBuiltUnitsInput {
   projectId: string;
+  userId?: string;
   units: {
     unitType: BuiltUnitType;
     unitNumber: string;
@@ -16,6 +18,7 @@ interface CreateBuiltUnitsInput {
     area: Decimal | number | string;
     areaUnit?: AreaUnit;
     askingPrice?: Decimal | number | string;
+    phaseId?: string | null;
   }[];
 }
 
@@ -53,6 +56,7 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
       const unit = await tx.builtUnit.create({
         data: {
           projectId: input.projectId,
+          phaseId: u.phaseId ?? null,
           unitType: u.unitType,
           unitNumber: u.unitNumber,
           floor: u.floor,
@@ -71,11 +75,21 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
     // Trigger reallocation — new units change totalSellableArea → costPerSqft changes for all
     await reallocateProjectCosts(tx, input.projectId);
 
+    for (const unit of created) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "BUILT_UNIT_CREATE",
+        entityType: "BuiltUnit",
+        entityId: unit.id,
+        after: { projectId: input.projectId, unitNumber: unit.unitNumber, unitType: unit.unitType, status: "PLANNED" },
+      });
+    }
+
     return created;
   });
 }
 
-export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus) {
+export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus, userId?: string) {
   const unit = await prisma.builtUnit.findUnique({ where: { id: unitId } });
   if (!unit) throw new Error("Unit not found");
   if (unit.deletedAt) throw new Error("Unit is deleted");
@@ -93,23 +107,46 @@ export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus) 
     throw new Error(`Invalid status transition: ${unit.status} → ${status}. Allowed: ${allowed.join(", ")}`);
   }
 
-  return prisma.builtUnit.update({ where: { id: unitId }, data: { status } });
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.builtUnit.update({ where: { id: unitId }, data: { status } });
+    await logAction(tx, {
+      userId,
+      action: "BUILT_UNIT_STATUS_CHANGE",
+      entityType: "BuiltUnit",
+      entityId: unitId,
+      before: { status: unit.status },
+      after: { status },
+    });
+    return updated;
+  });
 }
 
 export async function updateUnitValuation(
   unitId: string,
   data: { currentValuation?: Decimal | number | string; askingPrice?: Decimal | number | string },
+  userId?: string,
 ) {
   const unit = await prisma.builtUnit.findUnique({ where: { id: unitId } });
   if (!unit) throw new Error("Unit not found");
   if (unit.deletedAt) throw new Error("Unit is deleted");
   if (unit.status === "SOLD") throw new Error("Cannot update valuation of a SOLD unit");
 
-  return prisma.builtUnit.update({
-    where: { id: unitId },
-    data: {
-      ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
-      ...(data.askingPrice !== undefined ? { askingPrice: new Decimal(data.askingPrice) } : {}),
-    },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.builtUnit.update({
+      where: { id: unitId },
+      data: {
+        ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
+        ...(data.askingPrice !== undefined ? { askingPrice: new Decimal(data.askingPrice) } : {}),
+      },
+    });
+    await logAction(tx, {
+      userId,
+      action: "BUILT_UNIT_VALUATION",
+      entityType: "BuiltUnit",
+      entityId: unitId,
+      before: { currentValuation: unit.currentValuation, askingPrice: unit.askingPrice },
+      after: { currentValuation: updated.currentValuation, askingPrice: updated.askingPrice },
+    });
+    return updated;
   });
 }

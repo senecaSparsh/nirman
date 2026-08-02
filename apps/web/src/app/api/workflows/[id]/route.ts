@@ -1,7 +1,16 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, workflowSchema } from "@/lib/server";
+import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+
+const workflowUpdateSchema = z.object({
+  name: z.string().min(1).max(160).optional(),
+  description: z.string().max(2000).optional(),
+  icon: z.string().max(60).optional(),
+  graphJson: z.string().optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]).optional(),
+});
 
 /**
  * GET /api/workflows/[id] — get a single workflow with its graph
@@ -40,17 +49,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   const { id } = await params;
   const body = await req.json();
+  const parsed = workflowUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
   const existing = await prisma.workflow.findUnique({ where: { id } });
   if (!existing || existing.deletedAt) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 
   const update: Record<string, unknown> = {};
-  if (body.name !== undefined) update.name = body.name;
-  if (body.description !== undefined) update.description = body.description;
-  if (body.icon !== undefined) update.icon = body.icon;
-  if (body.graphJson !== undefined) update.graphJson = body.graphJson;
-  if (body.status !== undefined) update.status = body.status;
+  if (parsed.data.name !== undefined) update.name = parsed.data.name;
+  if (parsed.data.description !== undefined) update.description = parsed.data.description;
+  if (parsed.data.icon !== undefined) update.icon = parsed.data.icon;
+  if (parsed.data.graphJson !== undefined) update.graphJson = parsed.data.graphJson;
+  if (parsed.data.status !== undefined) update.status = parsed.data.status;
 
   const updated = await prisma.workflow.update({
     where: { id },

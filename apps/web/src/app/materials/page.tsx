@@ -2,20 +2,17 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { MaterialsView } from "@/components/materials/materials-view";
 import { PageLoading } from "@/components/page-loading";
-import type { MaterialCategory, MaterialRow, ProjectOption, StockLocationRow, StockRow, LowStockRow } from "@/lib/types";
+import type { MaterialCategory, MaterialRow, ProjectOption, StockLocationRow, StockRow, LowStockRow, DepartmentRow } from "@/lib/types";
 
 export default function MaterialsPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Materials"
-        description="Manage materials, categories, stock levels, and low-stock alerts across all locations."
-      />
-      <Suspense fallback={<PageLoading label="Loading materials…" />}>
+      <Suspense fallback={<PageLoading label="Loading materials…" variant="cards" />}>
         <MaterialsContent />
       </Suspense>
     </div>
@@ -41,7 +38,7 @@ async function MaterialsContent() {
     canDelete: hasPermission(role, PERM.INVENTORY_MANAGE),
   };
 
-  const [categories, materials, locations, stockItems, projects, lowStockMaterials] =
+  const [categories, materials, locations, stockItems, projects, lowStockMaterials, departments] =
     await Promise.all([
       prisma.materialCategory.findMany({
         where: { deletedAt: null },
@@ -100,6 +97,14 @@ async function MaterialsContent() {
             where: { location: { deletedAt: null, companyId: company.id } },
             select: { qty: true },
           },
+        },
+      }),
+      prisma.department.findMany({
+        where: { companyId: company.id, deletedAt: null },
+        orderBy: { code: "asc" },
+        include: {
+          stockLocation: { select: { id: true, name: true } },
+          _count: { select: { materialIssues: true } },
         },
       }),
     ]);
@@ -168,6 +173,17 @@ async function MaterialsContent() {
     status: p.status,
   }));
 
+  const departmentRows: DepartmentRow[] = departments.map((d) => ({
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    description: d.description,
+    active: d.active,
+    stockLocationId: d.stockLocation?.id ?? null,
+    stockLocationName: d.stockLocation?.name ?? null,
+    issueCount: d._count.materialIssues,
+  }));
+
   const lowStockRows: LowStockRow[] = lowStockMaterials
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
@@ -187,15 +203,29 @@ async function MaterialsContent() {
     .filter((r) => r.totalQty < r.minStock)
     .sort((a, b) => b.shortfall - a.shortfall);
 
+  const stockValue = materialRows.reduce((s, m) => s + m.totalValue, 0);
+
   return (
-    <MaterialsView
-      materials={materialRows}
-      categories={categoryRows}
-      locations={locationRows}
-      stock={stockRows}
-      lowStock={lowStockRows}
-      projects={projectRows}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Materials"
+        description="Manage materials, categories, stock levels, and low-stock alerts across all locations."
+        stats={[
+          { label: "Materials", value: materialRows.length },
+          { label: "Stock value", value: formatCurrency(stockValue) },
+          { label: "Low stock", value: lowStockRows.length },
+        ]}
+      />
+      <MaterialsView
+        materials={materialRows}
+        categories={categoryRows}
+        locations={locationRows}
+        stock={stockRows}
+        lowStock={lowStockRows}
+        projects={projectRows}
+        departments={departmentRows}
+        permissions={perms}
+      />
+    </>
   );
 }

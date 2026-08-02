@@ -277,6 +277,8 @@ function WorkflowBuilderInner({
         toast.success(workflowId ? "Workflow updated" : "Workflow created");
         if (!workflowId && data.id) {
           router.push(`/workflows/${data.id}`);
+        } else {
+          router.refresh();
         }
       }
     } catch {
@@ -299,6 +301,7 @@ function WorkflowBuilderInner({
         toast.error(data.error ?? "Failed to run workflow");
       } else {
         toast.success(`Workflow run ${data.status.toLowerCase()}`);
+        router.refresh();
       }
     } catch {
       toast.error("Network error");
@@ -330,6 +333,7 @@ function WorkflowBuilderInner({
         toast.success("Schedule saved — workflow activated");
         setShowSchedule(false);
         setStatus("ACTIVE");
+        router.refresh();
       }
     } catch {
       toast.error("Network error");

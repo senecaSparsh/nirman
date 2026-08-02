@@ -2,23 +2,20 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { ProcurementView } from "@/components/procurement/procurement-view";
 import { PageLoading } from "@/components/page-loading";
 import type {
   SupplierRow, PurchaseOrderRow, TransferRow, MaterialRow, StockLocationRow,
-  ProjectOption, MaterialIssueListRow,
+  ProjectOption, MaterialIssueListRow, DepartmentOption,
 } from "@/lib/types";
 
 export default function ProcurementPage() {
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Procurement"
-        description="Purchase orders, goods receipts, stock transfers, and material issues to projects."
-      />
-      <Suspense fallback={<PageLoading label="Loading procurement…" />}>
+      <Suspense fallback={<PageLoading label="Loading procurement…" variant="board" />}>
         <ProcurementContent />
       </Suspense>
     </div>
@@ -43,7 +40,7 @@ async function ProcurementContent() {
     canApprove: hasPermission(role, PERM.PO_APPROVE),
   };
 
-  const [pos, suppliers, transfers, issues, materials, locations, projects] = await Promise.all([
+  const [pos, suppliers, transfers, issues, materials, locations, projects, departments] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -75,10 +72,16 @@ async function ProcurementContent() {
       },
     }),
     prisma.materialIssue.findMany({
-      where: { project: { companyId: company.id } },
+      where: {
+        OR: [
+          { project: { companyId: company.id } },
+          { department: { companyId: company.id } },
+        ],
+      },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },
+        department: { select: { name: true, code: true } },
         fromLocation: { select: { name: true } },
         lines: { select: { id: true } },
       },
@@ -106,6 +109,11 @@ async function ProcurementContent() {
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
+    }),
+    prisma.department.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, name: true },
     }),
   ]);
 
@@ -169,13 +177,20 @@ async function ProcurementContent() {
   const issueRows: MaterialIssueListRow[] = issues.map((i) => ({
     id: i.id,
     projectId: i.projectId,
-    projectName: i.project.name,
+    projectName: i.project?.name ?? null,
+    departmentId: i.departmentId,
+    departmentName: i.department?.name ?? null,
+    departmentCode: i.department?.code ?? null,
     fromLocationId: i.fromLocationId,
     fromLocationName: i.fromLocation.name,
     issueDate: i.issueDate.toISOString(),
     notes: i.notes,
     totalCost: toNum(i.totalCost),
     lineCount: i.lines.length,
+  }));
+
+  const departmentRows: DepartmentOption[] = departments.map((d) => ({
+    id: d.id, code: d.code, name: d.name,
   }));
 
   const materialRows: MaterialRow[] = materials.map((m) => {
@@ -202,16 +217,31 @@ async function ProcurementContent() {
     id: p.id, name: p.name, type: p.type, status: p.status,
   }));
 
+  const openPOs = poRows.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
+  const totalPOValue = poRows.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
+
   return (
-    <ProcurementView
-      suppliers={supplierRows}
-      purchaseOrders={poRows}
-      transfers={transferRows}
-      issues={issueRows}
-      materials={materialRows}
-      locations={locationRows}
-      projects={projectRows}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Procurement"
+        stats={[
+          { label: "POs", value: poRows.length },
+          { label: "Open", value: openPOs },
+          { label: "Suppliers", value: supplierRows.length },
+          { label: "Value", value: formatCurrency(totalPOValue) },
+        ]}
+      />
+      <ProcurementView
+        suppliers={supplierRows}
+        purchaseOrders={poRows}
+        transfers={transferRows}
+        issues={issueRows}
+        materials={materialRows}
+        locations={locationRows}
+        projects={projectRows}
+        departments={departmentRows}
+        permissions={perms}
+      />
+    </>
   );
 }
