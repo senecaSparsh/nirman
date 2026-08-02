@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, UserPlus, Shield, Loader2, Phone, Mail } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, UserPlus, Shield, Loader2, Phone, Mail, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { canManageUsers, ROLE_LIST, type Role } from "@/lib/roles";
 import { useSession } from "@/lib/auth-client";
+import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import type { StockLocationRow } from "@/lib/types";
 
 type UserRow = {
@@ -41,6 +42,8 @@ export function SettingsView({
   projects,
   subcontractors,
   employees,
+  companies,
+  canManageCompanies,
 }: {
   company: CompanyInfo;
   users: UserRow[];
@@ -48,6 +51,8 @@ export function SettingsView({
   projects: { id: string; name: string }[];
   subcontractors: { id: string; name: string; trade: string | null; phone: string | null; email: string | null }[];
   employees: { id: string; name: string; trade: string | null; phone: string | null; email: string | null; dailyRate: number; active: boolean }[];
+  companies: CompanyRow[];
+  canManageCompanies: boolean;
 }) {
   const [tab, setTab] = useState("company");
   const router = useRouter();
@@ -207,6 +212,11 @@ export function SettingsView({
           <TabsTrigger value="employees">
             <span className="flex items-center gap-1.5"><UserPlus className="h-3.5 w-3.5" /> Employees</span>
           </TabsTrigger>
+          {canManageCompanies && (
+            <TabsTrigger value="companies">
+              <span className="flex items-center gap-1.5"><Network className="h-3.5 w-3.5" /> Companies</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="company">
@@ -358,6 +368,12 @@ export function SettingsView({
             )}
           </div>
         </TabsContent>
+
+        {canManageCompanies && (
+          <TabsContent value="companies">
+            <CompaniesManager companies={companies} canManage={canManageCompanies} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Location form dialog */}

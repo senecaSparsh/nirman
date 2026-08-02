@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCurrentUser, getCompany, getUserRole, toNum } from "@/lib/server";
 import { PageHeader } from "@/components/page-header";
 import { SettingsView } from "@/components/settings/settings-view";
 import { PageLoading } from "@/components/page-loading";
@@ -25,6 +25,7 @@ export default function SettingsPage() {
 
 async function SettingsContent() {
   await connection();
+  const user = await getCurrentUser();
   const role = await getUserRole();
 
   // Hard server-side gate: settings is OWNER/ADMIN only.
@@ -45,8 +46,10 @@ async function SettingsContent() {
   }
 
   const company = await getCompany();
+  const isSuperuser = role === "OWNER" || role === "ADMIN";
+  const isDevBypass = user?.id === "dev";
 
-  const [users, locations, projects, subcontractors, employees] = await Promise.all([
+  const [users, locations, projects, subcontractors, employees, companies] = await Promise.all([
     prisma.user.findMany({
       orderBy: { name: "asc" },
       select: { id: true, email: true, name: true, role: true, active: true },
@@ -73,6 +76,19 @@ async function SettingsContent() {
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true, phone: true, email: true, dailyRate: true, active: true },
+    }),
+    prisma.company.findMany({
+      where: {
+        deletedAt: null,
+        ...(isSuperuser || isDevBypass
+          ? {}
+          : { userMemberships: { some: { userId: user?.id ?? "" } } }),
+      },
+      orderBy: { name: "asc" },
+      include: {
+        parent: { select: { id: true, name: true } },
+        _count: { select: { userMemberships: true, children: true } },
+      },
     }),
   ]);
 
@@ -111,6 +127,20 @@ async function SettingsContent() {
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade, phone: s.phone, email: s.email }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, phone: e.phone, email: e.email, dailyRate: toNum(e.dailyRate), active: e.active }))}
+      companies={companies.map((c) => ({
+        id: c.id,
+        name: c.name,
+        gstin: c.gstin,
+        pan: c.pan,
+        address: c.address,
+        currency: c.currency,
+        businessType: c.businessType,
+        parentCompanyId: c.parentCompanyId,
+        parentName: c.parent?.name ?? null,
+        memberCount: c._count.userMemberships,
+        hasChildren: c._count.children > 0,
+      }))}
+      canManageCompanies={isSuperuser}
     />
   );
 }

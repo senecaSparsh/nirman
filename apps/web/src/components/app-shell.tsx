@@ -8,6 +8,7 @@ import { navGroups, navItems, STAGE_COLORS, type NavItem, type WorkspaceNavItem 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CommandPalette } from "@/components/command-palette";
+import { CompanySwitcher } from "@/components/company-switcher";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, isPending: sessionLoading } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [companyName, setCompanyName] = useState("Nirman");
+  // Companies the user can switch between (hidden in single-company mode).
+  const [companies, setCompanies] = useState<{ id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[]>([]);
   // Saved playground workspaces become dynamic nav tabs. Fetched client-side so
   // the layout stays PPR-friendly (no server DB access in the root layout).
   const [workspaceNav, setWorkspaceNav] = useState<WorkspaceNavItem[]>([]);
@@ -83,10 +86,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    // Fetch company name
+    // Fetch company name + switchable companies list
     fetch("/api/company")
       .then((r) => (r.ok ? r.json() : null))
-      .then((c) => { if (!cancelled && c?.name) setCompanyName(c.name); })
+      .then((c) => {
+        if (!cancelled && c?.name) setCompanyName(c.name);
+        if (!cancelled && Array.isArray(c?.companies)) setCompanies(c.companies);
+      })
       .catch(() => {});
     // Fetch current user's role
     fetch("/api/me")
@@ -197,6 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="hidden text-meta text-muted-foreground sm:inline">
               {companyName}
             </span>
+            <CompanySwitcher companies={companies} />
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background">
               {initials}
             </div>

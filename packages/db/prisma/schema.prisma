@@ -23,6 +23,16 @@ model Company {
   pan       String?
   address   String?
   currency  String   @default("INR")
+  // Free-text business line, e.g. "Rice Milling & Export", "Real Estate" —
+  // purely descriptive, shown in the company switcher to disambiguate.
+  businessType String?
+  // Self-relation so a user's companies can be organized into a group
+  // hierarchy (e.g. "ABP Group" as parent, "Testify Overseas" +
+  // "ABP Realty" as children) — matches the Admin -> Sub-admin whiteboard
+  // structure at the company/entity level rather than the user-role level.
+  parentCompanyId String?
+  parent          Company?  @relation("CompanyHierarchy", fields: [parentCompanyId], references: [id])
+  children        Company[] @relation("CompanyHierarchy")
   // Logistics Complexity Index (LCI) — procurement routing config. See procurement-routing.ts.
   lciThresholdDefault Decimal? @db.Decimal(5, 2) // default LCI threshold for projects without an explicit override
   lciWeights          Json?    // { w1, w2, w3, w4 } normalized weighting coefficients
@@ -42,6 +52,8 @@ model Company {
   departments    Department[]
   userMemberships UserCompany[]
   users          User[]
+
+  @@index([parentCompanyId])
 }
 
 // ───────────────────────────────────────────────────────────

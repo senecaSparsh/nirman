@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { z } from "zod";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import {
   hasPermission,
@@ -17,14 +17,35 @@ import { logAction } from "@nirman/services";
 
 /**
  * Server-side helpers shared by API routes and Server Components.
- *
- * The app is single-company for now ("One company, many projects"). This helper
- * returns the active company, creating a default one on first run so the app is
- * usable immediately after `db:push` without manual seeding.
  */
 export async function getCompany() {
+  const user = await getCurrentUser();
+  const selectedId = (await cookies()).get("nirman-company-id")?.value;
+  const isDevBypass = user?.id === "dev";
+
+  if (selectedId) {
+    const selected = await prisma.company.findFirst({
+      where: {
+        id: selectedId,
+        deletedAt: null,
+        ...(isDevBypass ? {} : { userMemberships: { some: { userId: user?.id } } }),
+      },
+    });
+    if (selected) return selected;
+  }
+
+  if (user?.companyId) {
+    const assigned = await prisma.company.findFirst({
+      where: { id: user.companyId, deletedAt: null },
+    });
+    if (assigned) return assigned;
+  }
+
   const existing = await prisma.company.findFirst({
-    where: { deletedAt: null },
+    where: {
+      deletedAt: null,
+      ...(isDevBypass || !user ? {} : { userMemberships: { some: { userId: user.id } } }),
+    },
     orderBy: { createdAt: "asc" },
   });
   if (existing) return existing;
@@ -33,6 +54,9 @@ export async function getCompany() {
     data: {
       name: "Nirman Constructions",
       currency: "INR",
+      ...(user && !isDevBypass
+        ? { userMemberships: { create: { userId: user.id, role: user.role } } }
+        : {}),
     },
   });
 }
