@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "seed:testify": "tsx prisma/seed-testify.ts"
   },
   "dependencies": {
     "@nirman/db": "workspace:*",
