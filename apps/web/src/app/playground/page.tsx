@@ -5,7 +5,9 @@ import { PageHeader } from "@/components/page-header";
 import { PlaygroundCanvas } from "@/components/playground/playground-canvas";
 import { WorkspacesList } from "@/components/playground/workspaces-list";
 import { PageLoading } from "@/components/page-loading";
-import { getCompany } from "@/lib/server";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
 
 export const metadata = { title: "Workspaces · Nirman" };
 
@@ -39,6 +41,10 @@ export default function PlaygroundPage() {
 
 async function SavedWorkspaces() {
   await connection();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
+    return <NoAccess />;
+  }
   const company = await getCompany();
   const workspaces = await prisma.customWorkspace.findMany({
     where: { deletedAt: null, companyId: company.id },

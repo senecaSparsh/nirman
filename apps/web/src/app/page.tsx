@@ -1,422 +1,449 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import Link from "next/link";
 import { prisma } from "@nirman/db";
-import {
-  materialInventoryValue,
-  unsoldAssetValue,
-} from "@nirman/services";
-import {
-  ArrowRight,
-  Truck,
-  Package,
-  TrendingUp,
-  Building2,
-  AlertTriangle,
-  Activity,
-  Clock,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { getCompany, toNum } from "@/lib/server";
-import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
-import { PipelineFlow } from "@/components/pipeline-flow";
+import { getCompany, toNum, getUserRole, getCurrentUser } from "@/lib/server";
+import {
+  PERM,
+  ROLES,
+  hasPermission,
+  normalizeRole,
+  effectivePermissions,
+} from "@/lib/roles";
+import { PageLoading } from "@/components/page-loading";
+import { Page } from "@/components/page";
+import { PageHeader } from "@/components/page-header";
+import {
+  ProfileTabs,
+  type QueueData,
+  type MembershipData,
+  type ProjectAssignmentData,
+  type ActivityCount,
+  type AuditLogEntry,
+  type Capability,
+  type PermModule,
+} from "@/components/profile/profile-tabs";
 
-export default function CommandCenterPage() {
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ * PROFILE — your cockpit in this system.
+ *
+ * Three tabs, each short and complete:
+ *
+ *   Overview   identity + what needs you (queues + tasks)
+ *   Access     role, capabilities, permission matrix, companies, scope
+ *   Activity   your action counts + recent audit-log timeline
+ *
+ * What was cut from the previous version:
+ *  · The entire "Business" section (PipelineFlow + MetricGrid + Active
+ *    Projects list) — it duplicated /finance, /projects and /procurement.
+ *    A profile page is about the user, not a mini business dashboard.
+ *  · 6 DB queries that only fed that section (inventoryVal, unsoldAssets,
+ *    activeProjects, equipmentCount, fieldPOs, unitCount).
+ *  · Duplicate "active projects" count (was in header stats, metric grid,
+ *    AND project list — now it's not on this page at all).
+ *  · Duplicate companies/projects (identity strip showed counts, sidebar
+ *    showed lists — now both live in the Access tab, once).
+ * ═══════════════════════════════════════════════════════════════════
+ */
+export default function ProfilePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[60vh] items-center justify-center text-meta text-muted-foreground">
-          Loading…
-        </div>
-      }
-    >
-      <CommandCenterContent />
+    <Suspense fallback={<PageLoading label="Loading your profile…" />}>
+      <ProfileContent />
     </Suspense>
   );
 }
 
-async function CommandCenterContent() {
+async function ProfileContent() {
   await connection();
   const company = await getCompany();
+  const role = normalizeRole(await getUserRole());
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id;
+  const isDevBypass = userId === "dev";
 
+  // ── Permission flags ─────────────────────────────────────────────
+  const canApprovePO = hasPermission(role, PERM.PO_APPROVE);
+  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE);
+  const canSeeStock = hasPermission(role, PERM.INVENTORY_VIEW);
+  const canSeeProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
+  const canSeeSales = hasPermission(role, PERM.SALES_VIEW);
+  const canManageStock = hasPermission(role, PERM.INVENTORY_MANAGE);
+  const canManageCompany = hasPermission(role, PERM.COMPANY_MANAGE);
+
+  // ── Procurement trend window (last 6 months) ────────────────────
+  const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // ── Data fetch (only what the tabs need — no business queries) ──
   const [
-    inventoryVal,
-    unsoldAssets,
-    activeProjects,
+    dbUser,
+    memberships,
+    projectAssignments,
     lowStockItems,
-    recentMovements,
     draftPOs,
     pendingRequisitions,
     overduePOs,
-    recentSales,
-    recentIssues,
-    equipmentCount,
-    fieldPOs,
-    unitCount,
+    activeSales,
+    pendingStockCounts,
+    availableUnits,
+    approvedReqs,
+    approvedPOs,
+    poTrendOrders,
+    userActivityCounts,
+    userAuditLogs,
   ] = await Promise.all([
-    materialInventoryValue(company.id),
-    unsoldAssetValue(company.id),
-    prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-      include: { phases: { select: { status: true } }, _count: { select: { builtUnits: true } } },
-      orderBy: { name: "asc" },
+    isDevBypass ? null : prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, phone: true, image: true, role: true, active: true, createdAt: true },
+    }),
+    isDevBypass ? [] : prisma.userCompany.findMany({
+      where: { userId },
+      include: { company: { select: { id: true, name: true, businessType: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    isDevBypass ? [] : prisma.projectAssignment.findMany({
+      where: { userId },
+      include: { project: { select: { id: true, name: true, status: true } } },
+      orderBy: { assignedAt: "desc" },
     }),
     prisma.material.findMany({
       where: { deletedAt: null, minStock: { not: null } },
-      select: {
-        id: true, code: true, name: true, unit: true, minStock: true,
-        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } },
-      },
-    }),
-    prisma.stockMovement.findMany({
-      where: { OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
-      orderBy: { timestamp: "desc" },
-      take: 20,
-      include: {
-        material: { select: { name: true, unit: true } },
-        fromLocation: { select: { name: true } },
-        toLocation: { select: { name: true } },
-      },
+      select: { id: true, name: true, unit: true, minStock: true,
+        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
     }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT" },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true } } },
+      orderBy: { createdAt: "desc" }, take: 5,
+      include: { supplier: { select: { name: true } } },
     }),
     prisma.materialRequisition.findMany({
       where: { project: { companyId: company.id }, status: "SUBMITTED" },
-      orderBy: { createdAt: "desc" },
-      take: 5,
+      orderBy: { createdAt: "desc" }, take: 5,
       include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } },
     }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
-      orderBy: { expectedDate: "asc" },
-      take: 5,
-      include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true } } },
+      orderBy: { expectedDate: "asc" }, take: 5,
+      include: { supplier: { select: { name: true } } },
     }),
     prisma.assetSale.findMany({
       where: { companyId: company.id, status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: { customer: { select: { name: true } } },
+      orderBy: { createdAt: "desc" }, take: 10,
+      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
     }),
-    prisma.materialIssue.findMany({
+    prisma.stockCount.findMany({
+      where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } },
+      orderBy: { countDate: "desc" }, take: 5,
+      include: { location: { select: { name: true } } },
+    }),
+    prisma.builtUnit.findMany({
+      where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE" },
+      orderBy: { updatedAt: "desc" }, take: 5,
+      include: { project: { select: { name: true } } },
+    }),
+    prisma.materialRequisition.findMany({
+      where: { project: { companyId: company.id }, status: "APPROVED" },
+      orderBy: { approvedAt: "asc" as const }, take: 5,
+      include: { project: { select: { name: true } } },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { companyId: company.id, status: "APPROVED" },
+      orderBy: { approvedAt: "asc" as const }, take: 5,
+      include: { supplier: { select: { name: true } } },
+    }),
+    prisma.purchaseOrder.findMany({
       where: {
-        OR: [
-          { project: { companyId: company.id } },
-          { department: { companyId: company.id } },
-        ],
+        companyId: company.id,
+        status: { not: "CANCELLED" },
+        orderDate: { gte: sixMonthsAgo },
       },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        project: { select: { name: true } },
-        department: { select: { name: true, code: true } },
-        fromLocation: { select: { name: true } },
-      },
+      select: { orderDate: true, total: true },
+      orderBy: { orderDate: "asc" },
     }),
-    prisma.equipment.count({
-      where: { companyId: company.id, deletedAt: null, status: { not: "RETIRED" } },
+    isDevBypass ? null : prisma.auditLog.groupBy({
+      by: ["action"], where: { userId },
+      _count: { action: true }, orderBy: { _count: { action: "desc" } }, take: 12,
     }),
-    prisma.purchaseOrder.count({
-      where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
-    }),
-    prisma.builtUnit.count({
-      where: { project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION", "PLANNED"] } },
+    isDevBypass ? [] : prisma.auditLog.findMany({
+      where: { userId }, orderBy: { timestamp: "desc" }, take: 10,
     }),
   ]);
 
+  // ── Low stock computation ────────────────────────────────────────
   const lowStock = lowStockItems
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
       const minStock = toNum(m.minStock);
-      return { id: m.id, code: m.code, name: m.name, unit: m.unit, totalQty, minStock, shortfall: minStock - totalQty };
+      return { name: m.name, unit: m.unit, totalQty, minStock, shortfall: minStock - totalQty };
     })
     .filter((m) => m.totalQty < m.minStock)
     .sort((a, b) => b.shortfall - a.shortfall)
     .slice(0, 5);
 
-  // Build unified activity feed
-  type FeedItem = {
-    id: string;
-    timestamp: Date;
-    icon: typeof Activity;
-    title: string;
-    subtitle: string;
-    href: string;
-    kind: "receipt" | "issue" | "transfer" | "sale" | "other";
-  };
+  // ── Stock health (full counts, not sliced) ───────────────────────
+  const lowStockFull = lowStockItems.map((m) => {
+    const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
+    return { totalQty, minStock: toNum(m.minStock) };
+  });
+  const lowStockCount = lowStockFull.filter((m) => m.totalQty < m.minStock).length;
+  const healthyStockCount = lowStockFull.length - lowStockCount;
+  const stockHealth = healthyStockCount > 0 || lowStockCount > 0
+    ? [
+        { label: "In stock", value: healthyStockCount },
+        { label: "Low stock", value: lowStockCount },
+      ]
+    : [];
 
-  const feed: FeedItem[] = [];
-
-  for (const m of recentMovements) {
-    const type = m.movementType;
-    feed.push({
-      id: m.id,
-      timestamp: m.timestamp,
-      icon: type === "PURCHASE_RECEIPT" ? Truck : type === "ISSUE_TO_PROJECT" ? Package : type === "TRANSFER_IN" || type === "TRANSFER_OUT" ? ArrowRight : Activity,
-      title: `${formatNumber(toNum(m.qty), 0)} ${m.material.unit} ${m.material.name}`,
-      subtitle: type === "PURCHASE_RECEIPT"
-        ? `Received at ${m.toLocation?.name ?? "—"}`
-        : type === "ISSUE_TO_PROJECT"
-          ? `Issued from ${m.fromLocation?.name ?? "—"}`
-          : `${m.fromLocation?.name ?? "—"} → ${m.toLocation?.name ?? "—"}`,
-      href: "/stock-movements",
-      kind: type === "PURCHASE_RECEIPT" ? "receipt" : type === "ISSUE_TO_PROJECT" ? "issue" : "transfer",
-    });
+  // ── Procurement trend (last 6 months) ────────────────────────────
+  const trendMap = new Map<string, { label: string; count: number; value: number }>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    trendMap.set(key, { label: MONTHS[d.getMonth()] ?? "", count: 0, value: 0 });
   }
-
-  for (const sale of recentSales) {
-    feed.push({
-      id: sale.id,
-      timestamp: sale.createdAt,
-      icon: TrendingUp,
-      title: `${formatCurrency(toNum(sale.salePrice))}`,
-      subtitle: `${sale.customer.name}`,
-      href: "/sales",
-      kind: "sale",
-    });
+  for (const o of poTrendOrders) {
+    const d = o.orderDate;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const row = trendMap.get(key);
+    if (!row) continue;
+    row.count += 1;
+    row.value += toNum(o.total);
   }
+  const procurementTrend = Array.from(trendMap.values());
+  const totalPOs6mo = procurementTrend.reduce((s, m) => s + m.count, 0);
+  const totalSpend6mo = procurementTrend.reduce((s, m) => s + m.value, 0);
+  // Trend: current month vs previous month
+  const curMonth = procurementTrend[procurementTrend.length - 1];
+  const prevMonth = procurementTrend[procurementTrend.length - 2];
+  const poTrendDelta = prevMonth && curMonth && prevMonth.count > 0
+    ? Math.round(((curMonth.count - prevMonth.count) / prevMonth.count) * 100)
+    : null;
 
-  for (const issue of recentIssues) {
-    feed.push({
-      id: issue.id,
-      timestamp: issue.createdAt,
-      icon: Package,
-      title: `Issued to ${issue.project?.name ?? (`${issue.department?.code ?? ""} ${issue.department?.name ?? ""}`.trim() || "—")}`,
-      subtitle: `From ${issue.fromLocation?.name ?? "—"}`,
-      href: "/stock-movements",
-      kind: "issue",
-    });
-  }
+  // ── Build action queues ──────────────────────────────────────────
+  const queues: QueueData[] = [];
 
-  feed.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  const feedTop = feed.slice(0, 15);
+  if (canApproveReq && pendingRequisitions.length > 0) queues.push({
+    key: "req", title: "Requisitions waiting for approval",
+    consequence: "Site can't order material until you approve these",
+    count: pendingRequisitions.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardList",
+    items: pendingRequisitions.map((r) => ({ label: r.project.name, sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` })),
+  });
+  if (canApprovePO && draftPOs.length > 0) queues.push({
+    key: "po", title: "Purchase orders to approve",
+    consequence: "Nothing is ordered from the supplier until these are signed off",
+    count: draftPOs.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardCheck",
+    items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name })),
+  });
+  if (canSeeProcurement && overduePOs.length > 0) queues.push({
+    key: "overdue", title: "Deliveries past their date",
+    consequence: "Chase the supplier — site is expecting this material",
+    count: overduePOs.length, href: "/procurement", cta: "Chase", urgency: "blocking", icon: "truck",
+    items: overduePOs.map((po) => ({ label: po.poNumber, sub: `${po.supplier.name} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}` })),
+  });
+  if (canSeeStock && lowStock.length > 0) queues.push({
+    key: "low", title: "Materials below their reorder point",
+    consequence: "Raise a requisition before site runs out",
+    count: lowStock.length, href: "/materials", cta: "Reorder", urgency: "soon", icon: "package",
+    items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` })),
+  });
+  if (canApproveReq && approvedReqs.length > 0) queues.push({
+    key: "approved-req", title: "Approved requisitions ready to order",
+    consequence: "Convert these to purchase orders so the supplier can be engaged",
+    count: approvedReqs.length, href: "/requisitions", cta: "Convert", urgency: "soon", icon: "clipboardList",
+    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project.name })),
+  });
+  if (canApprovePO && approvedPOs.length > 0) queues.push({
+    key: "approved-po", title: "Approved POs ready to send",
+    consequence: "Mark these as ordered so the supplier starts fulfilling",
+    count: approvedPOs.length, href: "/procurement", cta: "Order", urgency: "soon", icon: "clipboardCheck",
+    items: approvedPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name })),
+  });
+  const salesWithBalance = activeSales.filter((s) => s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL");
+  if (canSeeSales && salesWithBalance.length > 0) queues.push({
+    key: "sales-balance", title: "Sales awaiting payment",
+    consequence: "Collect outstanding balances from customers",
+    count: salesWithBalance.length, href: "/sales", cta: "Collect", urgency: "soon", icon: "dollarSign",
+    items: salesWithBalance.map((s) => {
+      const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+      return { label: s.customer.name, sub: `${formatCurrency(toNum(s.salePrice) - totalPaid)} balance due` };
+    }),
+  });
+  if (canManageStock && pendingStockCounts.length > 0) queues.push({
+    key: "stock-count", title: "Stock counts to process",
+    consequence: "Confirm counts and reconcile variances to keep stock accurate",
+    count: pendingStockCounts.length, href: "/stock?tab=counts", cta: "Process", urgency: "soon", icon: "clipboardCheck",
+    items: pendingStockCounts.map((c) => ({ label: c.location.name, sub: c.status === "DRAFT" ? "Awaiting confirmation" : "Awaiting reconciliation" })),
+  });
+  if (canSeeSales && availableUnits.length > 0) queues.push({
+    key: "units-sell", title: "Units ready to sell",
+    consequence: "These built units are available — find buyers and close sales",
+    count: availableUnits.length, href: "/units", cta: "Sell", urgency: "soon", icon: "home",
+    items: availableUnits.map((u) => ({ label: u.unitNumber, sub: u.project.name })),
+  });
 
-  const actionCount = draftPOs.length + pendingRequisitions.length + overduePOs.length + lowStock.length;
+  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + q.count, 0);
+  const totalQueues = queues.reduce((n, q) => n + q.count, 0);
+
+  // ── Pending actions by type (for chart) ──────────────────────────
+  const pendingActions: { label: string; value: number }[] = [];
+  if (canApproveReq && pendingRequisitions.length > 0) pendingActions.push({ label: "Pending reqs", value: pendingRequisitions.length });
+  if (canApprovePO && draftPOs.length > 0) pendingActions.push({ label: "Draft POs", value: draftPOs.length });
+  if (canSeeProcurement && overduePOs.length > 0) pendingActions.push({ label: "Overdue POs", value: overduePOs.length });
+  if (canSeeStock && lowStockCount > 0) pendingActions.push({ label: "Low stock", value: lowStockCount });
+  if (canApproveReq && approvedReqs.length > 0) pendingActions.push({ label: "Ready to order", value: approvedReqs.length });
+  if (canApprovePO && approvedPOs.length > 0) pendingActions.push({ label: "Ready to send", value: approvedPOs.length });
+  if (canSeeSales && salesWithBalance.length > 0) pendingActions.push({ label: "Sales dues", value: salesWithBalance.length });
+  if (canManageStock && pendingStockCounts.length > 0) pendingActions.push({ label: "Stock counts", value: pendingStockCounts.length });
+
+  // ── Role + permissions for Access tab ────────────────────────────
+  const roleDef = ROLES[role];
+  const perms = effectivePermissions(role);
+  const isAllAccess = roleDef.permissions === "*";
+
+  // Capabilities (only the ones this role has) — pass icon as string key
+  const allCapabilities: { icon: string; label: string; has: boolean }[] = [
+    { icon: "users", label: "Manage users", has: roleDef.canManageUsers },
+    { icon: "clipboardCheck", label: "Assign tasks", has: roleDef.canAssignTasks },
+    { icon: "briefcase", label: "Manage workflows", has: roleDef.canManageWorkflows },
+    { icon: "activity", label: "Edit canvas", has: roleDef.canEditCanvas },
+    { icon: "clipboardCheck", label: "Approve POs", has: hasPermission(role, PERM.PO_APPROVE) },
+    { icon: "clipboardList", label: "Approve requisitions", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
+    { icon: "package", label: "Transfer stock", has: hasPermission(role, PERM.STOCK_TRANSFER) },
+    { icon: "package", label: "Issue stock", has: hasPermission(role, PERM.STOCK_ISSUE) },
+    { icon: "dollarSign", label: "Create sales", has: hasPermission(role, PERM.SALE_CREATE) },
+    { icon: "wallet", label: "Record expenses", has: hasPermission(role, PERM.EXPENSE_CREATE) },
+    { icon: "home", label: "Sell assets", has: hasPermission(role, PERM.ASSET_SELL) },
+    { icon: "building", label: "Partition land", has: hasPermission(role, PERM.LAND_PARTITION) },
+  ];
+  const capabilities: Capability[] = allCapabilities.filter((c) => c.has).map(({ icon, label }) => ({ icon, label }));
+
+  // Permission matrix modules
+  const permModules: PermModule[] = [
+    { key: "projects", label: "Projects", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.PROJECTS_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.PROJECTS_MANAGE) },
+    ]},
+    { key: "procurement", label: "Procurement", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.PROCUREMENT_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.PROCUREMENT_MANAGE) },
+      { key: "po_approve", label: "Approve PO", has: hasPermission(role, PERM.PO_APPROVE) },
+      { key: "req_approve", label: "Approve Req", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
+    ]},
+    { key: "inventory", label: "Stock", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.INVENTORY_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.INVENTORY_MANAGE) },
+      { key: "transfer", label: "Transfer", has: hasPermission(role, PERM.STOCK_TRANSFER) },
+      { key: "issue", label: "Issue", has: hasPermission(role, PERM.STOCK_ISSUE) },
+    ]},
+    { key: "finance", label: "Finance", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.FINANCE_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.FINANCE_MANAGE) },
+      { key: "expense", label: "Expense", has: hasPermission(role, PERM.EXPENSE_CREATE) },
+    ]},
+    { key: "sales", label: "Sales", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.SALES_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.SALES_MANAGE) },
+      { key: "create", label: "Create", has: hasPermission(role, PERM.SALE_CREATE) },
+    ]},
+    { key: "assets", label: "Assets", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.ASSETS_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.ASSETS_MANAGE) },
+      { key: "sell", label: "Sell", has: hasPermission(role, PERM.ASSET_SELL) },
+      { key: "partition", label: "Partition", has: hasPermission(role, PERM.LAND_PARTITION) },
+    ]},
+    { key: "hr", label: "HR", actions: [
+      { key: "view", label: "View", has: hasPermission(role, PERM.HR_VIEW) },
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.HR_MANAGE) },
+      { key: "payroll", label: "Payroll", has: hasPermission(role, PERM.PAYROLL_VIEW) },
+      { key: "dpr", label: "DPR", has: hasPermission(role, PERM.DPR_VIEW) },
+    ]},
+    { key: "company", label: "Company", actions: [
+      { key: "manage", label: "Manage", has: hasPermission(role, PERM.COMPANY_MANAGE) },
+    ]},
+  ];
+
+  // ── Activity data ────────────────────────────────────────────────
+  const activityCounts: ActivityCount[] = (userActivityCounts ?? []).map((g) => ({
+    action: g.action,
+    count: g._count.action,
+  }));
+  const auditLogs: AuditLogEntry[] = userAuditLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    entityType: log.entityType,
+    timestamp: log.timestamp.toISOString(),
+  }));
+  const totalActions = activityCounts.reduce((s, g) => s + g.count, 0);
+  const hasActivity = !isDevBypass && activityCounts.length > 0;
+
+  // ── Memberships ──────────────────────────────────────────────────
+  const membershipData: MembershipData[] = memberships.map((m) => ({
+    id: m.id,
+    company: { id: m.company.id, name: m.company.name, businessType: m.company.businessType },
+    role: m.role,
+    isCurrent: m.company.id === company.id,
+  }));
+
+  // ── Project assignments ──────────────────────────────────────────
+  const assignmentData: ProjectAssignmentData[] = projectAssignments.map((a) => ({
+    id: a.id,
+    scopedRole: a.scopedRole,
+    project: { id: a.project.id, name: a.project.name, status: a.project.status },
+  }));
+
+  // ── PageHeader stats — minimal, no duplicates ────────────────────
+  // Only role + company + member since. No "active projects" or
+  // "actions" — those live in their respective tabs.
+  const headerStats: { label: string; value: string | number }[] = [
+    { label: "Role", value: roleDef.label },
+    { label: "Company", value: company.name },
+  ];
+  if (dbUser?.createdAt) headerStats.push({ label: "Member since", value: formatDate(dbUser.createdAt) });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      {/* ── Header — minimal, no card wrapper ─────────────────────── */}
-      <div className="pt-2">
-        <h1 className="text-2xl font-bold tracking-tight">Command Center</h1>
-        <p className="mt-1 text-meta text-muted-foreground">
-          {activeProjects.length} projects · {formatCurrency(toNum(inventoryVal))} inventory · {fieldPOs} in transit
-          {actionCount > 0 && <span className="text-warning"> · {actionCount} actions needed</span>}
-        </p>
-      </div>
-
-      {/* ── Pipeline — the flow, not a card grid ──────────────────── */}
-      <PipelineFlow
-        procure={{ poCount: fieldPOs, inventoryValue: toNum(inventoryVal) }}
-        build={{ projectCount: activeProjects.length, equipmentCount }}
-        sell={{ unsoldValue: toNum(unsoldAssets.total), unitCount }}
+    <Page>
+      <PageHeader
+        title={currentUser?.name ?? "User"}
+        description={`${roleDef.label} · ${company.name}`}
+        stats={headerStats}
       />
 
-      {/* ── My Tasks — inline, no card chrome ─────────────────────── */}
-      <MyTasksPanel limit={5} />
-
-      {/* ── Main split: activity feed + context sidebar ─────────────
-          NOT a card grid. A real two-column layout where the left
-          column is the primary content (live feed) and the right
-          column is contextual (actions + projects). */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-
-        {/* ── Left: Live Activity Feed ────────────────────────────── */}
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-            <h2 className="text-label text-muted-foreground">Live Activity</h2>
-          </div>
-
-          {feedTop.length === 0 ? (
-            <p className="py-12 text-center text-body text-muted-foreground">
-              No recent activity.
-            </p>
-          ) : (
-            <div className="divide-y divide-border">
-              {feedTop.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="group flex items-center gap-3 py-2.5 transition-colors hover:bg-muted/30 -mx-2 px-2 rounded-md"
-                  >
-                    {/* Icon — no colored circle, just the icon */}
-                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
-
-                    {/* Content */}
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-body font-medium">{item.title}</div>
-                      <div className="truncate text-caption text-muted-foreground">{item.subtitle}</div>
-                    </div>
-
-                    {/* Timestamp — relative, monospace */}
-                    <span className="shrink-0 text-micro text-muted-foreground tnum">
-                      {timeAgo(item.timestamp)}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Right: Context sidebar — actions + projects ────────── */}
-        <div className="space-y-6">
-
-          {/* Actions needed — no card, just a section */}
-          {actionCount > 0 && (
-            <div>
-              <div className="mb-3 flex items-center gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                <h2 className="text-label text-muted-foreground">Actions Needed</h2>
-                <span className="text-micro font-semibold text-warning tnum">{actionCount}</span>
-              </div>
-
-              <div className="space-y-3">
-                {draftPOs.length > 0 && (
-                  <ActionSection
-                    title="POs to approve"
-                    count={draftPOs.length}
-                    href="/procurement"
-                    items={draftPOs.map((po) => ({
-                      label: po.poNumber,
-                      sub: po.supplier.name,
-                    }))}
-                  />
-                )}
-                {pendingRequisitions.length > 0 && (
-                  <ActionSection
-                    title="Requisitions"
-                    count={pendingRequisitions.length}
-                    href="/approvals"
-                    items={pendingRequisitions.map((req) => ({
-                      label: req.project.name,
-                      sub: `${req.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0)} units`,
-                    }))}
-                  />
-                )}
-                {overduePOs.length > 0 && (
-                  <ActionSection
-                    title="Overdue deliveries"
-                    count={overduePOs.length}
-                    href="/procurement"
-                    items={overduePOs.map((po) => ({
-                      label: po.poNumber,
-                      sub: `${po.supplier.name} · ${formatDate(po.expectedDate!)}`,
-                    }))}
-                  />
-                )}
-                {lowStock.length > 0 && (
-                  <ActionSection
-                    title="Low stock"
-                    count={lowStock.length}
-                    href="/materials"
-                    items={lowStock.map((m) => ({
-                      label: m.name,
-                      sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left`,
-                    }))}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Projects — compact list, no cards */}
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <h2 className="text-label text-muted-foreground">Projects</h2>
-            </div>
-
-            {activeProjects.length === 0 ? (
-              <p className="text-body text-muted-foreground">No active projects.</p>
-            ) : (
-              <div className="space-y-1">
-                {activeProjects.slice(0, 6).map((project) => {
-                  const activePhases = project.phases.filter((p) => p.status === "ACTIVE").length;
-                  return (
-                    <Link
-                      key={project.id}
-                      href={`/projects/${project.id}`}
-                      className="group block rounded-md px-2 py-2 transition-colors hover:bg-muted/40 -mx-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-body font-medium">{project.name}</span>
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${project.status === "ACTIVE" ? "bg-success" : "bg-muted-foreground/40"}`} />
-                      </div>
-                      <div className="mt-0.5 text-caption text-muted-foreground">
-                        {activePhases} phases · {project._count.builtUnits} units
-                      </div>
-                    </Link>
-                  );
-                })}
-                {activeProjects.length > 6 && (
-                  <Link
-                    href="/projects"
-                    className="block px-2 py-1.5 text-caption text-muted-foreground hover:text-foreground -mx-2"
-                  >
-                    View all {activeProjects.length} →
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-
-        </div>
-      </div>
-    </div>
+      <ProfileTabs
+        name={currentUser?.name ?? "User"}
+        email={currentUser?.email ?? ""}
+        phone={dbUser?.phone ?? null}
+        image={dbUser?.image ?? null}
+        active={dbUser?.active ?? true}
+        createdAt={dbUser?.createdAt?.toISOString() ?? null}
+        companyName={company.name}
+        roleLabel={roleDef.label}
+        roleDescription={roleDef.description}
+        canManageCompany={canManageCompany}
+        queues={queues}
+        totalQueues={totalQueues}
+        blockingQueues={blockingQueues}
+        canSeeProcurement={canSeeProcurement}
+        canSeeStock={canSeeStock}
+        procurementTrend={procurementTrend}
+        totalPOs6mo={totalPOs6mo}
+        totalSpend6mo={totalSpend6mo}
+        poTrendDelta={poTrendDelta}
+        stockHealth={stockHealth}
+        lowStockCount={lowStockCount}
+        pendingActions={pendingActions}
+        capabilities={capabilities}
+        permModules={permModules}
+        isAllAccess={isAllAccess}
+        permCount={perms.length}
+        memberships={membershipData}
+        projectAssignments={assignmentData}
+        totalActions={totalActions}
+        activityCounts={activityCounts}
+        auditLogs={auditLogs}
+        hasActivity={hasActivity}
+      />
+    </Page>
   );
-}
-
-// ── Sub-components ──────────────────────────────────────────────
-
-function ActionSection({
-  title,
-  count,
-  href,
-  items,
-}: {
-  title: string;
-  count: number;
-  href: string;
-  items: { label: string; sub: string }[];
-}) {
-  return (
-    <Link href={href} className="group block">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-caption font-semibold text-foreground">{title}</span>
-        <span className="text-micro font-semibold text-warning tnum">{count}</span>
-      </div>
-      <div className="space-y-0.5">
-        {items.slice(0, 3).map((item, i) => (
-          <div key={i} className="flex items-center justify-between text-caption">
-            <span className="truncate font-medium text-foreground">{item.label}</span>
-            <span className="ml-2 shrink-0 truncate text-muted-foreground">{item.sub}</span>
-          </div>
-        ))}
-        {items.length > 3 && (
-          <div className="text-micro text-muted-foreground">+{items.length - 3} more</div>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-/** Relative time — "2m", "3h", "1d" */
-function timeAgo(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const m = Math.floor(diff / 60000);
-  const h = Math.floor(diff / 3600000);
-  const d = Math.floor(diff / 86400000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  if (h < 24) return `${h}h`;
-  if (d < 7) return `${d}d`;
-  return formatDate(date);
 }

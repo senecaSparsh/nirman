@@ -10,7 +10,7 @@ import { Input, Select, Label } from "@/components/ui/input";
 import type { AreaUnit, BuiltUnitType, PhaseOption, ProjectOption } from "@/lib/types";
 
 const UNIT_TYPES: BuiltUnitType[] = [
-  "BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "OTHER",
+  "BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "VILLA", "OTHER",
 ];
 
 const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
@@ -21,16 +21,19 @@ const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
   SHOP: "Shop",
   OFFICE: "Office",
   WAREHOUSE_UNIT: "Warehouse Unit",
+  VILLA: "Villa",
   OTHER: "Other",
 };
 
-const AREA_UNITS: AreaUnit[] = ["SQFT", "SQM", "ACRE", "BIGHA", "HECTARE"];
+const AREA_UNITS: AreaUnit[] = ["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"];
 const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
-  SQFT: "sqft",
-  SQM: "sqm",
-  ACRE: "acre",
-  BIGHA: "bigha",
-  HECTARE: "hectare",
+  SQFT: "Sq.Ft",
+  SQM: "Sq.Mtr",
+  SQYD: "Sq.Yard",
+  ACRE: "Acre",
+  BIGHA: "Bigha",
+  KATHA: "Katha",
+  HECTARE: "Hectare",
 };
 
 type UnitRow = {
@@ -216,11 +219,17 @@ export function BuiltUnitFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create units");
-      toast.success(`${payload.length} unit${payload.length !== 1 ? "s" : ""} created`);
+      toast.success(`${payload.length} unit${payload.length !== 1 ? "s" : ""} created`, {
+        description: "Units start as Planned. Move them to Construction when work begins.",
+        action: {
+          label: "View Units",
+          onClick: () => router.push(`/units?project=${projectId}`),
+        },
+      });
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -395,6 +404,7 @@ export function BuiltUnitFormDialog({
                       onClick={() => duplicateRow(idx)}
                       disabled={saving}
                       title="Duplicate row"
+                      aria-label="Duplicate row"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
@@ -407,6 +417,7 @@ export function BuiltUnitFormDialog({
                         onClick={() => removeRow(idx)}
                         disabled={saving}
                         title="Remove row"
+                        aria-label="Remove row"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

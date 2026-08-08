@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { cancelSale, recordPayment } from "@nirman/services";
-import { apiHandler, json, toNum, paymentSchema, requirePermission } from "@/lib/server";
+import { cancelSale, completeSale, recordDeposit, recordPayment } from "@nirman/services";
+import { apiHandler, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -51,6 +51,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     profit: toNum(s.profit),
     saleDate: s.saleDate.toISOString(),
     status: s.status,
+    saleStage: s.saleStage,
+    depositAmount: s.depositAmount ? toNum(s.depositAmount) : null,
+    depositDate: s.depositDate ? s.depositDate.toISOString() : null,
+    finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
     paymentStatus: s.paymentStatus,
     paymentMode: s.paymentMode,
     notes: s.notes,
@@ -69,7 +73,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 /**
- * PATCH /api/sales/[id] — cancel a sale (only if no payments).
+ * PATCH /api/sales/[id] — cancel a sale.
+ *   body: { action: "cancel" }
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.SALES_MANAGE);
@@ -81,8 +86,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await cancelSale(id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Cancel failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Cancel failed") }, { status: 400 });
     }
   }
 
@@ -90,25 +95,74 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 /**
- * POST /api/sales/[id]/payments — record a payment against a sale.
+ * POST /api/sales/[id] — action dispatcher for sale lifecycle.
+ *   body: { action: "deposit" | "complete" | "payment", ...payload }
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.SALES_MANAGE);
+  const user = await requirePermission(PERM.SALES_MANAGE);
   const { id } = await params;
   const body = await req.json();
-  const parsed = paymentSchema.safeParse(body);
-  if (!parsed.success) {
-    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  const action = body?.action as string;
+
+  // ── Record a deposit (liability, no revenue recognition) ──
+  if (action === "deposit") {
+    const parsed = depositSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    try {
+      const result = await recordDeposit({
+        saleId: id,
+        depositAmount: parsed.data.depositAmount,
+        paymentMode: parsed.data.paymentMode,
+        reference: parsed.data.reference ?? undefined,
+        userId: user.id,
+      });
+      return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Deposit failed") }, { status: 400 });
+    }
   }
-  try {
-    const result = await recordPayment({
-      assetSaleId: id,
-      amount: parsed.data.amount,
-      mode: parsed.data.mode,
-      reference: parsed.data.reference ?? undefined,
-    });
-    return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Payment failed" }, { status: 400 });
+
+  // ── Complete the sale (final payment + title transfer + revenue recognition) ──
+  if (action === "complete") {
+    const parsed = completeSaleSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    try {
+      const result = await completeSale({
+        saleId: id,
+        finalPaymentAmount: parsed.data.finalPaymentAmount,
+        paymentMode: parsed.data.paymentMode,
+        reference: parsed.data.reference ?? undefined,
+        userId: user.id,
+      });
+      return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Complete failed") }, { status: 400 });
+    }
   }
+
+  // ── Record a payment (against receivable, for completed sales) ──
+  if (action === "payment" || !action) {
+    const parsed = paymentSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    try {
+      const result = await recordPayment({
+        assetSaleId: id,
+        amount: parsed.data.amount,
+        mode: parsed.data.mode,
+        reference: parsed.data.reference ?? undefined,
+        userId: user.id,
+      });
+      return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Payment failed") }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Invalid action. Use deposit, complete, payment, or cancel." }, { status: 400 });
 });

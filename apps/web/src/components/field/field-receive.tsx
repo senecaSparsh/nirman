@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { haptic } from "@/lib/haptic";
 import {
-  ScanLine, Package, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
+  ScanLine, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
   RefreshCw, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, formatCurrency } from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import type { QueuedOperation } from "@/lib/offline/queue";
 
@@ -83,22 +84,29 @@ async function scanBarcode(): Promise<string | null> {
 
 // ── Component ────────────────────────────────────────────────────
 
-export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[] }) {
+export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: ReceivablePo[]; initialPoId?: string }) {
   const router = useRouter();
   const { queue, pending, online, syncing, enqueue, sync } = useOfflineQueue();
-  const [selectedPoId, setSelectedPoId] = useState<string>("");
+  const [selectedPoId, setSelectedPoId] = useState<string>(initialPoId ?? "");
   const [receipts, setReceipts] = useState<Record<string, string>>({}); // lineId → qty
   const [scanning, setScanning] = useState(false);
+  const [confirmLines, setConfirmLines] = useState<{ name: string; qty: number; unit: string; cost: number }[] | null>(null);
 
   const selectedPo = useMemo(
     () => purchaseOrders.find((p) => p.id === selectedPoId) ?? null,
     [purchaseOrders, selectedPoId],
   );
 
-  // Auto-select the first PO if only one is receivable.
+  // Auto-select: deep-linked PO first, then the only PO if there's just one.
   useEffect(() => {
-    if (!selectedPoId && purchaseOrders.length === 1) setSelectedPoId(purchaseOrders[0]!.id);
-  }, [purchaseOrders, selectedPoId]);
+    if (!selectedPoId) {
+      if (initialPoId && purchaseOrders.some((p) => p.id === initialPoId)) {
+        setSelectedPoId(initialPoId);
+      } else if (purchaseOrders.length === 1) {
+        setSelectedPoId(purchaseOrders[0]!.id);
+      }
+    }
+  }, [purchaseOrders, selectedPoId, initialPoId]);
 
   function setQty(lineId: string, qty: string) {
     setReceipts((r) => ({ ...r, [lineId]: qty }));
@@ -130,7 +138,7 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
     toast.success(`Scanned ${line.materialName} — enter ${remaining} ${line.unit}`);
   }
 
-  function submitReceipt() {
+  function prepareReceipt() {
     if (!selectedPo) return toast.error("Select a purchase order");
     const lines = selectedPo.lines
       .map((l) => {
@@ -155,6 +163,35 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
     }[];
     if (lines.length === 0) return toast.error("Enter a quantity for at least one line");
 
+    // Build confirmation summary
+    const summary = lines.map((l) => {
+      const poLine = selectedPo.lines.find((p) => p.id === l.purchaseOrderLineId)!;
+      return { name: poLine.materialName, qty: l.qtyReceived, unit: poLine.unit, cost: l.qtyReceived * l.unitCost };
+    });
+    haptic(10);
+    setConfirmLines(summary);
+  }
+
+  function confirmReceipt() {
+    if (!selectedPo || !confirmLines) return;
+    const lines = selectedPo.lines
+      .map((l) => {
+        const qty = Number(receipts[l.id] ?? 0);
+        if (!(qty > 0)) return null;
+        return {
+          purchaseOrderLineId: l.id,
+          materialId: l.materialId,
+          qtyReceived: qty,
+          unitCost: l.unitCost,
+        };
+      })
+      .filter(Boolean) as {
+      purchaseOrderLineId: string;
+      materialId: string;
+      qtyReceived: number;
+      unitCost: number;
+    }[];
+
     const payload = {
       purchaseOrderId: selectedPo.id,
       locationId: selectedPo.destinationLocationId,
@@ -162,13 +199,15 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
       lines,
     };
 
+    haptic(30);
     void enqueue("goods-receipt", payload).then(() => {
       toast.success(
         online
-          ? "Receipt recorded — stock updated."
-          : `Offline — receipt queued (${pending + 1}). Will sync when online.`,
+          ? "GRN recorded — stock updated."
+          : `Offline — GRN queued (${pending + 1}). Will sync when online.`,
       );
       setReceipts({});
+      setConfirmLines(null);
       router.refresh();
     });
   }
@@ -239,7 +278,6 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
           <div className="space-y-2">
             {selectedPo.lines.map((l) => {
               const remaining = l.qtyOrdered - l.qtyReceived;
-              const entered = Number(receipts[l.id] ?? 0);
               const done = remaining <= 0;
               return (
                 <div
@@ -258,6 +296,8 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
                   </div>
                   <Input
                     type="number"
+                    inputMode="decimal"
+                    enterKeyHint="done"
                     step="0.001"
                     min="0"
                     max={remaining}
@@ -272,10 +312,62 @@ export function FieldReceive({ purchaseOrders }: { purchaseOrders: ReceivablePo[
             })}
           </div>
 
-          <Button onClick={submitReceipt} className="w-full" disabled={syncing}>
+          <Button onClick={prepareReceipt} className="w-full" disabled={syncing}>
             <CheckCircle2 className="mr-1.5 h-4 w-4" />
-            {online ? "Receive & update stock" : "Queue receipt (offline)"}
+            {online ? "Review receipt" : "Review receipt (offline)"}
           </Button>
+        </div>
+      )}
+
+      {/* ── Confirmation bottom sheet ──────────────────────────
+          Shows a summary of what's about to be received before
+          the user commits — prevents errors on a job site. */}
+      {confirmLines && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+            onClick={() => setConfirmLines(null)}
+          />
+          <div className="relative w-full max-w-md rounded-t-xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h3 className="text-body font-semibold text-foreground">Confirm Receipt</h3>
+              <button
+                onClick={() => setConfirmLines(null)}
+                className="text-meta text-muted-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="max-h-[40vh] overflow-y-auto px-4 py-3">
+              <div className="space-y-2">
+                {confirmLines.map((l, i) => (
+                  <div key={i} className="flex items-center justify-between text-body">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-foreground">{l.name}</div>
+                      <div className="text-caption text-muted-foreground">
+                        {formatNumber(l.qty, 3)} {l.unit} @ {formatCurrency(l.cost / l.qty)}
+                      </div>
+                    </div>
+                    <span className="shrink-0 tnum font-medium text-foreground">
+                      {formatCurrency(l.cost)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex justify-between border-t border-border pt-2.5 text-body font-semibold">
+                <span>Total value</span>
+                <span className="tnum">
+                  {formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}
+                </span>
+              </div>
+            </div>
+            <div className="border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+              <Button onClick={confirmReceipt} className="w-full" size="lg">
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                {online ? "Confirm — update stock" : "Confirm — queue offline"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

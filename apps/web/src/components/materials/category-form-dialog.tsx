@@ -25,6 +25,14 @@ export function CategoryFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Category name is required");
+      return;
+    }
+    if (!unit.trim()) {
+      toast.error("Default unit is required");
+      return;
+    }
     setSaving(true);
     try {
       const payload = { name: name.trim(), unit: unit.trim() };
@@ -41,8 +49,8 @@ export function CategoryFormDialog({
       toast.success(isEdit ? "Category updated" : "Category created");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -80,7 +88,7 @@ export function CategoryFormDialog({
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>

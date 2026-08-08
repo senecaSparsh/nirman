@@ -5,19 +5,18 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Trash2, UserCog, X,
-  CheckCircle2, Clock, AlertCircle, Loader2, Send,
+  CheckCircle2, Loader2, Send,
   LayoutGrid, List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { downloadCSV } from "@/lib/export";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 interface TaskUser {
   id: string;
@@ -42,20 +41,6 @@ interface TaskRow {
   completedAt: string | null;
   createdAt: string;
 }
-
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PENDING: "muted",
-  IN_PROGRESS: "warning",
-  COMPLETED: "success",
-  CANCELLED: "danger",
-};
-
-const PRIORITY_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  low: "muted",
-  medium: "default",
-  high: "warning",
-  urgent: "danger",
-};
 
 const AVATAR_COLORS = [
   "bg-blue-500/15 text-blue-700 dark:text-blue-300",
@@ -91,7 +76,7 @@ function relativeTime(dueDateRaw: string | null, status: string): { text: string
   if (diffDays === 0) return { text: "today", tone: "soon" };
   if (diffDays === 1) return { text: "tomorrow", tone: "soon" };
   if (diffDays <= 7) return { text: `in ${diffDays}d`, tone: "normal" };
-  return { text: new Date(dueDateRaw).toLocaleDateString(undefined, { month: "short", day: "numeric" }), tone: "normal" };
+  return { text: formatDate(dueDateRaw), tone: "normal" };
 }
 
 export function TasksManager({ tasks, users, canAssign = true, canManage = false, currentUserId = "" }: { tasks: TaskRow[]; users: TaskUser[]; canAssign?: boolean; canManage?: boolean; currentUserId?: string }) {
@@ -161,21 +146,6 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
         toast.error(data.error ?? "Failed to update status");
       } else {
         toast.success("Task status updated");
-        router.refresh();
-      }
-    } catch {
-      toast.error("Network error");
-    }
-  };
-
-  const handleDelete = async (taskId: string) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to delete");
-      } else {
-        toast.success("Task deleted");
         router.refresh();
       }
     } catch {
@@ -272,7 +242,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
           >
             <Download className="h-3.5 w-3.5" />
           </Button>
-          {canAssign && (
+          {canAssign && tasks.length > 0 && (
             <Button size="sm" className="h-9" onClick={() => setAssignOpen(true)}>
               <Plus className="h-3.5 w-3.5" /> Assign
             </Button>
@@ -290,6 +260,11 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
               ? "Assign tasks to team members from the playground canvas or using the Assign button."
               : "Try different filters or clear them."
           }
+          action={tasks.length === 0 && canAssign ? (
+            <Button size="sm" onClick={() => setAssignOpen(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Assign Task
+            </Button>
+          ) : undefined}
         />
       ) : view === "board" ? (
         <TaskBoard
@@ -389,7 +364,7 @@ const STATUS_COLUMNS = [
 ];
 
 function TaskBoard({
-  tasks, users, groupBy, onView, onComplete, onReassign, onDelete,
+  tasks, groupBy, onView, onComplete, onReassign, onDelete,
 }: {
   tasks: TaskRow[];
   users: TaskUser[];

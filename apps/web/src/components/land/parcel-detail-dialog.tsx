@@ -7,17 +7,10 @@ import { Plus, Trash2, Layers, AlertCircle } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { LandPurchaseRow, LandParcelRow } from "@/lib/types";
-
-const PARCEL_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  AVAILABLE: "success",
-  HOLD: "warning",
-  PARTITIONED: "muted",
-  SOLD: "danger",
-};
 
 export function ParcelDetailDialog({
   open,
@@ -91,8 +84,8 @@ export function ParcelDetailDialog({
       toast.success(`Parcel partitioned into ${children.length} sub-plots`);
       setPartitionParcel(null);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setActing(false);
     }
@@ -124,8 +117,8 @@ export function ParcelDetailDialog({
       toast.success("Valuation updated");
       setValuateParcel(null);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setActing(false);
     }
@@ -144,8 +137,8 @@ export function ParcelDetailDialog({
       if (!res.ok) throw new Error(data.error ?? "Status change failed");
       toast.success(action === "hold" ? "Parcel put on hold" : "Parcel released");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setActing(false);
     }
@@ -188,7 +181,7 @@ export function ParcelDetailDialog({
                 <TR key={p.id}>
                   <TD className="font-mono text-caption font-medium">{p.number}</TD>
                   <TD className="tnum text-right">{formatNumber(p.area, 0)} {p.areaUnit}</TD>
-                  <TD><Badge variant={PARCEL_STATUS_VARIANT[p.status]}>{p.status}</Badge></TD>
+                  <TD><StatusPill status={p.status} /></TD>
                   <TD className="tnum text-right">{formatCurrency(p.acquisitionCost)}</TD>
                   <TD className="tnum text-right">{p.askingPrice ? formatCurrency(p.askingPrice) : "—"}</TD>
                   <TD className="tnum text-right">{formatCurrency(p.currentValuation)}</TD>
@@ -261,7 +254,7 @@ export function ParcelDetailDialog({
                     <Input type="number" min={0} value={child.askingPrice} onChange={(e) => updateChild(idx, "askingPrice", e.target.value)} />
                   </div>
                   <div className="col-span-1 flex justify-end">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeChild(idx)} disabled={children.length < 2}>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeChild(idx)} disabled={children.length < 2} aria-label="Remove parcel">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

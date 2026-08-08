@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { StatusPill } from "@/components/page";
 
 // ───────────────────────────────────────────────────────────
 //  Types — mirror the shape returned by GET /api/tasks/[id]
@@ -76,9 +77,6 @@ interface TaskRow {
   assignedTo: TaskUser | null;
 }
 
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PENDING: "muted", IN_PROGRESS: "warning", COMPLETED: "success", CANCELLED: "danger",
-};
 const PRIORITY_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
   low: "muted", medium: "default", high: "warning", urgent: "danger",
 };
@@ -156,7 +154,7 @@ const ACTIVITY_ICON: Record<string, typeof Activity> = {
 type Tab = "steps" | "discussion" | "activity" | "dependencies" | "time";
 
 export function TaskDetailDrawer({
-  taskId, open, onClose, users, canManage, currentUserId, tasks = [],
+  taskId, open, onClose, canManage, currentUserId, tasks = [],
 }: {
   taskId: string | null;
   open: boolean;
@@ -262,8 +260,17 @@ export function TaskDetailDrawer({
                     body: JSON.stringify({ status }),
                   });
                   if (!res.ok) { const d = await res.json(); toast.error(d.error ?? "Failed"); return; }
-                  toast.success(status === "COMPLETED" ? "Task completed" : "Status updated");
-                  refreshList();
+                  if (status === "COMPLETED") {
+                    toast.success("Task completed", {
+                      description: "Good work. Closing the drawer — check your queue for what's next.",
+                      duration: 4000,
+                    });
+                    refreshList();
+                    onClose();
+                  } else {
+                    toast.success("Status updated");
+                    refreshList();
+                  }
                 } catch { toast.error("Network error"); }
               }}
               onTimerToggle={async () => {
@@ -300,7 +307,7 @@ export function TaskDetailDrawer({
             {/* ── Tab content (scrollable) ── */}
             <div className="flex-1 overflow-y-auto">
               {tab === "steps" && (
-                <StepsTab detail={detail} canEdit={canEdit} currentUserId={currentUserId} onChanged={refreshDetail} />
+                <StepsTab detail={detail} canEdit={canEdit} onChanged={refreshDetail} />
               )}
               {tab === "discussion" && (
                 <DiscussionTab detail={detail} currentUserId={currentUserId} onChanged={refreshDetail} />
@@ -325,7 +332,7 @@ export function TaskDetailDrawer({
 // ───────────────────────────────────────────────────────────
 
 function DrawerHeader({
-  detail, progress, blocked, canEdit, canManage, timerRunning, timerStartedAt, totalLogged,
+  detail, progress, blocked, canEdit, timerRunning, timerStartedAt, totalLogged,
   onClose, onStatusChange, onTimerToggle,
 }: {
   detail: TaskDetail;
@@ -387,7 +394,7 @@ function DrawerHeader({
             {detail.title}
           </h2>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant={STATUS_VARIANT[detail.status] ?? "muted"}>{detail.status.replace("_", " ")}</Badge>
+            <StatusPill status={detail.status} />
             <Badge variant={PRIORITY_VARIANT[detail.priority] ?? "muted"}>{detail.priority}</Badge>
             {detail.dueDate && (
               <Badge variant="outline">Due {relativeTime(detail.dueDate)}</Badge>
@@ -523,8 +530,8 @@ function TabButton({ active, onClick, icon: Icon, label, count }: {
 //  Steps tab — checkable subtasks with live progress
 // ───────────────────────────────────────────────────────────
 
-function StepsTab({ detail, canEdit, currentUserId, onChanged }: {
-  detail: TaskDetail; canEdit: boolean; currentUserId: string; onChanged: () => void;
+function StepsTab({ detail, canEdit, onChanged }: {
+  detail: TaskDetail; canEdit: boolean; onChanged: () => void;
 }) {
   const [newStep, setNewStep] = useState("");
   const [adding, setAdding] = useState(false);
@@ -547,17 +554,27 @@ function StepsTab({ detail, canEdit, currentUserId, onChanged }: {
 
   const toggle = async (sub: SubTask) => {
     try {
-      await fetch(`/api/tasks/${detail.id}/subtasks/${sub.id}`, {
+      const res = await fetch(`/api/tasks/${detail.id}/subtasks/${sub.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !sub.completed }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to update step");
+        return;
+      }
       onChanged();
     } catch { toast.error("Network error"); }
   };
 
   const remove = async (sub: SubTask) => {
     try {
-      await fetch(`/api/tasks/${detail.id}/subtasks/${sub.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/tasks/${detail.id}/subtasks/${sub.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to delete step");
+        return;
+      }
       onChanged();
     } catch { toast.error("Network error"); }
   };
@@ -593,7 +610,7 @@ function StepsTab({ detail, canEdit, currentUserId, onChanged }: {
             className="group flex items-center gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-muted/40"
           >
             <button
-              onClick={() => canEdit && toggle(sub)}
+              onClick={() => toggle(sub)}
               disabled={!canEdit}
               className={cn(
                 "shrink-0 transition-transform",
@@ -697,7 +714,12 @@ function DiscussionTab({ detail, currentUserId, onChanged }: {
 
   const deleteComment = async (cid: string) => {
     try {
-      await fetch(`/api/tasks/${detail.id}/comments/${cid}`, { method: "DELETE" });
+      const res = await fetch(`/api/tasks/${detail.id}/comments/${cid}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to delete comment");
+        return;
+      }
       onChanged();
     } catch { toast.error("Network error"); }
   };
@@ -852,7 +874,7 @@ function ActivityTab({ detail }: { detail: TaskDetail }) {
   // Group by day
   const groups: { label: string; items: TaskActivity[] }[] = [];
   for (const a of detail.activities) {
-    const day = new Date(a.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const day = formatDate(a.createdAt);
     let g = groups.find((g) => g.label === day);
     if (!g) { g = { label: day, items: [] }; groups.push(g); }
     g.items.push(a);
@@ -918,7 +940,12 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
 
   const removeBlocker = async (bid: string) => {
     try {
-      await fetch(`/api/tasks/${detail.id}/dependencies?blockerId=${bid}`, { method: "DELETE" });
+      const res = await fetch(`/api/tasks/${detail.id}/dependencies?blockerId=${bid}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to remove dependency");
+        return;
+      }
       onChanged();
     } catch { toast.error("Network error"); }
   };
@@ -942,7 +969,7 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
                   <span className={cn("min-w-0 flex-1 truncate text-body", done && "text-muted-foreground line-through")}>
                     {dep.blocker.title}
                   </span>
-                  <Badge variant={STATUS_VARIANT[dep.blocker.status] ?? "muted"}>{dep.blocker.status.replace("_", " ")}</Badge>
+                  <StatusPill status={dep.blocker.status} />
                   {canManage && (
                     <button
                       onClick={() => removeBlocker(dep.blocker.id)}
@@ -970,7 +997,7 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
               <div key={dep.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate text-body">{dep.blockedBy.title}</span>
-                <Badge variant={STATUS_VARIANT[dep.blockedBy.status] ?? "muted"}>{dep.blockedBy.status.replace("_", " ")}</Badge>
+                <StatusPill status={dep.blockedBy.status} />
               </div>
             ))}
           </div>

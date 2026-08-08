@@ -36,6 +36,8 @@ export function IssueMaterialsDialog({
   const [target, setTarget] = useState<Target>("PROJECT");
   const [projectId, setProjectId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [builtUnitId, setBuiltUnitId] = useState("");
+  const [builtUnits, setBuiltUnits] = useState<Array<{ id: string; unitNumber: string; unitType: string }>>([]);
   const [fromLocationId, setFromLocationId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
@@ -52,6 +54,19 @@ export function IssueMaterialsDialog({
       .then((data) => setAvailable(Array.isArray(data) ? data : []))
       .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
   }, [fromLocationId]);
+
+  // Fetch built units when a project is selected (for per-unit issuance)
+  useEffect(() => {
+    if (target !== "PROJECT" || !projectId) {
+      setBuiltUnits([]);
+      setBuiltUnitId("");
+      return;
+    }
+    fetch(`/api/built-units?projectId=${projectId}&status=AVAILABLE,UNDER_CONSTRUCTION,PLANNED`)
+      .then((r) => r.json())
+      .then((data) => setBuiltUnits(Array.isArray(data) ? data : []))
+      .catch(() => setBuiltUnits([]));
+  }, [target, projectId]);
 
   function updateLine(key: string, patch: Partial<Line>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -94,6 +109,7 @@ export function IssueMaterialsDialog({
         body: JSON.stringify({
           projectId: target === "PROJECT" ? projectId : null,
           departmentId: target === "DEPARTMENT" ? departmentId : null,
+          builtUnitId: target === "PROJECT" && builtUnitId ? builtUnitId : null,
           fromLocationId,
           notes: notes.trim() || null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
@@ -105,24 +121,24 @@ export function IssueMaterialsDialog({
       onOpenChange(false);
       setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes(""); setLines([newLine()]);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
   }
 
-  const targetLabel = target === "PROJECT" ? "Project" : "Cost Center";
+  const targetLabel = target === "PROJECT" ? "Project" : "Cost Centre";
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Center"}
+      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Centre"}
       description={
         target === "PROJECT"
           ? "Materials leave stock at MAC and accumulate as the project's material cost (WIP)."
-          : "Materials leave stock at MAC and are expensed to the department (Operating Expenses)."
+          : "Materials leave stock at MAC and are expensed to the department (operating expenses)."
       }
       className="max-w-2xl"
     >
@@ -145,7 +161,7 @@ export function IssueMaterialsDialog({
               target === "DEPARTMENT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Cost Center
+            Cost Centre
           </button>
         </div>
 
@@ -167,6 +183,16 @@ export function IssueMaterialsDialog({
               </Select>
             )}
           </Field>
+          {target === "PROJECT" && builtUnits.length > 0 && (
+            <Field label="Specific Unit (optional)">
+              <Select value={builtUnitId} onChange={(e) => setBuiltUnitId(e.target.value)}>
+                <option value="">Project-wide (area-allocated)</option>
+                {builtUnits.map((u) => (
+                  <option key={u.id} value={u.id}>{u.unitNumber} ({u.unitType.replace(/_/g, " ")})</option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label="From Location" required>
             <Select value={fromLocationId} onChange={(e) => { setFromLocationId(e.target.value); setLines([newLine()]); }} required>
               <option value="" disabled>Select location…</option>
@@ -204,7 +230,7 @@ export function IssueMaterialsDialog({
                         ))}
                       </Select>
                       <Input type="number" step="0.001" min="0" max={stock?.qty} placeholder="Qty" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(l.key)} disabled={lines.length === 1} className="text-muted-foreground hover:text-danger">
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(l.key)} disabled={lines.length === 1} aria-label="Remove line" className="text-muted-foreground hover:text-danger">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

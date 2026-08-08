@@ -14,7 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const projectId = searchParams.get("projectId");
   const type = searchParams.get("type");
 
-  const result: any[] = [];
+  const result: Record<string, unknown>[] = [];
 
   if (!type || type === "LAND") {
     const parcels = await prisma.landParcel.findMany({

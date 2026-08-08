@@ -3,25 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Banknote, X, Eye } from "lucide-react";
+import { Banknote, X, Printer, CheckCircle2, HandCoins } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StatusPill } from "@/components/page";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
+import { DepositDialog } from "./deposit-dialog";
+import { CompleteSaleDialog } from "./complete-sale-dialog";
 import type { AssetSaleDetail, AssetSaleRow } from "@/lib/types";
-
-const SALE_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  ACTIVE: "success",
-  CANCELLED: "danger",
-};
-
-const PAYMENT_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PENDING: "muted",
-  PARTIAL: "warning",
-  PAID: "success",
-};
 
 export function SaleDetailDialog({
   open,
@@ -38,6 +30,9 @@ export function SaleDetailDialog({
   const [detail, setDetail] = useState<AssetSaleDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [acting, setActing] = useState(false);
 
   useEffect(() => {
@@ -63,11 +58,13 @@ export function SaleDetailDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Cancel failed");
-      toast.success("Sale cancelled");
+      toast.success("Sale cancelled", {
+        description: sale.depositAmount ? "Deposit refunded. Asset released." : "Asset released back to available.",
+      });
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
@@ -81,7 +78,22 @@ export function SaleDetailDialog({
   const assetLabel = sale.assetType === "LAND"
     ? `Plot ${sale.landParcelNumber ?? "—"}`
     : `Unit ${sale.builtUnitNumber ?? "—"}${sale.builtUnitType ? ` (${sale.builtUnitType.replace("_", " ")})` : ""}`;
-  const canCancel = sale.status === "ACTIVE" && sale.paymentCount === 0;
+
+  const saleStage = sale.saleStage ?? (sale.status === "CANCELLED" ? "CANCELLED" : "COMPLETED");
+  const isCancelled = sale.status === "CANCELLED";
+  const isCompleted = saleStage === "COMPLETED";
+  const isPending = saleStage === "PENDING";
+  const hasDeposit = saleStage === "DEPOSIT_RECEIVED";
+  const canManage = permissions?.canManage ?? true;
+
+  // Cancel is allowed for PENDING and DEPOSIT_RECEIVED stages (not COMPLETED)
+  const canCancel = !isCancelled && !isCompleted && canManage;
+  // Record Deposit: only for PENDING sales (no deposit yet)
+  const canRecordDeposit = isPending && !isCancelled && canManage;
+  // Complete Sale: only for sales with a deposit (DEPOSIT_RECEIVED)
+  const canCompleteSale = hasDeposit && !isCancelled && canManage;
+  // Record Payment: for completed sales with balance due, or deposit sales
+  const canRecordPayment = !isCancelled && sale.balanceDue > 0 && !isPending && canManage;
 
   return (
     <>
@@ -98,25 +110,43 @@ export function SaleDetailDialog({
           <div className="space-y-3">
             {/* Status badges */}
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant={SALE_STATUS_VARIANT[sale.status] ?? "muted"}>{sale.status}</Badge>
-              <Badge variant={PAYMENT_STATUS_VARIANT[sale.paymentStatus] ?? "muted"}>
-                {sale.paymentStatus}
-              </Badge>
+              <StatusPill status={sale.status} />
+              <StatusPill status={saleStage} />
+              <StatusPill status={sale.paymentStatus} />
               <span className="text-meta text-muted-foreground">{formatDate(sale.saleDate)}</span>
             </div>
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
-              {sale.status === "ACTIVE" && sale.balanceDue > 0 && (permissions?.canManage ?? true) && (
-                <Button size="sm" onClick={() => setPayOpen(true)}>
+              {canRecordDeposit && (
+                <Button size="sm" onClick={() => setDepositOpen(true)}>
+                  <HandCoins className="h-4 w-4" /> Record Deposit
+                </Button>
+              )}
+              {canCompleteSale && (
+                <Button size="sm" onClick={() => setCompleteOpen(true)}>
+                  <CheckCircle2 className="h-4 w-4" /> Complete Sale
+                </Button>
+              )}
+              {canRecordPayment && (
+                <Button size="sm" variant="outline" onClick={() => setPayOpen(true)}>
                   <Banknote className="h-4 w-4" /> Record Payment
                 </Button>
               )}
-              {canCancel && (permissions?.canManage ?? true) && (
-                <Button size="sm" variant="outline" onClick={cancelSale} disabled={acting} className="text-muted-foreground hover:text-danger">
+              {canCancel && (
+                <Button size="sm" variant="outline" onClick={() => setCancelOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Cancel Sale
                 </Button>
               )}
+              <a
+                href={`/print/sale-invoice/${sale.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+                title="Print sale invoice"
+              >
+                <Printer className="h-4 w-4" /> Print Invoice
+              </a>
             </div>
 
             {/* Sale summary */}
@@ -140,6 +170,78 @@ export function SaleDetailDialog({
                 <p className="tnum font-medium text-warning">{formatCurrency(sale.balanceDue)}</p>
               </div>
             </div>
+
+            {/* Deposit info (if deposit received) */}
+            {sale.depositAmount != null && sale.depositAmount > 0 && (
+              <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-soft/30 p-3">
+                <HandCoins className="h-4 w-4 shrink-0 text-warning" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-foreground">
+                    Deposit: {formatCurrency(sale.depositAmount)}
+                    {sale.depositDate && <span className="ml-2 text-caption text-muted-foreground">on {formatDate(sale.depositDate)}</span>}
+                  </p>
+                  <p className="text-caption text-muted-foreground">
+                    {isCompleted
+                      ? "Deposit settled against receivable on completion."
+                      : "Recorded as liability. Revenue not yet recognised."}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Completion info */}
+            {isCompleted && sale.finalSaleDate && (
+              <div className="flex items-center gap-3 rounded-lg border border-success/30 bg-success-soft/20 p-3">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-foreground">
+                    Sale completed on {formatDate(sale.finalSaleDate)}
+                  </p>
+                  <p className="text-caption text-muted-foreground">Revenue + COGS recognised. Title transferred.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Payment progress + next step */}
+            {!isCancelled && sale.balanceDue > 0 && !isPending && (
+              <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-soft/30 p-3">
+                <Banknote className="h-4 w-4 shrink-0 text-warning" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-foreground">
+                    {formatCurrency(sale.totalPaid)} paid · {formatCurrency(sale.balanceDue)} remaining
+                  </p>
+                  <p className="text-caption text-muted-foreground">
+                    {sale.paymentCount} payment{sale.paymentCount !== 1 ? "s" : ""} recorded so far
+                  </p>
+                </div>
+                {canManage && hasDeposit && (
+                  <Button size="sm" onClick={() => setCompleteOpen(true)}>
+                    <CheckCircle2 className="h-4 w-4" /> Complete Sale
+                  </Button>
+                )}
+                {canManage && isCompleted && (
+                  <Button size="sm" onClick={() => setPayOpen(true)}>
+                    <Banknote className="h-4 w-4" /> Record Next Payment
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Pending sale prompt */}
+            {isPending && !isCancelled && (
+              <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <HandCoins className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-foreground">Sale pending — no deposit yet</p>
+                  <p className="text-caption text-muted-foreground">Record a deposit to reserve the asset, or cancel to release it.</p>
+                </div>
+                {canManage && (
+                  <Button size="sm" onClick={() => setDepositOpen(true)}>
+                    <HandCoins className="h-4 w-4" /> Record Deposit
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Asset + customer info */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -172,6 +274,7 @@ export function SaleDetailDialog({
                         <TH>Mode</TH>
                         <TH>Reference</TH>
                         <TH>Status</TH>
+                        <TH></TH>
                       </TR>
                     </THead>
                     <TBody>
@@ -182,9 +285,18 @@ export function SaleDetailDialog({
                           <TD>{p.mode.replace("_", " ")}</TD>
                           <TD className="text-muted-foreground">{p.reference ?? "—"}</TD>
                           <TD>
-                            <Badge variant={p.status === "RECEIVED" ? "success" : "muted"} className="px-1.5 py-0">
-                              {p.status}
-                            </Badge>
+                            <StatusPill status={p.status} />
+                          </TD>
+                          <TD>
+                            <a
+                              href={`/print/payment-receipt/${p.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-foreground"
+                              title="Print receipt"
+                            >
+                              <Printer className="h-3 w-3" />
+                            </a>
                           </TD>
                         </TR>
                       ))}
@@ -209,6 +321,21 @@ export function SaleDetailDialog({
       </Dialog>
 
       <PaymentDialog open={payOpen} onOpenChange={setPayOpen} sale={sale} />
+      <DepositDialog open={depositOpen} onOpenChange={setDepositOpen} sale={sale} />
+      <CompleteSaleDialog open={completeOpen} onOpenChange={setCompleteOpen} sale={sale} />
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel this sale?"
+        description={
+          sale.depositAmount
+            ? "Cancelling will refund the customer deposit and release the asset back to available. This cannot be undone."
+            : "Cancelling will release the asset back to available. This cannot be undone."
+        }
+        confirmLabel="Cancel Sale"
+        onConfirm={cancelSale}
+      />
     </>
   );
 }

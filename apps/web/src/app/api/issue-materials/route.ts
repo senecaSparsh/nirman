@@ -26,16 +26,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
       fromLocationId: parsed.data.fromLocationId,
       issuedById: user.id,
       notes: parsed.data.notes ?? undefined,
-      lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
+      receiverName: parsed.data.receiverName ?? undefined,
+      receiverMobile: parsed.data.receiverMobile ?? undefined,
+      roundOff: parsed.data.roundOff ?? undefined,
+      lines: parsed.data.lines.map((l) => ({ materialId: l.materialId, qty: l.qty, lotNumber: l.lotNumber ?? null })),
     };
     const result = parsed.data.departmentId
       ? await issueMaterialsToDepartment({ ...common, departmentId: parsed.data.departmentId })
-      : await issueMaterialsToProject({ ...common, projectId: parsed.data.projectId! });
+      : await issueMaterialsToProject({ ...common, projectId: parsed.data.projectId!, builtUnitId: parsed.data.builtUnitId ?? undefined });
     return json(
-      { ok: true, materialIssueId: result.materialIssue.id, totalCost: toNum(result.totalCost) },
+      { ok: true, materialIssueId: result.materialIssue.id, issueNumber: result.materialIssue.issueNumber, totalCost: toNum(result.totalCost), totalAmount: toNum(result.totalCost) },
       { status: 201 },
     );
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to issue materials" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to issue materials") }, { status: 400 });
   }
 });

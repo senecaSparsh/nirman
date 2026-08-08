@@ -54,11 +54,23 @@ export function PaymentDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
-      toast.success("Payment recorded");
+      const remaining = balanceDue - amountNum;
+      toast.success("Payment received", {
+        description: remaining > 0
+          ? `Remaining balance: ${formatCurrency(remaining)}`
+          : "Sale fully paid — GL entry posted.",
+        action: remaining > 0 ? {
+          label: "Record Next Payment",
+          onClick: () => router.push(`/sales?sale=${sale!.id}`),
+        } : {
+          label: "View GL Entry",
+          onClick: () => router.push("/gl"),
+        },
+      });
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

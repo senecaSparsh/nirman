@@ -22,15 +22,15 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  Plus, Save, Play, Trash2, Clock, Send, CheckCircle2,
-  AlertCircle, Workflow as WorkflowIcon, Calendar, Loader2,
-  X, ChevronDown, Zap, Bell, FileEdit, GitBranch, Eye,
+  Plus, Save, Play, Trash2, Clock, CheckCircle2,
+  Workflow as WorkflowIcon, Calendar, Loader2,
+  X, Zap, Bell, FileEdit, GitBranch, ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { StatusPill } from "@/components/page";
 import { cn, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import type { WorkflowGraph, WorkflowStep, StepType } from "@/lib/workflow-engine";
@@ -41,10 +41,11 @@ import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
 const STEP_TYPES: Record<StepType, { label: string; icon: typeof Zap; color: string; description: string }> = {
   create_task: { label: "Create Task", icon: CheckCircle2, color: "#2563eb", description: "Assign a task to a user" },
   send_notification: { label: "Send Notification", icon: Bell, color: "#0ea5e9", description: "Notify a user in-app" },
-  create_record: { label: "Create Record", icon: FileEdit, color: "#10b981", description: "Create a DB record" },
+  create_record: { label: "Create Record", icon: FileEdit, color: "#10b981", description: "Create a DB record (task, project cost, expense)" },
   wait: { label: "Wait", icon: Clock, color: "#f59e0b", description: "Pause for a duration" },
-  condition: { label: "Condition", icon: GitBranch, color: "#8b5cf6", description: "Branch based on a condition" },
+  condition: { label: "Condition", icon: GitBranch, color: "#8b5cf6", description: "Branch based on a condition (low stock, overdue POs, etc.)" },
   update_status: { label: "Update Status", icon: Zap, color: "#ec4899", description: "Update a record's status" },
+  auto_requisition: { label: "Auto Requisition", icon: ShoppingCart, color: "#f97316", description: "Generate a draft requisition for low-stock materials" },
 };
 
 interface StepNodeData {
@@ -55,7 +56,7 @@ interface StepNodeData {
 
 // ── Custom node component ──
 
-function StepNode({ id, data, selected }: NodeProps) {
+function StepNode({ data, selected }: NodeProps) {
   const { step, isStart } = data as StepNodeData;
   const def = STEP_TYPES[step.type];
   const Icon = def.icon;
@@ -116,7 +117,7 @@ function WorkflowBuilderInner({
   const canEdit = canManageWorkflows();
 
   const idCounter = useRef(0);
-  const nextId = () => `s${Date.now().toString(36)}${(idCounter.current++).toString(36)}`;
+  const nextId = useCallback(() => `s${Date.now().toString(36)}${(idCounter.current++).toString(36)}`, []);
 
   // Initialize nodes/edges from graph
   const initialNodes: Node[] = initialGraph
@@ -180,7 +181,7 @@ function WorkflowBuilderInner({
     const newNode: Node = {
       id,
       type: "step",
-      position: { x: 200 + Math.random() * 200, y: 80 + nodes.length * 80 },
+      position: { x: 200 + ((idCounter.current * 47) % 200), y: 80 + nodes.length * 80 },
       data: { step: newStep, isStart: false } as StepNodeData,
     };
     setNodes((nds) => [...nds, newNode]);
@@ -228,6 +229,7 @@ function WorkflowBuilderInner({
       target: e.to,
       type: "smoothstep",
       animated: true,
+      ...(e.condition ? { label: e.condition, data: { condition: e.condition } } : {}),
     }));
     setNodes(newNodes);
     setEdges(newEdges);
@@ -243,7 +245,11 @@ function WorkflowBuilderInner({
     const startStepId = startNode?.id ?? steps[0]?.id ?? "";
     return {
       steps,
-      edges: edges.map((e) => ({ from: e.source, to: e.target })),
+      edges: edges.map((e) => ({
+        from: e.source,
+        to: e.target,
+        ...(e.data?.condition ? { condition: String((e.data as Record<string, unknown>).condition) } : {}),
+      })),
       startStepId,
     };
   };
@@ -357,9 +363,7 @@ function WorkflowBuilderInner({
             className="h-9 max-w-xs font-medium"
             disabled={!canEdit}
           />
-          <Badge variant={status === "ACTIVE" ? "success" : status === "DRAFT" ? "muted" : "outline"}>
-            {status}
-          </Badge>
+          <StatusPill status={status} />
         </div>
 
         {canEdit && (
@@ -478,9 +482,7 @@ function WorkflowBuilderInner({
           <div className="space-y-1.5">
             {runs.map((r) => (
               <div key={r.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                <Badge variant={r.status === "COMPLETED" ? "success" : r.status === "FAILED" ? "danger" : r.status === "RUNNING" ? "warning" : "muted"}>
-                  {r.status}
-                </Badge>
+                <StatusPill status={r.status} />
                 <span className="text-caption text-muted-foreground">{r.createdAt}</span>
                 {r.currentStep != null && <span className="text-caption text-muted-foreground">Step: {r.currentStep + 1}</span>}
                 {r.triggeredBy && <span className="text-caption text-muted-foreground">by {r.triggeredBy}</span>}
@@ -624,6 +626,9 @@ function StepEditor({
       {step.type === "send_notification" && <NotificationConfig step={step} onUpdate={onUpdate} />}
       {step.type === "wait" && <WaitConfig step={step} onUpdate={onUpdate} />}
       {step.type === "update_status" && <UpdateStatusConfig step={step} onUpdate={onUpdate} />}
+      {step.type === "condition" && <ConditionConfig step={step} onUpdate={onUpdate} />}
+      {step.type === "auto_requisition" && <AutoRequisitionConfig step={step} onUpdate={onUpdate} />}
+      {step.type === "create_record" && <CreateRecordConfig step={step} onUpdate={onUpdate} />}
 
       <div className="pt-2 border-t border-border">
         <Button variant="destructive" size="sm" onClick={onDelete} className="w-full">
@@ -639,7 +644,7 @@ function StepEditor({
 function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
   const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => {});
+    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => toast.error("Failed to load users"));
   }, []);
 
   return (
@@ -693,7 +698,7 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
 function NotificationConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
   const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => {});
+    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => toast.error("Failed to load users"));
   }, []);
 
   return (
@@ -787,6 +792,113 @@ function UpdateStatusConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
   );
 }
 
+function ConditionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Condition Config</p>
+      <div className="space-y-1.5">
+        <Label>Predicate (what to check)</Label>
+        <Select
+          value={String(step.config.predicate ?? "low_stock")}
+          onChange={(e) => onUpdate({ config: { ...step.config, predicate: e.target.value } })}
+        >
+          <option value="low_stock">Low stock — any material below reorder point</option>
+          <option value="overdue_pos">Overdue POs — any PO past expected date</option>
+          <option value="pending_approvals">Pending approvals — any DRAFT POs or SUBMITTED requisitions</option>
+          <option value="task_count">Open task count above threshold</option>
+          <option value="custom_field">Custom field — evaluate a field on a record</option>
+        </Select>
+      </div>
+      <div className="rounded-md bg-muted/40 p-2 text-caption text-muted-foreground">
+        Connect the <strong>true</strong> edge to the step that runs when the condition is met,
+        and the <strong>false</strong> edge to the step that runs when it isn&apos;t.
+      </div>
+      {String(step.config.predicate) === "task_count" && (
+        <div className="space-y-1.5">
+          <Label>Threshold (open tasks)</Label>
+          <Input
+            type="number"
+            value={String(step.config.threshold ?? "0")}
+            onChange={(e) => onUpdate({ config: { ...step.config, threshold: Number(e.target.value) } })}
+            placeholder="e.g. 5"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AutoRequisitionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/projects").then((r) => r.json()).then((d) => {
+      if (Array.isArray(d)) setProjects(d.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
+    }).catch(() => toast.error("Failed to load projects"));
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Auto Requisition Config</p>
+      <div className="space-y-1.5">
+        <Label>Project</Label>
+        <Select
+          value={String(step.config.projectId ?? "")}
+          onChange={(e) => onUpdate({ config: { ...step.config, projectId: e.target.value } })}
+        >
+          <option value="">Select project…</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </Select>
+      </div>
+      <div className="rounded-md bg-muted/40 p-2 text-caption text-muted-foreground">
+        Generates a DRAFT requisition for all materials below their reorder point.
+        The requisition still needs human review and submission before it becomes a PO.
+      </div>
+    </div>
+  );
+}
+
+function CreateRecordConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Create Record Config</p>
+      <div className="space-y-1.5">
+        <Label>Record Type</Label>
+        <Select
+          value={String(step.config.recordType ?? "task")}
+          onChange={(e) => onUpdate({ config: { ...step.config, recordType: e.target.value } })}
+        >
+          <option value="task">Task</option>
+          <option value="project_cost">Project Cost</option>
+          <option value="expense">Company Expense</option>
+        </Select>
+      </div>
+      {String(step.config.recordType) !== "task" && (
+        <div className="space-y-1.5">
+          <Label>Description</Label>
+          <Input
+            value={String(step.config.description ?? "")}
+            onChange={(e) => onUpdate({ config: { ...step.config, description: e.target.value } })}
+            placeholder="e.g. Monthly overhead allocation"
+          />
+        </div>
+      )}
+      {String(step.config.recordType) !== "task" && (
+        <div className="space-y-1.5">
+          <Label>Amount (₹)</Label>
+          <Input
+            type="number"
+            value={String(step.config.amount ?? "")}
+            onChange={(e) => onUpdate({ config: { ...step.config, amount: Number(e.target.value) } })}
+            placeholder="0.00"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getDefaultConfig(type: StepType): Record<string, unknown> {
   switch (type) {
     case "create_task":
@@ -796,11 +908,13 @@ function getDefaultConfig(type: StepType): Record<string, unknown> {
     case "wait":
       return { minutes: 60 };
     case "condition":
-      return {};
+      return { predicate: "low_stock" };
     case "update_status":
       return {};
     case "create_record":
-      return { recordType: "" };
+      return { recordType: "task" };
+    case "auto_requisition":
+      return {};
     default:
       return {};
   }

@@ -36,6 +36,11 @@ model Company {
   // Logistics Complexity Index (LCI) — procurement routing config. See procurement-routing.ts.
   lciThresholdDefault Decimal? @db.Decimal(5, 2) // default LCI threshold for projects without an explicit override
   lciWeights          Json?    // { w1, w2, w3, w4 } normalized weighting coefficients
+  // Value-based PO approval routing thresholds (in INR). POs below the manager
+  // threshold can be approved by a MANAGER; below the admin threshold require
+  // an ADMIN; at or above the admin threshold require the OWNER.
+  poApprovalThresholdManager Decimal? @db.Decimal(14, 2) // default 50,000
+  poApprovalThresholdAdmin   Decimal? @db.Decimal(14, 2) // default 500,000
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -45,13 +50,35 @@ model Company {
   purchaseOrders PurchaseOrder[]
   landPurchases  LandPurchase[]
   assetSales     AssetSale[]
+  materialSales  MaterialSale[]
+  renovations    RenovationProject[]
   expenses       Expense[]
   equipment      Equipment[]
   supplierReturns SupplierReturn[]
   employees      Employee[]
   departments    Department[]
+  crews          Crew[]
+  payrollPeriods PayrollPeriod[]
+  dailyProgressReports DailyProgressReport[]
+  attendances    WorkerAttendance[]
   userMemberships UserCompany[]
   users          User[]
+  leaveRequests  LeaveRequest[]
+  tenancies      Tenancy[]
+  dailyReports   DailyReport[]
+  directPurchases DirectPurchase[]
+  scrapGenerations ScrapGeneration[]
+  standardConsumptions StandardConsumption[]
+  tallySyncLogs        TallySyncLog[]
+  notificationTemplates NotificationTemplate[]
+  notificationLogs      NotificationLog[]
+  portalListings        PortalListing[]
+  subcontractorWorkOrders SubcontractorWorkOrder[]
+  raBills                RaBill[]
+  rateContracts          RateContract[]
+  supplierPayments       SupplierPayment[]
+  supplierInvoices       SupplierInvoice[]
+  materialLots           MaterialLot[]
 
   @@index([parentCompanyId])
 }
@@ -71,11 +98,53 @@ model UserCompany {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // ── Hierarchical RBAC (Admin → Sub-Admin → Sub-Sub-Admin) ──
+  // The architecture's multi-tier delegation hierarchy. The reporting line
+  // is per-membership: a Sub-Sub-Admin (SUPERVISOR) in company X reports to a
+  // Sub-Admin (MANAGER) in the same company, who may themselves report up to
+  // an Admin (OWNER/ADMIN). Null = top of the chain for this company.
+  reportsToUserCompanyId String?
+
+  // Scope type bounds what this membership can see within the company:
+  //   COMPANY    = unscoped (sees everything in the company) — OWNER/ADMIN
+  //   DEPARTMENT = scoped to the departments listed in UserScope — Sub-Admin
+  //   PROJECT    = scoped to the projects listed in UserScope — Sub-Sub-Admin
+  // When null, defaults by role: OWNER/ADMIN → COMPANY, MANAGER → COMPANY
+  // (regional heads set DEPARTMENT explicitly), SUPERVISOR → PROJECT.
+  scopeType String? // COMPANY | DEPARTMENT | PROJECT
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportsTo   UserCompany? @relation("UserCompanyReportsTo", fields: [reportsToUserCompanyId], references: [id], onDelete: SetNull)
+  directReports UserCompany[] @relation("UserCompanyReportsTo")
+  scopes      UserScope[]
 
   @@unique([userId, companyId])
   @@index([companyId])
+  @@index([reportsToUserCompanyId])
+}
+
+// One or more scope entries per UserCompany membership. A Sub-Admin
+// (scopeType=DEPARTMENT) managing departments A and B has two rows; a
+// Sub-Sub-Admin (scopeType=PROJECT) on sites P1 and P2 has two rows.
+// scopeType=COMPANY memberships have no rows (unscoped = everything).
+model UserScope {
+  id              String   @id @default(cuid())
+  userCompanyId   String
+  // The kind of entity this scope row bounds. Must match the parent
+  // membership's scopeType (enforced in the service layer).
+  scopeKind       String   // DEPARTMENT | PROJECT
+  departmentId    String?
+  projectId       String?
+  createdAt       DateTime @default(now())
+
+  userCompany UserCompany @relation(fields: [userCompanyId], references: [id], onDelete: Cascade)
+  department  Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userCompanyId])
+  @@index([departmentId])
+  @@index([projectId])
 }
 
 // Fine-grained permission overrides per role (additive to the
@@ -93,10 +162,17 @@ model RolePermission {
 }
 
 // ───────────────────────────────────────────────────────────
-//  Employees / workers — assignable to playground task nodes.
-//  Separate from the auth User model: tracks site labour and
-//  subcontracted crews with their trade and daily rate.
+//  Employees / workers — site labour and subcontracted crews.
+//  Separate from the auth User model: tracks site labour with
+//  their trade, wage structure, crew, and active project. Powers
+//  the HR module (attendance, payroll, DPR labor lines).
 // ───────────────────────────────────────────────────────────
+enum WageType {
+  DAILY    // paid per day worked (dailyRate × daysWorked)
+  MONTHLY  // fixed monthly salary (monthlySalary)
+  FIXED    // piece-rate / fixed contract amount (monthlySalary as the agreed amount)
+}
+
 model Employee {
   id        String   @id @default(cuid())
   name      String
@@ -104,15 +180,35 @@ model Employee {
   phone     String?
   email     String?
   dailyRate Decimal  @db.Decimal(14,2) @default(0)
+  // Wage structure — drives payroll computation (see hr.ts).
+  wageType       WageType @default(DAILY)
+  monthlySalary  Decimal? @db.Decimal(14,2) // set when wageType = MONTHLY/FIXED
+  designation    String?  // e.g. "Site Engineer", "Lead Mason", "Helper"
+  joinDate       DateTime?
+  crewId         String?  // crew membership (a worker belongs to one crew)
+  activeProjectId String? // current project assignment (for attendance + DPR scoping)
   active    Boolean  @default(true)
   companyId String
+  userId    String?  // link to auth User — lets site workers log in (self-service attendance, DPR, tasks)
   company   Company  @relation(fields: [companyId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
+  crew            Crew?              @relation("CrewMembers", fields: [crewId], references: [id], onDelete: SetNull)
+  activeProject   Project?           @relation("EmployeeActiveProject", fields: [activeProjectId], references: [id], onDelete: SetNull)
+  supervisedCrews Crew[]             @relation("CrewSupervisor")
+  attendances     WorkerAttendance[]
+  payrollLines    PayrollLine[]
+  dprLaborLines   DPRLaborLine[]
+  leaveRequests   LeaveRequest[]
+
   @@index([companyId])
   @@index([deletedAt])
+  @@index([userId])
+  @@index([crewId])
+  @@index([activeProjectId])
 }
 
 // User is shared with Better-Auth (prisma adapter). Required auth fields:
@@ -123,6 +219,7 @@ model User {
   name          String
   emailVerified Boolean   @default(false)
   image         String?
+  phone         String?   // phone number for WhatsApp notifications
   role          String    @default("MANAGER") // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
   active        Boolean   @default(true)
   // Default company scope (nullable so a user can exist before being
@@ -140,6 +237,7 @@ model User {
   stockMovements    StockMovement[]
   goodsReceipts     GoodsReceipt[]
   materialIssues    MaterialIssue[]
+  scrapGenerations  ScrapGeneration[]
   auditLogs         AuditLog[]
   assignedTasks     Task[] @relation("TaskAssignee")
   assignedByTasks   Task[] @relation("TaskAssigner")
@@ -157,9 +255,64 @@ model User {
   createdExpenses        Expense[]
   createdProjectCosts    ProjectCost[]
   createdAssetSales      AssetSale[]
+  createdMaterialSales   MaterialSale[]
+  createdRenovations     RenovationProject[]
+  createdRenovationCosts RenovationCost[]
   createdStockTransfers  StockTransfer[]
   createdSupplierReturns SupplierReturn[]
   createdLandPurchases   LandPurchase[]
+  // HR — DPR submission, attendance recording, payroll processing
+  submittedDPRs        DailyProgressReport[]
+  subAdminApprovedDPRs DailyProgressReport[] @relation("DprSubAdminApprover")
+  adminApprovedDPRs    DailyProgressReport[] @relation("DprAdminApprover")
+  recordedAttendances  WorkerAttendance[]
+  processedPayrolls    PayrollPeriod[]
+  employees            Employee[]
+  approvedLeaves       LeaveRequest[]    @relation("LeaveApprover")
+  submittedDailyReports DailyReport[]
+  createdTenancies     Tenancy[]
+  projectAssignments   ProjectAssignment[]
+  assignedProjectAssignments ProjectAssignment[] @relation("ProjectAssignmentAssigner")
+  createdDirectPurchases DirectPurchase[]
+  // Comparative Quote Engine — quote upload + selection + waiver
+  quoteWaivedRequisitions MaterialRequisition[] @relation("ReqQuoteWaiver")
+  submittedVendorQuotes   VendorQuote[]         @relation("QuoteSubmitter")
+  selectedVendorQuotes    VendorQuote[]         @relation("QuoteSelector")
+  // Measurement Book — site measurement entry + verification + approval
+  mbMeasuredEntries   MeasurementBookEntry[] @relation("MbMeasuredBy")
+  mbVerifiedEntries   MeasurementBookEntry[] @relation("MbVerifiedBy")
+  mbApprovedEntries   MeasurementBookEntry[] @relation("MbApprovedBy")
+  approvedRaBills     RaBill[]                @relation("RaBillApprover")
+  createdRateContracts RateContract[]          @relation("RateContractCreator")
+  supplierPayments     SupplierPayment[]       @relation("SupplierPaymentCreator")
+  salePayments         MaterialSalePayment[]   @relation("SalePaymentCreator")
+  receivedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceReceiver")
+  approvedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceApprover")
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Project-scoped role assignments — restrict a user's access to
+//  specific projects. SUPERVISOR and SALES roles can be scoped to
+//  one or more projects; MANAGER+ roles see all projects (unscoped).
+//  The `scopedRole` is the role the user acts as within this project
+//  (defaults to their global role, but can be elevated per-project).
+// ───────────────────────────────────────────────────────────────
+
+model ProjectAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  projectId  String
+  scopedRole String   @default("SUPERVISOR") // role the user acts as within this project
+  assignedAt DateTime @default(now())
+  assignedById String?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("ProjectAssignmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
 }
 
 model Session {
@@ -250,14 +403,30 @@ model Project {
   purchaseOrders PurchaseOrder[]
   materialIssues MaterialIssue[]
   materialRequisitions MaterialRequisition[]
+  scrapGenerations ScrapGeneration[]
   landPurchases  LandPurchase[]
   landParcels    LandParcel[]
   builtUnits     BuiltUnit[]
   assetSales     AssetSale[]
+  materialSales  MaterialSale[]
   projectCosts   ProjectCost[]
+  assignments    ProjectAssignment[]
+  renovations    RenovationProject[]
   expenses       Expense[]
   phases         ProjectPhase[]
   equipmentAssignments EquipmentAssignment[]
+  crews          Crew[]
+  attendances    WorkerAttendance[]
+  dailyProgressReports DailyProgressReport[]
+  dailyReports       DailyReport[]
+  tenancies          Tenancy[]
+  activeEmployees Employee[] @relation("EmployeeActiveProject")
+  userScopes       UserScope[]    // Sub-Sub-Admin scope entries pointing at this project
+  boqItems         BoqItem[]
+  wbsNodes         WbsNode[]
+  mbEntries        MeasurementBookEntry[]
+  subcontractorWorkOrders SubcontractorWorkOrder[]
+  raBills          RaBill[]
 
   @@index([companyId])
   @@index([status])
@@ -287,6 +456,10 @@ model ProjectPhase {
   builtUnits     BuiltUnit[]
   materialIssues MaterialIssue[]
   materialRequisitions MaterialRequisition[]
+  boqItems       BoqItem[]
+  wbsNodes       WbsNode[]
+  mbEntries      MeasurementBookEntry[]
+  subcontractorWorkOrders SubcontractorWorkOrder[]
 
   @@index([projectId])
 }
@@ -323,12 +496,15 @@ model StockLocation {
   stockMovementsFrom StockMovement[] @relation("MovementFrom")
   stockMovementsTo   StockMovement[] @relation("MovementTo")
   materialIssues MaterialIssue[]
+  scrapGenerations ScrapGeneration[]
   stockTransfersFrom StockTransfer[] @relation("TransferFrom")
   stockTransfersTo   StockTransfer[] @relation("TransferTo")
   stockCounts    StockCount[]
   stockItems     StockLocationItem[]
   equipmentAssignments EquipmentAssignment[]
   supplierReturns SupplierReturn[]
+  materialSaleLines MaterialSaleLine[]
+  directPurchases  DirectPurchase[]
 
   @@index([companyId])
   @@index([projectId])
@@ -374,6 +550,16 @@ model Material {
   volumetricDensity  Decimal? @db.Decimal(10, 3) // V/W ratio — higher = bulkier / harder to transport
   bulkDiscountPct    Decimal? @db.Decimal(5, 2)  // enterprise volume discount % via centralised bulk buying
   isCorporateCommodity Boolean @default(false)   // force central procurement routing
+  isScrap          Boolean @default(false)        // scrap / internally-generated material (different valuation)
+  // ── Batch / Lot Tracking ──
+  isLotTracked     Boolean @default(false)        // enables batch/lot compliance management
+  // ── UOM Conversion ──
+  // baseUnit is the normalized base UOM (e.g. "KG", "M3", "PCS"); secondaryUnit is
+  // an optional display/transaction UOM (e.g. "TON", "BAG"). uomConversionFactor
+  // is the multiplier: 1 secondary unit = N base units (e.g. 1 BAG = 50 KG → 50).
+  baseUnit         String   @default("NOS")       // normalized base UOM
+  secondaryUnit    String?                          // optional display/transaction UOM
+  uomConversionFactor Decimal? @db.Decimal(12, 6)   // 1 secondary unit = N base units
   description      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -384,13 +570,81 @@ model Material {
   goodsReceiptLines  GoodsReceiptLine[]
   stockMovements    StockMovement[]
   materialIssueLines MaterialIssueLine[]
+  scrapGenerationsSource ScrapGeneration[] @relation("ScrapSourceMaterial")
+  scrapGenerationLines ScrapGenerationLine[]
   stockTransferLines StockTransferLine[]
   stockCountLines   StockCountLine[]
   stockItems        StockLocationItem[]
   requisitionLines  MaterialRequisitionLine[]
   supplierReturnLines SupplierReturnLine[]
+  dprMaterialLines  DPRMaterialLine[]
+  materialSaleLines  MaterialSaleLine[]
+  directPurchaseLines DirectPurchaseLine[]
+  vendorQuoteLines  VendorQuoteLine[]
+  standardConsumptions StandardConsumption[]
+  boqItems         BoqItem[]
+  rateContracts    RateContract[]
+  lots             MaterialLot[]
 
   @@index([categoryId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  BATCH / LOT TRACKING — per-batch quantity + expiry tracking
+//  for lot-tracked materials. Each lot records its initial and
+//  current balance; StockMovement.lotId links movements to lots.
+// ───────────────────────────────────────────────────────────
+model MaterialLot {
+  id          String   @id @default(uuid())
+  materialId  String
+  material    Material @relation(fields: [materialId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  lotNumber   String
+  batchCode   String?
+  receivedDate DateTime
+  expiryDate  DateTime?
+  initialQty  Decimal  @db.Decimal(14,3)
+  currentQty  Decimal  @db.Decimal(14,3)
+  unitCost    Decimal  @db.Decimal(14,2)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  stockMovements StockMovement[]
+  stockItems     StockLocationItem[]
+
+  @@unique([materialId, lotNumber, companyId])
+  @@index([materialId, companyId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  STANDARD CONSUMPTION BENCHMARKS
+//  Per-work-type standard material consumption rates, used by the
+//  auto-scrap detection logic during DPR submission. E.g.:
+//    workType = "Foundation", material = Steel, standardQty = 1.5 t / 100 sqft
+//  When a DPR records 2.0 t of steel for a 100 sqft foundation, the
+//  0.5 t delta is auto-flagged as generated scrap.
+// ───────────────────────────────────────────────────────────
+model StandardConsumption {
+  id              String   @id @default(cuid())
+  companyId       String
+  workType        String   // e.g. "Foundation", "Slab Casting", "Brickwork", "Plastering"
+  materialId      String
+  standardQty     Decimal  @db.Decimal(14, 3) // standard qty per baseQty units of work
+  baseQty         Decimal  @db.Decimal(14, 3) @default(1) // the "per N" divisor (e.g. 100 for "per 100 sqft")
+  unitOfMeasure   String   // e.g. "per 100 sqft", "per cubic meter", "per unit" — display label
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  material        Material @relation(fields: [materialId], references: [id])
+
+  @@unique([companyId, workType, materialId])
+  @@index([companyId, workType])
 }
 
 model Supplier {
@@ -408,6 +662,13 @@ model Supplier {
 
   purchaseOrders PurchaseOrder[]
   supplierReturns SupplierReturn[]
+  requisitionLines MaterialRequisitionLine[]
+  directPurchases  DirectPurchase[]
+  vendorQuotes     VendorQuote[]
+  rateContracts    RateContract[]
+  supplierPayments SupplierPayment[]
+  supplierInvoices SupplierInvoice[]
+  materialLots     MaterialLot[]
 }
 
 model Subcontractor {
@@ -424,6 +685,7 @@ model Subcontractor {
 
   materialIssues MaterialIssue[]
   projectCosts   ProjectCost[]
+  workOrders     SubcontractorWorkOrder[]
 }
 
 // ───────────────────────────────────────────────────────────
@@ -449,10 +711,225 @@ model Department {
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   stockLocation StockLocation? @relation("DepartmentLocation") // optional own stock room
   materialIssues MaterialIssue[]
+  userScopes    UserScope[]    // Sub-Admin scope entries pointing at this department
 
   @@unique([companyId, code])
   @@index([companyId])
   @@index([deletedAt])
+}
+
+// ───────────────────────────────────────────────────────────
+//  HR & FIELD WORKFORCE — crews, attendance, payroll, DPR.
+//  The third whiteboard module: employees are grouped into crews
+//  assigned to a project; daily attendance feeds payroll; daily
+//  progress reports (DPR) capture site execution. Payroll posts
+//  to the GL (Dr Salaries Expense, Cr Salaries Payable/Cash).
+// ───────────────────────────────────────────────────────────
+
+model Crew {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String   // e.g. "Masonry Crew A", "Plumbing Team 2"
+  projectId String?  // project the crew is assigned to (nullable = floating/shared)
+  supervisorId String? // Employee who leads the crew
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  supervisor Employee?  @relation("CrewSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  members    Employee[] @relation("CrewMembers")
+  dprLaborLines DPRLaborLine[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([supervisorId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  OVERTIME
+  LEAVE
+}
+
+model WorkerAttendance {
+  id          String           @id @default(cuid())
+  companyId   String
+  employeeId  String
+  date        DateTime         @db.Date // the working day (date-only)
+  projectId   String?          // project the worker attended on that day
+  checkIn     DateTime?
+  checkOut    DateTime?
+  hoursWorked Decimal?         @db.Decimal(5, 2) // total hours on site (incl. overtime)
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  recordedById String?
+  // GPS-tagged check-in/check-out (from mobile app)
+  checkInLat   Float?
+  checkInLng   Float?
+  checkOutLat  Float?
+  checkOutLng  Float?
+  checkInLocation  String?  // reverse-geocoded or manual location label
+  checkOutLocation String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  recordedBy User?     @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date]) // one attendance record per worker per day
+  @@index([companyId, date])
+  @@index([projectId, date])
+  @@index([employeeId, date])
+}
+
+enum PayrollStatus {
+  DRAFT      // lines generated from attendance, editable
+  PROCESSED  // locked + posted to GL (Dr Salaries Expense, Cr Salaries Payable)
+  PAID       // settled (Dr Salaries Payable, Cr Cash)
+}
+
+model PayrollPeriod {
+  id        String        @id @default(cuid())
+  companyId String
+  month     Int           // 1-12
+  year      Int
+  startDate DateTime      @db.Date
+  endDate   DateTime      @db.Date
+  status    PayrollStatus @default(DRAFT)
+  totalGross       Decimal @default(0) @db.Decimal(14, 2)
+  totalOvertime    Decimal @default(0) @db.Decimal(14, 2)
+  totalDeductions  Decimal @default(0) @db.Decimal(14, 2)
+  totalNet         Decimal @default(0) @db.Decimal(14, 2)
+  processedById String?
+  processedAt  DateTime?
+  paidAt       DateTime?
+  notes        String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  processedBy User?   @relation(fields: [processedById], references: [id], onDelete: SetNull)
+  lines      PayrollLine[]
+
+  @@unique([companyId, year, month])
+  @@index([companyId])
+  @@index([status])
+}
+
+model PayrollLine {
+  id              String   @id @default(cuid())
+  payrollPeriodId String
+  employeeId      String
+  daysWorked      Decimal  @db.Decimal(5, 2) // present-days (PRESENT=1, HALF_DAY=0.5, OVERTIME=1)
+  basicAmount     Decimal  @default(0) @db.Decimal(14, 2)
+  overtimeAmount  Decimal  @default(0) @db.Decimal(14, 2)
+  allowance       Decimal  @default(0) @db.Decimal(14, 2) // HRA, travel, food, etc.
+  bonus           Decimal  @default(0) @db.Decimal(14, 2) // performance / festival bonus
+  pf              Decimal  @default(0) @db.Decimal(14, 2) // provident fund (employee + employer)
+  tax             Decimal  @default(0) @db.Decimal(14, 2) // TDS / income tax deducted
+  deductions      Decimal  @default(0) @db.Decimal(14, 2) // other deductions (loans, advances, penalties)
+  grossPay        Decimal  @default(0) @db.Decimal(14, 2) // basic + overtime + allowance + bonus
+  totalDeductions Decimal  @default(0) @db.Decimal(14, 2) // deductions + pf + tax
+  netPay          Decimal  @default(0) @db.Decimal(14, 2) // grossPay - totalDeductions
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([payrollPeriodId, employeeId])
+  @@index([employeeId])
+}
+
+model DailyProgressReport {
+  id           String   @id @default(cuid())
+  companyId    String
+  projectId    String
+  date         DateTime @db.Date
+  submittedById String?
+  weather      String?  // e.g. "Sunny, 32°C", "Light rain"
+  workSummary  String   // narrative of today's work
+  progressPct  Decimal  @db.Decimal(5, 2) @default(0) // overall project progress % as of this DPR
+  blockers     String?
+  tomorrowPlan String?
+  notes        String?
+  photoUrls    String[]  @default([]) // site photos — URLs to uploaded images
+  // Multi-tier approval workflow (SRS transcript): Sub-Admin (MANAGER) approves
+  // first, then Admin (OWNER/ADMIN) gives final approval. A DPR goes:
+  //   DRAFT → SUBMITTED → SUB_ADMIN_APPROVED → APPROVED
+  //   (any pre-final stage can be REJECTED)
+  approvalStatus   DprApprovalStatus @default(SUBMITTED)
+  subAdminApprovedById String?
+  subAdminApprovedAt   DateTime?
+  adminApprovedById    String?
+  adminApprovedAt      DateTime?
+  approvalNotes        String?  // optional reason for rejection or override
+  // Auto-scrap detection: work type for benchmark comparison + variance results
+  workType             String?  // e.g. "Foundation", "Slab Casting" — matched against StandardConsumption
+  workQty              Decimal? @db.Decimal(14, 3) // quantity of work done (e.g. 500 sqft of foundation poured)
+  workUnit             String?  // unit of work (e.g. "sqft", "cubic meter", "unit")
+  varianceAnalysis     Json?    // stored variance results from calculateConsumptionVariance()
+  autoScrapGenerationId String? @unique // link to auto-generated ScrapGeneration if over-consumption detected
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  autoScrapGeneration ScrapGeneration? @relation("DprAutoScrap", fields: [autoScrapGenerationId], references: [id], onDelete: SetNull)
+  submittedBy User?    @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  subAdminApprovedBy User? @relation("DprSubAdminApprover", fields: [subAdminApprovedById], references: [id], onDelete: SetNull)
+  adminApprovedBy    User? @relation("DprAdminApprover", fields: [adminApprovedById], references: [id], onDelete: SetNull)
+  materialLines DPRMaterialLine[]
+  laborLines    DPRLaborLine[]
+
+  @@unique([projectId, date]) // one DPR per project per day
+  @@index([companyId, date])
+  @@index([projectId, date])
+  @@index([approvalStatus])
+}
+
+enum DprApprovalStatus {
+  SUBMITTED           // just submitted, awaiting Sub-Admin approval
+  SUB_ADMIN_APPROVED  // Sub-Admin approved, awaiting Admin final approval
+  APPROVED            // Admin final approval — locked
+  REJECTED            // rejected at any stage
+}
+
+model DPRMaterialLine {
+  id        String  @id @default(cuid())
+  dprId     String
+  materialId String
+  qty       Decimal @db.Decimal(14, 3)
+  unitCost  Decimal @db.Decimal(14, 2)
+
+  dpr      DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+  material Material            @relation(fields: [materialId], references: [id])
+
+  @@index([dprId])
+  @@index([materialId])
+}
+
+model DPRLaborLine {
+  id        String   @id @default(cuid())
+  dprId     String
+  employeeId String?
+  crewId    String?
+  hoursWorked Decimal @db.Decimal(5, 2)
+  taskDescription String
+
+  dpr      DailyProgressReport @relation(fields: [dprId], references: [id], onDelete: Cascade)
+  employee Employee?           @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  crew     Crew?               @relation(fields: [crewId], references: [id], onDelete: SetNull)
+
+  @@index([dprId])
+  @@index([employeeId])
+  @@index([crewId])
 }
 
 enum ProcurementScope {
@@ -489,6 +966,9 @@ model PurchaseOrder {
   approvedById          String?
   approvedAt            DateTime?
   approvalNotes         String?
+  // The winning VendorQuote that this PO was generated from (traceability for
+  // the Comparative Quote Engine). Null for POs created directly (not from a quote).
+  selectedQuoteId       String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -498,14 +978,82 @@ model PurchaseOrder {
   destinationLocation StockLocation        @relation(fields: [destinationLocationId], references: [id])
   createdBy           User?                @relation("POCreator", fields: [createdById], references: [id], onDelete: SetNull)
   approvedBy          User?                @relation("POApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  selectedQuote       VendorQuote?         @relation("POSelectedQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
   lines               PurchaseOrderLine[]
   goodsReceipts       GoodsReceipt[]
+  supplierPayments    SupplierPayment[]
+  supplierInvoices    SupplierInvoice[]
 
   @@index([companyId])
   @@index([projectId])
   @@index([supplierId])
   @@index([status])
   @@index([approvedById])
+}
+
+model SupplierPayment {
+  id            String   @id @default(cuid())
+  paymentNumber String   @unique // SP-YYMMDD-NNNN
+  supplierId    String
+  purchaseOrderId String? // optional link to a specific PO
+  companyId     String
+  amount        Decimal  @db.Decimal(14, 2)
+  tdsAmount     Decimal  @default(0) @db.Decimal(14, 2) // TDS deducted at source
+  tdsSection    String?  // e.g. "194C", "194I", "194J"
+  netPaidAmount Decimal  @default(0) @db.Decimal(14, 2) // amount - tdsAmount
+  paymentDate   DateTime @default(now())
+  paymentMode   String   // "BANK" | "CASH" | "UPI" | "CHEQUE" | "NEFT"
+  referenceNo   String?  // cheque no, UTR, transaction ID
+  notes         String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy      User?          @relation("SupplierPaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  Supplier Invoice — three-way matching (invoice ↔ PO ↔ GRN)
+//  Before paying a supplier, the invoice is matched against the
+//  purchase order and goods receipt to prevent overpayment/fraud.
+// ───────────────────────────────────────────────────────────
+model SupplierInvoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   // supplier's bill number
+  companyId     String
+  supplierId    String
+  purchaseOrderId String?
+  invoiceDate   DateTime
+  dueDate       DateTime?
+  subtotal      Decimal  @db.Decimal(14, 2)
+  gstAmount     Decimal  @default(0) @db.Decimal(14, 2)
+  totalAmount   Decimal  @db.Decimal(14, 2)
+  status        String   @default("PENDING") // PENDING | MATCHED | DISPUTED | APPROVED | PAID
+  matchStatus   String?  // THREE_WAY_MATCH | TWO_WAY_MATCH | MANUAL | UNMATCHED
+  matchNotes    String?
+  receivedById  String?
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  company        Company        @relation(fields: [companyId], references: [id])
+  receivedBy     User?          @relation("SupplierInvoiceReceiver", fields: [receivedById], references: [id])
+  approvedBy     User?          @relation("SupplierInvoiceApprover", fields: [approvedById], references: [id])
+
+  @@index([companyId])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([status])
 }
 
 model PurchaseOrderLine {
@@ -582,6 +1130,7 @@ enum StockMovementType {
   ADJUSTMENT_OUT
   RETURN
   SALE
+  SCRAP_GENERATED // internally generated scrap/created material added to stock at scrap valuation
 }
 
 model StockMovement {
@@ -598,6 +1147,7 @@ model StockMovement {
   refType        String?
   refId          String?
   userId         String?
+  lotId          String?           // links the movement to a specific lot (if material is lot-tracked)
   timestamp      DateTime          @default(now())
   // GPS capture for field verification
   latitude       Float?
@@ -607,11 +1157,13 @@ model StockMovement {
   fromLocation  StockLocation? @relation("MovementFrom", fields: [fromLocationId], references: [id])
   toLocation    StockLocation? @relation("MovementTo", fields: [toLocationId], references: [id])
   user          User?          @relation(fields: [userId], references: [id])
+  lot           MaterialLot?   @relation(fields: [lotId], references: [id])
 
   @@index([materialId, timestamp])
   @@index([toLocationId])
   @@index([fromLocationId])
   @@index([refType, refId])
+  @@index([lotId])
 }
 
 // Current-state cache per material per location — updated atomically with each StockMovement.
@@ -622,34 +1174,50 @@ model StockLocationItem {
   materialId     String
   qty            Decimal  @default(0) @db.Decimal(14, 3)
   movingAvgCost  Decimal  @default(0) @db.Decimal(14, 2) // Moving Average Cost (MAC) at this location
+  lotId          String?  // if the material is lot-tracked, this links to a specific lot
   updatedAt      DateTime @updatedAt
 
   location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
   material Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  lot      MaterialLot?  @relation(fields: [lotId], references: [id])
 
   @@unique([locationId, materialId])
   @@index([materialId])
+  @@index([lotId])
 }
 
 model MaterialIssue {
   id             String   @id @default(cuid())
+  // Slip number for the physical "Stock Issue" slip — SA-YYMMDD-NNNN.
+  // Matches the client's paper system where every issue has a traceable number.
+  issueNumber    String?  @unique
   // Consumption target — exactly one of projectId / departmentId is set
   // (enforced in the service layer + Zod). Project issues capitalise into
   // WIP; department issues hit Operating Expenses.
   projectId      String?
   departmentId   String?
   phaseId        String?
+  builtUnitId    String?   // optional: issue directly to a specific built unit (cost goes to that unit's productionCost, not area-allocated)
   fromLocationId String
   subcontractorId String?
   issueDate      DateTime @default(now())
   issuedById     String?
+  // Receiver accountability — who physically picked up the stock.
+  // Matches the paper slip's "RECIEVER NAME" + "MOBILE NO." fields.
+  receiverName   String?
+  receiverMobile String?
   notes          String?
   totalCost      Decimal  @default(0) @db.Decimal(14, 2)
+  // Round-off to match physical bill totals (paper slip has "ROUNDOFF : 0.00")
+  roundOff       Decimal  @default(0) @db.Decimal(14, 2)
+  // Chargeable total = totalCost + roundOff (paper slip's "Amount Chargeable")
+  totalAmount    Decimal  @default(0) @db.Decimal(14, 2)
   createdAt      DateTime @default(now())
 
   project       Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   department    Department?        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   phase         ProjectPhase?      @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  builtUnit     BuiltUnit?         @relation(fields: [builtUnitId], references: [id], onDelete: SetNull)
   fromLocation  StockLocation      @relation(fields: [fromLocationId], references: [id])
   subcontractor Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   issuedBy      User?              @relation(fields: [issuedById], references: [id])
@@ -659,6 +1227,7 @@ model MaterialIssue {
   @@index([departmentId])
   @@index([fromLocationId])
   @@index([phaseId])
+  @@index([builtUnitId])
 }
 
 model MaterialIssueLine {
@@ -672,6 +1241,54 @@ model MaterialIssueLine {
   material      Material      @relation(fields: [materialId], references: [id])
 
   @@index([materialIssueId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SCRAP / "CREATE" MATERIAL GENERATION — internally generated
+//  material (e.g. cut-piece scrap from fabrication) added to stock
+//  at a scrap valuation (typically lower than purchased material).
+//  The SRS transcript calls this "Create" material — material that
+//  comes into existence from a process, not from a purchase.
+// ───────────────────────────────────────────────────────────
+
+model ScrapGeneration {
+  id              String   @id @default(cuid())
+  companyId       String
+  scrapNumber     String   @unique
+  toLocationId    String   // where the scrap is stocked
+  generationDate  DateTime @default(now())
+  sourceMaterialId String?  // the original material from which scrap was generated (optional)
+  projectId       String?   // the project/site where scrap was generated (optional)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  toLocation    StockLocation @relation(fields: [toLocationId], references: [id])
+  sourceMaterial Material?    @relation("ScrapSourceMaterial", fields: [sourceMaterialId], references: [id], onDelete: SetNull)
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  dprAutoScrap  DailyProgressReport? @relation("DprAutoScrap") // back-link if auto-generated from DPR variance
+  lines         ScrapGenerationLine[]
+
+  @@index([companyId])
+  @@index([toLocationId])
+  @@index([generationDate])
+}
+
+model ScrapGenerationLine {
+  id                String  @id @default(cuid())
+  scrapGenerationId String
+  materialId        String
+  qty               Decimal @db.Decimal(14, 3)
+  unitCost          Decimal @db.Decimal(14, 2)  // scrap valuation (typically < original MAC)
+
+  scrapGeneration ScrapGeneration @relation(fields: [scrapGenerationId], references: [id], onDelete: Cascade)
+  material        Material        @relation(fields: [materialId], references: [id])
+
+  @@index([scrapGenerationId])
   @@index([materialId])
 }
 
@@ -776,8 +1393,10 @@ model StockCountLine {
 enum AreaUnit {
   SQFT
   SQM
+  SQYD
   ACRE
   BIGHA
+  KATHA
   HECTARE
 }
 
@@ -812,7 +1431,9 @@ enum LandParcelStatus {
   AVAILABLE
   HOLD
   PARTITIONED
+  RESERVED   // deposit received, sale pending
   SOLD
+  RENTED
 }
 
 model LandParcel {
@@ -827,6 +1448,15 @@ model LandParcel {
   askingPrice     Decimal?         @db.Decimal(14, 2)
   currentValuation Decimal         @default(0) @db.Decimal(14, 2)
   nrvWriteDown     Decimal         @default(0) @db.Decimal(14, 2) // NRV < cost → write-down amount
+  // ── Infrastructure & market-value allocation ──
+  // Flags non-saleable infrastructure plots (roads, parks, utility corridors).
+  // Infrastructure plots have area but NO cost basis — their cost is absorbed
+  // by the saleable siblings during partition.
+  isInfrastructure Boolean         @default(false)
+  // Optional target market value for weighted (MARKET_VALUE) cost allocation.
+  marketValue      Decimal?        @db.Decimal(15, 2)
+  // Optional custom weighting index used by the MARKET_VALUE allocation model.
+  weightFactor     Decimal?        @db.Decimal(5, 2)
   saleId          String?
   projectId       String?
   /// Polygon vertices in normalized [0,1] coordinates relative to the parcel's
@@ -843,6 +1473,7 @@ model LandParcel {
   children     LandParcel[]  @relation("ParcelChildren")
   partitions    LandPartition[]
   project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  renovations   RenovationProject[]
 
   @@index([landPurchaseId])
   @@index([parentParcelId])
@@ -856,6 +1487,15 @@ model LandPartition {
   partitionDate   DateTime @default(now())
   childCount      Int
   notes           String?
+  // ── Allocation model & development costs ──
+  // "PRO_RATA" = cost allocated strictly by area (excluding infrastructure).
+  // "MARKET_VALUE" = cost allocated by area × weightFactor per saleable plot.
+  allocationModel  String   @default("PRO_RATA")
+  // Total area of non-saleable infrastructure plots created in this partition.
+  infrastructureArea Decimal? @db.Decimal(12, 2)
+  // Site development costs (grading, paving, utilities) added to the parent
+  // cost basis before allocation across saleable children.
+  developmentCost Decimal? @db.Decimal(15, 2)
 
   parentParcel LandParcel @relation(fields: [parentParcelId], references: [id], onDelete: Cascade)
 
@@ -870,6 +1510,7 @@ enum BuiltUnitType {
   SHOP
   OFFICE
   WAREHOUSE_UNIT
+  VILLA
   OTHER
 }
 
@@ -877,8 +1518,10 @@ enum BuiltUnitStatus {
   PLANNED
   UNDER_CONSTRUCTION
   AVAILABLE
+  RESERVED   // deposit received, sale pending
   HOLD
   SOLD
+  RENTED
 }
 
 model BuiltUnit {
@@ -903,12 +1546,63 @@ model BuiltUnit {
 
   project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   phase   ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  renovations   RenovationProject[]
+  portalListings PortalListing[]
+  materialIssues MaterialIssue[]
+  assetSales     AssetSale[]
 
   @@index([projectId])
   @@index([phaseId])
   @@index([status])
   @@index([unitType])
   @@unique([projectId, unitNumber])
+}
+
+// ───────────────────────────────────────────────────────────
+//  PORTAL LISTINGS — sync built units to property portals like
+//  99acres, MagicBricks, Housing.com. The provider is pluggable
+//  (see services/portal-listing.ts) — a stub provider logs the
+//  listing; a real provider would call the portal's API.
+// ───────────────────────────────────────────────────────────
+
+model PortalListing {
+  id              String   @id @default(cuid())
+  companyId       String
+  builtUnitId     String
+  portalName      String   // "99acres", "MagicBricks", "Housing.com"
+  listingId       String?  // the portal's assigned listing ID (on success)
+  listingUrl      String?  // public URL on the portal
+  status          PortalListingStatus @default(DRAFT)
+  title           String
+  description     String?
+  askingPrice     Decimal  @db.Decimal(14, 2)
+  bedrooms        Int?
+  bathrooms       Int?
+  area            Decimal  @db.Decimal(14, 3)
+  areaUnit        AreaUnit @default(SQFT)
+  floor           Int?
+  furnishing      String?  // "Furnished", "Semi-Furnished", "Unfurnished"
+  photos          String[] // array of photo URLs
+  listedAt        DateTime?
+  delistedAt      DateTime?
+  lastSyncedAt    DateTime?
+  syncError       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  builtUnit  BuiltUnit  @relation(fields: [builtUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([builtUnitId, portalName])  // one listing per unit per portal
+  @@index([companyId, status])
+  @@index([portalName, status])
+}
+
+enum PortalListingStatus {
+  DRAFT       // created locally, not yet pushed to portal
+  LISTED      // actively listed on the portal
+  DELISTED    // removed from the portal
+  SYNC_FAILED // last sync attempt failed (see syncError)
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1028,6 +1722,16 @@ model MaterialRequisition {
   rejectedById  String?
   rejectedAt    DateTime?
   rejectReason  String?
+  // ── Comparative Quote Engine ──
+  // The SRS mandates that purchasers upload ≥3 vendor quotes before a requisition
+  // can be converted to a PO. minQuotesRequired (default 3) is the gate; quotesWaived
+  // lets an approver (po.approve) bypass the gate for low-value/emergency buys.
+  minQuotesRequired Int      @default(3)
+  quotesWaived       Boolean  @default(false)
+  quotesWaivedById   String?
+  quotesWaivedReason String?
+  quotesWaivedAt     DateTime?
+  quotesLockedAt     DateTime? // set when a winning quote is selected
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -1036,7 +1740,9 @@ model MaterialRequisition {
   requestedBy User?            @relation("ReqRequester", fields: [requestedById], references: [id], onDelete: SetNull)
   approvedBy  User?            @relation("ReqApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   rejectedBy  User?            @relation("ReqRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
+  quotesWaivedBy User?         @relation("ReqQuoteWaiver", fields: [quotesWaivedById], references: [id], onDelete: SetNull)
   lines       MaterialRequisitionLine[]
+  vendorQuotes VendorQuote[]
 
   @@index([projectId])
   @@index([status])
@@ -1049,11 +1755,89 @@ model MaterialRequisitionLine {
   materialId      String
   qtyRequested    Decimal @db.Decimal(14, 3)
   notes           String?
+  // Demand-slip enrichment — snapshots taken at creation time so the
+  // approver sees what the requester saw, even if stock changes later.
+  // Matches the paper "Demand Slip" which shows closing stock + supplier + last rate.
+  preferredSupplierId String?  // which supplier the requester wants to buy from
+  currentStock    Decimal? @db.Decimal(14, 3)  // stock-on-hand snapshot at demand time
+  lastRate        Decimal? @db.Decimal(14, 2)  // last purchase rate snapshot
+  lastRateDate    DateTime?                    // date of the last purchase
 
   requisition MaterialRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
   material    Material            @relation(fields: [materialId], references: [id])
+  preferredSupplier Supplier?     @relation(fields: [preferredSupplierId], references: [id], onDelete: SetNull)
 
   @@index([requisitionId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  COMPARATIVE QUOTE ENGINE — purchasers must collect ≥3 vendor
+//  quotes (PDF/image uploads) per requisition. The system flags the
+//  cheapest (by landed, delivered-to-site total). An approver selects
+//  the winning quote; the requisition→PO conversion auto-fills line
+//  costs from it. Quotes are locked once a winner is selected.
+//  (SRS §3 "Comparative Analysis", workflow §6.)
+// ───────────────────────────────────────────────────────────
+
+enum QuoteStatus {
+  PENDING    // uploaded, awaiting selection
+  SELECTED   // chosen as the winning quote by an approver
+  REJECTED   // explicitly not chosen (informational)
+}
+
+model VendorQuote {
+  id            String      @id @default(cuid())
+  requisitionId String
+  supplierId    String
+  // The uploaded quote document (PDF/image) — URL returned by /api/uploads.
+  fileUrl       String
+  fileName      String
+  mimeType      String
+  // Landed total = delivered-to-site price (per the transcript: "delivery at
+  // site"). This is the figure used for cheapest-quote comparison. The
+  // per-line breakdown (VendorQuoteLine) sums up to this for transparency.
+  landedTotal   Decimal     @db.Decimal(14, 2)
+  currency      String      @default("INR")
+  validUntil    DateTime?
+  // Computed by recomputeCheapest(): true when this quote has the lowest
+  // landedTotal among all PENDING/SELECTED quotes for the requisition.
+  isCheapest    Boolean     @default(false)
+  status        QuoteStatus @default(PENDING)
+  // Selection audit trail — who picked this quote, when, and why (the
+  // approver may override the cheapest recommendation with a reason).
+  selectedById  String?
+  selectedAt    DateTime?
+  selectionReason String?
+  submittedById String?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  requisition  MaterialRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  submittedBy  User?               @relation("QuoteSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  selectedBy   User?               @relation("QuoteSelector", fields: [selectedById], references: [id], onDelete: SetNull)
+  lines        VendorQuoteLine[]
+  purchaseOrders PurchaseOrder[] @relation("POSelectedQuote")
+
+  @@index([requisitionId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model VendorQuoteLine {
+  id          String   @id @default(cuid())
+  vendorQuoteId String
+  materialId  String
+  qty         Decimal  @db.Decimal(14, 3)
+  unitPrice   Decimal  @db.Decimal(14, 2) // per-unit delivered price
+  lineTotal   Decimal  @db.Decimal(14, 2) // qty × unitPrice
+
+  vendorQuote VendorQuote @relation(fields: [vendorQuoteId], references: [id], onDelete: Cascade)
+  material    Material    @relation(fields: [materialId], references: [id])
+
+  @@index([vendorQuoteId])
   @@index([materialId])
 }
 
@@ -1111,6 +1895,58 @@ model SupplierReturnLine {
 }
 
 // ───────────────────────────────────────────────────────────
+//  DIRECT PURCHASES: simplified purchase log for local/ad-hoc
+//  buys that don't warrant a formal Purchase Order. Matches the
+//  client's paper "Purchase Register" (P-XXXXX) — supplier name,
+//  bill date, bill amount, optional line items. If lines specify
+//  materials + qty + rate, stock is received into the location.
+// ───────────────────────────────────────────────────────────
+
+model DirectPurchase {
+  id           String   @id @default(cuid())
+  billNumber   String   @unique  // P-000461
+  supplierId   String?
+  supplierName String              // ad-hoc name (when supplier not in master)
+  companyId    String
+  locationId   String              // where goods were received
+  billDate     DateTime
+  subtotal     Decimal  @default(0) @db.Decimal(14, 2)
+  gstTotal     Decimal  @default(0) @db.Decimal(14, 2)
+  roundOff     Decimal  @default(0) @db.Decimal(14, 2)
+  billAmount   Decimal  @default(0) @db.Decimal(14, 2) // subtotal + gstTotal + roundOff
+  notes        String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier     Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  location     StockLocation  @relation(fields: [locationId], references: [id])
+  createdBy    User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lines        DirectPurchaseLine[]
+
+  @@index([companyId])
+  @@index([supplierId])
+  @@index([billDate])
+}
+
+model DirectPurchaseLine {
+  id               String  @id @default(cuid())
+  directPurchaseId String
+  materialId       String
+  qty              Decimal @db.Decimal(14, 3)
+  unitCost         Decimal @db.Decimal(14, 2)
+  gstRate          Decimal @default(0) @db.Decimal(5, 2)
+  lineTotal        Decimal @default(0) @db.Decimal(14, 2) // qty × unitCost + gstAmount
+
+  directPurchase DirectPurchase @relation(fields: [directPurchaseId], references: [id], onDelete: Cascade)
+  material       Material       @relation(fields: [materialId], references: [id])
+
+  @@index([directPurchaseId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
 //  SALES: customers, asset sales, payments
 // ───────────────────────────────────────────────────────────
 
@@ -1126,6 +1962,8 @@ model Customer {
   deletedAt DateTime?
 
   assetSales AssetSale[]
+  materialSales MaterialSale[]
+  tenancies  Tenancy[]
 }
 
 enum AssetType {
@@ -1154,6 +1992,8 @@ model AssetSale {
   projectId     String
   companyId     String
   salePrice     Decimal       @db.Decimal(14, 2)
+  gstRate       Decimal       @default(0) @db.Decimal(5, 2) // GST % applied on sale (e.g. 1, 5, 18)
+  gstAmount     Decimal       @default(0) @db.Decimal(14, 2) // computed GST = salePrice × gstRate / 100
   costBasis     Decimal       @default(0) @db.Decimal(14, 2) // acquisitionCost (land) or productionCost (unit) at time of sale
   profit        Decimal       @default(0) @db.Decimal(14, 2) // salePrice - costBasis
   saleDate      DateTime      @default(now())
@@ -1161,6 +2001,14 @@ model AssetSale {
   paymentStatus PaymentStatus @default(PENDING)
   paymentMode   String?
   notes         String?
+  // ── Deposit liability accounting ──
+  // Real estate sales are staged: PENDING → DEPOSIT_RECEIVED → COMPLETED (or CANCELLED).
+  // A customer deposit is recorded as a liability (Customer Deposit account) —
+  // revenue + COGS are NOT recognised until the sale completes (final payment + title transfer).
+  saleStage       String      @default("PENDING") // PENDING | DEPOSIT_RECEIVED | COMPLETED | CANCELLED
+  depositAmount   Decimal?    @db.Decimal(14, 2)   // initial customer deposit
+  depositDate     DateTime?                          // when deposit was received
+  finalSaleDate   DateTime?                          // when final payment + title transfer happened
   createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -1168,8 +2016,10 @@ model AssetSale {
   customer  Customer            @relation(fields: [customerId], references: [id])
   project   Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
   company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  builtUnit BuiltUnit?          @relation(fields: [builtUnitId], references: [id], onDelete: SetNull)
   createdBy User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
   payments  AssetSalePayment[]
+  paymentSchedule PaymentSchedule?
 
   @@index([projectId])
   @@index([companyId])
@@ -1319,6 +2169,7 @@ model JournalEntry {
   updatedAt   DateTime          @updatedAt
 
   lines JournalLine[]
+  tallySyncLog TallySyncLog?
 
   @@index([companyId])
   @@index([sourceType, sourceId])
@@ -1342,6 +2193,99 @@ model JournalLine {
   @@index([journalEntryId])
   @@index([accountCode])
   @@index([entityType, entityId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  TALLY SYNC — track which journal entries have been exported
+//  to Tally ERP as XML vouchers. The Tally provider is pluggable
+//  (see services/tally.ts) — a stub provider logs the XML; the
+//  real provider POSTs to Tally's HTTP API (port 9000).
+// ───────────────────────────────────────────────────────────
+
+model TallySyncLog {
+  id                 String   @id @default(cuid())
+  companyId          String
+  journalEntryId     String?  // optional — imported vouchers may not have a local match
+  tallyVoucherType   String   // "Journal", "Payment", "Receipt", "Sales", "Purchase", "Contra"
+  tallyVoucherNumber String?  // Tally's assigned voucher number (on success)
+  referenceNumber    String?  // voucher reference number from Tally (for reverse-sync matching)
+  tallyAmount        Decimal?  @db.Decimal(14, 2) // amount from Tally (for variance checks)
+  syncStatus         TallySyncStatus @default(PENDING)
+  syncedAt           DateTime?
+  errorMessage       String?
+  xmlPayload         String   // the generated/imported Tally XML
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([journalEntryId])  // one sync log per journal entry (null allowed for imports)
+  @@index([companyId, syncStatus])
+  @@index([syncStatus])
+  @@index([referenceNumber])
+}
+
+enum TallySyncStatus {
+  PENDING   // not yet synced
+  SYNCED    // successfully synced to Tally
+  FAILED    // sync attempted but failed (see errorMessage)
+  IMPORTED  // voucher imported FROM Tally (reverse sync)
+  VARIANCE  // imported voucher has amount mismatch vs local entry (flag for review)
+}
+
+// ───────────────────────────────────────────────────────────
+//  NOTIFICATIONS — WhatsApp / email / in-app alert system with
+//  pluggable providers. Templates are per-company per-event-type.
+//  Triggers: low stock, task assignment, quote approval, DPR
+//  approval, payment received, etc.
+// ───────────────────────────────────────────────────────────
+
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  companyId   String
+  eventType   String   // LOW_STOCK | TASK_ASSIGNMENT | QUOTE_APPROVAL | DPR_APPROVAL | PAYMENT_RECEIVED | etc.
+  channel     String   // WHATSAPP | EMAIL | IN_APP
+  template    String   // message template with {{variables}}
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  notificationLogs NotificationLog[]
+
+  @@unique([companyId, eventType, channel])
+  @@index([companyId, eventType])
+}
+
+model NotificationLog {
+  id            String   @id @default(cuid())
+  companyId     String
+  templateId    String?
+  eventType     String
+  channel       String   // WHATSAPP | EMAIL | IN_APP
+  recipient     String   // phone number or email or user ID
+  recipientName String?
+  subject       String?
+  message       String
+  status        NotificationStatus @default(PENDING)
+  sentAt        DateTime?
+  errorMessage  String?
+  metadata      Json?    // additional context (materialId, taskId, etc.)
+  createdAt     DateTime @default(now())
+
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  template  NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, eventType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1571,3 +2515,761 @@ model ScheduledWorkflow {
   @@index([nextRunAt])
   @@index([enabled])
 }
+
+// ───────────────────────────────────────────────────────────
+//  LEAVE MANAGEMENT — leave requests with approval workflow
+//  (architecture: HR → Leave sub-module)
+// ───────────────────────────────────────────────────────────
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+  UNPAID
+  MATERNITY
+  PATERNITY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveRequest {
+  id          String      @id @default(cuid())
+  companyId   String
+  employeeId  String
+  type        LeaveType   @default(CASUAL)
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  days        Decimal     @db.Decimal(5, 2) // computed working days (inclusive)
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  approvedById String?
+  approvedAt  DateTime?
+  rejectedReason String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approvedBy User?     @relation("LeaveApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+}
+
+// ───────────────────────────────────────────────────────────
+//  RENT / LEASE — tenancy agreements for units & land parcels
+//  (architecture: Real Estate → Rent sub-module)
+// ───────────────────────────────────────────────────────────
+
+enum TenancyStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING
+}
+
+model Tenancy {
+  id            String         @id @default(cuid())
+  companyId     String
+  assetType     AssetType      // LAND or BUILT_UNIT
+  landParcelId  String?
+  builtUnitId   String?
+  customerId    String?
+  projectId     String?
+  tenantName    String
+  tenantPhone   String?
+  tenantEmail   String?
+  startDate     DateTime       @db.Date
+  endDate       DateTime       @db.Date
+  monthlyRent   Decimal        @db.Decimal(14, 2)
+  securityDeposit Decimal      @default(0) @db.Decimal(14, 2)
+  rentAgreementNo String?
+  status        TenancyStatus  @default(PENDING)
+  notes         String?
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy  User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  payments   RentalPayment[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+  @@index([builtUnitId])
+  @@index([landParcelId])
+}
+
+model RentalPayment {
+  id          String   @id @default(cuid())
+  tenancyId   String
+  amount      Decimal  @db.Decimal(14, 2)
+  paymentDate DateTime @default(now())
+  dueDate     DateTime @db.Date
+  mode        String   // CASH, BANK, UPI, CHEQUE
+  reference   String?
+  status      String   @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
+  createdAt   DateTime @default(now())
+
+  tenancy Tenancy @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+
+  @@index([tenancyId])
+  @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────
+//  DAILY REPORT — site operations log (separate from DPR)
+//  (architecture: HR → Daily Reports sub-module)
+//  Fields: Attendance, Work Done, Material Used, Equipment, Delay, Remarks
+// ───────────────────────────────────────────────────────────
+
+model DailyReport {
+  id           String   @id @default(cuid())
+  companyId    String
+  projectId    String?
+  date         DateTime @db.Date
+  attendanceSummary String?  // e.g. "42 present, 3 absent, 1 leave"
+  workDone     String   // narrative of work completed today
+  materialUsed String?  // free-text or summary of materials consumed
+  equipment    String?  // equipment deployed + hours
+  delay        String?  // delays encountered + reasons
+  remarks      String?
+  submittedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  submittedBy User?   @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([date])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Material Inventory Sales — sell raw materials / stock items
+//  to customers (not just land/built-unit assets).
+//  Each MaterialSale has one or more MaterialSaleLine items,
+//  each referencing a material + location from which stock is
+//  relieved via a SALE stock movement.
+// ───────────────────────────────────────────────────────────────
+
+model MaterialSale {
+  id            String        @id @default(cuid())
+  saleNumber    String        @unique
+  customerId    String
+  companyId     String
+  projectId     String?
+  saleDate      DateTime      @default(now())
+  subtotal      Decimal       @default(0) @db.Decimal(14, 2) // Σ line.qty × line.unitPrice (pre-GST)
+  gstTotal      Decimal       @default(0) @db.Decimal(14, 2) // Σ line.gstAmount
+  totalAmount   Decimal       @default(0) @db.Decimal(14, 2) // subtotal + gstTotal
+  totalCost     Decimal       @default(0) @db.Decimal(14, 2) // Σ line.qty × line.unitCost (MAC at sale time)
+  scrapSubtotal Decimal       @default(0) @db.Decimal(14, 2) // portion of subtotal from scrap-material lines (cost recovery)
+  grossProfit   Decimal       @default(0) @db.Decimal(14, 2) // subtotal - totalCost
+  status        SaleStatus    @default(ACTIVE)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMode   String?
+  notes         String?
+  createdById   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customer   Customer           @relation(fields: [customerId], references: [id])
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project    Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lines      MaterialSaleLine[]
+  payments   MaterialSalePayment[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model MaterialSalePayment {
+  id          String   @id @default(cuid())
+  saleId      String
+  amount      Decimal  @db.Decimal(14, 2)
+  paymentDate DateTime @default(now())
+  paymentMode String   // "BANK" | "CASH" | "UPI" | "CHEQUE"
+  referenceNo String?
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sale       MaterialSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  createdBy  User?        @relation("SalePaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+}
+
+model MaterialSaleLine {
+  id             String   @id @default(cuid())
+  materialSaleId String
+  materialId     String
+  locationId     String
+  qty            Decimal  @db.Decimal(14, 3)
+  unitPrice      Decimal  @db.Decimal(14, 2) // selling price per unit
+  unitCost       Decimal  @db.Decimal(14, 2) // MAC at time of sale (cost basis)
+  gstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount      Decimal  @default(0) @db.Decimal(14, 2) // qty × unitPrice × gstRate / 100
+  lineTotal      Decimal  @db.Decimal(14, 2) // qty × unitPrice + gstAmount
+
+  materialSale MaterialSale @relation(fields: [materialSaleId], references: [id], onDelete: Cascade)
+  material     Material     @relation(fields: [materialId], references: [id])
+  location     StockLocation @relation(fields: [locationId], references: [id])
+
+  @@index([materialSaleId])
+  @@index([materialId])
+  @@index([locationId])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Renovation / Value-Add Projects — track enhancement work on
+//  existing built units or land parcels. Costs are capitalised
+//  into the asset's cost basis on completion, and the valuation
+//  is automatically updated (original cost + renovation cost).
+//  ROI = (newValuation - originalValuation - renovationCost) / renovationCost
+// ───────────────────────────────────────────────────────────────
+
+enum RenovationType {
+  RENOVATION     // structural / cosmetic upgrade of an existing unit
+  ADDITION       // adding floor/room/extension to an existing unit
+  VALUE_ADD      // general value-add (landscaping, amenities, fixtures)
+  REPAIR         // non-capitalised repair (expensed, not capitalised)
+}
+
+enum RenovationStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model RenovationProject {
+  id              String           @id @default(cuid())
+  renovationNumber String          @unique
+  type            RenovationType
+  status          RenovationStatus @default(PLANNED)
+  builtUnitId     String?
+  landParcelId    String?
+  projectId       String
+  companyId       String
+  title           String
+  description     String?
+  budget          Decimal          @default(0) @db.Decimal(14, 2) // planned budget
+  actualCost      Decimal          @default(0) @db.Decimal(14, 2) // Σ renovation costs (computed)
+  // Snapshot of asset valuation before renovation (for ROI calc)
+  originalValuation Decimal        @default(0) @db.Decimal(14, 2)
+  // New valuation set on completion (manual input or auto = original + actualCost)
+  newValuation    Decimal?         @db.Decimal(14, 2)
+  startDate       DateTime?
+  completedAt     DateTime?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  builtUnit   BuiltUnit?  @relation(fields: [builtUnitId], references: [id], onDelete: Cascade)
+  landParcel  LandParcel? @relation(fields: [landParcelId], references: [id], onDelete: Cascade)
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy   User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  costs       RenovationCost[]
+
+  @@index([builtUnitId])
+  @@index([landParcelId])
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+}
+
+model RenovationCost {
+  id                String          @id @default(cuid())
+  renovationProjectId String
+  costType          ProjectCostType // reuse: LABOUR, OVERHEAD, EQUIPMENT, CONTRACTOR, PERMIT, OTHER
+  amount            Decimal         @db.Decimal(14, 2)
+  date              DateTime        @default(now())
+  vendor            String?
+  notes             String?
+  receiptUrl        String?
+  createdById       String?
+  createdAt         DateTime        @default(now())
+
+  renovationProject RenovationProject @relation(fields: [renovationProjectId], references: [id], onDelete: Cascade)
+  createdBy         User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([renovationProjectId])
+  @@index([costType])
+}
+
+// ───────────────────────────────────────────────────────────
+//  BOQ (BILL OF QUANTITIES) — the project's cost budget.
+//  Hierarchical: Section → SubSection → Line Item.
+//  Each leaf item has a material (optional), unit, estimated qty,
+//  rate, and amount. This is the "planned cost" baseline.
+//
+//  WBS (WORK BREAKDOWN STRUCTURE) — the project's schedule.
+//  Hierarchical: Project → Phase → Activity → Sub-Activity.
+//  Each WBS node links to a BOQ item (optional) and has schedule
+//  dates + dependencies. This is the scheduling backbone.
+//
+//  MEASUREMENT BOOK (MB) — the site engineer's verified record of
+//  actual quantities executed. Each MB entry links to a BOQ item
+//  and records the measured qty, date, and who measured it.
+//  This is the "earned value" basis — EV = Σ MB qty × BOQ rate.
+//
+//  Together: BOQ = budget (PV), MB = executed (EV),
+//  actuals (MaterialIssue + ProjectCost + RA bills) = AC.
+//  EVM metrics (CPI, SPI, EAC) are computed from these three.
+// ───────────────────────────────────────────────────────────
+
+enum BoqItemType {
+  SECTION     // top-level section (e.g. "Civil Works", "Electrical")
+  SUBSECTION  // nested subsection (e.g. "Foundation", "Wiring")
+  LINE_ITEM   // leaf item with qty + rate (the actual billable line)
+}
+
+model BoqItem {
+  id          String       @id @default(cuid())
+  projectId   String
+  phaseId     String?
+  parentId    String?      // self-relation: parent BoqItem (null = top-level section)
+  type        BoqItemType  @default(SECTION)
+  serialNo    String       // e.g. "1", "1.1", "1.1.1" — display order
+  description String
+  // Leaf-item fields (only set when type = LINE_ITEM)
+  materialId  String?      // optional link to Material catalog
+  unit        String?      // e.g. "CUM", "SQM", "NOS", "KG"
+  estimatedQty  Decimal?   @db.Decimal(14, 3)  // planned quantity
+  rate        Decimal?     @db.Decimal(14, 2)  // estimated rate (₹ per unit)
+  // Computed: amount = estimatedQty × rate (cached for quick totals)
+  estimatedAmount Decimal? @db.Decimal(14, 2)
+  notes       String?
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase       ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  parent      BoqItem?     @relation("BoqHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    BoqItem[]    @relation("BoqHierarchy")
+  material    Material?    @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  wbsNodes    WbsNode[]
+  mbEntries   MeasurementBookEntry[]
+  workOrderLines SubcontractorWorkOrderLine[]
+  raBillLines RaBillLine[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([phaseId])
+  @@index([materialId])
+}
+
+enum WbsNodeType {
+  PROJECT_NODE   // root node for the project
+  PHASE_NODE     // phase-level (Tower A, Phase 1)
+  ACTIVITY       // a schedulable activity (e.g. "Excavation", "Concrete Pour")
+  SUB_ACTIVITY   // nested sub-activity
+  MILESTONE      // a key milestone (zero-duration, marks a point)
+}
+
+model WbsNode {
+  id          String       @id @default(cuid())
+  projectId   String
+  phaseId     String?
+  parentId    String?      // self-relation: parent WbsNode (null = project root)
+  boqItemId   String?      // optional link to a BOQ line item (for cost-bearing activities)
+  type        WbsNodeType  @default(ACTIVITY)
+  code        String       // e.g. "A1.2.3" — WBS code for reference
+  name        String
+  description String?
+  // Schedule
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  actualStart  DateTime?
+  actualEnd    DateTime?
+  // Progress (0-100% — can be auto-computed from MB entries vs BOQ qty)
+  progressPct  Decimal     @default(0) @db.Decimal(5, 2)
+  // Critical path
+  isCritical   Boolean     @default(false)
+  // Float (slack) in days — computed from dependencies
+  totalFloat   Int?        // days of slack
+  sortOrder    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase       ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  parent      WbsNode?     @relation("WbsHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    WbsNode[]    @relation("WbsHierarchy")
+  boqItem     BoqItem?     @relation(fields: [boqItemId], references: [id], onDelete: SetNull)
+  dependencies WbsDependency[] @relation("WbsDependent")
+  blocks      WbsDependency[] @relation("WbsBlocking")
+  mbEntries   MeasurementBookEntry[]
+  paymentScheduleItems PaymentScheduleItem[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([phaseId])
+  @@index([boqItemId])
+}
+
+enum DependencyType {
+  FS  // Finish-to-Start (A must finish before B starts) — most common
+  SS  // Start-to-Start
+  FF  // Finish-to-Finish
+  SF  // Start-to-Finish (rare)
+}
+
+model WbsDependency {
+  id           String         @id @default(cuid())
+  predecessorId String        // the node that must finish/start first
+  successorId   String        // the node that depends on the predecessor
+  type         DependencyType @default(FS)
+  lagDays      Int            @default(0) // positive = delay, negative = lead
+  createdAt    DateTime       @default(now())
+
+  predecessor WbsNode @relation("WbsBlocking", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor   WbsNode @relation("WbsDependent", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId, type])
+  @@index([successorId])
+}
+
+enum MbEntryStatus {
+  DRAFT          // entered by site engineer, pending verification
+  VERIFIED       // verified by sub-engineer/QA
+  APPROVED       // approved by engineer-in-charge (billable)
+  REJECTED       // rejected — needs re-measurement
+}
+
+model MeasurementBookEntry {
+  id           String        @id @default(cuid())
+  projectId    String
+  phaseId      String?
+  boqItemId    String        // which BOQ line item this measurement is for
+  wbsNodeId    String?       // which WBS activity this was done under
+  mbNumber     String        // sequential MB entry number (MB-YYMMDD-NNNN)
+  // The actual measured quantity for this entry (cumulative entries add up)
+  measuredQty  Decimal       @db.Decimal(14, 3)
+  // Cumulative qty up to and including this entry (for running total)
+  cumulativeQty Decimal      @db.Decimal(14, 3)
+  // Description of work done
+  description  String
+  // Location reference (e.g. "Unit 101, Floor 2, Wing A")
+  locationRef  String?
+  // Measurement date (when the work was actually done/measured)
+  measureDate  DateTime      @default(now())
+  // Approval workflow
+  status       MbEntryStatus @default(DRAFT)
+  measuredById String?
+  verifiedById String?
+  approvedById String?
+  verifiedAt   DateTime?
+  approvedAt   DateTime?
+  rejectReason String?
+  // Link to RA bill (set when this entry is included in a bill)
+  raBillLineId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase        ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  boqItem      BoqItem       @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  wbsNode      WbsNode?      @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
+  measuredBy   User?         @relation("MbMeasuredBy", fields: [measuredById], references: [id], onDelete: SetNull)
+  verifiedBy   User?         @relation("MbVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  approvedBy   User?         @relation("MbApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  raBillLine   RaBillLine?   @relation(fields: [raBillLineId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([boqItemId])
+  @@index([wbsNodeId])
+  @@index([status])
+  @@index([phaseId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SUBCONTRACTOR WORK ORDERS + RA BILLS — the contractor billing
+//  and payment cycle. A Work Order is issued against specific BOQ
+//  items (scope of work) with agreed rates. RA (Running Account)
+//  bills are generated from approved MB entries, with deductions
+//  for retention, TDS, and advance recovery. A Payment Certificate
+//  is the final payable amount after all deductions.
+//
+//  TDS under Section 194C: 1% for individual/HUF subcontractor,
+//  2% for others. Retention (typically 5-10%) is held until
+//  project completion or defect liability period ends.
+// ───────────────────────────────────────────────────────────
+
+enum WorkOrderStatus {
+  DRAFT
+  ISSUED       // issued to subcontractor, work can start
+  ACTIVE       // work in progress (RA bills being submitted)
+  COMPLETED    // work finished, retention pending
+  CLOSED       // retention released, fully settled
+  CANCELLED
+}
+
+enum SubcontractorCategory {
+  INDIVIDUAL    // individual/HUF — TDS @ 1%
+  COMPANY       // partnership/company — TDS @ 2%
+  OTHER         // TDS @ 2%
+}
+
+model SubcontractorWorkOrder {
+  id               String           @id @default(cuid())
+  workOrderNumber  String           @unique  // WO-YYMMDD-NNNN
+  projectId        String
+  phaseId          String?
+  subcontractorId  String
+  companyId        String
+  status           WorkOrderStatus  @default(DRAFT)
+  // Scope: which BOQ items are covered (via SubcontractorWorkOrderLine)
+  workTitle        String
+  description      String?
+  // Financial terms
+  retentionPct     Decimal          @default(5) @db.Decimal(5, 2)  // % retained per bill
+  tdsPct           Decimal          @default(2) @db.Decimal(5, 2)  // TDS % (1% or 2% per 194C)
+  tdsCategory      SubcontractorCategory @default(COMPANY)
+  // Advance
+  advanceAmount    Decimal          @default(0) @db.Decimal(14, 2)
+  advanceRecoveryPct Decimal        @default(10) @db.Decimal(5, 2) // % recovered per bill
+  // Dates
+  issueDate        DateTime         @default(now())
+  startDate        DateTime?
+  endDate          DateTime?
+  // Totals (cached from RA bills)
+  totalWorkDone    Decimal          @default(0) @db.Decimal(14, 2)
+  totalDeductions  Decimal          @default(0) @db.Decimal(14, 2)
+  totalPaid        Decimal          @default(0) @db.Decimal(14, 2)
+  retentionBalance Decimal          @default(0) @db.Decimal(14, 2)  // cumulative retention held
+  // Defect liability period (months after completion before retention release)
+  defectLiabilityMonths Int         @default(12)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase            ProjectPhase?    @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  subcontractor    Subcontractor    @relation(fields: [subcontractorId], references: [id], onDelete: Restrict)
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines            SubcontractorWorkOrderLine[]
+  raBills          RaBill[]
+
+  @@index([projectId])
+  @@index([subcontractorId])
+  @@index([companyId])
+  @@index([status])
+}
+
+model SubcontractorWorkOrderLine {
+  id              String   @id @default(cuid())
+  workOrderId     String
+  boqItemId       String   // the BOQ line item being subcontracted
+  agreedRate      Decimal  @db.Decimal(14, 2)  // rate per unit (may differ from BOQ estimated rate)
+  // Cumulative tracking (cached from approved MB entries linked to this BOQ item)
+  cumulativeQty   Decimal  @default(0) @db.Decimal(14, 3)
+  cumulativeAmount Decimal @default(0) @db.Decimal(14, 2)
+
+  workOrder       SubcontractorWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  boqItem         BoqItem                @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  raBillLines     RaBillLine[]
+
+  @@index([workOrderId])
+  @@index([boqItemId])
+}
+
+enum RaBillStatus {
+  DRAFT          // created by subcontractor/site, pending review
+  SUBMITTED      // submitted for approval
+  APPROVED       // approved by engineer-in-charge
+  PAID           // payment certificate generated + payment recorded
+  REJECTED       // rejected — needs revision
+}
+
+model RaBill {
+  id              String        @id @default(cuid())
+  raBillNumber    String        @unique  // RA-YYMMDD-NNNN
+  workOrderId     String
+  projectId       String
+  companyId       String
+  billDate        DateTime      @default(now())
+  periodFrom      DateTime      // billing period start
+  periodTo        DateTime      // billing period end
+  status          RaBillStatus  @default(DRAFT)
+  // Financial summary (computed from lines)
+  grossAmount     Decimal       @default(0) @db.Decimal(14, 2)  // Σ line amounts (work done this period)
+  cumulativeGross Decimal       @default(0) @db.Decimal(14, 2)  // total work done up to this bill
+  // Deductions
+  retentionAmount Decimal       @default(0) @db.Decimal(14, 2)  // retained this bill
+  tdsAmount       Decimal       @default(0) @db.Decimal(14, 2)  // TDS deducted
+  advanceRecovery Decimal       @default(0) @db.Decimal(14, 2)  // advance recovered this bill
+  otherDeductions Decimal       @default(0) @db.Decimal(14, 2)  // penalties, etc.
+  // Net payable
+  netPayable      Decimal       @default(0) @db.Decimal(14, 2)  // grossAmount - all deductions
+  // Approval
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectReason    String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  workOrder       SubcontractorWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  project         Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company         Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines           RaBillLine[]
+  approvedBy      User?                  @relation("RaBillApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model RaBillLine {
+  id              String   @id @default(cuid())
+  raBillId        String
+  boqItemId       String   // which BOQ item this line is for
+  workOrderLineId String   // which work order line (for agreed rate)
+  // Quantities
+  prevQty         Decimal  @default(0) @db.Decimal(14, 3)  // cumulative up to previous bill
+  thisQty         Decimal  @default(0) @db.Decimal(14, 3)  // this period's quantity
+  totalQty        Decimal  @default(0) @db.Decimal(14, 3)  // prevQty + thisQty
+  // Amounts
+  rate            Decimal  @db.Decimal(14, 2)  // agreed rate from work order line
+  prevAmount      Decimal  @default(0) @db.Decimal(14, 2)
+  thisAmount      Decimal  @default(0) @db.Decimal(14, 2)
+  totalAmount     Decimal  @default(0) @db.Decimal(14, 2)
+
+  raBill          RaBill   @relation(fields: [raBillId], references: [id], onDelete: Cascade)
+  boqItem         BoqItem  @relation(fields: [boqItemId], references: [id], onDelete: Restrict)
+  workOrderLine   SubcontractorWorkOrderLine @relation(fields: [workOrderLineId], references: [id], onDelete: Cascade)
+  mbEntries       MeasurementBookEntry[]
+
+  @@index([raBillId])
+  @@index([boqItemId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  PAYMENT SCHEDULE — for real estate sales. Generated when a
+//  unit is booked. Three types:
+//  - CLP (Construction-Linked Plan): payments tied to WBS
+//    milestone completion (e.g. 10% on foundation, 20% on
+//    structure, etc.)
+//  - TLP (Time-Linked Plan): fixed installments over time
+//  - DPP (Down Payment Plan): large upfront + small installments
+// ───────────────────────────────────────────────────────────
+
+enum PaymentScheduleType {
+  CLP    // Construction-Linked Plan
+  TLP    // Time-Linked Plan
+  DPP    // Down Payment Plan
+}
+
+enum PaymentScheduleItemStatus {
+  PENDING       // not yet due
+  DUE           // milestone reached / date passed, awaiting payment
+  PARTIAL       // partially paid
+  PAID          // fully paid
+  WAIVED        // waived (e.g. promotional offer)
+}
+
+model PaymentSchedule {
+  id            String              @id @default(cuid())
+  assetSaleId   String              @unique  // one schedule per sale
+  type          PaymentScheduleType @default(CLP)
+  totalAmount   Decimal             @db.Decimal(14, 2)
+  gstAmount     Decimal             @default(0) @db.Decimal(14, 2)
+  grandTotal    Decimal             @db.Decimal(14, 2)  // totalAmount + gstAmount
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  assetSale     AssetSale           @relation(fields: [assetSaleId], references: [id], onDelete: Cascade)
+  items         PaymentScheduleItem[]
+
+  @@index([assetSaleId])
+}
+
+model PaymentScheduleItem {
+  id            String                  @id @default(cuid())
+  paymentScheduleId String
+  wbsNodeId     String?                 // for CLP: which milestone triggers this payment
+  installmentNo Int                     // 1, 2, 3...
+  description   String                  // e.g. "On Booking", "On Foundation Completion"
+  percentage    Decimal                 @db.Decimal(5, 2)  // % of total
+  amount        Decimal                 @db.Decimal(14, 2)  // base amount
+  gstPercentage Decimal  @default(0)    @db.Decimal(5, 2)
+  gstAmount     Decimal  @default(0)    @db.Decimal(14, 2)
+  totalAmount   Decimal                 @db.Decimal(14, 2)  // amount + gstAmount
+  // For TLP/DPP: due date. For CLP: triggered by WBS milestone completion
+  dueDate       DateTime?
+  status        PaymentScheduleItemStatus @default(PENDING)
+  paidAmount    Decimal  @default(0)    @db.Decimal(14, 2)
+  paidAt        DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  paymentSchedule PaymentSchedule        @relation(fields: [paymentScheduleId], references: [id], onDelete: Cascade)
+  wbsNode         WbsNode?               @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
+
+  @@index([paymentScheduleId])
+  @@index([wbsNodeId])
+  @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────
+//  RATE CONTRACT / FRAMEWORK AGREEMENT — pre-negotiated rates
+//  with a supplier for a specific material, valid for a period.
+//  POs created against a rate contract auto-fill the agreed rate.
+// ───────────────────────────────────────────────────────────
+
+enum RateContractStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model RateContract {
+  id             String              @id @default(cuid())
+  contractNumber String              @unique  // RC-YYMMDD-NNNN
+  supplierId     String
+  companyId      String
+  materialId     String
+  agreedRate     Decimal             @db.Decimal(14, 2)  // ₹ per unit
+  validFrom      DateTime
+  validTo        DateTime
+  minQty         Decimal?            @db.Decimal(14, 3)  // minimum order qty per release
+  maxQty         Decimal?            @db.Decimal(14, 3)  // maximum total qty under this contract
+  totalReleasedQty Decimal           @default(0) @db.Decimal(14, 3)  // cumulative qty released via POs
+  status         RateContractStatus  @default(ACTIVE)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  supplier       Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  material       Material            @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  createdBy      User?               @relation("RateContractCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([supplierId])
+  @@index([companyId])
+  @@index([materialId])
+  @@index([status])
+}
+
+

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCurrentUser, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 
 /**
  * GET /api/company — returns the active company info plus the list of

@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { formatCurrency } from "@/lib/utils";
+import { required, type ValidationErrors } from "@/lib/validate";
 import type { MaterialRow, ProjectOption, StockLocationRow, SupplierRow } from "@/lib/types";
+
+type PoFormValues = {
+  supplierId: string;
+  lines: Line[];
+};
+
+const errorBorder = "border-danger focus-visible:border-danger focus-visible:ring-danger/25";
 
 type Line = {
   key: string;
@@ -39,6 +48,65 @@ export function PurchaseOrderFormDialog({
   locations: StockLocationRow[];
   projects: ProjectOption[];
 }) {
+  // Build material options for the select column
+  const materialOptions = useMemo(
+    () => materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` })),
+    [materials],
+  );
+
+  // Column definitions for the editable grid
+  const lineColumns: EditableColumn<Line>[] = useMemo(() => [
+    {
+      key: "materialId",
+      label: "Material",
+      type: "select",
+      options: materialOptions,
+      placeholder: "Select material…",
+      width: "1fr",
+    },
+    {
+      key: "qtyOrdered",
+      label: "Qty",
+      type: "number",
+      align: "right",
+      step: "0.001",
+      min: 0,
+      placeholder: "0",
+      width: "90px",
+      format: (v) => v ? String(v) : "",
+    },
+    {
+      key: "unitCost",
+      label: "Rate (₹)",
+      type: "number",
+      align: "right",
+      step: "0.01",
+      min: 0,
+      placeholder: "0",
+      width: "110px",
+      format: (v) => v ? formatCurrency(Number(v)) : "",
+    },
+    {
+      key: "gstRate",
+      label: "GST %",
+      type: "number",
+      align: "right",
+      step: "0.01",
+      min: 0,
+      max: 100,
+      placeholder: "0",
+      width: "80px",
+      format: (v) => v ? `${v}%` : "",
+    },
+    {
+      key: "lineTotal",
+      label: "Amount",
+      type: "computed",
+      align: "right",
+      compute: (r) => (Number(r.qtyOrdered) || 0) * (Number(r.unitCost) || 0),
+      format: (v) => formatCurrency(v as number),
+    },
+  ], [materialOptions]);
   const router = useRouter();
   const [supplierId, setSupplierId] = useState("");
   const [scope, setScope] = useState<"COMPANY" | "PROJECT">("COMPANY");
@@ -48,6 +116,20 @@ export function PurchaseOrderFormDialog({
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<ValidationErrors<PoFormValues>>({});
+
+  function validateField(key: keyof PoFormValues): string | undefined {
+    if (key === "supplierId") return required(supplierId, "Supplier");
+    if (key === "lines") {
+      const validLines = lines.filter((l) => l.materialId && Number(l.qtyOrdered) > 0);
+      if (validLines.length === 0) return "Add at least one line item with a material and quantity";
+    }
+  }
+
+  function onBlur(key: keyof PoFormValues) {
+    const error = validateField(key);
+    setErrors((prev) => ({ ...prev, [key]: error }));
+  }
 
   // Filter locations by scope
   const availableLocations = locations.filter((l) =>
@@ -59,14 +141,8 @@ export function PurchaseOrderFormDialog({
       ? availableLocations.filter((l) => l.projectId === projectId)
       : availableLocations;
 
-  function updateLine(key: string, patch: Partial<Line>) {
-    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  }
   function addLine() {
     setLines((ls) => [...ls, newLine()]);
-  }
-  function removeLine(key: string) {
-    setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
   }
 
   // Compute totals
@@ -92,13 +168,20 @@ export function PurchaseOrderFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supplierId) return toast.error("Select a supplier");
-    if (!locationId) return toast.error("Select a destination location");
-    if (scope === "PROJECT" && !projectId) return toast.error("Select a project for PROJECT-scope PO");
+    const newErrors: ValidationErrors<PoFormValues> = {};
+    (["supplierId", "lines"] as (keyof PoFormValues)[]).forEach((key) => {
+      const error = validateField(key);
+      if (error) newErrors[key] = error;
+    });
+    setErrors(newErrors);
+    if (!locationId) { toast.error("Select a destination location"); return; }
+    if (scope === "PROJECT" && !projectId) { toast.error("Select a project for PROJECT-scope PO"); return; }
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
 
     const validLines = lines.filter((l) => l.materialId && Number(l.qtyOrdered) > 0);
-    if (validLines.length === 0) return toast.error("Add at least one line item with a material and quantity");
-
     setSaving(true);
     try {
       const res = await fetch("/api/purchase-orders", {
@@ -127,8 +210,8 @@ export function PurchaseOrderFormDialog({
       setSupplierId(""); setLocationId(""); setProjectId(""); setExpectedDate(""); setNotes("");
       setLines([newLine()]);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -137,16 +220,22 @@ export function PurchaseOrderFormDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) {
+          setSupplierId(""); setLocationId(""); setProjectId(""); setScope("COMPANY");
+          setExpectedDate(""); setNotes(""); setLines([newLine()]); setErrors({});
+        }
+      }}
       title="New Purchase Order"
-      description="Create a PO with COMPANY or PROJECT scope. COMPANY → company warehouse; PROJECT → project site."
+      description="Create a PO with COMPANY or PROJECT scope. COMPANY → receive at company warehouse; PROJECT → receive at project site."
       className="max-w-3xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
         {/* Header fields */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Supplier" required>
-            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
+          <Field label="Supplier" required error={errors.supplierId}>
+            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} onBlur={() => onBlur("supplierId")} required aria-invalid={!!errors.supplierId} className={errors.supplierId ? errorBorder : undefined}>
               <option value="" disabled>Select supplier…</option>
               {suppliers.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -182,7 +271,7 @@ export function PurchaseOrderFormDialog({
           </Field>
         </div>
 
-        {/* Line items */}
+        {/* Line items — editable grid */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Line Items</Label>
@@ -190,24 +279,17 @@ export function PurchaseOrderFormDialog({
               <Plus className="h-4 w-4" /> Add line
             </Button>
           </div>
-          <div className="space-y-2">
-            {lines.map((l) => (
-              <div key={l.key} className="grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-[1fr_90px_110px_80px_36px]">
-                <Select value={l.materialId} onChange={(e) => updateLine(l.key, { materialId: e.target.value })}>
-                  <option value="" disabled>Material…</option>
-                  {materials.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
-                  ))}
-                </Select>
-                <Input type="number" step="0.001" min="0" placeholder="Qty" value={l.qtyOrdered} onChange={(e) => updateLine(l.key, { qtyOrdered: e.target.value })} />
-                <Input type="number" step="0.01" min="0" placeholder="Unit cost" value={l.unitCost} onChange={(e) => updateLine(l.key, { unitCost: e.target.value })} />
-                <Input type="number" step="0.01" min="0" max="100" placeholder="GST%" value={l.gstRate} onChange={(e) => updateLine(l.key, { gstRate: e.target.value })} />
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(l.key)} disabled={lines.length === 1} className="text-muted-foreground hover:text-danger">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+          <div className={`rounded-lg border overflow-hidden ${errors.lines ? "border-danger" : "border-border"}`}>
+            <EditableGrid
+              rows={lines}
+              onChange={setLines}
+              columns={lineColumns}
+              getRowId={(r) => r.key}
+              sumColumns={["qtyOrdered", "lineTotal"]}
+              className="max-h-[40vh]"
+            />
           </div>
+          {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
         </div>
 
         {/* Totals */}
@@ -218,7 +300,7 @@ export function PurchaseOrderFormDialog({
         </div>
 
         <Field label="Notes">
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional PO notes" />
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional notes for this PO" />
         </Field>
 
         <div className="flex justify-end gap-2 pt-2">

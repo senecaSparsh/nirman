@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Package, ArrowRight } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
+import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { PurchaseOrderDetail } from "@/lib/types";
 
 type RecvLine = {
@@ -21,6 +24,59 @@ type RecvLine = {
   qtyToReceive: string;
   unitCost: string;
 };
+
+/** Column definitions for the receive-goods editable grid. */
+const recvColumns: EditableColumn<RecvLine>[] = [
+  {
+    key: "materialName",
+    label: "Material",
+    type: "readonly",
+    width: "1fr",
+  },
+  {
+    key: "qtyOrdered",
+    label: "Ordered",
+    type: "readonly",
+    align: "right",
+    format: (v) => formatNumber(v as number, 3),
+  },
+  {
+    key: "remaining",
+    label: "Remaining",
+    type: "readonly",
+    align: "right",
+    format: (v) => formatNumber(v as number, 3),
+  },
+  {
+    key: "qtyToReceive",
+    label: "Qty to Receive",
+    type: "number",
+    align: "right",
+    step: "0.001",
+    min: 0,
+    placeholder: "0",
+    width: "110px",
+    format: (v) => v ? formatNumber(Number(v), 3) : "",
+  },
+  {
+    key: "unitCost",
+    label: "Unit Cost (₹)",
+    type: "number",
+    align: "right",
+    step: "0.01",
+    min: 0,
+    width: "110px",
+    format: (v) => v ? formatCurrency(Number(v)) : "",
+  },
+  {
+    key: "lineTotal",
+    label: "Line Total",
+    type: "computed",
+    align: "right",
+    compute: (r) => (Number(r.qtyToReceive) || 0) * (Number(r.unitCost) || 0),
+    format: (v) => formatCurrency(v as number),
+  },
+];
 
 export function ReceiveGoodsDialog({
   open,
@@ -94,13 +150,25 @@ export function ReceiveGoodsDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to receive goods");
-      toast.success(`Goods received — PO is now ${data.newStatus}`);
+
+      // Build a detailed confirmation toast with stock landing info
+      const receivedSummary = toReceive
+        .map((l) => `${l.qtyToReceive} ${l.unit} ${l.materialName}`)
+        .join(", ");
+      const isProjectScoped = po.procurementScope === "PROJECT" && po.projectId;
+      toast.success(`GRN done — PO is now ${data.newStatus}`, {
+        description: `${receivedSummary} → ${po.destinationLocation.name}`,
+        action: {
+          label: isProjectScoped ? "Issue to Project" : "View Stock Movements",
+          onClick: () => router.push(isProjectScoped ? `/stock?issue=1&project=${po.projectId}` : "/stock?tab=movements"),
+        },
+      });
       onOpenChange(false);
       setLines([]);
       setNotes("");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -114,8 +182,8 @@ export function ReceiveGoodsDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => { onOpenChange(o); if (!o) { setLines([]); setNotes(""); } }}
-      title={`Receive Goods — ${po.poNumber}`}
-      description={`Supplier: ${po.supplier.name} · Destination: ${po.destinationLocation.name}`}
+      title={`Make GRN — ${po.poNumber}`}
+      description={`Supplier: ${po.supplier.name} · Receiving at: ${po.destinationLocation.name}`}
       className="max-w-2xl"
     >
       {!canReceive ? (
@@ -133,51 +201,20 @@ export function ReceiveGoodsDialog({
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3" onFocus={ensureLines}>
-          <div className="space-y-2">
-            {receivableLines.map((l) => {
-              const rl = lines.find((x) => x.lineId === l.id) ?? {
-                lineId: l.id, materialId: l.materialId, materialName: l.materialName, unit: l.unit,
-                qtyOrdered: l.qtyOrdered, qtyReceived: l.qtyReceived, remaining: l.remaining,
-                defaultCost: l.unitCost, qtyToReceive: "", unitCost: String(l.unitCost),
-              };
-              return (
-                <div key={l.id} className="rounded-md border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{l.materialName}</span>
-                    <span className="text-caption text-muted-foreground tnum">
-                      Ordered {l.qtyOrdered} {l.unit} · Received {l.qtyReceived} · Remaining {l.remaining}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-caption">Qty to receive</Label>
-                      <Input
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        max={l.remaining}
-                        placeholder={`max ${l.remaining}`}
-                        value={rl.qtyToReceive}
-                        onChange={(e) => updateLine(l.id, { qtyToReceive: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-caption">Actual unit cost (₹)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={rl.unitCost}
-                        onChange={(e) => updateLine(l.id, { unitCost: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {lines.length > 0 && (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <EditableGrid
+                rows={lines}
+                onChange={setLines}
+                columns={recvColumns}
+                getRowId={(r) => r.lineId}
+                sumColumns={["qtyToReceive", "lineTotal"]}
+                className="max-h-[50vh]"
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
-            <Label>Receipt notes</Label>
+            <Label>GRN notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional — e.g. invoice no., delivery challan" />
           </div>
           <div className="flex justify-end gap-2 pt-2">

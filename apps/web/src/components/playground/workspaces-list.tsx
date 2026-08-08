@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MODULES, type ModelKey, type WorkspaceGraph } from "@/lib/modules/registry";
 import { cn } from "@/lib/utils";
 
@@ -46,9 +48,9 @@ function hierarchyChain(graph: WorkspaceGraph): string[] {
 
 export function WorkspacesList({ workspaces }: { workspaces: Workspace[] }) {
   const router = useRouter();
+  const [delTarget, setDelTarget] = useState<Workspace | null>(null);
 
-  const onDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete workspace "${name}"? This removes the tab (soft delete).`)) return;
+  const onDelete = async (id: string) => {
     const res = await fetch(`/api/workspaces/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Workspace deleted.");
@@ -132,7 +134,7 @@ export function WorkspacesList({ workspaces }: { workspaces: Workspace[] }) {
                     <Pencil /> Edit
                   </Link>
                 </Button>
-                <Button variant="ghost" size="xs" className="ml-auto text-danger hover:text-danger" onClick={() => onDelete(ws.id, ws.name)}>
+                <Button variant="ghost" size="xs" className="ml-auto text-danger hover:text-danger" onClick={() => setDelTarget(ws)}>
                   <Trash2 /> Delete
                 </Button>
               </div>
@@ -140,6 +142,18 @@ export function WorkspacesList({ workspaces }: { workspaces: Workspace[] }) {
           </Card>
         );
       })}
+
+      <ConfirmDialog
+        open={delTarget !== null}
+        onOpenChange={(o) => { if (!o) setDelTarget(null); }}
+        title={`Delete workspace "${delTarget?.name ?? ""}"?`}
+        description="This removes the tab (soft delete). The workspace can be restored later if needed."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (delTarget) onDelete(delTarget.id);
+          setDelTarget(null);
+        }}
+      />
     </div>
   );
 }

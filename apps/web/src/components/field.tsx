@@ -22,13 +22,13 @@ export function Field({
 }) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label>
+      <Label className={error ? "text-danger" : undefined}>
         {label}
         {required && <span className="text-danger"> *</span>}
       </Label>
       {children}
       {hint && !error && <p className="text-caption text-muted-foreground">{hint}</p>}
-      {error && <p className="text-caption text-danger">{error}</p>}
+      {error && <p className="text-caption text-danger" role="alert">{error}</p>}
     </div>
   );
 }

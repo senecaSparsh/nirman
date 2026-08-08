@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@nirman/db": "workspace:*",
-    "decimal.js": "^10.4.3"
+    "decimal.js": "^10.4.3",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",

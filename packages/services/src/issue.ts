@@ -20,9 +20,14 @@ interface IssueMaterialsInput {
   fromLocationId: string;
   issuedById?: string;
   notes?: string;
+  receiverName?: string;
+  receiverMobile?: string;
+  roundOff?: Decimal | number | string;
+  builtUnitId?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
+    lotNumber?: string | null;
   }[];
 }
 
@@ -68,6 +73,8 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         qty: new Decimal(line.qty),
         refType: "MATERIAL_ISSUE",
         userId: input.issuedById,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: project.companyId,
       });
 
       const lineCost = new Decimal(line.qty).times(result.newMAC);
@@ -141,6 +148,7 @@ interface IssueToDepartmentInput {
   lines: {
     materialId: string;
     qty: Decimal | number | string;
+    lotNumber?: string | null;
   }[];
 }
 
@@ -184,6 +192,8 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         qty: new Decimal(line.qty),
         refType: "MATERIAL_ISSUE",
         userId: input.issuedById,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: department.companyId,
       });
 
       const lineCost = new Decimal(line.qty).times(result.newMAC);
@@ -236,4 +246,72 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
 
     return { materialIssue, totalCost };
   });
+}
+
+// ── Amount in words (Indian numbering system) ─────────────────────────
+// Used by print pages to show "Rupees One Lakh Twenty Three Thousand Four
+// Hundred Fifty Only" below the numeric amount.
+
+const ONES = [
+  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+  "Seventeen", "Eighteen", "Nineteen",
+];
+
+const TENS = [
+  "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
+  "Eighty", "Ninety",
+];
+
+function twoDigits(n: number): string {
+  if (n < 20) return ONES[n] ?? "";
+  return (TENS[Math.floor(n / 10)] ?? "") + (n % 10 ? " " + (ONES[n % 10] ?? "") : "");
+}
+
+function threeDigits(n: number): string {
+  const h = Math.floor(n / 100);
+  const r = n % 100;
+  let s = "";
+  if (h) s += ONES[h] + " Hundred";
+  if (r) s += (h ? " " : "") + twoDigits(r);
+  return s;
+}
+
+export function amountInWords(amount: number | string): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num) || num === 0) return "Zero";
+
+  const isNegative = num < 0;
+  let n = Math.abs(Math.floor(num));
+  const paise = Math.round((Math.abs(num) - n) * 100);
+
+  let words = "";
+
+  // Crores (10^7)
+  if (n >= 10000000) {
+    words += threeDigits(Math.floor(n / 10000000)) + " Crore ";
+    n %= 10000000;
+  }
+  // Lakhs (10^5)
+  if (n >= 100000) {
+    words += threeDigits(Math.floor(n / 100000)) + " Lakh ";
+    n %= 100000;
+  }
+  // Thousands (10^3)
+  if (n >= 1000) {
+    words += threeDigits(Math.floor(n / 1000)) + " Thousand ";
+    n %= 1000;
+  }
+  // Hundreds + tens + ones
+  if (n > 0) {
+    words += threeDigits(n);
+  }
+
+  words = words.trim();
+
+  if (paise > 0) {
+    words += " and " + twoDigits(paise) + " Paise";
+  }
+
+  return (isNegative ? "Minus " : "") + "Rupees " + words + " Only";
 }

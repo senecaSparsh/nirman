@@ -20,6 +20,68 @@ export type Role = "OWNER" | "ADMIN" | "MANAGER" | "SUPERVISOR" | "SALES" | "ACC
 
 export const ALL_ROLES: Role[] = ["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"];
 
+// ── Delegation hierarchy (Admin → Sub-Admin → Sub-Sub-Admin) ──
+// The owner's system map specifies a 3-tier delegation chain. It maps onto
+// the existing role set:
+//   Admin         = OWNER / ADMIN   (tier 1 — can create any role)
+//   Sub-Admin     = MANAGER          (tier 2 — can create SUPERVISOR/SALES/ACCOUNTANT)
+//   Sub-Sub-Admin = SUPERVISOR       (tier 3 — cannot create accounts)
+// SALES and ACCOUNTANT are also tier 3 (no user-creation power).
+//
+// A role can only assign roles STRICTLY below it in the hierarchy — never
+// peers, never superiors. This is the core invariant of hierarchical RBAC:
+// you can delegate authority downward, but never upward or sideways.
+const ROLE_TIER: Record<Role, number> = {
+  OWNER: 1,
+  ADMIN: 1,
+  MANAGER: 2,
+  SUPERVISOR: 3,
+  SALES: 3,
+  ACCOUNTANT: 3,
+};
+
+/** Numeric tier for a role (1 = top, 3 = bottom). */
+export function roleTier(role: string | undefined | null): number {
+  const r = normalizeRole(role);
+  return ROLE_TIER[r];
+}
+
+/**
+ * Can the actor create/assign a membership with the target role?
+ * Rules:
+ *   - The actor must be at a HIGHER tier (lower number) than the target, OR
+ *     at the SAME tier but a DIFFERENT role (so OWNER↔ADMIN can create each
+ *     other, but not themselves — no self-cloning).
+ *   - Tier 3 roles (SUPERVISOR/SALES/ACCOUNTANT) cannot create any accounts.
+ *   - OWNER/ADMIN (tier 1) can assign any role except their own exact role.
+ *   - MANAGER (tier 2) can only assign SUPERVISOR/SALES/ACCOUNTANT (tier 3).
+ */
+export function canAssignRole(actorRole: string | undefined | null, targetRole: string | undefined | null): boolean {
+  const actor = normalizeRole(actorRole);
+  const target = normalizeRole(targetRole);
+  const actorTier = roleTier(actor);
+  const targetTier = roleTier(target);
+  // Tier 3 can't create anyone.
+  if (actorTier >= 3) return false;
+  // Can't assign your own exact role (no self-cloning).
+  if (actor === target) return false;
+  // Strictly below → always allowed.
+  if (actorTier < targetTier) return true;
+  // Same tier, different role → allowed (OWNER↔ADMIN cross-assignment).
+  if (actorTier === targetTier && actor !== target) return true;
+  // Higher tier → never allowed.
+  return false;
+}
+
+/**
+ * Which roles can the actor assign? Used to filter the role dropdown in the
+ * "Add member" / "Edit member" UI so a Sub-Admin only sees the roles they're
+ * allowed to create.
+ */
+export function assignableRoles(actorRole: string | undefined | null): Role[] {
+  return ALL_ROLES.filter((r) => canAssignRole(actorRole, r));
+}
+
 export interface RoleDef {
   key: Role;
   label: string;
@@ -83,6 +145,15 @@ export const PERM = {
   SALE_CREATE: "sale.create",
   // Company / settings
   COMPANY_MANAGE: "company.manage",
+  // HR — workforce, attendance, payroll, DPR
+  HR_VIEW: "hr.view",
+  HR_MANAGE: "hr.manage",
+  PAYROLL_VIEW: "payroll.view",
+  PAYROLL_MANAGE: "payroll.manage",
+  DPR_SUBMIT: "dpr.submit",
+  DPR_VIEW: "dpr.view",
+  DPR_APPROVE_SUB_ADMIN: "dpr.approve_sub_admin", // Sub-Admin (MANAGER) first-tier DPR approval
+  DPR_APPROVE_ADMIN: "dpr.approve_admin",         // Admin (OWNER/ADMIN) final DPR approval
 } as const;
 
 export type Permission = (typeof PERM)[keyof typeof PERM];
@@ -125,6 +196,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.FINANCE_VIEW, PERM.FINANCE_MANAGE, PERM.EXPENSE_CREATE,
       PERM.SALES_VIEW, PERM.SALES_MANAGE, PERM.SALE_CREATE,
       PERM.COMPANY_MANAGE,
+      PERM.HR_VIEW, PERM.HR_MANAGE, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_VIEW, PERM.DPR_SUBMIT, PERM.DPR_APPROVE_SUB_ADMIN,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -142,6 +214,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.INVENTORY_VIEW, PERM.INVENTORY_MANAGE, PERM.STOCK_TRANSFER, PERM.STOCK_ISSUE,
       PERM.PROCUREMENT_VIEW,
       PERM.ASSETS_VIEW,
+      PERM.HR_VIEW, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -173,6 +246,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.PROCUREMENT_VIEW,
       PERM.SALES_VIEW,
       PERM.ASSETS_VIEW,
+      PERM.HR_VIEW, PERM.PAYROLL_VIEW, PERM.DPR_VIEW,
     ],
     canManageUsers: false,
     canAssignTasks: false,

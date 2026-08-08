@@ -108,10 +108,17 @@ export function DepartmentConsumptionReport({ report }: { report: ConsumptionRep
         <Button type="submit" size="sm">
           <Calendar className="h-4 w-4" /> Apply
         </Button>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={exportCSV} disabled={report.departments.length === 0}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
+          <a
+            href={`/api/export?type=stock-issue-summary&format=xlsx&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+          >
+            <Button type="button" variant="outline" size="sm" disabled={report.departments.length === 0}>
+              <Download className="h-4 w-4" /> Export Excel
+            </Button>
+          </a>
         </div>
       </form>
 

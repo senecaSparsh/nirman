@@ -1,19 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, MapPin, Layers } from "lucide-react";
+import { ArrowRight, MapPin, Layers, SplitSquareHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { statusColor } from "@/components/page";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { CadastrePlan } from "./cadastre-plan";
 import type { LandPurchaseRow, LandParcelStatus } from "@/lib/types";
-
-const STATUS_COLOR: Record<LandParcelStatus, string> = {
-  AVAILABLE: "var(--color-stage-sell)",
-  HOLD: "var(--color-warning)",
-  PARTITIONED: "var(--color-muted-foreground)",
-  SOLD: "var(--color-danger)",
-};
 
 /** Status count chips — colored dots with counts, no bar. */
 function StatusCounts({ purchase }: { purchase: LandPurchaseRow }) {
@@ -32,7 +26,7 @@ function StatusCounts({ purchase }: { purchase: LandPurchaseRow }) {
         <span key={c.status} className="flex items-center gap-1 text-micro text-muted-foreground tnum">
           <span
             className="h-2 w-2 rounded-[2px]"
-            style={{ backgroundColor: STATUS_COLOR[c.status], opacity: 0.6 }}
+            style={{ backgroundColor: statusColor(c.status), opacity: 0.6 }}
           />
           {c.n}
         </span>
@@ -44,17 +38,23 @@ function StatusCounts({ purchase }: { purchase: LandPurchaseRow }) {
 export function LandPurchaseRow({
   purchase,
   canEdit,
+  canPartition,
   onQuickView,
   onEdit,
+  onSubdivide,
 }: {
   purchase: LandPurchaseRow;
   canEdit: boolean;
+  canPartition?: boolean;
   onQuickView: () => void;
   onEdit: () => void;
+  onSubdivide?: () => void;
 }) {
   const gainPositive = purchase.valuationGain >= 0;
   const isPartitioned = purchase.partitionedCount > 0 || purchase.hasChildren;
   const allSold = purchase.parcelCount > 0 && purchase.soldCount === purchase.parcelCount;
+  // Show the Subdivide button only for whole plots (not yet partitioned) that still have available parcels.
+  const canShowSubdivide = canPartition && !isPartitioned && purchase.availableCount > 0;
 
   return (
     <div
@@ -104,6 +104,16 @@ export function LandPurchaseRow({
 
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {canShowSubdivide && onSubdivide && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => { e.stopPropagation(); onSubdivide(); }}
+            className="text-brand"
+          >
+            <SplitSquareHorizontal className="mr-1 h-3.5 w-3.5" /> Subdivide
+          </Button>
+        )}
         {canEdit && (
           <Button
             variant="ghost"

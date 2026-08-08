@@ -4,6 +4,9 @@ import { prisma } from "@nirman/db";
 import { PageHeader } from "@/components/page-header";
 import { WorkflowBuilder } from "@/components/workflows/workflow-builder";
 import { PageLoading } from "@/components/page-loading";
+import { NoAccess } from "@/components/no-access";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 import type { WorkflowGraph } from "@/lib/workflow-engine";
 
@@ -26,15 +29,20 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
 async function WorkflowLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await connection();
-  const workflow = await prisma.workflow.findUnique({
-    where: { id },
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
+    return <NoAccess />;
+  }
+  const company = await getCompany();
+  const workflow = await prisma.workflow.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       schedules: { orderBy: { createdAt: "desc" }, take: 1 },
       runs: { orderBy: { createdAt: "desc" }, take: 10 },
     },
   });
 
-  if (!workflow || workflow.deletedAt) {
+  if (!workflow) {
     return <p className="text-body text-muted-foreground">Workflow not found.</p>;
   }
 

@@ -61,7 +61,6 @@ describe("movementDirection", () => {
     expect(movementDirection("PURCHASE_RECEIPT")).toBe("IN");
     expect(movementDirection("TRANSFER_IN")).toBe("IN");
     expect(movementDirection("ADJUSTMENT_IN")).toBe("IN");
-    expect(movementDirection("RETURN")).toBe("IN");
   });
 
   it("classifies outbound movements", () => {
@@ -69,6 +68,7 @@ describe("movementDirection", () => {
     expect(movementDirection("ISSUE_TO_PROJECT")).toBe("OUT");
     expect(movementDirection("ISSUE_TO_DEPARTMENT")).toBe("OUT");
     expect(movementDirection("ADJUSTMENT_OUT")).toBe("OUT");
+    expect(movementDirection("RETURN")).toBe("OUT");
     expect(movementDirection("SALE")).toBe("OUT");
   });
 

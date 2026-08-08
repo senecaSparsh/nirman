@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, purchaseOrderSchema, requirePermission, toNum } from "@/lib/server";
@@ -9,7 +10,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status");
-  const statusFilter = statusParam ? { status: { in: statusParam.split(",") as any[] } } : {};
+  const statusFilter = statusParam ? { status: { in: statusParam.split(",") as PurchaseOrderStatus[] } } : {};
 
   const pos = await prisma.purchaseOrder.findMany({
     where: { companyId: company.id, ...statusFilter },
@@ -71,7 +72,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       createdById: user.id,
     });
     return json(po, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create purchase order" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create purchase order") }, { status: 400 });
   }
 });

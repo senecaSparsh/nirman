@@ -1,4 +1,4 @@
-import type { WorkflowGraph, WorkflowStep } from "@/lib/workflow-engine";
+import type { WorkflowGraph } from "@/lib/workflow-engine";
 
 export interface WorkflowTemplate {
   key: string;
@@ -43,32 +43,47 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     key: "low-stock-reorder",
     label: "Low Stock Reorder",
-    description: "When stock is low: notify manager, create reorder task",
+    description: "Check if any materials are below reorder point → auto-generate requisition + notify manager",
     icon: "Package",
     graph: {
       startStepId: "s1",
       steps: [
         {
           id: "s1",
+          type: "condition",
+          label: "Any materials below reorder point?",
+          config: { predicate: "low_stock" },
+        },
+        {
+          id: "s2",
+          type: "auto_requisition",
+          label: "Auto-generate draft requisition",
+          config: {},
+        },
+        {
+          id: "s3",
           type: "send_notification",
           label: "Notify manager about low stock",
           config: {
             title: "Alert: Materials below minimum stock",
-            message: "Several materials are below their minimum stock levels. Please review and create purchase orders.",
+            message: "Several materials are below their reorder points. A draft requisition has been auto-generated — please review and submit it.",
           },
         },
         {
-          id: "s2",
-          type: "create_task",
-          label: "Create reorder task",
+          id: "s4",
+          type: "send_notification",
+          label: "No action needed",
           config: {
-            title: "Review low-stock materials and create POs",
-            instructions: "1. Check the Materials page for items below min stock\n2. Create purchase orders for critical items\n3. Set expected delivery dates",
-            priority: "urgent",
+            title: "Stock levels OK",
+            message: "All materials are above their reorder points. No action needed.",
           },
         },
       ],
-      edges: [{ from: "s1", to: "s2" }],
+      edges: [
+        { from: "s1", to: "s2", condition: "true" },
+        { from: "s1", to: "s4", condition: "false" },
+        { from: "s2", to: "s3" },
+      ],
     },
   },
   {
@@ -153,6 +168,56 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         },
       ],
       edges: [],
+    },
+  },
+  {
+    key: "overdue-po-chase",
+    label: "Overdue PO Chase-up",
+    description: "Check for overdue POs → create task to chase suppliers + notify procurement manager",
+    icon: "Truck",
+    graph: {
+      startStepId: "s1",
+      steps: [
+        {
+          id: "s1",
+          type: "condition",
+          label: "Any overdue purchase orders?",
+          config: { predicate: "overdue_pos" },
+        },
+        {
+          id: "s2",
+          type: "create_task",
+          label: "Create supplier chase task",
+          config: {
+            title: "Chase overdue suppliers",
+            instructions: "1. Check the Procurement page for POs past their expected date\n2. Call each supplier to confirm delivery\n3. Update expected dates if needed\n4. Escalate critical delays to management",
+            priority: "high",
+          },
+        },
+        {
+          id: "s3",
+          type: "send_notification",
+          label: "Notify procurement manager",
+          config: {
+            title: "Overdue POs need attention",
+            message: "One or more purchase orders are past their expected delivery date. A chase task has been created.",
+          },
+        },
+        {
+          id: "s4",
+          type: "send_notification",
+          label: "No overdue POs",
+          config: {
+            title: "All POs on schedule",
+            message: "No purchase orders are overdue. Deliveries are on track.",
+          },
+        },
+      ],
+      edges: [
+        { from: "s1", to: "s2", condition: "true" },
+        { from: "s1", to: "s4", condition: "false" },
+        { from: "s2", to: "s3" },
+      ],
     },
   },
   {

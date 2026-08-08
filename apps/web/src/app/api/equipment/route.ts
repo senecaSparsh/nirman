@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { EquipmentStatus } from "@nirman/db";
 import { createEquipment } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, equipmentSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       deletedAt: null,
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as EquipmentStatus } : {}),
       ...(category ? { category } : {}),
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -83,7 +84,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     return json({ ok: true, id: eq.id }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create equipment" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create equipment") }, { status: 400 });
   }
 });

@@ -64,7 +64,6 @@ export function PipelineFlow({
   return (
     <div className="flex items-stretch gap-0">
       {stages.map((stage, idx) => {
-        const Icon = stage.icon;
         return (
           <div key={stage.label} className="flex flex-1 items-stretch">
             <Link

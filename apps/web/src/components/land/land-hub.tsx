@@ -7,11 +7,12 @@ import {
   Calendar, MapPinned, ScrollText, ExternalLink, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
+import { StatusPill } from "@/components/page";
 import { LandPurchaseFormDialog, type LandPurchaseEditInitial } from "./land-purchase-form-dialog";
 import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
@@ -19,7 +20,7 @@ import { ParcelValuationDialog } from "./parcel-valuation-dialog";
 import { ParcelsTree } from "./parcels-tree";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption } from "@/lib/types";
+import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption, SellableAssetRow } from "@/lib/types";
 
 export type LandHubData = {
   purchase: {
@@ -61,7 +62,8 @@ export type LandHubData = {
     soldRevenue: number;
     soldProfit: number;
   };
-  permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean };
+  permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean; canSell: boolean };
+  customers: { id: string; name: string }[];
   projectOptions: ProjectOption[];
 };
 
@@ -73,7 +75,7 @@ const PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "dange
 };
 
 export function LandHub({ data }: { data: LandHubData }) {
-  const { purchase, parcels, parcelSummaries, stats, permissions } = data;
+  const { purchase, parcels, parcelSummaries, stats, permissions, customers } = data;
   const [tab, setTab] = useState("parcels");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -81,6 +83,20 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [partitionParcel, setPartitionParcel] = useState<LandParcelRow | null>(null);
   const [canvasParcel, setCanvasParcel] = useState<LandParcelRow | null>(null);
   const [valuateParcel, setValuateParcel] = useState<LandParcelRow | null>(null);
+  const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
+
+  function toSellableAsset(p: LandParcelRow): SellableAssetRow {
+    return {
+      assetType: "LAND",
+      assetId: p.id,
+      label: `Plot ${p.number} — ${formatNumber(p.area, 0)} ${p.areaUnit}`,
+      projectId: p.projectId,
+      projectName: p.projectName,
+      costBasis: p.acquisitionCost,
+      askingPrice: p.askingPrice,
+      currentValuation: p.currentValuation,
+    };
+  }
 
   const gainPositive = stats.valuationGain >= 0;
   const profitPositive = stats.soldProfit >= 0;
@@ -258,9 +274,11 @@ export function LandHub({ data }: { data: LandHubData }) {
               <ParcelsTree
                 parcels={parcels}
                 canPartition={permissions.canPartition}
+                canSell={permissions.canSell}
                 onPartition={setPartitionParcel}
                 onCanvasPartition={setCanvasParcel}
                 onValuate={setValuateParcel}
+                onSell={setSellParcel}
               />
             </TabsContent>
 
@@ -295,7 +313,7 @@ export function LandHub({ data }: { data: LandHubData }) {
                           <TD className={`tnum text-right ${s.profit >= 0 ? "text-success" : "text-danger"}`}>
                             {s.profit >= 0 ? "+" : ""}{formatCurrency(s.profit)}
                           </TD>
-                          <TD><Badge variant={PAYMENT_VARIANT[s.paymentStatus] ?? "default"}>{s.paymentStatus}</Badge></TD>
+                          <TD><StatusPill status={s.paymentStatus} /></TD>
                           <TD className="text-muted-foreground tnum">{formatDate(s.saleDate)}</TD>
                         </TR>
                       ))}
@@ -350,6 +368,15 @@ export function LandHub({ data }: { data: LandHubData }) {
         onOpenChange={(o) => !o && setValuateParcel(null)}
         parcel={valuateParcel}
       />
+      {permissions.canSell && sellParcel && (
+        <SellAssetDialog
+          open={sellParcel != null}
+          onOpenChange={(o) => { if (!o) setSellParcel(null); }}
+          customers={customers}
+          presetAsset={toSellableAsset(sellParcel)}
+          onSold={() => setSellParcel(null)}
+        />
+      )}
     </div>
   );
 }

@@ -60,8 +60,8 @@ export function SupplierFormDialog({
       toast.success(isEdit ? "Supplier updated" : "Supplier created");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -76,26 +76,26 @@ export function SupplierFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="s-name">Name *</Label>
-          <Input id="s-name" value={form.name} onChange={(e) => set("name", e.target.value)} required />
+          <Label htmlFor="s-name">Supplier Name *</Label>
+          <Input id="s-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. ABC Cement Agencies" required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="s-gstin">GSTIN</Label>
-            <Input id="s-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} />
+            <Input id="s-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="29ABCDE1234F1Z5" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-phone">Phone</Label>
-            <Input id="s-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+            <Input id="s-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
           </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="s-email">Email</Label>
-          <Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+          <Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="supplier@example.com" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="s-address">Address</Label>
-          <Textarea id="s-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} />
+          <Textarea id="s-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Shop/street, area, city, PIN" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

@@ -11,9 +11,12 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { FinanceView } from "@/components/finance/finance-view";
+import { SupplierInvoicesView } from "@/components/finance/supplier-invoices-view";
 import { PageLoading } from "@/components/page-loading";
-import type { ProjectPnlRow, ProjectCostRow, ExpenseRow, AuditLogRow, ProjectOption } from "@/lib/types";
+import { FinanceTabs } from "@/components/finance/finance-tabs";
+import type { ProjectCostRow, AuditLogRow, ProjectOption } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function FinancePage() {
   return (
     <div className="space-y-5">
@@ -31,13 +34,11 @@ async function FinanceContent() {
 
   if (!hasPermission(role, PERM.FINANCE_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don't have permission to view this module.
-      </div>
+      <NoAccess what="finance" />
     );
   }
 
-  const [projects, projectCosts, expenses, auditLogs, inventoryVal, unsoldAssets, subcontractors] = await Promise.all([
+  const [projects, projectCosts, expenses, auditLogs, inventoryVal, unsoldAssets, subcontractors, suppliers, purchaseOrders] = await Promise.all([
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
@@ -64,6 +65,16 @@ async function FinanceContent() {
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true },
+    }),
+    prisma.supplier.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { companyId: company.id, status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] } },
+      orderBy: { poNumber: "desc" },
+      select: { id: true, poNumber: true, supplierId: true },
     }),
   ]);
 
@@ -146,22 +157,33 @@ async function FinanceContent() {
           { label: "Collected", value: formatCurrency(totalCollected) },
         ]}
       />
-      <FinanceView
-        permissions={perms}
-        materialInventoryValue={toNum(inventoryVal)}
-        unsoldAssetValue={{
-          land: toNum(unsoldAssets.land),
-          builtUnits: toNum(unsoldAssets.builtUnits),
-          total: toNum(unsoldAssets.total),
-        }}
-        totalRevenue={totalRevenue}
-        totalCollected={totalCollected}
-        projectPnls={pnlResults}
-        projectCosts={projectCostRows}
-        expenses={expenseRows}
-        auditLogs={auditRows}
-        projects={projectOptions}
-        subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade }))}
+      <FinanceTabs
+        overview={
+          <FinanceView
+            permissions={perms}
+            materialInventoryValue={toNum(inventoryVal)}
+            unsoldAssetValue={{
+              land: toNum(unsoldAssets.land),
+              builtUnits: toNum(unsoldAssets.builtUnits),
+              total: toNum(unsoldAssets.total),
+            }}
+            totalRevenue={totalRevenue}
+            totalCollected={totalCollected}
+            projectPnls={pnlResults}
+            projectCosts={projectCostRows}
+            expenses={expenseRows}
+            auditLogs={auditRows}
+            projects={projectOptions}
+            subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade }))}
+          />
+        }
+        invoices={
+          <SupplierInvoicesView
+            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+            purchaseOrders={purchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId }))}
+            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
       />
     </>
   );

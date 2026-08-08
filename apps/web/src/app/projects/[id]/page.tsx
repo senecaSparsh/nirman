@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import type { AreaUnit, BuiltUnitStatus, BuiltUnitType, LandParcelStatus } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
 import { ProjectHub, type ProjectHubData } from "@/components/projects/project-hub";
 import { PageLoading } from "@/components/page-loading";
 import type { PhaseRow } from "@/components/projects/phases-section";
@@ -35,6 +38,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 async function ProjectDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.PROJECTS_VIEW)) {
+    return <NoAccess what="this project" />;
+  }
   const company = await getCompany();
 
   // Fetch the project with all relations
@@ -53,6 +60,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
   const [
     purchaseOrders, transfers, builtUnits, landParcels,
     stockMovements, projectCosts, materialIssues, equipmentAssignments, pnlResult, openRequisitionCount,
+    boqItems, wbsNodes, workOrders, mbEntries, dprs,
   ] = await Promise.all([
     // POs for this project (PROJECT scope) or all company POs
     prisma.purchaseOrder.findMany({
@@ -80,8 +88,8 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
-        fromLocation: { select: { id: true, name: true, type: true } },
-        toLocation: { select: { id: true, name: true, type: true } },
+        fromLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
+        toLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
         lines: { select: { materialId: true, qty: true, material: { select: { name: true } } } },
       },
     }),
@@ -155,6 +163,48 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     prisma.materialRequisition.count({
       where: { projectId: id, status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } },
     }),
+
+    // BOQ items for this project (LINE_ITEM type only — sections have no qty/rate)
+    prisma.boqItem.findMany({
+      where: { projectId: id, type: "LINE_ITEM" },
+      orderBy: { sortOrder: "asc" },
+      take: 50,
+    }),
+
+    // WBS nodes for this project
+    prisma.wbsNode.findMany({
+      where: { projectId: id },
+      orderBy: { sortOrder: "asc" },
+      take: 50,
+      include: { parent: { select: { name: true } } },
+    }),
+
+    // Work orders for this project
+    prisma.subcontractorWorkOrder.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        subcontractor: { select: { name: true } },
+        raBills: { select: { id: true } },
+      },
+    }),
+
+    // Measurement book entries for this project
+    prisma.measurementBookEntry.findMany({
+      where: { projectId: id },
+      orderBy: { measureDate: "desc" },
+      take: 20,
+      include: { boqItem: { select: { unit: true } } },
+    }),
+
+    // DPRs for this project
+    prisma.dailyProgressReport.findMany({
+      where: { projectId: id },
+      orderBy: { date: "desc" },
+      take: 20,
+      include: { submittedBy: { select: { name: true } } },
+    }),
   ]);
 
   // Map POs to rows
@@ -174,7 +224,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       destinationLocationId: po.destinationLocationId,
       destinationLocationName: po.destinationLocation?.name ?? "",
       destinationLocationType: po.destinationLocation?.type ?? "COMPANY_WAREHOUSE",
-      status: po.status as any,
+      status: po.status as PurchaseOrderRow["status"],
       orderDate: po.orderDate?.toISOString() ?? po.createdAt.toISOString(),
       expectedDate: po.expectedDate?.toISOString() ?? null,
       subtotal,
@@ -194,16 +244,20 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     fromLocationId: t.fromLocation.id,
     fromLocationName: t.fromLocation.name,
     fromLocationType: t.fromLocation.type,
+    fromCompanyName: t.fromLocation.company?.name ?? null,
     toLocationId: t.toLocation.id,
     toLocationName: t.toLocation.name,
     toLocationType: t.toLocation.type,
-    status: t.status as any,
+    toCompanyName: t.toLocation.company?.name ?? null,
+    status: t.status as TransferRow["status"],
     transferDate: t.transferDate.toISOString(),
     notes: t.notes,
     createdAt: t.createdAt.toISOString(),
     lineCount: t.lines.length,
     totalQty: t.lines.reduce((s, l) => s + toNum(l.qty), 0),
     materials: t.lines.map((l) => l.material.name),
+    isInterCompany: t.isInterCompany,
+    transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
   }));
 
   // Map built units
@@ -213,13 +267,13 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     projectName: project.name,
     phaseId: u.phaseId,
     phaseName: u.phase?.name ?? null,
-    unitType: u.unitType as any,
+    unitType: u.unitType as BuiltUnitType,
     unitNumber: u.unitNumber,
     floor: u.floor,
     wing: u.wing,
     area: toNum(u.area),
-    areaUnit: u.areaUnit as any,
-    status: u.status as any,
+    areaUnit: u.areaUnit as AreaUnit,
+    status: u.status as BuiltUnitStatus,
     productionCost: toNum(u.productionCost),
     askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
     currentValuation: toNum(u.currentValuation),
@@ -235,11 +289,14 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     parentParcelNumber: p.parentParcel?.number ?? null,
     number: p.number,
     area: toNum(p.area),
-    areaUnit: p.areaUnit as any,
-    status: p.status as any,
+    areaUnit: p.areaUnit as AreaUnit,
+    status: p.status as LandParcelStatus,
     acquisitionCost: toNum(p.acquisitionCost),
     askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
     currentValuation: toNum(p.currentValuation),
+    isInfrastructure: p.isInfrastructure,
+    marketValue: p.marketValue ? toNum(p.marketValue) : null,
+    weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
     projectId: p.projectId,
     projectName: project.name,
     geometry: p.geometry,
@@ -275,7 +332,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     id: c.id,
     projectId: c.projectId,
     projectName: project.name,
-    costType: c.costType as any,
+    costType: c.costType as ProjectCostRow["costType"],
     amount: toNum(c.amount),
     date: c.date.toISOString(),
     vendor: c.vendor,
@@ -288,6 +345,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
   // Map material issues
   const issueRows: MaterialIssueListRow[] = materialIssues.map((i) => ({
     id: i.id,
+    issueNumber: i.issueNumber ?? "",
     projectId: i.projectId,
     projectName: project.name,
     departmentId: i.departmentId,
@@ -297,7 +355,11 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     fromLocationName: i.fromLocation?.name ?? "—",
     issueDate: i.issueDate.toISOString(),
     notes: i.notes,
+    receiverName: i.receiverName,
+    receiverMobile: i.receiverMobile,
     totalCost: i.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
+    roundOff: toNum(i.roundOff),
+    totalAmount: toNum(i.totalAmount),
     lineCount: i.lines.length,
   }));
 
@@ -322,6 +384,69 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     budget: ph.budget ? toNum(ph.budget) : null,
     sortOrder: ph.sortOrder,
   }));
+
+  // BOQ items
+  const boqItemRows = boqItems.map((b) => ({
+    id: b.id,
+    description: b.description,
+    unit: b.unit ?? "",
+    qty: b.estimatedQty ? toNum(b.estimatedQty) : 0,
+    rate: b.rate ? toNum(b.rate) : 0,
+    amount: b.estimatedAmount ? toNum(b.estimatedAmount) : 0,
+    category: null as string | null,
+  }));
+
+  // WBS nodes
+  const wbsNodeRows = wbsNodes.map((n) => ({
+    id: n.id,
+    name: n.name,
+    status: n.type, // WBS uses type, not status
+    startDate: n.plannedStart?.toISOString() ?? null,
+    endDate: n.plannedEnd?.toISOString() ?? null,
+    progressPct: n.progressPct ? toNum(n.progressPct) : 0,
+    parentNodeName: n.parent?.name ?? null,
+  }));
+
+  // Work orders
+  const workOrderRows = workOrders.map((w) => ({
+    id: w.id,
+    woNumber: w.workOrderNumber,
+    subcontractorName: w.subcontractor?.name ?? "—",
+    status: w.status,
+    totalValue: toNum(w.totalWorkDone),
+    raBillCount: w.raBills?.length ?? 0,
+    startDate: w.startDate?.toISOString() ?? null,
+  }));
+
+  // MB entries
+  const mbEntryRows = mbEntries.map((m) => ({
+    id: m.id,
+    mbNumber: m.mbNumber,
+    description: m.description,
+    qty: toNum(m.measuredQty),
+    unit: m.boqItem?.unit ?? "",
+    status: m.status,
+    date: m.measureDate.toISOString(),
+  }));
+
+  // DPRs
+  const dprRows = dprs.map((d) => ({
+    id: d.id,
+    reportDate: d.date.toISOString(),
+    workType: d.workType,
+    approvalStatus: d.approvalStatus,
+    labourCount: 0, // labour lines not counted in this query
+    notes: d.workSummary,
+    submittedByName: d.submittedBy?.name ?? null,
+  }));
+
+  // Variance data
+  const materialIssuesTotal = issueRows.reduce((s, i) => s + i.totalCost, 0);
+  const otherCostsTotal = costRows.reduce((s, c) => s + c.amount, 0);
+  const workOrderTotal = workOrderRows.reduce((s, w) => s + w.totalValue, 0);
+  const landCostTotal = parcelRows.reduce((s, p) => s + p.acquisitionCost, 0);
+  const actualTotal = toNum(pnlResult.total);
+  const budgetTotal = project.totalBudget ? toNum(project.totalBudget) : 0;
 
   // Stats
   const availableUnits = unitRows.filter((u) => u.status === "AVAILABLE").length;
@@ -375,6 +500,21 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       address: l.address,
     })),
     equipment: equipmentRows,
+    boqItems: boqItemRows,
+    wbsNodes: wbsNodeRows,
+    workOrders: workOrderRows,
+    mbEntries: mbEntryRows,
+    dprs: dprRows,
+    variance: {
+      budgetTotal,
+      actualTotal,
+      variancePct: budgetTotal > 0 ? ((actualTotal - budgetTotal) / budgetTotal) * 100 : 0,
+      materialIssuesTotal,
+      labourCostTotal: 0, // labour cost not separately tracked per project yet
+      workOrderTotal,
+      otherCostsTotal,
+      landCostTotal,
+    },
   };
 
   const editInitial = {

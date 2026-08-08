@@ -57,7 +57,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       createdById: user.id,
     });
     return json({ id: result.landPurchase.id }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to record land purchase" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase") }, { status: 400 });
   }
 });

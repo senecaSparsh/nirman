@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
       results,
       timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Scheduler error" }, { status: 500 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Scheduler error") }, { status: 500 });
   }
 }
 

@@ -8,7 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/utils";
+import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { AssetType, SellableAssetRow } from "@/lib/types";
+
+type SaleFormValues = {
+  assetType: string;
+  customerId: string;
+  salePrice: string;
+};
+
+const errorBorder = "border-danger focus-visible:border-danger focus-visible:ring-danger/25";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
@@ -18,15 +27,22 @@ export function SellAssetDialog({
   open,
   onOpenChange,
   customers,
+  presetAsset,
+  onSold,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customers: CustomerOption[];
+  /** When set, the dialog is locked to this asset (no type toggle / select). */
+  presetAsset?: SellableAssetRow | null;
+  /** Called after a successful sale — lets the caller update local state. */
+  onSold?: (assetId: string, saleId: string) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [assets, setAssets] = useState<SellableAssetRow[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  const isPreset = Boolean(presetAsset);
   const [form, setForm] = useState({
     assetType: "LAND" as AssetType,
     assetId: "",
@@ -37,10 +53,35 @@ export function SellAssetDialog({
     initialPaymentMode: "BANK_TRANSFER",
     notes: "",
   });
+  const [errors, setErrors] = useState<ValidationErrors<SaleFormValues>>({});
 
-  // Fetch sellable assets whenever the asset type changes (or dialog opens)
+  function validateField(key: keyof SaleFormValues): string | undefined {
+    if (key === "assetType") return required(form.assetType, "Asset type");
+    if (key === "customerId") return required(form.customerId, "Customer");
+    if (key === "salePrice") return required(form.salePrice, "Sale price") ?? positiveNumber(form.salePrice, "Sale price");
+  }
+
+  function onBlur(key: keyof SaleFormValues) {
+    const error = validateField(key);
+    setErrors((prev) => ({ ...prev, [key]: error }));
+  }
+
+  // When a preset asset is provided, seed the form from it whenever it changes.
   useEffect(() => {
-    if (!open) return;
+    if (presetAsset) {
+      setForm((f) => ({
+        ...f,
+        assetType: presetAsset.assetType,
+        assetId: presetAsset.assetId,
+        salePrice: presetAsset.askingPrice != null ? String(presetAsset.askingPrice) : f.salePrice,
+      }));
+    }
+  }, [presetAsset]);
+
+  // Fetch sellable assets whenever the asset type changes (or dialog opens).
+  // Skipped when a preset asset is locked in.
+  useEffect(() => {
+    if (!open || isPreset) return;
     setLoadingAssets(true);
     setAssets([]);
     fetch(`/api/sellable-assets?type=${form.assetType}`)
@@ -48,11 +89,13 @@ export function SellAssetDialog({
       .then((d) => { if (Array.isArray(d)) setAssets(d); })
       .catch(() => toast.error("Failed to load sellable assets"))
       .finally(() => setLoadingAssets(false));
-  }, [open, form.assetType]);
+  }, [open, form.assetType, isPreset]);
 
   const selectedAsset = useMemo(
-    () => assets.find((a) => a.assetId === form.assetId) ?? null,
-    [assets, form.assetId],
+    () => isPreset && presetAsset
+      ? presetAsset
+      : assets.find((a) => a.assetId === form.assetId) ?? null,
+    [assets, form.assetId, isPreset, presetAsset],
   );
 
   const salePriceNum = Number(form.salePrice) || 0;
@@ -75,9 +118,17 @@ export function SellAssetDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const newErrors: ValidationErrors<SaleFormValues> = {};
+    (["assetType", "customerId", "salePrice"] as (keyof SaleFormValues)[]).forEach((key) => {
+      const error = validateField(key);
+      if (error) newErrors[key] = error;
+    });
+    setErrors(newErrors);
     if (!form.assetId) { toast.error("Select an asset to sell"); return; }
-    if (!form.customerId) { toast.error("Select a customer"); return; }
-    if (salePriceNum <= 0) { toast.error("Sale price must be greater than 0"); return; }
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -101,11 +152,22 @@ export function SellAssetDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create sale");
-      toast.success(`Sale ${data.saleNumber ?? ""} created`);
+      const saleId = data.saleId ?? "";
+      const balanceAfter = salePriceNum - initialPaymentNum;
+      toast.success(`Booking ${data.saleNumber ?? ""} created`, {
+        description: balanceAfter > 0
+          ? `Balance due: ${formatCurrency(balanceAfter)}. Record payments as they come in.`
+          : "Fully paid — sale complete.",
+        action: balanceAfter > 0 ? {
+          label: "Record Payment",
+          onClick: () => router.push(`/sales?sale=${saleId}`),
+        } : undefined,
+      });
+      onSold?.(form.assetId, saleId);
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -115,45 +177,59 @@ export function SellAssetDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="New Sale"
-      description="Sell a land parcel or built unit to a customer."
+      title={isPreset ? "Sell Unit" : "New Sale"}
+      description={isPreset ? "Record the sale of this unit to a customer." : "Sell a land parcel or built unit to a customer."}
       className="max-w-lg"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        {/* Asset type toggle */}
-        <div className="space-y-1.5">
-          <Label>Asset Type</Label>
-          <Select value={form.assetType} onChange={(e) => { set("assetType", e.target.value); set("assetId", ""); set("salePrice", ""); }}>
-            <option value="LAND">Land Parcel</option>
-            <option value="BUILT_UNIT">Built Unit</option>
-          </Select>
-        </div>
+        {/* Asset type toggle — hidden when a preset asset is locked in */}
+        {isPreset ? (
+          <div className="space-y-1.5">
+            <Label>Asset</Label>
+            <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2">
+              <span className="text-body font-medium text-foreground">{presetAsset?.label}</span>
+              <span className="text-caption text-muted-foreground">{presetAsset?.projectName ?? "No project"}</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <Label className={errors.assetType ? "text-danger" : undefined}>Asset Type</Label>
+              <Select value={form.assetType} onChange={(e) => { set("assetType", e.target.value); set("assetId", ""); set("salePrice", ""); }} onBlur={() => onBlur("assetType")} aria-invalid={!!errors.assetType} className={errors.assetType ? errorBorder : undefined}>
+                <option value="LAND">Land Parcel</option>
+                <option value="BUILT_UNIT">Built Unit</option>
+              </Select>
+              {errors.assetType && <p className="text-caption text-danger" role="alert">{errors.assetType}</p>}
+            </div>
 
-        {/* Asset select */}
-        <div className="space-y-1.5">
-          <Label htmlFor="sa-asset">Asset *</Label>
-          <Select id="sa-asset" value={form.assetId} onChange={(e) => onAssetChange(e.target.value)} disabled={loadingAssets}>
-            <option value="">{loadingAssets ? "Loading…" : "Select an asset"}</option>
-            {assets.map((a) => (
-              <option key={a.assetId} value={a.assetId}>
-                {a.label} · {a.projectName ?? "No project"} · Cost {formatCurrency(a.costBasis)}
-              </option>
-            ))}
-          </Select>
-          {assets.length === 0 && !loadingAssets && (
-            <p className="text-caption text-muted-foreground">No available {form.assetType === "LAND" ? "land parcels" : "built units"} to sell.</p>
-          )}
-        </div>
+            {/* Asset select */}
+            <div className="space-y-1.5">
+              <Label htmlFor="sa-asset">Asset *</Label>
+              <Select id="sa-asset" value={form.assetId} onChange={(e) => onAssetChange(e.target.value)} disabled={loadingAssets}>
+                <option value="">{loadingAssets ? "Loading…" : "Select an asset"}</option>
+                {assets.map((a) => (
+                  <option key={a.assetId} value={a.assetId}>
+                    {a.label} · {a.projectName ?? "No project"} · Cost {formatCurrency(a.costBasis)}
+                  </option>
+                ))}
+              </Select>
+              {assets.length === 0 && !loadingAssets && (
+                <p className="text-caption text-muted-foreground">No available {form.assetType === "LAND" ? "land parcels" : "built units"} to sell.</p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Customer select */}
         <div className="space-y-1.5">
-          <Label htmlFor="sa-customer">Customer *</Label>
-          <Select id="sa-customer" value={form.customerId} onChange={(e) => set("customerId", e.target.value)}>
+          <Label htmlFor="sa-customer" className={errors.customerId ? "text-danger" : undefined}>Customer *</Label>
+          <Select id="sa-customer" value={form.customerId} onChange={(e) => set("customerId", e.target.value)} onBlur={() => onBlur("customerId")} aria-invalid={!!errors.customerId} className={errors.customerId ? errorBorder : undefined}>
             <option value="">Select a customer</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </Select>
+          {errors.customerId && <p className="text-caption text-danger" role="alert">{errors.customerId}</p>}
           {customers.length === 0 && (
             <p className="text-caption text-muted-foreground">No customers yet. Create one in the Customers tab.</p>
           )}
@@ -162,8 +238,9 @@ export function SellAssetDialog({
         {/* Sale price + live profit */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="sa-price">Sale Price *</Label>
-            <Input id="sa-price" type="number" min="0" step="0.01" value={form.salePrice} onChange={(e) => set("salePrice", e.target.value)} required />
+            <Label htmlFor="sa-price" className={errors.salePrice ? "text-danger" : undefined}>Sale Price *</Label>
+            <Input id="sa-price" type="number" min="0" step="0.01" value={form.salePrice} onChange={(e) => set("salePrice", e.target.value)} onBlur={() => onBlur("salePrice")} required aria-invalid={!!errors.salePrice} className={errors.salePrice ? errorBorder : undefined} />
+            {errors.salePrice && <p className="text-caption text-danger" role="alert">{errors.salePrice}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Cost Basis</Label>

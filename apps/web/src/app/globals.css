@@ -1,57 +1,125 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════
+   NIRMAN DESIGN LANGUAGE — "Warm Industrial Precision"
+
+   Three ideas drive every token below:
+
+   1. WARM, NOT CLINICAL. Every neutral carries a trace of warmth
+      (hue ~60–80). The app should feel like drafting paper and
+      concrete, not a stainless-steel SaaS dashboard. Site people use
+      this in daylight; cold blue-greys wash out and feel alien.
+
+   2. ONE ACCENT, EARNED. Ochre (--color-brand) is the only chromatic
+      accent in the chrome. It marks exactly one thing: "you are here /
+      act here." If ochre appears twice on a screen competing for
+      attention, the screen is wrong.
+
+   3. COLOR IS WAYFINDING, NOT DECORATION. The six worlds each own a
+      hue. It appears only as a 2px rule, a 6px dot, or an icon tint —
+      never as a filled panel. You learn the building's floors by
+      color without the UI ever shouting.
+
+   Data is monospace. Chrome is sans. Numbers never move when they
+   change (tabular). Nothing animates longer than 280ms.
+   ═══════════════════════════════════════════════════════════════════ */
+
 @theme {
-  /* Typography — Plus Jakarta Sans (geometric, clean, premium) + JetBrains Mono for data */
+  /* Inter for chrome, JetBrains Mono for data — data must look like data */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
     monospace;
 
-  /* ── Surfaces — clean, minimal, lots of whitespace ───────────────
-     No grid texture, no busy backgrounds. Just clean neutrals with
-     a single accent color. Less is more. */
-  --color-background: oklch(0.99 0.001 240);
-  --color-foreground: oklch(0.16 0.01 255);
+  /* ── Surfaces — warm paper, not cold white ──────────────────────
+     background is a hair warm + darker than card, so cards read as
+     physical objects resting on a surface without needing shadows. */
+  --color-background: oklch(0.983 0.003 80);
+  --color-foreground: oklch(0.185 0.008 60);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.16 0.01 255);
-  --color-muted: oklch(0.96 0.003 240);
-  --color-muted-foreground: oklch(0.50 0.012 255);
-  --color-border: oklch(0.92 0.004 240);
-  --color-input: oklch(0.92 0.004 240);
-  --color-ring: oklch(0.16 0.01 255);
+  --color-card-foreground: oklch(0.185 0.008 60);
+  --color-muted: oklch(0.962 0.005 80);
+  --color-muted-foreground: oklch(0.505 0.009 65);
+  --color-border: oklch(0.915 0.005 80);
+  --color-input: oklch(0.915 0.005 80);
 
-  /* ── Brand — near-black, not a color ─────────────────────────────
-     The accent is the absence of color. Pure, confident, minimal.
-     Like Linear or Vercel — the UI is the content, not the chrome. */
-  --color-primary: oklch(0.16 0.01 255);
-  --color-primary-foreground: oklch(0.99 0.001 240);
-  --color-accent: oklch(0.95 0.005 240);
-  --color-accent-foreground: oklch(0.20 0.01 255);
+  /* Subtle: for zebra rows, table heads, inset wells — barely there */
+  --color-subtle: oklch(0.975 0.004 80);
 
-  /* ── Sidebar — pure black, not navy ──────────────────────────────
-     No tinted dark. Just black. Maximum contrast, maximum confidence. */
-  --color-sidebar: oklch(0.10 0.005 255);
-  --color-sidebar-foreground: oklch(0.85 0.005 250);
-  --color-sidebar-accent: oklch(0.18 0.008 255);
-  --color-sidebar-border: oklch(0.20 0.008 255);
+  /* ── Ink — the primary action color ─────────────────────────────
+     Warm near-black. Confident, high-contrast, never competes with
+     data. Buttons are ink; the brand accent is reserved for state. */
+  --color-primary: oklch(0.205 0.011 60);
+  --color-primary-foreground: oklch(0.99 0.002 80);
+  --color-accent: oklch(0.955 0.006 80);
+  --color-accent-foreground: oklch(0.225 0.01 60);
 
-  /* ── Stage colors — subtle, used sparingly ───────────────────────
-     Only as small dots/borders, not large fills. Clean. */
-  --color-stage-procure: oklch(0.62 0.17 65);
-  --color-stage-build: oklch(0.60 0.13 210);
-  --color-stage-sell: oklch(0.58 0.15 150);
-  --color-stage-account: oklch(0.55 0.18 290);
-  --color-stage-manage: oklch(0.58 0.15 250);
-  --color-stage-system: oklch(0.55 0.01 255);
+  /* ── Brand — ochre. Used ONLY for: active nav, focus ring,
+     brand mark, and the single "act here" affordance per screen. ── */
+  --color-brand: oklch(0.585 0.145 58);
+  --color-brand-foreground: oklch(0.99 0.002 80);
+  --color-brand-soft: oklch(0.955 0.03 75);
+  --color-ring: oklch(0.585 0.145 58);
 
-  /* Semantic — muted, not loud */
-  --color-success: oklch(0.55 0.14 150);
-  --color-warning: oklch(0.68 0.15 65);
-  --color-danger: oklch(0.55 0.20 25);
-  --color-info: oklch(0.55 0.13 210);
+  /* ── Chrome (nav rail) — warm charcoal, not pure black ──────────
+     Pure black next to warm paper looks like a hole. Warm charcoal
+     reads as the same material, just in shadow. */
+  --color-sidebar: oklch(0.165 0.008 65);
+  --color-sidebar-foreground: oklch(0.86 0.006 75);
+  --color-sidebar-accent: oklch(0.235 0.01 65);
+  --color-sidebar-border: oklch(0.255 0.01 65);
 
-  /* Clean radius — not too sharp, not too round */
+  /* ── World colors — wayfinding for the top-level branches ───────
+     Hairlines, dots and icon tints only. Never a filled surface. */
+  --color-world-today: oklch(0.585 0.145 58);
+  --color-world-inventory: oklch(0.52 0.12 188);
+  --color-world-hr: oklch(0.555 0.145 25);
+  --color-world-finance: oklch(0.485 0.145 295);
+  --color-world-admin: oklch(0.50 0.008 65);
+  /* Insights accent — retained for the /reports page question dots. */
+  --color-world-insights: oklch(0.505 0.095 195);
+
+  /* Legacy world aliases — kept so older components keep compiling. */
+  --color-world-materials: var(--color-world-inventory);
+  --color-world-property: oklch(0.535 0.115 155);
+  --color-world-people: var(--color-world-hr);
+  --color-world-money: var(--color-world-finance);
+  --color-world-setup: var(--color-world-admin);
+
+  /* Legacy stage aliases — kept so older components keep compiling.
+     New work should use --color-world-*. */
+  --color-stage-procure: oklch(0.555 0.115 225);
+  --color-stage-build: oklch(0.555 0.115 225);
+  --color-stage-workforce: oklch(0.555 0.145 25);
+  --color-stage-sell: oklch(0.535 0.115 155);
+  --color-stage-account: oklch(0.485 0.145 295);
+  --color-stage-manage: oklch(0.585 0.145 58);
+  --color-stage-system: oklch(0.50 0.008 65);
+
+  /* ── Semantic — warm-shifted, muted. State, not decoration. ──── */
+  --color-success: oklch(0.535 0.115 155);
+  --color-success-soft: oklch(0.955 0.028 155);
+  --color-warning: oklch(0.635 0.135 70);
+  --color-warning-soft: oklch(0.965 0.035 80);
+  --color-danger: oklch(0.545 0.185 25);
+  --color-danger-soft: oklch(0.96 0.028 25);
+  --color-info: oklch(0.545 0.115 225);
+  --color-info-soft: oklch(0.955 0.025 225);
+
+  /* Radius scale — 6px is the workhorse; nothing is a pill except badges */
   --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+
+  /* ── Elevation — warm-tinted shadows. Light comes from above.
+     Four steps only: flat, raised, floating, overlay. ── */
+  --shadow-raised: 0 1px 2px -1px oklch(0.185 0.008 60 / 0.08),
+    0 1px 3px oklch(0.185 0.008 60 / 0.04);
+  --shadow-floating: 0 4px 12px -4px oklch(0.185 0.008 60 / 0.10),
+    0 2px 4px -2px oklch(0.185 0.008 60 / 0.06);
+  --shadow-overlay: 0 16px 48px -12px oklch(0.185 0.008 60 / 0.18),
+    0 4px 12px -6px oklch(0.185 0.008 60 / 0.10);
 }
 
 @layer base {
@@ -61,7 +129,7 @@
 
   html {
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 14px;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -72,8 +140,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   /* Numbers in monospace — data should look like data */
@@ -84,37 +152,46 @@
   }
 
   ::selection {
-    background-color: oklch(0.16 0.01 255);
-    color: oklch(0.99 0.001 240);
+    background-color: oklch(0.585 0.145 58 / 0.22);
+    color: var(--color-foreground);
   }
 
+  /* Keyboard focus is a first-class state, not something to hide.
+     Ochre ring, offset so it never crowds the element it marks. */
   :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Pointer users don't need the ring; keyboard users do. */
+  [data-focus-ring="none"]:focus-visible {
     outline: none;
   }
 }
 
 /* ── Typographic scale ──────────────────────────────────────────── */
 @utility text-micro {
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 9px;
+  line-height: 1.35;
   letter-spacing: 0.01em;
 }
 @utility text-caption {
+  font-size: 10px;
+  line-height: 1.4;
+}
+@utility text-meta {
   font-size: 11px;
   line-height: 1.45;
 }
-@utility text-meta {
-  font-size: 12px;
-  line-height: 1.5;
-}
 @utility text-body {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* ── Page title — strong hierarchy anchor ──────────────────────── */
 @utility text-title {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.2;
   letter-spacing: -0.02em;
   font-weight: 700;
@@ -122,11 +199,37 @@
 
 /* ── Technical label — uppercase tracked ────────────────────────── */
 @utility text-label {
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 9px;
+  line-height: 1.35;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 600;
+}
+
+/* ── Numeric display sizes — data has its own scale ─────────────── */
+@utility text-figure {
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+@utility text-figure-lg {
+  font-size: 23px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ── Section heading — the sub-title inside a page ─────────────── */
+@utility text-section {
+  font-size: 13px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-weight: 650;
 }
 
 @utility scrollbar-thin {
@@ -140,21 +243,97 @@
   }
 }
 
+/* ── Interactive card — lifts on hover, never jumps ─────────────── */
 @utility card-interactive {
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
   &:hover {
-    border-color: oklch(0.80 0.004 240);
-    box-shadow: 0 2px 8px -4px oklch(0.16 0.01 255 / 0.08);
+    border-color: oklch(0.855 0.008 75);
+    box-shadow: var(--shadow-raised);
   }
 }
 
-/* ── Stage accent borders ── */
+/* ── Row — the canonical list/table row hover ───────────────────── */
+@utility row-interactive {
+  transition: background-color 0.12s ease;
+  &:hover {
+    background-color: var(--color-subtle);
+  }
+}
+
+/* ── Hairline — a 1px rule that knows it's decorative ──────────── */
+@utility hairline {
+  border-color: var(--color-border);
+}
+
+/* ── World accent rules — 2px left rule, the wayfinding mark ───── */
+@utility world-today { box-shadow: inset 2px 0 0 var(--color-world-today); }
+@utility world-inventory { box-shadow: inset 2px 0 0 var(--color-world-inventory); }
+@utility world-hr { box-shadow: inset 2px 0 0 var(--color-world-hr); }
+@utility world-finance { box-shadow: inset 2px 0 0 var(--color-world-finance); }
+@utility world-admin { box-shadow: inset 2px 0 0 var(--color-world-admin); }
+@utility world-insights { box-shadow: inset 2px 0 0 var(--color-world-insights); }
+/* Legacy aliases. */
+@utility world-materials { box-shadow: inset 2px 0 0 var(--color-world-materials); }
+@utility world-property { box-shadow: inset 2px 0 0 var(--color-world-property); }
+@utility world-people { box-shadow: inset 2px 0 0 var(--color-world-people); }
+@utility world-money { box-shadow: inset 2px 0 0 var(--color-world-money); }
+@utility world-setup { box-shadow: inset 2px 0 0 var(--color-world-setup); }
+
+/* ── Legacy stage accent borders (kept for older components) ───── */
 @utility stage-procure { border-left: 2px solid var(--color-stage-procure); }
 @utility stage-build { border-left: 2px solid var(--color-stage-build); }
+@utility stage-workforce { border-left: 2px solid var(--color-stage-workforce); }
 @utility stage-sell { border-left: 2px solid var(--color-stage-sell); }
 @utility stage-account { border-left: 2px solid var(--color-stage-account); }
 @utility stage-manage { border-left: 2px solid var(--color-stage-manage); }
 @utility stage-system { border-left: 2px solid var(--color-stage-system); }
+
+/* ── Sunken well — for inset detail panels + empty states ──────── */
+@utility well {
+  background-color: var(--color-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+/* ── Touch target — 44px minimum for every field/mobile control ── */
+@utility touch {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ── Nav panel collapse ─────────────────────────────────────────────
+   The collapsed/expanded choice is applied from a root data attribute
+   set by an inline script in the document head, BEFORE first paint.
+
+   Doing it in CSS rather than React state buys two things: the panel
+   never flashes open then snap shut on reload, and the shell doesn't
+   need to call setState from inside an effect to restore a preference.
+   ─────────────────────────────────────────────────────────────────── */
+.nav-panel {
+  display: none;
+}
+.nav-expand {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .nav-panel {
+    display: flex;
+  }
+  .nav-main {
+    padding-left: 17.5rem; /* 3.5rem rail + 14rem panel */
+  }
+  html[data-nav="collapsed"] .nav-panel {
+    display: none;
+  }
+  html[data-nav="collapsed"] .nav-main {
+    padding-left: 3.5rem;
+  }
+  html[data-nav="collapsed"] .nav-expand {
+    display: inline-flex;
+  }
+}
 
 /* ── React Flow ── */
 .react-flow__resize-control.handle { pointer-events: all; }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, UserPlus, Shield, Loader2, Phone, Mail, Network } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { StatusPill } from "@/components/page";
 import { formatCurrency } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
-import { canManageUsers, ROLE_LIST, type Role } from "@/lib/roles";
-import { useSession } from "@/lib/auth-client";
+import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
-import type { StockLocationRow } from "@/lib/types";
+import { CostCentresTab } from "@/components/settings/cost-centres-tab";
+import { PeopleTab } from "@/components/settings/people-tab";
+import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 
 type UserRow = {
   id: string;
@@ -43,28 +45,34 @@ export function SettingsView({
   subcontractors,
   employees,
   companies,
+  departments,
   canManageCompanies,
+  actorRole,
 }: {
   company: CompanyInfo;
   users: UserRow[];
   locations: StockLocationRow[];
   projects: { id: string; name: string }[];
-  subcontractors: { id: string; name: string; trade: string | null; phone: string | null; email: string | null }[];
+  subcontractors: { id: string; name: string; trade: string | null; phone: string | null; email: string | null; gstin: string | null; address: string | null }[];
   employees: { id: string; name: string; trade: string | null; phone: string | null; email: string | null; dailyRate: number; active: boolean }[];
   companies: CompanyRow[];
+  departments: DepartmentRow[];
   canManageCompanies: boolean;
+  actorRole: string;
 }) {
   const [tab, setTab] = useState("company");
   const router = useRouter();
 
   // Subcontractor form
   const [subFormOpen, setSubFormOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<{ id: string } | null>(null);
   const [subForm, setSubForm] = useState({ name: "", trade: "", phone: "", email: "", gstin: "", address: "" });
   const [savingSub, setSavingSub] = useState(false);
   const [deletingSub, setDeletingSub] = useState<string | null>(null);
 
   // Employee form
   const [empFormOpen, setEmpFormOpen] = useState(false);
+  const [editingEmp, setEditingEmp] = useState<{ id: string } | null>(null);
   const [empForm, setEmpForm] = useState({ name: "", trade: "", phone: "", email: "", dailyRate: "" });
   const [savingEmp, setSavingEmp] = useState(false);
   const [deletingEmp, setDeletingEmp] = useState<string | null>(null);
@@ -74,28 +82,34 @@ export function SettingsView({
     if (!empForm.name.trim()) return toast.error("Name is required");
     setSavingEmp(true);
     try {
-      const res = await fetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: empForm.name.trim(),
-          trade: empForm.trade.trim() || null,
-          phone: empForm.phone.trim() || null,
-          email: empForm.email.trim() || null,
-          dailyRate: empForm.dailyRate ? Number(empForm.dailyRate) : 0,
-        }),
-      });
+      const payload = {
+        name: empForm.name.trim(),
+        trade: empForm.trade.trim() || null,
+        phone: empForm.phone.trim() || null,
+        email: empForm.email.trim() || null,
+        dailyRate: empForm.dailyRate ? Number(empForm.dailyRate) : 0,
+      };
+      const res = editingEmp
+        ? await fetch(`/api/employees/${editingEmp.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+        : await fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Employee added");
+      toast.success(editingEmp ? "Employee updated" : "Employee added");
       setEmpFormOpen(false);
+      setEditingEmp(null);
       setEmpForm({ name: "", trade: "", phone: "", email: "", dailyRate: "" });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setSavingEmp(false);
     }
+  }
+
+  function openEditEmp(e: { id: string; name: string; trade: string | null; phone: string | null; email: string | null; dailyRate: number }) {
+    setEditingEmp({ id: e.id });
+    setEmpForm({ name: e.name, trade: e.trade ?? "", phone: e.phone ?? "", email: e.email ?? "", dailyRate: e.dailyRate.toString() });
+    setEmpFormOpen(true);
   }
 
   async function saveSubcontractor(e: React.FormEvent) {
@@ -103,29 +117,35 @@ export function SettingsView({
     if (!subForm.name.trim()) return toast.error("Name is required");
     setSavingSub(true);
     try {
-      const res = await fetch("/api/subcontractors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: subForm.name.trim(),
-          trade: subForm.trade.trim() || null,
-          phone: subForm.phone.trim() || null,
-          email: subForm.email.trim() || null,
-          gstin: subForm.gstin.trim() || null,
-          address: subForm.address.trim() || null,
-        }),
-      });
+      const payload = {
+        name: subForm.name.trim(),
+        trade: subForm.trade.trim() || null,
+        phone: subForm.phone.trim() || null,
+        email: subForm.email.trim() || null,
+        gstin: subForm.gstin.trim() || null,
+        address: subForm.address.trim() || null,
+      };
+      const res = editingSub
+        ? await fetch(`/api/subcontractors/${editingSub.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+        : await fetch("/api/subcontractors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Subcontractor added");
+      toast.success(editingSub ? "Subcontractor updated" : "Subcontractor added");
       setSubFormOpen(false);
+      setEditingSub(null);
       setSubForm({ name: "", trade: "", phone: "", email: "", gstin: "", address: "" });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setSavingSub(false);
     }
+  }
+
+  function openEditSub(s: { id: string; name: string; trade: string | null; phone: string | null; email: string | null; gstin?: string | null; address?: string | null }) {
+    setEditingSub({ id: s.id });
+    setSubForm({ name: s.name, trade: s.trade ?? "", phone: s.phone ?? "", email: s.email ?? "", gstin: s.gstin ?? "", address: s.address ?? "" });
+    setSubFormOpen(true);
   }
 
   // Company form
@@ -158,8 +178,8 @@ export function SettingsView({
       if (!res.ok) throw new Error(data.error ?? "Failed to update company");
       toast.success("Company profile updated");
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSavingCompany(false);
     }
@@ -186,8 +206,8 @@ export function SettingsView({
       setLocFormOpen(false);
       setLocForm({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "" });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSavingLoc(false);
     }
@@ -206,11 +226,11 @@ export function SettingsView({
           <TabsTrigger value="locations">
             <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Locations</span>
           </TabsTrigger>
-          <TabsTrigger value="subcontractors">
-            <span className="flex items-center gap-1.5"><HardHat className="h-3.5 w-3.5" /> Subcontractors</span>
+          <TabsTrigger value="cost-centres">
+            <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Cost Centres</span>
           </TabsTrigger>
-          <TabsTrigger value="employees">
-            <span className="flex items-center gap-1.5"><UserPlus className="h-3.5 w-3.5" /> Employees</span>
+          <TabsTrigger value="people">
+            <span className="flex items-center gap-1.5"><HardHat className="h-3.5 w-3.5" /> People</span>
           </TabsTrigger>
           {canManageCompanies && (
             <TabsTrigger value="companies">
@@ -227,7 +247,7 @@ export function SettingsView({
                   <Label htmlFor="c-name">Company Name *</Label>
                   <Input id="c-name" value={companyForm.name} onChange={(e) => setCompanyForm((f) => ({ ...f, name: e.target.value }))} required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>GSTIN</Label>
                     <Input value={companyForm.gstin ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, gstin: e.target.value }))} />
@@ -256,7 +276,7 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="users">
-          <UsersManager users={users} />
+          <UsersManager users={users} actorRole={actorRole} />
         </TabsContent>
 
         <TabsContent value="locations">
@@ -296,82 +316,25 @@ export function SettingsView({
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="subcontractors">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body text-muted-foreground">{subcontractors.length} subcontractor{subcontractors.length !== 1 ? "s" : ""}</span>
-              <Button onClick={() => setSubFormOpen(true)}><Plus className="h-4 w-4" /> New Subcontractor</Button>
-            </div>
-
-            {subcontractors.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">No subcontractors yet</div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {subcontractors.map((s) => (
-                  <Card key={s.id} className="group relative">
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold truncate">{s.name}</div>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingSub(s.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {s.trade ? <Badge variant="outline">{s.trade}</Badge> : <span className="text-sm text-muted-foreground">No trade set</span>}
-                      {s.phone && (
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{s.phone}</span>
-                        </div>
-                      )}
-                      {s.email && (
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{s.email}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
+        <TabsContent value="cost-centres">
+          <CostCentresTab departments={departments} canCreate canEdit canDelete />
         </TabsContent>
-        <TabsContent value="employees">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body text-muted-foreground">{employees.length} employee{employees.length !== 1 ? "s" : ""}</span>
-              <Button onClick={() => setEmpFormOpen(true)}><Plus className="h-4 w-4" /> New Employee</Button>
-            </div>
-            {employees.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">No employees yet — add people to assign to playground task nodes</div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {employees.map((e) => (
-                  <Card key={e.id} className="group relative">
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold truncate">{e.name}</div>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingEmp(e.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {e.trade && <div className="text-sm text-muted-foreground">{e.trade}</div>}
-                      <div className="flex items-center justify-between pt-1 border-t">
-                        <span className="tnum font-bold">{formatCurrency(e.dailyRate)}</span>
-                        <span className="text-sm text-muted-foreground">/day</span>
-                      </div>
-                      <Badge variant={e.active ? "success" : "muted"}>{e.active ? "Active" : "Inactive"}</Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
+        <TabsContent value="people">
+          <PeopleTab
+            subcontractors={subcontractors}
+            employees={employees}
+            onNewSub={() => { setEditingSub(null); setSubForm({ name: "", trade: "", phone: "", email: "", gstin: "", address: "" }); setSubFormOpen(true); }}
+            onEditSub={openEditSub}
+            onDeleteSub={setDeletingSub}
+            onNewEmp={() => { setEditingEmp(null); setEmpForm({ name: "", trade: "", phone: "", email: "", dailyRate: "" }); setEmpFormOpen(true); }}
+            onEditEmp={openEditEmp}
+            onDeleteEmp={setDeletingEmp}
+          />
         </TabsContent>
 
         {canManageCompanies && (
           <TabsContent value="companies">
-            <CompaniesManager companies={companies} canManage={canManageCompanies} />
+            <CompaniesManager companies={companies} canManage={canManageCompanies} actorRole={actorRole} />
           </TabsContent>
         )}
       </Tabs>
@@ -430,13 +393,13 @@ export function SettingsView({
       {subFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSubFormOpen(false)}>
           <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">New Subcontractor</h2>
+            <h2 className="mb-4 text-lg font-semibold">{editingSub ? "Edit Subcontractor" : "New Subcontractor"}</h2>
             <form onSubmit={saveSubcontractor} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Name *</Label>
                 <Input value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Trade</Label>
                   <Input value={subForm.trade} onChange={(e) => setSubForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Plumbing" />
@@ -460,7 +423,7 @@ export function SettingsView({
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setSubFormOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingSub}>{savingSub ? "Creating…" : "Create"}</Button>
+                <Button type="submit" disabled={savingSub}>{savingSub ? "Saving…" : editingSub ? "Save Changes" : "Create"}</Button>
               </div>
             </form>
           </div>
@@ -482,13 +445,13 @@ export function SettingsView({
       {empFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEmpFormOpen(false)}>
           <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">New Employee</h2>
+            <h2 className="mb-4 text-lg font-semibold">{editingEmp ? "Edit Employee" : "New Employee"}</h2>
             <form onSubmit={saveEmployee} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Name *</Label>
                 <Input value={empForm.name} onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))} required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Trade</Label>
                   <Input value={empForm.trade} onChange={(e) => setEmpForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Masonry" />
@@ -498,7 +461,7 @@ export function SettingsView({
                   <Input value={empForm.phone} onChange={(e) => setEmpForm((f) => ({ ...f, phone: e.target.value }))} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Email</Label>
                   <Input value={empForm.email} onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))} />
@@ -510,7 +473,7 @@ export function SettingsView({
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setEmpFormOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingEmp}>{savingEmp ? "Creating…" : "Create"}</Button>
+                <Button type="submit" disabled={savingEmp}>{savingEmp ? "Saving…" : editingEmp ? "Save Changes" : "Create"}</Button>
               </div>
             </form>
           </div>
@@ -533,7 +496,7 @@ export function SettingsView({
 
 // ── Users Manager — role + active status management ──────────
 
-function UsersManager({ users }: { users: UserRow[] }) {
+function UsersManager({ users, actorRole }: { users: UserRow[]; actorRole: string }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
@@ -630,23 +593,27 @@ function UsersManager({ users }: { users: UserRow[] }) {
                   </TD>
                   <TD className="text-muted-foreground">{u.email}</TD>
                   <TD>
-                    {canManage ? (
+                    {canManage && canAssignRole(actorRole, u.role) ? (
                       <Select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
                         disabled={saving === u.id}
                         className="h-8 w-36 text-caption"
                       >
-                        {ROLE_LIST.map((r) => (
-                          <option key={r.key} value={r.key}>{r.label}</option>
-                        ))}
+                        {/* Show current role + any role the actor can assign. */}
+                        {[u.role, ...assignableRoles(actorRole)]
+                          .filter((r, i, arr) => arr.indexOf(r) === i)
+                          .map((r) => {
+                            const def = ROLE_LIST.find((rl) => rl.key === r);
+                            return <option key={r} value={r}>{def?.label ?? r}</option>;
+                          })}
                       </Select>
                     ) : (
                       <Badge variant={roleBadgeVariant(u.role)}>{u.role}</Badge>
                     )}
                   </TD>
                   <TD>
-                    {canManage ? (
+                    {canManage && canAssignRole(actorRole, u.role) ? (
                       <button
                         onClick={() => handleActiveToggle(u.id, !u.active)}
                         disabled={saving === u.id}
@@ -654,10 +621,10 @@ function UsersManager({ users }: { users: UserRow[] }) {
                         title={u.active ? "Click to deactivate" : "Click to activate"}
                       >
                         {saving === u.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                        <Badge variant={u.active ? "success" : "muted"}>{u.active ? "Active" : "Inactive"}</Badge>
+                        <StatusPill status={u.active ? "ACTIVE" : "INACTIVE"} />
                       </button>
                     ) : (
-                      <Badge variant={u.active ? "success" : "muted"}>{u.active ? "Active" : "Inactive"}</Badge>
+                      <StatusPill status={u.active ? "ACTIVE" : "INACTIVE"} />
                     )}
                   </TD>
                   {canManage && (

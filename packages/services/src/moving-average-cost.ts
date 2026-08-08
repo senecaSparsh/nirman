@@ -3,11 +3,11 @@ import Decimal from "decimal.js";
 /**
  * Moving Average Cost (MAC) calculation.
  *
- * When stock is received (PURCHASE_RECEIPT, TRANSFER_IN, ADJUSTMENT_IN, RETURN):
+ * When stock is received (PURCHASE_RECEIPT, TRANSFER_IN, ADJUSTMENT_IN):
  *   newMAC = (oldQty × oldMAC + receivedQty × receivedUnitCost) / (oldQty + receivedQty)
  *
  * When stock is issued (ISSUE_TO_PROJECT, ISSUE_TO_DEPARTMENT, TRANSFER_OUT,
- * ADJUSTMENT_OUT, SALE):
+ * ADJUSTMENT_OUT, RETURN, SALE):
  *   MAC does not change — issues draw from stock at the current MAC.
  *   The issue's unitCost = the current MAC (captured in StockMovement.unitCost).
  *
@@ -50,7 +50,7 @@ export type MovementDirection = "IN" | "OUT";
  * PURCHASE_RECEIPT → IN (toLocation)
  * TRANSFER_IN → IN (toLocation)
  * ADJUSTMENT_IN → IN (toLocation)
- * RETURN → IN (toLocation)
+ * RETURN → OUT (fromLocation) — supplier return: goods leave the warehouse
  * TRANSFER_OUT → OUT (fromLocation)
  * ISSUE_TO_PROJECT → OUT (fromLocation)
  * ISSUE_TO_DEPARTMENT → OUT (fromLocation)
@@ -64,12 +64,13 @@ export function movementDirection(
     case "PURCHASE_RECEIPT":
     case "TRANSFER_IN":
     case "ADJUSTMENT_IN":
-    case "RETURN":
+    case "SCRAP_GENERATED":
       return "IN";
     case "TRANSFER_OUT":
     case "ISSUE_TO_PROJECT":
     case "ISSUE_TO_DEPARTMENT":
     case "ADJUSTMENT_OUT":
+    case "RETURN":
     case "SALE":
       return "OUT";
     default:

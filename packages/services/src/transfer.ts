@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, recordTransfer, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
+import { ServiceError } from "./errors";
 
 /**
  * Transfer Service — move materials between stock locations.
@@ -151,17 +152,17 @@ interface CreateTransferInput {
 
 export async function createTransfer(input: CreateTransferInput) {
   if (input.fromLocationId === input.toLocationId) {
-    throw new Error("Cannot transfer to the same location");
+    throw new ServiceError("Cannot transfer to the same location");
   }
-  if (input.lines.length === 0) throw new Error("Transfer must have at least one line");
+  if (input.lines.length === 0) throw new ServiceError("Transfer must have at least one line");
 
   // Validate locations
   const [fromLoc, toLoc] = await Promise.all([
     prisma.stockLocation.findFirst({ where: { id: input.fromLocationId, deletedAt: null } }),
     prisma.stockLocation.findFirst({ where: { id: input.toLocationId, deletedAt: null } }),
   ]);
-  if (!fromLoc) throw new Error("Source location not found or deleted");
-  if (!toLoc) throw new Error("Destination location not found or deleted");
+  if (!fromLoc) throw new ServiceError("Source location not found or deleted", 404);
+  if (!toLoc) throw new ServiceError("Destination location not found or deleted", 404);
 
   const isInterCompany = fromLoc.companyId !== toLoc.companyId;
 
@@ -177,10 +178,10 @@ export async function createTransfer(input: CreateTransferInput) {
     where: { id: { in: materialIds }, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
-    throw new Error("One or more materials not found or deleted");
+    throw new ServiceError("One or more materials not found or deleted", 404);
   }
   for (const line of input.lines) {
-    if (!new Decimal(line.qty).gt(0)) throw new Error("Transfer qty must be > 0");
+    if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Transfer qty must be > 0");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -229,9 +230,9 @@ export async function completeTransfer(transferId: string, userId?: string) {
       where: { id: transferId },
       include: { lines: true },
     });
-    if (!transfer) throw new Error("Transfer not found");
+    if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
-      throw new Error(`Cannot complete transfer in status ${transfer.status}`);
+      throw new ServiceError(`Cannot complete transfer in status ${transfer.status}`);
     }
 
     // Re-validate stock availability at source (may have changed since DRAFT)
@@ -246,7 +247,7 @@ export async function completeTransfer(transferId: string, userId?: string) {
       });
       const available = item ? new Decimal(item.qty) : new Decimal(0);
       if (available.lt(new Decimal(line.qty))) {
-        throw new Error(
+        throw new ServiceError(
           `Insufficient stock for transfer: available ${available}, requested ${line.qty} of material ${line.materialId}`,
         );
       }
@@ -383,9 +384,9 @@ export async function completeTransfer(transferId: string, userId?: string) {
 export async function cancelTransfer(transferId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({ where: { id: transferId } });
-    if (!transfer) throw new Error("Transfer not found");
+    if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
-      throw new Error(`Cannot cancel transfer in status ${transfer.status}`);
+      throw new ServiceError(`Cannot cancel transfer in status ${transfer.status}`);
     }
     const updated = await tx.stockTransfer.update({
       where: { id: transferId },

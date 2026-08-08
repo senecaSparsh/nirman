@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { addComment } from "@nirman/services";
-import { apiHandler, getCurrentUser, json } from "@/lib/server";
+import { apiHandler, requireUser, json } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -15,8 +15,7 @@ const commentSchema = z.object({
  * Any assignee or manager can comment.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   const { id: taskId } = await params;
 
   const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });

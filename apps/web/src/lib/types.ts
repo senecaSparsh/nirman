@@ -11,13 +11,18 @@ export type MaterialRow = {
   id: string;
   code: string;
   name: string;
-  categoryId: string;
-  categoryName: string;
+  categoryId: string | null;
+  categoryName: string | null;
   unit: string;
   hsnCode: string | null;
   gstRate: number;
   standardCost: number;
   minStock: number | null;
+  reorderPoint: number | null;
+  economicOrderQty: number | null;
+  volumetricDensity: number | null;
+  bulkDiscountPct: number | null;
+  isCorporateCommodity: boolean;
   description: string | null;
   totalQty: number;
   totalValue: number;
@@ -33,6 +38,10 @@ export type StockLocationRow = {
   projectName: string | null;
   stockValue: number;
   itemCount: number;
+  // Company context — needed so the transfer dialog can group destinations
+  // by company and label cross-company (inter-company STO) destinations.
+  companyId: string;
+  companyName: string;
 };
 
 export type StockRow = {
@@ -134,6 +143,7 @@ export type PurchaseOrderDetail = {
   total: number;
   notes: string | null;
   createdAt: string;
+  sourceRequisition: { id: string; reqNumber: string } | null;
   lines: {
     id: string;
     materialId: string;
@@ -161,9 +171,11 @@ export type TransferRow = {
   fromLocationId: string;
   fromLocationName: string;
   fromLocationType: string;
+  fromCompanyName: string | null;
   toLocationId: string;
   toLocationName: string;
   toLocationType: string;
+  toCompanyName: string | null;
   status: "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "CANCELLED";
   transferDate: string;
   notes: string | null;
@@ -171,6 +183,11 @@ export type TransferRow = {
   lineCount: number;
   totalQty: number;
   materials: string[];
+  // Inter-company Stock Transfer Order (STO) economics.
+  // isInterCompany = true when from/to locations belong to different companies.
+  // transferPriceTotal = Σ line transfer totals (set on completion).
+  isInterCompany: boolean;
+  transferPriceTotal: number | null;
 };
 
 export type StockMovementRow = {
@@ -203,6 +220,37 @@ export type AvailableStockRow = {
   unit: string;
   qty: number;
   mac: number;
+};
+
+// ───────────────────────────────────────────────────────────
+//  Stock Count module
+// ───────────────────────────────────────────────────────────
+
+export type StockCountStatus = "DRAFT" | "COUNTED" | "RECONCILED";
+
+export type StockCountLineRow = {
+  id: string;
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  unit: string;
+  countedQty: number;
+  systemQty: number;
+  variance: number;
+};
+
+export type StockCountRow = {
+  id: string;
+  locationId: string;
+  locationName: string;
+  locationType: string;
+  status: StockCountStatus;
+  countDate: string;
+  notes: string | null;
+  createdAt: string;
+  lineCount: number;
+  totalVariance: number;
+  lines: StockCountLineRow[];
 };
 
 // ───────────────────────────────────────────────────────────
@@ -261,6 +309,7 @@ export type MaterialOption = {
   unit: string;
   standardCost: number;
   gstRate: number;
+  isLotTracked?: boolean;
 };
 
 export type SupplierOption = {
@@ -295,6 +344,7 @@ export type DepartmentOption = {
 
 export type MaterialIssueListRow = {
   id: string;
+  issueNumber: string;
   projectId: string | null;
   projectName: string | null;
   departmentId: string | null;
@@ -304,9 +354,44 @@ export type MaterialIssueListRow = {
   fromLocationName: string;
   issueDate: string;
   notes: string | null;
+  receiverName: string | null;
+  receiverMobile: string | null;
   totalCost: number;
+  roundOff: number;
+  totalAmount: number;
   lineCount: number;
 };
+
+export type DirectPurchaseRow = {
+  id: string;
+  billNumber: string;
+  supplierId: string | null;
+  supplierName: string;
+  supplierPhone: string | null;
+  locationId: string;
+  locationName: string;
+  billDate: string;
+  subtotal: number;
+  gstTotal: number;
+  roundOff: number;
+  billAmount: number;
+  notes: string | null;
+  lineCount: number;
+  lines: {
+    id: string;
+    materialId: string;
+    materialCode: string;
+    materialName: string;
+    unit: string;
+    qty: number;
+    unitCost: number;
+    gstRate: number;
+    lineTotal: number;
+  }[];
+};
+
+// NOTE: SupplierReturnRow is defined further below with the proper
+// SupplierReturnStatus enum type. See line ~841.
 
 export type PurchaseOrderListRow = {
   id: string;
@@ -346,8 +431,8 @@ export type StockTransferListRow = {
 //  Land module
 // ───────────────────────────────────────────────────────────
 
-export type LandParcelStatus = "AVAILABLE" | "HOLD" | "PARTITIONED" | "SOLD";
-export type AreaUnit = "SQFT" | "SQM" | "ACRE" | "BIGHA" | "HECTARE";
+export type LandParcelStatus = "AVAILABLE" | "HOLD" | "PARTITIONED" | "RESERVED" | "SOLD" | "RENTED";
+export type AreaUnit = "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
 
 /** A lightweight parcel summary embedded inside a LandPurchaseRow for card rendering. */
 export type LandParcelSummary = {
@@ -402,6 +487,9 @@ export type LandParcelRow = {
   acquisitionCost: number;
   askingPrice: number | null;
   currentValuation: number;
+  isInfrastructure: boolean;
+  marketValue: number | null;
+  weightFactor: number | null;
   projectId: string | null;
   projectName: string | null;
   childCount: number;
@@ -436,8 +524,8 @@ export type LandPortfolio = {
 //  Built Units module
 // ───────────────────────────────────────────────────────────
 
-export type BuiltUnitType = "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "OTHER";
-export type BuiltUnitStatus = "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD";
+export type BuiltUnitType = "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "VILLA" | "OTHER";
+export type BuiltUnitStatus = "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "RESERVED" | "HOLD" | "SOLD" | "RENTED";
 
 export type BuiltUnitRow = {
   id: string;
@@ -509,6 +597,10 @@ export type AssetSaleRow = {
   profit: number;
   saleDate: string;
   status: SaleStatus;
+  saleStage: string; // PENDING | DEPOSIT_RECEIVED | COMPLETED | CANCELLED
+  depositAmount: number | null;
+  depositDate: string | null;
+  finalSaleDate: string | null;
   paymentStatus: PaymentStatus;
   paymentMode: string | null;
   notes: string | null;
@@ -702,6 +794,9 @@ export type RequisitionRow = {
   convertedPoId: string | null;
   lineCount: number;
   totalQty: number;
+  quoteCount?: number;
+  minQuotesRequired?: number;
+  quotesWaived?: boolean;
 };
 
 export type RequisitionDetail = RequisitionRow & {
@@ -713,7 +808,74 @@ export type RequisitionDetail = RequisitionRow & {
     unit: string;
     qtyRequested: number;
     notes: string | null;
+    currentStock: number | null;
+    lastRate: number | null;
+    lastRateDate: string | null;
+    preferredSupplier: { id: string; name: string; phone: string | null } | null;
   }[];
+  quotes?: {
+    count: number;
+    minRequired: number;
+    waived: boolean;
+    waivedReason: string | null;
+    gateSatisfied: boolean;
+    cheapest: { id: string; supplierName: string; landedTotal: number } | null;
+    selected: { id: string; supplierName: string; landedTotal: number } | null;
+  };
+};
+
+// ───────────────────────────────────────────────────────────
+//  Comparative Quote Engine types
+// ───────────────────────────────────────────────────────────
+
+export type QuoteStatus = "PENDING" | "SELECTED" | "REJECTED";
+
+export type VendorQuoteRow = {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierPhone: string | null;
+  fileUrl: string;
+  fileName: string;
+  mimeType: string;
+  landedTotal: number;
+  validUntil: string | null;
+  isCheapest: boolean;
+  status: QuoteStatus;
+  selectedAt: string | null;
+  selectionReason: string | null;
+  submittedBy: { id: string; name: string } | null;
+  selectedBy: { id: string; name: string } | null;
+  notes: string | null;
+  varianceVsCheapest: number;
+  createdAt: string;
+  lines: {
+    id: string;
+    materialId: string;
+    materialCode: string;
+    materialName: string;
+    unit: string;
+    qty: number;
+    unitPrice: number;
+    lineTotal: number;
+  }[];
+};
+
+export type ComparativeStatement = {
+  requisition: {
+    id: string;
+    reqNumber: string;
+    status: RequisitionStatus;
+    minQuotesRequired: number;
+    quotesWaived: boolean;
+    quotesWaivedReason: string | null;
+    quotesLockedAt: string | null;
+  };
+  quotes: VendorQuoteRow[];
+  cheapestQuoteId: string | null;
+  selectedQuoteId: string | null;
+  nonRejectedCount: number;
+  gateSatisfied: boolean;
 };
 
 // ───────────────────────────────────────────────────────────

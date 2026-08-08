@@ -44,6 +44,14 @@ export function DepartmentFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.code.trim()) {
+      toast.error("Department code is required");
+      return;
+    }
+    if (!form.name.trim()) {
+      toast.error("Department name is required");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -76,8 +84,8 @@ export function DepartmentFormDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "Edit Department" : "New Department / Cost Center"}
-      description="Departments are operational consumption targets for raw materials (e.g. Boiler, Dryer, MP-2, Workshop). Materials issued to a department hit Operating Expenses."
+      title={isEdit ? "Edit Department" : "New Department / Cost Centre"}
+      description="Departments are operational consumption targets for raw materials (e.g. Boiler, Dryer, MP-2, Workshop). Materials issued to a department hit operating expenses."
       className="max-w-xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
@@ -112,7 +120,7 @@ export function DepartmentFormDialog({
           <Textarea
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
-            placeholder="Optional — what this cost center is for"
+            placeholder="Optional — what this cost centre is for"
             rows={2}
           />
         </div>
@@ -126,7 +134,7 @@ export function DepartmentFormDialog({
           Active (can receive material issues)
         </label>
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>

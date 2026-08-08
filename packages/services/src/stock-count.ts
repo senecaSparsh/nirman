@@ -2,6 +2,8 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
+import { postStockAdjustment } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Stock Count Service — physical inventory reconciliation.
@@ -24,7 +26,7 @@ export async function createStockCount(input: CreateStockCountInput) {
   const location = await prisma.stockLocation.findFirst({
     where: { id: input.locationId, deletedAt: null },
   });
-  if (!location) throw new Error("Location not found or deleted");
+  if (!location) throw new ServiceError("Location not found or deleted", 404);
 
   // Snapshot current system quantities
   const items = await prisma.stockLocationItem.findMany({
@@ -64,11 +66,35 @@ export async function createStockCount(input: CreateStockCountInput) {
   });
 }
 
+/**
+ * Delete a DRAFT stock count. Only DRAFT counts can be deleted —
+ * once confirmed (COUNTED) or reconciled (RECONCILED), the count is
+ * an immutable audit record.
+ */
+export async function deleteStockCount(countId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const count = await tx.stockCount.findUnique({ where: { id: countId } });
+    if (!count) throw new ServiceError("Stock count not found", 404);
+    if (count.status !== "DRAFT") {
+      throw new ServiceError(`Cannot delete count in status ${count.status}. Only draft counts can be deleted.`);
+    }
+    await tx.stockCountLine.deleteMany({ where: { stockCountId: countId } });
+    await tx.stockCount.delete({ where: { id: countId } });
+    await logAction(tx, {
+      userId,
+      action: "STOCK_COUNT_DELETE",
+      entityType: "StockCount",
+      entityId: countId,
+      before: { locationId: count.locationId, status: "DRAFT" },
+    });
+  });
+}
+
 export async function confirmStockCount(countId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
-    if (!count) throw new Error("Stock count not found");
-    if (count.status !== "DRAFT") throw new Error(`Cannot confirm count in status ${count.status}`);
+    if (!count) throw new ServiceError("Stock count not found", 404);
+    if (count.status !== "DRAFT") throw new ServiceError(`Cannot confirm count in status ${count.status}`);
     const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "COUNTED" } });
     await logAction(tx, {
       userId,
@@ -88,8 +114,8 @@ export async function reconcileStockCount(countId: string, userId?: string) {
       where: { id: countId },
       include: { lines: true },
     });
-    if (!count) throw new Error("Stock count not found");
-    if (count.status !== "COUNTED") throw new Error(`Cannot reconcile count in status ${count.status}`);
+    if (!count) throw new ServiceError("Stock count not found", 404);
+    if (count.status !== "COUNTED") throw new ServiceError(`Cannot reconcile count in status ${count.status}`);
 
     for (const line of count.lines) {
       const variance = new Decimal(line.variance);
@@ -121,7 +147,7 @@ export async function reconcileStockCount(countId: string, userId?: string) {
         });
         const available = item ? new Decimal(item.qty) : new Decimal(0);
         if (available.lt(absVariance)) {
-          throw new Error(
+          throw new ServiceError(
             `Cannot adjust out ${absVariance} of material ${line.materialId}: only ${available} available. Investigate the discrepancy.`,
           );
         }
@@ -144,6 +170,31 @@ export async function reconcileStockCount(countId: string, userId?: string) {
       .map((l) => l.materialId);
     if (adjustedMaterials.length > 0) {
       await refreshMaterialCurrentCost(tx, adjustedMaterials);
+    }
+
+    // Post the inventory variance to the GL (gains/losses at MAC).
+    const location = await tx.stockLocation.findUnique({
+      where: { id: count.locationId },
+      select: { companyId: true },
+    });
+    if (location) {
+      const itemsForCost = await tx.stockLocationItem.findMany({
+        where: { locationId: count.locationId, materialId: { in: adjustedMaterials } },
+        select: { materialId: true, movingAvgCost: true },
+      });
+      const costMap = new Map(itemsForCost.map((i) => [i.materialId, new Decimal(i.movingAvgCost)]));
+      await postStockAdjustment(tx, {
+        companyId: location.companyId,
+        stockCountId: countId,
+        postedById: userId,
+        lines: count.lines
+          .filter((l) => !new Decimal(l.variance).isZero())
+          .map((l) => ({
+            materialId: l.materialId,
+            variance: new Decimal(l.variance),
+            unitCost: costMap.get(l.materialId) ?? new Decimal(0),
+          })),
+      });
     }
 
     const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "RECONCILED" } });

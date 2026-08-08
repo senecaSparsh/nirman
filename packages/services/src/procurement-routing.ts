@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
+import { ServiceError } from "./errors";
 
 /**
  * Procurement Routing — the Logistics Decision Engine.
@@ -198,8 +199,8 @@ export async function evaluateRequisitionRouting(
     where: { id: requisitionId },
     include: { lines: true, project: { include: { company: true } } },
   });
-  if (!req) throw new Error("Requisition not found");
-  if (!req.project) throw new Error("Requisition has no project");
+  if (!req) throw new ServiceError("Requisition not found", 404);
+  if (!req.project) throw new ServiceError("Requisition has no project");
 
   const company = req.project.company;
   const weights = opts.weights ?? parseLciWeights(company?.lciWeights);

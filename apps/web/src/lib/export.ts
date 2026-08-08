@@ -71,3 +71,43 @@ export function downloadCSV(filename: string, rows: Record<string, unknown>[], c
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Trigger an Excel (XLSX) or CSV file download from the server-side
+ * /api/export endpoint. The server generates the formatted workbook
+ * with proper number formats, summary rows, and auto-filters.
+ *
+ * @param type - Report type key (e.g. "inventory-value", "trial-balance")
+ * @param params - Optional query params (from, to, asOn, projectId, format)
+ */
+export async function downloadExcel(
+  type: string,
+  params?: { from?: string; to?: string; asOn?: string; projectId?: string; format?: "xlsx" | "csv" },
+): Promise<void> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("type", type);
+  searchParams.set("format", params?.format ?? "xlsx");
+  if (params?.from) searchParams.set("from", params.from);
+  if (params?.to) searchParams.set("to", params.to);
+  if (params?.asOn) searchParams.set("asOn", params.asOn);
+  if (params?.projectId) searchParams.set("projectId", params.projectId);
+
+  const res = await fetch(`/api/export?${searchParams.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status} ${res.statusText}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  // Extract filename from Content-Disposition header, or derive from type
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+  const ext = params?.format === "csv" ? "csv" : "xlsx";
+  link.download = filenameMatch?.[1] ?? `${type}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

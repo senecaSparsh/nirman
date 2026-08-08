@@ -36,17 +36,19 @@ export function Tabs({
   );
 }
 
+/**
+ * Tab list — an underlined row, not a segmented pill control.
+ *
+ * The pill-in-a-well style breaks down past three or four tabs (and views
+ * like the project hub have many): the well grows into a grey slab that
+ * competes with the content, and it can't scroll gracefully. An underlined
+ * row scales to any number of tabs, reads as a boundary between navigation
+ * and content, and costs one hairline instead of a filled panel.
+ */
 export function TabsList({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="overflow-x-auto scrollbar-thin">
-      <div
-        className={cn(
-          "inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/50 p-1",
-          className,
-        )}
-      >
-        {children}
-      </div>
+    <div className="overflow-x-auto border-b border-border scrollbar-none">
+      <div className={cn("inline-flex min-w-full items-stretch gap-5", className)}>{children}</div>
     </div>
   );
 }
@@ -66,16 +68,23 @@ export function TabsTrigger({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={() => ctx.setValue(value)}
       className={cn(
-        "shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-meta font-medium transition-colors",
+        "relative shrink-0 whitespace-nowrap pb-2 pt-1.5 text-meta transition-colors",
         active
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          ? "font-semibold text-foreground"
+          : "font-medium text-muted-foreground hover:text-foreground",
         className,
       )}
     >
       {children}
+      {/* The 2px rule sits ON the list's border, so the active tab reads as
+          physically attached to the content below it. */}
+      {active && (
+        <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-foreground" />
+      )}
     </button>
   );
 }

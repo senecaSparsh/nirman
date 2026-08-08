@@ -46,6 +46,10 @@ export function LocationFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error("Location name is required");
+      return;
+    }
     if (form.type === "PROJECT_SITE" && !form.projectId) {
       toast.error("A project site must be linked to a project");
       return;
@@ -71,8 +75,8 @@ export function LocationFormDialog({
       toast.success(isEdit ? "Location updated" : "Location created");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -98,7 +102,7 @@ export function LocationFormDialog({
           >
             <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
             <option value="PROJECT_SITE">Project Site</option>
-            <option value="DEPARTMENT">Department / Cost Center</option>
+            <option value="DEPARTMENT">Department / Cost Centre</option>
           </Select>
         </div>
         <div className="space-y-1.5">
@@ -140,7 +144,7 @@ export function LocationFormDialog({
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>

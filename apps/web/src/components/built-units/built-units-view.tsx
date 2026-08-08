@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus, Home, Pencil, ArrowRight, Hammer, Pause, Trash2,
@@ -10,44 +10,33 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
+import { statusColor, StatusPill } from "@/components/page";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { BuiltUnitFormDialog } from "./built-unit-form-dialog";
+import { BuiltUnitEditDialog } from "./built-unit-edit-dialog";
 import { UnitValuationDialog } from "./unit-valuation-dialog";
+import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import type {
   BuiltUnitRow, BuiltUnitType, BuiltUnitStatus,
-  ProjectOption, PhaseOption,
+  ProjectOption, PhaseOption, SellableAssetRow,
 } from "@/lib/types";
 
 // ════════════════════════════════════════════════════════════════
 //  Constants
 // ════════════════════════════════════════════════════════════════
 
-const STATUS_VARIANT: Record<BuiltUnitStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PLANNED: "muted",
-  UNDER_CONSTRUCTION: "warning",
-  AVAILABLE: "success",
-  HOLD: "default",
-  SOLD: "danger",
-};
-
 const STATUS_LABELS: Record<BuiltUnitStatus, string> = {
   PLANNED: "Planned",
   UNDER_CONSTRUCTION: "Construction",
   AVAILABLE: "Available",
+  RESERVED: "Reserved",
   HOLD: "Hold",
   SOLD: "Sold",
-};
-
-const STATUS_COLORS: Record<BuiltUnitStatus, string> = {
-  PLANNED: "var(--color-muted-foreground)",
-  UNDER_CONSTRUCTION: "var(--color-warning)",
-  AVAILABLE: "var(--color-stage-sell)",
-  HOLD: "var(--color-stage-manage)",
-  SOLD: "var(--color-danger)",
+  RENTED: "Rented",
 };
 
 // Pipeline order — the funnel
@@ -57,17 +46,19 @@ const PIPELINE_ORDER: BuiltUnitStatus[] = [
 
 const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
   BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
-  SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", OTHER: "Other",
+  SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", VILLA: "Villa", OTHER: "Other",
 };
 
-const ALL_TYPES: BuiltUnitType[] = ["BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "OTHER"];
+const ALL_TYPES: BuiltUnitType[] = ["BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "VILLA", "OTHER"];
 
 const VALID_TRANSITIONS: Record<BuiltUnitStatus, BuiltUnitStatus[]> = {
   PLANNED: ["UNDER_CONSTRUCTION"],
   UNDER_CONSTRUCTION: ["AVAILABLE", "PLANNED"],
-  AVAILABLE: ["HOLD", "UNDER_CONSTRUCTION"],
+  AVAILABLE: ["RESERVED", "HOLD", "UNDER_CONSTRUCTION"],
+  RESERVED: ["AVAILABLE", "SOLD"],
   HOLD: ["AVAILABLE"],
   SOLD: [],
+  RENTED: ["AVAILABLE"],
 };
 
 type SortKey = "unitNumber" | "area" | "askingPrice" | "currentValuation" | "productionCost";
@@ -81,15 +72,18 @@ export function BuiltUnitsView({
   units: serverUnits,
   projects,
   phases,
+  customers,
   permissions,
 }: {
   units: BuiltUnitRow[];
   projects: ProjectOption[];
   phases: PhaseOption[];
-  permissions?: { canCreate?: boolean; canEdit?: boolean };
+  customers?: { id: string; name: string }[];
+  permissions?: { canCreate?: boolean; canEdit?: boolean; canSell?: boolean };
 }) {
   const canCreate = permissions?.canCreate ?? true;
   const canEdit = permissions?.canEdit ?? true;
+  const canSell = permissions?.canSell ?? false;
   const router = useRouter();
 
   // ── Optimistic local state — mirrors server data, updates instantly ──
@@ -111,8 +105,25 @@ export function BuiltUnitsView({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<BuiltUnitRow | null>(null);
   const [valuating, setValuating] = useState<BuiltUnitRow | null>(null);
   const [delTarget, setDelTarget] = useState<BuiltUnitRow | null>(null);
+  const [sellTarget, setSellTarget] = useState<BuiltUnitRow | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ unit: BuiltUnitRow; target: BuiltUnitStatus } | null>(null);
+
+  // Auto-open dialog when navigated with ?unit={id}&action=valuate|sell
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const unitId = searchParams.get("unit");
+    const action = searchParams.get("action");
+    if (unitId && units.length > 0) {
+      const unit = units.find((u) => u.id === unitId);
+      if (unit) {
+        if (action === "sell" && canSell) setSellTarget(unit);
+        else if (action === "valuate") setValuating(unit);
+      }
+    }
+  }, [searchParams, units, canSell]);
 
   const hasActiveFilters = Boolean(projectFilter || statusFilter || typeFilter || search);
 
@@ -145,25 +156,7 @@ export function BuiltUnitsView({
     [units, projectFilter, typeFilter, search],
   );
 
-  // ── Pipeline distribution (count + value per status) ──
-  const pipelineData = useMemo(() => {
-    const data: Record<BuiltUnitStatus, { count: number; value: number; area: number }> = {
-      PLANNED: { count: 0, value: 0, area: 0 },
-      UNDER_CONSTRUCTION: { count: 0, value: 0, area: 0 },
-      AVAILABLE: { count: 0, value: 0, area: 0 },
-      HOLD: { count: 0, value: 0, area: 0 },
-      SOLD: { count: 0, value: 0, area: 0 },
-    };
-    for (const u of preStatusFiltered) {
-      data[u.status].count++;
-      data[u.status].value += u.askingPrice ?? 0;
-      data[u.status].area += u.area;
-    }
-    return data;
-  }, [preStatusFiltered]);
-
   const pipelineTotal = preStatusFiltered.length;
-  const pipelineTotalValue = preStatusFiltered.reduce((s, u) => s + (u.askingPrice ?? 0), 0);
 
   // ── Portfolio metrics (from pre-status-filtered set) ──
   const portfolio = useMemo(() => {
@@ -235,7 +228,7 @@ export function BuiltUnitsView({
         .map(([floorLabel, floorUnits]) => ({ floorLabel, units: floorUnits }));
 
       const gStatusCounts: Record<BuiltUnitStatus, number> = {
-        PLANNED: 0, UNDER_CONSTRUCTION: 0, AVAILABLE: 0, HOLD: 0, SOLD: 0,
+        PLANNED: 0, UNDER_CONSTRUCTION: 0, AVAILABLE: 0, RESERVED: 0, HOLD: 0, SOLD: 0, RENTED: 0,
       };
       for (const u of g.units) gStatusCounts[u.status]++;
       return {
@@ -267,12 +260,12 @@ export function BuiltUnitsView({
       toast.success(`Unit ${unit.unitNumber} → ${STATUS_LABELS[newStatus]}`);
       // Silent background sync — no layout shift
       syncFromServer();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Revert on failure
       setUnits((prev) => prev.map((u) =>
         u.id === unit.id ? { ...u, status: unit.status } : u
       ));
-      toast.error(err?.message ?? "Something went wrong");
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setActingId(null);
     }
@@ -283,16 +276,26 @@ export function BuiltUnitsView({
     else { setSortKey(key); setSortDir("asc"); }
   }
 
-  function togglePipeline(status: BuiltUnitStatus) {
-    setStatusFilter((cur) => (cur === status ? "" : status));
-  }
-
   // ── Helpers ──
   const margin = (u: BuiltUnitRow): number | null =>
     u.askingPrice != null ? u.askingPrice - u.productionCost : null;
 
   const pricePerSqft = (u: BuiltUnitRow): number | null =>
     u.askingPrice != null && u.area > 0 ? u.askingPrice / u.area : null;
+
+  // Convert a BuiltUnitRow into the SellableAssetRow shape the SellAssetDialog expects.
+  function toSellableAsset(u: BuiltUnitRow): SellableAssetRow {
+    return {
+      assetType: "BUILT_UNIT",
+      assetId: u.id,
+      label: `Unit ${u.unitNumber} (${UNIT_TYPE_LABELS[u.unitType]}) — ${formatNumber(u.area, 0)} ${u.areaUnit}`,
+      projectId: u.projectId,
+      projectName: u.projectName,
+      costBasis: u.productionCost,
+      askingPrice: u.askingPrice,
+      currentValuation: u.currentValuation,
+    };
+  }
 
   function renderTransitionButtons(unit: BuiltUnitRow) {
     return (VALID_TRANSITIONS[unit.status] ?? []).map((target) => {
@@ -304,9 +307,16 @@ export function BuiltUnitsView({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => changeStatus(unit, target)}
+          onClick={() => {
+            if (target === "SOLD" || target === "RENTED") {
+              setStatusConfirm({ unit, target });
+            } else {
+              changeStatus(unit, target);
+            }
+          }}
           disabled={actingId === unit.id}
           title={config.title}
+          aria-label={config.title}
         >
           <config.icon className="h-3.5 w-3.5" />
         </Button>
@@ -456,11 +466,14 @@ export function BuiltUnitsView({
                         key={u.id}
                         unit={u}
                         canEdit={canEdit}
+                        canSell={canSell}
                         acting={actingId === u.id}
                         marginVal={margin(u)}
                         pricePerSqftVal={pricePerSqft(u)}
                         onValuate={setValuating}
+                        onEdit={setEditTarget}
                         onDelete={setDelTarget}
+                        onSell={setSellTarget}
                         renderTransitions={renderTransitionButtons}
                       />
                     ))}
@@ -487,7 +500,7 @@ export function BuiltUnitsView({
                   <SortTH label="Cost" sortKey="productionCost" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
                   <SortTH label="Valuation" sortKey="currentValuation" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
                   <SortTH label="Asking" sortKey="askingPrice" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
-                  <TH align="right">₹/sqft</TH>
+                  <TH align="right">₹/Sq.Ft</TH>
                   <TH align="right">Margin</TH>
                   {canEdit && <TH align="right">Actions</TH>}
                 </TR>
@@ -501,7 +514,7 @@ export function BuiltUnitsView({
                     <TR key={u.id} className={cn(isSold && "opacity-50")}>
                       <TD>
                         <div className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[u.status] }} />
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColor(u.status) }} />
                           <span className={cn("font-medium", isSold && "line-through decoration-danger/40")}>{u.unitNumber}</span>
                         </div>
                         <div className="text-caption text-muted-foreground">{u.projectName}</div>
@@ -516,7 +529,7 @@ export function BuiltUnitsView({
                         ) : "—"}
                       </TD>
                       <TD align="right" className="tnum">{formatNumber(u.area, 0)} <span className="text-caption text-muted-foreground">{u.areaUnit}</span></TD>
-                      <TD><Badge variant={STATUS_VARIANT[u.status]} className="text-micro">{STATUS_LABELS[u.status]}</Badge></TD>
+                      <TD><StatusPill status={u.status} className="text-micro" /></TD>
                       <TD align="right" className="tnum text-muted-foreground">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</TD>
                       <TD align="right" className="tnum">{formatCurrency(u.currentValuation)}</TD>
                       <TD align="right" className="tnum font-medium">{u.askingPrice != null ? formatCurrency(u.askingPrice) : <span className="italic text-muted-foreground/50">Not set</span>}</TD>
@@ -528,6 +541,16 @@ export function BuiltUnitsView({
                         <TD align="right">
                           <div className="flex items-center justify-end gap-0.5">
                             {renderTransitionButtons(u)}
+                            {u.status === "AVAILABLE" && canSell && (
+                              <Button variant="brand" size="sm" className="h-7" onClick={() => setSellTarget(u)} disabled={actingId === u.id} title="Sell unit">
+                                <CircleDollarSign className="h-3.5 w-3.5" /> Sell
+                              </Button>
+                            )}
+                            {(u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION") && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditTarget(u)} disabled={actingId === u.id} title="Edit unit">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             {!isSold && (
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setValuating(u)} disabled={actingId === u.id} title="Edit valuation">
                                 <Pencil className="h-3.5 w-3.5" />
@@ -560,6 +583,29 @@ export function BuiltUnitsView({
           Dialogs
           ════════════════════════════════════════════════════════════ */}
       <BuiltUnitFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} phases={phases} />
+      <BuiltUnitEditDialog
+        open={editTarget !== null}
+        onOpenChange={(o) => { if (!o) setEditTarget(null); }}
+        unit={editTarget}
+        onUpdated={(unitId, updates) => {
+          // Optimistic: update local state immediately
+          setUnits((prev) => prev.map((u) =>
+            u.id === unitId
+              ? {
+                ...u,
+                unitType: updates.unitType,
+                unitNumber: updates.unitNumber,
+                floor: updates.floor,
+                wing: updates.wing,
+                area: updates.area,
+                areaUnit: updates.areaUnit,
+                askingPrice: updates.askingPrice,
+              }
+              : u
+          ));
+          setEditTarget(null);
+        }}
+      />
       <UnitValuationDialog
         open={valuating !== null}
         onOpenChange={(o) => !o && setValuating(null)}
@@ -595,6 +641,36 @@ export function BuiltUnitsView({
             const targetId = delTarget.id;
             setUnits((prev) => prev.filter((u) => u.id !== targetId));
             setDelTarget(null);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={statusConfirm !== null}
+        onOpenChange={(o) => { if (!o) setStatusConfirm(null); }}
+        title={statusConfirm?.target === "SOLD" ? "Mark unit as sold?" : "Mark unit as rented?"}
+        description={
+          statusConfirm?.target === "SOLD"
+            ? `This will mark unit "${statusConfirm.unit.unitNumber}" as SOLD. This should only be done after a sale is recorded. Continue?`
+            : `This will mark unit "${statusConfirm?.unit.unitNumber}" as RENTED. This should only be done after a tenancy is created. Continue?`
+        }
+        confirmLabel={statusConfirm?.target === "SOLD" ? "Mark Sold" : "Mark Rented"}
+        onConfirm={() => {
+          if (statusConfirm) changeStatus(statusConfirm.unit, statusConfirm.target);
+        }}
+      />
+      {canSell && sellTarget && (
+        <SellAssetDialog
+          open={sellTarget !== null}
+          onOpenChange={(o) => { if (!o) setSellTarget(null); }}
+          customers={customers ?? []}
+          presetAsset={toSellableAsset(sellTarget)}
+          onSold={(assetId) => {
+            // Optimistic: the sellAsset service already marks the unit SOLD,
+            // so we mirror that locally. saleId will be set on server refresh.
+            setUnits((prev) => prev.map((u) =>
+              u.id === assetId ? { ...u, status: "SOLD" as BuiltUnitStatus } : u
+            ));
+            setSellTarget(null);
           }}
         />
       )}
@@ -636,7 +712,7 @@ function MetricsPipelineStrip({
         color="var(--color-danger)"
       />
       <MetricCell
-        label="Avg ₹/sqft"
+        label="Avg ₹/Sq.Ft"
         value={portfolio.avgPricePerSqft > 0 ? formatNumber(portfolio.avgPricePerSqft, 0) : "—"}
         sub="across available"
         color="var(--color-stage-manage)"
@@ -678,21 +754,25 @@ function MetricCell({
 //  Unit card — a property listing card
 // ════════════════════════════════════════════════════════════════
 function UnitCard({
-  unit: u, canEdit, acting, marginVal, pricePerSqftVal,
-  onValuate, onDelete, renderTransitions,
+  unit: u, canEdit, canSell, acting, marginVal, pricePerSqftVal,
+  onValuate, onEdit, onDelete, onSell, renderTransitions,
 }: {
   unit: BuiltUnitRow;
   canEdit: boolean;
+  canSell: boolean;
   acting: boolean;
   marginVal: number | null;
   pricePerSqftVal: number | null;
   onValuate: (u: BuiltUnitRow) => void;
+  onEdit: (u: BuiltUnitRow) => void;
   onDelete: (u: BuiltUnitRow) => void;
+  onSell: (u: BuiltUnitRow) => void;
   renderTransitions: (u: BuiltUnitRow) => React.ReactNode[];
 }) {
   const isSold = u.status === "SOLD";
   const isAvailable = u.status === "AVAILABLE";
   const hasTransitions = (VALID_TRANSITIONS[u.status] ?? []).length > 0;
+  const canEditUnit = u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION";
 
   return (
     <div
@@ -705,7 +785,7 @@ function UnitCard({
       onClick={() => onValuate(u)}
     >
       {/* Status accent — left edge */}
-      <div className="absolute left-0 top-0 h-full w-1 shrink-0" style={{ backgroundColor: STATUS_COLORS[u.status] }} />
+      <div className="absolute left-0 top-0 h-full w-1 shrink-0" style={{ backgroundColor: statusColor(u.status) }} />
 
       <div className="flex flex-1 flex-col px-2.5 py-2 pl-3.5">
         {/* Header: unit number + status badge */}
@@ -725,9 +805,7 @@ function UnitCard({
             </div>
           </div>
           {!isSold && (
-            <Badge variant={STATUS_VARIANT[u.status]} className="shrink-0 text-micro px-1 py-0">
-              {STATUS_LABELS[u.status]}
-            </Badge>
+            <StatusPill status={u.status} className="shrink-0 text-micro px-1 py-0" />
           )}
         </div>
 
@@ -772,10 +850,27 @@ function UnitCard({
 
         {/* Footer — pinned to bottom */}
         <div className="mt-auto pt-2" onClick={(e) => e.stopPropagation()}>
+          {/* Sell button — the primary action on an available unit */}
+          {isAvailable && canSell && (
+            <Button
+              variant="brand"
+              size="sm"
+              className="mb-1.5 w-full"
+              onClick={() => onSell(u)}
+              disabled={acting}
+            >
+              <CircleDollarSign className="h-3.5 w-3.5" /> Sell
+            </Button>
+          )}
           {!isSold && canEdit && (
             <div className="flex items-center gap-0.5 border-t border-border/50 pt-1.5 opacity-50 transition-opacity group-hover:opacity-100">
               {renderTransitions(u)}
               <div className="flex-1" />
+              {canEditUnit && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(u)} disabled={acting} title="Edit unit">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onValuate(u)} disabled={acting} title="Edit valuation">
                 <Pencil className="h-3 w-3" />
               </Button>
@@ -821,8 +916,10 @@ const TRANSITION_BUTTON_CONFIG: Record<BuiltUnitStatus, { icon: typeof Hammer; t
   PLANNED: { icon: CircleDollarSign, title: "Revert to Planned" },
   UNDER_CONSTRUCTION: { icon: Hammer, title: "Start Construction" },
   AVAILABLE: { icon: ArrowRight, title: "Mark Available" },
+  RESERVED: { icon: CircleDollarSign, title: "Reserved" },
   HOLD: { icon: Pause, title: "Put on Hold" },
   SOLD: { icon: ArrowRight, title: "Sold" },
+  RENTED: { icon: ArrowRight, title: "Rented" },
 };
 
 function SortTH({

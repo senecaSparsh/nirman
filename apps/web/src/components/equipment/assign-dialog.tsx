@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Label } from "@/components/ui/input";
+import { Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { StockLocationRow, ProjectOption } from "@/lib/types";
 
@@ -59,8 +59,8 @@ export function AssignDialog({
       onOpenChange(false);
       setForm({ locationId: "", projectId: "", notes: "" });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCurrentUser, json, requireUser } from "@/lib/server";
+import { apiHandler, json, requireUser } from "@/lib/server";
 import { z } from "zod";
 
 const switchSchema = z.object({ companyId: z.string().min(1) });

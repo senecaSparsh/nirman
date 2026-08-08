@@ -63,7 +63,7 @@ export function validateGraph(graph: WorkspaceGraph): GraphIssue[] {
     const from = nodeById.get(e.from);
     const to = nodeById.get(e.to);
     if (!from || !to) continue;
-    const valid = relationsBetween(from.model as any, to.model as any);
+    const valid = relationsBetween(from.model, to.model);
     const match = valid.find((r) => r.label === e.relationLabel && r.hops.length === e.hops.length);
     if (!match) {
       issues.push({

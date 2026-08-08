@@ -8,12 +8,13 @@ import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { PageLoading } from "@/components/page-loading";
 import type { RequisitionRow } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function RequisitionsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Requisitions"
-        description="Material requisitions — request, approve, and convert to purchase orders."
+        title="Material Indents"
+        description="Site raises an indent for material — approve it, then convert it to a purchase order."
       />
       <Suspense fallback={<PageLoading label="Loading requisitions…" />}>
         <RequisitionsContent />
@@ -29,9 +30,7 @@ async function RequisitionsContent() {
 
   if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don&apos;t have permission to view requisitions.
-      </div>
+      <NoAccess what="requisitions" />
     );
   }
 
@@ -50,6 +49,10 @@ async function RequisitionsContent() {
         lines: {
           include: { material: { select: { code: true, name: true, unit: true } } },
         },
+        vendorQuotes: {
+          where: { status: { not: "REJECTED" } },
+          select: { id: true, landedTotal: true, isCheapest: true, status: true },
+        },
       },
     }),
     prisma.project.findMany({
@@ -61,13 +64,15 @@ async function RequisitionsContent() {
       where: { project: { companyId: company.id, deletedAt: null } },
       select: { id: true, name: true, projectId: true },
     }),
+    // Global catalog entity — material definitions shared across companies.
     prisma.material.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, unit: true },
     }),
+    // Supplier has no companyId — scope to suppliers with POs in this company.
     prisma.supplier.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
@@ -92,6 +97,9 @@ async function RequisitionsContent() {
     convertedPoId: r.convertedPoId,
     lineCount: r.lines.length,
     totalQty: r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0),
+    quoteCount: r.vendorQuotes.length,
+    minQuotesRequired: r.minQuotesRequired,
+    quotesWaived: r.quotesWaived,
   }));
 
   return (

@@ -4,18 +4,13 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Layers, PencilRuler, Pencil, Pause, Play,
+  Layers, PencilRuler, Pencil, Pause, Play, Trash2, CircleDollarSign,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { statusColor } from "@/components/page";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import type { LandParcelRow, LandParcelStatus } from "@/lib/types";
-
-const STATUS_COLOR: Record<LandParcelStatus, string> = {
-  AVAILABLE: "var(--color-stage-sell)",
-  HOLD: "var(--color-warning)",
-  PARTITIONED: "var(--color-muted-foreground)",
-  SOLD: "var(--color-danger)",
-};
+import type { LandParcelRow } from "@/lib/types";
 
 type ParcelTreeNode = LandParcelRow & { children: ParcelTreeNode[] };
 
@@ -43,15 +38,21 @@ function buildTree(parcels: LandParcelRow[]): ParcelTreeNode[] {
 export function ParcelsTree({
   parcels,
   canPartition,
+  canSell,
   onPartition,
   onCanvasPartition,
   onValuate,
+  onSell,
+  onDelete,
 }: {
   parcels: LandParcelRow[];
   canPartition: boolean;
+  canSell: boolean;
   onPartition: (p: LandParcelRow) => void;
   onCanvasPartition: (p: LandParcelRow) => void;
   onValuate: (p: LandParcelRow) => void;
+  onSell: (p: LandParcelRow) => void;
+  onDelete?: (p: LandParcelRow) => void;
 }) {
   const tree = useMemo(() => buildTree(parcels), [parcels]);
 
@@ -74,9 +75,12 @@ export function ParcelsTree({
           depth={0}
           isLast={i === tree.length - 1}
           canPartition={canPartition}
+          canSell={canSell}
           onPartition={onPartition}
           onCanvasPartition={onCanvasPartition}
           onValuate={onValuate}
+          onSell={onSell}
+          onDelete={onDelete}
         />
       ))}
     </div>
@@ -88,24 +92,30 @@ function ParcelNode({
   depth,
   isLast,
   canPartition,
+  canSell,
   onPartition,
   onCanvasPartition,
   onValuate,
+  onSell,
+  onDelete,
 }: {
   node: ParcelTreeNode;
   depth: number;
   isLast: boolean;
   canPartition: boolean;
+  canSell: boolean;
   onPartition: (p: LandParcelRow) => void;
   onCanvasPartition: (p: LandParcelRow) => void;
   onValuate: (p: LandParcelRow) => void;
+  onSell: (p: LandParcelRow) => void;
+  onDelete?: (p: LandParcelRow) => void;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
   const hasChildren = node.children.length > 0;
-  const color = STATUS_COLOR[node.status];
+  const color = statusColor(node.status);
 
   async function toggleStatus() {
     setActing(true);
@@ -199,6 +209,11 @@ function ParcelNode({
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {node.status === "AVAILABLE" && (
             <>
+              {canSell && (
+                <button onClick={() => onSell(node)} disabled={acting} className="rounded p-1 text-brand hover:bg-brand/10" title="Sell parcel">
+                  <CircleDollarSign className="h-3.5 w-3.5" />
+                </button>
+              )}
               {canPartition && (
                 <>
                   <button onClick={() => onPartition(node)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Partition (form)">
@@ -215,16 +230,31 @@ function ParcelNode({
               <button onClick={() => onValuate(node)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Edit valuation">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
+              {onDelete && (
+                <button onClick={() => onDelete(node)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="Delete parcel">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </>
           )}
           {node.status === "HOLD" && (
             <>
+              {canSell && (
+                <button onClick={() => onSell(node)} disabled={acting} className="rounded p-1 text-brand hover:bg-brand/10" title="Sell parcel">
+                  <CircleDollarSign className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button onClick={toggleStatus} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Release hold">
                 <Play className="h-3.5 w-3.5" />
               </button>
               <button onClick={() => onValuate(node)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Edit valuation">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
+              {onDelete && (
+                <button onClick={() => onDelete(node)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="Delete parcel">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </>
           )}
           {(node.status === "PARTITIONED" || node.status === "SOLD") && (
@@ -245,9 +275,12 @@ function ParcelNode({
               depth={depth + 1}
               isLast={i === node.children.length - 1}
               canPartition={canPartition}
+              canSell={canSell}
               onPartition={onPartition}
               onCanvasPartition={onCanvasPartition}
               onValuate={onValuate}
+              onSell={onSell}
+              onDelete={onDelete}
             />
           ))}
         </div>

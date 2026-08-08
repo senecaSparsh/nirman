@@ -2,13 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Pencil, TrendingDown, ScrollText, Download, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { toast } from "sonner";
+import Link from "next/link";
+import { Plus, Trash2, Pencil, TrendingDown, ScrollText, Download, Wallet, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { ProjectCostFormDialog } from "./project-cost-form-dialog";
@@ -55,7 +55,6 @@ export function FinanceView({
   const outstanding = totalRevenue - totalCollected;
 
   // Merge costs + expenses into a unified money flow timeline
-  type FlowEvent = { id: string; date: string; amount: number; type: "cost" | "expense"; category: string; projectName: string | null; notes: string | null; raw: ProjectCostRow | { id: string; projectId: string | null; projectName: string | null; category: string; amount: number; date: string; notes: string | null } };
   const moneyFlow: FlowEvent[] = useMemo(() => {
     const costs: FlowEvent[] = projectCosts.map((c) => ({
       id: c.id, date: c.date, amount: c.amount, type: "cost" as const,
@@ -76,6 +75,12 @@ export function FinanceView({
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* ── Zone 1: Company Position ──────────────────────────────────
          The big picture. Not cards — a horizontal strip of big numbers
          with labels. You see what the company is worth at a glance. */}
@@ -86,11 +91,11 @@ export function FinanceView({
         <PositionStat label="Costs + Expenses" value={totalCosts + totalExpenses} sub={`${formatCurrency(totalCosts)} project · ${formatCurrency(totalExpenses)} company`} accent="danger" />
       </div>
 
-      {/* ── Zone 2: Project P&L Bar Comparison ────────────────────────
-         Not a table. Each project gets a horizontal bar comparison:
-         cost (amber) vs revenue (green), scaled relative to the max.
-         You SEE which projects are profitable by the bar lengths.
-         The gap between cost and revenue bars IS the profit/loss. */}
+      {/* ── Zone 2: Project P&L ──────────────────────────────────────
+         Two views: a visual bar comparison (at-a-glance) and a
+         sortable DataTable (for analysis). The bars show cost vs
+         revenue scaled relative to max; the table gives exact
+         numbers you can sort by profit, margin, cost, or revenue. */}
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-label text-muted-foreground">Project P&L Comparison</h2>
@@ -103,54 +108,79 @@ export function FinanceView({
         {projectPnls.length === 0 ? (
           <EmptyState icon={<TrendingDown className="h-5 w-5" />} title="No projects" description="Create projects to see P&L data." />
         ) : (
-          <div className="space-y-2.5">
-            {projectPnls.map((p) => {
-              const costPct = (p.totalCost / maxPnlValue) * 100;
-              const revPct = (p.revenue / maxPnlValue) * 100;
-              const isProfit = p.profit >= 0;
-              return (
-                <div key={p.projectId} className="group rounded-md p-2 transition-colors hover:bg-muted/30">
-                  {/* Project name + profit */}
-                  <div className="mb-1.5 flex items-baseline justify-between">
-                    <span className="text-body font-medium text-foreground">{p.projectName}</span>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-body font-semibold tnum ${isProfit ? "text-success" : "text-danger"}`}>
-                        {isProfit ? "+" : ""}{formatCurrency(p.profit)}
-                      </span>
-                      {p.revenue > 0 && (
-                        <Badge variant={p.margin >= 15 ? "success" : p.margin >= 0 ? "warning" : "danger"}>
-                          <span className="tnum">{p.margin.toFixed(1)}%</span>
-                        </Badge>
-                      )}
+          <>
+            {/* Bar comparison — visual at-a-glance */}
+            <div className="space-y-2.5 mb-4">
+              {projectPnls.map((p) => {
+                const costPct = (p.totalCost / maxPnlValue) * 100;
+                const revPct = (p.revenue / maxPnlValue) * 100;
+                const isProfit = p.profit >= 0;
+                return (
+                  <Link
+                    key={p.projectId}
+                    href={`/projects/${p.projectId}`}
+                    className="group block rounded-md p-2 transition-colors hover:bg-muted/30"
+                  >
+                    {/* Project name + profit */}
+                    <div className="mb-1.5 flex items-baseline justify-between">
+                      <span className="text-body font-medium text-foreground">{p.projectName}</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-body font-semibold tnum ${isProfit ? "text-success" : "text-danger"}`}>
+                          {isProfit ? "+" : ""}{formatCurrency(p.profit)}
+                        </span>
+                        {p.revenue > 0 && (
+                          <Badge variant={p.margin >= 15 ? "success" : p.margin >= 0 ? "warning" : "danger"}>
+                            <span className="tnum">{p.margin.toFixed(1)}%</span>
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Cost bar */}
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.totalCost)}</span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
-                      <div className="h-full bg-warning" style={{ width: `${costPct}%` }} />
+                    {/* Cost bar */}
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.totalCost)}</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+                        <div className="h-full bg-warning" style={{ width: `${costPct}%` }} />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Revenue bar */}
-                  <div className="flex items-center gap-2">
-                    <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.revenue)}</span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
-                      <div className="h-full bg-success" style={{ width: `${revPct}%` }} />
+                    {/* Revenue bar */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-10 shrink-0 text-micro text-muted-foreground/60 tnum text-right">{formatCurrency(p.revenue)}</span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
+                        <div className="h-full bg-success" style={{ width: `${revPct}%` }} />
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Data table — sortable exact numbers */}
+            <div className="rounded-lg border border-border overflow-hidden">
+              <DataTable
+                data={projectPnls}
+                onRowClick={(p) => window.location.href = `/projects/${p.projectId}`}
+                initialSort={{ key: "profit", direction: "desc" }}
+                columns={pnlColumns}
+                searchable
+                searchPlaceholder="Search by project name…"
+                showTotals
+                sumColumns={["totalCost", "revenue", "profit"]}
+                totalFormat={(_key, sum) => formatCurrency(sum)}
+                hideable
+                pageSize={50}
+              />
+            </div>
+          </>
         )}
       </div>
 
-      {/* ── Zone 3: Money Flow Timeline ───────────────────────────────
-         Unified feed of project costs and company expenses, merged
-         chronologically. Not two separate tabs with two tables.
-         You see where money is flowing OUT, in one stream. */}
+      {/* ── Zone 3: Money Flow ───────────────────────────────────────
+         Unified feed of project costs and company expenses as a
+         sortable DataTable. Previously a timeline (pretty but
+         limited to 30 items, no sorting). Now a dense grid showing
+         all entries — sort by date, amount, type, or project. */}
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-label text-muted-foreground">Money Flow</h2>
@@ -190,77 +220,25 @@ export function FinanceView({
         {moneyFlow.length === 0 ? (
           <EmptyState icon={<Wallet className="h-5 w-5" />} title="No costs or expenses" description="Add project costs and company expenses to see money flow." />
         ) : (
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            <div className="space-y-0.5">
-              {moneyFlow.slice(0, 30).map((ev) => {
-                const isCost = ev.type === "cost";
-                return (
-                  <div
-                    key={`${ev.type}-${ev.id}`}
-                    className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30"
-                  >
-                    {/* Timeline dot */}
-                    <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${isCost ? "bg-warning" : "bg-danger"}`} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <div className="min-w-0">
-                          <span className="text-body font-medium text-foreground">{ev.category}</span>
-                          <span className="ml-2 text-caption text-muted-foreground">{isCost ? "Project Cost" : "Expense"}</span>
-                        </div>
-                        <span className="shrink-0 text-body font-semibold tnum text-danger">
-                          −{formatCurrency(ev.amount)}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
-                        {ev.projectName && <span className="truncate">{ev.projectName}</span>}
-                        {ev.projectName && <span>·</span>}
-                        <span className="tnum">{formatDate(ev.date)}</span>
-                        {ev.notes && <span className="truncate">· {ev.notes}</span>}
-                      </div>
-                    </div>
-
-                    {/* Edit/delete on hover */}
-                    <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      {isCost && (permissions?.canManageCosts ?? true) && (
-                        <button
-                          onClick={() => { setEditingCost(ev.raw as ProjectCostRow); setCostFormOpen(true); }}
-                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      )}
-                      {isCost && (permissions?.canDelete ?? true) && (
-                        <button
-                          onClick={() => setDeletingCost(ev.raw as ProjectCostRow)}
-                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
-                      {!isCost && (permissions?.canCreateExpense ?? true) && (
-                        <button
-                          onClick={() => { setEditingExpense(ev.raw as typeof editingExpense); setExpenseFormOpen(true); }}
-                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      )}
-                      {!isCost && (permissions?.canDelete ?? true) && (
-                        <button
-                          onClick={() => setDeletingExpense(ev.raw as { id: string; category: string; amount: number })}
-                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <DataTable
+              data={moneyFlow}
+              initialSort={{ key: "date", direction: "desc" }}
+              columns={moneyFlowColumns}
+              onRowClick={(ev) => {
+                if (ev.type === "cost" && (permissions?.canManageCosts ?? true)) {
+                  setEditingCost(ev.raw as ProjectCostRow);
+                  setCostFormOpen(true);
+                }
+              }}
+              searchable
+              searchPlaceholder="Search by category, project, notes…"
+              showTotals
+              sumColumns={["amount"]}
+              totalFormat={(_key, sum) => formatCurrency(sum)}
+              hideable
+              pageSize={50}
+            />
           </div>
         )}
       </div>
@@ -278,19 +256,16 @@ export function FinanceView({
         </button>
 
         {showAudit && (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {auditLogs.length === 0 ? (
-              <div className="py-6 text-center text-caption text-muted-foreground">No audit entries</div>
-            ) : (
-              auditLogs.slice(0, 20).map((log) => (
-                <div key={log.id} className="flex items-center gap-3 px-3 py-2 text-caption">
-                  <span className="font-medium text-foreground">{log.action}</span>
-                  <span className="text-muted-foreground">{log.entityType}</span>
-                  <span className="text-muted-foreground/60">{log.userName ?? "—"}</span>
-                  <span className="ml-auto tnum text-muted-foreground/60">{formatDate(log.timestamp)}</span>
-                </div>
-              ))
-            )}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <DataTable
+              data={auditLogs}
+              initialSort={{ key: "timestamp", direction: "desc" }}
+              columns={auditLogColumns}
+              searchable
+              searchPlaceholder="Search by action, user, entity…"
+              hideable
+              pageSize={50}
+            />
           </div>
         )}
       </div>
@@ -331,6 +306,134 @@ export function FinanceView({
     </div>
   );
 }
+
+// ── Column definitions for Finance DataTables ─────────────────────
+
+/** P&L comparison table columns. */
+const pnlColumns: Column<ProjectPnlRow>[] = [
+  {
+    key: "projectName",
+    label: "Project",
+    sortable: true,
+    render: (p) => <span className="font-medium text-foreground">{p.projectName}</span>,
+  },
+  {
+    key: "totalCost",
+    label: "Cost",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum text-warning">{formatCurrency(p.totalCost)}</span>,
+  },
+  {
+    key: "revenue",
+    label: "Revenue",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum text-success">{formatCurrency(p.revenue)}</span>,
+  },
+  {
+    key: "profit",
+    label: "Profit",
+    align: "right",
+    sortable: true,
+    render: (p) => (
+      <span className={`tnum font-semibold ${p.profit >= 0 ? "text-success" : "text-danger"}`}>
+        {p.profit >= 0 ? "+" : ""}{formatCurrency(p.profit)}
+      </span>
+    ),
+  },
+  {
+    key: "margin",
+    label: "Margin",
+    align: "right",
+    sortable: true,
+    render: (p) =>
+      p.revenue > 0 ? (
+        <Badge variant={p.margin >= 15 ? "success" : p.margin >= 0 ? "warning" : "danger"}>
+          <span className="tnum">{p.margin.toFixed(1)}%</span>
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+];
+
+/** Money flow table columns — costs and expenses unified. */
+type FlowEvent = { id: string; date: string; amount: number; type: "cost" | "expense"; category: string; projectName: string | null; notes: string | null; raw: ProjectCostRow | { id: string; projectId: string | null; projectName: string | null; category: string; amount: number; date: string; notes: string | null } };
+
+const moneyFlowColumns: Column<FlowEvent>[] = [
+  {
+    key: "date",
+    label: "Date",
+    sortable: true,
+    sortValue: (ev) => new Date(ev.date),
+    render: (ev) => <span className="tnum text-muted-foreground">{formatDate(ev.date)}</span>,
+  },
+  {
+    key: "category",
+    label: "Category",
+    sortable: true,
+    render: (ev) => (
+      <div>
+        <span className="font-medium text-foreground">{ev.category}</span>
+        <span className="ml-2 text-caption text-muted-foreground">{ev.type === "cost" ? "Project Cost" : "Expense"}</span>
+      </div>
+    ),
+  },
+  {
+    key: "type",
+    label: "Type",
+    sortable: true,
+    render: (ev) => (
+      <Badge variant={ev.type === "cost" ? "warning" : "danger"}>
+        {ev.type === "cost" ? "Cost" : "Expense"}
+      </Badge>
+    ),
+  },
+  {
+    key: "projectName",
+    label: "Project",
+    sortable: true,
+    render: (ev) => <span className="text-muted-foreground">{ev.projectName ?? "—"}</span>,
+  },
+  {
+    key: "amount",
+    label: "Amount",
+    align: "right",
+    sortable: true,
+    render: (ev) => <span className="tnum font-semibold text-danger">−{formatCurrency(ev.amount)}</span>,
+  },
+];
+
+/** Audit log table columns. */
+const auditLogColumns: Column<AuditLogRow>[] = [
+  {
+    key: "action",
+    label: "Action",
+    sortable: true,
+    render: (log) => <span className="font-medium text-foreground">{log.action}</span>,
+  },
+  {
+    key: "entityType",
+    label: "Entity",
+    sortable: true,
+    render: (log) => <span className="text-muted-foreground">{log.entityType}</span>,
+  },
+  {
+    key: "userName",
+    label: "User",
+    sortable: true,
+    render: (log) => <span className="text-muted-foreground">{log.userName ?? "—"}</span>,
+  },
+  {
+    key: "timestamp",
+    label: "Time",
+    align: "right",
+    sortable: true,
+    sortValue: (log) => new Date(log.timestamp),
+    render: (log) => <span className="tnum text-muted-foreground">{formatDate(log.timestamp)}</span>,
+  },
+];
 
 // ── Position stat — big number with label and sub-text ──────────────
 function PositionStat({ label, value, sub, accent }: { label: string; value: number; sub?: string; accent?: "success" | "warning" | "danger" | "muted" }) {

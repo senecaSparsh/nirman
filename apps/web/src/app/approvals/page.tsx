@@ -1,19 +1,20 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserPermissions, toNum } from "@/lib/server";
+import { getCompany, getCurrentUser, getUserPermissions, getUserScope, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
 import type { ApprovalPORow, ApprovalReqRow } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function ApprovalsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
         title="Approvals"
-        description="Purchase orders and material requisitions awaiting your approval."
+        description="Purchase orders and material indents awaiting your approval."
       />
       <Suspense fallback={<PageLoading label="Loading approval queue…" />}>
         <ApprovalsContent />
@@ -37,17 +38,31 @@ async function ApprovalsContent() {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   if (!canApprovePo && !canApproveReq) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You do not have permission to view the approval queue.
-      </div>
+      <NoAccess what="the approval queue" />
     );
   }
   const company = await getCompany();
 
+  // Hierarchical RBAC: scope the approval queue. A PROJECT-scoped approver
+  // (Sub-Sub-Admin with approve permission) only sees POs/requisitions for
+  // their projects. A DEPARTMENT-scoped approver (Sub-Admin) sees everything
+  // (POs/requisitions are project-level, not department-level, so a Sub-Admin
+  // acting as a regional head sees all projects in their purview — department
+  // scope bounds consumption reports, not procurement approvals).
+  const scope = await getUserScope();
+  const poProjectFilter =
+    scope.scopeType === "PROJECT" && scope.projectIds.length > 0
+      ? { projectId: { in: scope.projectIds } }
+      : {};
+  const reqProjectFilter =
+    scope.scopeType === "PROJECT" && scope.projectIds.length > 0
+      ? { projectId: { in: scope.projectIds } }
+      : {};
+
   const [purchaseOrders, requisitions] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT" },
+          where: { companyId: company.id, status: "DRAFT", ...poProjectFilter },
           orderBy: { createdAt: "desc" },
           include: {
             supplier: { select: { id: true, name: true } },
@@ -59,7 +74,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: { project: { companyId: company.id }, status: "SUBMITTED" },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqProjectFilter },
           orderBy: { createdAt: "desc" },
           include: {
             project: { select: { id: true, name: true } },

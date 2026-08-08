@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { softDelete } from "@nirman/services";
+import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum, landPurchaseSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -51,7 +51,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await ctx.params;
   const body = await req.json();
   const parsed = landPurchaseSchema.partial().safeParse(body);
@@ -69,7 +69,17 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (parsed.data.registryNo !== undefined) data.registryNo = parsed.data.registryNo;
   if (parsed.data.location !== undefined) data.location = parsed.data.location;
   if (parsed.data.documentUrl !== undefined) data.documentUrl = parsed.data.documentUrl;
-  const updated = await prisma.landPurchase.update({ where: { id }, data });
+  const updated = await prisma.$transaction(async (tx) => {
+    const lp = await tx.landPurchase.update({ where: { id }, data });
+    await logAction(tx, {
+      userId: user.id,
+      action: "LAND_PURCHASE_UPDATE",
+      entityType: "LandPurchase",
+      entityId: id,
+      after: { sellerName: lp.sellerName, totalCost: lp.totalCost.toString(), totalArea: lp.totalArea.toString() },
+    });
+    return lp;
+  });
   return json({ ok: true, id: updated.id });
 });
 
@@ -79,7 +89,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   try {
     await softDelete("LandPurchase", id);
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to delete" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete") }, { status: 400 });
   }
 });

@@ -51,7 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     return json({ ok: true, id: m.id }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to record maintenance" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to record maintenance") }, { status: 400 });
   }
 });

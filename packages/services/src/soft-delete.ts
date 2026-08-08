@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { ServiceError } from "./errors";
 
 /**
  * Soft Delete Service — safe deletion of master entities.
@@ -63,7 +64,7 @@ function getModel(entityType: EntityType) {
 async function guardDelete(entityType: EntityType, entityId: string): Promise<void> {
   switch (entityType) {
     case "Company":
-      throw new Error("Cannot delete the company (singleton)");
+      throw new ServiceError("Cannot delete the company (singleton)");
 
     case "Material": {
       const items = await prisma.stockLocationItem.findMany({
@@ -71,7 +72,7 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         select: { qty: true },
       });
       const hasStock = items.some((i) => Number(i.qty) > 0);
-      if (hasStock) throw new Error("Cannot delete material with stock at any location. Transfer or adjust stock first.");
+      if (hasStock) throw new ServiceError("Cannot delete material with stock at any location. Transfer or adjust stock first.");
       break;
     }
 
@@ -81,15 +82,15 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         select: { qty: true },
       });
       const hasStock = items.some((i) => Number(i.qty) > 0);
-      if (hasStock) throw new Error("Cannot delete location with stock. Transfer stock out first.");
+      if (hasStock) throw new ServiceError("Cannot delete location with stock. Transfer stock out first.");
       break;
     }
 
     case "Project": {
       const project = await prisma.project.findUnique({ where: { id: entityId } });
-      if (!project) throw new Error("Project not found");
+      if (!project) throw new ServiceError("Project not found", 404);
       if (project.status === "ACTIVE") {
-        throw new Error("Cannot delete an ACTIVE project. Complete or put on hold first.");
+        throw new ServiceError("Cannot delete an ACTIVE project. Complete or put on hold first.");
       }
       break;
     }
@@ -101,32 +102,36 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
           status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] },
         },
       });
-      if (openPos > 0) throw new Error("Cannot delete supplier with open purchase orders.");
+      if (openPos > 0) throw new ServiceError("Cannot delete supplier with open purchase orders.");
       break;
     }
 
     case "Customer": {
-      const activeSales = await prisma.assetSale.count({
-        where: { customerId: entityId, status: "ACTIVE" },
-      });
-      if (activeSales > 0) throw new Error("Cannot delete customer with active sales.");
+      const [activeSales, activeMaterialSales, activeTenancies] = await Promise.all([
+        prisma.assetSale.count({ where: { customerId: entityId, status: "ACTIVE" } }),
+        prisma.materialSale.count({ where: { customerId: entityId, status: "ACTIVE" } }),
+        prisma.tenancy.count({ where: { customerId: entityId, status: { in: ["PENDING", "ACTIVE"] } } }),
+      ]);
+      if (activeSales > 0) throw new ServiceError("Cannot delete customer with active asset sales.");
+      if (activeMaterialSales > 0) throw new ServiceError("Cannot delete customer with active material sales.");
+      if (activeTenancies > 0) throw new ServiceError("Cannot delete customer with active or pending tenancies.");
       break;
     }
 
     case "LandParcel": {
       const parcel = await prisma.landParcel.findUnique({ where: { id: entityId } });
-      if (!parcel) throw new Error("Parcel not found");
+      if (!parcel) throw new ServiceError("Parcel not found", 404);
       if (parcel.status === "AVAILABLE" || parcel.status === "HOLD") {
-        throw new Error("Cannot delete an AVAILABLE or HOLD parcel. Sell or partition first.");
+        throw new ServiceError("Cannot delete an AVAILABLE or HOLD parcel. Sell or partition first.");
       }
       break;
     }
 
     case "BuiltUnit": {
       const unit = await prisma.builtUnit.findUnique({ where: { id: entityId } });
-      if (!unit) throw new Error("Unit not found");
+      if (!unit) throw new ServiceError("Unit not found", 404);
       if (unit.status !== "PLANNED") {
-        throw new Error("Can only delete units in PLANNED status. Once construction starts, units cannot be removed.");
+        throw new ServiceError("Can only delete units in PLANNED status. Once construction starts, units cannot be removed.");
       }
       break;
     }
@@ -135,7 +140,7 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       const parcels = await prisma.landParcel.count({
         where: { landPurchaseId: entityId, status: { in: ["AVAILABLE", "HOLD"] } },
       });
-      if (parcels > 0) throw new Error("Cannot delete land purchase with unsold parcels.");
+      if (parcels > 0) throw new ServiceError("Cannot delete land purchase with unsold parcels.");
       break;
     }
 
@@ -143,15 +148,15 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       const materials = await prisma.material.count({
         where: { categoryId: entityId, deletedAt: null },
       });
-      if (materials > 0) throw new Error("Cannot delete category with active materials. Delete materials first.");
+      if (materials > 0) throw new ServiceError("Cannot delete category with active materials. Delete materials first.");
       break;
     }
 
     case "Employee": {
       const employee = await prisma.employee.findUnique({ where: { id: entityId } });
-      if (!employee) throw new Error("Employee not found");
+      if (!employee) throw new ServiceError("Employee not found", 404);
       if (employee.active) {
-        throw new Error("Cannot delete an active employee. Mark them inactive first.");
+        throw new ServiceError("Cannot delete an active employee. Mark them inactive first.");
       }
       break;
     }
@@ -162,19 +167,19 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         prisma.materialIssue.count({ where: { subcontractorId: entityId } }),
       ]);
       if (hasCosts > 0 || hasIssues > 0) {
-        throw new Error("Cannot delete subcontractor with project costs or material issues.");
+        throw new ServiceError("Cannot delete subcontractor with project costs or material issues.");
       }
       break;
     }
 
     case "Equipment": {
       const equipment = await prisma.equipment.findUnique({ where: { id: entityId } });
-      if (!equipment) throw new Error("Equipment not found");
+      if (!equipment) throw new ServiceError("Equipment not found", 404);
       if (equipment.status === "ASSIGNED") {
-        throw new Error("Cannot delete assigned equipment. Return it first.");
+        throw new ServiceError("Cannot delete assigned equipment. Return it first.");
       }
       if (equipment.status === "IN_MAINTENANCE") {
-        throw new Error("Cannot delete equipment in maintenance. Complete maintenance first.");
+        throw new ServiceError("Cannot delete equipment in maintenance. Complete maintenance first.");
       }
       break;
     }

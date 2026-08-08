@@ -1,0 +1,136 @@
+import { Suspense } from "react";
+import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
+import { connection } from "next/server";
+import { prisma } from "@nirman/db";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { MobileRefreshButton } from "@/components/mobile/mobile-primitives";
+
+export default function MobileDprPage() {
+  return (
+    <div>
+      <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-3">
+        <Link href="/m/site" className="text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-h3 font-semibold text-foreground">Submit DPR</h1>
+        <div className="ml-auto">
+          <MobileRefreshButton />
+        </div>
+      </div>
+      <Suspense fallback={<MobileSkeletonForm />}>
+        <MobileDprContent />
+      </Suspense>
+    </div>
+  );
+}
+
+async function MobileDprContent() {
+  await connection();
+  const role = await getUserRole();
+  const company = await getCompany();
+
+  if (!hasPermission(role, PERM.DPR_SUBMIT)) {
+    return (
+      <div className="p-4 text-meta text-muted-foreground">
+        You don&apos;t have permission to submit DPRs.
+      </div>
+    );
+  }
+
+  const today = new Date();
+  // Normalize to a date-only range so the query matches DPR rows stored
+  // at midnight, regardless of the user's local timezone. `date` is a
+  // @db.Date column, so a bare `new Date()` (with time) is unreliable.
+  const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+
+  // Fetch ALL of today's DPRs for the company (one per project — the
+  // unique key is [projectId, date]). The form looks up by selected
+  // project so a supervisor with multiple projects edits the right one.
+  const todayDprs = await prisma.dailyProgressReport.findMany({
+    where: {
+      companyId: company.id,
+      date: { gte: startOfToday, lt: endOfToday },
+    },
+    include: {
+      materialLines: true,
+      laborLines: true,
+    },
+  });
+
+  const existingDprsByProject: Record<string, {
+    id: string;
+    projectId: string;
+    date: string;
+    weather: string | null;
+    workSummary: string;
+    progressPct: number;
+    blockers: string | null;
+    tomorrowPlan: string | null;
+    notes: string | null;
+    materialLines: { materialId: string; qty: number; unitCost: number }[];
+    laborLines: { employeeId: string | null; crewId: string | null; hoursWorked: number; taskDescription: string }[];
+  }> = {};
+  for (const d of todayDprs) {
+    existingDprsByProject[d.projectId] = {
+      id: d.id,
+      projectId: d.projectId,
+      date: d.date.toISOString().slice(0, 10),
+      weather: d.weather,
+      workSummary: d.workSummary,
+      progressPct: toNum(d.progressPct),
+      blockers: d.blockers,
+      tomorrowPlan: d.tomorrowPlan,
+      notes: d.notes,
+      materialLines: d.materialLines.map((l) => ({
+        materialId: l.materialId,
+        qty: toNum(l.qty),
+        unitCost: toNum(l.unitCost),
+      })),
+      laborLines: d.laborLines.map((l) => ({
+        employeeId: l.employeeId,
+        crewId: l.crewId,
+        hoursWorked: toNum(l.hoursWorked),
+        taskDescription: l.taskDescription,
+      })),
+    };
+  }
+
+  const [projects, employees, crews, materials] = await Promise.all([
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.employee.findMany({
+      where: { companyId: company.id, deletedAt: null, active: true },
+      select: { id: true, name: true, trade: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.crew.findMany({
+      where: { companyId: company.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.material.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
+      orderBy: { name: "asc" },
+      take: 100,
+    }),
+  ]);
+
+  return (
+    <MobileDprForm
+      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+      employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
+      crews={crews.map((c) => ({ id: c.id, name: c.name }))}
+      materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
+      existingDprsByProject={existingDprsByProject}
+    />
+  );
+}

@@ -8,12 +8,11 @@ import {
   Clock, Flag, StickyNote, MessageSquare, Trash2, FileText,
   Send, CheckSquare, Package, Loader2, ArrowDown, ArrowUp,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   MODULES, GROUP_COLORS, NODE_KINDS, NODE_KIND_LIST, PRIORITIES, PRIORITY_LIST,
   popupTabsFor,
   type Attachment, type CustomField, type ModelKey, type NodeKind, type NodeNote,
-  type Priority, type RelationDef, type ScopedAction,
+  type Priority, type RelationDef,
 } from "@/lib/modules/registry";
 import { getField } from "@/lib/modules/resolver";
 import { NodeActions, useReferenceData, type ActionDef } from "@/components/playground/node-actions";
@@ -134,7 +133,6 @@ export interface NodePopupProps {
   onAddNote: (nodeId: string, text: string) => void;
   onDeleteNote: (nodeId: string, noteId: string) => void;
   onAddCustomField: (nodeId: string, label: string, value: string) => void;
-  onUpdateCustomField: (nodeId: string, fieldId: string, updates: Partial<CustomField>) => void;
   onDeleteCustomField: (nodeId: string, fieldId: string) => void;
   // Link handlers
   onLinkRecord: (nodeId: string, recordId: string, recordLabel: string) => void;
@@ -344,7 +342,7 @@ function PopupShell(
     mode, tab, setTab, availableTabs, planningOpen, setPlanningOpen,
     isLinked, isSystem, canLink, canFiles, onExpand, onCollapse,
     onClose, onSetKind, onAssignEmployee, onUnassign, onSetDueDate, onSetPriority,
-    onAddNote, onDeleteNote, onAddCustomField, onUpdateCustomField, onDeleteCustomField,
+    onAddNote, onDeleteNote, onAddCustomField, onDeleteCustomField,
     onLinkRecord, onUnlinkRecord, onJumpToNode, onSpawnChild,
   } = props;
 
@@ -514,7 +512,6 @@ function PopupShell(
         onAddNote={onAddNote}
         onDeleteNote={onDeleteNote}
         onAddCustomField={onAddCustomField}
-        onUpdateCustomField={onUpdateCustomField}
         onDeleteCustomField={onDeleteCustomField}
       />
 
@@ -624,7 +621,7 @@ function PlanningStrip({
   nodeId, kind, assigneeId, dueDate, priority, notes, customFields,
   employees, today, open, onToggle,
   onSetKind, onAssignEmployee, onUnassign, onSetDueDate, onSetPriority,
-  onAddNote, onDeleteNote, onAddCustomField, onUpdateCustomField, onDeleteCustomField,
+  onAddNote, onDeleteNote, onAddCustomField, onDeleteCustomField,
 }: {
   nodeId: string;
   kind?: NodeKind;
@@ -645,7 +642,6 @@ function PlanningStrip({
   onAddNote: (nodeId: string, text: string) => void;
   onDeleteNote: (nodeId: string, noteId: string) => void;
   onAddCustomField: (nodeId: string, label: string, value: string) => void;
-  onUpdateCustomField: (nodeId: string, fieldId: string, updates: Partial<CustomField>) => void;
   onDeleteCustomField: (nodeId: string, fieldId: string) => void;
 }) {
   const kindDef = kind ? NODE_KINDS[kind] : null;
@@ -1001,7 +997,7 @@ function KpiStrip({
 // ════════════════════════════════════════════════════════════════
 
 function ActionBar({
-  model, actionDefs, defaults, workspaceId, taskCount, onAssignTaskOpen,
+  model, actionDefs, defaults, taskCount, onAssignTaskOpen,
 }: {
   model: ModelKey;
   actionDefs?: ActionDef[];
@@ -1462,7 +1458,7 @@ function RecordsTab({
           </p>
         )}
         {search && filtered.length === 0 && (
-          <p className="px-3 py-6 text-center text-caption text-muted-foreground">No records match "{search}"</p>
+          <p className="px-3 py-6 text-center text-caption text-muted-foreground">No records match &quot;{search}&quot;</p>
         )}
       </div>
     </div>

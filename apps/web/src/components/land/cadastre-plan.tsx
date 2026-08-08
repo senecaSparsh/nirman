@@ -28,14 +28,18 @@ const STATUS_FILL: Record<LandParcelStatus, string> = {
   AVAILABLE: "var(--color-stage-sell)",
   HOLD: "var(--color-warning)",
   PARTITIONED: "var(--color-muted-foreground)",
+  RESERVED: "var(--color-brand)",
   SOLD: "var(--color-danger)",
+  RENTED: "var(--color-info)",
 };
 
 const STATUS_FILL_OPACITY: Record<LandParcelStatus, number> = {
   AVAILABLE: 0.10,
   HOLD: 0.10,
   PARTITIONED: 0.06,
+  RESERVED: 0.10,
   SOLD: 0.10,
+  RENTED: 0.10,
 };
 
 type LayoutCell = {

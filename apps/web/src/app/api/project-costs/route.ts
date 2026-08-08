@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { ProjectCostType } from "@nirman/db";
 import { addProjectCost, deleteProjectCost } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       project: { companyId: company.id },
       ...(projectId ? { projectId } : {}),
-      ...(costType ? { costType: costType as any } : {}),
+      ...(costType ? { costType: costType as ProjectCostType } : {}),
     },
     orderBy: { date: "desc" },
     include: {
@@ -59,10 +60,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
       receiptUrl: parsed.data.receiptUrl ?? undefined,
       userId: user.id,
       ...(body?.subcontractorId ? { subcontractorId: body.subcontractorId } : {}),
-    } as any);
+    });
     return json({ ok: true, id: cost.id }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to add cost" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to add cost") }, { status: 400 });
   }
 });
 
@@ -74,7 +75,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   try {
     await deleteProjectCost(id, user.id);
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to delete cost" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete cost") }, { status: 400 });
   }
 });

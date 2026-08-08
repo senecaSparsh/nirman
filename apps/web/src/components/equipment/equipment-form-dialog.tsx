@@ -68,15 +68,21 @@ export function EquipmentFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create equipment");
-      toast.success("Equipment created");
+      toast.success("Equipment created", {
+        description: "Assign it to a project or site to start tracking usage.",
+        action: {
+          label: "View Equipment",
+          onClick: () => router.push("/equipment"),
+        },
+      });
       onOpenChange(false);
       setForm({
         assetTag: "", name: "", model: "", serialNumber: "", category: "",
         acquisitionCost: "", purchaseDate: "", notes: "",
       });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

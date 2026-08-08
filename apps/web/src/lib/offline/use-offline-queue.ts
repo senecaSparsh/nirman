@@ -20,7 +20,10 @@ import {
 export function useOfflineQueue() {
   const [queue, setQueue] = useState<QueuedOperation[]>([]);
   const [pending, setPending] = useState(0);
-  const [online, setOnline] = useState(isOnline());
+  // Initialize to `true` so the first client render matches the server
+  // render (where `isOnline()` returns true because `navigator` is absent).
+  // The real value is read inside the effect below, after hydration.
+  const [online, setOnline] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<SyncResult | null>(null);
 
@@ -55,6 +58,8 @@ export function useOfflineQueue() {
 
   // Initial load + wire up online/offline + focus events.
   useEffect(() => {
+    // Sync the real browser online status now that we're on the client.
+    setOnline(isOnline());
     void refresh();
     const onOnline = () => {
       setOnline(true);

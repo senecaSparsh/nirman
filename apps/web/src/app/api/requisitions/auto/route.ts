@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { generateAutoRequisition } from "@nirman/services";
+import { prisma } from "@nirman/db";
+import { generateAutoRequisition, notifyLowStock } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 
 /**
  * POST /api/requisitions/auto
@@ -47,6 +48,53 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
     }
 
+    // Fire low-stock WhatsApp notifications to procurement managers
+    // (best-effort — failures don't block the requisition)
+    try {
+      const managers = await prisma.user.findMany({
+        where: {
+          memberships: { some: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "MANAGER"] } } },
+          phone: { not: null },
+          active: true,
+        },
+        select: { phone: true, name: true },
+      });
+      if (managers.length > 0) {
+        // Batch-fetch all materials + stock aggregates in 2 queries instead of N×2
+        const materialIds = result.lines.map((l) => l.materialId);
+        const [materials, stockAgg] = await Promise.all([
+          prisma.material.findMany({
+            where: { id: { in: materialIds } },
+            select: { id: true, code: true, name: true, unit: true, reorderPoint: true },
+          }),
+          prisma.stockLocationItem.groupBy({
+            by: ["materialId"],
+            where: { materialId: { in: materialIds }, location: { deletedAt: null } },
+            _sum: { qty: true },
+          }),
+        ]);
+        const materialMap = new Map(materials.map((m) => [m.id, m]));
+        const stockMap = new Map(stockAgg.map((s) => [s.materialId, toNum(s._sum.qty ?? 0)]));
+        for (const line of result.lines) {
+          const material = materialMap.get(line.materialId);
+          if (material) {
+            await notifyLowStock(
+              company.id,
+              {
+                id: line.materialId,
+                code: material.code,
+                name: material.name,
+                unit: material.unit,
+                totalQty: stockMap.get(line.materialId) ?? 0,
+                reorderPoint: material.reorderPoint ? toNum(material.reorderPoint) : null,
+              },
+              managers.map((m) => ({ phone: m.phone!, name: m.name })),
+            );
+          }
+        }
+      }
+    } catch { /* best-effort */ }
+
     return json(
       {
         ok: true,
@@ -65,7 +113,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       },
       { status: 201 },
     );
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to generate auto-requisition" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to generate auto-requisition") }, { status: 400 });
   }
 });

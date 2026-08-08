@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const workflowUpdateSchema = z.object({
@@ -17,15 +17,16 @@ const workflowUpdateSchema = z.object({
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.CANVAS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
-  const workflow = await prisma.workflow.findUnique({
-    where: { id },
+  const workflow = await prisma.workflow.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       schedules: true,
       runs: { orderBy: { createdAt: "desc" }, take: 10 },
     },
   });
-  if (!workflow || workflow.deletedAt) {
+  if (!workflow) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
   return json({
@@ -46,6 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const company = await getCompany();
 
   const { id } = await params;
   const body = await req.json();
@@ -53,8 +55,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const existing = await prisma.workflow.findUnique({ where: { id } });
-  if (!existing || existing.deletedAt) {
+  const existing = await prisma.workflow.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
+  if (!existing) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 
@@ -78,10 +80,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const company = await getCompany();
 
   const { id } = await params;
-  const existing = await prisma.workflow.findUnique({ where: { id } });
-  if (!existing || existing.deletedAt) {
+  const existing = await prisma.workflow.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
+  if (!existing) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 

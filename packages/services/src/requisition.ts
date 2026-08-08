@@ -3,6 +3,8 @@ import Decimal from "decimal.js";
 import { createPurchaseOrderTx } from "./procurement";
 import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
+import { isQuoteGateSatisfied } from "./quote-comparison";
+import { ServiceError } from "./errors";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -32,17 +34,18 @@ interface CreateRequisitionInput {
     materialId: string;
     qtyRequested: Decimal | number | string;
     notes?: string;
+    preferredSupplierId?: string;
   }[];
 }
 
 export async function createRequisition(input: CreateRequisitionInput) {
-  if (input.lines.length === 0) throw new Error("Requisition must have at least one line");
+  if (input.lines.length === 0) throw new ServiceError("Requisition must have at least one line");
 
   // Validate project
   const project = await prisma.project.findFirst({
     where: { id: input.projectId, deletedAt: null },
   });
-  if (!project) throw new Error("Project not found or deleted");
+  if (!project) throw new ServiceError("Project not found or deleted", 404);
 
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
@@ -50,17 +53,38 @@ export async function createRequisition(input: CreateRequisitionInput) {
     where: { id: { in: materialIds }, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
-    throw new Error("One or more materials not found or deleted");
+    throw new ServiceError("One or more materials not found or deleted", 404);
   }
   for (const line of input.lines) {
-    if (!new Decimal(line.qtyRequested).gt(0)) throw new Error("Requested qty must be > 0");
+    if (!new Decimal(line.qtyRequested).gt(0)) throw new ServiceError("Requested qty must be > 0");
   }
 
   // Validate requesting user exists (prevents FK violation on create)
   if (input.requestedById) {
     const user = await prisma.user.findUnique({ where: { id: input.requestedById }, select: { id: true } });
-    if (!user) throw new Error("Requesting user not found — your session may be stale. Please sign out and sign in again.");
+    if (!user) throw new ServiceError("Requesting user not found — your session may be stale. Please sign out and sign in again.", 404);
   }
+
+  // ── Demand-slip enrichment: snapshot current stock + last purchase rate ──
+  // For each material, look up the total stock-on-hand and the most recent
+  // goods receipt line (which gives the last rate + date). These snapshots
+  // are stored on the requisition line so the approver sees what the requester
+  // saw — even if stock or rates change before approval.
+  const stockSnapshots = await prisma.stockLocationItem.groupBy({
+    by: ["materialId"],
+    where: { materialId: { in: materialIds }, location: { deletedAt: null } },
+    _sum: { qty: true },
+  });
+  const stockMap = new Map(stockSnapshots.map((s) => [s.materialId, s._sum.qty ?? new Decimal(0)]));
+
+  // Last purchase rate: find the most recent GoodsReceiptLine for each material
+  const lastReceipts = await prisma.goodsReceiptLine.findMany({
+    where: { materialId: { in: materialIds } },
+    include: { goodsReceipt: { select: { receiptDate: true } } },
+    orderBy: { goodsReceipt: { receiptDate: "desc" } },
+    distinct: ["materialId"],
+  });
+  const lastRateMap = new Map(lastReceipts.map((r) => [r.materialId, { rate: r.unitCost, date: r.goodsReceipt.receiptDate }]));
 
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.create({
@@ -77,10 +101,14 @@ export async function createRequisition(input: CreateRequisitionInput) {
             materialId: l.materialId,
             qtyRequested: new Decimal(l.qtyRequested),
             notes: l.notes,
+            preferredSupplierId: l.preferredSupplierId,
+            currentStock: stockMap.get(l.materialId) ?? new Decimal(0),
+            lastRate: lastRateMap.get(l.materialId)?.rate ?? null,
+            lastRateDate: lastRateMap.get(l.materialId)?.date ?? null,
           })),
         },
       },
-      include: { lines: true },
+      include: { lines: { include: { material: true, preferredSupplier: true } } },
     });
     await logAction(tx, {
       userId: input.requestedById,
@@ -96,8 +124,8 @@ export async function createRequisition(input: CreateRequisitionInput) {
 export async function submitRequisition(reqId: string, userId?: string) {
   const updated = await prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
-    if (!req) throw new Error("Requisition not found");
-    if (req.status !== "DRAFT") throw new Error(`Cannot submit requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Requisition not found", 404);
+    if (req.status !== "DRAFT") throw new ServiceError(`Cannot submit requisition in status ${req.status}`);
     const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "SUBMITTED" } });
     await logAction(tx, {
       userId,
@@ -126,8 +154,8 @@ export async function submitRequisition(reqId: string, userId?: string) {
 export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string) {
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
-    if (!req) throw new Error("Requisition not found");
-    if (req.status !== "SUBMITTED") throw new Error(`Cannot approve requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Requisition not found", 404);
+    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve requisition in status ${req.status}`);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -152,8 +180,8 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
 export async function rejectRequisition(reqId: string, rejectedById?: string, rejectReason?: string) {
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
-    if (!req) throw new Error("Requisition not found");
-    if (req.status !== "SUBMITTED") throw new Error(`Cannot reject requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Requisition not found", 404);
+    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject requisition in status ${req.status}`);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -189,6 +217,7 @@ interface ConvertRequisitionInput {
   /** Distance vendor→site (km). If provided, re-evaluates routing with this input
    *  before deciding scope (refines S_lead/D once a supplier is known). */
   distanceKm?: Decimal | number | string;
+  userId?: string;
 }
 
 export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
@@ -213,21 +242,55 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     procurementScope = resolved ?? "PROJECT";
   }
 
+  // ── Comparative Quote Engine gate ──
+  // Enforce the min-quotes requirement before allowing conversion. The gate
+  // is satisfied if there are ≥ minQuotesRequired non-rejected quotes OR the
+  // requirement has been waived by an approver. Also fetch the winning quote
+  // (if selected) to auto-fill line costs and link the PO to it.
+  const quoteSummary = await prisma.vendorQuote.groupBy({
+    by: ["status"],
+    where: { requisitionId: input.requisitionId },
+    _count: true,
+  });
+  const nonRejectedCount = quoteSummary
+    .filter((q) => q.status !== "REJECTED")
+    .reduce((s, q) => s + q._count, 0);
+  const reqForGate = await prisma.materialRequisition.findUnique({
+    where: { id: input.requisitionId },
+    select: { minQuotesRequired: true, quotesWaived: true },
+  });
+  if (reqForGate && !isQuoteGateSatisfied(nonRejectedCount, reqForGate.minQuotesRequired, reqForGate.quotesWaived)) {
+    throw new ServiceError(
+      `Quote gate not satisfied: ${nonRejectedCount}/${reqForGate.minQuotesRequired} quotes uploaded. ` +
+      `Upload more quotes or waive the requirement (requires approver).`,
+    );
+  }
+
+  // Fetch the winning quote (if any) to link the PO + auto-fill costs
+  const winningQuote = await prisma.vendorQuote.findFirst({
+    where: { requisitionId: input.requisitionId, status: "SELECTED" },
+    include: { lines: true },
+  });
+
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: input.requisitionId },
       include: { lines: true, project: true },
     });
-    if (!req) throw new Error("Requisition not found");
+    if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status !== "APPROVED") {
-      throw new Error(`Cannot convert requisition in status ${req.status}. Must be APPROVED.`);
+      throw new ServiceError(`Cannot convert requisition in status ${req.status}. Must be APPROVED.`);
     }
 
-    // Build PO lines from requisition lines
+    // Build PO lines from requisition lines. If a winning quote exists, auto-fill
+    // costs from it (overriding manual lineCosts). Otherwise use manual lineCosts.
+    const winningCostMap = new Map(
+      winningQuote ? winningQuote.lines.map((l) => [l.materialId, new Decimal(l.unitPrice)]) : [],
+    );
     const poLines = req.lines.map((line) => ({
       materialId: line.materialId,
       qtyOrdered: new Decimal(line.qtyRequested),
-      unitCost: input.lineCosts[line.materialId] ?? 0,
+      unitCost: winningCostMap.get(line.materialId) ?? new Decimal(input.lineCosts[line.materialId] ?? 0),
     }));
 
     // Create the PO inside the SAME transaction — if this fails, the
@@ -243,10 +306,29 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       lines: poLines,
     });
 
-    // Mark requisition as CONVERTED + link to the PO — same transaction
+    // Link the PO to the winning quote (if any) + mark requisition CONVERTED
     await tx.materialRequisition.update({
       where: { id: input.requisitionId },
-      data: { status: "CONVERTED", convertedPoId: po.id },
+      data: {
+        status: "CONVERTED",
+        convertedPoId: po.id,
+        ...(winningQuote ? { } : {}),
+      },
+    });
+    if (winningQuote) {
+      await tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: { selectedQuoteId: winningQuote.id },
+      });
+    }
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "REQUISITION_CONVERT",
+      entityType: "MaterialRequisition",
+      entityId: input.requisitionId,
+      before: { status: "APPROVED" },
+      after: { status: "CONVERTED", purchaseOrderId: po.id, winningQuoteId: winningQuote?.id ?? null },
     });
 
     return po;

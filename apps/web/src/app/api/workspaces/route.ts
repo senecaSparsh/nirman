@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { Prisma } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -109,7 +110,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     data: {
       ...rest,
       rootModel: rootNode.model,
-      graphJson: graph as any,
+      graphJson: graph as unknown as Prisma.InputJsonValue,
       companyId: company.id,
     },
   });

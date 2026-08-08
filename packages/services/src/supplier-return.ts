@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
 import { postSupplierReturn } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -35,16 +36,16 @@ interface CreateSupplierReturnInput {
 }
 
 export async function createSupplierReturn(input: CreateSupplierReturnInput) {
-  if (input.lines.length === 0) throw new Error("Return must have at least one line");
+  if (input.lines.length === 0) throw new ServiceError("Return must have at least one line");
 
   // Validate supplier + location
   const [supplier, location] = await Promise.all([
     prisma.supplier.findFirst({ where: { id: input.supplierId, deletedAt: null } }),
     prisma.stockLocation.findFirst({ where: { id: input.locationId, deletedAt: null } }),
   ]);
-  if (!supplier) throw new Error("Supplier not found or deleted");
-  if (!location) throw new Error("Location not found or deleted");
-  if (location.companyId !== input.companyId) throw new Error("Location doesn't belong to this company");
+  if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
+  if (!location) throw new ServiceError("Location not found or deleted", 404);
+  if (location.companyId !== input.companyId) throw new ServiceError("Location doesn't belong to this company");
 
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
@@ -52,10 +53,10 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
     where: { id: { in: materialIds }, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
-    throw new Error("One or more materials not found or deleted");
+    throw new ServiceError("One or more materials not found or deleted", 404);
   }
   for (const line of input.lines) {
-    if (!new Decimal(line.qty).gt(0)) throw new Error("Return qty must be > 0");
+    if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Return qty must be > 0");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -93,8 +94,8 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
 export async function submitSupplierReturn(returnId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
-    if (!ret) throw new Error("Return not found");
-    if (ret.status !== "DRAFT") throw new Error(`Cannot submit return in status ${ret.status}`);
+    if (!ret) throw new ServiceError("Return not found", 404);
+    if (ret.status !== "DRAFT") throw new ServiceError(`Cannot submit return in status ${ret.status}`);
     const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "SUBMITTED" } });
     await logAction(tx, {
       userId,
@@ -120,8 +121,8 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
       where: { id: input.returnId },
       include: { lines: true },
     });
-    if (!ret) throw new Error("Return not found");
-    if (ret.status !== "SUBMITTED") throw new Error(`Cannot complete return in status ${ret.status}`);
+    if (!ret) throw new ServiceError("Return not found", 404);
+    if (ret.status !== "SUBMITTED") throw new ServiceError(`Cannot complete return in status ${ret.status}`);
 
     // Validate stock availability for each line
     for (const line of ret.lines) {
@@ -135,7 +136,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
       });
       const available = item ? new Decimal(item.qty) : new Decimal(0);
       if (available.lt(new Decimal(line.qty))) {
-        throw new Error(
+        throw new ServiceError(
           `Insufficient stock for return: available ${available}, returning ${line.qty} of material ${line.materialId}`,
         );
       }
@@ -198,8 +199,8 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
 export async function cancelSupplierReturn(returnId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
-    if (!ret) throw new Error("Return not found");
-    if (ret.status === "COMPLETED") throw new Error("Cannot cancel a completed return");
+    if (!ret) throw new ServiceError("Return not found", 404);
+    if (ret.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed return");
     const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "CANCELLED" } });
     await logAction(tx, {
       userId,

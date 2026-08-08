@@ -1,17 +1,26 @@
-import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
+import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const accentMap = {
-  primary: "bg-primary/10 text-primary",
-  success: "bg-success/15 text-success",
-  warning: "bg-warning/15 text-warning",
-  danger: "bg-danger/15 text-danger",
-  muted: "bg-muted text-muted-foreground",
+  primary: "text-foreground",
+  brand: "text-brand",
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+  muted: "text-muted-foreground",
 } as const;
 
 /**
- * Reusable KPI card: compact label (11px caption) + bold value (20px, tabular)
- * + accent icon chip. Optional href makes it a navigable card with a hover lift.
+ * KPI card — a standalone metric tile.
+ *
+ * Prefer `<MetricGrid>` + `<Metric>` from `@/components/page` for a row
+ * of related numbers: a divided band reads as one instrument panel,
+ * where separate cards read as six things shouting at once. This
+ * component exists for the cases where a metric genuinely stands alone.
+ *
+ * The number is the loudest thing in the tile. The icon is a quiet tint
+ * in the corner, not a coloured chip competing for attention.
  */
 export function KpiCard({
   label,
@@ -20,6 +29,7 @@ export function KpiCard({
   accent = "primary",
   href,
   sub,
+  provenance,
 }: {
   label: string;
   value: string;
@@ -27,34 +37,35 @@ export function KpiCard({
   accent?: keyof typeof accentMap;
   href?: string;
   sub?: string;
+  /** One line on how this number was derived. Shown as a quiet tooltip. */
+  provenance?: string;
 }) {
   const inner = (
-    <Card className={cn(href && "card-interactive")}>
-      <CardContent className="flex items-center justify-between p-4">
-        <div className="min-w-0 space-y-1">
-          <p className="truncate text-caption font-medium text-muted-foreground">{label}</p>
-          <p className="tnum text-xl font-bold tracking-tight">{value}</p>
-          {sub && <p className="tnum text-caption text-muted-foreground">{sub}</p>}
-        </div>
-        {icon && (
-          <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-              accentMap[accent],
-            )}
-          >
-            {icon}
-          </div>
+    <div
+      className={cn(
+        "flex h-full flex-col gap-1.5 rounded-lg border border-border bg-card p-4",
+        href && "card-interactive",
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        {icon && <span className="text-muted-foreground/45 [&_svg]:size-3.5">{icon}</span>}
+        <span className="min-w-0 truncate text-label text-muted-foreground/75">{label}</span>
+        {provenance && (
+          <span title={provenance} className="shrink-0 text-muted-foreground/35">
+            <Info className="h-3 w-3" />
+          </span>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <p className={cn("text-figure", accentMap[accent])}>{value}</p>
+      {sub && <p className="text-caption text-muted-foreground">{sub}</p>}
+    </div>
   );
 
   if (href) {
     return (
-      <a href={href} className="group block">
+      <Link href={href} className="group block">
         {inner}
-      </a>
+      </Link>
     );
   }
   return inner;

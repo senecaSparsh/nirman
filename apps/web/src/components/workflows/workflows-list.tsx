@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Workflow as WorkflowIcon, Play, Clock, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/page";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
@@ -31,21 +31,6 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
   const [delTarget, setDelTarget] = useState<WorkflowRow | null>(null);
   const [runTarget, setRunTarget] = useState<WorkflowRow | null>(null);
   const [running, setRunning] = useState(false);
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to delete");
-      } else {
-        toast.success("Workflow deleted");
-        router.refresh();
-      }
-    } catch {
-      toast.error("Network error");
-    }
-  };
 
   const handleRun = async (id: string) => {
     setRunning(true);
@@ -110,9 +95,7 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
                       )}
                     </div>
                   </div>
-                  <Badge variant={w.status === "ACTIVE" ? "success" : w.status === "DRAFT" ? "muted" : "outline"}>
-                    {w.status}
-                  </Badge>
+                  <StatusPill status={w.status} />
                 </div>
 
                 <div className="flex items-center gap-3 text-caption text-muted-foreground">

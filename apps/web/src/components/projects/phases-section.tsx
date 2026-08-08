@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StatusPill } from "@/components/page";
 import { PhaseFormDialog, type PhaseFormValues } from "./phase-form-dialog";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -17,13 +17,6 @@ export type PhaseRow = {
   endDate: string | null;
   budget: number | null;
   sortOrder: number;
-};
-
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted"> = {
-  PLANNED: "muted",
-  ACTIVE: "success",
-  COMPLETED: "default",
-  ON_HOLD: "warning",
 };
 
 export function PhasesSection({ projectId, phases }: { projectId: string; phases: PhaseRow[] }) {
@@ -62,17 +55,17 @@ export function PhasesSection({ projectId, phases }: { projectId: string; phases
               <TR key={ph.id}>
                 <TD className="font-medium">{ph.name}</TD>
                 <TD>
-                  <Badge variant={STATUS_VARIANT[ph.status] ?? "muted"}>{ph.status.replace("_", " ")}</Badge>
+                  <StatusPill status={ph.status} />
                 </TD>
                 <TD className="text-muted-foreground">{formatDate(ph.startDate)}</TD>
                 <TD className="text-muted-foreground">{formatDate(ph.endDate)}</TD>
                 <TD>{ph.budget ? formatCurrency(ph.budget) : "—"}</TD>
                 <TD>
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setEditTarget(ph)}>
+                    <Button variant="ghost" size="icon" onClick={() => setEditTarget(ph)} aria-label="Edit phase">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDelTarget(ph)}>
+                    <Button variant="ghost" size="icon" onClick={() => setDelTarget(ph)} aria-label="Delete phase">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

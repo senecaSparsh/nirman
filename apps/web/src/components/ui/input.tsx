@@ -7,7 +7,13 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       type={type}
       ref={ref}
       className={cn(
-        "flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-body shadow-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+        // Fields are 36px on desktop, but every field grows to the 44px
+        // touch minimum on small screens — the same form has to be
+        // usable on a phone at a gate with gloves on.
+        "flex h-11 w-full rounded-md border border-input bg-card px-3 text-body transition-colors sm:h-9",
+        "placeholder:text-muted-foreground/65",
+        "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25",
+        "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
         className
       )}
       {...props}
@@ -23,7 +29,9 @@ export const Select = React.forwardRef<
   <select
     ref={ref}
     className={cn(
-      "flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+      "flex h-11 w-full rounded-md border border-input bg-card px-3 text-body transition-colors sm:h-9",
+      "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25",
+      "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60",
       className
     )}
     {...props}
@@ -39,7 +47,7 @@ export const Label = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <label
     ref={ref}
-    className={cn("text-meta font-medium leading-none text-foreground", className)}
+    className={cn("mb-1.5 block text-meta font-medium leading-none text-foreground", className)}
     {...props}
   />
 ));

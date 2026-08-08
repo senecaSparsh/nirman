@@ -4,6 +4,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Procurement Service — Purchase Order lifecycle.
@@ -51,52 +52,52 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     const location = await tx.stockLocation.findFirst({
       where: { id: input.destinationLocationId, deletedAt: null },
     });
-    if (!location) throw new Error("Destination location not found or deleted");
+    if (!location) throw new ServiceError("Destination location not found or deleted", 404);
 
     if (input.procurementScope === "COMPANY") {
       if (location.type !== "COMPANY_WAREHOUSE") {
-        throw new Error("COMPANY-scope PO must destination a COMPANY_WAREHOUSE location");
+        throw new ServiceError("COMPANY-scope PO must destination a COMPANY_WAREHOUSE location");
       }
       if (input.projectId) {
-        throw new Error("COMPANY-scope PO must not have a projectId");
+        throw new ServiceError("COMPANY-scope PO must not have a projectId");
       }
     } else {
       if (location.type !== "PROJECT_SITE") {
-        throw new Error("PROJECT-scope PO must destination a PROJECT_SITE location");
+        throw new ServiceError("PROJECT-scope PO must destination a PROJECT_SITE location");
       }
       if (!input.projectId) {
-        throw new Error("PROJECT-scope PO requires a projectId");
+        throw new ServiceError("PROJECT-scope PO requires a projectId");
       }
       if (location.projectId !== input.projectId) {
-        throw new Error("PROJECT-scope PO destination location must belong to the specified project");
+        throw new ServiceError("PROJECT-scope PO destination location must belong to the specified project");
       }
     }
 
     if (location.companyId !== input.companyId) {
-      throw new Error("Destination location does not belong to this company");
+      throw new ServiceError("Destination location does not belong to this company");
     }
 
     // 2. Validate supplier
     const supplier = await tx.supplier.findFirst({
       where: { id: input.supplierId, deletedAt: null },
     });
-    if (!supplier) throw new Error("Supplier not found or deleted");
+    if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
     // 3. Validate lines + materials
-    if (input.lines.length === 0) throw new Error("PO must have at least one line");
+    if (input.lines.length === 0) throw new ServiceError("PO must have at least one line");
     const materialIds = input.lines.map((l) => l.materialId);
     const materials = await tx.material.findMany({
       where: { id: { in: materialIds }, deletedAt: null },
     });
     if (materials.length !== materialIds.length) {
-      throw new Error("One or more materials not found or deleted");
+      throw new ServiceError("One or more materials not found or deleted", 404);
     }
 
     for (const line of input.lines) {
       const qty = new Decimal(line.qtyOrdered);
       const cost = new Decimal(line.unitCost);
-      if (!qty.gt(0)) throw new Error(`qtyOrdered must be > 0 for material ${line.materialId}`);
-      if (cost.lt(0)) throw new Error(`unitCost must be >= 0 for material ${line.materialId}`);
+      if (!qty.gt(0)) throw new ServiceError(`qtyOrdered must be > 0 for material ${line.materialId}`);
+      if (cost.lt(0)) throw new ServiceError(`unitCost must be >= 0 for material ${line.materialId}`);
     }
 
     // 4. Compute totals
@@ -163,8 +164,8 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
 export async function approvePurchaseOrder(poId: string, approvedById?: string, approvalNotes?: string) {
   return prisma.$transaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
-    if (!po) throw new Error("PO not found");
-    if (po.status !== "DRAFT") throw new Error(`Cannot approve PO in status ${po.status}`);
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
     const updated = await tx.purchaseOrder.update({
       where: { id: poId },
       data: {
@@ -189,8 +190,8 @@ export async function approvePurchaseOrder(poId: string, approvedById?: string, 
 export async function orderPurchaseOrder(poId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
-    if (!po) throw new Error("PO not found");
-    if (po.status !== "APPROVED") throw new Error(`Cannot order PO in status ${po.status}`);
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "APPROVED") throw new ServiceError(`Cannot order PO in status ${po.status}`);
     const updated = await tx.purchaseOrder.update({
       where: { id: poId },
       data: { status: "ORDERED", orderDate: new Date() },
@@ -213,16 +214,16 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
       where: { id: poId },
       include: { lines: { select: { qtyReceived: true } } },
     });
-    if (!po) throw new Error("PO not found");
-    if (po.status === "CANCELLED") throw new Error("PO already cancelled");
-    if (po.status === "RECEIVED") throw new Error("Cannot cancel a fully received PO");
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status === "CANCELLED") throw new ServiceError("PO already cancelled");
+    if (po.status === "RECEIVED") throw new ServiceError("Cannot cancel a fully received PO");
     // If any goods received (PARTIAL), can't cancel — goods are in stock
     const totalReceived = po.lines.reduce(
       (sum, l) => sum.plus(new Decimal(l.qtyReceived)),
       new Decimal(0),
     );
     if (totalReceived.gt(0)) {
-      throw new Error("Cannot cancel PO with received goods — received stock is real. Use a stock adjustment instead.");
+      throw new ServiceError("Cannot cancel PO with received goods — received stock is real. Use a stock adjustment instead.");
     }
     const updated = await tx.purchaseOrder.update({ where: { id: poId }, data: { status: "CANCELLED" } });
     await logAction(tx, {
@@ -256,29 +257,43 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       where: { id: input.purchaseOrderId },
       include: { lines: true },
     });
-    if (!po) throw new Error("PO not found");
+    if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
-      throw new Error(`Cannot receive goods against PO in status ${po.status}`);
+      throw new ServiceError(`Cannot receive goods against PO in status ${po.status}`);
     }
     if (input.locationId !== po.destinationLocationId) {
-      throw new Error("Receipt location must match PO destination location");
+      throw new ServiceError("Receipt location must match PO destination location");
+    }
+
+    // Enforce procurement scope: COMPANY POs → COMPANY_WAREHOUSE, PROJECT POs → PROJECT_SITE.
+    const destLocation = await tx.stockLocation.findUnique({
+      where: { id: po.destinationLocationId },
+      select: { type: true },
+    });
+    if (destLocation) {
+      if (po.procurementScope === "COMPANY" && destLocation.type !== "COMPANY_WAREHOUSE") {
+        throw new ServiceError("COMPANY-scope PO must be received into a COMPANY_WAREHOUSE location");
+      }
+      if (po.procurementScope === "PROJECT" && destLocation.type !== "PROJECT_SITE") {
+        throw new ServiceError("PROJECT-scope PO must be received into a PROJECT_SITE location");
+      }
     }
 
     // Process each receipt line
     for (const line of input.lines) {
       const poLine = po.lines.find((l) => l.id === line.purchaseOrderLineId);
-      if (!poLine) throw new Error(`PO line ${line.purchaseOrderLineId} not found`);
+      if (!poLine) throw new ServiceError(`PO line ${line.purchaseOrderLineId} not found`, 404);
 
       const recvQty = new Decimal(line.qtyReceived);
       const recvCost = new Decimal(line.unitCost);
 
-      if (!recvQty.gt(0)) throw new Error("qtyReceived must be > 0");
-      if (recvCost.lt(0)) throw new Error("unitCost must be >= 0");
+      if (!recvQty.gt(0)) throw new ServiceError("qtyReceived must be > 0");
+      if (recvCost.lt(0)) throw new ServiceError("unitCost must be >= 0");
 
       const existingReceived = new Decimal(poLine.qtyReceived);
       const cumulative = existingReceived.plus(recvQty);
       if (cumulative.gt(new Decimal(poLine.qtyOrdered))) {
-        throw new Error(
+        throw new ServiceError(
           `Over-delivery: cumulative ${cumulative} > ordered ${poLine.qtyOrdered} for line ${line.purchaseOrderLineId}`,
         );
       }

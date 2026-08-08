@@ -57,11 +57,21 @@ export function CustomerFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save customer");
-      toast.success(isEdit ? "Customer updated" : "Customer created");
+      if (isEdit) {
+        toast.success("Customer updated");
+      } else {
+        toast.success("Customer created", {
+          description: "Ready to sell? Start a new sale with this customer.",
+          action: {
+            label: "New Sale",
+            onClick: () => router.push("/sales"),
+          },
+        });
+      }
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -76,26 +86,26 @@ export function CustomerFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="c-name">Name *</Label>
-          <Input id="c-name" value={form.name} onChange={(e) => set("name", e.target.value)} required />
+          <Label htmlFor="c-name">Customer Name *</Label>
+          <Input id="c-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Rajesh Sharma" required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="c-phone">Phone</Label>
-            <Input id="c-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+            <Input id="c-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="c-email">Email</Label>
-            <Input id="c-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+            <Input id="c-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="customer@example.com" />
           </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="c-gstin">GSTIN</Label>
-          <Input id="c-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} />
+          <Input id="c-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="29ABCDE1234F1Z5" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="c-address">Address</Label>
-          <Textarea id="c-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} />
+          <Textarea id="c-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Flat/house no, street, area, city, PIN" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

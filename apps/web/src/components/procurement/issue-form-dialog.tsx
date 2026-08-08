@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { formatNumber } from "@/lib/utils";
+import { required, type ValidationErrors } from "@/lib/validate";
 import type { DepartmentOption, MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
 
+type IssueFormValues = {
+  targetId: string;
+  fromLocationId: string;
+  lines: IssueLine[];
+};
+
+const errorBorder = "border-danger focus-visible:border-danger focus-visible:ring-danger/25";
+
 type Target = "PROJECT" | "DEPARTMENT";
+
+type IssueLine = { id: string; materialId: string; materialName: string; unit: string; qty: string; lotNumber: string };
 
 export function IssueFormDialog({
   open,
@@ -35,8 +48,62 @@ export function IssueFormDialog({
   const [projectId, setProjectId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverMobile, setReceiverMobile] = useState("");
+  const [roundOff, setRoundOff] = useState("");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<{ id: string; materialId: string; qty: string }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "" }]);
+  const [lines, setLines] = useState<IssueLine[]>([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]);
+  const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
+
+  function validateField(key: keyof IssueFormValues): string | undefined {
+    if (key === "targetId") {
+      if (target === "PROJECT") return required(projectId, "Project");
+      if (target === "DEPARTMENT") return required(departmentId, "Cost centre");
+    }
+    if (key === "fromLocationId") return required(fromLocationId, "From location");
+    if (key === "lines") {
+      const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
+      if (validLines.length === 0) return "Add at least one line item with a material and quantity";
+    }
+  }
+
+  function onBlur(key: keyof IssueFormValues) {
+    const error = validateField(key);
+    setErrors((prev) => ({ ...prev, [key]: error }));
+  }
+
+  const materialOptions = useMemo(
+    () => materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` })),
+    [materials],
+  );
+
+  const issueColumns: EditableColumn<IssueLine>[] = useMemo(() => [
+    {
+      key: "materialId",
+      label: "Material",
+      type: "select",
+      options: materialOptions,
+      placeholder: "Select…",
+      width: "1fr",
+    },
+    {
+      key: "unit",
+      label: "Unit",
+      type: "readonly",
+      width: "60px",
+    },
+    {
+      key: "qty",
+      label: "Qty",
+      type: "number",
+      align: "right",
+      step: "any",
+      min: 0,
+      placeholder: "0",
+      width: "100px",
+      format: (v) => v ? formatNumber(Number(v), 3) : "",
+    },
+  ], [materialOptions]);
 
   // Apply defaults when the dialog opens
   useEffect(() => {
@@ -46,20 +113,35 @@ export function IssueFormDialog({
     }
   }, [open, defaults]);
 
-  function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "" }]); }
-  function removeLine(idx: number) { setLines((ls) => ls.filter((_, i) => i !== idx)); }
-  function updateLine(idx: number, key: "materialId" | "qty", value: string) {
-    setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, [key]: value } : l)));
+  function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]); }
+
+  // Sync materialName + unit when materialId changes via EditableGrid
+  function handleLinesChange(newLines: IssueLine[]) {
+    const synced = newLines.map((l) => {
+      if (l.materialId) {
+        const mat = materials.find((m) => m.id === l.materialId);
+        if (mat) return { ...l, materialName: mat.name, unit: mat.unit };
+      }
+      return l;
+    });
+    setLines(synced);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (target === "PROJECT" && !projectId) return toast.error("Select a project");
-    if (target === "DEPARTMENT" && !departmentId) return toast.error("Select a department");
-    if (!fromLocationId) return toast.error("Select a source location");
-    const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
-    if (validLines.length === 0) return toast.error("Add at least one line");
+    const newErrors: ValidationErrors<IssueFormValues> = {};
+    (["targetId", "fromLocationId", "lines"] as (keyof IssueFormValues)[]).forEach((key) => {
+      const error = validateField(key);
+      if (error) newErrors[key] = error;
+    });
+    setErrors(newErrors);
+    if (target === "DEPARTMENT" && !receiverName.trim()) { toast.error("Receiver name is required for department issues"); return; }
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
 
+    const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
     setSaving(true);
     try {
       const res = await fetch("/api/issue-materials", {
@@ -70,34 +152,46 @@ export function IssueFormDialog({
           departmentId: target === "DEPARTMENT" ? departmentId : null,
           fromLocationId,
           notes: notes.trim() || null,
+          receiverName: receiverName.trim() || null,
+          receiverMobile: receiverMobile.trim() || null,
+          roundOff: roundOff ? Number(roundOff) : null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to issue materials");
-      toast.success(target === "PROJECT" ? "Materials issued to project" : "Materials issued to department");
+      const issuedProjectId = target === "PROJECT" ? projectId : "";
+      toast.success(`Issue slip ${data.issueNumber ?? ""} created`, {
+        action: issuedProjectId
+          ? {
+              label: "View Project Cost",
+              onClick: () => router.push(`/projects/${issuedProjectId}?tab=finance`),
+            }
+          : undefined,
+      });
       onOpenChange(false);
       setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
-      setLines([{ id: crypto.randomUUID(), materialId: "", qty: "" }]);
+      setReceiverName(""); setReceiverMobile(""); setRoundOff(""); setErrors({});
+      setLines([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
   }
 
-  const targetLabel = target === "PROJECT" ? "Project" : "Cost Center";
+  const targetLabel = target === "PROJECT" ? "Project" : "Cost Centre";
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Center"}
+      title={target === "PROJECT" ? "Issue Materials to Project" : "Issue Materials to Cost Centre"}
       description={
         target === "PROJECT"
           ? "Materials leave stock at MAC and accumulate as project WIP cost."
-          : "Materials leave stock at MAC and are expensed to the department (Operating Expenses)."
+          : "Materials leave stock at MAC and are expensed to the department (operating expenses)."
       }
       className="max-w-2xl"
     >
@@ -120,31 +214,56 @@ export function IssueFormDialog({
               target === "DEPARTMENT" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Cost Center
+            Cost Centre
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>{targetLabel} *</Label>
+            <Label className={errors.targetId ? "text-danger" : undefined}>{targetLabel} *</Label>
             {target === "PROJECT" ? (
-              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined}>
                 <option value="">Select…</option>
                 {projects.filter((p) => p.status !== "ON_HOLD").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             ) : (
-              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined}>
                 <option value="">Select…</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
               </Select>
             )}
+            {errors.targetId && <p className="text-caption text-danger" role="alert">{errors.targetId}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label>From Location *</Label>
-            <Select value={fromLocationId} onChange={(e) => setFromLocationId(e.target.value)}>
+            <Label className={errors.fromLocationId ? "text-danger" : undefined}>From Location *</Label>
+            <Select value={fromLocationId} onChange={(e) => setFromLocationId(e.target.value)} onBlur={() => onBlur("fromLocationId")} aria-invalid={!!errors.fromLocationId} className={errors.fromLocationId ? errorBorder : undefined}>
               <option value="">Select…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
+            {errors.fromLocationId && <p className="text-caption text-danger" role="alert">{errors.fromLocationId}</p>}
+          </div>
+        </div>
+
+        {/* Receiver accountability — matches the paper Stock Issue Slip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Receiver Name {target === "DEPARTMENT" ? "*" : ""}
+            </Label>
+            <Input
+              value={receiverName}
+              onChange={(e) => setReceiverName(e.target.value)}
+              placeholder="Who is picking up the stock"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Receiver Mobile</Label>
+            <Input
+              value={receiverMobile}
+              onChange={(e) => setReceiverMobile(e.target.value)}
+              placeholder="Contact number"
+              maxLength={20}
+            />
           </div>
         </div>
 
@@ -155,34 +274,34 @@ export function IssueFormDialog({
               <Plus className="h-3.5 w-3.5" /> Add Line
             </Button>
           </div>
-          {lines.map((line, idx) => {
-            const mat = materials.find((m) => m.id === line.materialId);
-            return (
-              <div key={line.id} className="grid grid-cols-12 items-end gap-2">
-                <div className="col-span-8 space-y-1">
-                  <span className="text-caption text-muted-foreground">Material</span>
-                  <Select value={line.materialId} onChange={(e) => updateLine(idx, "materialId", e.target.value)}>
-                    <option value="">Select…</option>
-                    {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name}</option>)}
-                  </Select>
-                </div>
-                <div className="col-span-3 space-y-1">
-                  <span className="text-caption text-muted-foreground">Qty {mat ? `(${mat.unit})` : ""}</span>
-                  <Input type="number" min={0} step="any" value={line.qty} onChange={(e) => updateLine(idx, "qty", e.target.value)} />
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(idx)} disabled={lines.length === 1}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+          <div className={`rounded-lg border overflow-hidden ${errors.lines ? "border-danger" : "border-border"}`}>
+            <EditableGrid
+              rows={lines}
+              onChange={handleLinesChange}
+              columns={issueColumns}
+              getRowId={(r) => r.id}
+              sumColumns={["qty"]}
+              className="max-h-[40vh]"
+            />
+          </div>
+          {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Notes</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Round Off</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={roundOff}
+              onChange={(e) => setRoundOff(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">

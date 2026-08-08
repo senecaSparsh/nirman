@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { formatNumber } from "@/lib/utils";
 import type { AvailableStockRow, StockLocationRow } from "@/lib/types";
 
-type Line = { key: string; materialId: string; qty: string };
+type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
 
 let lineKey = 0;
 function newLine(): Line {
-  return { key: `t${++lineKey}`, materialId: "", qty: "" };
+  return { key: `t${++lineKey}`, materialId: "", materialName: "", availableQty: 0, unit: "", qty: "" };
 }
 
 export function TransferFormDialog({
@@ -33,6 +35,9 @@ export function TransferFormDialog({
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
   const [notes, setNotes] = useState("");
+  const [freight, setFreight] = useState("");
+  const [handlingFee, setHandlingFee] = useState("");
+  const [markupPct, setMarkupPct] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState<AvailableStockRow[]>([]);
@@ -56,14 +61,81 @@ export function TransferFormDialog({
 
   const otherLocations = locations.filter((l) => l.id !== fromLocationId);
 
-  function updateLine(key: string, patch: Partial<Line>) {
-    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  // Build material options from available stock
+  const stockOptions = useMemo(
+    () => available.map((a) => ({ value: a.materialId, label: `${a.materialName} (${a.qty} ${a.unit} avail)` })),
+    [available],
+  );
+
+  const transferColumns: EditableColumn<Line>[] = useMemo(() => [
+    {
+      key: "materialId",
+      label: "Material",
+      type: "select",
+      options: stockOptions,
+      placeholder: "Select…",
+      width: "1fr",
+    },
+    {
+      key: "availableQty",
+      label: "Available",
+      type: "readonly",
+      align: "right",
+      width: "90px",
+      format: (v) => v ? formatNumber(Number(v), 3) : "—",
+    },
+    {
+      key: "unit",
+      label: "Unit",
+      type: "readonly",
+      width: "60px",
+    },
+    {
+      key: "qty",
+      label: "Qty to Transfer",
+      type: "number",
+      align: "right",
+      step: "0.001",
+      min: 0,
+      placeholder: "0",
+      width: "120px",
+      format: (v) => v ? formatNumber(Number(v), 3) : "",
+    },
+  ], [stockOptions]);
+
+  // Sync materialName + availableQty + unit when materialId changes
+  function handleLinesChange(newLines: Line[]) {
+    const synced = newLines.map((l) => {
+      if (l.materialId) {
+        const stock = available.find((a) => a.materialId === l.materialId);
+        if (stock) return { ...l, materialName: stock.materialName, availableQty: stock.qty, unit: stock.unit };
+      }
+      return l;
+    });
+    setLines(synced);
   }
+
+  // Group locations by company for the dropdowns. Source stays the current
+  // company; destinations span the whole company group (siblings/children/parent)
+  // so inter-company Stock Transfer Orders (STOs) are reachable from the UI.
+  const fromLocations = locations; // source = current company (first in list)
+  const fromLocation = locations.find((l) => l.id === fromLocationId);
+  const toLocation = locations.find((l) => l.id === toLocationId);
+  const isInterCompany = !!fromLocation && !!toLocation && fromLocation.companyId !== toLocation.companyId;
+
+  // Build <optgroup> per company, preserving the order locations arrive in.
+  const groupByCompany = (locs: typeof locations) => {
+    const groups = new Map<string, { companyName: string; items: typeof locations }>();
+    for (const l of locs) {
+      const g = groups.get(l.companyId) ?? { companyName: l.companyName, items: [] };
+      g.items.push(l);
+      groups.set(l.companyId, g);
+    }
+    return [...groups.values()];
+  };
+
   function addLine() {
     setLines((ls) => [...ls, newLine()]);
-  }
-  function removeLine(key: string) {
-    setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -92,6 +164,9 @@ export function TransferFormDialog({
           fromLocationId,
           toLocationId,
           notes: notes.trim() || null,
+          freight: freight.trim() === "" ? undefined : Number(freight),
+          handlingFee: handlingFee.trim() === "" ? undefined : Number(handlingFee),
+          markupPct: markupPct.trim() === "" ? undefined : Number(markupPct),
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
         }),
       });
@@ -99,10 +174,10 @@ export function TransferFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to create transfer");
       toast.success("Transfer created (DRAFT). Complete it to move stock.");
       onOpenChange(false);
-      setFromLocationId(""); setToLocationId(""); setNotes(""); setLines([newLine()]);
+      setFromLocationId(""); setToLocationId(""); setNotes(""); setFreight(""); setHandlingFee(""); setMarkupPct(""); setLines([newLine()]);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -121,19 +196,52 @@ export function TransferFormDialog({
           <Field label="From Location" required>
             <Select value={fromLocationId} onChange={(e) => { setFromLocationId(e.target.value); setLines([newLine()]); }} required>
               <option value="" disabled>Select source…</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : "Site"})</option>
+              {groupByCompany(fromLocations).map((g) => (
+                <optgroup key={g.companyName} label={g.companyName}>
+                  {g.items.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "DEPARTMENT" ? "Dept" : "Site"})</option>
+                  ))}
+                </optgroup>
               ))}
             </Select>
           </Field>
           <Field label="To Location" required>
             <Select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} required disabled={!fromLocationId}>
               <option value="" disabled>Select destination…</option>
-              {otherLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : "Site"})</option>
+              {groupByCompany(otherLocations).map((g) => (
+                <optgroup key={g.companyName} label={g.companyName}>
+                  {g.items.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "DEPARTMENT" ? "Dept" : "Site"})</option>
+                  ))}
+                </optgroup>
               ))}
             </Select>
           </Field>
+        </div>
+
+        {isInterCompany && (
+          <div className="rounded-md border border-brand/40 bg-brand/5 p-2 text-meta text-foreground">
+            Inter-company Stock Transfer Order — destination receives at a Transfer Price
+            (source MAC + freight + handling + markup%), not the bare source cost.
+          </div>
+        )}
+
+        {/* Inter-company STO fields — only meaningful for cross-company transfers. */}
+        <div className={`rounded-md border border-dashed border-border/60 p-3 ${isInterCompany ? "" : "opacity-60"}`}>
+          <p className="text-meta text-muted-foreground mb-2">
+            Inter-company STO costs {isInterCompany ? "(applied — destination company is charged the transfer price)" : "(ignored for intra-company transfers)"}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Freight (₹)">
+              <Input type="number" step="0.01" min="0" value={freight} onChange={(e) => setFreight(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            </Field>
+            <Field label="Handling Fee (₹)">
+              <Input type="number" step="0.01" min="0" value={handlingFee} onChange={(e) => setHandlingFee(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            </Field>
+            <Field label="Markup (%)">
+              <Input type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => setMarkupPct(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            </Field>
+          </div>
         </div>
 
         {fromLocationId && (
@@ -149,26 +257,15 @@ export function TransferFormDialog({
                 No stock at this location.
               </p>
             ) : (
-              <div className="space-y-2">
-                {lines.map((l) => {
-                  const stock = available.find((a) => a.materialId === l.materialId);
-                  return (
-                    <div key={l.key} className="grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-[1fr_100px_36px]">
-                      <Select value={l.materialId} onChange={(e) => updateLine(l.key, { materialId: e.target.value })}>
-                        <option value="" disabled>Material…</option>
-                        {available.map((a) => (
-                          <option key={a.materialId} value={a.materialId}>
-                            {a.materialName} ({a.qty} {a.unit} avail)
-                          </option>
-                        ))}
-                      </Select>
-                      <Input type="number" step="0.001" min="0" max={stock?.qty} placeholder="Qty" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(l.key)} disabled={lines.length === 1} className="text-muted-foreground hover:text-danger">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
+              <div className="rounded-lg border border-border overflow-hidden">
+                <EditableGrid
+                  rows={lines}
+                  onChange={handleLinesChange}
+                  columns={transferColumns}
+                  getRowId={(r) => r.key}
+                  sumColumns={["qty"]}
+                  className="max-h-[40vh]"
+                />
               </div>
             )}
           </div>

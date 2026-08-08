@@ -9,6 +9,7 @@ import { SalesView } from "@/components/sales/sales-view";
 import { PageLoading } from "@/components/page-loading";
 import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function SalesPage() {
   return (
     <div className="space-y-5">
@@ -26,9 +27,7 @@ async function SalesContent() {
 
   if (!hasPermission(role, PERM.SALES_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don't have permission to view this module.
-      </div>
+      <NoAccess what="sales" />
     );
   }
 
@@ -42,11 +41,12 @@ async function SalesContent() {
         payments: { orderBy: { paymentDate: "asc" } },
       },
     }),
+    // Customer has no companyId — scope to customers with sales in this company.
     prisma.customer.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       include: {
-        _count: { select: { assetSales: { where: { status: "ACTIVE" } } } },
+        _count: { select: { assetSales: { where: { companyId: company.id, status: "ACTIVE" } } } },
       },
     }),
   ]);
@@ -98,6 +98,10 @@ async function SalesContent() {
       profit: toNum(s.profit),
       saleDate: s.saleDate.toISOString(),
       status: s.status,
+      saleStage: s.saleStage,
+      depositAmount: s.depositAmount ? toNum(s.depositAmount) : null,
+      depositDate: s.depositDate ? s.depositDate.toISOString() : null,
+      finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
       paymentStatus: s.paymentStatus,
       paymentMode: s.paymentMode,
       notes: s.notes,
@@ -129,7 +133,7 @@ async function SalesContent() {
     <>
       <PageHeader
         title="Sales"
-        description="Asset sales — land parcels and built units. Payments, profit, and cancellation."
+        description="Sales of land parcels and built units — bookings, payment plans, profit, and cancellations."
         stats={[
           { label: "Sales", value: saleRows.length },
           { label: "Revenue", value: formatCurrency(revenue) },

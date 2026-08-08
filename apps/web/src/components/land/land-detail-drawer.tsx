@@ -4,18 +4,11 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { X, ArrowRight, MapPin, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
-import type { LandPurchaseRow, LandParcelStatus } from "@/lib/types";
-
-const PARCEL_STATUS_VARIANT: Record<LandParcelStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
-  AVAILABLE: "success",
-  HOLD: "warning",
-  PARTITIONED: "muted",
-  SOLD: "danger",
-};
+import type { LandPurchaseRow } from "@/lib/types";
 
 /**
  * Quick-view slide-over for a land purchase.
@@ -149,7 +142,7 @@ export function LandDetailDrawer({
                     {purchase.parcels.map((p) => (
                       <TR key={p.id}>
                         <TD className="font-mono text-caption font-medium">{p.number}</TD>
-                        <TD><Badge variant={PARCEL_STATUS_VARIANT[p.status]}>{p.status}</Badge></TD>
+                        <TD><StatusPill status={p.status} /></TD>
                         <TD className="tnum text-right">{formatNumber(p.area, 0)}</TD>
                         <TD className="tnum text-right">{formatCurrency(p.acquisitionCost)}</TD>
                         <TD className="tnum text-right">{formatCurrency(p.currentValuation)}</TD>

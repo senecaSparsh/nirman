@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { SaleStatus } from "@nirman/db";
 import { sellAsset } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, sellAssetSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -13,7 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const sales = await prisma.assetSale.findMany({
     where: {
       companyId: company.id,
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as SaleStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -61,10 +62,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
         projectId: s.projectId,
         projectName: s.project.name,
         salePrice: toNum(s.salePrice),
+        gstRate: toNum(s.gstRate),
+        gstAmount: toNum(s.gstAmount),
         costBasis: toNum(s.costBasis),
         profit: toNum(s.profit),
         saleDate: s.saleDate.toISOString(),
         status: s.status,
+        saleStage: s.saleStage,
+        depositAmount: s.depositAmount ? toNum(s.depositAmount) : null,
+        depositDate: s.depositDate ? s.depositDate.toISOString() : null,
+        finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
         paymentStatus: s.paymentStatus,
         paymentMode: s.paymentMode,
         notes: s.notes,
@@ -90,6 +97,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       builtUnitId: parsed.data.builtUnitId ?? undefined,
       customerId: parsed.data.customerId,
       salePrice: parsed.data.salePrice,
+      gstRate: parsed.data.gstRate ?? 0,
       paymentMode: parsed.data.paymentMode ?? undefined,
       notes: parsed.data.notes ?? undefined,
       initialPayment: parsed.data.initialPayment,
@@ -97,7 +105,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
 
     return json({ ok: true, saleId: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create sale" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create sale") }, { status: 400 });
   }
 });

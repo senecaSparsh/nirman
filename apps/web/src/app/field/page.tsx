@@ -3,7 +3,9 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
-import { getCompany } from "@/lib/server";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
 import { FieldReceive } from "@/components/field/field-receive";
 
 export const metadata = { title: "Field · Nirman" };
@@ -15,22 +17,35 @@ export const metadata = { title: "Field · Nirman" };
  * a Suspense boundary. The client FieldReceive component owns the offline queue,
  * barcode scanning, and the receive form — it works offline-first.
  */
-export default function FieldPage() {
+export default function FieldPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ po?: string }>;
+}) {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Field Receiving"
-        description="Scan and receive shipments against purchase orders. Works offline — queued receipts sync when you're back online."
+        title="GRN — Field Receiving"
+        description="Make a Goods Receipt Note (GRN) by scanning deliveries against purchase orders. Works offline — queued receipts sync when you're back online."
       />
       <Suspense fallback={<PageLoading label="Loading receivable orders…" />}>
-        <ReceivableOrders />
+        <ReceivableOrders searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function ReceivableOrders() {
+async function ReceivableOrders({
+  searchParams,
+}: {
+  searchParams: Promise<{ po?: string }>;
+}) {
   await connection();
+  const { po: preselectPoId } = await searchParams;
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+    return <NoAccess what="field receiving" />;
+  }
   const company = await getCompany();
   const pos = await prisma.purchaseOrder.findMany({
     where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
@@ -67,5 +82,5 @@ async function ReceivableOrders() {
     })),
   }));
 
-  return <FieldReceive purchaseOrders={receivablePos} />;
+  return <FieldReceive purchaseOrders={receivablePos} initialPoId={preselectPoId} />;
 }

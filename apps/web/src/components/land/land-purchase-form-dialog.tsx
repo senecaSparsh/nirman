@@ -7,7 +7,16 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { ProjectOption, LandPurchaseRow } from "@/lib/types";
+
+type LandFormValues = {
+  initialParcelNumber: string;
+  totalArea: string;
+  totalCost: string;
+};
+
+const errorBorder = "border-danger focus-visible:border-danger focus-visible:ring-danger/25";
 
 /** The subset of a LandPurchaseRow needed to populate the edit form. */
 export type LandPurchaseEditInitial = Pick<
@@ -21,11 +30,13 @@ export function LandPurchaseFormDialog({
   onOpenChange,
   projects,
   editing,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   editing?: LandPurchaseEditInitial | null;
+  onCreated?: (purchaseId: string) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -41,9 +52,22 @@ export function LandPurchaseFormDialog({
     location: "",
     initialParcelNumber: "",
   });
+  const [errors, setErrors] = useState<ValidationErrors<LandFormValues>>({});
+
+  function validateField(key: keyof LandFormValues): string | undefined {
+    if (key === "initialParcelNumber") return required(form.initialParcelNumber, "Parcel number");
+    if (key === "totalArea") return required(form.totalArea, "Total area") ?? positiveNumber(form.totalArea, "Total area");
+    if (key === "totalCost") return required(form.totalCost, "Total cost") ?? positiveNumber(form.totalCost, "Total cost");
+  }
+
+  function onBlur(key: keyof LandFormValues) {
+    const error = validateField(key);
+    setErrors((prev) => ({ ...prev, [key]: error }));
+  }
 
   // Populate form when editing
   useEffect(() => {
+    if (open) setErrors({});
     if (open && editing) {
       setForm({
         projectId: editing.projectId ?? "",
@@ -69,8 +93,16 @@ export function LandPurchaseFormDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.sellerName.trim()) return toast.error("Seller name is required");
-    if (!form.totalArea || Number(form.totalArea) <= 0) return toast.error("Total area must be > 0");
-    if (!form.totalCost || Number(form.totalCost) <= 0) return toast.error("Total cost must be > 0");
+    const newErrors: ValidationErrors<LandFormValues> = {};
+    (["initialParcelNumber", "totalArea", "totalCost"] as (keyof LandFormValues)[]).forEach((key) => {
+      const error = validateField(key);
+      if (error) newErrors[key] = error;
+    });
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -96,18 +128,25 @@ export function LandPurchaseFormDialog({
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save land purchase");
-      toast.success(editing ? "Land purchase updated" : "Land purchase recorded");
+      if (editing) {
+        toast.success("Land purchase updated");
+      } else {
+        toast.success("Land purchase recorded", {
+          description: "An initial parcel covers the full area. You can subdivide it into sellable sub-plots.",
+        });
+        if (onCreated && data.id) onCreated(data.id);
+      }
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={editing ? "Edit Land Purchase" : "Record Land Purchase"} description={editing ? "Update land purchase details." : "A land purchase creates an initial parcel covering the full area. You can partition it later."} className="max-w-lg">
+    <Dialog open={open} onOpenChange={onOpenChange} title={editing ? "Edit Land Purchase" : "Record Land Purchase"} description={editing ? "Update land purchase details." : "A land purchase creates an initial parcel covering the full area. After recording, you can subdivide it into smaller sellable plots or keep it as a single whole plot."} className="max-w-lg">
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>Project (optional)</Label>
@@ -119,33 +158,41 @@ export function LandPurchaseFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Seller Name *</Label>
-            <Input value={form.sellerName} onChange={(e) => set("sellerName", e.target.value)} required />
+            <Input value={form.sellerName} onChange={(e) => set("sellerName", e.target.value)} placeholder="e.g. Suresh Patel" required />
           </div>
           <div className="space-y-1.5">
             <Label>Seller Contact</Label>
-            <Input value={form.sellerContact} onChange={(e) => set("sellerContact", e.target.value)} />
+            <Input value={form.sellerContact} onChange={(e) => set("sellerContact", e.target.value)} placeholder="98765 43210" />
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2 space-y-1.5">
-            <Label>Total Area *</Label>
-            <Input type="number" min={0} step="any" value={form.totalArea} onChange={(e) => set("totalArea", e.target.value)} required />
+            <Label className={errors.totalArea ? "text-danger" : undefined}>Total Area *</Label>
+            <Input type="number" min={0} step="any" value={form.totalArea} onChange={(e) => set("totalArea", e.target.value)} onBlur={() => onBlur("totalArea")} placeholder="e.g. 12000" required aria-invalid={!!errors.totalArea} className={errors.totalArea ? errorBorder : undefined} />
+            {errors.totalArea && <p className="text-caption text-danger" role="alert">{errors.totalArea}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Unit</Label>
             <Select value={form.areaUnit} onChange={(e) => set("areaUnit", e.target.value)}>
-              {["SQFT", "SQM", "ACRE", "BIGHA", "HECTARE"].map((u) => <option key={u} value={u}>{u}</option>)}
+              <option value="SQFT">Sq.Ft</option>
+              <option value="SQM">Sq.Mtr</option>
+              <option value="SQYD">Sq.Yard</option>
+              <option value="ACRE">Acre</option>
+              <option value="BIGHA">Bigha</option>
+              <option value="KATHA">Katha</option>
+              <option value="HECTARE">Hectare</option>
             </Select>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Total Cost *</Label>
-          <Input type="number" min={0} step="any" value={form.totalCost} onChange={(e) => set("totalCost", e.target.value)} required />
+          <Label className={errors.totalCost ? "text-danger" : undefined}>Total Cost (₹) *</Label>
+          <Input type="number" min={0} step="any" value={form.totalCost} onChange={(e) => set("totalCost", e.target.value)} onBlur={() => onBlur("totalCost")} placeholder="e.g. 5000000" required aria-invalid={!!errors.totalCost} className={errors.totalCost ? errorBorder : undefined} />
+          {errors.totalCost && <p className="text-caption text-danger" role="alert">{errors.totalCost}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Registry No.</Label>
-            <Input value={form.registryNo} onChange={(e) => set("registryNo", e.target.value)} />
+            <Input value={form.registryNo} onChange={(e) => set("registryNo", e.target.value)} placeholder="Sale deed / registry number" />
           </div>
           <div className="space-y-1.5">
             <Label>Purchase Date</Label>
@@ -154,12 +201,13 @@ export function LandPurchaseFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Location</Label>
-          <Textarea value={form.location} onChange={(e) => set("location", e.target.value)} rows={2} />
+          <Textarea value={form.location} onChange={(e) => set("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
         </div>
         {!editing && (
           <div className="space-y-1.5">
-            <Label>Initial Parcel Number</Label>
-            <Input value={form.initialParcelNumber} onChange={(e) => set("initialParcelNumber", e.target.value)} placeholder="PLOT-1 (default)" />
+            <Label className={errors.initialParcelNumber ? "text-danger" : undefined}>Initial Parcel Number</Label>
+            <Input value={form.initialParcelNumber} onChange={(e) => set("initialParcelNumber", e.target.value)} onBlur={() => onBlur("initialParcelNumber")} placeholder="PLOT-1 (default)" aria-invalid={!!errors.initialParcelNumber} className={errors.initialParcelNumber ? errorBorder : undefined} />
+            {errors.initialParcelNumber && <p className="text-caption text-danger" role="alert">{errors.initialParcelNumber}</p>}
           </div>
         )}
         <div className="flex justify-end gap-2 pt-2">

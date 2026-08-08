@@ -119,7 +119,8 @@ async function companyInsights(companyId: string): Promise<ModuleInsights> {
     prisma.employee.count({ where: { companyId, deletedAt: null } }),
     prisma.equipment.count({ where: { companyId, deletedAt: null } }),
     prisma.material.count({ where: { deletedAt: null } }),
-    prisma.supplier.count({ where: { deletedAt: null } }),
+    // Supplier has no companyId — scope to suppliers with POs in this company.
+    prisma.supplier.count({ where: { deletedAt: null, purchaseOrders: { some: { companyId } } } }),
     // Use shared service functions — same numbers as the main dashboard
     materialInventoryValue(companyId),
     unsoldAssetValue(companyId),
@@ -215,7 +216,7 @@ async function projectInsights(companyId: string): Promise<ModuleInsights> {
   };
 }
 
-async function phaseInsights(companyId: string): Promise<ModuleInsights> {
+async function phaseInsights(_companyId: string): Promise<ModuleInsights> {
   const phases = await prisma.projectPhase.findMany({
     select: {
       id: true, name: true, status: true, budget: true, startDate: true, endDate: true,
@@ -305,6 +306,7 @@ async function stockLocationInsights(companyId: string): Promise<ModuleInsights>
 }
 
 async function materialCategoryInsights(_companyId: string): Promise<ModuleInsights> {
+  // Global entity — shared across companies (no companyId on MaterialCategory).
   const categories = await prisma.materialCategory.findMany({
     where: { deletedAt: null },
     select: { id: true, name: true, class: true, _count: { select: { materials: true } } },
@@ -328,12 +330,13 @@ async function materialCategoryInsights(_companyId: string): Promise<ModuleInsig
 
 async function materialInsights(companyId: string): Promise<ModuleInsights> {
   // Use shared service functions for consistency with the main dashboard
+  // Material is a global catalog entity (no companyId); stock scoped per company.
   const [materials, inventoryValue, alerts] = await Promise.all([
     prisma.material.findMany({
       where: { deletedAt: null },
       select: {
         id: true, code: true, name: true, unit: true, minStock: true, reorderPoint: true,
-        stockItems: { select: { qty: true, movingAvgCost: true } },
+        stockItems: { where: { location: { companyId } }, select: { qty: true, movingAvgCost: true } },
       },
     }),
     materialInventoryValue(companyId),
@@ -363,10 +366,11 @@ async function materialInsights(companyId: string): Promise<ModuleInsights> {
   };
 }
 
-async function supplierInsights(_companyId: string): Promise<ModuleInsights> {
+async function supplierInsights(companyId: string): Promise<ModuleInsights> {
+  // Supplier has no companyId — scope to suppliers with POs in this company.
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null },
-    select: { id: true, name: true, balanceOwed: true, _count: { select: { purchaseOrders: true } } },
+    where: { deletedAt: null, purchaseOrders: { some: { companyId } } },
+    select: { id: true, name: true, balanceOwed: true, _count: { select: { purchaseOrders: { where: { companyId } } } } },
   });
   const totalOwed = suppliers.reduce((s, sup) => s + Number(sup.balanceOwed), 0);
   return {
@@ -383,9 +387,10 @@ async function supplierInsights(_companyId: string): Promise<ModuleInsights> {
   };
 }
 
-async function subcontractorInsights(_companyId: string): Promise<ModuleInsights> {
+async function subcontractorInsights(companyId: string): Promise<ModuleInsights> {
+  // Subcontractor has no companyId — scope to subcontractors with work orders in this company.
   const subs = await prisma.subcontractor.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, workOrders: { some: { companyId } } },
     select: { id: true, name: true, trade: true, _count: { select: { materialIssues: true, projectCosts: true } } },
   });
   const trades = new Map<string, number>();
@@ -696,7 +701,7 @@ async function landPurchaseInsights(companyId: string): Promise<ModuleInsights> 
     moduleLabel: "Land Purchase",
     stats: [
       { label: "Total Purchases", value: purchases.length, type: "number" },
-      { label: "Total Area", value: totalArea.toLocaleString() + " sqft", type: "number" },
+      { label: "Total Area", value: totalArea.toLocaleString() + " Sq.Ft", type: "number" },
       { label: "Total Cost", value: totalCost, type: "currency" },
       { label: "Total Parcels", value: purchases.reduce((s, p) => s + p._count.parcels, 0), type: "number" },
     ],
@@ -707,8 +712,9 @@ async function landPurchaseInsights(companyId: string): Promise<ModuleInsights> 
 
 async function landParcelInsights(companyId: string): Promise<ModuleInsights> {
   const [parcels, unsoldAssets] = await Promise.all([
+    // LandParcel has no companyId — scope via the parent LandPurchase.companyId.
     prisma.landParcel.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, landPurchase: { companyId } },
       select: { id: true, status: true, area: true, currentValuation: true, askingPrice: true },
     }),
     // Use shared service for unsold value — consistent with dashboard
@@ -754,7 +760,7 @@ async function builtUnitInsights(companyId: string): Promise<ModuleInsights> {
     moduleLabel: "Built Unit",
     stats: [
       { label: "Total Units", value: units.length, type: "number" },
-      { label: "Total Area", value: totalArea.toLocaleString() + " sqft", type: "number" },
+      { label: "Total Area", value: totalArea.toLocaleString() + " Sq.Ft", type: "number" },
       { label: "Unsold Unit Value", value: Number(unsoldAssets.builtUnits.toString()), type: "currency" },
       { label: "Sold", value: (statusCounts.get("SOLD") ?? 0), type: "number" },
       ...Array.from(typeCounts.entries()).map(([type, count]) => ({
@@ -766,14 +772,15 @@ async function builtUnitInsights(companyId: string): Promise<ModuleInsights> {
   };
 }
 
-async function customerInsights(_companyId: string): Promise<ModuleInsights> {
+async function customerInsights(companyId: string): Promise<ModuleInsights> {
+  // Customer has no companyId — scope to customers with sales in this company.
   const customers = await prisma.customer.findMany({
-    where: { deletedAt: null },
-    select: { id: true, name: true, _count: { select: { assetSales: true } } },
+    where: { deletedAt: null, assetSales: { some: { companyId } } },
+    select: { id: true, name: true, _count: { select: { assetSales: { where: { companyId } } } } },
   });
   const [totalSales, totalSaleValue] = await Promise.all([
-    prisma.assetSale.count(),
-    prisma.assetSale.aggregate({ _sum: { salePrice: true } }),
+    prisma.assetSale.count({ where: { companyId } }),
+    prisma.assetSale.aggregate({ where: { companyId }, _sum: { salePrice: true } }),
   ]);
   return {
     model: "Customer",

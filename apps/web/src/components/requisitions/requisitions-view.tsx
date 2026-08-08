@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ClipboardList, ArrowRight, X, Check, RotateCcw, ShoppingCart, Trash2, Download, Zap, Loader2 } from "lucide-react";
+import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Download, Zap, Loader2, Printer, FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
-import { formatDate, formatNumber } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusPill, MetricGrid, Metric } from "@/components/page";
+import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
+import { downloadCSV, downloadExcel } from "@/lib/export";
+import { ComparativeQuotePanel } from "./comparative-quote-panel";
 import type { RequisitionRow, RequisitionStatus } from "@/lib/types";
 
 type ProjectOption = { id: string; name: string };
@@ -20,13 +22,84 @@ type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
 type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" };
 
-const STATUS_VARIANT: Record<RequisitionStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
-  DRAFT: "muted",
-  SUBMITTED: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-  CONVERTED: "default",
-};
+/** Column definitions for the requisitions DataTable. */
+const reqColumns: Column<RequisitionRow>[] = [
+  {
+    key: "reqNumber",
+    label: "Indent No",
+    sortable: true,
+    render: (r) => <span className="font-mono text-caption font-bold text-foreground">{r.reqNumber}</span>,
+  },
+  {
+    key: "projectName",
+    label: "Project",
+    sortable: true,
+    render: (r) => (
+      <div>
+        <span className="font-medium text-foreground">{r.projectName}</span>
+        {r.phaseName && <span className="ml-2 text-caption text-muted-foreground">{r.phaseName}</span>}
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (r) => <StatusPill status={r.status} />,
+  },
+  {
+    key: "lineCount",
+    label: "Items",
+    align: "right",
+    sortable: true,
+    render: (r) => <span className="tnum text-muted-foreground">{r.lineCount}</span>,
+  },
+  {
+    key: "totalQty",
+    label: "Total Qty",
+    align: "right",
+    sortable: true,
+    render: (r) => <span className="tnum text-muted-foreground">{formatNumber(r.totalQty, 3)}</span>,
+  },
+  {
+    key: "requestDate",
+    label: "Requested",
+    sortable: true,
+    sortValue: (r) => new Date(r.requestDate),
+    render: (r) => <span className="tnum text-muted-foreground">{formatDate(r.requestDate)}</span>,
+  },
+  {
+    key: "neededByDate",
+    label: "Needed By",
+    sortable: true,
+    sortValue: (r) => (r.neededByDate ? new Date(r.neededByDate) : new Date(0)),
+    render: (r) => {
+      if (!r.neededByDate) return <span className="text-muted-foreground">—</span>;
+      const isOverdue = new Date(r.neededByDate) < new Date() && r.status !== "CONVERTED" && r.status !== "REJECTED";
+      return (
+        <span className={`tnum ${isOverdue ? "text-danger font-medium" : "text-muted-foreground"}`}>
+          {formatDate(r.neededByDate)}
+        </span>
+      );
+    },
+  },
+  {
+    key: "quotes",
+    label: "Quotes",
+    align: "right",
+    render: (r) => {
+      if (r.status !== "APPROVED") return <span className="text-muted-foreground">—</span>;
+      if (r.quotesWaived) return <span className="text-caption text-muted-foreground">waived</span>;
+      const count = r.quoteCount ?? 0;
+      const min = r.minQuotesRequired ?? 3;
+      return (
+        <span className={`tnum ${count >= min ? "text-success font-medium" : "text-warning font-medium"}`}>
+          {count}/{min}
+        </span>
+      );
+    },
+  },
+];
 
 export function RequisitionsView({
   requisitions,
@@ -54,7 +127,20 @@ export function RequisitionsView({
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoProjectId, setAutoProjectId] = useState("");
   const [autoLoading, setAutoLoading] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<RequisitionRow | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [view, setView] = useState<"list" | "board">("list");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Auto-open convert dialog when navigated with ?req=<id> (e.g. from approvals)
+  useEffect(() => {
+    const reqId = searchParams.get("req");
+    if (reqId) {
+      const req = requisitions.find((r) => r.id === reqId);
+      if (req && req.status === "APPROVED") setConvertTarget(req);
+    }
+  }, [searchParams, requisitions]);
 
   const filtered = statusFilter ? requisitions.filter((r) => r.status === statusFilter) : requisitions;
   const draftCount = requisitions.filter((r) => r.status === "DRAFT").length;
@@ -70,20 +156,34 @@ export function RequisitionsView({
     { status: "APPROVED", label: "Approved", color: "var(--color-stage-procure)" },
   ];
 
-  async function action(reqId: string, action: string) {
+  async function action(reqId: string, action: string, extra?: Record<string, unknown>) {
     try {
       const res = await fetch(`/api/requisitions/${reqId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extra }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`${action} successful`);
+      if (action === "submit") {
+        toast.success("Indent submitted", {
+          description: "It's now in the approval queue.",
+          action: { label: "View Queue", onClick: () => router.push("/approvals") },
+        });
+      } else {
+        toast.success(`${action} successful`);
+      }
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Action failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Action failed"));
     }
+  }
+
+  async function confirmReject() {
+    if (!rejectTarget) return;
+    await action(rejectTarget.id, "reject", { rejectReason: rejectReason.trim() || undefined });
+    setRejectTarget(null);
+    setRejectReason("");
   }
 
   async function generateAuto() {
@@ -110,8 +210,8 @@ export function RequisitionsView({
         toast.info(data.message ?? "Nothing to generate.");
       }
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Auto-generation failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Auto-generation failed"));
     } finally {
       setAutoLoading(false);
     }
@@ -119,26 +219,42 @@ export function RequisitionsView({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 text-body">
-        <span className="text-muted-foreground">{requisitions.length} requisitions</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-medium">{draftCount} drafts</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-warning font-medium">{submittedCount} pending</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-success font-medium">{approvedCount} approved</span>
-      </div>
+      <MetricGrid cols={4}>
+        <Metric label="Total Indents" value={requisitions.length} icon={<ClipboardList />} />
+        <Metric label="Drafts" value={draftCount} tone="muted" />
+        <Metric label="Pending" value={submittedCount} tone="warning" />
+        <Metric label="Approved" value={approvedCount} tone="success" />
+      </MetricGrid>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-          <option value="">All statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="SUBMITTED">Submitted</option>
-          <option value="APPROVED">Approved</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="CONVERTED">Converted</option>
-        </Select>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            <button
+              onClick={() => setView("list")}
+              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setView("board")}
+              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Board
+            </button>
+          </div>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
+            <option value="">All statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="CONVERTED">Converted</option>
+          </Select>
+        </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button variant="outline" onClick={() => downloadCSV(`requisitions-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "reqNumber", label: "Req Number" },
             { key: "projectName", label: "Project" },
@@ -148,15 +264,18 @@ export function RequisitionsView({
             { key: "requestDate", label: "Request Date", format: (v) => v ? formatDate(String(v)) : "" },
             { key: "neededByDate", label: "Needed By", format: (v) => v ? formatDate(String(v)) : "" },
           ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export
+            <Download className="h-4 w-4" /> Export CSV
           </Button>
-          {canCreate && (
+          <Button variant="outline" onClick={() => downloadExcel("purchase-trends")} disabled={filtered.length === 0}>
+            <Download className="h-4 w-4" /> Export Excel
+          </Button>
+          {canCreate && requisitions.length > 0 && (
             <>
               <Button variant="outline" onClick={() => setAutoOpen(true)} disabled={projects.length === 0}>
                 <Zap className="h-4 w-4" /> Auto-generate
               </Button>
               <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
-                <Plus className="h-4 w-4" /> New Requisition
+                <Plus className="h-4 w-4" /> New Indent
               </Button>
             </>
           )}
@@ -164,11 +283,43 @@ export function RequisitionsView({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No requisitions" description="Create a material requisition to request materials for a project." />
+        <EmptyState
+          icon={<ClipboardList className="h-5 w-5" />}
+          title={requisitions.length === 0 ? "No indents yet" : "No indents match the filter"}
+          description={requisitions.length === 0 ? "Create a material indent to request materials for a project site." : "Try a different status filter."}
+          action={requisitions.length === 0 ? (
+            <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
+              <Plus className="h-4 w-4" /> New Indent
+            </Button>
+          ) : undefined}
+        />
       ) : (
         <>
+          {view === "list" ? (
+            /* ── Data Table view (default, enterprise-grade) ──────────
+               Dense, sortable columns. Click a row to open the detail
+               dialog. Switch to Board for the kanban flow view. */
+            <div className="rounded-lg border border-border overflow-hidden">
+              <DataTable
+                data={filtered}
+                initialSort={{ key: "requestDate", direction: "desc" }}
+                columns={reqColumns}
+                onRowClick={(r) => {
+                  if (r.status === "APPROVED") setConvertTarget(r);
+                }}
+                searchable
+                searchPlaceholder="Search by indent no, project…"
+                showTotals
+                sumColumns={["totalQty"]}
+                totalFormat={(_key, sum) => formatNumber(sum, 3)}
+                hideable
+                pageSize={50}
+              />
+            </div>
+          ) : (
+          <>
           {/* ── Pipeline (kanban by status) ───────────────────────────
-              Requisitions flow Draft → Submitted → Approved → Converted.
+              Indents flow Draft → Submitted → Approved → Converted.
               Rejected drop out to a compact section below. Each card
               shows the key info and the action available at that stage. */}
           <div className="flex gap-3 overflow-x-auto pb-2">
@@ -197,7 +348,18 @@ export function RequisitionsView({
                           {/* Req number + status badge */}
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-mono text-caption font-bold text-foreground">{r.reqNumber}</span>
-                            <Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge>
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={`/print/requisition/${r.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground"
+                                title="Print indent"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </a>
+                              <StatusPill status={r.status} />
+                            </div>
                           </div>
 
                           {/* Project + phase */}
@@ -212,6 +374,16 @@ export function RequisitionsView({
                             </span>
                           </div>
 
+                          {/* Quote badge */}
+                          {r.status === "APPROVED" && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <FileText className="h-3 w-3 text-muted-foreground" />
+                              <span className={`text-caption ${r.quotesWaived ? "text-muted-foreground" : (r.quoteCount ?? 0) >= (r.minQuotesRequired ?? 3) ? "text-success font-medium" : "text-warning font-medium"}`}>
+                                {r.quotesWaived ? "Quotes waived" : `Quotes: ${r.quoteCount ?? 0}/${r.minQuotesRequired ?? 3}`}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Actions */}
                           <div className="mt-2.5 flex gap-1.5">
                             {r.status === "DRAFT" && (
@@ -225,7 +397,7 @@ export function RequisitionsView({
                             {r.status === "SUBMITTED" && canApprove && (
                               <>
                                 <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "approve")}><Check className="h-3.5 w-3.5" /> Approve</Button>
-                                <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "reject")}><X className="h-3.5 w-3.5" /> Reject</Button>
+                                <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => { setRejectTarget(r); setRejectReason(""); }}><X className="h-3.5 w-3.5" /> Reject</Button>
                               </>
                             )}
                             {r.status === "SUBMITTED" && !canApprove && (
@@ -260,7 +432,7 @@ export function RequisitionsView({
                     <span className="font-mono text-caption font-bold text-foreground w-28 shrink-0">{r.reqNumber}</span>
                     <span className="flex-1 truncate text-body font-medium">{r.projectName}</span>
                     <span className="text-caption text-muted-foreground shrink-0">{r.lineCount} item{r.lineCount !== 1 ? "s" : ""}</span>
-                    <Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge>
+                    <StatusPill status={r.status} />
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-danger" onClick={() => setDeleting(r)} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -290,6 +462,8 @@ export function RequisitionsView({
               </div>
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -300,13 +474,16 @@ export function RequisitionsView({
           projects={projects}
           phases={phases}
           materials={materials}
+          suppliers={suppliers}
         />
       )}
       {convertTarget && (
         <ConvertDialog
           requisition={convertTarget}
           suppliers={suppliers}
+          materials={materials}
           locations={locations}
+          canApprove={canApprove}
           onOpenChange={(o) => !o && setConvertTarget(null)}
         />
       )}
@@ -315,17 +492,17 @@ export function RequisitionsView({
           open={deleting !== null}
           onOpenChange={(o) => !o && setDeleting(null)}
           endpoint={`/api/requisitions/${deleting.id}`}
-          title="Delete requisition"
-          description={`Delete requisition ${deleting.reqNumber}? Only draft or rejected requisitions can be deleted.`}
-          successMessage="Requisition deleted"
+          title="Delete indent"
+          description={`Delete indent ${deleting.reqNumber}? Only draft or rejected indents can be deleted.`}
+          successMessage="Indent deleted"
         />
       )}
 
       <Dialog
         open={autoOpen}
         onOpenChange={setAutoOpen}
-        title="Auto-generate requisition"
-        description="Creates a DRAFT requisition for every material at or below its reorder point. You still review and submit it."
+        title="Auto-generate indents"
+        description="Creates a DRAFT indent for every material at or below its reorder point. You still review and submit it."
       >
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -338,7 +515,7 @@ export function RequisitionsView({
             </Select>
           </div>
           <p className="text-meta text-muted-foreground">
-            Materials already covered by an open requisition for this project are skipped. Quantities use the
+            Materials already covered by an open indent for this project are skipped. Quantities use the
             material&apos;s EOQ when set, otherwise replenish to 2× reorder point.
           </p>
           <div className="flex justify-end gap-2">
@@ -347,6 +524,29 @@ export function RequisitionsView({
               {autoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               Generate
             </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={!!rejectTarget}
+        onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(""); } }}
+        title={`Reject ${rejectTarget?.reqNumber ?? ""}`}
+        description="Provide a reason for rejecting this indent. The requester will see it."
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Reason</Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Insufficient budget, duplicate request, wrong material spec…"
+              rows={3}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
+            <Button type="button" variant="destructive" onClick={confirmReject}><X className="h-4 w-4" /> Reject</Button>
           </div>
         </div>
       </Dialog>
@@ -360,12 +560,14 @@ function RequisitionFormDialog({
   projects,
   phases,
   materials,
+  suppliers,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   projects: ProjectOption[];
   phases: PhaseOption[];
   materials: MaterialOption[];
+  suppliers: SupplierOption[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -375,9 +577,29 @@ function RequisitionFormDialog({
     neededByDate: "",
     notes: "",
   });
-  const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; notes: string }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "" }]);
+  const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; notes: string; preferredSupplierId: string; stockLoading: boolean; currentStock: number | null; stockUnit: string | null }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
 
   const filteredPhases = form.projectId ? phases.filter((p) => p.projectId === form.projectId) : [];
+
+  async function fetchStockContext(i: number, materialId: string) {
+    if (!materialId) {
+      setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, currentStock: null, stockUnit: null, stockLoading: false } : l));
+      return;
+    }
+    setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, stockLoading: true } : l));
+    try {
+      const res = await fetch(`/api/stock/available?materialId=${materialId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const mat = materials.find((m) => m.id === materialId);
+        setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, currentStock: data.totalQty ?? 0, stockUnit: mat?.unit ?? null, stockLoading: false } : l));
+      } else {
+        setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, stockLoading: false } : l));
+      }
+    } catch {
+      setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, stockLoading: false } : l));
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -398,18 +620,19 @@ function RequisitionFormDialog({
             materialId: l.materialId,
             qtyRequested: Number(l.qty),
             notes: l.notes.trim() || null,
+            preferredSupplierId: l.preferredSupplierId || null,
           })),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Requisition created");
+      toast.success(`Indent ${data.reqNumber ?? ""} created`);
       onOpenChange(false);
       setForm({ projectId: "", phaseId: "", neededByDate: "", notes: "" });
-      setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "" }]);
+      setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setSaving(false);
     }
@@ -420,8 +643,8 @@ function RequisitionFormDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="New Material Requisition"
-      description="Request materials for a project. Submit it for approval, then convert to a purchase order."
+      title="New Material Indent (Demand Slip)"
+      description="Request materials for a project site. The approver sees current stock and last purchase rate to decide."
       className="max-w-2xl"
     >
       <form onSubmit={save} className="space-y-3">
@@ -449,18 +672,43 @@ function RequisitionFormDialog({
         <div className="space-y-2">
           <Label>Lines</Label>
           {lines.map((line, i) => (
-            <div key={line.id} className="flex gap-2">
-              <Select value={line.materialId} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: e.target.value } : l))} className="flex-1">
-                <option value="">Select material…</option>
-                {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
-              </Select>
-              <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
-              <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1}>
-                <X className="h-4 w-4" />
-              </Button>
+            <div key={line.id} className="space-y-1 rounded-md border p-2">
+              <div className="flex gap-2">
+                <Select value={line.materialId} onChange={(e) => { setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: e.target.value } : l)); fetchStockContext(i, e.target.value); }} className="flex-1">
+                  <option value="">Select material…</option>
+                  {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
+                </Select>
+                <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
+                <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1} aria-label="Remove line">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              {/* Stock context — demand-slip enrichment */}
+              {line.materialId && (
+                <div className="flex items-center gap-2 px-1 text-caption text-muted-foreground">
+                  {line.stockLoading ? (
+                    <span className="animate-pulse">Checking stock…</span>
+                  ) : line.currentStock !== null ? (
+                    <span>
+                      Current stock:{" "}
+                      <span className={`tnum font-medium ${line.currentStock > 0 ? "text-foreground" : "text-danger"}`}>
+                        {line.currentStock} {line.stockUnit ?? ""}
+                      </span>
+                      {line.currentStock <= 0 && <span className="ml-1 text-danger">— out of stock</span>}
+                    </span>
+                  ) : null}
+                </div>
+              )}
+              {/* Preferred supplier */}
+              {line.materialId && (
+                <Select value={line.preferredSupplierId} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, preferredSupplierId: e.target.value } : l))}>
+                  <option value="">No preferred supplier</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              )}
             </div>
           ))}
-          <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", notes: "" }])}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }])}>
             <Plus className="h-3.5 w-3.5" /> Add Line
           </Button>
         </div>
@@ -481,12 +729,16 @@ function RequisitionFormDialog({
 function ConvertDialog({
   requisition,
   suppliers,
+  materials,
   locations,
+  canApprove,
   onOpenChange,
 }: {
   requisition: RequisitionRow;
   suppliers: SupplierOption[];
+  materials: MaterialOption[];
   locations: LocationOption[];
+  canApprove: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
   const router = useRouter();
@@ -505,7 +757,7 @@ function ConvertDialog({
   useEffect(() => {
     fetch(`/api/requisitions/${requisition.id}`)
       .then((r) => r.json())
-      .then((d) => setDetail(d))
+      .then((d) => { if (!d.error) setDetail(d); })
       .catch(() => toast.error("Failed to load requisition details"));
   }, [requisition.id]);
 
@@ -540,8 +792,8 @@ function ConvertDialog({
       toast.success(`PO created: ${data.poNumber}`);
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setSaving(false);
     }
@@ -566,7 +818,7 @@ function ConvertDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Procurement Scope</Label>
-            <Select value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as any }))}>
+            <Select value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as "COMPANY" | "PROJECT" }))}>
               <option value="PROJECT">Project</option>
               <option value="COMPANY">Company</option>
             </Select>
@@ -587,6 +839,31 @@ function ConvertDialog({
             <Input type="date" value={form.expectedDate} onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))} />
           </div>
         </div>
+
+        {/* ── Comparative Quote Engine ── */}
+        {detail && (
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-label font-semibold text-foreground">Vendor Quotes</span>
+              <span className="text-caption text-muted-foreground">— upload ≥3 quotes, system flags the cheapest</span>
+            </div>
+            <ComparativeQuotePanel
+              requisitionId={requisition.id}
+              reqNumber={requisition.reqNumber}
+              requisitionLines={detail.lines.map((l) => ({
+                materialId: l.materialId,
+                materialCode: l.materialCode,
+                materialName: l.materialName,
+                unit: l.unit,
+                qtyRequested: l.qtyRequested,
+              }))}
+              suppliers={suppliers}
+              materials={materials}
+              canApprove={canApprove}
+              canCreate={true}
+            />
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>Line Costs (unit cost per material)</Label>

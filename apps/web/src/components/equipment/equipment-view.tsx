@@ -1,13 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Wrench, Eye, Download, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Wrench, Download, Pencil, Trash2, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
+import { statusColor, MetricGrid, Metric } from "@/components/page";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { EquipmentFormDialog } from "./equipment-form-dialog";
 import { EquipmentEditDialog } from "./equipment-edit-dialog";
@@ -17,13 +16,6 @@ import { downloadCSV } from "@/lib/export";
 import type {
   EquipmentRow, EquipmentStatus, StockLocationRow, ProjectOption,
 } from "@/lib/types";
-
-const STATUS_VARIANT: Record<EquipmentStatus, "default" | "success" | "warning" | "muted"> = {
-  AVAILABLE: "success",
-  ASSIGNED: "default",
-  IN_MAINTENANCE: "warning",
-  RETIRED: "muted",
-};
 
 const CATEGORIES = ["Heavy Machinery", "Power Tool", "Vehicle", "Scaffolding", "Other"];
 
@@ -40,8 +32,10 @@ export function EquipmentView({
 }) {
   const canCreate = permissions?.canCreate ?? true;
   const canEdit = permissions?.canEdit ?? true;
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EquipmentRow | null>(null);
   const [delTarget, setDelTarget] = useState<EquipmentRow | null>(null);
@@ -51,24 +45,24 @@ export function EquipmentView({
     () => equipment.filter((e) => {
       if (statusFilter && e.status !== statusFilter) return false;
       if (categoryFilter && e.category !== categoryFilter) return false;
+      if (query.trim()) {
+        const q = query.toLowerCase();
+        if (!e.name.toLowerCase().includes(q) &&
+            !(e.assetTag ?? "").toLowerCase().includes(q) &&
+            !(e.model ?? "").toLowerCase().includes(q) &&
+            !(e.serialNumber ?? "").toLowerCase().includes(q)) {
+          return false;
+        }
+      }
       return true;
     }),
-    [equipment, statusFilter, categoryFilter],
+    [equipment, statusFilter, categoryFilter, query],
   );
 
-  const availableCount = filtered.filter((e) => e.status === "AVAILABLE").length;
-  const assignedCount = filtered.filter((e) => e.status === "ASSIGNED").length;
-  const maintenanceCount = filtered.filter((e) => e.status === "IN_MAINTENANCE").length;
-  const retiredCount = filtered.filter((e) => e.status === "RETIRED").length;
-  const totalCurrentValue = filtered.reduce((s, e) => s + e.currentValue, 0);
-
-  // Status → color
-  const statusColors: Record<EquipmentStatus, string> = {
-    AVAILABLE: "var(--color-stage-sell)",
-    ASSIGNED: "var(--color-stage-manage)",
-    IN_MAINTENANCE: "var(--color-warning)",
-    RETIRED: "var(--color-muted-foreground)",
-  };
+  const availableCount = equipment.filter((e) => e.status === "AVAILABLE").length;
+  const assignedCount = equipment.filter((e) => e.status === "ASSIGNED").length;
+  const maintenanceCount = equipment.filter((e) => e.status === "IN_MAINTENANCE").length;
+  const totalCurrentValue = equipment.reduce((s, e) => s + e.currentValue, 0);
 
   // Group by status for the board
   const columns: { status: EquipmentStatus; label: string; items: EquipmentRow[] }[] = [
@@ -80,22 +74,27 @@ export function EquipmentView({
 
   return (
     <div className="space-y-5">
-      {/* Summary — inline, no cards */}
-      <div className="flex items-center gap-4 text-body">
-        <span className="text-muted-foreground">{filtered.length} items</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-success font-medium">{availableCount} available</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-medium">{assignedCount} assigned</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-warning font-medium">{maintenanceCount} maintenance</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="tnum font-medium">{formatCurrency(totalCurrentValue)}</span>
-      </div>
+      <MetricGrid cols={4}>
+        <Metric label="Total Equipment" value={equipment.length} icon={<Wrench />} />
+        <Metric label="Available" value={availableCount} tone="success" />
+        <Metric label="Assigned" value={assignedCount} tone="brand" />
+        <Metric label="In Maintenance" value={maintenanceCount} tone="warning" sub={formatCurrency(totalCurrentValue)} />
+      </MetricGrid>
 
       {/* Filters + New button */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+          <div className="relative sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, tag, model…" className="pl-8" />
+          </div>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
+            <option value="">All statuses</option>
+            <option value="AVAILABLE">Available</option>
+            <option value="ASSIGNED">Assigned</option>
+            <option value="IN_MAINTENANCE">In Maintenance</option>
+            <option value="RETIRED">Retired</option>
+          </Select>
           <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="sm:max-w-[180px]">
             <option value="">All categories</option>
             {CATEGORIES.map((c) => (
@@ -104,6 +103,9 @@ export function EquipmentView({
           </Select>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button variant="outline" onClick={() => downloadCSV(`equipment-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "assetTag", label: "Asset Tag" },
             { key: "name", label: "Name" },
@@ -115,7 +117,7 @@ export function EquipmentView({
           ])} disabled={filtered.length === 0}>
             <Download className="h-4 w-4" /> Export
           </Button>
-          {canCreate && (
+          {canCreate && equipment.length > 0 && (
             <Button onClick={() => setFormOpen(true)}>
               <Plus className="h-4 w-4" /> New Equipment
             </Button>
@@ -149,7 +151,7 @@ export function EquipmentView({
             <div key={col.status} className="flex w-72 shrink-0 flex-col">
               {/* Column header */}
               <div className="mb-2 flex items-center gap-2 px-1">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColors[col.status] }} />
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColor(col.status) }} />
                 <span className="text-label text-muted-foreground">{col.label}</span>
                 <span className="ml-auto text-caption font-semibold tnum text-muted-foreground">{col.items.length}</span>
               </div>

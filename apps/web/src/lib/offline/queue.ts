@@ -192,6 +192,7 @@ export async function syncQueue(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(op.payload),
+        credentials: "include",
       });
       if (res.ok) {
         const result = await res.json().catch(() => null);
@@ -205,10 +206,10 @@ export async function syncQueue(
         op.error = (body && (body.error || body.message)) || `HTTP ${res.status}`;
         failed += 1;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Network failure — leave it PENDING so it retries next sync.
       op.status = "PENDING";
-      op.error = err?.message ?? "Network error";
+      op.error = (err instanceof Error ? err.message : "Network error");
       // Stop syncing on network errors — the rest will likely fail too.
       await updateOp(op);
       break;

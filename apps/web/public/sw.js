@@ -16,11 +16,11 @@
  * fetch logic (with credentials); the SW is just the wake-up trigger.
  */
 
-const SHELL_CACHE = "nirman-shell-v1";
+const SHELL_CACHE = "nirman-shell-v2";
 const ASSET_CACHE = "nirman-assets-v1";
 const API_CACHE = "nirman-api-v1";
 
-const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon.svg", "/field"];
+const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon.svg", "/field", "/m/site/field"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

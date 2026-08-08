@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { TrendingDown, TrendingUp, AlertTriangle, Home, Building2, Layers, Maximize2, ArrowRight, Hammer, Pause } from "lucide-react";
+import { TrendingDown, TrendingUp, AlertTriangle, Home, Building2, Layers, Maximize2, ArrowRight, Hammer, Pause, CircleDollarSign } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill, statusColor } from "@/components/page";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import type { BuiltUnitRow, BuiltUnitStatus, BuiltUnitType } from "@/lib/types";
 
@@ -15,45 +15,35 @@ const STATUS_LABELS: Record<BuiltUnitStatus, string> = {
   PLANNED: "Planned",
   UNDER_CONSTRUCTION: "Construction",
   AVAILABLE: "Available",
+  RESERVED: "Reserved",
   HOLD: "Hold",
   SOLD: "Sold",
-};
-
-const STATUS_COLORS: Record<BuiltUnitStatus, string> = {
-  PLANNED: "var(--color-muted-foreground)",
-  UNDER_CONSTRUCTION: "var(--color-warning)",
-  AVAILABLE: "var(--color-stage-sell)",
-  HOLD: "var(--color-stage-manage)",
-  SOLD: "var(--color-danger)",
-};
-
-const STATUS_VARIANT: Record<BuiltUnitStatus, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PLANNED: "muted",
-  UNDER_CONSTRUCTION: "warning",
-  AVAILABLE: "success",
-  HOLD: "default",
-  SOLD: "danger",
+  RENTED: "Rented",
 };
 
 const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
   BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
-  SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", OTHER: "Other",
+  SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", VILLA: "Villa", OTHER: "Other",
 };
 
 const VALID_TRANSITIONS: Record<BuiltUnitStatus, BuiltUnitStatus[]> = {
   PLANNED: ["UNDER_CONSTRUCTION"],
   UNDER_CONSTRUCTION: ["AVAILABLE", "PLANNED"],
-  AVAILABLE: ["HOLD", "UNDER_CONSTRUCTION"],
+  AVAILABLE: ["RESERVED", "HOLD", "UNDER_CONSTRUCTION"],
+  RESERVED: ["AVAILABLE", "SOLD"],
   HOLD: ["AVAILABLE"],
   SOLD: [],
+  RENTED: ["AVAILABLE"],
 };
 
 const TRANSITION_BUTTON_CONFIG: Record<BuiltUnitStatus, { icon: typeof Hammer; title: string }> = {
   PLANNED: { icon: ArrowRight, title: "Revert to Planned" },
   UNDER_CONSTRUCTION: { icon: Hammer, title: "Start Construction" },
   AVAILABLE: { icon: ArrowRight, title: "Mark Available" },
+  RESERVED: { icon: CircleDollarSign, title: "Reserved" },
   HOLD: { icon: Pause, title: "Put on Hold" },
   SOLD: { icon: ArrowRight, title: "Sold" },
+  RENTED: { icon: ArrowRight, title: "Rented" },
 };
 
 export function UnitValuationDialog({
@@ -126,13 +116,19 @@ export function UnitValuationDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to update valuation");
-      toast.success("Valuation updated");
+      toast.success("Valuation updated", {
+        description: unit.status === "AVAILABLE" ? "This unit is available for sale." : undefined,
+        action: unit.status === "AVAILABLE" ? {
+          label: "Sell This Unit",
+          onClick: () => router.push(`/units?unit=${unit.id}&action=sell`),
+        } : undefined,
+      });
       // Optimistic callback before closing
       onValuationUpdated?.(unit.id, { askingPrice: newAsking, currentValuation: newValuation });
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -149,13 +145,19 @@ export function UnitValuationDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Status change failed");
-      toast.success(`Marked as ${STATUS_LABELS[newStatus]}`);
+      toast.success(`Marked as ${STATUS_LABELS[newStatus]}`, {
+        description: newStatus === "AVAILABLE" ? "Set an asking price and sell this unit." : undefined,
+        action: newStatus === "AVAILABLE" ? {
+          label: "Set Asking Price",
+          onClick: () => router.push(`/units?unit=${unit.id}&action=valuate`),
+        } : undefined,
+      });
       // Optimistic callback before closing
       onStatusChanged?.(unit.id, newStatus);
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setChangingStatus(false);
     }
@@ -187,14 +189,14 @@ export function UnitValuationDialog({
       <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `color-mix(in oklch, ${STATUS_COLORS[unit.status]} 12%, transparent)` }}
+          style={{ backgroundColor: `color-mix(in oklch, ${statusColor(unit.status)} 12%, transparent)` }}
         >
-          <Home className="h-5 w-5" style={{ color: STATUS_COLORS[unit.status] }} />
+          <Home className="h-5 w-5" style={{ color: statusColor(unit.status) }} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-body font-bold text-foreground">{UNIT_TYPE_LABELS[unit.unitType]}</span>
-            <Badge variant={STATUS_VARIANT[unit.status]} className="text-micro">{STATUS_LABELS[unit.status]}</Badge>
+            <StatusPill status={unit.status} />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
             <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{unit.projectName}</span>
@@ -255,7 +257,7 @@ export function UnitValuationDialog({
           accent={unit.askingPrice ? "foreground" : "muted"}
         />
         <SummaryCell
-          label="Price / Sqft"
+          label="Price / Sq.Ft"
           value={existingPricePerSqft != null ? `${formatNumber(existingPricePerSqft, 0)} ₹` : "—"}
         />
         {existingMargin != null && unit.productionCost > 0 && (
@@ -268,7 +270,7 @@ export function UnitValuationDialog({
         )}
         {currentPricePerSqft != null && (
           <SummaryCell
-            label="Valuation / Sqft"
+            label="Valuation / Sq.Ft"
             value={`${formatNumber(currentPricePerSqft, 0)} ₹`}
           />
         )}

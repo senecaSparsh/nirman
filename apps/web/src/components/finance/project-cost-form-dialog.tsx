@@ -48,7 +48,7 @@ export function ProjectCostFormDialog({
     if (open && editing) {
       setForm({
         projectId: editing.projectId ?? "",
-        costType: (COST_TYPES.includes(editing.costType as any) ? editing.costType : "LABOUR") as (typeof COST_TYPES)[number],
+        costType: (COST_TYPES.includes(editing.costType as (typeof COST_TYPES)[number]) ? editing.costType : "LABOUR") as (typeof COST_TYPES)[number],
         amount: String(editing.amount ?? ""),
         date: editing.date ? editing.date.slice(0, 10) : todayISO(),
         vendor: editing.vendor ?? "",
@@ -99,8 +99,8 @@ export function ProjectCostFormDialog({
       toast.success(editing ? "Project cost updated" : "Project cost added");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

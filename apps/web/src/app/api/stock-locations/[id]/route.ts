@@ -26,11 +26,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "Project not found or deleted" }, { status: 400 });
     }
   }
-  const updated = await prisma.stockLocation.update({
-    where: { id },
-    data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
-  });
-  return json(updated);
+  try {
+    const updated = await prisma.stockLocation.update({
+      where: { id },
+      data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
+    });
+    return json(updated);
+  } catch {
+    return json({ error: "Stock location not found" }, { status: 404 });
+  }
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {

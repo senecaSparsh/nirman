@@ -1,8 +1,53 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { createTailwindMerge, getDefaultConfig } from "tailwind-merge";
+
+/**
+ * Custom twMerge that understands the design system's semantic font-size
+ * utilities.
+ *
+ * The design system defines font-size utilities in globals.css via
+ * `@utility` (text-micro, text-caption, text-meta, text-body, text-title,
+ * text-label, text-figure, text-figure-lg, text-section). tailwind-merge
+ * sees the `text-*` prefix and assumes these are text-COLOR utilities, so
+ * it strips `text-primary-foreground` / `text-white` off buttons that also
+ * carry one of these size classes — producing invisible black text on dark
+ * button backgrounds. Adding a validator to the `font-size` group makes
+ * twMerge treat them as sizes (which don't conflict with colors) so both
+ * coexist correctly.
+ */
+const CUSTOM_FONT_SIZES = new Set([
+  "micro",
+  "caption",
+  "meta",
+  "body",
+  "title",
+  "label",
+  "figure",
+  "figure-lg",
+  "section",
+]);
+
+const twMergeCustom = createTailwindMerge(() => {
+  const config = getDefaultConfig();
+  // The font-size group is [{ text: [themeId, ...validators] }].
+  // Append a validator that matches our custom @utility font-size classes
+  // so twMerge recognizes them as sizes, not text colors. The default config
+  // types are readonly, so we cast to a mutable shape to extend the tuple.
+  const fontSizeGroup = config.classGroups["font-size"] as unknown as {
+    text: unknown[];
+  }[];
+  const entry = fontSizeGroup[0];
+  if (entry) {
+    entry.text = [
+      ...entry.text,
+      (suffix: string) => CUSTOM_FONT_SIZES.has(suffix),
+    ];
+  }
+  return config;
+});
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return twMergeCustom(clsx(inputs));
 }
 
 export function formatCurrency(value: number | string | null | undefined, currency = "INR") {

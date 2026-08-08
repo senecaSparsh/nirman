@@ -1,32 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ShoppingCart, Users, ArrowRight, Eye, Download, Phone, Mail } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Plus, Pencil, Trash2, ShoppingCart, Users, Download, Phone, Mail, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { StatusPill, MetricGrid, Metric } from "@/components/page";
 import { CustomerFormDialog } from "./customer-form-dialog";
 import { SellAssetDialog } from "./sell-asset-dialog";
 import { SaleDetailDialog } from "./sale-detail-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { downloadCSV, downloadExcel } from "@/lib/export";
 import type { AssetSaleRow, CustomerRow } from "@/lib/types";
-
-const SALE_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  ACTIVE: "success",
-  CANCELLED: "danger",
-};
-
-const PAYMENT_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  PENDING: "muted",
-  PARTIAL: "warning",
-  PAID: "success",
-};
 
 export function SalesView({
   sales,
@@ -40,6 +28,8 @@ export function SalesView({
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
   const [tab, setTab] = useState(defaultTab);
+  const searchParams = useSearchParams();
+  const autoOpenSaleId = searchParams.get("sale");
 
   const customerOptions = useMemo(
     () => customers.map((c) => ({ id: c.id, name: c.name })),
@@ -59,7 +49,7 @@ export function SalesView({
         </TabsList>
 
         <TabsContent value="sales">
-          <SalesTab sales={sales} customers={customerOptions} permissions={permissions} onAddCustomer={() => setTab("customers")} />
+          <SalesTab sales={sales} customers={customerOptions} permissions={permissions} onAddCustomer={() => setTab("customers")} autoOpenSaleId={autoOpenSaleId} />
         </TabsContent>
         <TabsContent value="customers">
           <CustomersTab customers={customers} permissions={permissions} />
@@ -78,36 +68,81 @@ function SalesTab({
   customers,
   permissions,
   onAddCustomer,
+  autoOpenSaleId,
 }: {
   sales: AssetSaleRow[];
   customers: { id: string; name: string }[];
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
   onAddCustomer?: () => void;
+  autoOpenSaleId?: string | null;
 }) {
   const [statusFilter, setStatusFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
+  const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
+  const router = useRouter();
+
+  // Auto-open sale detail when navigated with ?sale={id}
+  useEffect(() => {
+    if (autoOpenSaleId && sales.length > 0) {
+      const sale = sales.find((s) => s.id === autoOpenSaleId);
+      if (sale) setSelected(sale);
+    }
+  }, [autoOpenSaleId, sales]);
 
   const filtered = useMemo(
     () => sales.filter((s) => {
       if (statusFilter && s.status !== statusFilter) return false;
+      if (stageFilter && s.saleStage !== stageFilter) return false;
       if (payFilter && s.paymentStatus !== payFilter) return false;
+      if (query.trim()) {
+        const q = query.toLowerCase();
+        if (!s.customerName.toLowerCase().includes(q) &&
+            !(s.saleNumber ?? "").toLowerCase().includes(q) &&
+            !(s.projectName ?? "").toLowerCase().includes(q) &&
+            !(s.landParcelNumber ?? "").toLowerCase().includes(q) &&
+            !(s.builtUnitNumber ?? "").toLowerCase().includes(q)) {
+          return false;
+        }
+      }
       return true;
     }),
-    [sales, statusFilter, payFilter],
+    [sales, statusFilter, stageFilter, payFilter, query],
   );
 
   const totalRevenue = filtered.filter((s) => s.status !== "CANCELLED").reduce((sum, s) => sum + s.salePrice, 0);
   const totalCollected = filtered.filter((s) => s.status !== "CANCELLED").reduce((sum, s) => sum + s.totalPaid, 0);
+  const activeCount = sales.filter((s) => s.status === "ACTIVE").length;
+  const reservedCount = sales.filter((s) => s.saleStage === "DEPOSIT_RECEIVED").length;
+  const pendingPayments = sales.filter((s) => s.status !== "CANCELLED" && s.paymentStatus !== "PAID").length;
 
   return (
     <div className="space-y-4">
+      <MetricGrid cols={4}>
+        <Metric label="Total Sales" value={sales.length} icon={<ShoppingCart />} />
+        <Metric label="Active" value={activeCount} tone="brand" />
+        <Metric label="Total Revenue" value={formatCurrency(totalRevenue)} tone="brand" sub={`${formatCurrency(totalCollected)} collected`} />
+        <Metric label="Pending Payments" value={pendingPayments} tone={pendingPayments > 0 ? "warning" : "muted"} />
+      </MetricGrid>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+          <div className="relative sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customer, sale no, project…" className="pl-8" />
+          </div>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
+            <option value="CANCELLED">Cancelled</option>
+          </Select>
+          <Select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} className="sm:max-w-[180px]">
+            <option value="">All stages</option>
+            <option value="PENDING">Pending</option>
+            <option value="DEPOSIT_RECEIVED">Deposit Received</option>
+            <option value="COMPLETED">Completed</option>
             <option value="CANCELLED">Cancelled</option>
           </Select>
           <Select value={payFilter} onChange={(e) => setPayFilter(e.target.value)} className="sm:max-w-[180px]">
@@ -118,6 +153,9 @@ function SalesTab({
           </Select>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button variant="outline" onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "saleNumber", label: "Sale No." },
             { key: "assetType", label: "Asset Type" },
@@ -131,9 +169,12 @@ function SalesTab({
             { key: "paymentStatus", label: "Payment" },
             { key: "saleDate", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
           ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export
+            <Download className="h-4 w-4" /> Export CSV
           </Button>
-          {(permissions?.canCreateSale ?? true) && (
+          <Button variant="outline" onClick={() => downloadExcel("sales-revenue")} disabled={filtered.length === 0}>
+            <Download className="h-4 w-4" /> Export Excel
+          </Button>
+          {(permissions?.canCreateSale ?? true) && sales.length > 0 && (
             <Button onClick={() => setFormOpen(true)} disabled={customers.length === 0}>
               <Plus className="h-4 w-4" /> New Sale
             </Button>
@@ -193,6 +234,7 @@ function SalesTab({
                   <span
                     className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${
                       isCancelled ? "bg-danger" :
+                      s.saleStage === "DEPOSIT_RECEIVED" ? "bg-warning" :
                       s.paymentStatus === "PAID" ? "bg-success" :
                       s.paymentStatus === "PARTIAL" ? "bg-warning" :
                       "bg-muted-foreground/40"
@@ -240,8 +282,11 @@ function SalesTab({
 
                     {/* Status badges */}
                     <div className="mt-1.5 flex items-center gap-2">
-                      <Badge variant={SALE_STATUS_VARIANT[s.status] ?? "muted"}>{s.status}</Badge>
-                      <Badge variant={PAYMENT_STATUS_VARIANT[s.paymentStatus] ?? "muted"}>{s.paymentStatus}</Badge>
+                      <StatusPill status={s.status} />
+                      {s.saleStage && s.saleStage !== "COMPLETED" && (
+                        <StatusPill status={s.saleStage} />
+                      )}
+                      <StatusPill status={s.paymentStatus} />
                       {s.profit !== 0 && (
                         <span className={`text-micro tnum font-medium ${s.profit >= 0 ? "text-success" : "text-danger"}`}>
                           {s.profit >= 0 ? "+" : ""}{formatCurrency(s.profit)}
@@ -277,6 +322,7 @@ function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; pe
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [deleting, setDeleting] = useState<CustomerRow | null>(null);
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -295,9 +341,16 @@ function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; pe
         <div className="relative sm:max-w-xs">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers…" />
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} disabled={!(permissions?.canManage ?? true)}>
-          <Plus className="h-4 w-4" /> New Customer
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          {customers.length > 0 && (
+            <Button onClick={() => { setEditing(null); setFormOpen(true); }} disabled={!(permissions?.canManage ?? true)}>
+              <Plus className="h-4 w-4" /> New Customer
+            </Button>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (

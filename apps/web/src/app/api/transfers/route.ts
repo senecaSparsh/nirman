@@ -9,11 +9,17 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const transfers = await prisma.stockTransfer.findMany({
-    where: { fromLocation: { companyId: company.id } },
+    // Both sides of an inter-company STO see it.
+    where: {
+      OR: [
+        { fromLocation: { companyId: company.id } },
+        { toLocation: { companyId: company.id } },
+      ],
+    },
     orderBy: { createdAt: "desc" },
     include: {
-      fromLocation: { select: { id: true, name: true, type: true } },
-      toLocation: { select: { id: true, name: true, type: true } },
+      fromLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
+      toLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
       lines: { include: { material: { select: { name: true } } } },
     },
   });
@@ -23,9 +29,11 @@ export const GET = apiHandler(async () => {
       fromLocationId: t.fromLocationId,
       fromLocationName: t.fromLocation.name,
       fromLocationType: t.fromLocation.type,
+      fromCompanyName: t.fromLocation.company?.name ?? null,
       toLocationId: t.toLocationId,
       toLocationName: t.toLocation.name,
       toLocationType: t.toLocation.type,
+      toCompanyName: t.toLocation.company?.name ?? null,
       status: t.status,
       transferDate: t.transferDate.toISOString(),
       notes: t.notes,
@@ -33,6 +41,8 @@ export const GET = apiHandler(async () => {
       lineCount: t.lines.length,
       totalQty: t.lines.reduce((s, l) => s + toNum(l.qty), 0),
       materials: t.lines.map((l) => l.material.name),
+      isInterCompany: t.isInterCompany,
+      transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
     })),
   );
 });
@@ -55,7 +65,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       lines: parsed.data.lines,
     });
     return json(transfer, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create transfer" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create transfer") }, { status: 400 });
   }
 });

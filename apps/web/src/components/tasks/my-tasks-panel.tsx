@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  CheckCircle2, Circle, Clock, AlertCircle, PlayCircle,
+  CheckCircle2, Circle, AlertCircle, PlayCircle,
   Calendar, Flag, MessageSquare, ExternalLink, Loader2,
   ClipboardList,
 } from "lucide-react";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { usePermissions } from "@/lib/permissions";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface MyTask {
   id: string;

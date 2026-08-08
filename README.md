@@ -47,7 +47,11 @@ docs/             design + architecture docs
 2. **Assets** (outputs): Land parcels (partitionable into sub-plots) + Built units (BHKs/shops/
    offices/warehouses) → status board → sale to customer → payments → profit.
 
-See `docs/INVENTORY_OS_DESIGN.md` for the full design and phased roadmap.
+> **📖 Full platform specification**: [`docs/PLATFORM.md`](docs/PLATFORM.md) — the single
+> source of truth (2,500+ lines, 36 sections). It merges all prior design, logic, and
+> architecture docs and extends them with a live codebase audit (101 Prisma models, 51
+> service files, 180 API handlers, 144 UI pages, 187 components). The individual docs in
+> `docs/` are retained for git history but superseded by `PLATFORM.md`.
 
 ## Key business rules (first-class in the schema)
 

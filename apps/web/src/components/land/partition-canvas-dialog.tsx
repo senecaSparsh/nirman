@@ -3,16 +3,23 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, AlertCircle, Layers } from "lucide-react";
+import { Check, AlertCircle, Layers, Construction } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { rectangle, type Polygon } from "@nirman/services";
 import { PartitionCanvas, type PlotResult } from "./partition-canvas";
 import type { LandParcelRow } from "@/lib/types";
 
-type PlotForm = { number: string; askingPrice: string };
+type PlotForm = {
+  number: string;
+  askingPrice: string;
+  isInfrastructure: boolean;
+  weightFactor: string;
+};
+
+type AllocationModel = "PRO_RATA" | "MARKET_VALUE";
 
 export function PartitionCanvasDialog({
   open,
@@ -27,6 +34,8 @@ export function PartitionCanvasDialog({
   const [saving, setSaving] = useState(false);
   const [plots, setPlots] = useState<PlotResult[]>([]);
   const [forms, setForms] = useState<PlotForm[]>([]);
+  const [allocationModel, setAllocationModel] = useState<AllocationModel>("PRO_RATA");
+  const [developmentCost, setDevelopmentCost] = useState("");
 
   // Derive the parent polygon. If the parcel has stored geometry, use it;
   // otherwise default to a rectangle (aspect ratio ~golden for visual appeal).
@@ -40,7 +49,12 @@ export function PartitionCanvasDialog({
     // Sync forms — preserve existing entries, add new ones for new plots
     setForms((prev) => {
       const next = newPlots.map((_, i) =>
-        prev[i] ?? { number: `PLOT-${i + 1}`, askingPrice: "" },
+        prev[i] ?? {
+          number: `PLOT-${i + 1}`,
+          askingPrice: "",
+          isInfrastructure: false,
+          weightFactor: "",
+        },
       );
       return next;
     });
@@ -56,9 +70,31 @@ export function PartitionCanvasDialog({
 
   const allHaveNumbers = forms.every((f) => f.number.trim() !== "");
   const hasMinPlots = plots.length >= 2;
-  const canSubmit = hasMinPlots && allHaveNumbers && !saving && areaMatches;
+  const saleableCount = forms.filter((f) => !f.isInfrastructure).length;
+  const canSubmit = hasMinPlots && allHaveNumbers && !saving && areaMatches && saleableCount >= 1;
 
-  function updateForm(idx: number, key: keyof PlotForm, value: string) {
+  // Cost allocation preview (mirrors server logic)
+  const devCost = developmentCost ? Number(developmentCost) || 0 : 0;
+  const totalBasis = (parcel?.acquisitionCost ?? 0) + devCost;
+  const previewCosts = plots.map((plot, i) => {
+    const area = plot.area * parentArea;
+    const isInfra = forms[i]?.isInfrastructure ?? false;
+    if (isInfra) return 0;
+    const saleableAreas = plots.map((p, j) => ({
+      area: p.area * parentArea,
+      isInfra: forms[j]?.isInfrastructure ?? false,
+      weight: forms[j]?.weightFactor ? Number(forms[j]!.weightFactor) || 1 : 1,
+    })).filter((x) => !x.isInfra);
+    if (saleableAreas.length === 0) return 0;
+    if (allocationModel === "MARKET_VALUE") {
+      const sumW = saleableAreas.reduce((s, x) => s + x.area * x.weight, 0);
+      return sumW > 0 ? (totalBasis * area * (forms[i]?.weightFactor ? Number(forms[i]!.weightFactor) || 1 : 1)) / sumW : 0;
+    }
+    const sumSaleable = saleableAreas.reduce((s, x) => s + x.area, 0);
+    return sumSaleable > 0 ? (totalBasis * area) / sumSaleable : 0;
+  });
+
+  function updateForm(idx: number, key: keyof PlotForm, value: string | boolean) {
     setForms((f) => f.map((form, i) => (i === idx ? { ...form, [key]: value } : form)));
   }
 
@@ -76,10 +112,14 @@ export function PartitionCanvasDialog({
         body: JSON.stringify({
           action: "partition",
           parentParcelId: parcel.id,
+          allocationModel,
+          developmentCost: developmentCost ? Number(developmentCost) : undefined,
           children: plots.map((plot, i) => ({
             number: forms[i]!.number.trim(),
             area: Number((plot.area * parentArea).toFixed(3)),
             askingPrice: forms[i]!.askingPrice ? Number(forms[i]!.askingPrice) : undefined,
+            isInfrastructure: forms[i]!.isInfrastructure,
+            weightFactor: forms[i]!.weightFactor ? Number(forms[i]!.weightFactor) : undefined,
             geometry: plot.polygon,
           })),
         }),
@@ -89,8 +129,8 @@ export function PartitionCanvasDialog({
       toast.success(`Parcel partitioned into ${plots.length} sub-plots`);
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -127,53 +167,104 @@ export function PartitionCanvasDialog({
           onPlotsChange={onPlotsChange}
         />
 
+        {/* Allocation model + development cost */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-caption text-muted-foreground">Allocation Model</Label>
+            <Select
+              value={allocationModel}
+              onChange={(e) => setAllocationModel(e.target.value as AllocationModel)}
+            >
+              <option value="PRO_RATA">Pro-Rata Area</option>
+              <option value="MARKET_VALUE">Market Value Weighted</option>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-caption text-muted-foreground">Development Cost (optional)</Label>
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              value={developmentCost}
+              onChange={(e) => setDevelopmentCost(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
         {/* Plot assignment form */}
         {plots.length > 1 && (
           <div className="space-y-2">
             <Label>Plot Details ({plots.length})</Label>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-2 max-h-56 overflow-y-auto">
               {plots.map((plot, idx) => {
                 const actualArea = plot.area * parentArea;
-                const costRatio = plot.area; // normalized area = cost ratio
-                const allocatedCost = parcel.acquisitionCost * costRatio;
+                const isInfra = forms[idx]?.isInfrastructure ?? false;
+                const allocatedCost = previewCosts[idx] ?? 0;
                 return (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 rounded-md border p-2"
+                    className="rounded-md border p-2"
                     style={{ borderLeftColor: plot.color, borderLeftWidth: 3 }}
                   >
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-caption text-muted-foreground">Plot {idx + 1} Number</Label>
-                      <Input
-                        value={forms[idx]?.number ?? ""}
-                        onChange={(e) => updateForm(idx, "number", e.target.value)}
-                        placeholder={`PLOT-${idx + 1}`}
-                        required
-                      />
-                    </div>
-                    <div className="w-28 space-y-1">
-                      <Label className="text-caption text-muted-foreground">Area ({parcel.areaUnit})</Label>
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-right text-body tnum">
-                        {formatNumber(actualArea, 3)}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-caption text-muted-foreground">Plot {idx + 1} Number</Label>
+                        <Input
+                          value={forms[idx]?.number ?? ""}
+                          onChange={(e) => updateForm(idx, "number", e.target.value)}
+                          placeholder={`PLOT-${idx + 1}`}
+                          required
+                        />
+                      </div>
+                      <div className="w-24 space-y-1">
+                        <Label className="text-caption text-muted-foreground">Area ({parcel.areaUnit})</Label>
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-right text-body tnum">
+                          {formatNumber(actualArea, 3)}
+                        </div>
+                      </div>
+                      <div className="w-28 space-y-1">
+                        <Label className="text-caption text-muted-foreground">Asking Price</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={forms[idx]?.askingPrice ?? ""}
+                          onChange={(e) => updateForm(idx, "askingPrice", e.target.value)}
+                          placeholder="Optional"
+                          disabled={isInfra}
+                        />
+                      </div>
+                      {allocationModel === "MARKET_VALUE" && !isInfra && (
+                        <div className="w-20 space-y-1">
+                          <Label className="text-caption text-muted-foreground">Weight</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="any"
+                            value={forms[idx]?.weightFactor ?? ""}
+                            onChange={(e) => updateForm(idx, "weightFactor", e.target.value)}
+                            placeholder="1"
+                          />
+                        </div>
+                      )}
+                      <div className="w-28 space-y-1">
+                        <Label className="text-caption text-muted-foreground">Cost Alloc.</Label>
+                        <div className="rounded-md border bg-muted/30 px-3 py-2 text-right text-body tnum text-muted-foreground">
+                          {isInfra ? "₹0 (infra)" : formatCurrency(allocatedCost)}
+                        </div>
                       </div>
                     </div>
-                    <div className="w-32 space-y-1">
-                      <Label className="text-caption text-muted-foreground">Asking Price</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={forms[idx]?.askingPrice ?? ""}
-                        onChange={(e) => updateForm(idx, "askingPrice", e.target.value)}
-                        placeholder="Optional"
+                    <label className="mt-1.5 flex items-center gap-1.5 pl-1 text-caption text-muted-foreground cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isInfra}
+                        onChange={(e) => updateForm(idx, "isInfrastructure", e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-input"
                       />
-                    </div>
-                    <div className="w-28 space-y-1">
-                      <Label className="text-caption text-muted-foreground">Cost Alloc.</Label>
-                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-right text-body tnum text-muted-foreground">
-                        {formatCurrency(allocatedCost)}
-                      </div>
-                    </div>
+                      <Construction className="h-3.5 w-3.5" />
+                      Infrastructure (no cost basis)
+                    </label>
                   </div>
                 );
               })}

@@ -31,7 +31,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   try {
     await softDelete("Subcontractor", id);
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to delete subcontractor" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete subcontractor") }, { status: 400 });
   }
 });

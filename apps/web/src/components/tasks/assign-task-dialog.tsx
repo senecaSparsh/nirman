@@ -78,7 +78,7 @@ export function AssignTaskDialog({
           setUsers(data.filter((u: UserOption) => u.active));
         }
       })
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load users"))
       .finally(() => setLoadingUsers(false));
   }, [open]);
 

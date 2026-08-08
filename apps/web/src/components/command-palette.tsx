@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search, ArrowRight, CornerDownLeft, Package, Building2, Truck,
-  LandPlot, Home, ShoppingCart, Wallet, Settings, Wrench, ClipboardList,
-  ScrollText, ScanLine, BookOpen, CheckSquare, ListChecks, ClipboardCheck,
-  Zap, Workflow, FileText, TrendingUp, type LucideIcon,
+  Search, CornerDownLeft, Package, Truck,
+  LandPlot, ShoppingCart, Wallet,
+  ScrollText, ScanLine, BookOpen, CheckSquare, ClipboardList, ClipboardCheck,
+  TrendingUp, CalendarCheck, HardHat, Recycle, Globe, Zap, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navItems, type NavItem } from "@/lib/nav";
+import { linksFor, settingsLinksFor, WORLD_BY_KEY, type NavLink, type WorldKey } from "@/lib/nav";
+
+type PageLink = NavLink & { world: WorldKey };
 
 /**
  * Command Palette (⌘K / Ctrl+K) — the primary navigation innovation.
@@ -41,15 +43,21 @@ const ACTIONS: ActionItem[] = [
   { label: "Receive goods", hint: "Field receiving", icon: ScanLine, href: "/field", keywords: ["receive", "goods receipt", "delivery", "shipment", "field"] },
   { label: "Create requisition", hint: "Request materials", icon: ClipboardList, href: "/requisitions", keywords: ["requisition", "request", "indent"] },
   { label: "Create purchase order", hint: "Procurement", icon: Truck, href: "/procurement", keywords: ["purchase", "order", "po", "procure", "buy"] },
-  { label: "Issue materials to project", hint: "Stock consumption", icon: Package, href: "/procurement", keywords: ["issue", "consume", "material issue", "dispatch"] },
+  { label: "Issue materials to project", hint: "Stock consumption", icon: Package, href: "/stock?tab=issues", keywords: ["issue", "consume", "material issue", "dispatch"] },
   { label: "Partition land parcel", hint: "CAD canvas", icon: LandPlot, href: "/land", keywords: ["partition", "split", "subdivide", "plot", "land", "canvas"] },
   { label: "Sell unit or plot", hint: "Asset sale", icon: ShoppingCart, href: "/sales", keywords: ["sell", "sale", "customer", "booking", "unit", "plot"] },
   { label: "Record expense", hint: "Operating expense", icon: Wallet, href: "/finance", keywords: ["expense", "spend", "operating"] },
   { label: "Add project cost", hint: "Capitalise into WIP", icon: TrendingUp, href: "/finance", keywords: ["project cost", "wip", "capitalise", "labour"] },
   { label: "View trial balance", hint: "General Ledger", icon: BookOpen, href: "/gl", keywords: ["trial balance", "ledger", "gl", "books", "accounting", "gst"] },
-  { label: "Transfer stock", hint: "Between locations", icon: ScrollText, href: "/stock-movements", keywords: ["transfer", "move", "stock transfer", "sto"] },
+  { label: "Transfer stock", hint: "Between locations", icon: ScrollText, href: "/stock?tab=transfers", keywords: ["transfer", "move", "stock transfer", "sto"] },
   { label: "View approvals queue", hint: "Pending approvals", icon: ClipboardCheck, href: "/approvals", keywords: ["approve", "approval", "pending", "queue"] },
   { label: "View my tasks", hint: "Task manager", icon: CheckSquare, href: "/my-tasks", keywords: ["task", "my tasks", "todo", "assigned"] },
+  { label: "Mark attendance", hint: "Daily haziri", icon: CalendarCheck, href: "/hr/attendance", keywords: ["attendance", "haziri", "present", "absent", "check in", "muster"] },
+  { label: "Submit DPR", hint: "Daily progress report", icon: ClipboardList, href: "/hr/dprs", keywords: ["dpr", "daily progress", "daily report", "site report", "work done", "progress"] },
+  { label: "Sell scrap or surplus", hint: "Material sale with cost recovery", icon: Recycle, href: "/material-sales", keywords: ["scrap", "surplus", "material sale", "cost recovery", "by-product", "resale"] },
+  { label: "List unit on portal", hint: "99acres / MagicBricks sync", icon: Globe, href: "/portal-listings", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
+  { label: "Generate auto-requisition", hint: "Reorder low-stock materials", icon: Zap, href: "/requisitions?auto=1", keywords: ["auto requisition", "reorder", "low stock", "eoq", "automatic", "generate requisition"] },
+  { label: "Run payroll", hint: "Attendance to salary", icon: HardHat, href: "/hr/payroll", keywords: ["payroll", "salary", "wage", "pay", "tankha", "run"] },
 ];
 
 // ── Entity search ───────────────────────────────────────────────
@@ -62,19 +70,19 @@ interface EntityResult {
   href: string;
 }
 
-const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (id: string) => string; extract: (d: any) => EntityResult[] }[] = [
+const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (id: string) => string; extract: (d: unknown) => EntityResult[] }[] = [
   {
     type: "material",
     endpoint: "/api/materials?q=",
     label: "Materials",
-    href: (id) => "/materials",
+    href: (id) => `/materials/${id}`,
     extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((m: any) => ({
-        id: m.id,
-        label: m.name,
-        sublabel: `${m.code} · ${m.unit}`,
+      (Array.isArray(data) ? data : []).slice(0, 4).map((m: Record<string, unknown>) => ({
+        id: String(m.id),
+        label: String(m.name ?? ""),
+        sublabel: `${m.code ?? ""} · ${m.unit ?? ""}`,
         type: "Material",
-        href: "/materials",
+        href: `/materials/${m.id}`,
       })),
   },
   {
@@ -83,26 +91,40 @@ const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (i
     label: "Projects",
     href: (id) => `/projects/${id}`,
     extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((p: any) => ({
-        id: p.id,
-        label: p.name,
-        sublabel: p.type ?? "Project",
+      (Array.isArray(data) ? data : []).slice(0, 4).map((p: Record<string, unknown>) => ({
+        id: String(p.id),
+        label: String(p.name ?? ""),
+        sublabel: String(p.type ?? "Project"),
         type: "Project",
         href: `/projects/${p.id}`,
+      })),
+  },
+  {
+    type: "supplier",
+    endpoint: "/api/suppliers?q=",
+    label: "Suppliers",
+    href: (id) => `/suppliers/${id}`,
+    extract: (data) =>
+      (Array.isArray(data) ? data : []).slice(0, 4).map((s: Record<string, unknown>) => ({
+        id: String(s.id),
+        label: String(s.name ?? ""),
+        sublabel: `${s.gstin ?? "No GSTIN"} · ${s.phone ?? "No phone"}`,
+        type: "Supplier",
+        href: `/suppliers/${s.id}`,
       })),
   },
   {
     type: "po",
     endpoint: "/api/purchase-orders?q=",
     label: "Purchase Orders",
-    href: (id) => "/procurement",
+    href: (id) => `/procurement/${id}`,
     extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((p: any) => ({
-        id: p.id,
-        label: p.poNumber,
+      (Array.isArray(data) ? data : []).slice(0, 4).map((p: Record<string, unknown>) => ({
+        id: String(p.id),
+        label: String(p.poNumber ?? ""),
         sublabel: `${p.supplierName ?? "Supplier"} · ${p.status}`,
         type: "Purchase Order",
-        href: "/procurement",
+        href: `/procurement/${p.id}`,
       })),
   },
 ];
@@ -123,15 +145,39 @@ function fuzzyScore(query: string, target: string): number {
   return qi === q.length ? 10 - (t.length - q.length) : -1;
 }
 
-function searchNavItems(query: string, role: string): { item: NavItem; score: number }[] {
-  return navItems
-    .filter((item) => !item.roles || item.roles.includes(role))
-    .map((item) => {
-      const labelScore = fuzzyScore(query, item.label);
-      const groupScore = fuzzyScore(query, item.group) / 2;
-      const score = Math.max(labelScore, groupScore);
-      return { item, score };
-    })
+/**
+ * Pages are searched by label, by world, by their plain-language hint,
+ * and by domain synonyms declared in nav.ts (`keywords`). That means
+ * "haziri" finds Attendance and "indent" finds Requisitions — people
+ * search with the words they actually use, not our menu labels.
+ *
+ * Settings links are included too — "users", "workflows", "company"
+ * all find their settings pages even though settings isn't a world.
+ */
+function searchNavItems(query: string, role: string): { item: PageLink; score: number }[] {
+  const worldLinks = linksFor(role).map((item) => {
+    const world = WORLD_BY_KEY[item.world].label;
+    const score = Math.max(
+      fuzzyScore(query, item.label),
+      fuzzyScore(query, world) / 2,
+      fuzzyScore(query, item.hint) / 3,
+      ...(item.keywords ?? []).map((k) => fuzzyScore(query, k)),
+    );
+    return { item, score };
+  });
+
+  // Settings links — tagged with a synthetic "today" world so they render.
+  const settingsLinks = settingsLinksFor(role).map((item) => {
+    const score = Math.max(
+      fuzzyScore(query, item.label),
+      fuzzyScore(query, "Settings") / 2,
+      fuzzyScore(query, item.hint) / 3,
+      ...(item.keywords ?? []).map((k) => fuzzyScore(query, k)),
+    );
+    return { item: { ...item, world: "today" as WorldKey }, score };
+  });
+
+  return [...worldLinks, ...settingsLinks]
     .filter((r) => r.score >= 0)
     .sort((a, b) => b.score - a.score);
 }
@@ -215,17 +261,16 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
   // ── Build results list ────────────────────────────────────────
   const results = useMemo(() => {
     type Result =
-      | { kind: "page"; item: NavItem }
+      | { kind: "page"; item: PageLink }
       | { kind: "action"; action: ActionItem }
       | { kind: "entity"; entity: EntityResult };
 
     const all: Result[] = [];
 
     if (!query) {
-      // No query — show top actions + pages
+      // No query — lead with things to *do*, then places to go.
       ACTIONS.slice(0, 6).forEach((action) => all.push({ kind: "action", action }));
-      navItems
-        .filter((item) => !item.roles || item.roles.includes(userRole))
+      linksFor(userRole)
         .slice(0, 6)
         .forEach((item) => all.push({ kind: "page", item }));
       return all;
@@ -310,7 +355,7 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
         <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto p-1.5">
           {results.length === 0 && !entityLoading && (
             <div className="py-8 text-center text-body text-muted-foreground">
-              No results for "{query}"
+              No results for &quot;{query}&quot;
             </div>
           )}
 
@@ -325,11 +370,11 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
               result.kind === "action" ? result.action.label :
               result.entity.label;
             const sublabel =
-              result.kind === "page" ? result.item.group :
+              result.kind === "page" ? result.item.hint :
               result.kind === "action" ? result.action.hint :
               result.entity.sublabel;
             const tag =
-              result.kind === "page" ? "Page" :
+              result.kind === "page" ? WORLD_BY_KEY[result.item.world].label :
               result.kind === "action" ? "Action" :
               result.entity.type;
 

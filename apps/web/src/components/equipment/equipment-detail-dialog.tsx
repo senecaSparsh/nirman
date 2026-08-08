@@ -9,21 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { StatusPill } from "@/components/page";
 import { AssignDialog } from "./assign-dialog";
 import { MaintenanceDialog } from "./maintenance-dialog";
 import { EquipmentEditDialog } from "./equipment-edit-dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { AuditTrail } from "@/components/audit-trail";
 import type {
-  EquipmentDetail, EquipmentRow, EquipmentStatus,
+  EquipmentDetail, EquipmentRow,
   StockLocationRow, ProjectOption,
 } from "@/lib/types";
-
-const STATUS_VARIANT: Record<EquipmentStatus, "default" | "success" | "warning" | "muted"> = {
-  AVAILABLE: "success",
-  ASSIGNED: "default",
-  IN_MAINTENANCE: "warning",
-  RETIRED: "muted",
-};
 
 const MAINT_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
   SCHEDULED: "default",
@@ -76,8 +71,8 @@ export function EquipmentDetailDialog({
       if (!r.ok) throw new Error("Failed to re-fetch equipment details");
       const d = await r.json();
       if (!d.error) setDetail(d);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -97,11 +92,17 @@ export function EquipmentDetailDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Return failed");
-      toast.success("Equipment returned");
+      toast.success("Equipment returned", {
+        description: "It's back in the warehouse. Assign it to another project or schedule maintenance.",
+        action: {
+          label: "Assign Again",
+          onClick: () => setAssignOpen(true),
+        },
+      });
       await refetchDetail();
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
@@ -118,11 +119,17 @@ export function EquipmentDetailDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Complete maintenance failed");
-      toast.success("Maintenance completed");
+      toast.success("Maintenance completed", {
+        description: "Equipment is available again. Assign it to a project or site.",
+        action: {
+          label: "Assign",
+          onClick: () => setAssignOpen(true),
+        },
+      });
       await refetchDetail();
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
@@ -143,8 +150,8 @@ export function EquipmentDetailDialog({
       setRetireOpen(false);
       await refetchDetail();
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
@@ -164,8 +171,8 @@ export function EquipmentDetailDialog({
       toast.success("Equipment restored to available");
       await refetchDetail();
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
@@ -174,6 +181,16 @@ export function EquipmentDetailDialog({
   if (!equipment) return null;
 
   const status = detail?.status ?? equipment.status;
+
+  // Smart maintenance alert: if last maintenance was >90 days ago (or never), suggest scheduling
+  const completedMaint = detail?.maintenance.filter((m) => m.endDate) ?? [];
+  const lastMaintDate = completedMaint.length > 0
+    ? new Date(completedMaint[completedMaint.length - 1]!.endDate!)
+    : null;
+  const daysSinceMaint = lastMaintDate
+    ? Math.floor((Date.now() - lastMaintDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const maintDue = (status === "AVAILABLE" || status === "ASSIGNED") && (daysSinceMaint === null || daysSinceMaint > 90);
 
   return (
     <>
@@ -190,9 +207,27 @@ export function EquipmentDetailDialog({
           <div className="space-y-3">
             {/* Status + meta */}
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant={STATUS_VARIANT[status] ?? "muted"}>{status.replace("_", " ")}</Badge>
+              <StatusPill status={status} />
               {detail.category && <Badge variant="outline">{detail.category}</Badge>}
             </div>
+
+            {/* Maintenance due alert */}
+            {maintDue && (
+              <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-soft/30 p-3">
+                <Wrench className="h-4 w-4 shrink-0 text-warning" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-foreground">Maintenance due</p>
+                  <p className="text-caption text-muted-foreground">
+                    {daysSinceMaint === null
+                      ? "No maintenance recorded yet. Schedule an inspection."
+                      : `Last serviced ${daysSinceMaint} days ago. Consider scheduling maintenance.`}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setMaintOpen(true)}>
+                  <Wrench className="h-4 w-4" /> Schedule
+                </Button>
+              </div>
+            )}
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
@@ -304,9 +339,7 @@ export function EquipmentDetailDialog({
                           <TD>{formatDate(a.assignedAt)}</TD>
                           <TD>{formatDate(a.returnedAt)}</TD>
                           <TD>
-                            <Badge variant={a.status === "ACTIVE" ? "success" : "muted"}>
-                              {a.status}
-                            </Badge>
+                            <StatusPill status={a.status} />
                           </TD>
                         </TR>
                       ))}
@@ -362,6 +395,8 @@ export function EquipmentDetailDialog({
                 <span className="font-medium">Notes: </span>{detail.notes}
               </div>
             )}
+
+            <AuditTrail entityType="Equipment" entityId={detail.id} />
           </div>
         ) : (
           <p className="py-10 text-center text-body text-muted-foreground">Failed to load details.</p>

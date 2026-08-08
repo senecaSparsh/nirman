@@ -4,7 +4,9 @@ import { prisma } from "@nirman/db";
 import { PageHeader } from "@/components/page-header";
 import { WorkflowsList } from "@/components/workflows/workflows-list";
 import { PageLoading } from "@/components/page-loading";
-import { getUserRole } from "@/lib/server";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
 
 export const metadata = { title: "Workflows · Nirman" };
 
@@ -25,8 +27,12 @@ export default function WorkflowsPage() {
 async function WorkflowsContent() {
   await connection();
   const role = await getUserRole();
+  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
+    return <NoAccess />;
+  }
+  const company = await getCompany();
   const workflows = await prisma.workflow.findMany({
-    where: { deletedAt: null },
+    where: { companyId: company.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { runs: true } },

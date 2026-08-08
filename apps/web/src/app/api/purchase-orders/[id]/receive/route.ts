@@ -23,8 +23,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   }
 
   // Resolve the PO's destination location (receipt must go there)
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { id },
+  // Also validate the PO belongs to the user's company to prevent cross-company receipt.
+  if (!user.companyId) {
+    return json({ error: "No company context" }, { status: 403 });
+  }
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, companyId: user.companyId },
     select: { destinationLocationId: true, status: true },
   });
   if (!po) return json({ error: "Purchase order not found" }, { status: 404 });

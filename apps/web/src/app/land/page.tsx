@@ -10,6 +10,7 @@ import type {
   LandPurchaseRow, LandParcelRow, LandParcelSummary, LandPortfolio, ProjectOption,
 } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function LandPage() {
   return (
     <div className="space-y-5">
@@ -27,9 +28,7 @@ async function LandContent() {
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don't have permission to view this module.
-      </div>
+      <NoAccess what="land parcels" />
     );
   }
 
@@ -37,10 +36,11 @@ async function LandContent() {
     canCreate: hasPermission(role, PERM.ASSETS_MANAGE),
     canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
     canPartition: hasPermission(role, PERM.LAND_PARTITION),
+    canSell: hasPermission(role, PERM.SALE_CREATE),
   };
 
-  // Fetch purchases, parcels, projects, and land sales (for sold-parcel revenue).
-  const [purchases, parcels, projects, landSales] = await Promise.all([
+  // Fetch purchases, parcels, projects, land sales, and customers (for sell dialog).
+  const [purchases, parcels, projects, landSales, customers] = await Promise.all([
     prisma.landPurchase.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
@@ -76,6 +76,12 @@ async function LandContent() {
         id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
         landParcelId: true, customer: { select: { name: true } },
       },
+    }),
+    // Customer has no companyId — scope to customers with sales in this company.
+    prisma.customer.findMany({
+      where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -157,6 +163,9 @@ async function LandContent() {
       acquisitionCost: toNum(p.acquisitionCost),
       askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
       currentValuation: toNum(p.currentValuation),
+      isInfrastructure: p.isInfrastructure,
+      marketValue: p.marketValue ? toNum(p.marketValue) : null,
+      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
       projectId: p.projectId,
       projectName: p.project?.name ?? null,
       geometry: p.geometry,
@@ -220,6 +229,7 @@ async function LandContent() {
         parcelSummaries={allParcelSummaries}
         projects={projectOptions}
         portfolio={portfolio}
+        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
         permissions={perms}
       />
     </>

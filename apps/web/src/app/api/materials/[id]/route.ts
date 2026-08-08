@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { softDelete } from "@nirman/services";
-import { apiHandler, json, materialSchema, toNum } from "@/lib/server";
+import { softDelete, logAction } from "@nirman/services";
+import { apiHandler, json, materialSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const parsed = materialSchema.partial().safeParse(body);
@@ -22,15 +21,33 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "A material with this code already exists" }, { status: 409 });
     }
   }
-  const data: any = { ...parsed.data };
+  const data: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.standardCost != null) data.currentCost = parsed.data.standardCost;
-  const updated = await prisma.material.update({ where: { id }, data });
+  const updated = await prisma.$transaction(async (tx) => {
+    const mat = await tx.material.update({ where: { id }, data });
+    await logAction(tx, {
+      userId: user.id,
+      action: "MATERIAL_UPDATE",
+      entityType: "Material",
+      entityId: id,
+      after: { code: mat.code, name: mat.name, standardCost: mat.standardCost.toString() },
+    });
+    return mat;
+  });
   return json(updated);
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   await softDelete("Material", id);
+  await prisma.$transaction(async (tx) => {
+    await logAction(tx, {
+      userId: user.id,
+      action: "MATERIAL_DELETE",
+      entityType: "Material",
+      entityId: id,
+    });
+  });
   return json({ ok: true });
 });

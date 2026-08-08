@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { PlaygroundCanvas } from "@/components/playground/playground-canvas";
 import { PageLoading } from "@/components/page-loading";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
 import type { WorkspaceGraph } from "@/lib/modules/registry";
 
 export const metadata = { title: "Edit Workspace · Nirman" };
@@ -19,7 +22,12 @@ export default function EditPlaygroundPage({ params }: { params: Promise<{ id: s
 async function EditPlaygroundContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await connection();
-  const ws = await prisma.customWorkspace.findFirst({ where: { id, deletedAt: null } });
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
+    return <NoAccess />;
+  }
+  const company = await getCompany();
+  const ws = await prisma.customWorkspace.findFirst({ where: { id, deletedAt: null, companyId: company.id } });
   if (!ws) notFound();
 
   return (

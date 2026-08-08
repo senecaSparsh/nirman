@@ -1,4 +1,4 @@
-import type { ModelKey, WorkspaceGraph } from "@/lib/modules/registry";
+import type { WorkspaceGraph } from "@/lib/modules/registry";
 
 export interface WorkspaceTemplate {
   key: string;

@@ -13,8 +13,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await returnEquipment(id, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Return failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Return failed") }, { status: 400 });
     }
   }
 

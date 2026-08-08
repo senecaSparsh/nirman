@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, MapPin, Plus, Search } from "lucide-react";
+import { Building2, MapPin, Plus, Hammer, RefreshCw, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
+import { StatusPill, statusColor, MetricGrid, Metric } from "@/components/page";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { downloadCSV } from "@/lib/export";
 import { ProjectsToolbar } from "./projects-toolbar";
+import { ProjectFormDialog } from "./project-form-dialog";
+import { RenovationsView, type RenovationRow } from "@/components/renovations/renovations-view";
 
 type ProjectHealth = {
   id: string;
@@ -28,24 +33,31 @@ type ProjectHealth = {
   pnl: { totalCost: number; revenue: number; profit: number; margin: number };
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  PLANNED: "var(--color-muted-foreground)",
-  ACTIVE: "var(--color-stage-sell)",
-  COMPLETED: "var(--color-stage-manage)",
-  ON_HOLD: "var(--color-warning)",
-};
-
 export function ProjectsView({
   projects,
   typeLabels,
   permissions,
+  renovationRows,
+  renovationProjects,
+  renovationBuiltUnits,
+  renovationLandParcels,
+  canManageRenovations,
+  canViewRenovations,
 }: {
   projects: ProjectHealth[];
   typeLabels: Record<string, string>;
-  statusVariant?: Record<string, "default" | "success" | "warning" | "muted" | "danger">;
   permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean; canApprove?: boolean };
+  renovationRows?: RenovationRow[];
+  renovationProjects?: { id: string; name: string }[];
+  renovationBuiltUnits?: { id: string; unitNumber: string; unitType: string; projectId: string }[];
+  renovationLandParcels?: { id: string; number: string }[];
+  canManageRenovations?: boolean;
+  canViewRenovations?: boolean;
 }) {
   const [filters, setFilters] = useState({ search: "", status: "", type: "" });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [tab, setTab] = useState("projects");
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
@@ -61,45 +73,111 @@ export function ProjectsView({
     });
   }, [projects, filters]);
 
+  const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
+  const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
+  const totalBudget = projects.reduce((s, p) => s + p.totalBudget, 0);
+
   return (
     <>
-      <ProjectsToolbar filters={filters} onFilterChange={setFilters} canCreate={permissions?.canCreate ?? true} />
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="projects">
+            <span className="flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" /> Projects
+            </span>
+          </TabsTrigger>
+          {canViewRenovations && (
+            <TabsTrigger value="renovations">
+              <span className="flex items-center gap-1.5">
+                <Hammer className="h-3.5 w-3.5" /> Renovations
+              </span>
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-      {projects.length === 0 ? (
-        <EmptyState
-          icon={<Building2 className="h-5 w-5" />}
-          title="No projects yet"
-          description="Create your first project to start tracking materials, land and built units."
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<Building2 className="h-5 w-5" />}
-          title="No projects match the filters"
-          description="Try adjusting your search or filters."
-        />
-      ) : (
-        /* ── Project health cards ──────────────────────────────────────
-           Each project is a wide, rich card showing its vital signs:
-           - Budget burn (actual cost vs budget) as a visual bar
-           - Unit sales progress (sold vs total) as a visual bar
-           - Profit/Loss as a big number (green/red)
-           - Timeline progress (start → now → end) as a visual bar
+        <TabsContent value="projects" className="space-y-3">
+          {projects.length > 0 && (
+            <>
+              <MetricGrid cols={4}>
+                <Metric label="Total Projects" value={projects.length} icon={<Building2 />} />
+                <Metric label="Active" value={activeCount} tone="brand" />
+                <Metric label="Completed" value={completedCount} tone="success" />
+                <Metric label="Total Budget" value={formatCurrency(totalBudget)} tone="brand" />
+              </MetricGrid>
 
-           This is NOT a table. You see the HEALTH of each project
-           at a glance — is it on budget? selling? profitable? on time?
-           Complex data (P&L, budget burn, sales velocity) made simple. */
-        <div className="space-y-3">
-          {filtered.map((p) => (
-            <ProjectHealthCard key={p.id} project={p} typeLabel={typeLabels[p.type] ?? p.type} />
-          ))}
-        </div>
-      )}
+              <div className="flex items-center justify-between">
+                <ProjectsToolbar filters={filters} onFilterChange={setFilters} canCreate={permissions?.canCreate ?? true} />
+                <div className="ml-2 flex shrink-0 gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      downloadCSV("projects.csv", filtered as unknown as Record<string, unknown>[], [
+                        { key: "name", label: "Project" },
+                        { key: "type", label: "Type" },
+                        { key: "status", label: "Status" },
+                        { key: "budget", label: "Budget", format: (v) => formatCurrency(v as number) },
+                        { key: "startDate", label: "Start Date", format: (v) => v ? formatDate(v as string) : "" },
+                        { key: "endDate", label: "End Date", format: (v) => v ? formatDate(v as string) : "" },
+                        { key: "unitCount", label: "Units" },
+                        { key: "soldUnits", label: "Sold Units" },
+                      ])
+                    }
+                    title="Export CSV"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {projects.length === 0 ? (
+            <EmptyState
+              icon={<Building2 className="h-5 w-5" />}
+              title="No projects yet"
+              description="Create your first project to start tracking materials, land and built units."
+              action={permissions?.canCreate ? <Button onClick={() => setCreateOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Project</Button> : undefined}
+            />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<Building2 className="h-5 w-5" />}
+              title="No projects match the filters"
+              description="Try adjusting your search or filters."
+            />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((p) => (
+                <ProjectHealthCard key={p.id} project={p} typeLabel={typeLabels[p.type] ?? p.type} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {canViewRenovations && (
+          <TabsContent value="renovations">
+            {renovationRows && renovationProjects && renovationBuiltUnits && renovationLandParcels ? (
+              <RenovationsView
+                renovations={renovationRows}
+                projects={renovationProjects}
+                builtUnits={renovationBuiltUnits}
+                landParcels={renovationLandParcels}
+                permissions={{ canManage: canManageRenovations }}
+              />
+            ) : null}
+          </TabsContent>
+        )}
+      </Tabs>
+      <ProjectFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );
 }
 
 function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typeLabel: string }) {
-  const statusColor = STATUS_COLOR[project.status] ?? "var(--color-muted-foreground)";
+  const statusDot = statusColor(project.status);
   const budget = project.totalBudget;
   const actualCost = project.pnl.totalCost || project.totalProjectCost;
   const budgetBurnPct = budget > 0 ? Math.min(100, (actualCost / budget) * 100) : 0;
@@ -131,12 +209,10 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusDot }} />
             <h3 className="text-body font-semibold text-foreground">{project.name}</h3>
             <Badge variant="outline">{typeLabel}</Badge>
-            <Badge variant={project.status === "ACTIVE" ? "success" : project.status === "ON_HOLD" ? "warning" : "muted"}>
-              {project.status.replace("_", " ")}
-            </Badge>
+            <StatusPill status={project.status} />
           </div>
           {project.address && (
             <div className="mt-0.5 flex items-center gap-1 text-caption text-muted-foreground">

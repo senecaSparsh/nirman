@@ -1,58 +1,49 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
-  Plus, Pencil, Trash2, Truck, Package, ArrowRight, ShoppingCart, Tags, Check, X, Download,
-  Phone, Mail,
+  Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
+  Phone, Mail, Printer, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusPill, MetricGrid, Metric } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { SupplierFormDialog } from "./supplier-form-dialog";
 import { PurchaseOrderFormDialog } from "./purchase-order-form-dialog";
-import { PurchaseOrderDetailDialog } from "./purchase-order-detail-dialog";
-import { TransferFormDialog } from "./transfer-form-dialog";
-import { IssueFormDialog } from "./issue-form-dialog";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { PurchaseOrderDetailPanel } from "./purchase-order-detail-panel";
+import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
+import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
+import { SplitView } from "@/components/ui/split-view";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
-  SupplierRow, PurchaseOrderRow, TransferRow, MaterialRow, StockLocationRow,
-  ProjectOption, MaterialIssueListRow, MaterialOption, StockLocationOption,
-  DepartmentOption,
+  SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
+  ProjectOption, MaterialOption, StockLocationOption, DirectPurchaseRow,
 } from "@/lib/types";
 
-const PO_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  DRAFT: "muted", APPROVED: "default", ORDERED: "warning",
-  PARTIAL: "warning", RECEIVED: "success", CANCELLED: "danger",
-};
-
-const TRANSFER_STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
-  DRAFT: "muted", IN_TRANSIT: "warning", COMPLETED: "success", CANCELLED: "danger",
-};
-
 export function ProcurementView({
-  suppliers, purchaseOrders, transfers, issues, materials, locations, projects, departments, permissions,
+  suppliers, purchaseOrders, materials, locations, projects, directPurchases, permissions,
 }: {
   suppliers: SupplierRow[];
   purchaseOrders: PurchaseOrderRow[];
-  transfers: TransferRow[];
-  issues: MaterialIssueListRow[];
   materials: MaterialRow[];
   locations: StockLocationRow[];
   projects: ProjectOption[];
-  departments: DepartmentOption[];
-  permissions?: { canCreate?: boolean; canApprove?: boolean };
+  directPurchases: DirectPurchaseRow[];
+  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean };
 }) {
   const [tab, setTab] = useState("purchase-orders");
   const canCreate = permissions?.canCreate ?? true;
   const canApprove = permissions?.canApprove ?? true;
+  const canManagePayments = permissions?.canManagePayments ?? false;
 
-  // Derive simplified option types for the IssueFormDialog
+  // Derive simplified option types for the cash-purchase dialog
   const materialOptions: MaterialOption[] = materials.map((m) => ({
     id: m.id, code: m.code, name: m.name, unit: m.unit,
     standardCost: m.standardCost, gstRate: m.gstRate,
@@ -69,28 +60,22 @@ export function ProcurementView({
           <TabsTrigger value="purchase-orders">
             <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Purchase Orders</span>
           </TabsTrigger>
-          <TabsTrigger value="transfers">
-            <span className="flex items-center gap-1.5"><Truck className="h-3.5 w-3.5" /> Transfers</span>
-          </TabsTrigger>
-          <TabsTrigger value="issues">
-            <span className="flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Issues</span>
-          </TabsTrigger>
           <TabsTrigger value="suppliers">
             <span className="flex items-center gap-1.5"><Tags className="h-3.5 w-3.5" /> Suppliers</span>
+          </TabsTrigger>
+          <TabsTrigger value="direct-purchases">
+            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Cash Purchases</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="purchase-orders">
-          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} canCreate={canCreate} canApprove={canApprove} />
-        </TabsContent>
-        <TabsContent value="transfers">
-          <TransfersTab transfers={transfers} locations={locations} />
-        </TabsContent>
-        <TabsContent value="issues">
-          <IssuesTab issues={issues} projects={projects} departments={departments} materialOptions={materialOptions} locationOptions={locationOptions} />
+          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} />
         </TabsContent>
         <TabsContent value="suppliers">
-          <SuppliersTab suppliers={suppliers} />
+          <SuppliersTab suppliers={suppliers} canManagePayments={canManagePayments} />
+        </TabsContent>
+        <TabsContent value="direct-purchases">
+          <DirectPurchasesTab directPurchases={directPurchases} suppliers={suppliers} locations={locationOptions} materials={materialOptions} canCreate={canCreate} />
         </TabsContent>
       </Tabs>
     </div>
@@ -101,8 +86,176 @@ export function ProcurementView({
 //  Purchase Orders tab
 // ───────────────────────────────────────────────────────────
 
+/** Column definitions for the PO DataTable. Defined outside the
+ *  component so they're stable across renders. */
+const poColumns: Column<PurchaseOrderRow>[] = [
+  {
+    key: "poNumber",
+    label: "PO Number",
+    sortable: true,
+    render: (po) => (
+      <span className="font-mono text-caption font-semibold text-foreground">{po.poNumber}</span>
+    ),
+  },
+  {
+    key: "supplierName",
+    label: "Supplier",
+    sortable: true,
+    render: (po) => (
+      <span className="font-medium text-foreground">{po.supplierName}</span>
+    ),
+  },
+  {
+    key: "procurementScope",
+    label: "Scope",
+    sortable: true,
+    render: (po) => (
+      <span className={po.procurementScope === "COMPANY" ? "text-muted-foreground" : "text-foreground"}>
+        {po.procurementScope === "COMPANY" ? "Company" : "Project"}
+      </span>
+    ),
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (po) => <StatusPill status={po.status} />,
+  },
+  {
+    key: "total",
+    label: "Total",
+    align: "right",
+    sortable: true,
+    render: (po) => (
+      <span className="font-semibold text-foreground">{formatCurrency(po.total)}</span>
+    ),
+  },
+  {
+    key: "receivedPct",
+    label: "Received",
+    align: "right",
+    sortable: true,
+    render: (po) =>
+      po.status === "CANCELLED" || po.status === "DRAFT" ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <div className="flex items-center justify-end gap-2">
+          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full ${po.receivedPct === 100 ? "bg-success" : po.receivedPct > 0 ? "bg-warning" : "bg-muted-foreground/30"}`}
+              style={{ width: `${po.receivedPct}%` }}
+            />
+          </div>
+          <span className="text-micro tnum text-muted-foreground w-8">{po.receivedPct}%</span>
+        </div>
+      ),
+  },
+  {
+    key: "expectedDate",
+    label: "Expected",
+    sortable: true,
+    sortValue: (po) => (po.expectedDate ? new Date(po.expectedDate) : new Date(0)),
+    render: (po) => {
+      if (!po.expectedDate) return <span className="text-muted-foreground">—</span>;
+      const isOverdue =
+        new Date(po.expectedDate) < new Date() &&
+        po.status !== "RECEIVED" &&
+        po.status !== "CANCELLED";
+      return (
+        <span className={isOverdue ? "text-danger font-medium" : "text-muted-foreground"}>
+          {formatDate(po.expectedDate)}
+        </span>
+      );
+    },
+  },
+  {
+    key: "createdAt",
+    label: "Age",
+    align: "right",
+    sortable: true,
+    sortValue: (po) => new Date(po.createdAt),
+    render: (po) => {
+      const daysOpen = Math.floor((Date.now() - new Date(po.orderDate).getTime()) / 86400000);
+      const isOverdue =
+        po.expectedDate &&
+        new Date(po.expectedDate) < new Date() &&
+        po.status !== "RECEIVED" &&
+        po.status !== "CANCELLED";
+      return (
+        <span
+          className={`tnum ${
+            isOverdue ? "text-danger font-semibold" : daysOpen > 14 ? "text-warning" : "text-muted-foreground"
+          }`}
+        >
+          {daysOpen}d
+        </span>
+      );
+    },
+  },
+];
+
+/** Column definitions for the Direct Purchases DataTable. */
+const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
+  {
+    key: "billNumber",
+    label: "Bill No",
+    sortable: true,
+    render: (p) => <span className="font-mono text-caption font-semibold text-foreground">{p.billNumber}</span>,
+  },
+  {
+    key: "billDate",
+    label: "Date",
+    sortable: true,
+    sortValue: (p) => new Date(p.billDate),
+    render: (p) => <span className="tnum text-muted-foreground">{formatDate(p.billDate)}</span>,
+  },
+  {
+    key: "supplierName",
+    label: "Supplier",
+    sortable: true,
+    render: (p) => <span className="font-medium text-foreground">{p.supplierName}</span>,
+  },
+  {
+    key: "locationName",
+    label: "Location",
+    sortable: true,
+    render: (p) => <span className="text-muted-foreground">{p.locationName}</span>,
+  },
+  {
+    key: "lineCount",
+    label: "Lines",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum text-muted-foreground">{p.lineCount}</span>,
+  },
+  {
+    key: "billAmount",
+    label: "Amount",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum font-semibold text-foreground">{formatCurrency(p.billAmount)}</span>,
+  },
+  {
+    key: "print",
+    label: "",
+    align: "right",
+    render: (p) => (
+      <a
+        href={`/print/direct-purchase/${p.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center text-muted-foreground hover:text-foreground"
+        title="Print voucher"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Printer className="h-3.5 w-3.5" />
+      </a>
+    ),
+  },
+];
+
 function PurchaseOrdersTab({
-  purchaseOrders, suppliers, materials, locations, projects, canCreate, canApprove,
+  purchaseOrders, suppliers, materials, locations, projects, canCreate, canApprove, canManagePayments,
 }: {
   purchaseOrders: PurchaseOrderRow[];
   suppliers: SupplierRow[];
@@ -111,18 +264,32 @@ function PurchaseOrdersTab({
   projects: ProjectOption[];
   canCreate: boolean;
   canApprove: boolean;
+  canManagePayments: boolean;
 }) {
-  const [scopeFilter, setScopeFilter] = useState("");
+  const [scopeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<PurchaseOrderRow | null>(null);
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"list" | "board">("list");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Auto-open PO detail when navigated with ?po=<id> (e.g. from requisition "View PO")
+  useEffect(() => {
+    const poId = searchParams.get("po");
+    if (poId) {
+      const po = purchaseOrders.find((p) => p.id === poId);
+      if (po) setSelected(po);
+    }
+  }, [searchParams, purchaseOrders]);
 
   const filtered = useMemo(
     () => purchaseOrders.filter((p) => {
       if (scopeFilter && p.procurementScope !== scopeFilter) return false;
+      if (statusFilter && p.status !== statusFilter) return false;
       return true;
     }),
-    [purchaseOrders, scopeFilter],
+    [purchaseOrders, scopeFilter, statusFilter],
   );
 
   // Group by status for the kanban board
@@ -137,32 +304,48 @@ function PurchaseOrdersTab({
 
   const openCount = filtered.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
   const totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
+  const draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
+  const orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
 
   return (
     <div className="space-y-4">
+      <MetricGrid cols={4}>
+        <Metric label="Total POs" value={purchaseOrders.length} sub={`${openCount} open`} icon={<ShoppingCart />} />
+        <Metric label="Draft" value={draftCount} tone="muted" icon={<ShoppingCart />} />
+        <Metric label="Ordered" value={orderedCount} tone="success" icon={<ShoppingCart />} />
+        <Metric label="Total Value" value={formatCurrency(totalValue)} tone="brand" sub="excl. cancelled" />
+      </MetricGrid>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center gap-2">
-          <Select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="max-w-[160px]">
-            <option value="">All scopes</option>
-            <option value="COMPANY">Company</option>
-            <option value="PROJECT">Project</option>
-          </Select>
           <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-            <button
-              onClick={() => setView("board")}
-              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Board
-            </button>
             <button
               onClick={() => setView("list")}
               className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
             >
               List
             </button>
+            <button
+              onClick={() => setView("board")}
+              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Board
+            </button>
           </div>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[160px]">
+            <option value="">All statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="APPROVED">Approved</option>
+            <option value="ORDERED">Ordered</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="RECEIVED">Received</option>
+            <option value="CANCELLED">Cancelled</option>
+          </Select>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button variant="outline" onClick={() => downloadCSV(`purchase-orders-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "poNumber", label: "PO Number" },
             { key: "supplierName", label: "Supplier" },
@@ -171,7 +354,10 @@ function PurchaseOrdersTab({
             { key: "total", label: "Total", format: (v) => formatCurrency(Number(v)) },
             { key: "expectedDate", label: "Expected", format: (v) => v ? formatDate(String(v)) : "" },
           ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <Button variant="outline" onClick={() => downloadExcel("purchase-trends")} disabled={filtered.length === 0}>
+            <Download className="h-4 w-4" /> Export Excel
           </Button>
           {canCreate && (
             <Button onClick={() => setFormOpen(true)} disabled={suppliers.length === 0 || locations.length === 0}>
@@ -179,14 +365,6 @@ function PurchaseOrdersTab({
             </Button>
           )}
         </div>
-      </div>
-
-      <div className="flex items-center gap-3 text-body text-muted-foreground">
-        <span>{filtered.length} POs</span>
-        <span>·</span>
-        <span>{openCount} open</span>
-        <span>·</span>
-        <span className="tnum">{formatCurrency(totalValue)}</span>
       </div>
 
       {filtered.length === 0 ? (
@@ -237,7 +415,9 @@ function PurchaseOrdersTab({
                     <button
                       key={po.id}
                       onClick={() => setSelected(po)}
-                      className="group block w-full rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-foreground/20 hover:shadow-sm"
+                      className={`group block w-full rounded-lg border p-3 text-left transition-all hover:border-foreground/20 hover:shadow-sm ${
+                        selected?.id === po.id ? "border-foreground/30 bg-muted/30 ring-1 ring-foreground/10" : "border-border bg-card"
+                      }`}
                     >
                       {/* PO number + scope */}
                       <div className="flex items-center justify-between gap-2">
@@ -281,42 +461,44 @@ function PurchaseOrdersTab({
           ))}
         </div>
       ) : (
-        /* ── List view (compact, no card wrapper) ────────────────── */
-        <div className="divide-y divide-border rounded-lg border border-border">
-          {filtered.map((p) => {
-            const orderDate = new Date(p.orderDate);
-            const daysOpen = Math.floor((Date.now() - orderDate.getTime()) / 86400000);
-            const isOverdue = p.expectedDate && new Date(p.expectedDate) < new Date() && p.status !== "RECEIVED" && p.status !== "CANCELLED";
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelected(p)}
-                className="group flex w-full items-center gap-4 px-4 py-2.5 text-left transition-colors hover:bg-muted/30"
-              >
-                <span className="font-mono text-caption font-semibold text-foreground w-28 shrink-0">{p.poNumber}</span>
-                <span className="flex-1 truncate text-body font-medium">{p.supplierName}</span>
-                <span className="hidden sm:block w-20 shrink-0">
-                  <Badge variant={PO_STATUS_VARIANT[p.status] ?? "muted"}>{p.status.replace("_", " ")}</Badge>
-                </span>
-                <span className="w-24 shrink-0 text-right text-body font-semibold tnum">{formatCurrency(p.total)}</span>
-                <div className="hidden md:flex w-20 items-center gap-2 shrink-0">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className={`h-full ${p.receivedPct === 100 ? "bg-success" : p.receivedPct > 0 ? "bg-warning" : "bg-muted-foreground/30"}`} style={{ width: `${p.receivedPct}%` }} />
-                  </div>
-                </div>
-                <span className={`w-10 shrink-0 text-right text-micro tnum ${isOverdue ? "text-danger font-semibold" : daysOpen > 14 ? "text-warning" : "text-muted-foreground"}`}>
-                  {daysOpen}d
-                </span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 group-hover:text-foreground" />
-              </button>
-            );
-          })}
+        /* ── Split View: list on left, detail on right ───────────────
+           The default view. Dense, sortable columns, sticky header,
+           right-aligned tabular numbers. Click a row to show its
+           details in the right panel. Switch to Board for the kanban
+           flow view. */
+        <div className="rounded-lg border border-border overflow-hidden h-[calc(100vh-20rem)] min-h-[400px]">
+          <SplitView
+            storageKey="split-view-procurement-pos"
+            list={
+              <DataTable
+                data={filtered}
+                onRowClick={(po) => setSelected(po)}
+                initialSort={{ key: "createdAt", direction: "desc" }}
+                columns={poColumns}
+                searchable
+                searchPlaceholder="Search POs by number, supplier, project…"
+                showTotals
+                sumColumns={["totalValue"]}
+                totalFormat={(_k, sum) => formatCurrency(sum)}
+                hideable
+                pageSize={50}
+              />
+            }
+            detail={selected ? (
+              <PurchaseOrderDetailPanel
+                po={selected}
+                canApprove={canApprove}
+                suppliers={suppliers}
+                canManagePayments={canManagePayments}
+              />
+            ) : null}
+          />
         </div>
       )}
 
       {suppliers.length === 0 && (
         <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
-          You need at least one supplier and one stock location to create a purchase order. Add them in the Suppliers tab and Materials → Locations tab.
+          You need at least one supplier and one stock location to create a purchase order. Add them in the Suppliers tab here and locations in Settings → Locations.
         </p>
       )}
 
@@ -328,198 +510,6 @@ function PurchaseOrdersTab({
         locations={locations}
         projects={projects}
       />
-      <PurchaseOrderDetailDialog open={selected != null} onOpenChange={(o) => !o && setSelected(null)} po={selected} canApprove={canApprove} />
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Transfers tab
-// ───────────────────────────────────────────────────────────
-
-function TransfersTab({ transfers, locations }: { transfers: TransferRow[]; locations: StockLocationRow[] }) {
-  const [statusFilter, setStatusFilter] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-
-  const filtered = useMemo(
-    () => (statusFilter ? transfers.filter((t) => t.status === statusFilter) : transfers),
-    [transfers, statusFilter],
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-          <option value="">All statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="IN_TRANSIT">In Transit</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="CANCELLED">Cancelled</option>
-        </Select>
-        <Button onClick={() => setFormOpen(true)} disabled={locations.length < 2}>
-          <Plus className="h-4 w-4" /> New Transfer
-        </Button>
-      </div>
-
-      {locations.length < 2 && (
-        <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
-          You need at least two stock locations to create a transfer. Add locations in Materials → Locations.
-        </p>
-      )}
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Truck className="h-5 w-5" />}
-          title={transfers.length === 0 ? "No transfers yet" : "No transfers match the filter"}
-          description={transfers.length === 0 ? "Move stock between warehouses and project sites." : "Try a different status filter."}
-        />
-      ) : (
-        /* ── Route cards ────────────────────────────────────────────
-           Each transfer is a card showing the route (From → To),
-           status, line count, materials, and date. DRAFT transfers
-           expose Complete / Cancel actions on the card itself. */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((t) => (
-            <TransferCard key={t.id} transfer={t} />
-          ))}
-        </div>
-      )}
-
-      <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={locations} />
-    </div>
-  );
-}
-
-function TransferCard({ transfer }: { transfer: TransferRow }) {
-  const router = useRouter();
-  const [acting, setActing] = useState(false);
-
-  async function doAction(action: "complete" | "cancel") {
-    setActing(true);
-    try {
-      const res = await fetch(`/api/transfers/${transfer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Action failed");
-      toast.success(`Transfer ${action}d`);
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setActing(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm">
-      {/* Route: From → To */}
-      <div className="flex items-center gap-2">
-        <span className="font-semibold text-foreground">{transfer.fromLocationName}</span>
-        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="font-semibold text-foreground">{transfer.toLocationName}</span>
-      </div>
-
-      {/* Status badge */}
-      <div className="mt-2">
-        <Badge variant={TRANSFER_STATUS_VARIANT[transfer.status] ?? "muted"}>
-          {transfer.status.replace("_", " ").toLowerCase()}
-        </Badge>
-      </div>
-
-      {/* Line count + materials (truncated to 1 line) */}
-      <div className="mt-3 space-y-1">
-        <div className="text-caption text-muted-foreground">
-          {transfer.lineCount} line{transfer.lineCount !== 1 ? "s" : ""}
-        </div>
-        <div className="truncate text-caption text-muted-foreground">{transfer.materials.join(", ") || "—"}</div>
-      </div>
-
-      {/* Date */}
-      <div className="mt-2 text-micro tnum text-muted-foreground">{formatDate(transfer.transferDate)}</div>
-
-      {/* Actions for DRAFT transfers */}
-      {transfer.status === "DRAFT" && (
-        <div className="mt-3 flex gap-1 border-t border-border pt-3">
-          <Button variant="ghost" size="sm" onClick={() => doAction("complete")} disabled={acting} className="text-success hover:text-success">
-            <Check className="h-4 w-4" /> Complete
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => doAction("cancel")} disabled={acting} className="ml-auto text-muted-foreground hover:text-danger">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Issues tab
-// ───────────────────────────────────────────────────────────
-
-function IssuesTab({
-  issues, projects, departments, materialOptions, locationOptions,
-}: {
-  issues: MaterialIssueListRow[];
-  projects: ProjectOption[];
-  departments: DepartmentOption[];
-  materialOptions: MaterialOption[];
-  locationOptions: StockLocationOption[];
-}) {
-  const [formOpen, setFormOpen] = useState(false);
-  const totalCost = issues.reduce((s, i) => s + i.totalCost, 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-body text-muted-foreground">
-          {issues.length} issue{issues.length !== 1 ? "s" : ""} · Total cost: {formatCurrency(totalCost)}
-        </span>
-        <Button onClick={() => setFormOpen(true)} disabled={(projects.length === 0 && departments.length === 0) || materialOptions.length === 0}>
-          <Plus className="h-4 w-4" /> Issue Materials
-        </Button>
-      </div>
-
-      {issues.length === 0 ? (
-        <EmptyState
-          icon={<Package className="h-5 w-5" />}
-          title="No material issues"
-          description="Issue materials from stock to a project (WIP) or a cost center (Operating Expenses)."
-        />
-      ) : (
-        /* ── Timeline feed ──────────────────────────────────────────
-           A vertical line with amber dots traces the history of
-           material issues. Each entry shows the target (project or
-           department), source location, line count, total cost
-           (red, monospace), and date. */
-        <div className="relative pl-6">
-          {/* Vertical line */}
-          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-          <div className="space-y-5">
-            {issues.map((i) => (
-              <div key={i.id} className="relative">
-                {/* Amber dot */}
-                <span className="absolute -left-[19px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-amber-500" />
-                <div className="font-semibold text-foreground">
-                  {i.projectName ?? (`${i.departmentCode ?? ""} ${i.departmentName ?? ""}`.trim() || "—")}
-                </div>
-                <div className="mt-0.5 text-body text-muted-foreground">{i.fromLocationName}</div>
-                <div className="mt-1 flex items-center gap-2 text-caption">
-                  <span className="tnum text-muted-foreground">{i.lineCount} line{i.lineCount !== 1 ? "s" : ""}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="font-mono font-semibold text-danger">{formatCurrency(i.totalCost)}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="tnum text-muted-foreground">{formatDate(i.issueDate)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <IssueFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} locations={locationOptions} materials={materialOptions} departments={departments} />
     </div>
   );
 }
@@ -528,11 +518,13 @@ function IssuesTab({
 //  Suppliers tab
 // ───────────────────────────────────────────────────────────
 
-function SuppliersTab({ suppliers }: { suppliers: SupplierRow[] }) {
+function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow[]; canManagePayments: boolean }) {
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SupplierRow | null>(null);
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
+  const [paySupplier, setPaySupplier] = useState<SupplierRow | null>(null);
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -542,15 +534,29 @@ function SuppliersTab({ suppliers }: { suppliers: SupplierRow[] }) {
     );
   }, [suppliers, query]);
 
+  const totalOwed = suppliers.reduce((s, v) => s + v.balanceOwed, 0);
+  const withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
+
   return (
     <div className="space-y-4">
+      <MetricGrid cols={3}>
+        <Metric label="Total Suppliers" value={suppliers.length} icon={<Tags />} />
+        <Metric label="With Dues" value={withDues} tone={withDues > 0 ? "warning" : "muted"} />
+        <Metric label="Total Owed" value={formatCurrency(totalOwed)} tone={totalOwed > 0 ? "danger" : "muted"} />
+      </MetricGrid>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative sm:max-w-xs">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search suppliers…" />
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-          <Plus className="h-4 w-4" /> New Supplier
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Plus className="h-4 w-4" /> New Supplier
+          </Button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -605,9 +611,16 @@ function SuppliersTab({ suppliers }: { suppliers: SupplierRow[] }) {
                 ) : (
                   <span className="text-caption text-muted-foreground">No open POs</span>
                 )}
-                <span className={`font-mono text-body font-semibold tnum ${s.balanceOwed > 0 ? "text-danger" : "text-muted-foreground"}`}>
-                  {s.balanceOwed > 0 ? formatCurrency(s.balanceOwed) : "—"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`font-mono text-body font-semibold tnum ${s.balanceOwed > 0 ? "text-danger" : "text-muted-foreground"}`}>
+                    {s.balanceOwed > 0 ? formatCurrency(s.balanceOwed) : "—"}
+                  </span>
+                  {canManagePayments && s.balanceOwed > 0 && (
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-caption" onClick={() => setPaySupplier(s)}>
+                      Pay
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -622,6 +635,100 @@ function SuppliersTab({ suppliers }: { suppliers: SupplierRow[] }) {
         title="Delete supplier?"
         description={deleting ? `“${deleting.name}” will be archived. Suppliers with open POs cannot be deleted.` : ""}
         successMessage="Supplier archived"
+      />
+      <SupplierPaymentFormDialog
+        open={paySupplier != null}
+        onOpenChange={(o) => !o && setPaySupplier(null)}
+        suppliers={paySupplier ? [paySupplier] : suppliers}
+        defaultSupplierId={paySupplier?.id}
+        defaultAmount={paySupplier?.balanceOwed}
+      />
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Direct Purchases tab — simplified purchase register (P-XXXXX)
+//  Matches the client's paper "Purchase Register": supplier name,
+//  bill date, bill amount. Optional line items receive stock.
+// ───────────────────────────────────────────────────────────
+
+function DirectPurchasesTab({
+  directPurchases,
+  suppliers,
+  locations,
+  materials,
+  canCreate,
+}: {
+  directPurchases: DirectPurchaseRow[];
+  suppliers: SupplierRow[];
+  locations: StockLocationOption[];
+  materials: MaterialOption[];
+  canCreate: boolean;
+}) {
+  const [formOpen, setFormOpen] = useState(false);
+  const router = useRouter();
+  const totalAmount = directPurchases.reduce((s, p) => s + p.billAmount, 0);
+
+  const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
+
+  return (
+    <div className="space-y-4">
+      <MetricGrid cols={2}>
+        <Metric label="Cash Purchases" value={directPurchases.length} icon={<ShoppingCart />} />
+        <Metric label="Total Amount" value={formatCurrency(totalAmount)} tone="brand" />
+      </MetricGrid>
+
+      <div className="flex items-center justify-between">
+        <span className="text-body text-muted-foreground">
+          {directPurchases.length} cash purchase{directPurchases.length !== 1 ? "s" : ""} · Total: {formatCurrency(totalAmount)}
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          {canCreate && (
+            <Button onClick={() => setFormOpen(true)} disabled={materials.length === 0 || locations.length === 0}>
+              <Plus className="h-4 w-4" /> New Cash Purchase
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {directPurchases.length === 0 ? (
+        <EmptyState
+          icon={<ShoppingCart className="h-5 w-5" />}
+          title="No cash purchases"
+          description="Log small or local purchases without a formal PO. Stock is received automatically if line items are added."
+          action={
+            <Button onClick={() => setFormOpen(true)} disabled={materials.length === 0 || locations.length === 0}>
+              <Plus className="h-4 w-4" /> New Cash Purchase
+            </Button>
+          }
+        />
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <DataTable
+            data={directPurchases}
+            initialSort={{ key: "billDate", direction: "desc" }}
+            columns={directPurchaseColumns}
+            searchable
+            searchPlaceholder="Search by bill no, supplier, location…"
+            showTotals
+            sumColumns={["amount"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            hideable
+            pageSize={50}
+          />
+        </div>
+      )}
+
+      <DirectPurchaseFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        suppliers={supplierOptions}
+        locations={locations}
+        materials={materials}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, setParcelStatus, updateParcelValuation } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -21,7 +22,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       deletedAt: null,
       landPurchase: { companyId: company.id },
       ...(landPurchaseId ? { landPurchaseId } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as LandParcelStatus } : {}),
     },
     include: {
       parentParcel: { select: { id: true, number: true } },
@@ -47,6 +48,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
       currentValuation: toNum(p.currentValuation),
       nrvWriteDown: toNum(p.nrvWriteDown),
+      isInfrastructure: p.isInfrastructure,
+      marketValue: p.marketValue ? toNum(p.marketValue) : null,
+      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
       projectId: p.projectId,
       projectName: p.project?.name ?? null,
       saleId: p.saleId,
@@ -85,16 +89,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
           number: c.number,
           area: c.area,
           askingPrice: c.askingPrice,
+          isInfrastructure: c.isInfrastructure,
+          marketValue: c.marketValue,
+          weightFactor: c.weightFactor,
           geometry: c.geometry,
         })),
         notes: parsed.data.notes,
+        allocationModel: parsed.data.allocationModel,
+        developmentCost: parsed.data.developmentCost,
       });
       return json(
         { ok: true, parentId: result.parent.id, children: result.children.map((c) => c.id) },
         { status: 201 },
       );
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Partition failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Partition failed") }, { status: 400 });
     }
   }
 
@@ -108,8 +117,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     try {
       await setParcelStatus(parcelId, status, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Status change failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Status change failed") }, { status: 400 });
     }
   }
 
@@ -132,8 +141,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         user.id,
       );
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Valuation update failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Valuation update failed") }, { status: 400 });
     }
   }
 

@@ -11,6 +11,7 @@ import type {
   EquipmentRow, StockLocationRow, ProjectOption,
 } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function EquipmentPage() {
   return (
     <div className="space-y-5">
@@ -28,9 +29,7 @@ async function EquipmentContent() {
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don't have permission to view this module.
-      </div>
+      <NoAccess what="equipment" />
     );
   }
 
@@ -105,6 +104,8 @@ async function EquipmentContent() {
     projectName: l.project?.name ?? null,
     stockValue: l.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0),
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
+    companyId: company.id,
+    companyName: company.name,
   }));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
@@ -123,7 +124,7 @@ async function EquipmentContent() {
     <>
       <PageHeader
         title="Equipment"
-        description="Trackable assets — machinery, tools, vehicles. Assignments, maintenance, and depreciation."
+        description="Trackable assets — machinery, tools, and vehicles. Track assignments, maintenance, and depreciation."
         stats={[
           { label: "Total", value: equipmentRows.length },
           { label: "Available", value: available },

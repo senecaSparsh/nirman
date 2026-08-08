@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { Prisma } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -107,7 +108,7 @@ export const PUT = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
     }
     const issues = validateGraph(graph);
     if (issues.length > 0) return json({ error: issues[0]?.message ?? "Invalid graph." }, { status: 400 });
-    data.graphJson = graph as any;
+    data.graphJson = graph as unknown as Prisma.InputJsonValue;
     data.rootModel = rootNode.model;
   }
 

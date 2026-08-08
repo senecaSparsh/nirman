@@ -1,0 +1,32 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: "N"
+      - generic [ref=e6]:
+        - heading "Nirman" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Materials, property, people and money — in one place.
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Email
+        - textbox "Email" [active] [ref=e12]:
+          - /placeholder: you@company.com
+      - generic [ref=e13]:
+        - generic [ref=e14]: Password
+        - textbox "Password" [ref=e15]:
+          - /placeholder: ••••••••
+      - button "Sign in" [ref=e16]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - paragraph [ref=e19]: One-click login (dev)
+        - generic [ref=e20]: "password: nirman123"
+      - generic [ref=e21]:
+        - button "Owner" [ref=e22]
+        - button "Administrator" [ref=e24]
+        - button "Manager" [ref=e26]
+        - button "Supervisor" [ref=e28]
+        - button "Sales" [ref=e30]
+        - button "Accountant" [ref=e32]
+    - paragraph [ref=e34]: No account? Your owner or administrator can create one for you.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e40] [cursor=pointer]
+  - alert [ref=e44]

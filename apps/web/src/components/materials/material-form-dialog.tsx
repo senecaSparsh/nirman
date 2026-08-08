@@ -12,12 +12,17 @@ import type { MaterialCategory, MaterialRow } from "@/lib/types";
 type FormState = {
   code: string;
   name: string;
-  categoryId: string;
+  categoryId: string | null;
   unit: string;
   hsnCode: string;
   gstRate: string;
   standardCost: string;
   minStock: string;
+  reorderPoint: string;
+  economicOrderQty: string;
+  volumetricDensity: string;
+  bulkDiscountPct: string;
+  isCorporateCommodity: boolean;
   description: string;
 };
 
@@ -30,6 +35,11 @@ const empty: FormState = {
   gstRate: "0",
   standardCost: "0",
   minStock: "",
+  reorderPoint: "",
+  economicOrderQty: "",
+  volumetricDensity: "",
+  bulkDiscountPct: "",
+  isCorporateCommodity: false,
   description: "",
 };
 
@@ -50,12 +60,17 @@ export function MaterialFormDialog({
       ? {
           code: material.code,
           name: material.name,
-          categoryId: material.categoryId,
+          categoryId: material.categoryId ?? "",
           unit: material.unit,
           hsnCode: material.hsnCode ?? "",
           gstRate: String(material.gstRate),
           standardCost: String(material.standardCost),
           minStock: material.minStock == null ? "" : String(material.minStock),
+          reorderPoint: material.reorderPoint == null ? "" : String(material.reorderPoint),
+          economicOrderQty: material.economicOrderQty == null ? "" : String(material.economicOrderQty),
+          volumetricDensity: material.volumetricDensity == null ? "" : String(material.volumetricDensity),
+          bulkDiscountPct: material.bulkDiscountPct == null ? "" : String(material.bulkDiscountPct),
+          isCorporateCommodity: material.isCorporateCommodity ?? false,
           description: material.description ?? "",
         }
       : empty,
@@ -70,6 +85,18 @@ export function MaterialFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.code.trim()) {
+      toast.error("Material code is required");
+      return;
+    }
+    if (!form.name.trim()) {
+      toast.error("Material name is required");
+      return;
+    }
+    if (!form.unit.trim()) {
+      toast.error("Unit is required");
+      return;
+    }
     if (!form.categoryId) {
       toast.error("Please select a category");
       return;
@@ -85,6 +112,11 @@ export function MaterialFormDialog({
         gstRate: Number(form.gstRate) || 0,
         standardCost: Number(form.standardCost) || 0,
         minStock: form.minStock.trim() === "" ? null : Number(form.minStock),
+        reorderPoint: form.reorderPoint.trim() === "" ? null : Number(form.reorderPoint),
+        economicOrderQty: form.economicOrderQty.trim() === "" ? null : Number(form.economicOrderQty),
+        volumetricDensity: form.volumetricDensity.trim() === "" ? null : Number(form.volumetricDensity),
+        bulkDiscountPct: form.bulkDiscountPct.trim() === "" ? null : Number(form.bulkDiscountPct),
+        isCorporateCommodity: form.isCorporateCommodity,
         description: form.description.trim() || null,
       };
       const res = await fetch(
@@ -100,8 +132,8 @@ export function MaterialFormDialog({
       toast.success(isEdit ? "Material updated" : "Material created");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -112,7 +144,7 @@ export function MaterialFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "Edit Material" : "New Material"}
-      description={isEdit ? "Update material details." : "Add a new material to the catalog."}
+      description={isEdit ? "Update material details." : "Add a new material to your catalogue."}
       className="max-w-2xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
@@ -135,7 +167,7 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Category" required>
-            <Select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)} required>
+            <Select value={form.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value)} required>
               <option value="" disabled>
                 Select category…
               </option>
@@ -189,6 +221,58 @@ export function MaterialFormDialog({
               onChange={(e) => set("minStock", e.target.value)}
               placeholder="Leave empty for no alert"
             />
+          </Field>
+          <Field label="Reorder Point">
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              value={form.reorderPoint}
+              onChange={(e) => set("reorderPoint", e.target.value)}
+              placeholder="Auto-indent trigger level"
+            />
+          </Field>
+          <Field label="Economic Order Qty (EOQ)">
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              value={form.economicOrderQty}
+              onChange={(e) => set("economicOrderQty", e.target.value)}
+              placeholder="Optimal order quantity"
+            />
+          </Field>
+          <Field label="Volumetric Density (V/W ratio)">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.volumetricDensity}
+              onChange={(e) => set("volumetricDensity", e.target.value)}
+              placeholder="LCI logistics input"
+            />
+          </Field>
+          <Field label="Bulk Discount (%)">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={form.bulkDiscountPct}
+              onChange={(e) => set("bulkDiscountPct", e.target.value)}
+              placeholder="Corporate volume discount"
+            />
+          </Field>
+          <Field label="Corporate Commodity">
+            <label className="flex h-9 items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                checked={form.isCorporateCommodity}
+                onChange={(e) => set("isCorporateCommodity", e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className="text-muted-foreground">Force central procurement</span>
+            </label>
           </Field>
         </div>
         <Field label="Description">

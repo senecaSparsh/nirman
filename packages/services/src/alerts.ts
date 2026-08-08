@@ -83,7 +83,7 @@ export async function inventoryAgingReport(companyId?: string) {
       where: {
         materialId: item.materialId,
         toLocationId: item.locationId,
-        movementType: { in: ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"] },
+        movementType: { in: ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"] },
       },
       orderBy: { timestamp: "desc" },
       select: { timestamp: true },
@@ -160,6 +160,10 @@ export async function flagNrvWriteDowns(companyId?: string) {
     writeDownAmount: Decimal;
   }[] = [];
 
+  // Collect all updates first, then apply atomically
+  const unitUpdates: { id: string; nrvWriteDown: Decimal }[] = [];
+  const parcelUpdates: { id: string; nrvWriteDown: Decimal }[] = [];
+
   // Built units
   for (const unit of units) {
     const cost = new Decimal(unit.productionCost);
@@ -167,16 +171,10 @@ export async function flagNrvWriteDowns(companyId?: string) {
     if (nrv.lt(cost)) {
       const writeDown = cost.minus(nrv);
       writeDowns.push({ type: "BUILT_UNIT", id: unit.id, costBasis: cost, nrv, writeDownAmount: writeDown });
-      await prisma.builtUnit.update({
-        where: { id: unit.id },
-        data: { nrvWriteDown: writeDown },
-      });
+      unitUpdates.push({ id: unit.id, nrvWriteDown: writeDown });
     } else if (unit.nrvWriteDown && new Decimal(unit.nrvWriteDown).gt(0)) {
       // Clear previous write-down if NRV has recovered
-      await prisma.builtUnit.update({
-        where: { id: unit.id },
-        data: { nrvWriteDown: 0 },
-      });
+      unitUpdates.push({ id: unit.id, nrvWriteDown: new Decimal(0) });
     }
   }
 
@@ -187,11 +185,20 @@ export async function flagNrvWriteDowns(companyId?: string) {
     if (nrv.lt(cost)) {
       const writeDown = cost.minus(nrv);
       writeDowns.push({ type: "LAND", id: parcel.id, costBasis: cost, nrv, writeDownAmount: writeDown });
-      await prisma.landParcel.update({
-        where: { id: parcel.id },
-        data: { nrvWriteDown: writeDown },
-      });
+      parcelUpdates.push({ id: parcel.id, nrvWriteDown: writeDown });
     }
+  }
+
+  // Apply all updates in a single transaction
+  if (unitUpdates.length > 0 || parcelUpdates.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      for (const u of unitUpdates) {
+        await tx.builtUnit.update({ where: { id: u.id }, data: { nrvWriteDown: u.nrvWriteDown } });
+      }
+      for (const p of parcelUpdates) {
+        await tx.landParcel.update({ where: { id: p.id }, data: { nrvWriteDown: p.nrvWriteDown } });
+      }
+    });
   }
 
   return writeDowns;

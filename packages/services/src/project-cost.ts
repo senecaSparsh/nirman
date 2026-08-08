@@ -2,7 +2,8 @@ import { prisma, type ProjectCostType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postProjectCost } from "./gl-posting";
+import { postProjectCost, reverseJournalEntry } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Project Cost Service — labour, overhead, equipment, contractor, permit costs.
@@ -23,13 +24,13 @@ interface AddProjectCostInput {
 
 export async function addProjectCost(input: AddProjectCostInput) {
   const amount = new Decimal(input.amount);
-  if (!amount.gt(0)) throw new Error("Cost amount must be > 0");
+  if (!amount.gt(0)) throw new ServiceError("Cost amount must be > 0");
 
   return prisma.$transaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
     });
-    if (!project) throw new Error("Project not found or deleted");
+    if (!project) throw new ServiceError("Project not found or deleted", 404);
 
     const cost = await tx.projectCost.create({
       data: {
@@ -70,7 +71,18 @@ export async function addProjectCost(input: AddProjectCostInput) {
 export async function deleteProjectCost(costId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const cost = await tx.projectCost.findUnique({ where: { id: costId } });
-    if (!cost) throw new Error("Project cost not found");
+    if (!cost) throw new ServiceError("Project cost not found", 404);
+
+    // Find and reverse the original GL entry before deleting the cost row
+    const originalEntry = await tx.journalEntry.findFirst({
+      where: { sourceType: "PROJECT_COST", sourceId: costId },
+    });
+    if (originalEntry) {
+      await reverseJournalEntry(tx, originalEntry.id, {
+        postedById: userId,
+        memo: `Reversal: project cost deleted (${cost.costType})`,
+      });
+    }
 
     await tx.projectCost.delete({ where: { id: costId } });
 

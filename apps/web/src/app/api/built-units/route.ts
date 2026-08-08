@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
 import { createBuiltUnits } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -17,8 +18,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       deletedAt: null,
       project: { companyId: company.id },
       ...(projectId ? { projectId } : {}),
-      ...(status ? { status: status as any } : {}),
-      ...(unitType ? { unitType: unitType as any } : {}),
+      ...(status ? { status: { in: status.split(",") as BuiltUnitStatus[] } } : {}),
+      ...(unitType ? { unitType: unitType as BuiltUnitType } : {}),
     },
     orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
     include: {
@@ -85,7 +86,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       })),
     });
     return json({ ok: true, count: created.length }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create units" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create units") }, { status: 400 });
   }
 });

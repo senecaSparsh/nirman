@@ -1,0 +1,293 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e45]:
+    - complementary [ref=f1e46]:
+      - link "N" [ref=f1e47] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f1e48]:
+        - link "Today — What needs you right now" [ref=f1e49] [cursor=pointer]:
+          - /url: /
+        - link "Materials — Raw material — buy it, store it, issue it, count it" [ref=f1e57] [cursor=pointer]:
+          - /url: /procurement
+        - link "Property — Real estate inventory — land becomes units, units become revenue" [ref=f1e69] [cursor=pointer]:
+          - /url: /projects
+        - link "People — Labour, attendance and time — and what it all costs" [ref=f1e74] [cursor=pointer]:
+          - /url: /hr
+        - link "Money — Cash in, cash out, and books that always balance" [ref=f1e80] [cursor=pointer]:
+          - /url: /finance
+        - link "Insights — Ask a question about the business, get an answer" [ref=f1e84] [cursor=pointer]:
+          - /url: /reports
+        - link "Setup — Company, access and the things that run themselves" [ref=f1e87] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f1e91]:
+        - button "Sign out" [ref=f1e92]
+        - generic "Amit Patil · OWNER" [ref=f1e96]: AP
+    - generic [ref=f1e97]:
+      - generic [ref=f1e100]:
+        - generic [ref=f1e101]:
+          - heading "Today" [level=2] [ref=f1e102]
+          - paragraph [ref=f1e103]: What needs you right now
+        - button "Collapse navigation" [ref=f1e104]
+      - navigation [ref=f1e108]:
+        - generic [ref=f1e109]:
+          - paragraph [ref=f1e110]: Overview
+          - list [ref=f1e111]:
+            - listitem [ref=f1e112]:
+              - link "Today" [ref=f1e113] [cursor=pointer]:
+                - /url: /
+        - generic [ref=f1e121]:
+          - paragraph [ref=f1e122]: Your work
+          - list [ref=f1e123]:
+            - listitem [ref=f1e124]:
+              - link "My Tasks" [ref=f1e125] [cursor=pointer]:
+                - /url: /my-tasks
+            - listitem [ref=f1e130]:
+              - link "Approvals" [ref=f1e131] [cursor=pointer]:
+                - /url: /approvals
+            - listitem [ref=f1e137]:
+              - link "Task Manager" [ref=f1e138] [cursor=pointer]:
+                - /url: /tasks
+      - generic [ref=f1e143]: ⌘K to search anything
+    - generic [ref=f1e144]:
+      - banner [ref=f1e145]:
+        - navigation [ref=f1e146]:
+          - link "Today" [ref=f1e148] [cursor=pointer]:
+            - /url: /
+        - generic [ref=f1e149]:
+          - button "Search ⌘K" [ref=f1e150]:
+            - generic [ref=f1e154]: Search
+            - generic [ref=f1e155]: ⌘K
+          - button "Nirman Constructions" [ref=f1e157]
+      - main [ref=f1e165]:
+        - generic [ref=f1e167]:
+          - generic [ref=f1e168]:
+            - paragraph [ref=f1e169]: Wednesday, 5 August
+            - heading "15 things need you" [level=1] [ref=f1e170]
+            - paragraph [ref=f1e171]:
+              - generic [ref=f1e172]: 3 blocking someone else
+              - text: · 12 can wait
+          - generic [ref=f1e173]:
+            - link "Requisitions waiting for approval 1 Site can't order material until you approve these Review Greenfield Residency 2,900 units requested" [ref=f1e174] [cursor=pointer]:
+              - /url: /approvals
+              - generic [ref=f1e175]:
+                - generic [ref=f1e180]:
+                  - generic [ref=f1e181]:
+                    - generic [ref=f1e182]: Requisitions waiting for approval
+                    - generic [ref=f1e183]: "1"
+                  - paragraph [ref=f1e184]: Site can't order material until you approve these
+                - generic [ref=f1e187]: Review
+              - generic [ref=f1e191]:
+                - generic [ref=f1e192]: Greenfield Residency
+                - generic [ref=f1e193]: 2,900 units requested
+            - link "Purchase orders to approve 1 Nothing is ordered from the supplier until these are signed off Review PO-20260805-8510 Shree Brick Works" [ref=f1e194] [cursor=pointer]:
+              - /url: /approvals
+              - generic [ref=f1e195]:
+                - generic [ref=f1e201]:
+                  - generic [ref=f1e202]:
+                    - generic [ref=f1e203]: Purchase orders to approve
+                    - generic [ref=f1e204]: "1"
+                  - paragraph [ref=f1e205]: Nothing is ordered from the supplier until these are signed off
+                - generic [ref=f1e208]: Review
+              - generic [ref=f1e212]:
+                - generic [ref=f1e213]: PO-20260805-8510
+                - generic [ref=f1e214]: Shree Brick Works
+            - link "Deliveries past their date 1 Chase the supplier — site is expecting this material Chase PO-20260805-4457 JSW Steel Supplies · due 25 Mar 2024" [ref=f1e215] [cursor=pointer]:
+              - /url: /procurement
+              - generic [ref=f1e216]:
+                - generic [ref=f1e223]:
+                  - generic [ref=f1e224]:
+                    - generic [ref=f1e225]: Deliveries past their date
+                    - generic [ref=f1e226]: "1"
+                  - paragraph [ref=f1e227]: Chase the supplier — site is expecting this material
+                - generic [ref=f1e230]: Chase
+              - generic [ref=f1e234]:
+                - generic [ref=f1e235]: PO-20260805-4457
+                - generic [ref=f1e236]: JSW Steel Supplies · due 25 Mar 2024
+            - link "Materials below their reorder point 5 Raise a requisition before site runs out Reorder AAC Block 600x200x150 3,200 NOS left · need 5,000 PVC Conduit 20mm 0 MTR left · need 500 Electrical Wire 2.5sqmm 1,800 MTR left · need 2,000 +2 more" [ref=f1e237] [cursor=pointer]:
+              - /url: /materials
+              - generic [ref=f1e238]:
+                - generic [ref=f1e244]:
+                  - generic [ref=f1e245]:
+                    - generic [ref=f1e246]: Materials below their reorder point
+                    - generic [ref=f1e247]: "5"
+                  - paragraph [ref=f1e248]: Raise a requisition before site runs out
+                - generic [ref=f1e249]: Reorder
+              - generic [ref=f1e252]:
+                - generic [ref=f1e253]:
+                  - generic [ref=f1e254]: AAC Block 600x200x150
+                  - generic [ref=f1e255]: 3,200 NOS left · need 5,000
+                - generic [ref=f1e256]:
+                  - generic [ref=f1e257]: PVC Conduit 20mm
+                  - generic [ref=f1e258]: 0 MTR left · need 500
+                - generic [ref=f1e259]:
+                  - generic [ref=f1e260]: Electrical Wire 2.5sqmm
+                  - generic [ref=f1e261]: 1,800 MTR left · need 2,000
+                - generic [ref=f1e262]: +2 more
+            - link "Sales awaiting payment 2 Collect outstanding balances from customers Collect Verma Traders ₹4,16,00,000 balance due Rajesh Sharma ₹45,50,000 balance due" [ref=f1e263] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f1e264]:
+                - generic [ref=f1e268]:
+                  - generic [ref=f1e269]:
+                    - generic [ref=f1e270]: Sales awaiting payment
+                    - generic [ref=f1e271]: "2"
+                  - paragraph [ref=f1e272]: Collect outstanding balances from customers
+                - generic [ref=f1e273]: Collect
+              - generic [ref=f1e276]:
+                - generic [ref=f1e277]:
+                  - generic [ref=f1e278]: Verma Traders
+                  - generic [ref=f1e279]: ₹4,16,00,000 balance due
+                - generic [ref=f1e280]:
+                  - generic [ref=f1e281]: Rajesh Sharma
+                  - generic [ref=f1e282]: ₹45,50,000 balance due
+            - link "Stock counts to process 1 Confirm counts and reconcile variances to keep stock accurate Process Central Warehouse Awaiting reconciliation" [ref=f1e283] [cursor=pointer]:
+              - /url: /stock-counts
+              - generic [ref=f1e284]:
+                - generic [ref=f1e290]:
+                  - generic [ref=f1e291]:
+                    - generic [ref=f1e292]: Stock counts to process
+                    - generic [ref=f1e293]: "1"
+                  - paragraph [ref=f1e294]: Confirm counts and reconcile variances to keep stock accurate
+                - generic [ref=f1e295]: Process
+              - generic [ref=f1e299]:
+                - generic [ref=f1e300]: Central Warehouse
+                - generic [ref=f1e301]: Awaiting reconciliation
+            - link "Units ready to sell 4 These built units are available — find buyers and close sales Sell A-401 Greenfield Residency A-301 Greenfield Residency A-102 Greenfield Residency +1 more" [ref=f1e302] [cursor=pointer]:
+              - /url: /units
+              - generic [ref=f1e303]:
+                - generic [ref=f1e308]:
+                  - generic [ref=f1e309]:
+                    - generic [ref=f1e310]: Units ready to sell
+                    - generic [ref=f1e311]: "4"
+                  - paragraph [ref=f1e312]: These built units are available — find buyers and close sales
+                - generic [ref=f1e313]: Sell
+              - generic [ref=f1e316]:
+                - generic [ref=f1e317]:
+                  - generic [ref=f1e318]: A-401
+                  - generic [ref=f1e319]: Greenfield Residency
+                - generic [ref=f1e320]:
+                  - generic [ref=f1e321]: A-301
+                  - generic [ref=f1e322]: Greenfield Residency
+                - generic [ref=f1e323]:
+                  - generic [ref=f1e324]: A-102
+                  - generic [ref=f1e325]: Greenfield Residency
+                - generic [ref=f1e326]: +1 more
+          - generic [ref=f1e328]:
+            - paragraph [ref=f1e332]: No tasks assigned to you.
+            - paragraph [ref=f1e333]: Tasks assigned by your manager will appear here.
+          - generic [ref=f1e334]:
+            - link "Procure ₹21,46,000 in inventory 1 POs open" [ref=f1e336] [cursor=pointer]:
+              - /url: /procurement
+              - generic [ref=f1e337]: Procure
+              - generic [ref=f1e343]:
+                - generic [ref=f1e344]: ₹21,46,000
+                - generic [ref=f1e345]: in inventory
+              - generic [ref=f1e346]:
+                - generic [ref=f1e347]: "1"
+                - generic [ref=f1e348]: POs open
+            - link "Build 2 active projects 6 equipment" [ref=f1e353] [cursor=pointer]:
+              - /url: /projects
+              - generic [ref=f1e354]: Build
+              - generic [ref=f1e360]:
+                - generic [ref=f1e361]: "2"
+                - generic [ref=f1e362]: active projects
+              - generic [ref=f1e363]:
+                - generic [ref=f1e364]: "6"
+                - generic [ref=f1e365]: equipment
+            - link "Sell ₹9,17,00,000 unsold assets 10 units" [ref=f1e370] [cursor=pointer]:
+              - /url: /sales
+              - generic [ref=f1e371]: Sell
+              - generic [ref=f1e377]:
+                - generic [ref=f1e378]: ₹9,17,00,000
+                - generic [ref=f1e379]: unsold assets
+              - generic [ref=f1e380]:
+                - generic [ref=f1e381]: "10"
+                - generic [ref=f1e382]: units
+          - generic [ref=f1e383]:
+            - generic [ref=f1e384]:
+              - heading "Live activity" [level=2] [ref=f1e385]
+              - generic [ref=f1e388]:
+                - link "Issued to Greenfield Residency From Central Warehouse 17m" [ref=f1e389] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e394]:
+                    - generic [ref=f1e395]: Issued to Greenfield Residency
+                    - generic [ref=f1e396]: From Central Warehouse
+                  - generic [ref=f1e397]: 17m
+                - link "45 NOS Safety Helmet (ISI) Issued from Central Warehouse 17m" [ref=f1e398] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e403]:
+                    - generic [ref=f1e404]: 45 NOS Safety Helmet (ISI)
+                    - generic [ref=f1e405]: Issued from Central Warehouse
+                  - generic [ref=f1e406]: 17m
+                - link "₹5,20,00,000 Verma Traders 17m" [ref=f1e407] [cursor=pointer]:
+                  - /url: /sales
+                  - generic [ref=f1e411]:
+                    - generic [ref=f1e412]: ₹5,20,00,000
+                    - generic [ref=f1e413]: Verma Traders
+                  - generic [ref=f1e414]: 17m
+                - link "₹45,00,000 Mohit Enterprises 17m" [ref=f1e415] [cursor=pointer]:
+                  - /url: /sales
+                  - generic [ref=f1e419]:
+                    - generic [ref=f1e420]: ₹45,00,000
+                    - generic [ref=f1e421]: Mohit Enterprises
+                  - generic [ref=f1e422]: 17m
+                - link "₹65,00,000 Rajesh Sharma 17m" [ref=f1e423] [cursor=pointer]:
+                  - /url: /sales
+                  - generic [ref=f1e427]:
+                    - generic [ref=f1e428]: ₹65,00,000
+                    - generic [ref=f1e429]: Rajesh Sharma
+                  - generic [ref=f1e430]: 17m
+                - link "300 CFT 20mm Aggregate — → Greenfield Site Yard 17m" [ref=f1e431] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e434]:
+                    - generic [ref=f1e435]: 300 CFT 20mm Aggregate
+                    - generic [ref=f1e436]: — → Greenfield Site Yard
+                  - generic [ref=f1e437]: 17m
+                - link "300 CFT 20mm Aggregate Central Warehouse → — 17m" [ref=f1e438] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e441]:
+                    - generic [ref=f1e442]: 300 CFT 20mm Aggregate
+                    - generic [ref=f1e443]: Central Warehouse → —
+                  - generic [ref=f1e444]: 17m
+                - link "300 BAG Cement OPC 53 Grade (50kg) — → Greenfield Site Yard 17m" [ref=f1e445] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e448]:
+                    - generic [ref=f1e449]: 300 BAG Cement OPC 53 Grade (50kg)
+                    - generic [ref=f1e450]: — → Greenfield Site Yard
+                  - generic [ref=f1e451]: 17m
+                - link "300 BAG Cement OPC 53 Grade (50kg) Central Warehouse → — 17m" [ref=f1e452] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e455]:
+                    - generic [ref=f1e456]: 300 BAG Cement OPC 53 Grade (50kg)
+                    - generic [ref=f1e457]: Central Warehouse → —
+                  - generic [ref=f1e458]: 17m
+                - link "Issued to Greenfield Residency From Greenfield Site Yard 17m" [ref=f1e459] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e464]:
+                    - generic [ref=f1e465]: Issued to Greenfield Residency
+                    - generic [ref=f1e466]: From Greenfield Site Yard
+                  - generic [ref=f1e467]: 17m
+                - link "300 CFT River Sand (Grade M) Issued from Greenfield Site Yard 17m" [ref=f1e468] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e473]:
+                    - generic [ref=f1e474]: 300 CFT River Sand (Grade M)
+                    - generic [ref=f1e475]: Issued from Greenfield Site Yard
+                  - generic [ref=f1e476]: 17m
+                - link "12,000 NOS Red Clay Brick (Class A) Issued from Greenfield Site Yard 17m" [ref=f1e477] [cursor=pointer]:
+                  - /url: /stock-movements
+                  - generic [ref=f1e482]:
+                    - generic [ref=f1e483]: 12,000 NOS Red Clay Brick (Class A)
+                    - generic [ref=f1e484]: Issued from Greenfield Site Yard
+                  - generic [ref=f1e485]: 17m
+            - generic [ref=f1e486]:
+              - heading "Active projects" [level=2] [ref=f1e487]
+              - generic [ref=f1e492]:
+                - link "Greenfield Residency 1 active phase · 12 units" [ref=f1e493] [cursor=pointer]:
+                  - /url: /projects/cmsbx1xd3000lvl78dsmjvzq7
+                  - generic [ref=f1e494]: Greenfield Residency
+                  - generic [ref=f1e497]: 1 active phase · 12 units
+                - link "Hillview Corporate Park 0 active phases · 0 units" [ref=f1e498] [cursor=pointer]:
+                  - /url: /projects/cmsbx1xd5000nvl78tjwgpo41
+                  - generic [ref=f1e499]: Hillview Corporate Park
+                  - generic [ref=f1e502]: 0 active phases · 0 units
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e40] [cursor=pointer]
+  - alert [ref=f1e44]

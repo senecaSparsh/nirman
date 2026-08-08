@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { postExpense } from "@nirman/services";
+import { postExpense, reverseJournalEntry } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -14,7 +14,7 @@ const expenseSchema = z.object({
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.FINANCE_VIEW);
+  await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
@@ -76,10 +76,26 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return json({ error: "id query param is required" }, { status: 400 });
-  await prisma.expense.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    // Validate the expense belongs to the user's company
+    const expense = await tx.expense.findFirst({ where: { id, companyId: company.id } });
+    if (!expense) throw new Error("Expense not found in this company");
+    // Reverse the GL entry before deleting the expense row
+    const glEntry = await tx.journalEntry.findFirst({
+      where: { sourceType: "EXPENSE", sourceId: id },
+    });
+    if (glEntry) {
+      await reverseJournalEntry(tx, glEntry.id, {
+        postedById: user.id,
+        memo: "Reversal: expense deleted",
+      });
+    }
+    await tx.expense.delete({ where: { id } });
+  });
   return json({ ok: true });
 });

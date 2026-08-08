@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { RequisitionStatus } from "@nirman/db";
 import { createRequisition } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum } from "@/lib/server";
@@ -9,7 +10,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status");
-  const statusFilter = statusParam ? { status: { in: statusParam.split(",") as any[] } } : {};
+  const statusFilter = statusParam ? { status: { in: statusParam.split(",") as RequisitionStatus[] } } : {};
 
   const reqs = await prisma.materialRequisition.findMany({
     where: { project: { companyId: company.id }, ...statusFilter },
@@ -63,10 +64,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
         materialId: l.materialId,
         qtyRequested: l.qtyRequested,
         notes: l.notes ?? undefined,
+        preferredSupplierId: l.preferredSupplierId ?? undefined,
       })),
     });
     return json({ ok: true, id: req.id, reqNumber: req.reqNumber }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create requisition" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create requisition") }, { status: 400 });
   }
 });

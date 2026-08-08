@@ -16,6 +16,7 @@ export type ProjectFormValues = {
   startDate?: string | null;
   endDate?: string | null;
   totalBudget?: number | null;
+  totalSellableArea?: number | null;
   description?: string | null;
 };
 
@@ -57,6 +58,7 @@ export function ProjectFormDialog({
     startDate: initial?.startDate ?? "",
     endDate: initial?.endDate ?? "",
     totalBudget: initial?.totalBudget ?? undefined,
+    totalSellableArea: initial?.totalSellableArea ?? undefined,
     description: initial?.description ?? "",
   });
 
@@ -81,11 +83,22 @@ export function ProjectFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save project");
-      toast.success(isEdit ? "Project updated" : "Project created");
+      if (isEdit) {
+        toast.success("Project updated");
+      } else {
+        const newProjectId = data.id ?? "";
+        toast.success("Project created", {
+          description: "Add built units (flats, shops, plots) to start tracking inventory.",
+          action: {
+            label: "Add Units",
+            onClick: () => router.push(`/projects/${newProjectId}`),
+          },
+        });
+      }
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -96,7 +109,7 @@ export function ProjectFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "Edit Project" : "New Project"}
-      description={isEdit ? "Update project details." : "Create a new construction or development project."}
+      description={isEdit ? "Update project details." : "Create a new construction or development project (site)."}
       className="max-w-xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
@@ -136,7 +149,7 @@ export function ProjectFormDialog({
 
         <div className="space-y-1.5">
           <Label htmlFor="p-address">Address</Label>
-          <Input id="p-address" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Site address" />
+          <Input id="p-address" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Site address — plot no, area, city, PIN" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -150,16 +163,30 @@ export function ProjectFormDialog({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="p-budget">Total Budget (₹)</Label>
-          <Input
-            id="p-budget"
-            type="number"
-            min={0}
-            value={form.totalBudget ?? ""}
-            onChange={(e) => set("totalBudget", e.target.value === "" ? undefined : Number(e.target.value))}
-            placeholder="0"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="p-budget">Total Budget (₹)</Label>
+            <Input
+              id="p-budget"
+              type="number"
+              min={0}
+              value={form.totalBudget ?? ""}
+              onChange={(e) => set("totalBudget", e.target.value === "" ? undefined : Number(e.target.value))}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="p-area">Sellable Area (sq.ft)</Label>
+            <Input
+              id="p-area"
+              type="number"
+              min={0}
+              step="any"
+              value={form.totalSellableArea ?? ""}
+              onChange={(e) => set("totalSellableArea", e.target.value === "" ? undefined : Number(e.target.value))}
+              placeholder="0"
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">

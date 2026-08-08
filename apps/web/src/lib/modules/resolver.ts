@@ -17,13 +17,13 @@ import {
 // ───────────────────────────────────────────────────────────
 
 /** Walk a dotted field path ("material.name") on an object. */
-export function getField(obj: any, path: string): unknown {
+export function getField(obj: unknown, path: string): unknown {
   if (obj == null) return undefined;
-  if (!path.includes(".")) return obj[path];
-  let cur = obj;
+  if (!path.includes(".")) return (obj as Record<string, unknown>)[path];
+  let cur: unknown = obj;
   for (const part of path.split(".")) {
     if (cur == null) return undefined;
-    cur = cur[part];
+    cur = (cur as Record<string, unknown>)[part];
   }
   return cur;
 }
@@ -60,7 +60,7 @@ function buildChainSelect(hops: Hop[], leafMod: ModuleDef, take?: number): Recor
 
   function buildFrom(idx: number): Record<string, unknown> {
     const hop = hops[idx];
-    if (!hop) return {};
+    if (!hop) return {} as Record<string, unknown>;
     const isLast = idx === hops.length - 1;
     // Filter soft-deleted models at EVERY hop level (not just the leaf)
     const softDelete = SOFT_DELETE_MODELS.has(hop.toModel);
@@ -87,16 +87,16 @@ function buildChainSelect(hops: Hop[], leafMod: ModuleDef, take?: number): Recor
 }
 
 /** Walk the nested result following hops, collecting leaf records. */
-function walkLeaves(value: unknown, hops: Hop[], idx: number, out: any[]): void {
+function walkLeaves(value: unknown, hops: Hop[], idx: number, out: Record<string, unknown>[]): void {
   if (value == null) return;
   const hop = hops[idx];
   if (!hop) return;
   const isLast = idx === hops.length - 1;
   if (isLast) {
     if (hop.many) {
-      if (Array.isArray(value)) for (const r of value) out.push(r);
+      if (Array.isArray(value)) for (const r of value) out.push(r as Record<string, unknown>);
     } else {
-      out.push(value);
+      out.push(value as Record<string, unknown>);
     }
     return;
   }
@@ -105,22 +105,22 @@ function walkLeaves(value: unknown, hops: Hop[], idx: number, out: any[]): void 
   if (hop.many) {
     if (Array.isArray(value)) for (const item of value) walkLeaves(item?.[nextField], hops, idx + 1, out);
   } else {
-    walkLeaves((value as any)?.[nextField], hops, idx + 1, out);
+    walkLeaves((value as Record<string, unknown>)?.[nextField], hops, idx + 1, out);
   }
 }
 
 /** List root-level records for the workspace's root module (company-scoped where applicable). */
-export async function listRoot(model: ModelKey, companyId: string): Promise<any[]> {
+export async function listRoot(model: ModelKey, companyId: string): Promise<Record<string, unknown>[]> {
   const mod = MODULES[model];
   if (mod.scope === "company-root") {
     const c = await prisma.company.findFirst({ where: { id: companyId, deletedAt: null } });
     return c ? [c] : [];
   }
-  const where: any = {};
+  const where: Record<string, unknown> = {};
   if (mod.softDelete) where.deletedAt = null;
   if (mod.scope === "company") where.companyId = companyId;
   const include = leafRelationInclude(mod);
-  const rows = await (prisma as any)[model].findMany({
+  const rows = await (prisma as unknown as Record<string, { findMany: (args: Record<string, unknown>) => Promise<Record<string, unknown>[]> }>)[model]!.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -130,10 +130,10 @@ export async function listRoot(model: ModelKey, companyId: string): Promise<any[
 }
 
 /** Fetch a single record by id (for breadcrumb titles / detail). */
-export async function findRecord(model: ModelKey, id: string): Promise<any | null> {
+export async function findRecord(model: ModelKey, id: string): Promise<Record<string, unknown> | null> {
   const mod = MODULES[model];
   const include = leafRelationInclude(mod);
-  return (prisma as any)[model].findUnique({
+  return (prisma as unknown as Record<string, { findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null> }>)[model]!.findUnique({
     where: { id },
     ...(include ? { include } : {}),
   });
@@ -145,7 +145,7 @@ export async function listChildren(
   parentId: string,
   hops: Hop[],
   leafModel: ModelKey,
-): Promise<any[]> {
+): Promise<Record<string, unknown>[]> {
   return listChildrenCapped(parentModel, parentId, hops, leafModel);
 }
 
@@ -156,24 +156,24 @@ export async function listChildrenCapped(
   hops: Hop[],
   leafModel: ModelKey,
   take?: number,
-): Promise<any[]> {
+): Promise<Record<string, unknown>[]> {
   const leafMod = MODULES[leafModel];
   const select = buildChainSelect(hops, leafMod, take);
-  const parent = await (prisma as any)[parentModel].findUnique({
+  const parent = await (prisma as unknown as Record<string, { findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null> }>)[parentModel]!.findUnique({
     where: { id: parentId },
     select,
   });
   if (!parent) return [];
   const firstHop = hops[0];
   if (!firstHop) return [];
-  const out: any[] = [];
+  const out: Record<string, unknown>[] = [];
   walkLeaves(parent[firstHop.field], hops, 0, out);
   // dedupe by id (through-relations can yield the same leaf many times)
   const seen = new Set<string>();
-  const deduped: any[] = [];
+  const deduped: Record<string, unknown>[] = [];
   for (const r of out) {
-    if (!r || seen.has(r.id)) continue;
-    seen.add(r.id);
+    if (!r || seen.has(r.id as string)) continue;
+    seen.add(r.id as string);
     deduped.push(r);
   }
   return deduped;
@@ -229,7 +229,7 @@ export async function buildLiveGraph(companyId: string): Promise<LiveGraph> {
     model: "Company",
     recordId: company.id,
     label: String(company.name ?? "Company"),
-    secondary: (company as any).currency ?? null,
+    secondary: (company as Record<string, unknown>).currency as string | null,
     depth: 0,
   });
   incoming.set(rootId, 0);
@@ -252,7 +252,7 @@ export async function buildLiveGraph(companyId: string): Promise<LiveGraph> {
         truncated = true;
         break;
       }
-      let children: any[] = [];
+      let children: Record<string, unknown>[] = [];
       try {
         children = await listChildrenCapped(item.model, item.recordId, rel.hops, rel.toModel, LIVE_MAX_PER_RELATION);
       } catch {
@@ -297,13 +297,13 @@ export async function buildLiveGraph(companyId: string): Promise<LiveGraph> {
           nodes.set(childId, {
             id: childId,
             model: childModel,
-            recordId: child.id,
+            recordId: child.id as string,
             label,
             secondary,
             depth: item.depth + 1,
           });
           parentOf.set(childId, item.nodeId);
-          queue.push({ nodeId: childId, model: childModel, recordId: child.id, depth: item.depth + 1 });
+          queue.push({ nodeId: childId, model: childModel, recordId: child.id as string, depth: item.depth + 1 });
         }
       }
     }

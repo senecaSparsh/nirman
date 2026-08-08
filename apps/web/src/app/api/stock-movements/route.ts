@@ -25,7 +25,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const limit = Math.min(Number(searchParams.get("limit") ?? 100), 500);
 
   // Build where: filter by company via location joins
-  const where: any = {};
+  const where: Record<string, unknown> = {};
   if (materialId) where.materialId = materialId;
   if (type) where.movementType = type;
   if (locationId) {

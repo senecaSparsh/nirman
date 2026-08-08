@@ -1,6 +1,8 @@
 import { prisma, type EquipmentStatus, type MaintenanceType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Equipment Service — manage discrete, trackable assets (machinery, tools, vehicles).
@@ -30,11 +32,11 @@ interface CreateEquipmentInput {
 
 export async function createEquipment(input: CreateEquipmentInput) {
   const cost = new Decimal(input.acquisitionCost);
-  if (!cost.gte(0)) throw new Error("Acquisition cost must be >= 0");
+  if (!cost.gte(0)) throw new ServiceError("Acquisition cost must be >= 0");
 
   // Check assetTag uniqueness
   const existing = await prisma.equipment.findUnique({ where: { assetTag: input.assetTag } });
-  if (existing) throw new Error(`Equipment with assetTag ${input.assetTag} already exists`);
+  if (existing) throw new ServiceError(`Equipment with assetTag ${input.assetTag} already exists`);
 
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.create({
@@ -59,6 +61,15 @@ export async function createEquipment(input: CreateEquipmentInput) {
       entityId: equipment.id,
       after: { assetTag: equipment.assetTag, name: equipment.name, acquisitionCost: cost, status: "AVAILABLE" },
     });
+
+    // Post to GL: capitalise the equipment as a fixed asset, credit cash.
+    await postEquipmentAcquisition(tx, {
+      companyId: input.companyId,
+      equipmentId: equipment.id,
+      acquisitionCost: cost,
+      postedById: input.userId,
+    });
+
     return equipment;
   });
 }
@@ -74,16 +85,16 @@ interface AssignEquipmentInput {
 export async function assignEquipment(input: AssignEquipmentInput) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: input.equipmentId } });
-    if (!equipment) throw new Error("Equipment not found");
-    if (equipment.deletedAt) throw new Error("Equipment is deleted");
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
+    if (equipment.deletedAt) throw new ServiceError("Equipment is deleted");
     if (equipment.status !== "AVAILABLE") {
-      throw new Error(`Cannot assign equipment in status ${equipment.status}. Must be AVAILABLE.`);
+      throw new ServiceError(`Cannot assign equipment in status ${equipment.status}. Must be AVAILABLE.`);
     }
 
     const location = await tx.stockLocation.findFirst({
       where: { id: input.locationId, deletedAt: null },
     });
-    if (!location) throw new Error("Location not found or deleted");
+    if (!location) throw new ServiceError("Location not found or deleted", 404);
 
     // Create assignment
     const assignment = await tx.equipmentAssignment.create({
@@ -119,9 +130,9 @@ export async function returnEquipment(assignmentId: string, userId?: string) {
       where: { id: assignmentId },
       include: { equipment: true },
     });
-    if (!assignment) throw new Error("Assignment not found");
+    if (!assignment) throw new ServiceError("Assignment not found", 404);
     if (assignment.status !== "ACTIVE") {
-      throw new Error(`Cannot return assignment in status ${assignment.status}`);
+      throw new ServiceError(`Cannot return assignment in status ${assignment.status}`);
     }
 
     await tx.equipmentAssignment.update({
@@ -166,9 +177,9 @@ interface RecordMaintenanceInput {
 export async function recordMaintenance(input: RecordMaintenanceInput) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: input.equipmentId } });
-    if (!equipment) throw new Error("Equipment not found");
-    if (equipment.deletedAt) throw new Error("Equipment is deleted");
-    if (equipment.status === "RETIRED") throw new Error("Cannot maintain retired equipment");
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
+    if (equipment.deletedAt) throw new ServiceError("Equipment is deleted");
+    if (equipment.status === "RETIRED") throw new ServiceError("Cannot maintain retired equipment");
 
     const maintenance = await tx.equipmentMaintenance.create({
       data: {
@@ -196,6 +207,16 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
       entityId: maintenance.id,
       after: { equipmentId: input.equipmentId, type: input.type, cost: input.cost ?? 0 },
     });
+
+    // Post to GL: expense the maintenance cost, credit cash.
+    await postEquipmentMaintenance(tx, {
+      companyId: equipment.companyId,
+      equipmentId: input.equipmentId,
+      maintenanceId: maintenance.id,
+      cost: input.cost ?? 0,
+      postedById: input.userId,
+    });
+
     return maintenance;
   });
 }
@@ -203,9 +224,9 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
 export async function completeMaintenance(equipmentId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
-    if (!equipment) throw new Error("Equipment not found");
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status !== "IN_MAINTENANCE") {
-      throw new Error(`Equipment is not in maintenance (status: ${equipment.status})`);
+      throw new ServiceError(`Equipment is not in maintenance (status: ${equipment.status})`);
     }
 
     // End any open maintenance records
@@ -234,12 +255,20 @@ export async function completeMaintenance(equipmentId: string, userId?: string) 
 export async function retireEquipment(equipmentId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
-    if (!equipment) throw new Error("Equipment not found");
-    if (equipment.status === "RETIRED") throw new Error("Equipment already retired");
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
+    if (equipment.status === "RETIRED") throw new ServiceError("Equipment already retired");
 
     const updated = await tx.equipment.update({
       where: { id: equipmentId },
       data: { status: "RETIRED" },
+    });
+
+    // Post to GL: relieve the fixed asset at its current (depreciated) value.
+    await postEquipmentRetirement(tx, {
+      companyId: equipment.companyId,
+      equipmentId,
+      currentValue: equipment.currentValue,
+      postedById: userId,
     });
 
     await logAction(tx, {
@@ -262,18 +291,18 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
 export async function unretireEquipment(equipmentId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
-    if (!equipment) throw new Error("Equipment not found");
-    if (equipment.status !== "RETIRED") throw new Error("Only retired equipment can be un-retired");
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
+    if (equipment.status !== "RETIRED") throw new ServiceError("Only retired equipment can be un-retired");
 
     const openAssignment = await tx.equipmentAssignment.findFirst({
       where: { equipmentId, status: "ACTIVE" },
     });
-    if (openAssignment) throw new Error("Cannot un-retire equipment with an active assignment");
+    if (openAssignment) throw new ServiceError("Cannot un-retire equipment with an active assignment");
 
     const openMaintenance = await tx.equipmentMaintenance.findFirst({
       where: { equipmentId, endDate: null },
     });
-    if (openMaintenance) throw new Error("Cannot un-retire equipment with open maintenance");
+    if (openMaintenance) throw new ServiceError("Cannot un-retire equipment with open maintenance");
 
     const updated = await tx.equipment.update({
       where: { id: equipmentId },

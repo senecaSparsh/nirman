@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { softDelete } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, json, requirePermission, supplierSchema, toNum } from "@/lib/server";
+import { apiHandler, json, requirePermission, supplierSchema } from "@/lib/server";
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_MANAGE);
@@ -23,7 +23,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   try {
     await softDelete("Supplier", id);
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to delete supplier" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete supplier") }, { status: 400 });
   }
 });

@@ -1,17 +1,18 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, toNum, getUserRole } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { ProcurementView } from "@/components/procurement/procurement-view";
 import { PageLoading } from "@/components/page-loading";
 import type {
-  SupplierRow, PurchaseOrderRow, TransferRow, MaterialRow, StockLocationRow,
-  ProjectOption, MaterialIssueListRow, DepartmentOption,
+  SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
+  ProjectOption, DirectPurchaseRow,
 } from "@/lib/types";
 
+import { NoAccess } from "@/components/no-access";
 export default function ProcurementPage() {
   return (
     <div className="space-y-5">
@@ -29,18 +30,22 @@ async function ProcurementContent() {
 
   if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 text-meta text-muted-foreground">
-        You don't have permission to view this module.
-      </div>
+      <NoAccess what="purchase orders" />
     );
   }
 
   const perms = {
     canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
     canApprove: hasPermission(role, PERM.PO_APPROVE),
+    canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),
   };
 
-  const [pos, suppliers, transfers, issues, materials, locations, projects, departments] = await Promise.all([
+  // Company group: current company + siblings/parent/children. PO destination
+  // locations (a project site in a sibling/child SPV) are selectable across
+  // the group, matching the parent/child company hierarchy.
+  const groupCompanyIds = await getCompanyGroupIds(company);
+
+  const [pos, suppliers, materials, locations, projects, directPurchases] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -52,40 +57,18 @@ async function ProcurementContent() {
       },
     }),
     prisma.supplier.findMany({
-      where: { deletedAt: null },
+      // Supplier has no companyId — scope to suppliers with POs in this company.
+      where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       include: {
         _count: {
           select: {
-            purchaseOrders: { where: { status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } },
+            purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } },
           },
         },
       },
     }),
-    prisma.stockTransfer.findMany({
-      where: { fromLocation: { companyId: company.id } },
-      orderBy: { createdAt: "desc" },
-      include: {
-        fromLocation: { select: { id: true, name: true, type: true } },
-        toLocation: { select: { id: true, name: true, type: true } },
-        lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
-      },
-    }),
-    prisma.materialIssue.findMany({
-      where: {
-        OR: [
-          { project: { companyId: company.id } },
-          { department: { companyId: company.id } },
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        project: { select: { name: true } },
-        department: { select: { name: true, code: true } },
-        fromLocation: { select: { name: true } },
-        lines: { select: { id: true } },
-      },
-    }),
+    // Material is a global catalog entity (no companyId); stock scoped per company.
     prisma.material.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
@@ -98,9 +81,12 @@ async function ProcurementContent() {
       },
     }),
     prisma.stockLocation.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
+      // Include locations across the whole company group so PO destinations
+      // (a project site in a sibling/child SPV) are selectable.
+      where: { companyId: { in: groupCompanyIds }, deletedAt: null },
+      orderBy: [{ companyId: "asc" }, { type: "asc" }, { name: "asc" }],
       include: {
+        company: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
         stockItems: { select: { qty: true, movingAvgCost: true } },
       },
@@ -110,10 +96,18 @@ async function ProcurementContent() {
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
-    prisma.department.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true },
+    prisma.directPurchase.findMany({
+      where: { companyId: company.id },
+      orderBy: { billDate: "desc" },
+      include: {
+        supplier: { select: { id: true, name: true, phone: true } },
+        location: { select: { id: true, name: true } },
+        lines: {
+          include: {
+            material: { select: { id: true, code: true, name: true, unit: true } },
+          },
+        },
+      },
     }),
   ]);
 
@@ -157,42 +151,6 @@ async function ProcurementContent() {
     poCount: s._count.purchaseOrders,
   }));
 
-  const transferRows: TransferRow[] = transfers.map((t) => ({
-    id: t.id,
-    fromLocationId: t.fromLocationId,
-    fromLocationName: t.fromLocation.name,
-    fromLocationType: t.fromLocation.type,
-    toLocationId: t.toLocationId,
-    toLocationName: t.toLocation.name,
-    toLocationType: t.toLocation.type,
-    status: t.status,
-    transferDate: t.transferDate.toISOString(),
-    notes: t.notes,
-    createdAt: t.createdAt.toISOString(),
-    lineCount: t.lines.length,
-    totalQty: t.lines.reduce((s, l) => s + toNum(l.qty), 0),
-    materials: t.lines.map((l) => `${l.material.code} (${toNum(l.qty)} ${l.material.unit})`),
-  }));
-
-  const issueRows: MaterialIssueListRow[] = issues.map((i) => ({
-    id: i.id,
-    projectId: i.projectId,
-    projectName: i.project?.name ?? null,
-    departmentId: i.departmentId,
-    departmentName: i.department?.name ?? null,
-    departmentCode: i.department?.code ?? null,
-    fromLocationId: i.fromLocationId,
-    fromLocationName: i.fromLocation.name,
-    issueDate: i.issueDate.toISOString(),
-    notes: i.notes,
-    totalCost: toNum(i.totalCost),
-    lineCount: i.lines.length,
-  }));
-
-  const departmentRows: DepartmentOption[] = departments.map((d) => ({
-    id: d.id, code: d.code, name: d.name,
-  }));
-
   const materialRows: MaterialRow[] = materials.map((m) => {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
     const totalValue = m.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
@@ -201,6 +159,11 @@ async function ProcurementContent() {
       categoryName: m.category.name, unit: m.unit, hsnCode: m.hsnCode,
       gstRate: toNum(m.gstRate), standardCost: toNum(m.standardCost),
       minStock: m.minStock == null ? null : toNum(m.minStock),
+      reorderPoint: m.reorderPoint == null ? null : toNum(m.reorderPoint),
+      economicOrderQty: m.economicOrderQty == null ? null : toNum(m.economicOrderQty),
+      volumetricDensity: m.volumetricDensity == null ? null : toNum(m.volumetricDensity),
+      bulkDiscountPct: m.bulkDiscountPct == null ? null : toNum(m.bulkDiscountPct),
+      isCorporateCommodity: m.isCorporateCommodity ?? false,
       description: m.description, totalQty, totalValue,
       lowStock: m.minStock != null && totalQty < toNum(m.minStock),
     };
@@ -211,35 +174,64 @@ async function ProcurementContent() {
     projectId: l.projectId, projectName: l.project?.name ?? null,
     stockValue: l.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0),
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
+    companyId: l.company.id,
+    companyName: l.company.name,
   }));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
     id: p.id, name: p.name, type: p.type, status: p.status,
   }));
 
-  const openPOs = poRows.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
-  const totalPOValue = poRows.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
+  const directPurchaseRows: DirectPurchaseRow[] = directPurchases.map((p) => ({
+    id: p.id,
+    billNumber: p.billNumber,
+    supplierId: p.supplierId,
+    supplierName: p.supplierName,
+    supplierPhone: p.supplier?.phone ?? null,
+    locationId: p.locationId,
+    locationName: p.location.name,
+    billDate: p.billDate.toISOString(),
+    subtotal: toNum(p.subtotal),
+    gstTotal: toNum(p.gstTotal),
+    roundOff: toNum(p.roundOff),
+    billAmount: toNum(p.billAmount),
+    notes: p.notes,
+    lineCount: p.lines.length,
+    lines: p.lines.map((l) => ({
+      id: l.id,
+      materialId: l.materialId,
+      materialCode: l.material.code,
+      materialName: l.material.name,
+      unit: l.material.unit,
+      qty: toNum(l.qty),
+      unitCost: toNum(l.unitCost),
+      gstRate: toNum(l.gstRate),
+      lineTotal: toNum(l.qty) * toNum(l.unitCost),
+    })),
+  }));
+
+  const openPoValue = poRows
+    .filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status))
+    .reduce((s, p) => s + p.total, 0);
 
   return (
     <>
       <PageHeader
         title="Procurement"
+        description="Buy materials — purchase orders, cash purchases, and your supplier directory. Stock movements (transfers, issues, scrap) live in Stock."
         stats={[
           { label: "POs", value: poRows.length },
-          { label: "Open", value: openPOs },
+          { label: "Open value", value: formatCurrency(openPoValue) },
           { label: "Suppliers", value: supplierRows.length },
-          { label: "Value", value: formatCurrency(totalPOValue) },
         ]}
       />
       <ProcurementView
         suppliers={supplierRows}
         purchaseOrders={poRows}
-        transfers={transferRows}
-        issues={issueRows}
         materials={materialRows}
         locations={locationRows}
         projects={projectRows}
-        departments={departmentRows}
+        directPurchases={directPurchaseRows}
         permissions={perms}
       />
     </>

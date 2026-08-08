@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { softDelete, updateUnitStatus, updateUnitValuation } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema } from "@/lib/server";
+import { softDelete, updateUnitStatus, updateUnitValuation, updateBuiltUnit } from "@nirman/services";
+import { apiHandler, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -50,8 +50,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await updateUnitStatus(id, statusParsed.data, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Status change failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Status change failed") }, { status: 400 });
     }
   }
 
@@ -73,12 +73,42 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         user.id,
       );
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Valuation update failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Valuation update failed") }, { status: 400 });
     }
   }
 
-  return json({ error: "Invalid action. Use status or valuation." }, { status: 400 });
+  if (action === "edit") {
+    const parsed = builtUnitEditSchema.safeParse({
+      unitType: body?.unitType,
+      unitNumber: body?.unitNumber,
+      floor: body?.floor,
+      wing: body?.wing,
+      area: body?.area,
+      areaUnit: body?.areaUnit,
+      askingPrice: body?.askingPrice,
+    });
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    try {
+      await updateBuiltUnit(id, {
+        unitType: parsed.data.unitType,
+        unitNumber: parsed.data.unitNumber,
+        floor: parsed.data.floor ?? null,
+        wing: parsed.data.wing ?? null,
+        area: parsed.data.area,
+        areaUnit: parsed.data.areaUnit,
+        askingPrice: parsed.data.askingPrice ?? null,
+        userId: user.id,
+      });
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Edit failed") }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Invalid action. Use status, valuation, or edit." }, { status: 400 });
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {

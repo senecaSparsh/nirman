@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import type { SupplierReturnStatus } from "@nirman/db";
 import { createSupplierReturn } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
@@ -13,7 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const returns = await prisma.supplierReturn.findMany({
     where: {
       companyId: company.id,
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as SupplierReturnStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -75,7 +76,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       })),
     });
     return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber }, { status: 201 });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to create supplier return" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create supplier return") }, { status: 400 });
   }
 });

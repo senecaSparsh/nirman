@@ -76,16 +76,16 @@ export function useReferenceData(enabled: boolean): {
       fetch("/api/departments").then((r) => r.json()),
     ])
       .then(async ([projects, materials, locations, suppliers, categories, subcontractors, departments]) => {
-        const projectList: ProjectOption[] = (Array.isArray(projects) ? projects : []).map((p: any) => ({
-          id: p.id, name: p.name, type: p.type, status: p.status,
+        const projectList: ProjectOption[] = (Array.isArray(projects) ? projects : []).map((p: Record<string, unknown>) => ({
+          id: String(p.id), name: String(p.name ?? ""), type: String(p.type ?? ""), status: String(p.status ?? ""),
         }));
         // Fetch phases for each project (nested route)
         const phasesResults = await Promise.all(
           projectList.slice(0, 20).map((p) =>
             fetch(`/api/projects/${p.id}/phases`)
               .then((r) => r.json())
-              .then((phases) => (Array.isArray(phases) ? phases : []).map((ph: any) => ({
-                id: ph.id, name: ph.name, projectId: p.id,
+              .then((phases) => (Array.isArray(phases) ? phases : []).map((ph: Record<string, unknown>) => ({
+                id: String(ph.id), name: String(ph.name ?? ""), projectId: String(p.id),
               })))
               .catch(() => [])
           ),
@@ -110,8 +110,8 @@ export function useReferenceData(enabled: boolean): {
           categories: Array.isArray(categories) ? categories : [],
           phases: allPhases,
           subcontractors: Array.isArray(subcontractors) ? subcontractors : [],
-          departments: (Array.isArray(departments) ? departments : []).map((d: any) => ({
-            id: d.id, code: d.code, name: d.name,
+          departments: (Array.isArray(departments) ? departments : []).map((d: Record<string, unknown>) => ({
+            id: String(d.id), code: String(d.code ?? ""), name: String(d.name ?? ""),
           })),
         });
         setLoading(false);

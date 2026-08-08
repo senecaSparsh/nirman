@@ -1,3 +1,6 @@
+// Status-bearing error for service validation failures
+export { ServiceError } from "./errors";
+
 // Moving Average Cost — pure functions
 export {
   computeMovingAverageCost,
@@ -12,7 +15,16 @@ export {
   recordTransfer,
   withStockTransaction,
   refreshMaterialCurrentCost,
+  getLotHistory,
 } from "./stock-ledger";
+
+// UOM Conversion — pure functions for base/secondary unit conversion
+export {
+  toBaseUnit,
+  toSecondaryUnit,
+  displayQty,
+  type UomMaterial,
+} from "./uom-conversion";
 
 // Valuation — derived financial reporting
 export {
@@ -47,13 +59,118 @@ export {
 } from "./transfer";
 
 // Issue — material consumption into projects or departments (cost centers)
-export { issueMaterialsToProject, issueMaterialsToDepartment } from "./issue";
+export { issueMaterialsToProject, issueMaterialsToDepartment, amountInWords } from "./issue";
+
+// Scrap / "Create" Material Generation — internally generated material at scrap valuation
+export {
+  createScrapGeneration,
+  listScrapGenerations,
+  getScrapGeneration,
+  type CreateScrapGenerationInput,
+} from "./scrap";
+
+// Standard Consumption Benchmarks — per-work-type standard material consumption rates
+// used by the auto-scrap detection logic during DPR submission
+export {
+  createStandardConsumption,
+  updateStandardConsumption,
+  deleteStandardConsumption,
+  listStandardConsumptions,
+  listWorkTypes,
+  calculateConsumptionVariance,
+  runDprVarianceAnalysis,
+  type CreateStandardConsumptionInput,
+  type ConsumptionVariance,
+  type DprVarianceResult,
+} from "./standard-consumption";
+
+// Tally ERP Integration — generate Tally XML vouchers, sync via pluggable provider
+export {
+  generateTallyVoucherXml,
+  syncEntryToTally,
+  syncBatchToTally,
+  syncFromTally,
+  fetchTallyCollections,
+  getUnsyncedEntries,
+  getTallySyncLog,
+  getTallySyncStats,
+  StubTallyProvider,
+  HttpTallyProvider,
+  createTallyProvider,
+  parseTallyResponse,
+  type TallyProvider,
+  type TallySyncResult,
+} from "./tally";
+
+// Notifications — WhatsApp / email / in-app alerts with pluggable providers
+export {
+  sendNotification,
+  notifyLowStock,
+  notifyTaskAssignment,
+  notifyQuoteApproval,
+  renderTemplate,
+  listNotificationTemplates,
+  upsertNotificationTemplate,
+  listNotificationLogs,
+  getNotificationStats,
+  StubWhatsAppProvider,
+  CloudWhatsAppProvider,
+  createWhatsAppProvider,
+  StubEmailProvider,
+  type WhatsAppProvider,
+  type EmailProvider,
+  type NotificationSendResult,
+  type SendNotificationInput,
+  type WhatsAppTemplateComponent,
+} from "./notifications";
+
+// Portal Listings — sync built units to 99acres / MagicBricks / Housing.com
+export {
+  createPortalListing,
+  syncListingToPortal,
+  delistPortalListing,
+  listPortalListings,
+  updatePortalListing,
+  deletePortalListing,
+  getPortalListingStats,
+  getUnitListings,
+  StubPortalProvider,
+  HttpPortalProvider,
+  NineAcresProvider,
+  MagicBricksProvider,
+  HousingProvider,
+  createPortalProvider,
+  type PortalProvider,
+  type PortalSyncResult,
+  type CreatePortalListingInput,
+  type PortalListingPayload,
+  type PortalFieldMapping,
+} from "./portal-listing";
+
+// Direct Purchase — simplified purchase log for local/ad-hoc buys
+export { createDirectPurchase, listDirectPurchases } from "./direct-purchase";
+
+// Supplier Payment — pay down accounts payable
+export { createSupplierPayment, getSupplierPayments, getSupplierOutstanding } from "./supplier-payment";
+
+// Supplier Invoice — three-way matching (invoice ↔ PO ↔ GRN) before payment
+export {
+  createSupplierInvoice,
+  threeWayMatch,
+  approveSupplierInvoice,
+  getSupplierInvoices,
+  getSupplierInvoice,
+  type InvoiceLineInput,
+  type MatchVariance,
+  type ThreeWayMatchResult,
+} from "./supplier-invoice";
 
 // Stock Count — physical reconciliation
 export {
   createStockCount,
   confirmStockCount,
   reconcileStockCount,
+  deleteStockCount,
 } from "./stock-count";
 
 // Partition — land subdivision
@@ -63,16 +180,45 @@ export {
   setParcelStatus,
   validateAreaConservation,
   allocateCostByArea,
+  allocatePartitionCosts,
 } from "./partition";
+export type { AllocationModel } from "./partition";
 
-// Sale — asset sales + payments
+// Sale — asset sales + payments + staged deposit flow
 export {
   sellAsset,
+  recordDeposit,
+  completeSale,
   recordPayment,
   cancelSale,
   computeSaleProfit,
   computePaymentStatus,
 } from "./sale";
+export type { SellAssetInput, RecordDepositInput, CompleteSaleInput, RecordPaymentInput } from "./sale";
+
+// Material Sale — sell inventory items to customers
+export {
+  createMaterialSale,
+  cancelMaterialSale,
+  type CreateMaterialSaleInput,
+  type MaterialSaleLineInput,
+} from "./material-sale";
+
+// Material Sale Payment — partial / additional payments against material sales
+export { createMaterialSalePayment, getMaterialSalePayments } from "./sale-payment";
+
+// Renovation / Value-Add — track enhancement work on existing assets
+export {
+  createRenovation,
+  startRenovation,
+  addRenovationCost,
+  deleteRenovationCost,
+  completeRenovation,
+  cancelRenovation,
+  computeRoi,
+  type CreateRenovationInput,
+  type AddRenovationCostInput,
+} from "./renovation";
 
 // Land — land purchases
 export { recordLandPurchase } from "./land";
@@ -80,6 +226,7 @@ export { recordLandPurchase } from "./land";
 // Built Units — sellable units within projects
 export {
   createBuiltUnits,
+  updateBuiltUnit,
   updateUnitStatus,
   updateUnitValuation,
 } from "./built-unit";
@@ -122,6 +269,27 @@ export {
   rejectRequisition,
   convertRequisitionToPo,
 } from "./requisition";
+
+// Comparative Quote Engine — vendor quote upload, cheapest-flagging, winner selection, gate
+export {
+  createVendorQuote,
+  updateVendorQuote,
+  deleteVendorQuote,
+  selectWinningQuote,
+  waiveQuoteRequirement,
+  getComparativeStatement,
+  getWinningQuoteLineCosts,
+  cheapestQuoteId,
+  quoteVariances,
+  isQuoteGateSatisfied,
+  winningLineCosts,
+  type CreateVendorQuoteInput,
+  type UpdateVendorQuoteInput,
+  type SelectWinnerInput,
+  type WaiveQuotesInput,
+  getPurchaserPerformance,
+  type PurchaserPerformanceRow,
+} from "./quote-comparison";
 
 // Auto-Requisition — generate DRAFT requisitions from reorder-point breaches
 export { generateAutoRequisition, type AutoRequisitionResult } from "./auto-requisition";
@@ -166,11 +334,26 @@ export {
   postMaterialIssue,
   postMaterialIssueToDepartment,
   postAssetSale,
+  postMaterialSale,
   postPaymentReceived,
+  postDepositReceived,
+  postDepositRefund,
+  postMaterialSalePayment,
   postProjectCost,
+  postRenovationCost,
   postExpense,
   postSupplierReturn,
   postLandPurchase,
+  postPayroll,
+  postPayrollPayment,
+  postDirectPurchase,
+  postStockAdjustment,
+  postEquipmentAcquisition,
+  postEquipmentMaintenance,
+  postEquipmentRetirement,
+  postSecurityDepositReceived,
+  postSecurityDepositRefunded,
+  reverseJournalEntry,
   trialBalance,
   accountLedger,
   CHART_OF_ACCOUNTS,
@@ -205,6 +388,86 @@ export {
   type ReassignInput,
 } from "./task";
 
+// HR & Field Workforce — crews, attendance, payroll (+GL), DPR
+export {
+  createCrew,
+  updateCrew,
+  deleteCrew,
+  createEmployee,
+  updateEmployee,
+  recordAttendance,
+  bulkRecordAttendance,
+  generatePayroll,
+  updatePayrollLine,
+  processPayroll,
+  payPayroll,
+  submitDPR,
+  createDpr,
+  updateDpr,
+  deleteDpr,
+  deleteAttendance,
+  projectProgressHistory,
+  workforceProductivity,
+  attendanceSummary,
+  dprAnalysis,
+  payrollSummary,
+  attendanceWeight,
+  computeDaysWorked,
+  computeOvertimeHours,
+  computeWorkingDays,
+  hourlyRateFor,
+  computeBasicAmount,
+  computeGrossPay,
+  computeTotalDeductions,
+  computeNetPay,
+  HrError,
+  type CreateCrewInput,
+  type UpdateCrewInput,
+  type CreateEmployeeInput,
+  type UpdateEmployeeInput,
+  type LogAttendanceInput,
+  type BulkAttendanceInput,
+  type GeneratePayrollInput,
+  type AdjustPayrollLineInput,
+  type SubmitDprInput,
+  type DprMaterialLineInput,
+  type DprLaborLineInput,
+  subAdminApproveDpr,
+  adminApproveDpr,
+  rejectDpr,
+  resubmitDpr,
+} from "./hr";
+
+// Leave Management — requests with approval workflow
+export {
+  createLeaveRequest,
+  approveLeaveRequest,
+  cancelLeaveRequest,
+  leaveBalance,
+  type CreateLeaveInput,
+  type ApproveLeaveInput,
+} from "./leave";
+
+// Tenancy — rent/lease agreements for land parcels and built units
+export {
+  createTenancy,
+  updateTenancy,
+  activateTenancy,
+  terminateTenancy,
+  recordRentPayment,
+  type CreateTenancyInput,
+  type UpdateTenancyInput,
+  type RecordRentInput,
+} from "./tenancy";
+
+// Daily Report — site operations log (separate from DPR)
+export {
+  createDailyReport,
+  updateDailyReport,
+  deleteDailyReport,
+  type CreateDailyReportInput,
+} from "./daily-report";
+
 // Partition geometry — pure polygon functions for the CAD/GIS partition canvas
 export {
   signedArea,
@@ -230,3 +493,150 @@ export {
   type Polygon,
   type Segment,
 } from "./geometry";
+
+export {
+  RbacError,
+  defaultScopeType,
+  resolveScopeType,
+  requiresScopeEntries,
+  validateScopeEntries,
+  wouldCreateCycle,
+  resolveUserScope,
+  getReportingChain,
+  assignScopedMembership,
+  getDirectReports,
+  type ScopeType,
+  type ScopeKind,
+  type ResolvedScope,
+  type AssignScopeInput,
+} from "./rbac";
+
+// BOQ + WBS + Measurement Book + EVM — construction execution backbone
+export {
+  createBoqItem,
+  updateBoqItem,
+  deleteBoqItem,
+  getBoqTree,
+  createWbsNode,
+  updateWbsNode,
+  deleteWbsNode,
+  addWbsDependency,
+  removeWbsDependency,
+  getWbsTree,
+  createMbEntry,
+  verifyMbEntry,
+  approveMbEntry,
+  rejectMbEntry,
+  generateMaterialTakeOff,
+  getEvmMetrics,
+  type CreateBoqItemInput,
+  type CreateWbsNodeInput,
+  type CreateMbEntryInput,
+} from "./boq";
+
+// Subcontractor Work Orders + RA Bills + TDS
+export {
+  createWorkOrder,
+  issueWorkOrder,
+  createRaBill,
+  submitRaBill,
+  approveRaBill,
+  rejectRaBill,
+  releaseRetention,
+  type CreateWorkOrderInput,
+  type CreateRaBillInput,
+} from "./subcontractor";
+
+// Scheduling + EVM + Cost Overrun Forecast
+export {
+  computeSchedule,
+  getNodeEvm,
+  getCostOverrunForecast,
+} from "./scheduling";
+
+// Advanced Procurement — vendor rating, rate contracts, approval routing, commitments
+export {
+  computeVendorRating,
+  getVendorRankings,
+  createRateContract,
+  getActiveRateContract,
+  getRateContracts,
+  cancelRateContract,
+  getApprovalRouting,
+  getProjectCommitments,
+  type VendorRating,
+  type CreateRateContractInput,
+  type ApprovalRouting,
+  type ProjectCommitments,
+} from "./procurement-advanced";
+
+// CRM + Sales Workflow — lead pipeline, payment schedules, GST on real estate
+export {
+  createLead,
+  generatePaymentSchedule,
+  checkMilestonePayments,
+  recordSchedulePayment,
+  computeRealEstateGst,
+  type LeadSource,
+  type LeadStage,
+  type LeadPriority,
+  type ScheduleType,
+  type GeneratePaymentScheduleInput,
+} from "./crm";
+
+// Finance Enhancement — profit centers, cash flow, job costing, budget variance
+export {
+  getProjectProfitCenter,
+  getCashFlowForecast,
+  getJobCosting,
+  getBudgetVariance,
+  type ProjectProfitCenter,
+  type CashFlowForecast,
+  type BudgetVariance,
+  type BudgetVarianceItem,
+} from "./finance-advanced";
+
+// Material Reconciliation + Cost Control
+export {
+  getProjectMaterialReconciliation,
+  getSiteStockValuation,
+  type MaterialReconciliation,
+  type ProjectReconciliation,
+  type SiteStockValuation,
+} from "./reconciliation";
+
+// Excel / XLSX Export — formatted workbook generation for reports
+export {
+  generateExcelWorkbook,
+  buildInventoryValueReport,
+  buildPurchaseTrendsReport,
+  buildSalesRevenueReport,
+  buildProjectProgressReport,
+  buildPayrollExpenseReport,
+  buildPendingPaymentsReport,
+  buildTrialBalanceReport,
+  buildStockMovementReport,
+  buildPurchaserPerformanceReport,
+  buildReconciliationReport,
+  buildStockIssueSummaryReport,
+  buildStockMovementSummaryReport,
+  buildIssueRegisterReport,
+  buildPurchaseRegisterReport,
+  type ExcelColumn,
+  type ExcelSheet,
+  type ExcelExportOptions,
+  type InventoryValueData,
+  type PurchaseTrendsData,
+  type SalesRevenueData,
+  type ProjectProgressData,
+  type PayrollExpenseData,
+  type PendingPaymentsData,
+  type TrialBalanceData,
+  type StockMovementData,
+  type PurchaserPerformanceData,
+  type ReconciliationData,
+  type StockIssueSummaryData,
+  type StockMovementSummaryReportData,
+  type IssueRegisterReportData,
+  type PurchaseRegisterReportData,
+} from "./excel-export";

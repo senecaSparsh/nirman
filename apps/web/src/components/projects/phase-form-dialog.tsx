@@ -76,8 +76,8 @@ export function PhaseFormDialog({
       toast.success(isEdit ? "Phase updated" : "Phase added");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

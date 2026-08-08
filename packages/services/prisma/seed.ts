@@ -137,8 +137,13 @@ async function main() {
   );
 
   // ── 2. Users (auth + audit) ─────────────────────────────────
+  // One user per role so one-click dev login (POST /api/auth/demo-login)
+  // has a real account for every role. Passwords are NOT set here — the
+  // demo-login endpoint provisions a credential Account with the shared
+  // demo password ("nirman123") on first use.
   const users = [
     { email: "amit@nirman.in", name: "Amit Patil", role: "OWNER" },
+    { email: "anita@nirman.in", name: "Anita Rao", role: "ADMIN" },
     { email: "sneha@nirman.in", name: "Sneha Kulkarni", role: "MANAGER" },
     { email: "ravi@nirman.in", name: "Ravi Deshmukh", role: "SUPERVISOR" },
     { email: "priya@nirman.in", name: "Priya Nair", role: "ACCOUNTANT" },
@@ -148,9 +153,17 @@ async function main() {
   for (const u of users) {
     const row = await ensure("user", { email: u.email }, { ...u, emailVerified: true });
     userMap[u.email] = row.id;
+    // Link user to the company via UserCompany membership + set default companyId
+    await ensure("userCompany", { userId: row.id, companyId: company.id }, {
+      userId: row.id,
+      companyId: company.id,
+      role: u.role,
+    });
+    await (prisma as any).user.update({ where: { id: row.id }, data: { companyId: company.id } });
   }
   const U = {
     owner: userMap["amit@nirman.in"],
+    admin: userMap["anita@nirman.in"],
     manager: userMap["sneha@nirman.in"],
     supervisor: userMap["ravi@nirman.in"],
     accountant: userMap["priya@nirman.in"],

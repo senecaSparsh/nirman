@@ -42,8 +42,8 @@ export function ConfirmDelete({
         router.push(redirectTo);
       }
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setBusy(false);
     }

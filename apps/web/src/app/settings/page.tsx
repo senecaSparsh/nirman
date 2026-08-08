@@ -2,19 +2,20 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCurrentUser, getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { SettingsView } from "@/components/settings/settings-view";
+import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import { PageLoading } from "@/components/page-loading";
-import { Card, CardContent } from "@/components/ui/card";
-import { ShieldAlert } from "lucide-react";
-import type { StockLocationRow } from "@/lib/types";
+import { NoAccess } from "@/components/no-access";
+import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
         title="Settings"
-        description="Company settings, stock locations, and application preferences."
+        description="Company settings, stock locations, cost centres, people, and application preferences."
       />
       <Suspense fallback={<PageLoading label="Loading settings…" />}>
         <SettingsContent />
@@ -28,29 +29,20 @@ async function SettingsContent() {
   const user = await getCurrentUser();
   const role = await getUserRole();
 
-  // Hard server-side gate: settings is OWNER/ADMIN only.
-  if (role !== "OWNER" && role !== "ADMIN") {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <ShieldAlert className="h-8 w-8 text-destructive/60" />
-          <div>
-            <p className="text-body font-medium">Access denied</p>
-            <p className="text-caption text-muted-foreground">
-              You do not have permission to view this page. Settings are restricted to owners and administrators.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+  // Server-side gate: settings requires COMPANY_MANAGE permission.
+  // OWNER/ADMIN (Admin tier) see everything; MANAGER (Sub-Admin) can access
+  // to manage members below them in the hierarchy.
+  if (!hasPermission(role, PERM.COMPANY_MANAGE)) {
+    return <NoAccess what="company settings" />;
   }
 
   const company = await getCompany();
   const isSuperuser = role === "OWNER" || role === "ADMIN";
   const isDevBypass = user?.id === "dev";
 
-  const [users, locations, projects, subcontractors, employees, companies] = await Promise.all([
+  const [users, locations, projects, subcontractors, employees, companies, departments] = await Promise.all([
     prisma.user.findMany({
+      where: { memberships: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, email: true, name: true, role: true, active: true },
     }),
@@ -67,10 +59,11 @@ async function SettingsContent() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    // Subcontractor has no companyId — scope to subcontractors with work orders in this company.
     prisma.subcontractor.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, workOrders: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, trade: true, phone: true, email: true },
+      select: { id: true, name: true, trade: true, phone: true, email: true, gstin: true, address: true },
     }),
     prisma.employee.findMany({
       where: { companyId: company.id, deletedAt: null },
@@ -90,6 +83,14 @@ async function SettingsContent() {
         _count: { select: { userMemberships: true, children: true } },
       },
     }),
+    prisma.department.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { code: "asc" },
+      include: {
+        stockLocation: { select: { id: true, name: true } },
+        _count: { select: { materialIssues: true } },
+      },
+    }),
   ]);
 
   const locationRows: StockLocationRow[] = locations.map((l) => {
@@ -103,10 +104,24 @@ async function SettingsContent() {
       projectName: l.project?.name ?? null,
       stockValue,
       itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
+      companyId: company.id,
+      companyName: company.name,
     };
   });
 
+  const departmentRows: DepartmentRow[] = departments.map((d) => ({
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    description: d.description,
+    active: d.active,
+    stockLocationId: d.stockLocation?.id ?? null,
+    stockLocationName: d.stockLocation?.name ?? null,
+    issueCount: d._count.materialIssues,
+  }));
+
   return (
+    <>
     <SettingsView
       company={{
         id: company.id,
@@ -125,7 +140,7 @@ async function SettingsContent() {
       }))}
       locations={locationRows}
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade, phone: s.phone, email: s.email }))}
+      subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade, phone: s.phone, email: s.email, gstin: s.gstin, address: s.address }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, phone: e.phone, email: e.email, dailyRate: toNum(e.dailyRate), active: e.active }))}
       companies={companies.map((c) => ({
         id: c.id,
@@ -141,6 +156,14 @@ async function SettingsContent() {
         hasChildren: c._count.children > 0,
       }))}
       canManageCompanies={isSuperuser}
+      actorRole={role}
+      departments={departmentRows}
     />
+      {hasPermission(role, PERM.FINANCE_MANAGE) && (
+        <div className="mt-6">
+          <NotificationsPanel />
+        </div>
+      )}
+    </>
   );
 }

@@ -89,14 +89,20 @@ export function ConvertToPoDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to convert requisition");
-      toast.success(`PO ${data.poNumber} created from ${requisition.reqNumber}`);
+      toast.success(`PO ${data.poNumber} created from indent ${requisition.reqNumber}`, {
+        description: "Approve the PO to send it to the supplier.",
+        action: {
+          label: "View in Procurement",
+          onClick: () => router.push("/procurement"),
+        },
+      });
       onOpenChange(false);
       // Reset form
       setSupplierId(""); setLocationId(""); setExpectedDate(""); setNotes("");
       setLineCosts({});
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -108,7 +114,7 @@ export function ConvertToPoDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Convert Requisition to PO"
+      title="Convert Indent to PO"
       description={`${requisition.reqNumber} · ${requisition.projectName}${requisition.phaseName ? ` · ${requisition.phaseName}` : ""}`}
       className="max-w-3xl"
     >

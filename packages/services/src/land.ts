@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postLandPurchase } from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Land Service — record land purchases and create initial parcels.
@@ -15,7 +16,7 @@ interface RecordLandPurchaseInput {
   sellerContact?: string;
   purchaseDate?: Date;
   totalArea: Decimal | number | string;
-  areaUnit?: "SQFT" | "SQM" | "ACRE" | "BIGHA" | "HECTARE";
+  areaUnit?: "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
   totalCost: Decimal | number | string;
   registryNo?: string;
   location?: string;
@@ -28,20 +29,20 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
   const totalArea = new Decimal(input.totalArea);
   const totalCost = new Decimal(input.totalCost);
 
-  if (!totalArea.gt(0)) throw new Error("Total area must be > 0");
-  if (!totalCost.gt(0)) throw new Error("Total cost must be > 0");
+  if (!totalArea.gt(0)) throw new ServiceError("Total area must be > 0");
+  if (!totalCost.gt(0)) throw new ServiceError("Total cost must be > 0");
 
   return prisma.$transaction(async (tx) => {
     // Validate company
     const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
-    if (!company) throw new Error("Company not found or deleted");
+    if (!company) throw new ServiceError("Company not found or deleted", 404);
 
     // Validate project if set
     if (input.projectId) {
       const project = await tx.project.findFirst({
         where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
       });
-      if (!project) throw new Error("Project not found, deleted, or doesn't belong to this company");
+      if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
     }
 
     // Create land purchase

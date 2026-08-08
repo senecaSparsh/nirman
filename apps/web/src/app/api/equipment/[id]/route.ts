@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { completeMaintenance, retireEquipment, unretireEquipment, softDelete } from "@nirman/services";
+import { completeMaintenance, retireEquipment, unretireEquipment, softDelete, logAction } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -71,8 +71,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await retireEquipment(id, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Retire failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Retire failed") }, { status: 400 });
     }
   }
 
@@ -80,8 +80,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await unretireEquipment(id, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Un-retire failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Un-retire failed") }, { status: 400 });
     }
   }
 
@@ -89,21 +89,31 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await completeMaintenance(id, user.id);
       return json({ ok: true });
-    } catch (err: any) {
-      return json({ error: err?.message ?? "Complete maintenance failed" }, { status: 400 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Complete maintenance failed") }, { status: 400 });
     }
   }
 
   if (action === "update") {
-    const updated = await prisma.equipment.update({
-      where: { id },
-      data: {
-        ...(body.name ? { name: body.name } : {}),
-        ...(body.model !== undefined ? { model: body.model ?? null } : {}),
-        ...(body.serialNumber !== undefined ? { serialNumber: body.serialNumber ?? null } : {}),
-        ...(body.category !== undefined ? { category: body.category ?? null } : {}),
-        ...(body.notes !== undefined ? { notes: body.notes ?? null } : {}),
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const eq = await tx.equipment.update({
+        where: { id },
+        data: {
+          ...(body.name ? { name: body.name } : {}),
+          ...(body.model !== undefined ? { model: body.model ?? null } : {}),
+          ...(body.serialNumber !== undefined ? { serialNumber: body.serialNumber ?? null } : {}),
+          ...(body.category !== undefined ? { category: body.category ?? null } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes ?? null } : {}),
+        },
+      });
+      await logAction(tx, {
+        userId: user.id,
+        action: "EQUIPMENT_UPDATE",
+        entityType: "Equipment",
+        entityId: id,
+        after: { name: eq.name, model: eq.model, category: eq.category },
+      });
+      return eq;
     });
     return json({ ok: true, id: updated.id });
   }
@@ -117,7 +127,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   try {
     await softDelete("Equipment", id);
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to delete equipment" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete equipment") }, { status: 400 });
   }
 });

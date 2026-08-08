@@ -1,15 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { statusColor } from "@/components/page";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import type { LandPortfolio, LandParcelSummary, LandParcelStatus } from "@/lib/types";
-
-const STATUS_COLOR: Record<LandParcelStatus, string> = {
-  AVAILABLE: "var(--color-stage-sell)",
-  HOLD: "var(--color-warning)",
-  PARTITIONED: "var(--color-muted-foreground)",
-  SOLD: "var(--color-danger)",
-};
+import type { LandPortfolio, LandParcelSummary } from "@/lib/types";
 
 /**
  * Portfolio overview — the land module's signature header.
@@ -45,7 +39,7 @@ export function LandPortfolioStrip({
             <span
               key={p.id}
               className="h-3 w-3 rounded-[3px]"
-              style={{ backgroundColor: STATUS_COLOR[p.status], opacity: 0.5 }}
+              style={{ backgroundColor: statusColor(p.status), opacity: 0.5 }}
               title={`${p.number} · ${formatNumber(p.area, 0)} · ${p.status}`}
             />
           ))}

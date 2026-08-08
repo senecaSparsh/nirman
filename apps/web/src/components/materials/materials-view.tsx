@@ -1,37 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Package, AlertTriangle, MapPin, Tags, Boxes, Building2 } from "lucide-react";
+import { useMemo, useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Plus, Search, Pencil, Trash2, Package, AlertTriangle, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { MaterialFormDialog } from "./material-form-dialog";
 import { CategoryFormDialog } from "./category-form-dialog";
-import { LocationFormDialog } from "./location-form-dialog";
-import { DepartmentFormDialog } from "./department-form-dialog";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import type { MaterialCategory, MaterialRow, ProjectOption, StockLocationRow, StockRow, LowStockRow, DepartmentRow } from "@/lib/types";
+import type { MaterialCategory, MaterialRow, LowStockRow } from "@/lib/types";
 
 export function MaterialsView({
   materials,
   categories,
-  locations,
-  stock,
   lowStock,
-  projects,
-  departments,
   permissions,
 }: {
   materials: MaterialRow[];
   categories: MaterialCategory[];
-  locations: StockLocationRow[];
-  stock: StockRow[];
   lowStock: LowStockRow[];
-  projects: ProjectOption[];
-  departments: DepartmentRow[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean };
 }) {
   const [tab, setTab] = useState("catalog");
@@ -46,11 +39,6 @@ export function MaterialsView({
           <TabsTrigger value="catalog">
             <span className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5" /> Catalog
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="stock">
-            <span className="flex items-center gap-1.5">
-              <Boxes className="h-3.5 w-3.5" /> Stock by Location
             </span>
           </TabsTrigger>
           <TabsTrigger value="low-stock">
@@ -68,23 +56,10 @@ export function MaterialsView({
               <Tags className="h-3.5 w-3.5" /> Categories
             </span>
           </TabsTrigger>
-          <TabsTrigger value="locations">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5" /> Locations
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="departments">
-            <span className="flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" /> Cost Centers
-            </span>
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog">
           <CatalogTab materials={materials} categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
-        </TabsContent>
-        <TabsContent value="stock">
-          <StockTab stock={stock} locations={locations} />
         </TabsContent>
         <TabsContent value="low-stock">
           <LowStockTab lowStock={lowStock} />
@@ -92,19 +67,13 @@ export function MaterialsView({
         <TabsContent value="categories">
           <CategoriesTab categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
         </TabsContent>
-        <TabsContent value="locations">
-          <LocationsTab locations={locations} projects={projects} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
-        </TabsContent>
-        <TabsContent value="departments">
-          <DepartmentsTab departments={departments} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
-        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
 // ───────────────────────────────────────────────────────────
-//  Catalog tab
+//  Catalog tab — spreadsheet-style inline editing via EditableGrid
 // ───────────────────────────────────────────────────────────
 
 function CatalogTab({
@@ -125,6 +94,8 @@ function CatalogTab({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialRow | null>(null);
   const [deleting, setDeleting] = useState<MaterialRow | null>(null);
+  const [rows, setRows] = useState<MaterialRow[]>([]);
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -135,7 +106,131 @@ function CatalogTab({
     });
   }, [materials, query, categoryFilter]);
 
+  // Sync local rows from server data whenever the filtered set changes
+  useEffect(() => {
+    setRows(filtered);
+  }, [filtered]);
+
   const totalValue = filtered.reduce((s, m) => s + m.totalValue, 0);
+
+  const categoryOptions = useMemo(
+    () => categories.map((c) => ({ value: c.id, label: c.name })),
+    [categories],
+  );
+
+  const columns = useMemo<EditableColumn<MaterialRow>[]>(() => {
+    const cols: EditableColumn<MaterialRow>[] = [
+      { key: "code", label: "Code", type: canEdit ? "text" : "readonly", width: "120px", placeholder: "CEM-OPC53" },
+      { key: "name", label: "Name", type: canEdit ? "text" : "readonly", width: "1fr", placeholder: "Material name" },
+    ];
+    if (canEdit) {
+      cols.push({ key: "categoryId", label: "Category", type: "select", options: categoryOptions, width: "150px", placeholder: "Select…" });
+    } else {
+      cols.push({ key: "categoryName", label: "Category", type: "readonly", width: "150px" });
+    }
+    cols.push(
+      { key: "unit", label: "Unit", type: canEdit ? "text" : "readonly", width: "70px", placeholder: "NOS" },
+      { key: "standardCost", label: "Std Cost", type: canEdit ? "number" : "readonly", step: "0.01", min: 0, width: "100px", align: "right", format: (v) => formatCurrency(v as number) },
+      { key: "minStock", label: "Min Stock", type: canEdit ? "number" : "readonly", step: "0.001", min: 0, width: "90px", align: "right", placeholder: "—" },
+      { key: "reorderPoint", label: "Reorder", type: canEdit ? "number" : "readonly", step: "0.001", min: 0, width: "90px", align: "right", placeholder: "—" },
+      { key: "totalQty", label: "In Stock", type: "readonly", width: "90px", align: "right", format: (v) => formatNumber(v as number, 2) },
+      { key: "totalValue", label: "Value", type: "readonly", width: "120px", align: "right", format: (v) => formatCurrency(v as number) },
+      {
+        key: "lowStock",
+        label: "Status",
+        type: "computed",
+        width: "70px",
+        compute: (row) => (row.lowStock ? "Low" : "OK"),
+        cellClassName: (row) => (row.lowStock ? "text-danger font-semibold" : "text-muted-foreground"),
+      },
+    );
+    return cols;
+  }, [canEdit, categoryOptions]);
+
+  // Save a material (PATCH existing or POST new) via the API
+  const saveMaterial = useCallback(
+    async (m: MaterialRow, isEdit: boolean) => {
+      const payload = {
+        code: m.code,
+        name: m.name,
+        categoryId: m.categoryId,
+        unit: m.unit,
+        hsnCode: m.hsnCode ?? null,
+        gstRate: m.gstRate ?? 0,
+        standardCost: m.standardCost ?? 0,
+        minStock: m.minStock ?? null,
+        reorderPoint: m.reorderPoint ?? null,
+        economicOrderQty: m.economicOrderQty ?? null,
+        volumetricDensity: m.volumetricDensity ?? null,
+        bulkDiscountPct: m.bulkDiscountPct ?? null,
+        isCorporateCommodity: m.isCorporateCommodity ?? false,
+        description: m.description ?? null,
+      };
+      try {
+        const res = await fetch(isEdit ? `/api/materials/${m.id}` : "/api/materials", {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to save material");
+        toast.success(isEdit ? "Material updated" : "Material created");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Unknown error");
+      }
+    },
+    [router],
+  );
+
+  // Handle grid edits — diff against previous rows to find what changed
+  const handleChange = useCallback(
+    (newRows: MaterialRow[]) => {
+      const prevById = new Map(rows.map((r) => [r.id, r]));
+      setRows(newRows);
+      for (const newRow of newRows) {
+        const prev = prevById.get(newRow.id);
+        if (prev && JSON.stringify(prev) === JSON.stringify(newRow)) continue;
+        const isNew = newRow.id.startsWith("new-");
+        if (isNew) {
+          // Only POST once required fields are filled
+          if (newRow.code && newRow.name && newRow.categoryId && newRow.unit) {
+            saveMaterial(newRow, false);
+          }
+        } else {
+          saveMaterial(newRow, true);
+        }
+      }
+    },
+    [rows, saveMaterial],
+  );
+
+  function addRow() {
+    setRows((r) => [
+      ...r,
+      {
+        id: `new-${Date.now()}`,
+        code: "",
+        name: "",
+        categoryId: null,
+        categoryName: null,
+        unit: "NOS",
+        hsnCode: null,
+        gstRate: 0,
+        standardCost: 0,
+        minStock: null,
+        reorderPoint: null,
+        economicOrderQty: null,
+        volumetricDensity: null,
+        bulkDiscountPct: null,
+        isCorporateCommodity: false,
+        description: null,
+        totalQty: 0,
+        totalValue: 0,
+        lowStock: false,
+      },
+    ]);
+  }
 
   function openNew() {
     setEditing(null);
@@ -144,6 +239,37 @@ function CatalogTab({
   function openEdit(m: MaterialRow) {
     setEditing(m);
     setFormOpen(true);
+  }
+
+  // Per-row action buttons (edit details / delete)
+  const gridActions: {
+    icon: React.ReactNode;
+    title: string;
+    onClick: (row: MaterialRow, index: number) => void;
+    className?: string;
+    show?: (row: MaterialRow) => boolean;
+  }[] = [];
+  if (canEdit) {
+    gridActions.push({
+      icon: <Pencil className="h-3.5 w-3.5" />,
+      title: "Edit details",
+      onClick: (r) => openEdit(r),
+      show: (r) => !r.id.startsWith("new-"),
+    });
+  }
+  if (canDelete) {
+    gridActions.push({
+      icon: <Trash2 className="h-3.5 w-3.5" />,
+      title: "Delete",
+      onClick: (r) => {
+        if (r.id.startsWith("new-")) {
+          setRows((prev) => prev.filter((x) => x.id !== r.id));
+        } else {
+          setDeleting(r);
+        }
+      },
+      className: "hover:text-danger",
+    });
   }
 
   return (
@@ -185,7 +311,7 @@ function CatalogTab({
         <span className="tnum">{formatCurrency(totalValue)}</span>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && rows.length === 0 ? (
         <EmptyState
           icon={<Package className="h-5 w-5" />}
           title="No materials found"
@@ -199,87 +325,34 @@ function CatalogTab({
           }
         />
       ) : (
-        /* ── Card grid — each material is a visual card with stock bar ──
-           Not a table row. You see the stock level as a visual bar,
-           low-stock as a red indicator, and value at a glance. */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((m) => {
-            // Stock level: 0-100% relative to minStock (if set) or max stock
-            const stockPct = m.minStock
-              ? Math.min(100, (m.totalQty / (m.minStock * 2)) * 100)
-              : m.totalQty > 0 ? 100 : 0;
-            return (
-              <div
-                key={m.id}
-                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
-              >
-                {/* Header: code + status dot */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-mono text-micro text-muted-foreground">{m.code}</div>
-                    <div className="truncate text-body font-semibold text-foreground">{m.name}</div>
-                  </div>
-                  <span
-                    className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                      m.lowStock ? "bg-danger" : m.totalQty > 0 ? "bg-success" : "bg-muted-foreground/30"
-                    }`}
-                  />
-                </div>
+        <>
+          {/* ── Spreadsheet grid — inline-editable cells with keyboard nav,
+                copy-paste from Excel, and per-row action buttons. ── */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <EditableGrid
+              columns={columns}
+              rows={rows}
+              onChange={handleChange}
+              getRowId={(m) => m.id}
+              showTotals={false}
+              actions={gridActions}
+              className="max-h-[65vh]"
+              emptyState={
+                <EmptyState
+                  icon={<Package className="h-5 w-5" />}
+                  title="No materials found"
+                  description="Try a different search or filter."
+                />
+              }
+            />
+          </div>
 
-                {/* Category */}
-                <div className="mt-1 text-caption text-muted-foreground">{m.categoryName}</div>
-
-                {/* Stock level bar */}
-                <div className="mt-3">
-                  <div className="mb-1 flex items-baseline justify-between">
-                    <span className="text-caption text-muted-foreground">In stock</span>
-                    <span className={`text-body font-semibold tnum ${m.lowStock ? "text-danger" : "text-foreground"}`}>
-                      {formatNumber(m.totalQty, 2)} <span className="text-caption font-normal text-muted-foreground">{m.unit}</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full transition-all ${
-                        m.lowStock ? "bg-danger" : stockPct > 50 ? "bg-success" : stockPct > 0 ? "bg-warning" : "bg-muted-foreground/20"
-                      }`}
-                      style={{ width: `${stockPct}%` }}
-                    />
-                  </div>
-                  {m.minStock && (
-                    <div className="mt-0.5 text-micro text-muted-foreground">
-                      min: {formatNumber(m.minStock, 0)} {m.unit}
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer: value + actions */}
-                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
-                  <span className="text-body font-semibold tnum text-foreground">{formatCurrency(m.totalValue)}</span>
-                  <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    {canEdit && (
-                      <button
-                        onClick={() => openEdit(m)}
-                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        title="Edit"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => setDeleting(m)}
-                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={addRow} className="w-full border-dashed">
+              <Plus className="h-4 w-4" /> Add row
+            </Button>
+          )}
+        </>
       )}
 
       <MaterialFormDialog
@@ -300,109 +373,6 @@ function CatalogTab({
         }
         successMessage="Material archived"
       />
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Stock by Location tab
-// ───────────────────────────────────────────────────────────
-
-function StockTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
-  const [locationFilter, setLocationFilter] = useState("");
-  const filtered = useMemo(
-    () => (locationFilter ? stock.filter((s) => s.locationId === locationFilter) : stock),
-    [stock, locationFilter],
-  );
-  const totalValue = filtered.reduce((s, r) => s + r.value, 0);
-
-  // Group by location
-  const grouped = useMemo(() => {
-    const map = new Map<string, { locationName: string; locationType: string; items: StockRow[] }>();
-    for (const r of filtered) {
-      let g = map.get(r.locationId);
-      if (!g) {
-        g = { locationName: r.locationName, locationType: r.locationType, items: [] };
-        map.set(r.locationId, g);
-      }
-      g.items.push(r);
-    }
-    return Array.from(map.values());
-  }, [filtered]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Select
-          value={locationFilter}
-          onChange={(e) => setLocationFilter(e.target.value)}
-          className="sm:max-w-xs"
-        >
-          <option value="">All locations</option>
-          {locations.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name} ({l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"})
-            </option>
-          ))}
-        </Select>
-        <span className="text-body text-muted-foreground">
-          {filtered.length} line item{filtered.length !== 1 ? "s" : ""} · {formatCurrency(totalValue)}
-        </span>
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Boxes className="h-5 w-5" />}
-          title="No stock recorded"
-          description="Stock appears here once goods are received against purchase orders."
-        />
-      ) : (
-        /* Grouped divided list — stock grouped by location, each location
-           is a section with items listed below. Not a flat table. */
-        <div className="space-y-4">
-          {grouped.map((g) => {
-            const locValue = g.items.reduce((s, r) => s + r.value, 0);
-            return (
-              <div key={g.locationName}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-label text-muted-foreground">{g.locationName}</span>
-                  <Badge variant={g.locationType === "COMPANY_WAREHOUSE" ? "default" : "muted"} className="px-1.5 py-0 text-micro">
-                    {g.locationType === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"}
-                  </Badge>
-                  <span className="ml-auto text-caption tnum text-muted-foreground">
-                    {g.items.length} items · {formatCurrency(locValue)}
-                  </span>
-                </div>
-                <div className="divide-y divide-border rounded-lg border border-border">
-                  {g.items.map((r) => (
-                    <div key={r.id} className="flex items-center gap-4 px-3 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-body font-medium text-foreground">{r.materialName}</div>
-                        <div className="flex items-center gap-2 text-caption text-muted-foreground">
-                          <span className="font-mono">{r.materialCode}</span>
-                          <span>·</span>
-                          <span>{r.categoryName}</span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-body font-semibold tnum text-foreground">
-                          {formatNumber(r.qty, 3)} <span className="text-caption font-normal text-muted-foreground">{r.unit}</span>
-                        </div>
-                        <div className="text-caption text-muted-foreground tnum">
-                          MAC: {formatCurrency(r.mac)}
-                        </div>
-                      </div>
-                      <div className="w-24 shrink-0 text-right">
-                        <div className="text-body font-semibold tnum text-foreground">{formatCurrency(r.value)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -553,248 +523,6 @@ function CategoriesTab({ categories, canCreate, canEdit, canDelete }: { categori
             : ""
         }
         successMessage="Category archived"
-      />
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Locations tab
-// ───────────────────────────────────────────────────────────
-
-function LocationsTab({
-  locations,
-  projects,
-  canCreate,
-  canEdit,
-  canDelete,
-}: {
-  locations: StockLocationRow[];
-  projects: ProjectOption[];
-  canCreate: boolean;
-  canEdit: boolean;
-  canDelete: boolean;
-}) {
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<StockLocationRow | null>(null);
-  const [deleting, setDeleting] = useState<StockLocationRow | null>(null);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-body text-muted-foreground">
-          {locations.length} location{locations.length !== 1 ? "s" : ""}
-        </p>
-        {canCreate && (
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> New Location
-          </Button>
-        )}
-      </div>
-
-      {locations.length === 0 ? (
-        <EmptyState
-          icon={<MapPin className="h-5 w-5" />}
-          title="No stock locations yet"
-          description="Add a company warehouse or a project site to start receiving stock."
-        />
-      ) : (
-        /* Location cards — each location is a card showing type, project,
-           address, item count, and stock value. Edit/delete on hover. */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {locations.map((l) => (
-            <div key={l.id} className="group rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-body font-semibold text-foreground">{l.name}</div>
-                  {l.projectName && (
-                    <div className="mt-0.5 text-caption text-muted-foreground">{l.projectName}</div>
-                  )}
-                </div>
-                <Badge variant={l.type === "COMPANY_WAREHOUSE" ? "default" : "muted"} className="shrink-0">
-                  {l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"}
-                </Badge>
-              </div>
-
-              {l.address && (
-                <div className="mt-2 flex items-center gap-1 text-caption text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  <span className="truncate">{l.address}</span>
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-body font-semibold tnum text-foreground">{l.itemCount}</span>
-                  <span className="text-caption text-muted-foreground">items</span>
-                </div>
-                <span className="text-body font-semibold tnum text-foreground">{formatCurrency(l.stockValue)}</span>
-              </div>
-
-              <div className="mt-2 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                {canEdit && (
-                  <button
-                    onClick={() => { setEditing(l); setFormOpen(true); }}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    onClick={() => setDeleting(l)}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <LocationFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        projects={projects}
-        location={editing}
-      />
-      <DeleteConfirmDialog
-        open={deleting != null}
-        onOpenChange={(o) => !o && setDeleting(null)}
-        endpoint={deleting ? `/api/stock-locations/${deleting.id}` : ""}
-        title="Delete location?"
-        description={
-          deleting
-            ? `“${deleting.name}” will be archived. Locations with stock on hand cannot be deleted.`
-            : ""
-        }
-        successMessage="Location archived"
-      />
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────
-//  Departments / cost centers tab
-// ───────────────────────────────────────────────────────────
-
-function DepartmentsTab({
-  departments,
-  canCreate,
-  canEdit,
-  canDelete,
-}: {
-  departments: DepartmentRow[];
-  canCreate: boolean;
-  canEdit: boolean;
-  canDelete: boolean;
-}) {
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<DepartmentRow | null>(null);
-  const [deleting, setDeleting] = useState<DepartmentRow | null>(null);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-body text-muted-foreground">
-          {departments.length} cost center{departments.length !== 1 ? "s" : ""}
-        </p>
-        {canCreate && (
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> New Cost Center
-          </Button>
-        )}
-      </div>
-
-      {departments.length === 0 ? (
-        <EmptyState
-          icon={<Building2 className="h-5 w-5" />}
-          title="No cost centers yet"
-          description="Add departments like Boiler, Dryer, MP-2, Workshop to track raw-material consumption by operational line."
-        />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {departments.map((d) => (
-            <div key={d.id} className="group rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-mono text-micro text-muted-foreground">{d.code}</div>
-                  <div className="truncate text-body font-semibold text-foreground">{d.name}</div>
-                </div>
-                <Badge variant={d.active ? "success" : "muted"} className="shrink-0">
-                  {d.active ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-
-              {d.description && (
-                <div className="mt-2 line-clamp-2 text-caption text-muted-foreground">{d.description}</div>
-              )}
-
-              <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-body font-semibold tnum text-foreground">{d.issueCount}</span>
-                  <span className="text-caption text-muted-foreground">issues</span>
-                </div>
-                {d.stockLocationName && (
-                  <span className="text-caption text-muted-foreground">{d.stockLocationName}</span>
-                )}
-              </div>
-
-              <div className="mt-2 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                {canEdit && (
-                  <button
-                    onClick={() => { setEditing(d); setFormOpen(true); }}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    onClick={() => setDeleting(d)}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <DepartmentFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        department={editing}
-      />
-      <DeleteConfirmDialog
-        open={deleting != null}
-        onOpenChange={(o) => !o && setDeleting(null)}
-        endpoint={deleting ? `/api/departments/${deleting.id}` : ""}
-        title="Delete cost center?"
-        description={
-          deleting
-            ? `“${deleting.name}” will be archived. Cost centers with stock in their stock room cannot be deleted.`
-            : ""
-        }
-        successMessage="Cost center archived"
       />
     </div>
   );

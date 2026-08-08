@@ -1,15 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, workflowSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, workflowSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
- * GET /api/workflows — list all workflows (any auth user can view)
+ * GET /api/workflows — list workflows scoped to the active company
  */
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.CANVAS_VIEW);
+  const company = await getCompany();
   const workflows = await prisma.workflow.findMany({
-    where: { deletedAt: null },
+    where: { companyId: company.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { runs: true, schedules: true } },
@@ -37,6 +38,7 @@ export const GET = apiHandler(async () => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const company = await getCompany();
 
   const body = await req.json();
   const parsed = workflowSchema.safeParse(body);
@@ -51,6 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       icon: parsed.data.icon,
       graphJson: parsed.data.graphJson,
       status: "DRAFT",
+      companyId: company.id,
       createdBy: user.id,
     },
   });

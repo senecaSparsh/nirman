@@ -9,7 +9,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
-import { ROLE_LIST, type Role } from "@/lib/roles";
+import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { usePermissions } from "@/lib/permissions";
 
 export type CompanyRow = {
@@ -26,25 +26,43 @@ export type CompanyRow = {
   hasChildren: boolean;
 };
 
+type ScopeEntry = {
+  scopeKind: string;
+  departmentId: string | null;
+  projectId: string | null;
+  departmentName: string | null;
+  departmentCode: string | null;
+  projectName: string | null;
+};
+
 type MemberRow = {
   id: string;
   userId: string;
   role: string;
+  scopeType: string | null;
+  reportsToUserCompanyId: string | null;
   name: string;
   email: string;
   active: boolean;
+  scopes: ScopeEntry[];
 };
 
 export function CompaniesManager({
   companies,
   canManage,
+  actorRole,
 }: {
   companies: CompanyRow[];
   canManage: boolean;
+  actorRole: string;
 }) {
   const router = useRouter();
   const { canManageUsers } = usePermissions();
   const canManageCompanies = canManage && canManageUsers();
+  // Roles this actor can assign (hierarchical RBAC — only roles strictly
+  // below the actor's tier). Used to filter the "Add member" + inline role
+  // dropdowns so a Sub-Admin only sees SUPERVISOR/SALES/ACCOUNTANT.
+  const assignable = assignableRoles(actorRole);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -60,7 +78,8 @@ export function CompaniesManager({
   const [members, setMembers] = useState<Record<string, MemberRow[]>>({});
   const [loadingMembers, setLoadingMembers] = useState<string | null>(null);
   const [addMemberEmail, setAddMemberEmail] = useState("");
-  const [addMemberRole, setAddMemberRole] = useState<Role>("MANAGER");
+  // Default to the first role the actor can assign (hierarchy-aware).
+  const [addMemberRole, setAddMemberRole] = useState<Role>(assignable[0] ?? "MANAGER");
   const [addingMember, setAddingMember] = useState(false);
 
   async function createCompany(e: React.FormEvent) {
@@ -87,8 +106,8 @@ export function CompaniesManager({
       setCreating(false);
       setForm({ name: "", businessType: "", parentCompanyId: "", currency: "INR", gstin: "", pan: "", address: "" });
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setSaving(false);
     }
@@ -129,8 +148,8 @@ export function CompaniesManager({
       setAddMemberEmail("");
       await loadMembers(companyId);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Failed"));
     } finally {
       setAddingMember(false);
     }
@@ -236,40 +255,78 @@ export function CompaniesManager({
                       <TH>Name</TH>
                       <TH>Email</TH>
                       <TH>Role</TH>
+                      <TH>Scope</TH>
                       {canManageCompanies && <TH className="text-right">Actions</TH>}
                     </TR>
                   </THead>
                   <TBody>
-                    {(members[c.id] ?? []).map((m) => (
-                      <TR key={m.id}>
-                        <TD className="font-medium">{m.name}</TD>
-                        <TD className="text-muted-foreground">{m.email}</TD>
-                        <TD>
-                          {canManageCompanies ? (
-                            <Select
-                              value={m.role}
-                              onChange={(e) => changeMemberRole(c.id, m.id, e.target.value)}
-                              className="h-8 w-32 text-caption"
-                            >
-                              {ROLE_LIST.map((r) => (
-                                <option key={r.key} value={r.key}>{r.label}</option>
-                              ))}
-                            </Select>
-                          ) : (
-                            <Badge variant="outline">{m.role}</Badge>
-                          )}
-                        </TD>
-                        {canManageCompanies && (
-                          <TD className="text-right">
-                            <Button variant="ghost" size="icon-sm" onClick={() => removeMember(c.id, m.id)} title="Remove member">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                    {(members[c.id] ?? []).map((m) => {
+                      const scopeLabel =
+                        m.scopeType === "DEPARTMENT"
+                          ? `Dept${m.scopes.length > 1 ? `s (${m.scopes.length})` : ""}`
+                          : m.scopeType === "PROJECT"
+                            ? `Site${m.scopes.length > 1 ? `s (${m.scopes.length})` : ""}`
+                            : "Company-wide";
+                      const scopeDetail =
+                        m.scopeType === "DEPARTMENT"
+                          ? m.scopes.map((s) => s.departmentCode ?? s.departmentName ?? "?").join(", ")
+                          : m.scopeType === "PROJECT"
+                            ? m.scopes.map((s) => s.projectName ?? "?").join(", ")
+                            : null;
+                      const reportsTo = m.reportsToUserCompanyId
+                        ? (members[c.id] ?? []).find((x) => x.id === m.reportsToUserCompanyId)
+                        : null;
+                      return (
+                        <TR key={m.id}>
+                          <TD className="font-medium">{m.name}</TD>
+                          <TD className="text-muted-foreground">{m.email}</TD>
+                          <TD>
+                            {canManageCompanies && canAssignRole(actorRole, m.role) ? (
+                              <Select
+                                value={m.role}
+                                onChange={(e) => changeMemberRole(c.id, m.id, e.target.value)}
+                                className="h-8 w-32 text-caption"
+                              >
+                                {/* Show the member's current role + any role the
+                                    actor can assign (hierarchy-filtered). */}
+                                {[m.role, ...assignable]
+                                  .filter((r, i, arr) => arr.indexOf(r) === i)
+                                  .map((r) => {
+                                    const def = ROLE_LIST.find((rl) => rl.key === r);
+                                    return <option key={r} value={r}>{def?.label ?? r}</option>;
+                                  })}
+                              </Select>
+                            ) : (
+                              <Badge variant="outline">{m.role}</Badge>
+                            )}
                           </TD>
-                        )}
-                      </TR>
-                    ))}
+                          <TD>
+                            <div className="text-caption">
+                              <span className="font-medium">{scopeLabel}</span>
+                              {scopeDetail && (
+                                <span className="block text-micro text-muted-foreground" title={scopeDetail}>
+                                  {scopeDetail.length > 40 ? `${scopeDetail.slice(0, 40)}…` : scopeDetail}
+                                </span>
+                              )}
+                              {reportsTo && (
+                                <span className="block text-micro text-muted-foreground">
+                                  reports to {reportsTo.name}
+                                </span>
+                              )}
+                            </div>
+                          </TD>
+                          {canManageCompanies && (
+                            <TD className="text-right">
+                              <Button variant="ghost" size="icon-sm" onClick={() => removeMember(c.id, m.id)} title="Remove member">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TD>
+                          )}
+                        </TR>
+                      );
+                    })}
                     {(!members[c.id] || members[c.id]!.length === 0) && (
-                      <TR><TD colSpan={4} className="text-center text-muted-foreground">No members yet</TD></TR>
+                      <TR><TD colSpan={5} className="text-center text-muted-foreground">No members yet</TD></TR>
                     )}
                   </TBody>
                 </Table>
@@ -288,10 +345,17 @@ export function CompaniesManager({
                     <div className="space-y-1">
                       <Label className="text-micro">Role</Label>
                       <Select value={addMemberRole} onChange={(e) => setAddMemberRole(e.target.value as Role)} className="h-8 w-32">
-                        {ROLE_LIST.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                        {assignable.length === 0 ? (
+                          <option value="" disabled>Your role cannot create accounts</option>
+                        ) : (
+                          assignable.map((r) => {
+                            const def = ROLE_LIST.find((rl) => rl.key === r);
+                            return <option key={r} value={r}>{def?.label ?? r}</option>;
+                          })
+                        )}
                       </Select>
                     </div>
-                    <Button size="sm" onClick={() => addMember(c.id)} disabled={addingMember}>
+                    <Button size="sm" onClick={() => addMember(c.id)} disabled={addingMember || assignable.length === 0}>
                       <UserPlus className="h-3.5 w-3.5" /> Add member
                     </Button>
                   </div>

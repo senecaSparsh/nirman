@@ -695,7 +695,7 @@ export const MODULES: Record<ModelKey, ModuleDef> = {
     secondaryField: "timestamp",
     popup: {
       archetype: "system",
-      deepLink: () => `/stock-movements`,
+      deepLink: () => `/stock?tab=movements`,
       noLink: true,
       tabs: { overview: true, related: false, records: true, connections: true, files: false, activity: false },
     },

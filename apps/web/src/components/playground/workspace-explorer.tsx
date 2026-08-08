@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import {
-  ChevronRight, ChevronLeft, Pencil, Workflow, Loader2,
+  ChevronRight, Pencil, Workflow, Loader2,
   CornerLeftUp, FileX, Search as SearchIcon,
-  Info, PlayCircle, CheckCircle2, HelpCircle, Paperclip,
+  Paperclip,
   Tag, ExternalLink, Download, FileText, Image as ImageIcon,
   FileSpreadsheet, File, Link2, Layers,
-  Calendar, Clock, Flag, StickyNote, MessageSquare, AlertCircle,
+  Calendar, Flag, StickyNote, MessageSquare,
 } from "lucide-react";
 
-import { MODULES, NODE_KINDS, PRIORITIES, type Attachment, type CustomField, type ModelKey, type NodeKind, type NodeNote, type Priority, type WorkspaceGraph } from "@/lib/modules/registry";
+import { MODULES, NODE_KINDS, PRIORITIES, type Attachment, type ModelKey, type NodeKind, type WorkspaceGraph } from "@/lib/modules/registry";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

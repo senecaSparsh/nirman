@@ -46,8 +46,8 @@ export function DeleteConfirmDialog({
       onSuccess?.();
       if (redirectTo) router.push(redirectTo);
       else router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setDeleting(false);
     }

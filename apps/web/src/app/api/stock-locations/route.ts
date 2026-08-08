@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, stockLocationSchema, toNum } from "@/lib/server";
+import { logAction } from "@nirman/services";
+import { apiHandler, getCompany, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -35,7 +35,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = stockLocationSchema.safeParse(body);
@@ -49,12 +49,22 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (parsed.data.type === "COMPANY_WAREHOUSE" && parsed.data.projectId) {
     parsed.data.projectId = null;
   }
-  const created = await prisma.stockLocation.create({
-    data: {
-      ...parsed.data,
-      companyId: company.id,
-      projectId: parsed.data.projectId ?? null,
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    const loc = await tx.stockLocation.create({
+      data: {
+        ...parsed.data,
+        companyId: company.id,
+        projectId: parsed.data.projectId ?? null,
+      },
+    });
+    await logAction(tx, {
+      userId: user.id,
+      action: "STOCK_LOCATION_CREATE",
+      entityType: "StockLocation",
+      entityId: loc.id,
+      after: { name: loc.name, type: loc.type },
+    });
+    return loc;
   });
   return json(created, { status: 201 });
 });

@@ -33,5 +33,20 @@ it lists is closed.
 
 ## Current frontier
 
-- **T01** (task) — unblocked, unclaimed. Start here: it unblocks T02–T12.
-- T02–T12 (grilling) — all blocked by T01.
+- **T01** (task) — ✅ closed. App runs with seeded data.
+- **T02** (grilling) — ✅ closed. Procurement verified end-to-end; 5 defects/UX gaps fixed.
+- **T03** (grilling) — ✅ closed. Stock/materials/transfers verified; 3 critical gaps fixed
+  (material form fields, stock count API+UI, inter-company STO fields).
+- **T04** (grilling) — ✅ closed. Projects/units/costs verified; fixed GL integrity bug
+  (project cost delete wasn't reversing GL entry).
+- **T05** (grilling) — ✅ closed. Land purchase/partition/valuation verified; no defects found.
+- **T06** (grilling) — ✅ closed. Sales/customers verified; fixed GL integrity bug
+  (sale cancel wasn't reversing GL entry).
+- **T07** (grilling) — ✅ closed. Finance/GL verified; fixed 2 bugs: expense delete
+  wasn't reversing GL, and RETURN movement classified as IN (broke all supplier returns).
+- **T08** (grilling) — ✅ closed. Equipment verified; excellent kanban UX; no defects.
+- **T09–T12** (grilling) — all **unblocked**. Pick any one per session.
+- **T13–T17** (build) — **NEW modules** from brother's ERP design (HR/DPR, Rent/Lease,
+  Hierarchical RBAC, Dynamic Pricing, Mobile Parity). These are builds, not verification.
+  Priority: T13 (HR/DPR) is the biggest missing piece → T15 (RBAC hierarchy) → T14 (Rent) →
+  T16 (Dynamic Pricing) → T17 (Mobile Parity).

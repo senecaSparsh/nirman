@@ -26,15 +26,16 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
+import { statusColor } from "@/components/page";
 import {
   Plus, Save, Trash2, Eye, Workflow, Layers, Search,
   Crown, GitBranch, CheckCircle2, AlertCircle,
   Info, HelpCircle, Users, X, UserPlus,
   Paperclip, Link2, FileText,
   Tag, Upload, Download,
-  RefreshCw, Copy, AlertTriangle, Pencil, Loader2,
+  Copy, Pencil, Loader2,
   Calendar, Clock, Flag, StickyNote, ChevronDown,
-  Filter, LayoutDashboard, BarChart3, TrendingUp, GanttChart,
+  Filter, LayoutDashboard,
   MoreHorizontal, Printer,
   Package, Boxes, Truck, Wallet, ArrowRightLeft, ClipboardList,
   LandPlot, Home, Wrench, Building2,
@@ -80,7 +81,6 @@ import { ExpenseFormDialog } from "@/components/finance/expense-form-dialog";
 import { EquipmentFormDialog } from "@/components/equipment/equipment-form-dialog";
 import { RequisitionFormDialog } from "@/components/requisitions/requisition-form-dialog";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
@@ -157,16 +157,6 @@ type ModuleNodeData = {
   recordStatus?: string | null;
   recordMetric?: { label: string; value: string; type: "currency" | "number" | "text" } | null;
 };
-
-/** Status badge color — maps common business statuses to semantic colors. */
-function statusColor(status: string): string {
-  const s = status.toUpperCase();
-  if (["ACTIVE", "APPROVED", "RECEIVED", "COMPLETED", "SOLD", "PAID", "IN_STOCK", "AVAILABLE"].includes(s)) return "#16a34a";
-  if (["DRAFT", "PLANNED", "PENDING", "SUBMITTED", "OPEN", "ORDERED"].includes(s)) return "#6366f1";
-  if (["ON_HOLD", "PARTIAL", "PARTIALLY_RECEIVED", "IN_PROGRESS", "UNDER_CONSTRUCTION"].includes(s)) return "#f59e0b";
-  if (["CANCELLED", "REJECTED", "OVERDUE", "BLOCKED", "DEFECTIVE"].includes(s)) return "#ef4444";
-  return "#64748b";
-}
 
 interface EdgeData {
   relationLabel: string;
@@ -603,7 +593,7 @@ function PaletteList({
     : MODULE_LIST;
 
   if (search && filtered.length === 0) {
-    return <p className="px-2 py-3 text-caption text-muted-foreground">No modules match "{search}".</p>;
+    return <p className="px-2 py-3 text-caption text-muted-foreground">No modules match &quot;{search}&quot;.</p>;
   }
 
   const groups: { group?: ModuleGroup; items: typeof filtered }[] = search
@@ -705,488 +695,6 @@ function canReach(start: string, goal: string, edges: Edge[]): boolean {
   }
   return false;
 }
-
-// ── Live data graph (read-only) ──────────────────────────────
-
-type LiveNodeData = {
-  model: ModelKey;
-  label: string;
-  secondary: string | null;
-  shared: boolean;
-  isRoot?: boolean;
-};
-
-type LiveClusterData = {
-  label: string;
-  model: ModelKey;
-  count: number;
-  color: string;
-};
-
-// A visual cluster box — a subtle dashed background that groups
-// siblings of the same module type together. Non-interactive.
-type ClusterBox = {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  label: string;
-  model: ModelKey;
-  color: string;
-  count: number;
-};
-
-// ── Clustered top-down tree layout.
-//    Children are grouped by module type. Each group becomes a vertical
-//    column of stacked nodes with a subtle cluster box around them.
-//    This prevents wide branches from spreading infinitely — instead,
-//    same-type siblings stack compactly in labeled clusters.
-function buildLiveLayout(graph: LiveGraph) {
-  const incoming = new Map<string, string[]>();
-  for (const n of graph.nodes) incoming.set(n.id, []);
-  for (const e of graph.edges) incoming.get(e.to)?.push(e.from);
-  const primaryParent = new Map<string, string>();
-  for (const n of graph.nodes) {
-    const parents = incoming.get(n.id) ?? [];
-    if (parents.length > 0) primaryParent.set(n.id, parents[0]!);
-  }
-  const children = new Map<string, string[]>();
-  for (const n of graph.nodes) children.set(n.id, []);
-  for (const n of graph.nodes) {
-    const p = primaryParent.get(n.id);
-    if (p) children.get(p)?.push(n.id);
-  }
-  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
-
-  // Group children by model type, sorted by module group order
-  function groupedChildren(id: string): { model: ModelKey; label: string; color: string; ids: string[] }[] {
-    const kids = children.get(id) ?? [];
-    const groups = new Map<string, string[]>();
-    for (const k of kids) {
-      const n = nodeById.get(k)!;
-      if (!groups.has(n.model)) groups.set(n.model, []);
-      groups.get(n.model)!.push(k);
-    }
-    // Sort children within each group by label
-    for (const [, ids] of groups) {
-      ids.sort((a, b) => {
-        const na = nodeById.get(a)!;
-        const nb = nodeById.get(b)!;
-        return na.label.localeCompare(nb.label);
-      });
-    }
-    // Sort groups by module group order, then by module label
-    return Array.from(groups.entries())
-      .map(([model, ids]) => ({
-        model: model as ModelKey,
-        label: MODULES[model as ModelKey]?.label ?? model,
-        color: GROUP_COLORS[MODULES[model as ModelKey]?.group ?? "Core"],
-        ids,
-      }))
-      .sort((a, b) => {
-        const ga = MODULES[a.model]?.group ?? "Core";
-        const gb = MODULES[b.model]?.group ?? "Core";
-        if (ga !== gb) return MODULE_GROUPS.indexOf(ga) - MODULE_GROUPS.indexOf(gb);
-        return a.label.localeCompare(b.label);
-      });
-  }
-
-  const LEVEL_GAP = 160;    // vertical gap between parent and child
-  const NODE_GAP = 240;     // horizontal gap between cluster columns
-  const STACK_GAP = 64;     // vertical gap between stacked siblings in a cluster
-  const NODE_WIDTH = 200;
-  const NODE_HEIGHT = 48;   // approximate node height for cluster box calculation
-  const CLUSTER_PAD = 16;   // padding inside cluster boxes
-
-  const positions = new Map<string, { x: number; y: number }>();
-  const visited = new Set<string>();
-  const clusterBoxes: ClusterBox[] = [];
-
-  // Compute how many columns a subtree needs (one column per child group)
-  const subtreeCols = new Map<string, number>();
-  function computeCols(id: string): number {
-    if (subtreeCols.has(id)) return subtreeCols.get(id)!;
-    const groups = groupedChildren(id);
-    if (groups.length === 0) { subtreeCols.set(id, 1); return 1; }
-    let total = 0;
-    for (const g of groups) {
-      // Each group needs at least 1 column, but could need more if
-      // children in the group have their own wide subtrees
-      let maxChildCols = 1;
-      for (const childId of g.ids) {
-        maxChildCols = Math.max(maxChildCols, computeCols(childId));
-      }
-      total += maxChildCols;
-    }
-    subtreeCols.set(id, Math.max(total, 1));
-    return total;
-  }
-  computeCols(graph.rootId);
-
-  // Recursively layout: group children by model, stack each group vertically
-  function layout(id: string, y: number, leftEdge: number): number {
-    visited.add(id);
-    const groups = groupedChildren(id);
-    const myCols = subtreeCols.get(id) ?? 1;
-    const totalWidth = myCols * NODE_GAP;
-    const centerX = leftEdge + totalWidth / 2;
-    positions.set(id, { x: centerX - NODE_WIDTH / 2, y });
-
-    let colLeft = leftEdge;
-    for (const g of groups) {
-      // Determine the column width for this group
-      let groupCols = 1;
-      for (const childId of g.ids) {
-        groupCols = Math.max(groupCols, subtreeCols.get(childId) ?? 1);
-      }
-      const groupWidth = groupCols * NODE_GAP;
-      const groupCenterX = colLeft + groupWidth / 2;
-
-      // Stack children vertically within this group
-      const childYStart = y + LEVEL_GAP;
-      let childY = childYStart;
-      const childPositions: { id: string; x: number; y: number }[] = [];
-
-      for (const childId of g.ids) {
-        if (visited.has(childId)) { childY += STACK_GAP + NODE_HEIGHT; continue; }
-        const childCols = subtreeCols.get(childId) ?? 1;
-        const childLeft = colLeft + (groupCols - childCols) * NODE_GAP / 2;
-        const childEndY = layout(childId, childY, childLeft);
-        childPositions.push({
-          id: childId,
-          x: positions.get(childId)!.x,
-          y: positions.get(childId)!.y,
-        });
-        childY = childEndY + STACK_GAP;
-      }
-
-      // If this group has more than 1 child, draw a cluster box around them
-      if (g.ids.length > 1 && childPositions.length > 0) {
-        const minY = Math.min(...childPositions.map((p) => p.y)) - CLUSTER_PAD - 20;
-        const maxY = Math.max(...childPositions.map((p) => p.y)) + NODE_HEIGHT + CLUSTER_PAD;
-        const minX = Math.min(...childPositions.map((p) => p.x)) - CLUSTER_PAD;
-        const maxX = Math.max(...childPositions.map((p) => p.x)) + NODE_WIDTH + CLUSTER_PAD;
-        clusterBoxes.push({
-          id: `cluster:${id}:${g.model}`,
-          x: minX,
-          y: minY,
-          width: maxX - minX,
-          height: maxY - minY,
-          label: g.label,
-          model: g.model,
-          color: g.color,
-          count: g.ids.length,
-        });
-      }
-
-      colLeft += groupWidth;
-    }
-
-    // Return the bottom-most Y of this subtree (for stacking calculation)
-    const myPos = positions.get(id)!;
-    let bottomY = myPos.y + NODE_HEIGHT;
-    for (const [, pos] of positions) {
-      if (pos.x >= leftEdge && pos.x < leftEdge + totalWidth && pos.y > myPos.y) {
-        bottomY = Math.max(bottomY, pos.y + NODE_HEIGHT);
-      }
-    }
-    return bottomY;
-  }
-  layout(graph.rootId, 40, 0);
-
-  // Any unreachable nodes — stack them in a row below the tree
-  const maxY = Math.max(...Array.from(positions.values()).map((p) => p.y), 0);
-  let extraX = 0;
-  const extraY = maxY + LEVEL_GAP;
-  for (const n of graph.nodes) {
-    if (!visited.has(n.id)) {
-      positions.set(n.id, { x: extraX, y: extraY });
-      extraX += NODE_GAP;
-    }
-  }
-
-  return { positions, primaryParent, incoming, clusterBoxes };
-}
-
-function LiveModuleNode({ data, selected }: NodeProps) {
-  const { model, label, secondary, shared, isRoot } = data as LiveNodeData;
-  const mod = MODULES[model as ModelKey];
-  if (!mod) return null;
-  const Icon = mod.icon;
-  const color = GROUP_COLORS[mod.group];
-  return (
-    <div
-      className={cn(
-        "relative flex w-[200px] items-center gap-2 rounded-lg border bg-card py-1.5 pl-3 pr-2 shadow-sm transition-shadow",
-        selected ? "border-primary ring-2 ring-primary/20 shadow-md" : "border-border",
-        isRoot && "border-primary/40 shadow-md",
-        shared && "border-amber-500/50",
-      )}
-    >
-      <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg" style={{ background: color }} />
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-2 !border-card" style={{ background: color }} />
-      {isRoot && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-          <Crown className="h-2.5 w-2.5" />
-        </span>
-      )}
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: `${color}18`, color }}>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[13px] font-semibold text-foreground">{label}</p>
-        <p className="truncate text-micro text-muted-foreground">
-          {mod.label}{secondary ? ` · ${secondary}` : ""}
-        </p>
-      </div>
-      {shared && (
-        <span
-          className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
-          title="Shared — reachable from more than one parent"
-        />
-      )}
-      <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-2 !border-card" style={{ background: color }} />
-    </div>
-  );
-}
-
-function LiveRelationEdge({ id, sourceX, sourceY, targetX, targetY, data, selected }: any) {
-  const isShared = !!data?.isSharedLink;
-  // Top-down smooth bezier — same style as the editor canvas, but
-  // shared (secondary) links are dashed amber to distinguish them.
-  const stroke = selected ? "#6366f1" : isShared ? "#f59e0b" : "#cbd5e1";
-  const sw = selected ? 2.5 : isShared ? 1.5 : 2;
-  const op = selected ? 1 : isShared ? 0.5 : 0.8;
-  const midY = (sourceY + targetY) / 2;
-  const d = `M ${sourceX} ${sourceY} C ${sourceX} ${midY}, ${targetX} ${midY}, ${targetX} ${targetY}`;
-  return (
-    <g>
-      <path
-        id={id}
-        className={cn("react-flow__edge-path", selected && "react-flow__edge-path--selected")}
-        d={d}
-        stroke={stroke}
-        strokeWidth={sw}
-        strokeOpacity={op}
-        strokeDasharray={isShared ? "5 4" : undefined}
-        fill="none"
-        markerEnd="url(#arrow)"
-      />
-    </g>
-  );
-}
-
-// Visual cluster box — a subtle dashed background that groups same-type siblings.
-// Rendered behind the record nodes, non-interactive (pointer-events: none).
-function LiveClusterNode({ data }: NodeProps) {
-  const { label, model, color, count } = data as LiveClusterData;
-  const mod = MODULES[model as ModelKey];
-  const Icon = mod?.icon;
-  return (
-    <div
-      className="pointer-events-none flex h-full w-full flex-col rounded-xl border-2 border-dashed"
-      style={{ borderColor: `${color}30`, background: `${color}06` }}
-    >
-      <div
-        className="flex items-center gap-1 rounded-t-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-        style={{ color, background: `${color}12` }}
-      >
-        {Icon && <Icon className="h-2.5 w-2.5" />}
-        {label}
-        <span className="ml-auto rounded-full px-1.5 text-[9px] font-normal" style={{ background: `${color}18` }}>
-          {count}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-const liveNodeTypes: NodeTypes = { liveModule: LiveModuleNode, liveCluster: LiveClusterNode };
-const liveEdgeTypes: EdgeTypes = { liveRelation: LiveRelationEdge };
-
-// ── Inspect panel (read-only) — a record's parents + children ──
-
-function LiveCanvas({
-  onBackToEditor,
-  onCopy,
-}: {
-  onBackToEditor: () => void;
-  onCopy: (graph: LiveGraph) => void;
-}) {
-  const [graph, setGraph] = useState<LiveGraph | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetch("/api/modules/live-graph")
-      .then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error ?? "Failed to load live data");
-        return j as LiveGraph;
-      })
-      .then((g) => { setGraph(g); setLoading(false); })
-      .catch((e: unknown) => { setError(e instanceof Error ? e.message : "Failed to load"); setLoading(false); });
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const layout = useMemo(() => (graph ? buildLiveLayout(graph) : null), [graph]);
-  const sharedSet = useMemo(() => new Set(graph?.sharedIds ?? []), [graph]);
-  const nodeById = useMemo(() => new Map((graph?.nodes ?? []).map((n) => [n.id, n])), [graph]);
-
-  const { nodes, edges } = useMemo(() => {
-    if (!graph || !layout) return { nodes: [], edges: [] };
-    // Cluster box nodes — rendered first (lower z-index) so record nodes paint on top
-    const clusterNodes = layout.clusterBoxes.map((box) => ({
-      id: box.id,
-      type: "liveCluster",
-      position: { x: box.x, y: box.y },
-      data: {
-        label: box.label,
-        model: box.model,
-        color: box.color,
-        count: box.count,
-      } as LiveClusterData,
-      style: { width: box.width, height: box.height },
-      draggable: false,
-      selectable: false,
-      connectable: false,
-      zIndex: -1,
-    }));
-    const recordNodes = graph.nodes.map((n) => {
-      const pos = layout.positions.get(n.id) ?? { x: 0, y: 0 };
-      const isRoot = n.id === graph.rootId;
-      return {
-        id: n.id,
-        type: "liveModule",
-        position: pos,
-        data: {
-          model: n.model,
-          label: n.label,
-          secondary: n.secondary,
-          shared: sharedSet.has(n.id),
-          isRoot,
-        } as LiveNodeData,
-      };
-    });
-    const edges = graph.edges.map((e) => ({
-      id: `${e.from}->${e.to}:${e.label}`,
-      source: e.from,
-      target: e.to,
-      type: "liveRelation",
-      data: { isSharedLink: sharedSet.has(e.to) && layout.primaryParent.get(e.to) !== e.from },
-    }));
-    return { nodes: [...clusterNodes, ...recordNodes], edges };
-  }, [graph, layout, sharedSet, nodeById]);
-
-  return (
-    <ReactFlowProvider>
-      <div className="flex h-[calc(100vh-9rem)] flex-col rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="muted" className="gap-1">
-              <Eye className="h-3 w-3" /> Live data
-            </Badge>
-            {graph && (
-              <span className="text-caption text-muted-foreground">
-                {graph.nodes.length} records · {graph.edges.length} links
-                {graph.sharedIds.length ? ` · ${graph.sharedIds.length} shared` : ""}
-              </span>
-            )}
-            {graph?.truncated && (
-              <span className="flex items-center gap-1 text-caption font-medium text-amber-600" title="Partial snapshot — traversal was capped.">
-                <AlertTriangle className="h-3 w-3" /> Capped
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={load} disabled={loading} title="Re-fetch live data">
-              <RefreshCw className={loading ? "animate-spin" : undefined} /> Refresh
-            </Button>
-            <Button variant="outline" size="sm" onClick={onBackToEditor}>
-              <Pencil /> Editor
-            </Button>
-            <Button size="sm" onClick={() => graph && onCopy(graph)} disabled={!graph || graph.nodes.length === 0 || loading}>
-              <Copy /> Copy to editor
-            </Button>
-          </div>
-        </div>
-
-        <div className="relative flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={liveNodeTypes}
-            edgeTypes={liveEdgeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.2}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            edgesReconnectable={false}
-            proOptions={{ hideAttribution: true }}
-            className="bg-muted/20"
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
-            <Controls />
-            <MiniMap
-              pannable
-              zoomable
-              className="!bg-card !border !border-border"
-              nodeColor={(n) => {
-                const d = n.data as LiveNodeData;
-                return GROUP_COLORS[MODULES[d.model as ModelKey]?.group ?? "Core"];
-              }}
-              maskColor="rgba(0,0,0,0.05)"
-            />
-          </ReactFlow>
-
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-card/60 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-meta">Loading live data…</span>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <div className="max-w-sm rounded-xl border border-border bg-card px-6 py-5 text-center">
-                <AlertCircle className="mx-auto mb-2 h-7 w-7 text-danger" />
-                <p className="text-body font-medium">Couldn’t load live data</p>
-                <p className="mt-1 text-meta text-muted-foreground">{error}</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={load}>
-                  <RefreshCw /> Retry
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!loading && !error && graph && graph.nodes.length === 0 && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
-              <div className="max-w-sm rounded-xl border-2 border-dashed border-border bg-card/80 px-8 py-6 text-center backdrop-blur-sm">
-                <Workflow className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-body font-medium">No records yet</p>
-                <p className="mt-1 text-meta text-muted-foreground">
-                  Add some data (a company, projects, stock locations…) and refresh.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-border px-3 py-1.5 text-micro text-muted-foreground/70">
-          Read-only snapshot of your live records, arranged as a hierarchy. Amber dot = shared record (reachable from more than one parent).
-        </div>
-      </div>
-    </ReactFlowProvider>
-  );
-}
-
 function autoLayout(nodes: Node[], edges: Edge[], canvasWidth?: number): Node[] {
   if (nodes.length === 0) return nodes;
   const childrenMap = new Map<string, string[]>();
@@ -1219,7 +727,7 @@ function autoLayout(nodes: Node[], edges: Edge[], canvasWidth?: number): Node[] 
     }
   }
   // any unvisited nodes (disconnected) — place them in their own column
-  let extraDepth = byDepth.size;
+  const extraDepth = byDepth.size;
   for (const n of nodes) {
     if (!visited.has(n.id)) {
       if (!byDepth.has(extraDepth)) byDepth.set(extraDepth, []);
@@ -1459,7 +967,6 @@ function TimelineView({ nodes, employees, onNodeClick }: { nodes: Node[]; employ
   // Pad range by 1 day on each side
   minDate.setDate(minDate.getDate() - 1);
   maxDate.setDate(maxDate.getDate() + 1);
-  const totalMs = maxDate.getTime() - minDate.getTime();
 
   // Group by day
   const dayBuckets = new Map<string, typeof datedNodes>();
@@ -1496,7 +1003,7 @@ function TimelineView({ nodes, employees, onNodeClick }: { nodes: Node[]; employ
               {/* Date column */}
               <div className="w-20 shrink-0">
                 <div className="sticky top-0">
-                  <p className="text-body font-bold" style={{ color }}>{dayDate.toLocaleDateString("en", { day: "numeric", month: "short" })}</p>
+                  <p className="text-body font-bold" style={{ color }}>{formatDate(dayDate)}</p>
                   <p className="text-micro text-muted-foreground">
                     {isOverdue ? `${Math.abs(diffDays)}d ago` : isToday ? "Today" : diffDays === 1 ? "Tomorrow" : `in ${diffDays}d`}
                   </p>
@@ -1607,7 +1114,7 @@ function CanvasInner({
         const userRole = (s?.user as { role?: string } | undefined)?.role;
         if (userRole) setRole(userRole);
       })
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load user role"));
   }, []);
   const canEditLive = role === "OWNER" || role === "MANAGER";
   const liveReadOnly = liveMode && !canEditLive;
@@ -1688,7 +1195,7 @@ function CanvasInner({
       .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
         if (cancelled || !res?.summaries) return;
-        const byKey = new Map<string, { status: string | null; metric: any }>();
+        const byKey = new Map<string, { status: string | null; metric: Record<string, unknown> | null }>();
         for (const s of res.summaries) byKey.set(`${s.model}:${s.recordId}`, { status: s.status, metric: s.metric });
         setNodes((nds) =>
           nds.map((n) => {
@@ -1941,7 +1448,7 @@ function CanvasInner({
         setPendingConnect({ source: connection.source, target: connection.target, options });
       }
     },
-    [edges, nodes, addConnection],
+    [edges, nodes, addConnection, nodeById],
   );
 
   // ── Rewire an existing edge by dragging one of its endpoints ──
@@ -1977,7 +1484,7 @@ function CanvasInner({
         setPendingConnect({ source: newConnection.source, target: newConnection.target, options, oldEdgeId: oldEdge.id });
       }
     },
-    [edges, nodes, addConnection],
+    [edges, nodes, addConnection, nodeById, setEdges],
   );
 
   const confirmPending = (rel: RelationDef) => {
@@ -2159,18 +1666,6 @@ function CanvasInner({
     );
   }, [setNodes]);
 
-  const updateCustomField = useCallback((nodeId: string, fieldId: string, updates: Partial<CustomField>) => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id !== nodeId) return n;
-        const d = n.data as ModuleNodeData;
-        const customFields = (d.customFields ?? []).map((f) =>
-          f.id === fieldId ? { ...f, ...updates } : f,
-        );
-        return { ...n, data: { ...d, customFields } as ModuleNodeData };
-      }),
-    );
-  }, [setNodes]);
 
   const deleteCustomField = useCallback((nodeId: string, fieldId: string) => {
     setNodes((nds) =>
@@ -2542,10 +2037,14 @@ function CanvasInner({
 
   const onClear = () => {
     if (nodes.length === 0) return;
-    if (!window.confirm("Clear the entire canvas? This removes all modules and connections.")) return;
+    setClearOpen(true);
+  };
+
+  const confirmClear = () => {
     setNodes([]);
     setEdges([]);
     if (mode === "create") { try { localStorage.removeItem(DRAFT_KEY); } catch {} }
+    setClearOpen(false);
   };
 
   // ── Template loading ────────────────────────────────────────
@@ -2694,7 +2193,7 @@ function CanvasInner({
   // ── Quick stats: live counts across all nodes ──
   const quickStats = useMemo(() => {
     let active = 0, finished = 0, assumption = 0, inform = 0;
-    let overdue = 0, assigned = 0, total = nodes.length;
+    let overdue = 0, assigned = 0; const total = nodes.length;
     nodes.forEach((n) => {
       const d = n.data as ModuleNodeData;
       if (d.kind === "active") active++;
@@ -2711,7 +2210,7 @@ function CanvasInner({
   }, [nodes, today]);
 
   // ── Validation badge for toolbar ───────────────────────────
-  const ValidationBadge = () => {
+  const renderValidationBadge = () => {
     if (graphState.status === "empty") {
       return <span className="flex items-center gap-1.5 text-caption text-muted-foreground"><AlertCircle className="h-3.5 w-3.5" /> Empty canvas</span>;
     }
@@ -2796,7 +2295,7 @@ function CanvasInner({
 
             {/* Right: validation + save */}
             <div className="flex items-center gap-2">
-              <ValidationBadge />
+              {renderValidationBadge()}
               <div className="h-4 w-px bg-border" />
               {workspaceId && (
                 <Button variant="outline" size="sm" asChild title="Open saved workspace">
@@ -3327,7 +2826,7 @@ function CanvasInner({
                   <Workflow className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                   <p className="text-body font-medium">Empty canvas</p>
                   <p className="mt-1 text-meta text-muted-foreground">
-                    <span className="md:hidden">Tap "Modules" above to add a node.</span>
+                    <span className="md:hidden">Tap &quot;Modules&quot; above to add a node.</span>
                     <span className="hidden md:inline">Drag a module from the left to start building a hierarchy.</span>
                   </p>
                   <p className="mt-2 text-caption text-muted-foreground/60">
@@ -3377,7 +2876,7 @@ function CanvasInner({
                     </a>
                   </div>
                 ) : (
-                  <p>No match for "{empSearch}".</p>
+                  <p>No match for &quot;{empSearch}&quot;.</p>
                 )}
               </div>
             ) : (
@@ -3425,7 +2924,6 @@ function CanvasInner({
             onAddNote={addNote}
             onDeleteNote={deleteNote}
             onAddCustomField={addCustomField}
-            onUpdateCustomField={updateCustomField}
             onDeleteCustomField={deleteCustomField}
             onLinkRecord={linkRecord}
             onUnlinkRecord={unlinkRecord}
@@ -3525,7 +3023,7 @@ function CanvasInner({
         <Dialog open={clearOpen} onOpenChange={setClearOpen} title="Clear canvas?" description="This removes all nodes, edges, and their attachments from the canvas. This cannot be undone.">
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setClearOpen(false)}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={() => { onClear(); setClearOpen(false); }}>
+            <Button variant="destructive" size="sm" onClick={confirmClear}>
               <Trash2 className="h-3.5 w-3.5" /> Clear everything
             </Button>
           </div>

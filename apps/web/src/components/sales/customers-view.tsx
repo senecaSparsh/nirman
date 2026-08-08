@@ -30,7 +30,7 @@ export function CustomersView({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <span className="text-caption text-muted-foreground">{customers.length} customers</span>
-        {(permissions?.canCreate ?? true) && (
+        {(permissions?.canCreate ?? true) && customers.length > 0 && (
           <Button onClick={openNew}><Plus className="h-4 w-4" /> New Customer</Button>
         )}
       </div>

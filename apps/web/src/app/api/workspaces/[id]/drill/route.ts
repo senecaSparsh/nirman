@@ -51,7 +51,7 @@ export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
   }
 
   // fetch rows for the current level
-  let rows: any[];
+  let rows: Record<string, unknown>[];
   if (path.length === 0) {
     rows = await listRoot(currentModel, company.id);
   } else {

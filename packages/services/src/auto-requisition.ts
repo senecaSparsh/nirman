@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { lowStockAlerts } from "./alerts";
+import { ServiceError } from "./errors";
 
 /**
  * Auto-Requisition Service — operationalize the reorderPoint / EOQ fields.
@@ -54,9 +55,9 @@ export async function generateAutoRequisition(opts: {
   const project = await prisma.project.findFirst({
     where: { id: projectId, companyId, deletedAt: null },
   });
-  if (!project) throw new Error("Project not found or doesn't belong to this company");
+  if (!project) throw new ServiceError("Project not found or doesn't belong to this company", 404);
   if (project.status === "COMPLETED" || project.status === "ON_HOLD") {
-    throw new Error(`Cannot generate auto-requisitions for a ${project.status} project`);
+    throw new ServiceError(`Cannot generate auto-requisitions for a ${project.status} project`);
   }
 
   // 2. Detect low-stock materials across the company.

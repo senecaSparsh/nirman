@@ -63,8 +63,8 @@ export function ParcelValuationDialog({
       toast.success("Valuation updated");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }
@@ -108,7 +108,7 @@ export function ParcelValuationDialog({
             placeholder="Optional"
           />
           <p className="text-caption text-muted-foreground">
-            The price at which you're willing to sell this parcel.
+            The price at which you&apos;re willing to sell this parcel.
           </p>
         </div>
         <div className="flex justify-end gap-2 pt-2">

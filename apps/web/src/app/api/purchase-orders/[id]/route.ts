@@ -6,13 +6,14 @@ import {
   orderPurchaseOrder,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
+  const company = await getCompany();
   const { id } = await params;
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { id },
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, companyId: company.id },
     include: {
       supplier: true,
       project: { select: { id: true, name: true } },
@@ -30,6 +31,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!po) return json({ error: "Purchase order not found" }, { status: 404 });
+
+  // Fetch the source requisition (if this PO was converted from one)
+  const sourceRequisition = await prisma.materialRequisition.findFirst({
+    where: { convertedPoId: po.id },
+    select: { id: true, reqNumber: true },
+  });
 
   const lines = po.lines.map((l) => ({
     id: l.id,
@@ -80,6 +87,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     total: toNum(po.total),
     notes: po.notes,
     createdAt: po.createdAt.toISOString(),
+    sourceRequisition: sourceRequisition
+      ? { id: sourceRequisition.id, reqNumber: sourceRequisition.reqNumber }
+      : null,
     lines,
     receipts,
   });

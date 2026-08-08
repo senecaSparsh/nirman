@@ -40,14 +40,21 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
 
   // Land sales for this purchase's parcels
   const parcelIds = purchase.parcels.map((p) => p.id);
-  const landSales = await prisma.assetSale.findMany({
-    where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
-    select: {
-      id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
-      landParcelId: true, paymentStatus: true,
-      customer: { select: { id: true, name: true } },
-    },
-  });
+  const [landSales, customers] = await Promise.all([
+    prisma.assetSale.findMany({
+      where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+      select: {
+        id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
+        landParcelId: true, paymentStatus: true,
+        customer: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.customer.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   const saleByParcel = new Map(
     landSales.map((s) => [s.landParcelId!, {
       salePrice: toNum(s.salePrice),
@@ -73,6 +80,9 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       acquisitionCost: toNum(p.acquisitionCost),
       askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
       currentValuation: toNum(p.currentValuation),
+      isInfrastructure: p.isInfrastructure,
+      marketValue: p.marketValue ? toNum(p.marketValue) : null,
+      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
       projectId: p.projectId,
       projectName: purchase.project?.name ?? null,
       geometry: p.geometry,
@@ -147,7 +157,9 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
       canDelete: hasPermission(role, PERM.ASSETS_MANAGE),
       canPartition: hasPermission(role, PERM.LAND_PARTITION),
+      canSell: hasPermission(role, PERM.SALE_CREATE),
     },
+    customers: customers.map((c) => ({ id: c.id, name: c.name })),
     projectOptions,
   };
 

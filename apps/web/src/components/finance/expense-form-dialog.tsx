@@ -103,8 +103,8 @@ export function ExpenseFormDialog({
       toast.success(editing ? "Expense updated" : "Expense added");
       onOpenChange(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
       setSaving(false);
     }

@@ -120,6 +120,7 @@ export async function projectTotalCost(projectId: string): Promise<{
   materials: Decimal;
   labour: Decimal;
   land: Decimal;
+  costRecovery: Decimal;
   total: Decimal;
 }> {
   const [materialIssues, projectCosts, landPurchases] = await Promise.all([
@@ -160,7 +161,21 @@ export async function projectTotalCost(projectId: string): Promise<{
     new Decimal(0),
   );
 
-  return { materials, labour, land, total: materials.plus(labour).plus(land) };
+  // Scrap sale revenue linked to this project — treated as cost recovery,
+  // reducing the project's total construction expense.
+  const scrapSales = await prisma.materialSale.findMany({
+    where: { projectId, status: "ACTIVE" },
+    select: { scrapSubtotal: true },
+  });
+  const costRecovery = scrapSales.reduce(
+    (sum, s) => sum.plus(new Decimal(s.scrapSubtotal)),
+    new Decimal(0),
+  );
+
+  const grossCost = materials.plus(labour).plus(land);
+  const netCost = grossCost.minus(costRecovery);
+
+  return { materials, labour, land, costRecovery, total: netCost };
 }
 
 /**
@@ -207,14 +222,29 @@ export async function reallocateProjectCosts(
   tx: Prisma.TransactionClient,
   projectId: string,
 ): Promise<{ costPerSqft: Decimal; totalCost: Decimal; totalArea: Decimal }> {
-  // 1. Total project cost (read-only queries — use tx for consistency)
-  const lines = await tx.materialIssueLine.findMany({
-    where: { materialIssue: { projectId } },
+  // 1a. Material costs issued to the PROJECT (not to a specific unit) — area-allocated
+  const projectLines = await tx.materialIssueLine.findMany({
+    where: { materialIssue: { projectId, builtUnitId: null } },
     select: { qty: true, unitCost: true },
   });
-  const materials = lines.reduce(
+  const projectMaterials = projectLines.reduce(
     (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
     new Decimal(0),
+  );
+
+  // 1b. Material costs issued directly to specific units — NOT area-allocated
+  const unitDirectCosts = await tx.materialIssueLine.findMany({
+    where: { materialIssue: { projectId, builtUnitId: { not: null } } },
+    include: { materialIssue: { select: { builtUnitId: true } } },
+  });
+  const unitDirectCostMap = new Map<string, Decimal>();
+  for (const line of unitDirectCosts) {
+    const unitId = line.materialIssue.builtUnitId!;
+    const cost = new Decimal(line.qty).times(new Decimal(line.unitCost));
+    unitDirectCostMap.set(unitId, (unitDirectCostMap.get(unitId) ?? new Decimal(0)).plus(cost));
+  }
+  const directMaterialsTotal = [...unitDirectCostMap.values()].reduce(
+    (sum, c) => sum.plus(c), new Decimal(0),
   );
 
   const projectCosts = await tx.projectCost.findMany({
@@ -235,7 +265,20 @@ export async function reallocateProjectCosts(
     new Decimal(0),
   );
 
-  const totalCost = materials.plus(labour).plus(land);
+  // Scrap sale revenue linked to this project — cost recovery reduces the
+  // project's total construction expense (per the architecture: "reducing the
+  // overall construction expense of that specific project").
+  const scrapSales = await tx.materialSale.findMany({
+    where: { projectId, status: "ACTIVE" },
+    select: { scrapSubtotal: true },
+  });
+  const costRecovery = scrapSales.reduce(
+    (sum, s) => sum.plus(new Decimal(s.scrapSubtotal)),
+    new Decimal(0),
+  );
+
+  // Total cost = project-level materials + direct-to-unit materials + labour + land − scrap cost recovery
+  const totalCost = projectMaterials.plus(directMaterialsTotal).plus(labour).plus(land).minus(costRecovery);
 
   // 2. Total sellable area (all non-deleted built units)
   const units = await tx.builtUnit.findMany({
@@ -247,15 +290,20 @@ export async function reallocateProjectCosts(
     new Decimal(0),
   );
 
-  // 3. Cost per sqft
-  const costPerSqft = totalArea.gt(0) ? totalCost.div(totalArea) : new Decimal(0);
+  // 3. Cost per sqft — only for the PROJECT-level costs (not direct-to-unit costs)
+  //    Direct-to-unit costs are added on top of the area allocation for that specific unit.
+  //    Scrap cost recovery reduces the area-allocated pool (benefits all units proportionally).
+  const poolToAllocate = projectMaterials.plus(labour).plus(land).minus(costRecovery);
+  const costPerSqft = totalArea.gt(0) ? poolToAllocate.div(totalArea) : new Decimal(0);
 
   // 4. Write allocation back to each unit + project cache
   for (const unit of units) {
-    const allocatedCost = costPerSqft.times(new Decimal(unit.area));
+    const areaAllocated = costPerSqft.times(new Decimal(unit.area));
+    const directCost = unitDirectCostMap.get(unit.id) ?? new Decimal(0);
+    const totalUnitCost = areaAllocated.plus(directCost);
     await tx.builtUnit.update({
       where: { id: unit.id },
-      data: { productionCost: allocatedCost },
+      data: { productionCost: totalUnitCost },
     });
   }
 

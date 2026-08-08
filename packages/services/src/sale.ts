@@ -2,18 +2,32 @@ import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postAssetSale, postPaymentReceived } from "./gl-posting";
+import {
+  postAssetSale,
+  postPaymentReceived,
+  postDepositReceived,
+  postDepositRefund,
+  postJournalEntry,
+  reverseJournalEntry,
+} from "./gl-posting";
+import { ServiceError } from "./errors";
 
 /**
  * Sale Service — sell land parcels or built units to customers.
  *
- * Invariants enforced:
+ * Staged deposit flow (real estate):
+ *   PENDING → DEPOSIT_RECEIVED → COMPLETED
+ *                              ↘ CANCELLED
+ *
  * - Asset must be AVAILABLE or HOLD (sellable states)
  * - Asset.saleId must be null (no double-sell)
- * - Sale is atomic: create AssetSale + mark asset SOLD + lock saleId
- * - Profit = salePrice - costBasis (acquisitionCost for land, productionCost for unit)
- * - Payments can't exceed salePrice
- * - Cancellation only if no payments received (PENDING)
+ * - A deposit is recorded as a LIABILITY (Customer Deposits account) —
+ *   revenue + COGS are NOT recognised until the sale completes.
+ * - On completion: deposit liability is reversed into revenue, remaining
+ *   balance is posted, COGS relieves the asset at cost, asset → SOLD.
+ * - Immediate full payment at creation time bypasses the deposit stage
+ *   (saleStage = COMPLETED, existing behaviour preserved).
+ * - Cancellation refunds the deposit and releases the asset back to AVAILABLE.
  */
 
 function generateSaleNumber(): string {
@@ -23,12 +37,13 @@ function generateSaleNumber(): string {
   return `SAL-${ymd}-${rand}`;
 }
 
-interface SellAssetInput {
+export interface SellAssetInput {
   assetType: AssetType;
   landParcelId?: string;
   builtUnitId?: string;
   customerId: string;
   salePrice: Decimal | number | string;
+  gstRate?: Decimal | number | string; // GST % applied on sale (e.g. 1, 5, 18). Default 0.
   paymentMode?: string;
   notes?: string;
   initialPayment?: Decimal | number | string;
@@ -42,10 +57,10 @@ export async function sellAsset(input: SellAssetInput) {
     const customer = await tx.customer.findFirst({
       where: { id: input.customerId, deletedAt: null },
     });
-    if (!customer) throw new Error("Customer not found or deleted");
+    if (!customer) throw new ServiceError("Customer not found or deleted", 404);
 
     const salePrice = new Decimal(input.salePrice);
-    if (!salePrice.gt(0)) throw new Error("Sale price must be > 0");
+    if (!salePrice.gt(0)) throw new ServiceError("Sale price must be > 0");
 
     let projectId: string;
     let companyId: string;
@@ -54,20 +69,20 @@ export async function sellAsset(input: SellAssetInput) {
     let builtUnitId: string | null = null;
 
     if (input.assetType === "LAND") {
-      if (!input.landParcelId) throw new Error("Land sale requires landParcelId");
-      if (input.builtUnitId) throw new Error("Land sale must not have builtUnitId");
+      if (!input.landParcelId) throw new ServiceError("Land sale requires landParcelId");
+      if (input.builtUnitId) throw new ServiceError("Land sale must not have builtUnitId");
       landParcelId = input.landParcelId;
 
       // Lock the parcel
       const parcel = await tx.landParcel.findUnique({
         where: { id: input.landParcelId },
       });
-      if (!parcel) throw new Error("Land parcel not found");
-      if (parcel.deletedAt) throw new Error("Land parcel is deleted");
+      if (!parcel) throw new ServiceError("Land parcel not found", 404);
+      if (parcel.deletedAt) throw new ServiceError("Land parcel is deleted");
       if (parcel.status !== "AVAILABLE" && parcel.status !== "HOLD") {
-        throw new Error(`Cannot sell parcel in status ${parcel.status}. Must be AVAILABLE or HOLD.`);
+        throw new ServiceError(`Cannot sell parcel in status ${parcel.status}. Must be AVAILABLE or HOLD.`);
       }
-      if (parcel.saleId) throw new Error("Parcel is already sold (double-sell guard)");
+      if (parcel.saleId) throw new ServiceError("Parcel is already sold (double-sell guard)");
 
       // Determine project + company
       const projectIdRaw = parcel.projectId;
@@ -77,7 +92,7 @@ export async function sellAsset(input: SellAssetInput) {
           where: { id: parcel.landPurchaseId },
         });
         if (!landPurchase?.projectId) {
-          throw new Error("Land parcel must be linked to a project before selling (for accounting)");
+          throw new ServiceError("Land parcel must be linked to a project before selling (for accounting)");
         }
         projectId = landPurchase.projectId;
       } else {
@@ -85,44 +100,47 @@ export async function sellAsset(input: SellAssetInput) {
       }
 
       const project = await tx.project.findUnique({ where: { id: projectId } });
-      if (!project) throw new Error("Project not found");
+      if (!project) throw new ServiceError("Project not found", 404);
       companyId = project.companyId;
       costBasis = new Decimal(parcel.acquisitionCost);
-
-      // Mark parcel SOLD + lock
-      await tx.landParcel.update({
-        where: { id: parcel.id },
-        data: { status: "SOLD", saleId: undefined }, // saleId set after sale create
-      });
+      // NOTE: asset status is NOT changed here — it stays AVAILABLE until a
+      // deposit is recorded (→ RESERVED) or the sale completes (→ SOLD).
     } else {
-      if (!input.builtUnitId) throw new Error("Built unit sale requires builtUnitId");
-      if (input.landParcelId) throw new Error("Built unit sale must not have landParcelId");
+      if (!input.builtUnitId) throw new ServiceError("Built unit sale requires builtUnitId");
+      if (input.landParcelId) throw new ServiceError("Built unit sale must not have landParcelId");
       builtUnitId = input.builtUnitId;
 
       const unit = await tx.builtUnit.findUnique({
         where: { id: input.builtUnitId },
       });
-      if (!unit) throw new Error("Built unit not found");
-      if (unit.deletedAt) throw new Error("Built unit is deleted");
+      if (!unit) throw new ServiceError("Built unit not found", 404);
+      if (unit.deletedAt) throw new ServiceError("Built unit is deleted");
       if (unit.status !== "AVAILABLE" && unit.status !== "HOLD") {
-        throw new Error(`Cannot sell unit in status ${unit.status}. Must be AVAILABLE or HOLD.`);
+        throw new ServiceError(`Cannot sell unit in status ${unit.status}. Must be AVAILABLE or HOLD.`);
       }
-      if (unit.saleId) throw new Error("Unit is already sold (double-sell guard)");
+      if (unit.saleId) throw new ServiceError("Unit is already sold (double-sell guard)");
 
       projectId = unit.projectId;
       const project = await tx.project.findUnique({ where: { id: projectId } });
-      if (!project) throw new Error("Project not found");
+      if (!project) throw new ServiceError("Project not found", 404);
       companyId = project.companyId;
       costBasis = new Decimal(unit.productionCost);
-
-      // Mark unit SOLD + lock
-      await tx.builtUnit.update({
-        where: { id: unit.id },
-        data: { status: "SOLD", saleId: undefined },
-      });
+      // NOTE: asset status is NOT changed here — see above.
     }
 
-    // Create the sale
+    // Compute GST on the sale (Output GST liability)
+    const gstRate = input.gstRate ? new Decimal(input.gstRate) : new Decimal(0);
+    if (gstRate.lt(0) || gstRate.gt(100)) throw new ServiceError("gstRate must be between 0 and 100");
+    const gstAmount = salePrice.mul(gstRate).div(100).toDecimalPlaces(2);
+
+    // Determine whether this is an immediate full-payment sale or a staged sale.
+    const initAmount = input.initialPayment ? new Decimal(input.initialPayment) : new Decimal(0);
+    if (initAmount.gt(0) && initAmount.gt(salePrice)) {
+      throw new ServiceError(`Initial payment ${initAmount} exceeds sale price ${salePrice}`);
+    }
+    const isImmediateFullPayment = initAmount.gt(0) && initAmount.gte(salePrice);
+
+    // Create the sale (always starts as PENDING; upgraded below if immediate)
     const profit = salePrice.minus(costBasis);
     const sale = await tx.assetSale.create({
       data: {
@@ -134,74 +152,98 @@ export async function sellAsset(input: SellAssetInput) {
         projectId,
         companyId,
         salePrice,
+        gstRate,
+        gstAmount,
         costBasis,
         profit,
         paymentStatus: "PENDING",
         paymentMode: input.paymentMode,
         notes: input.notes,
+        saleStage: "PENDING",
       },
     });
 
-    // Now set saleId on the asset
+    // Lock the asset by setting saleId (prevents double-sell regardless of status)
     if (input.assetType === "LAND" && landParcelId) {
       await tx.landParcel.update({ where: { id: landParcelId }, data: { saleId: sale.id } });
     } else if (builtUnitId) {
       await tx.builtUnit.update({ where: { id: builtUnitId }, data: { saleId: sale.id } });
     }
 
-    // Record initial payment atomically if provided (same tx — no orphan sale if payment fails)
-    let paymentStatus: "PENDING" | "PARTIAL" | "PAID" = "PENDING";
-    if (input.initialPayment) {
-      const initAmount = new Decimal(input.initialPayment);
-      if (initAmount.gt(0)) {
-        if (initAmount.gt(salePrice)) {
-          throw new Error(`Initial payment ${initAmount} exceeds sale price ${salePrice}`);
-        }
-        await tx.assetSalePayment.create({
-          data: {
-            assetSaleId: sale.id,
-            amount: initAmount,
-            mode: input.initialPaymentMode ?? "BANK_TRANSFER",
-          },
-        });
-        paymentStatus = initAmount.lt(salePrice) ? "PARTIAL" : "PAID";
-      }
-    }
-    if (paymentStatus !== "PENDING") {
-      await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus } });
-    }
+    if (isImmediateFullPayment) {
+      // ── Immediate full payment: recognise revenue + COGS now (existing behaviour) ──
+      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "SOLD");
+      await delistPortalListings(tx, builtUnitId);
 
-    // Post the sale to the General Ledger: recognise revenue + receivable,
-    // and relieve the asset at cost (COGS). Done inside the sale transaction
-    // so the books never diverge from the sale record.
-    await postAssetSale(tx, {
-      companyId,
-      assetSaleId: sale.id,
-      assetType: input.assetType,
-      salePrice,
-      costBasis,
-      postedById: input.userId,
-    });
+      await tx.assetSalePayment.create({
+        data: {
+          assetSaleId: sale.id,
+          amount: initAmount,
+          mode: input.initialPaymentMode ?? "BANK_TRANSFER",
+        },
+      });
 
-    // If an initial payment was recorded, post it too (cash settles the receivable).
-    if (input.initialPayment) {
-      const initAmount = new Decimal(input.initialPayment);
-      if (initAmount.gt(0)) {
-        const payment = await tx.assetSalePayment.findFirst({
-          where: { assetSaleId: sale.id },
-          orderBy: { paymentDate: "desc" },
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: { paymentStatus: "PAID", saleStage: "COMPLETED", finalSaleDate: new Date() },
+      });
+
+      // Post revenue + COGS
+      await postAssetSale(tx, {
+        companyId,
+        assetSaleId: sale.id,
+        assetType: input.assetType,
+        salePrice,
+        costBasis,
+        gstAmount,
+        postedById: input.userId,
+      });
+
+      // Post the cash payment (settles the receivable)
+      const payment = await tx.assetSalePayment.findFirst({
+        where: { assetSaleId: sale.id },
+        orderBy: { paymentDate: "desc" },
+      });
+      if (payment) {
+        await postPaymentReceived(tx, {
+          companyId,
+          assetSaleId: sale.id,
+          paymentId: payment.id,
+          amount: initAmount,
+          postedById: input.userId,
         });
-        if (payment) {
-          await postPaymentReceived(tx, {
-            companyId,
-            assetSaleId: sale.id,
-            paymentId: payment.id,
-            amount: initAmount,
-            postedById: input.userId,
-          });
-        }
       }
+    } else if (initAmount.gt(0)) {
+      // ── Partial initial payment: treat as a deposit (liability, no revenue yet) ──
+      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "RESERVED");
+
+      await tx.assetSalePayment.create({
+        data: {
+          assetSaleId: sale.id,
+          amount: initAmount,
+          mode: input.initialPaymentMode ?? "BANK_TRANSFER",
+        },
+      });
+
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: {
+          paymentStatus: "PARTIAL",
+          saleStage: "DEPOSIT_RECEIVED",
+          depositAmount: initAmount,
+          depositDate: new Date(),
+        },
+      });
+
+      // Post deposit as a liability (Dr Cash, Cr Customer Deposits)
+      await postDepositReceived(tx, {
+        companyId,
+        assetSaleId: sale.id,
+        amount: initAmount,
+        postedById: input.userId,
+      });
     }
+    // else: no payment → sale stays PENDING, asset stays AVAILABLE (but saleId-locked)
 
     if (input.userId) {
       await logAction(tx, {
@@ -209,7 +251,12 @@ export async function sellAsset(input: SellAssetInput) {
         action: "ASSET_SALE_CREATE",
         entityType: "AssetSale",
         entityId: sale.id,
-        after: { saleNumber: sale.saleNumber, assetType: sale.assetType, salePrice: sale.salePrice, paymentStatus },
+        after: {
+          saleNumber: sale.saleNumber,
+          assetType: sale.assetType,
+          salePrice: sale.salePrice,
+          saleStage: isImmediateFullPayment ? "COMPLETED" : initAmount.gt(0) ? "DEPOSIT_RECEIVED" : "PENDING",
+        },
       });
     }
 
@@ -217,7 +264,216 @@ export async function sellAsset(input: SellAssetInput) {
   });
 }
 
-interface RecordPaymentInput {
+// ───────────────────────────────────────────────────────────
+//  Deposit stage — record a customer deposit on a pending sale
+// ───────────────────────────────────────────────────────────
+
+export interface RecordDepositInput {
+  saleId: string;
+  depositAmount: Decimal | number | string;
+  paymentMode?: string;
+  reference?: string;
+  userId?: string;
+}
+
+export async function recordDeposit(input: RecordDepositInput) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({
+      where: { id: input.saleId },
+      include: { payments: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot record deposit on a cancelled sale");
+    if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
+
+    const depositAmount = new Decimal(input.depositAmount);
+    if (!depositAmount.gt(0)) throw new ServiceError("Deposit amount must be > 0");
+
+    const salePrice = new Decimal(sale.salePrice);
+    const existingDeposit = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
+    const cumulativeDeposit = existingDeposit.plus(depositAmount);
+    if (cumulativeDeposit.gt(salePrice)) {
+      throw new ServiceError(
+        `Deposit ${cumulativeDeposit} would exceed sale price ${salePrice}`,
+      );
+    }
+
+    // Record the deposit as a payment row (for audit trail / receipts)
+    const payment = await tx.assetSalePayment.create({
+      data: {
+        assetSaleId: input.saleId,
+        amount: depositAmount,
+        mode: input.paymentMode ?? "BANK_TRANSFER",
+        reference: input.reference,
+      },
+    });
+
+    // Update sale stage + deposit fields
+    const paymentStatus = cumulativeDeposit.gte(salePrice) ? "PAID" : "PARTIAL";
+    await tx.assetSale.update({
+      where: { id: input.saleId },
+      data: {
+        saleStage: "DEPOSIT_RECEIVED",
+        depositAmount: cumulativeDeposit,
+        depositDate: sale.depositDate ?? new Date(),
+        paymentStatus,
+      },
+    });
+
+    // Set asset to RESERVED
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "RESERVED");
+
+    // Post deposit liability: Dr Cash, Cr Customer Deposits
+    await postDepositReceived(tx, {
+      companyId: sale.companyId,
+      assetSaleId: input.saleId,
+      amount: depositAmount,
+      postedById: input.userId,
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "ASSET_SALE_DEPOSIT",
+        entityType: "AssetSale",
+        entityId: input.saleId,
+        after: { depositAmount: depositAmount.toString(), paymentMode: input.paymentMode, saleStage: "DEPOSIT_RECEIVED" },
+      });
+    }
+
+    return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus };
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Complete sale — final payment + title transfer + revenue recognition
+// ───────────────────────────────────────────────────────────
+
+export interface CompleteSaleInput {
+  saleId: string;
+  finalPaymentAmount?: Decimal | number | string; // remaining balance (default: salePrice - deposit)
+  paymentMode?: string;
+  reference?: string;
+  userId?: string;
+}
+
+export async function completeSale(input: CompleteSaleInput) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({
+      where: { id: input.saleId },
+      include: { payments: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot complete a cancelled sale");
+    if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
+
+    const salePrice = new Decimal(sale.salePrice);
+    const gstAmount = new Decimal(sale.gstAmount);
+    const costBasis = new Decimal(sale.costBasis);
+    const depositAmount = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
+    const totalPaidSoFar = sale.payments.reduce(
+      (sum, p) => sum.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+
+    // Determine the final payment (remaining balance)
+    const remainingBalance = salePrice.plus(gstAmount).minus(totalPaidSoFar);
+    const finalPayment = input.finalPaymentAmount
+      ? new Decimal(input.finalPaymentAmount)
+      : remainingBalance;
+    if (finalPayment.lt(0)) throw new ServiceError("Final payment cannot be negative");
+    if (finalPayment.gt(0)) {
+      // Record the final payment
+      await tx.assetSalePayment.create({
+        data: {
+          assetSaleId: input.saleId,
+          amount: finalPayment,
+          mode: input.paymentMode ?? "BANK_TRANSFER",
+          reference: input.reference,
+        },
+      });
+    }
+
+    // Mark asset SOLD + delist portal listings
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD");
+    await delistPortalListings(tx, sale.builtUnitId);
+
+    // Update sale stage
+    await tx.assetSale.update({
+      where: { id: input.saleId },
+      data: {
+        saleStage: "COMPLETED",
+        finalSaleDate: new Date(),
+        paymentStatus: "PAID",
+      },
+    });
+
+    // ── GL postings ──
+    // 1. Post full revenue + COGS (as if the sale happened now)
+    await postAssetSale(tx, {
+      companyId: sale.companyId,
+      assetSaleId: input.saleId,
+      assetType: sale.assetType,
+      salePrice,
+      costBasis,
+      gstAmount,
+      postedById: input.userId,
+    });
+
+    // 2. Reverse the deposit liability into the receivable (the deposit was
+    //    Dr Cash / Cr Customer_Deposit; now we Dr Customer_Deposit / Cr AR to
+    //    settle the receivable that was just created by postAssetSale).
+    if (depositAmount.gt(0)) {
+      await postJournalEntry(tx, {
+        companyId: sale.companyId,
+        sourceType: "ASSET_SALE_DEPOSIT_SETTLE",
+        sourceId: input.saleId,
+        memo: "Settle customer deposit against receivable on sale completion",
+        postedById: input.userId,
+        lines: [
+          { accountCode: "2400", debit: depositAmount, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "Reverse deposit liability" },
+          { accountCode: "1200", debit: 0, credit: depositAmount, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable with deposit" },
+        ],
+      });
+    }
+
+    // 3. Post the final cash payment (Dr Cash, Cr AR)
+    if (finalPayment.gt(0)) {
+      const finalPaymentRow = await tx.assetSalePayment.findFirst({
+        where: { assetSaleId: input.saleId },
+        orderBy: { paymentDate: "desc" },
+      });
+      if (finalPaymentRow) {
+        await postPaymentReceived(tx, {
+          companyId: sale.companyId,
+          assetSaleId: input.saleId,
+          paymentId: finalPaymentRow.id,
+          amount: finalPayment,
+          postedById: input.userId,
+        });
+      }
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "ASSET_SALE_COMPLETE",
+        entityType: "AssetSale",
+        entityId: input.saleId,
+        before: { saleStage: sale.saleStage },
+        after: { saleStage: "COMPLETED", finalSaleDate: new Date().toISOString() },
+      });
+    }
+
+    return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const };
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Record additional payment (against a completed sale's receivable)
+// ───────────────────────────────────────────────────────────
+
+export interface RecordPaymentInput {
   assetSaleId: string;
   amount: Decimal | number | string;
   mode: string;
@@ -231,11 +487,11 @@ export async function recordPayment(input: RecordPaymentInput) {
       where: { id: input.assetSaleId },
       include: { payments: true },
     });
-    if (!sale) throw new Error("Sale not found");
-    if (sale.status === "CANCELLED") throw new Error("Cannot record payment against a cancelled sale");
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment against a cancelled sale");
 
     const amount = new Decimal(input.amount);
-    if (!amount.gt(0)) throw new Error("Payment amount must be > 0");
+    if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
     const existingTotal = sale.payments.reduce(
       (sum, p) => sum.plus(new Decimal(p.amount)),
@@ -243,7 +499,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     );
     const cumulative = existingTotal.plus(amount);
     if (cumulative.gt(new Decimal(sale.salePrice))) {
-      throw new Error(
+      throw new ServiceError(
         `Overpayment: cumulative ${cumulative} > sale price ${sale.salePrice}`,
       );
     }
@@ -295,40 +551,53 @@ export async function recordPayment(input: RecordPaymentInput) {
   });
 }
 
+// ───────────────────────────────────────────────────────────
+//  Cancel sale — release asset + refund deposit if applicable
+// ───────────────────────────────────────────────────────────
+
 export async function cancelSale(saleId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: saleId },
       include: { payments: true },
     });
-    if (!sale) throw new Error("Sale not found");
-    if (sale.status === "CANCELLED") throw new Error("Sale already cancelled");
-
-    // Can only cancel if no payments received
-    if (sale.payments.length > 0) {
-      throw new Error("Cannot cancel sale with payments — process refunds first");
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Sale already cancelled");
+    if (sale.saleStage === "COMPLETED") {
+      throw new ServiceError("Cannot cancel a completed sale — process a refund instead");
     }
 
-    // Revert asset status
+    const depositAmount = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
+
+    // Revert asset status to AVAILABLE + unlock
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE");
     if (sale.assetType === "LAND" && sale.landParcelId) {
-      await tx.landParcel.update({
-        where: { id: sale.landParcelId },
-        data: { status: "AVAILABLE", saleId: null },
-      });
+      await tx.landParcel.update({ where: { id: sale.landParcelId }, data: { saleId: null } });
     } else if (sale.builtUnitId) {
-      await tx.builtUnit.update({
-        where: { id: sale.builtUnitId },
-        data: { status: "AVAILABLE", saleId: null },
-      });
+      await tx.builtUnit.update({ where: { id: sale.builtUnitId }, data: { saleId: null } });
     }
 
-    // Re-run cost allocation — a sold unit's production cost was cached;
+    // Reverse GL entries based on the sale stage
+    if (sale.saleStage === "DEPOSIT_RECEIVED" && depositAmount.gt(0)) {
+      // Refund the deposit: Dr Customer_Deposit, Cr Cash
+      await postDepositRefund(tx, {
+        companyId: sale.companyId,
+        assetSaleId: saleId,
+        amount: depositAmount,
+        postedById: userId,
+      });
+    } else if (sale.saleStage === "PENDING") {
+      // No deposit, no revenue posted — nothing to reverse in GL.
+      // (PENDING sales never posted revenue/COGS or deposit liability.)
+    }
+
+    // Re-run cost allocation — a reserved/sold unit's production cost was cached;
     // cancellation makes it sellable again, so allocation must be refreshed.
     await reallocateProjectCosts(tx, sale.projectId);
 
     const updated = await tx.assetSale.update({
       where: { id: saleId },
-      data: { status: "CANCELLED" },
+      data: { status: "CANCELLED", saleStage: "CANCELLED" },
     });
 
     if (userId) {
@@ -337,13 +606,47 @@ export async function cancelSale(saleId: string, userId?: string) {
         action: "ASSET_SALE_CANCEL",
         entityType: "AssetSale",
         entityId: saleId,
-        before: { status: sale.status },
-        after: { status: "CANCELLED" },
+        before: { status: sale.status, saleStage: sale.saleStage },
+        after: { status: "CANCELLED", saleStage: "CANCELLED" },
       });
     }
 
     return updated;
   });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Helpers
+// ───────────────────────────────────────────────────────────
+
+/** Update the asset (land parcel or built unit) status. */
+async function markAssetStatus(
+  tx: Prisma.TransactionClient,
+  assetType: AssetType,
+  landParcelId: string | null,
+  builtUnitId: string | null,
+  status: "AVAILABLE" | "RESERVED" | "SOLD",
+) {
+  if (assetType === "LAND" && landParcelId) {
+    await tx.landParcel.update({ where: { id: landParcelId }, data: { status } });
+  } else if (builtUnitId) {
+    await tx.builtUnit.update({ where: { id: builtUnitId }, data: { status } });
+  }
+}
+
+/** Auto-delist any active portal listings for a built unit (on sale completion). */
+async function delistPortalListings(tx: Prisma.TransactionClient, builtUnitId: string | null) {
+  if (!builtUnitId) return;
+  const activeListings = await tx.portalListing.findMany({
+    where: { builtUnitId, status: { in: ["DRAFT", "LISTED"] } },
+    select: { id: true },
+  });
+  for (const listing of activeListings) {
+    await tx.portalListing.update({
+      where: { id: listing.id },
+      data: { status: "DELISTED", delistedAt: new Date(), lastSyncedAt: new Date() },
+    });
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { ServiceError } from "./errors";
 
 /**
  * General Ledger Posting Service — the accounting layer behind the costing.
@@ -38,12 +39,19 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1500", name: "WIP - Project Costs", type: "ASSET" as const },
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
+  { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
   { code: "2100", name: "Output GST", type: "LIABILITY" as const },
+  { code: "2200", name: "Salaries Payable", type: "LIABILITY" as const },
+  { code: "2300", name: "Security Deposits Payable", type: "LIABILITY" as const },
+  { code: "2400", name: "TDS Payable", type: "LIABILITY" as const },
+  { code: "2500", name: "Customer Deposits - Unearned Revenue", type: "LIABILITY" as const },
   { code: "3000", name: "Retained Earnings", type: "EQUITY" as const },
   { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
+  { code: "4100", name: "Cost Recovery - Scrap Sales", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
+  { code: "6100", name: "Salaries & Wages Expense", type: "EXPENSE" as const },
 ];
 
 /** Account code constants — used by posting functions so codes are typo-proof. */
@@ -55,12 +63,19 @@ export const ACCT = {
   WIP: "1500",
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
+  EQUIPMENT_ASSET: "1900",
   AP: "2000",
   OUTPUT_GST: "2100",
+  SALARIES_PAYABLE: "2200",
+  SECURITY_DEPOSITS_PAYABLE: "2300",
+  TDS_PAYABLE: "2400",
+  CUSTOMER_DEPOSIT: "2500",
   RETAINED_EARNINGS: "3000",
   SALES_REVENUE: "4000",
+  COST_RECOVERY: "4100",
   COGS: "5000",
   OPERATING_EXPENSE: "6000",
+  SALARIES_EXPENSE: "6100",
 } as const;
 
 /**
@@ -116,7 +131,7 @@ export async function postJournalEntry(
   const totalDebit = lines.reduce((s, l) => s.plus(l.debit), new Decimal(0));
   const totalCredit = lines.reduce((s, l) => s.plus(l.credit), new Decimal(0));
   if (!totalDebit.equals(totalCredit)) {
-    throw new Error(
+    throw new ServiceError(
       `Unbalanced journal entry: debits ${totalDebit} ≠ credits ${totalCredit} (${input.sourceType})`,
     );
   }
@@ -165,6 +180,46 @@ export async function postJournalEntry(
   });
 
   return entry;
+}
+
+/**
+ * Reverse a previously posted journal entry by creating a mirror entry
+ * with debits and credits swapped. Used when a source transaction is
+ * deleted (e.g. project cost removed) — the original entry stays as a
+ * historical record, and the reversal brings the books back in line.
+ *
+ * The `sourceId` of the reversal is set to the original entry's `sourceId`
+ * so they can be paired in reports.
+ */
+export async function reverseJournalEntry(
+  tx: Prisma.TransactionClient,
+  originalEntryId: string,
+  opts: { postedById?: string; memo?: string },
+) {
+  const original = await tx.journalEntry.findUnique({
+    where: { id: originalEntryId },
+    include: { lines: true },
+  });
+  if (!original) throw new ServiceError("Journal entry not found — cannot reverse", 404);
+  if (original.lines.length === 0) return null;
+
+  // Swap debits and credits
+  const reversedLines: JournalLineInput[] = original.lines.map((l) => ({
+    accountCode: l.accountCode,
+    debit: l.credit,
+    credit: l.debit,
+    entityType: l.entityType ?? undefined,
+    entityId: l.entityId ?? undefined,
+  }));
+
+  return postJournalEntry(tx, {
+    companyId: original.companyId,
+    sourceType: `${original.sourceType}_REVERSAL`,
+    sourceId: original.sourceId ?? undefined,
+    memo: opts.memo ?? `Reversal of ${original.entryNumber}`,
+    postedById: opts.postedById,
+    lines: reversedLines,
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -279,9 +334,10 @@ export async function postMaterialIssueToDepartment(
 /**
  * Asset Sale: recognise revenue + receivable, and relieve the asset at cost (COGS).
  *
- *   Dr Accounts Receivable   (salePrice)
- *   Cr Sales Revenue          (salePrice)
- *   Dr Cost of Goods Sold     (costBasis)
+ *   Dr Accounts Receivable        (salePrice + gstAmount)
+ *   Cr Sales Revenue              (salePrice)
+ *   Cr Output GST                 (gstAmount)         — only if gstAmount > 0
+ *   Dr Cost of Goods Sold         (costBasis)
  *   Cr Unsold Assets (Land/Unit)  (costBasis)
  */
 export async function postAssetSale(
@@ -292,21 +348,28 @@ export async function postAssetSale(
     assetType: "LAND" | "BUILT_UNIT";
     salePrice: Decimal;
     costBasis: Decimal;
+    gstAmount?: Decimal;
     postedById?: string;
   },
 ) {
   const assetAcct = opts.assetType === "LAND" ? ACCT.LAND_ASSET : ACCT.UNIT_ASSET;
-  // Revenue leg
+  const gst = opts.gstAmount ? new Decimal(opts.gstAmount) : new Decimal(0);
+  const receivable = new Decimal(opts.salePrice).plus(gst);
+  // Revenue leg (with Output GST if applicable)
+  const revenueLines: JournalLineInput[] = [
+    { accountCode: ACCT.AR, debit: receivable, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Receivable from customer" },
+    { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: opts.salePrice, memo: "Sales revenue" },
+  ];
+  if (gst.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Output GST on sale" });
+  }
   await postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "ASSET_SALE",
     sourceId: opts.assetSaleId,
     memo: `Sale of ${opts.assetType === "LAND" ? "land" : "built unit"}`,
     postedById: opts.postedById,
-    lines: [
-      { accountCode: ACCT.AR, debit: opts.salePrice, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Receivable from customer" },
-      { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: opts.salePrice, memo: "Sales revenue" },
-    ],
+    lines: revenueLines,
   });
   // COGS leg (relieve the asset at its cost basis)
   return postJournalEntry(tx, {
@@ -352,6 +415,156 @@ export async function postPaymentReceived(
 }
 
 /**
+ * Customer deposit received against an asset sale: record the cash inflow as a
+ * LIABILITY (unearned revenue). Revenue + COGS are NOT recognised yet — that
+ * happens in `postAssetSale` when the sale completes.
+ *
+ *   Dr Cash / Bank            (depositAmount)
+ *   Cr Customer Deposits       (depositAmount)
+ */
+export async function postDepositReceived(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "ASSET_SALE_DEPOSIT",
+    sourceId: opts.assetSaleId,
+    memo: "Customer deposit received (sale pending)",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit cash received" },
+      { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Customer deposit liability" },
+    ],
+  });
+}
+
+/**
+ * Refund a customer deposit when a sale is cancelled before completion.
+ * Reverses the original deposit entry.
+ *
+ *   Dr Customer Deposits       (depositAmount)
+ *   Cr Cash / Bank             (depositAmount)
+ */
+export async function postDepositRefund(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "ASSET_SALE_DEPOSIT_REFUND",
+    sourceId: opts.assetSaleId,
+    memo: "Customer deposit refunded (sale cancelled)",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Reverse deposit liability" },
+      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit refund to customer" },
+    ],
+  });
+}
+
+/**
+ * Payment received against a material sale: settle the receivable into cash.
+ *
+ *   Dr Cash / Bank        (amount)
+ *   Cr Accounts Receivable (amount)
+ */
+export async function postMaterialSalePayment(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    materialSaleId: string;
+    paymentId: string;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "MATERIAL_SALE_PAYMENT",
+    sourceId: opts.paymentId,
+    memo: "Payment received against material sale",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "MaterialSalePayment", entityId: opts.paymentId },
+      { accountCode: ACCT.AR, debit: 0, credit: opts.amount, entityType: "MaterialSale", entityId: opts.materialSaleId },
+    ],
+  });
+}
+
+/**
+ * Material Sale: sell inventory items to a customer.
+ * Relieve inventory at MAC (COGS), recognise revenue + receivable + output GST.
+ *
+ *   Dr Accounts Receivable        (totalAmount = subtotal + gstTotal)
+ *   Cr Sales Revenue              (subtotal)
+ *   Cr Output GST                 (gstTotal)           — only if gstTotal > 0
+ *   Dr Cost of Goods Sold         (totalCost = Σ qty × MAC)
+ *   Cr Inventory - Materials      (totalCost)
+ */
+export async function postMaterialSale(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    materialSaleId: string;
+    subtotal: Decimal;
+    gstTotal: Decimal;
+    totalCost: Decimal;
+    /** Portion of subtotal from scrap-material lines — credited to Cost Recovery instead of Sales Revenue */
+    scrapSubtotal?: Decimal;
+    postedById?: string;
+  },
+) {
+  const gst = new Decimal(opts.gstTotal);
+  const receivable = new Decimal(opts.subtotal).plus(gst);
+  const scrapSubtotal = new Decimal(opts.scrapSubtotal ?? 0);
+  const regularSubtotal = new Decimal(opts.subtotal).minus(scrapSubtotal);
+  // Revenue leg — split scrap revenue (Cost Recovery) from regular sales revenue
+  const revenueLines: JournalLineInput[] = [
+    { accountCode: ACCT.AR, debit: receivable, credit: 0, entityType: "MaterialSale", entityId: opts.materialSaleId, memo: "Receivable from material sale" },
+  ];
+  if (regularSubtotal.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.SALES_REVENUE, debit: 0, credit: regularSubtotal, memo: "Material sales revenue" });
+  }
+  if (scrapSubtotal.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.COST_RECOVERY, debit: 0, credit: scrapSubtotal, memo: "Scrap sale — cost recovery" });
+  }
+  if (gst.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "MaterialSale", entityId: opts.materialSaleId, memo: "Output GST on material sale" });
+  }
+  await postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "MATERIAL_SALE",
+    sourceId: opts.materialSaleId,
+    memo: "Material inventory sale",
+    postedById: opts.postedById,
+    lines: revenueLines,
+  });
+  // COGS leg (relieve inventory at MAC)
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "MATERIAL_SALE_COGS",
+    sourceId: opts.materialSaleId,
+    memo: "COGS on material sale",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.COGS, debit: opts.totalCost, credit: 0, entityType: "MaterialSale", entityId: opts.materialSaleId },
+      { accountCode: ACCT.INVENTORY, debit: 0, credit: opts.totalCost, entityType: "MaterialSale", entityId: opts.materialSaleId },
+    ],
+  });
+}
+
+/**
  * Project Cost (labour/overhead/etc.): capitalise into WIP, credit cash.
  *
  *   Dr WIP - Project Costs   (amount)
@@ -376,6 +589,41 @@ export async function postProjectCost(
     lines: [
       { accountCode: ACCT.WIP, debit: opts.amount, credit: 0, entityType: "Project", entityId: opts.projectId },
       { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "ProjectCost", entityId: opts.projectCostId },
+    ],
+  });
+}
+
+/**
+ * Renovation Cost: capitalise into WIP (for RENOVATION/ADDITION/VALUE_ADD)
+ * or expense it (for REPAIR). Credit cash.
+ *
+ *   Capitalised:  Dr WIP - Project Costs   (amount)
+ *                 Cr Cash / Bank            (amount)
+ *   Expensed:     Dr Operating Expenses     (amount)
+ *                 Cr Cash / Bank            (amount)
+ */
+export async function postRenovationCost(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    renovationCostId: string;
+    renovationProjectId: string;
+    projectId: string;
+    amount: Decimal | number | string;
+    capitalise: boolean; // true = capitalise into WIP, false = expense
+    postedById?: string;
+  },
+) {
+  const debitAccount = opts.capitalise ? ACCT.WIP : ACCT.OPERATING_EXPENSE;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "RENOVATION_COST",
+    sourceId: opts.renovationCostId,
+    memo: opts.capitalise ? "Renovation cost capitalised into WIP" : "Repair cost expensed",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: debitAccount, debit: opts.amount, credit: 0, entityType: "RenovationProject", entityId: opts.renovationProjectId },
+      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "RenovationCost", entityId: opts.renovationCostId },
     ],
   });
 }
@@ -450,6 +698,46 @@ export async function postSupplierReturn(
 }
 
 /**
+ * Supplier Payment: pay down accounts payable.
+ *
+ *   Dr Accounts Payable   (amount)      — reduces what we owe the supplier
+ *   Cr Cash / Bank         (netPaid)    — money leaves the bank
+ *   Cr TDS Payable         (tdsAmount)  — tax deducted at source, owed to tax authority
+ *
+ * When tdsAmount is 0, this simplifies to the standard Dr AP / Cr Cash.
+ */
+export async function postSupplierPayment(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    supplierPaymentId: string;
+    supplierId: string;
+    amount: Decimal;
+    tdsAmount?: Decimal;
+    netPaidAmount?: Decimal;
+    postedById?: string;
+  },
+) {
+  const tds = opts.tdsAmount ?? new Decimal(0);
+  const netPaid = opts.netPaidAmount ?? opts.amount;
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.AP, debit: opts.amount, credit: 0, entityType: "SupplierPayment", entityId: opts.supplierPaymentId, memo: "Payable paid down" },
+    { accountCode: ACCT.CASH, debit: 0, credit: netPaid, entityType: "SupplierPayment", entityId: opts.supplierPaymentId, memo: "Cash paid to supplier" },
+  ];
+  if (tds.gt(0)) {
+    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tds, entityType: "SupplierPayment", entityId: opts.supplierPaymentId, memo: "TDS deducted" });
+  }
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SUPPLIER_PAYMENT",
+    sourceId: opts.supplierPaymentId,
+    memo: "Payment to supplier",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
+/**
  * Land Purchase: capitalise the land as an unsold asset, credit cash/AP.
  *
  *   Dr Unsold Assets - Land   (totalCost)
@@ -473,6 +761,334 @@ export async function postLandPurchase(
     lines: [
       { accountCode: ACCT.LAND_ASSET, debit: opts.totalCost, credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId },
       { accountCode: ACCT.CASH, debit: 0, credit: opts.totalCost, entityType: "LandPurchase", entityId: opts.landPurchaseId },
+    ],
+  });
+}
+
+/**
+ * Payroll (processed): recognise the salary expense and book a liability
+ * to the employees (Salaries Payable) until the payroll is settled.
+ *
+ *   Dr Salaries & Wages Expense   (totalNet = gross + overtime − deductions)
+ *   Cr Salaries Payable            (totalNet)
+ *
+ * Note: we post the NET amount as the expense (deductions reduce the
+ * employer's recognised wage cost). If gross-expense accounting is
+ * preferred later, the deductions line can be split out separately.
+ */
+export async function postPayroll(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    payrollPeriodId: string;
+    totalNet: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const totalNet = new Decimal(opts.totalNet);
+  if (totalNet.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "PAYROLL",
+    sourceId: opts.payrollPeriodId,
+    memo: "Payroll processed — salaries expense",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.SALARIES_EXPENSE, debit: totalNet, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
+      { accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
+    ],
+  });
+}
+
+/**
+ * Payroll settlement (paid): clear the Salaries Payable liability and
+ * credit cash. Called when a PROCESSED payroll is marked PAID.
+ *
+ *   Dr Salaries Payable   (totalNet)
+ *   Cr Cash / Bank         (totalNet)
+ */
+export async function postPayrollPayment(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    payrollPeriodId: string;
+    totalNet: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const totalNet = new Decimal(opts.totalNet);
+  if (totalNet.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "PAYROLL_PAYMENT",
+    sourceId: opts.payrollPeriodId,
+    memo: "Payroll settled — salaries paid",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.SALARIES_PAYABLE, debit: totalNet, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
+      { accountCode: ACCT.CASH, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
+    ],
+  });
+}
+
+/**
+ * Direct Purchase: capitalise materials into inventory, recognise input GST,
+ * and credit Accounts Payable — same double-entry as a PO receipt but without
+ * a formal PurchaseOrder. Used by the express/local purchase flow.
+ *
+ *   Dr Inventory - Materials   (subtotal = Σ qty × unitCost)
+ *   Dr Input GST / ITC          (gst      = Σ qty × unitCost × gstRate/100)
+ *   Cr Accounts Payable         (total    = subtotal + gst)
+ */
+export async function postDirectPurchase(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    directPurchaseId: string;
+    postedById?: string;
+    lines: { qty: Decimal; unitCost: Decimal; gstRate: Decimal }[];
+  },
+) {
+  let subtotal = new Decimal(0);
+  let gst = new Decimal(0);
+  for (const l of opts.lines) {
+    const lineSubtotal = new Decimal(l.qty).times(new Decimal(l.unitCost));
+    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100);
+    subtotal = subtotal.plus(lineSubtotal);
+    gst = gst.plus(lineGst);
+  }
+  const total = subtotal.plus(gst);
+  if (total.isZero()) return null;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "DIRECT_PURCHASE",
+    sourceId: opts.directPurchaseId,
+    memo: "Direct purchase — materials received",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.INVENTORY, debit: subtotal, credit: 0, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Materials received (direct purchase)" },
+      { accountCode: ACCT.INPUT_GST, debit: gst, credit: 0, memo: "Input GST (ITC)" },
+      { accountCode: ACCT.AP, debit: 0, credit: total, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Payable to supplier" },
+    ],
+  });
+}
+
+/**
+ * Stock Count Adjustment: post the inventory variance to the GL.
+ * Positive variance (stock appeared) → Dr Inventory, Cr Operating Expense (gain).
+ * Negative variance (stock missing)  → Dr Operating Expense (loss), Cr Inventory.
+ *
+ * The MAC of the adjusted stock is used as the unit cost so the GL reflects
+ * the actual carrying value of the variance.
+ */
+export async function postStockAdjustment(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    stockCountId: string;
+    postedById?: string;
+    lines: { materialId: string; variance: Decimal; unitCost: Decimal }[];
+  },
+) {
+  let gains = new Decimal(0);
+  let losses = new Decimal(0);
+  for (const l of opts.lines) {
+    const v = new Decimal(l.variance);
+    if (v.isZero()) continue;
+    const value = v.abs().times(new Decimal(l.unitCost));
+    if (v.gt(0)) gains = gains.plus(value);
+    else losses = losses.plus(value);
+  }
+  if (gains.isZero() && losses.isZero()) return null;
+
+  const lines: JournalLineInput[] = [];
+  if (gains.gt(0)) {
+    lines.push({ accountCode: ACCT.INVENTORY, debit: gains, credit: 0, entityType: "StockCount", entityId: opts.stockCountId, memo: "Stock count gain" });
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gains, entityType: "StockCount", entityId: opts.stockCountId, memo: "Inventory gain on count" });
+  }
+  if (losses.gt(0)) {
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: losses, credit: 0, entityType: "StockCount", entityId: opts.stockCountId, memo: "Inventory loss on count" });
+    lines.push({ accountCode: ACCT.INVENTORY, debit: 0, credit: losses, entityType: "StockCount", entityId: opts.stockCountId, memo: "Stock count loss" });
+  }
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "STOCK_ADJUSTMENT",
+    sourceId: opts.stockCountId,
+    memo: "Stock count reconciliation adjustment",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
+/**
+ * Equipment Acquisition: capitalise the equipment as a fixed asset and
+ * credit cash (or AP if purchased on credit).
+ *
+ *   Dr Equipment & Fixtures   (acquisitionCost)
+ *   Cr Cash / Bank             (acquisitionCost)
+ */
+export async function postEquipmentAcquisition(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    equipmentId: string;
+    acquisitionCost: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const cost = new Decimal(opts.acquisitionCost);
+  if (cost.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EQUIPMENT_ACQUISITION",
+    sourceId: opts.equipmentId,
+    memo: "Equipment acquired — capitalised as fixed asset",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.EQUIPMENT_ASSET, debit: cost, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment capitalised" },
+      { accountCode: ACCT.CASH, debit: 0, credit: cost, entityType: "Equipment", entityId: opts.equipmentId, memo: "Cash paid for equipment" },
+    ],
+  });
+}
+
+/**
+ * Equipment Maintenance: expense the maintenance cost, credit cash.
+ *
+ *   Dr Operating Expenses   (cost)
+ *   Cr Cash / Bank           (cost)
+ */
+export async function postEquipmentMaintenance(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    equipmentId: string;
+    maintenanceId: string;
+    cost: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const cost = new Decimal(opts.cost);
+  if (cost.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EQUIPMENT_MAINTENANCE",
+    sourceId: opts.maintenanceId,
+    memo: "Equipment maintenance expensed",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.OPERATING_EXPENSE, debit: cost, credit: 0, entityType: "EquipmentMaintenance", entityId: opts.maintenanceId, memo: "Maintenance cost" },
+      { accountCode: ACCT.CASH, debit: 0, credit: cost, entityType: "EquipmentMaintenance", entityId: opts.maintenanceId, memo: "Cash paid for maintenance" },
+    ],
+  });
+}
+
+/**
+ * Equipment Retirement: relieve the fixed asset account at the equipment's
+ * current (depreciated) value and recognise any disposal gain/loss against
+ * cash received (defaults to 0 if no scrap value).
+ *
+ *   Dr Cash / Bank                  (scrapValue)
+ *   Dr Operating Expenses (loss)    (max(0, currentValue − scrapValue))
+ *   Cr Equipment & Fixtures          (currentValue)
+ *   Cr Operating Expenses (gain)     (max(0, scrapValue − currentValue))
+ */
+export async function postEquipmentRetirement(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    equipmentId: string;
+    currentValue: Decimal | number | string;
+    scrapValue?: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const currentValue = new Decimal(opts.currentValue);
+  if (currentValue.isZero()) return null;
+  const scrap = new Decimal(opts.scrapValue ?? 0);
+  const loss = currentValue.gt(scrap) ? currentValue.minus(scrap) : new Decimal(0);
+  const gain = scrap.gt(currentValue) ? scrap.minus(currentValue) : new Decimal(0);
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.EQUIPMENT_ASSET, debit: 0, credit: currentValue, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment retired" },
+  ];
+  if (scrap.gt(0)) {
+    lines.push({ accountCode: ACCT.CASH, debit: scrap, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Scrap value received" });
+  }
+  if (loss.gt(0)) {
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: loss, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on disposal" });
+  }
+  if (gain.gt(0)) {
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on disposal" });
+  }
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EQUIPMENT_RETIREMENT",
+    sourceId: opts.equipmentId,
+    memo: "Equipment retired from service",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
+/**
+ * Security Deposit Received (tenancy activation): debit cash, credit the
+ * security deposit liability (refundable to tenant on termination).
+ *
+ *   Dr Cash / Bank                    (deposit)
+ *   Cr Security Deposits Payable       (deposit)
+ */
+export async function postSecurityDepositReceived(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    tenancyId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SECURITY_DEPOSIT_RECEIVED",
+    sourceId: opts.tenancyId,
+    memo: "Security deposit received from tenant",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "Tenancy", entityId: opts.tenancyId, memo: "Deposit received" },
+      { accountCode: ACCT.SECURITY_DEPOSITS_PAYABLE, debit: 0, credit: amount, entityType: "Tenancy", entityId: opts.tenancyId, memo: "Refundable deposit liability" },
+    ],
+  });
+}
+
+/**
+ * Security Deposit Refunded (tenancy termination): reverse the deposit
+ * liability, credit cash.
+ *
+ *   Dr Security Deposits Payable   (deposit)
+ *   Cr Cash / Bank                  (deposit)
+ */
+export async function postSecurityDepositRefunded(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    tenancyId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero()) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SECURITY_DEPOSIT_REFUNDED",
+    sourceId: opts.tenancyId,
+    memo: "Security deposit refunded to tenant",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.SECURITY_DEPOSITS_PAYABLE, debit: amount, credit: 0, entityType: "Tenancy", entityId: opts.tenancyId, memo: "Deposit liability cleared" },
+      { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "Tenancy", entityId: opts.tenancyId, memo: "Deposit refunded" },
     ],
   });
 }

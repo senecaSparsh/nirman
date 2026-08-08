@@ -78,6 +78,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = receiveGoodsSchema.safeParse(body);
   if (!parsed.success) {
@@ -91,6 +92,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   };
   if (!purchaseOrderId) return json({ error: "purchaseOrderId is required" }, { status: 400 });
   if (!locationId) return json({ error: "locationId is required" }, { status: 400 });
+  // Validate the PO belongs to the user's company
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: purchaseOrderId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!po) return json({ error: "Purchase order not found in this company" }, { status: 404 });
   try {
     const result = await receiveGoods({
       purchaseOrderId,
@@ -112,7 +119,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       },
       { status: 201 },
     );
-  } catch (err: any) {
-    return json({ error: err?.message ?? "Failed to receive goods" }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to receive goods") }, { status: 400 });
   }
 });
