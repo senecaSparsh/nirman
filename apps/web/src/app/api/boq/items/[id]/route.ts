@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { updateBoqItem, deleteBoqItem } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -17,7 +18,14 @@ const updateSchema = z.object({
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the BOQ item's project belongs to the user's company
+  const existing = await prisma.boqItem.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "BOQ item not found" }, { status: 404 });
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
@@ -30,7 +38,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       unit: d.unit ?? undefined,
       estimatedQty: d.estimatedQty ?? undefined,
       rate: d.rate ?? undefined,
-      notes: d.notes ?? undefined,
+      notes: d.notes,
       sortOrder: d.sortOrder,
       userId: user.id,
     });
@@ -42,7 +50,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the BOQ item's project belongs to the user's company
+  const existing = await prisma.boqItem.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "BOQ item not found" }, { status: 404 });
   try {
     await deleteBoqItem(id, user.id);
     return json({ ok: true });

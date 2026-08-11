@@ -11,7 +11,7 @@ import { PurchaseTrendsReport } from "@/components/reports/purchase-trends-repor
 import { NoAccess } from "@/components/no-access";
 export default function PurchaseTrendsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading purchase trends…" variant="cards" />}>
         <PurchaseTrendsContent />
       </Suspense>

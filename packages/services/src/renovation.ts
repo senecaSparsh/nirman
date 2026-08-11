@@ -21,11 +21,12 @@ import { ServiceError } from "./errors";
  * REPAIR type costs are expensed (not capitalised).
  */
 
-function generateRenovationNumber(): string {
+async function generateRenovationNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `REN-${ymd}-${rand}`;
+  const prefix = `REN-${ymd}-`;
+  const count = await tx.renovationProject.count({ where: { renovationNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 export interface CreateRenovationInput {
@@ -74,7 +75,7 @@ export async function createRenovation(input: CreateRenovationInput) {
 
     const renovation = await tx.renovationProject.create({
       data: {
-        renovationNumber: generateRenovationNumber(),
+        renovationNumber: await generateRenovationNumber(tx),
         type: input.type,
         status: "PLANNED",
         builtUnitId: input.builtUnitId ?? null,
@@ -167,6 +168,9 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
 
     // Update actualCost on the renovation
     const newActualCost = new Decimal(renovation.actualCost).plus(amount);
+    if (renovation.budget && newActualCost.gt(renovation.budget)) {
+      throw new ServiceError(`Cost exceeds renovation budget: ${newActualCost.toFixed(2)} > ${renovation.budget}`);
+    }
     await tx.renovationProject.update({
       where: { id: renovation.id },
       data: { actualCost: newActualCost },

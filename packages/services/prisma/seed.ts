@@ -93,8 +93,10 @@ async function wipeTransactional() {
   await wipe("equipmentMaintenance");
   await wipe("equipmentAssignment");
   await wipe("equipment");
-  // Returns + requisitions
+  // Returns + requisitions + quotes
   await wipe("supplierReturn");
+  await wipe("vendorQuoteLine");
+  await wipe("vendorQuote");
   await wipe("materialRequisition");
   // Stock count
   await wipe("stockCount");
@@ -297,16 +299,28 @@ async function main() {
 
   // ── 8. Suppliers + subcontractors ───────────────────────────
   const suppliers = [
-    { name: "UltraTech Cement Distributors", gstin: "27AAACU1234F1Z5", phone: "+91 98220 11234", email: "orders@ultratechdist.in", address: "MIDC, Bhosari, Pune" },
-    { name: "JSW Steel Supplies", gstin: "27AAACJ5678K1Z2", phone: "+91 98220 55678", email: "sales@jswsupplies.in", address: "Turbhe, Navi Mumbai" },
-    { name: "Shree Brick Works", phone: "+91 99700 88123", address: "Rajgurunagar, Pune" },
-    { name: "Anand Electricals & Wiring", gstin: "27AAFFA9012L1Z9", phone: "+91 98190 33456", address: "Bhosari, Pune" },
-    { name: "Krishna Sand & Aggregate", phone: "+91 98220 77999", address: "Wagholi, Pune" },
-    { name: "Asian Paints Depot", gstin: "27AAACA3344P1Z7", phone: "+91 98220 66789", email: "b2b@asiandepot.in", address: "Pimpri, Pune" },
+    { name: "UltraTech Cement Distributors", gstin: "27AAACU1234F1Z5", phone: "+91 98220 11234", email: "orders@ultratechdist.in", address: "MIDC, Bhosari, Pune", leadTimeDays: 3 },
+    { name: "JSW Steel Supplies", gstin: "27AAACJ5678K1Z2", phone: "+91 98220 55678", email: "sales@jswsupplies.in", address: "Turbhe, Navi Mumbai", leadTimeDays: 7 },
+    { name: "Shree Brick Works", phone: "+91 99700 88123", address: "Rajgurunagar, Pune", leadTimeDays: 2 },
+    { name: "Anand Electricals & Wiring", gstin: "27AAFFA9012L1Z9", phone: "+91 98190 33456", email: "anand.elec@gmail.com", address: "Bhosari, Pune", leadTimeDays: 5 },
+    { name: "Krishna Sand & Aggregate", phone: "+91 98220 77999", address: "Wagholi, Pune", leadTimeDays: 1 },
+    { name: "Asian Paints Depot", gstin: "27AAACA3344P1Z7", phone: "+91 98220 66789", email: "b2b@asiandepot.in", address: "Pimpri, Pune", leadTimeDays: 4 },
+    { name: "Ambuja Cement Agency", gstin: "27AAACC5678R1Z3", phone: "+91 98220 88100", email: "ambuja.agency@gmail.com", address: "Chakan, Pune", leadTimeDays: 3 },
+    { name: "Tata Steel B2B Portal", gstin: "27AAACT0011K1Z8", phone: "+91 22 6666 4444", email: "b2b@tatasteel.in", address: "BKC, Mumbai", leadTimeDays: 10 },
+    { name: "Bharat Sand Suppliers", phone: "+91 99230 11200", address: "Manchar, Pune", leadTimeDays: 1 },
+    { name: "Viman Electricals", gstin: "27AABCV3344F1Z1", phone: "+91 98220 99001", email: "vimanelec@yahoo.com", address: "Viman Nagar, Pune", leadTimeDays: 4 },
+    { name: "Perfect Plumbing Solutions", gstin: "27AAAFP7890M1Z4", phone: "+91 98220 99002", email: "pps.sales@gmail.com", address: "Kothrud, Pune", leadTimeDays: 6 },
+    { name: "Berger Paints Wholesale", gstin: "27AAFCB1122P1Z6", phone: "+91 98220 99003", email: "wholesale@bergerp.in", address: "Nigdi, Pune", leadTimeDays: 5 },
+    { name: "Supreme Formwork Systems", gstin: "27AAACS9090S1Z2", phone: "+91 98220 99004", email: "sales@supremeform.in", address: "Talegaon, Pune", leadTimeDays: 8 },
+    { name: "SafeGuard Safety Equip", gstin: "27AAFFS5566G1Z9", phone: "+91 98220 99005", email: "orders@safeguard.in", address: "Bhosari, Pune", leadTimeDays: 3 },
+    { name: "Maha Lakshmi Hardware", phone: "+91 98220 99006", address: "Raviwar Peth, Pune", leadTimeDays: 2 },
+    { name: "Prism Cement & RMC", gstin: "27AAACP3344C1Z7", phone: "+91 98220 99007", email: "prism.rmc@gmail.com", address: "Wagholi, Pune", leadTimeDays: 2 },
+    { name: "Agarwal Timber & Plywood", gstin: "27AAFFA2233T1Z5", phone: "+91 98220 99008", email: "agarwal.timber@gmail.com", address: "Market Yard, Pune", leadTimeDays: 7 },
+    { name: "Shree Durga Transport", gstin: "27AAACD4455T1Z3", phone: "+91 98220 99009", email: "sd.transport@gmail.com", address: "Transport Nagar, Pune", leadTimeDays: 1 },
   ];
   const supplierMap: Record<string, string> = {};
   for (const s of suppliers) {
-    const row = await ensure("supplier", { name: s.name }, s);
+    const row = await ensure("supplier", { name: s.name, companyId: company.id }, { ...s, companyId: company.id } as any);
     supplierMap[s.name] = row.id;
   }
 
@@ -318,7 +332,7 @@ async function main() {
   ];
   const subMap: Record<string, string> = {};
   for (const s of subcontractors) {
-    const row = await ensure("subcontractor", { name: s.name }, s);
+    const row = await ensure("subcontractor", { name: s.name, companyId: company.id }, { ...s, companyId: company.id });
     subMap[s.name] = row.id;
   }
 
@@ -392,6 +406,96 @@ async function main() {
       },
     },
   });
+  // REQ-0003: approved — electrical rough-in for Tower A
+  await prisma.materialRequisition.create({
+    data: {
+      reqNumber: "REQ-2024-0003",
+      projectId: project1.id,
+      phaseId: phase1A.id,
+      requestedById: U.supervisor,
+      status: "APPROVED",
+      requestDate: new Date("2024-05-01"),
+      neededByDate: new Date("2024-05-15"),
+      notes: "Electrical rough-in — Tower A floors 1-2",
+      lines: {
+        create: [
+          { materialId: matMap["ELC-WIRE25"], qtyRequested: 3000, notes: "Wiring for 2BHK units" },
+          { materialId: matMap["ELC-CONDUIT"], qtyRequested: 800, notes: "Conduit for floor routing" },
+        ],
+      },
+    },
+  });
+  // REQ-0004: submitted — plumbing materials for Tower A
+  await prisma.materialRequisition.create({
+    data: {
+      reqNumber: "REQ-2024-0004",
+      projectId: project1.id,
+      phaseId: phase1A.id,
+      requestedById: U.supervisor,
+      status: "SUBMITTED",
+      requestDate: new Date("2024-05-10"),
+      neededByDate: new Date("2024-05-25"),
+      notes: "Plumbing rough-in — Tower A",
+      lines: {
+        create: [
+          { materialId: matMap["PLB-PIPE4"], qtyRequested: 400, notes: "Soil + waste lines" },
+        ],
+      },
+    },
+  });
+  // REQ-0005: approved — paint + primer for Tower A finishing
+  await prisma.materialRequisition.create({
+    data: {
+      reqNumber: "REQ-2024-0005",
+      projectId: project1.id,
+      phaseId: phase1A.id,
+      requestedById: U.supervisor,
+      status: "APPROVED",
+      requestDate: new Date("2024-05-15"),
+      neededByDate: new Date("2024-06-01"),
+      notes: "Finishing — paint + primer for A-101 and A-201",
+      lines: {
+        create: [
+          { materialId: matMap["PNT-ACPRM"], qtyRequested: 150, notes: "Primer coat" },
+          { materialId: matMap["PNT-EMULSION"], qtyRequested: 100, notes: "Final coat white" },
+        ],
+      },
+    },
+  });
+  // REQ-0006: rejected — duplicate request
+  await prisma.materialRequisition.create({
+    data: {
+      reqNumber: "REQ-2024-0006",
+      projectId: project2.id,
+      requestedById: U.manager,
+      status: "REJECTED",
+      requestDate: new Date("2024-04-15"),
+      neededByDate: new Date("2024-05-01"),
+      notes: "Duplicate of REQ-0001 — rejected by manager",
+      lines: {
+        create: [
+          { materialId: matMap["CEM-OPC53"], qtyRequested: 200, notes: "Duplicate" },
+        ],
+      },
+    },
+  });
+  // REQ-0007: submitted — safety gear restock
+  await prisma.materialRequisition.create({
+    data: {
+      reqNumber: "REQ-2024-0007",
+      projectId: project1.id,
+      requestedById: U.supervisor,
+      status: "SUBMITTED",
+      requestDate: new Date("2024-05-20"),
+      neededByDate: new Date("2024-05-28"),
+      notes: "Safety gear restock — helmets + gloves",
+      lines: {
+        create: [
+          { materialId: matMap["SAF-HELMET"], qtyRequested: 80, notes: "New site staff" },
+        ],
+      },
+    },
+  });
 
   // ── 11. Purchase Orders (full lifecycle via services) ──────
   // PO-1: PROJECT scope → Greenfield site (cement + sand for slab)
@@ -408,7 +512,7 @@ async function main() {
       { materialId: matMap["SND-RIVER"], qtyOrdered: 1200, unitCost: 45, gstRate: 5 },
     ],
   });
-  await approvePurchaseOrder(po1.id);
+  await approvePurchaseOrder(po1.id, "OWNER");
   await orderPurchaseOrder(po1.id);
   // Mark the requisition as converted to this PO
   await prisma.materialRequisition.update({ where: { id: req1.id }, data: { status: "CONVERTED", convertedPoId: po1.id } });
@@ -426,7 +530,7 @@ async function main() {
       { materialId: matMap["STL-TMT16"], qtyOrdered: 3000, unitCost: 80, gstRate: 18 },
     ],
   });
-  await approvePurchaseOrder(po2.id);
+  await approvePurchaseOrder(po2.id, "OWNER");
   await orderPurchaseOrder(po2.id);
 
   // PO-3: COMPANY scope → warehouse (bricks + blocks), still DRAFT (badge fodder)
@@ -440,6 +544,130 @@ async function main() {
     lines: [
       { materialId: matMap["BRK-RED"], qtyOrdered: 40000, unitCost: 7, gstRate: 5 },
       { materialId: matMap["BLK-AAC"], qtyOrdered: 6000, unitCost: 45, gstRate: 18 },
+    ],
+  });
+
+  // PO-4: PROJECT scope → Greenfield site (electrical wiring + conduit for Tower A)
+  const po4 = await createPurchaseOrder({
+    supplierId: supplierMap["Anand Electricals & Wiring"],
+    procurementScope: "PROJECT",
+    companyId: company.id,
+    projectId: project1.id,
+    destinationLocationId: site1.id,
+    expectedDate: new Date("2024-05-18"),
+    notes: "Against REQ-2024-0003 — electrical rough-in Tower A",
+    lines: [
+      { materialId: matMap["ELC-WIRE25"], qtyOrdered: 3000, unitCost: 18, gstRate: 18 },
+      { materialId: matMap["ELC-CONDUIT"], qtyOrdered: 800, unitCost: 32, gstRate: 18 },
+    ],
+  });
+  await approvePurchaseOrder(po4.id, "OWNER");
+  await orderPurchaseOrder(po4.id);
+
+  // PO-5: PROJECT scope → Greenfield site (paint + primer for finishing)
+  const po5 = await createPurchaseOrder({
+    supplierId: supplierMap["Asian Paints Depot"],
+    procurementScope: "PROJECT",
+    companyId: company.id,
+    projectId: project1.id,
+    destinationLocationId: site1.id,
+    expectedDate: new Date("2024-06-01"),
+    notes: "Against REQ-2024-0005 — paint for Tower A finishing",
+    lines: [
+      { materialId: matMap["PNT-ACPRM"], qtyOrdered: 150, unitCost: 120, gstRate: 18 },
+      { materialId: matMap["PNT-EMULSION"], qtyOrdered: 100, unitCost: 180, gstRate: 18 },
+    ],
+  });
+  await approvePurchaseOrder(po5.id, "OWNER");
+  await orderPurchaseOrder(po5.id);
+
+  // PO-6: COMPANY scope → warehouse (safety helmets restock)
+  const po6 = await createPurchaseOrder({
+    supplierId: supplierMap["SafeGuard Safety Equip"],
+    procurementScope: "COMPANY",
+    companyId: company.id,
+    destinationLocationId: warehouse.id,
+    expectedDate: new Date("2024-05-28"),
+    notes: "Safety gear restock for new site staff",
+    lines: [
+      { materialId: matMap["SAF-HELMET"], qtyOrdered: 100, unitCost: 180, gstRate: 18 },
+    ],
+  });
+  await approvePurchaseOrder(po6.id, "OWNER");
+  await orderPurchaseOrder(po6.id);
+
+  // PO-7: PROJECT scope → Greenfield site (plumbing pipes)
+  const po7 = await createPurchaseOrder({
+    supplierId: supplierMap["Perfect Plumbing Solutions"],
+    procurementScope: "PROJECT",
+    companyId: company.id,
+    projectId: project1.id,
+    destinationLocationId: site1.id,
+    expectedDate: new Date("2024-05-25"),
+    notes: "Against REQ-2024-0004 — plumbing rough-in Tower A",
+    lines: [
+      { materialId: matMap["PLB-PIPE4"], qtyOrdered: 400, unitCost: 220, gstRate: 18 },
+    ],
+  });
+  await approvePurchaseOrder(po7.id, "OWNER");
+  await orderPurchaseOrder(po7.id);
+
+  // PO-8: COMPANY scope → warehouse (formwork plywood from new supplier)
+  const po8 = await createPurchaseOrder({
+    supplierId: supplierMap["Supreme Formwork Systems"],
+    procurementScope: "COMPANY",
+    companyId: company.id,
+    destinationLocationId: warehouse.id,
+    expectedDate: new Date("2024-06-10"),
+    notes: "Formwork for Tower B slab preparation",
+    lines: [
+      { materialId: matMap["FRM-PLY18"], qtyOrdered: 150, unitCost: 1450, gstRate: 18 },
+    ],
+  });
+  await approvePurchaseOrder(po8.id, "OWNER");
+  await orderPurchaseOrder(po8.id);
+
+  // PO-9: COMPANY scope → warehouse (Ambuja cement — alternate supplier)
+  await createPurchaseOrder({
+    supplierId: supplierMap["Ambuja Cement Agency"],
+    procurementScope: "COMPANY",
+    companyId: company.id,
+    destinationLocationId: warehouse.id,
+    expectedDate: new Date("2024-06-15"),
+    notes: "Draft — comparing Ambuja vs UltraTech pricing",
+    lines: [
+      { materialId: matMap["CEM-PPC"], qtyOrdered: 500, unitCost: 340, gstRate: 28 },
+    ],
+  });
+
+  // PO-10: PROJECT scope → Hillview site (cement for commercial foundation)
+  const po10 = await createPurchaseOrder({
+    supplierId: supplierMap["Prism Cement & RMC"],
+    procurementScope: "PROJECT",
+    companyId: company.id,
+    projectId: project2.id,
+    destinationLocationId: site2.id,
+    expectedDate: new Date("2024-06-20"),
+    notes: "Hillview Block 1 foundation — ready mix + cement",
+    lines: [
+      { materialId: matMap["CEM-OPC53"], qtyOrdered: 800, unitCost: 385, gstRate: 28 },
+      { materialId: matMap["AGG-20MM"], qtyOrdered: 2000, unitCost: 55, gstRate: 5 },
+    ],
+  });
+  await approvePurchaseOrder(po10.id, "OWNER");
+  await orderPurchaseOrder(po10.id);
+
+  // PO-11: COMPANY scope → warehouse (sand + aggregate restock from Bharat Sand)
+  await createPurchaseOrder({
+    supplierId: supplierMap["Bharat Sand Suppliers"],
+    procurementScope: "COMPANY",
+    companyId: company.id,
+    destinationLocationId: warehouse.id,
+    expectedDate: new Date("2024-06-25"),
+    notes: "Draft — sand + aggregate for Q3",
+    lines: [
+      { materialId: matMap["SND-RIVER"], qtyOrdered: 3000, unitCost: 42, gstRate: 5 },
+      { materialId: matMap["AGG-20MM"], qtyOrdered: 2000, unitCost: 52, gstRate: 5 },
     ],
   });
 
@@ -483,6 +711,217 @@ async function main() {
   await prisma.goodsReceipt.update({
     where: { id: gr2.id },
     data: { inspectionStatus: "PENDING", notes: "Awaiting QC on 16mm samples" },
+  });
+
+  // PO-4: full receipt — electrical wiring + conduit
+  const po4Lines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po4.id } });
+  await receiveGoods({
+    purchaseOrderId: po4.id,
+    locationId: site1.id,
+    receivedById: U.supervisor,
+    notes: "Full delivery, quality OK",
+    lines: po4Lines.map((l) => ({
+      purchaseOrderLineId: l.id,
+      materialId: l.materialId,
+      qtyReceived: l.qtyOrdered,
+      unitCost: l.unitCost,
+    })),
+  });
+  const gr4 = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po4.id } });
+  await prisma.goodsReceipt.update({
+    where: { id: gr4.id },
+    data: { inspectionStatus: "PASSED", inspectionNotes: "Wire gauge + conduit diameter verified", inspectedById: U.manager, inspectedAt: new Date("2024-05-17") },
+  });
+
+  // PO-5: partial receipt (80% — primer delivered, paint back-ordered)
+  const po5Lines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po5.id } });
+  await receiveGoods({
+    purchaseOrderId: po5.id,
+    locationId: site1.id,
+    receivedById: U.supervisor,
+    notes: "Primer delivered, emulsion paint back-ordered by supplier",
+    lines: po5Lines.map((l) => ({
+      purchaseOrderLineId: l.id,
+      materialId: l.materialId,
+      qtyReceived: new Decimal(l.qtyOrdered).times(l.materialId === matMap["PNT-ACPRM"] ? 1 : 0.8),
+      unitCost: l.unitCost,
+    })),
+  });
+  const gr5 = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po5.id } });
+  await prisma.goodsReceipt.update({
+    where: { id: gr5.id },
+    data: { inspectionStatus: "PASSED", inspectionNotes: "Primer quality OK", inspectedById: U.manager, inspectedAt: new Date("2024-05-31") },
+  });
+
+  // PO-6: full receipt — safety helmets
+  const po6Lines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po6.id } });
+  await receiveGoods({
+    purchaseOrderId: po6.id,
+    locationId: warehouse.id,
+    receivedById: U.supervisor,
+    notes: "Full delivery — 100 helmets",
+    lines: po6Lines.map((l) => ({
+      purchaseOrderLineId: l.id,
+      materialId: l.materialId,
+      qtyReceived: l.qtyOrdered,
+      unitCost: l.unitCost,
+    })),
+  });
+  const gr6 = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po6.id } });
+  await prisma.goodsReceipt.update({
+    where: { id: gr6.id },
+    data: { inspectionStatus: "PASSED", inspectionNotes: "ISI mark verified on all units", inspectedById: U.manager, inspectedAt: new Date("2024-05-27") },
+  });
+
+  // PO-7: full receipt — plumbing pipes
+  const po7Lines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po7.id } });
+  await receiveGoods({
+    purchaseOrderId: po7.id,
+    locationId: site1.id,
+    receivedById: U.supervisor,
+    notes: "Full delivery, pipes in good condition",
+    lines: po7Lines.map((l) => ({
+      purchaseOrderLineId: l.id,
+      materialId: l.materialId,
+      qtyReceived: l.qtyOrdered,
+      unitCost: l.unitCost,
+    })),
+  });
+  const gr7 = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po7.id } });
+  await prisma.goodsReceipt.update({
+    where: { id: gr7.id },
+    data: { inspectionStatus: "PASSED", inspectionNotes: "Pipe diameter + wall thickness OK", inspectedById: U.manager, inspectedAt: new Date("2024-05-24") },
+  });
+
+  // PO-10: partial receipt (50% — cement received, aggregate delayed)
+  const po10Lines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po10.id } });
+  await receiveGoods({
+    purchaseOrderId: po10.id,
+    locationId: site2.id,
+    receivedById: U.supervisor,
+    notes: "Cement received, aggregate delayed due to transport strike",
+    lines: po10Lines.map((l) => ({
+      purchaseOrderLineId: l.id,
+      materialId: l.materialId,
+      qtyReceived: new Decimal(l.qtyOrdered).times(0.5),
+      unitCost: l.unitCost,
+    })),
+  });
+  const gr10 = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po10.id } });
+  await prisma.goodsReceipt.update({
+    where: { id: gr10.id },
+    data: { inspectionStatus: "PENDING", notes: "Cement samples sent to lab for compressive test" },
+  });
+
+  // ── 12b. Land purchase + parcel + partition ─────────────────
+  // Created BEFORE material issues so reallocateProjectCosts (triggered
+  // inside issueMaterialsToProject) sees the land cost + built units.
+  const land = await prisma.landPurchase.create({
+    data: {
+      companyId: company.id,
+      projectId: project1.id,
+      sellerName: "Patil Family Trust",
+      sellerContact: "+91 98220 77889",
+      totalArea: 30000,
+      areaUnit: "SQFT",
+      totalCost: 90000000,
+      registryNo: "REG/PUN/2024/04512",
+      location: "Wagholi, Pune",
+      purchaseDate: new Date("2023-11-10"),
+      parcels: {
+        create: {
+          number: "PLOT-1",
+          area: 30000,
+          areaUnit: "SQFT",
+          status: "PARTITIONED",
+          acquisitionCost: 90000000,
+          askingPrice: 120000000,
+          currentValuation: 110000000,
+          projectId: project1.id,
+        },
+      },
+    },
+  });
+  const parentParcel = await prisma.landParcel.findFirstOrThrow({ where: { landPurchaseId: land.id, number: "PLOT-1" } });
+  const childParcels = [
+    { number: "PLOT-1A", area: 12000, status: "AVAILABLE" as const, acquisitionCost: 36000000, currentValuation: 45000000, askingPrice: 52000000 },
+    { number: "PLOT-1B", area: 12000, status: "AVAILABLE" as const, acquisitionCost: 36000000, currentValuation: 44000000, askingPrice: 50000000 },
+    { number: "PLOT-1C", area: 6000, status: "HOLD" as const, acquisitionCost: 18000000, currentValuation: 21000000 },
+  ];
+  await prisma.landParcel.createMany({
+    data: childParcels.map((c) => ({
+      landPurchaseId: land.id,
+      parentParcelId: parentParcel.id,
+      number: c.number,
+      area: c.area,
+      areaUnit: "SQFT",
+      status: c.status,
+      acquisitionCost: c.acquisitionCost,
+      askingPrice: (c as any).askingPrice ?? null,
+      currentValuation: c.currentValuation,
+      projectId: project1.id,
+    })),
+  });
+  await prisma.landPartition.create({
+    data: {
+      parentParcelId: parentParcel.id,
+      partitionDate: new Date("2024-01-05"),
+      childCount: childParcels.length,
+      notes: "Split into Tower A / Tower B / amenity plots",
+    },
+  });
+
+  // ── 12c. Built units ────────────────────────────────────────
+  // Created BEFORE material issues so reallocateProjectCosts has sellable area.
+  const unitDefs: { phase: string; type: "BHK_2" | "BHK_3" | "SHOP"; unitNumber: string; floor: number; wing?: string; area: number; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD"; askingPrice?: number; currentValuation: number }[] = [];
+  for (let f = 1; f <= 4; f++) {
+    unitDefs.push({ phase: "Tower A", type: "BHK_2", unitNumber: `A-${f}01`, floor: f, wing: "A", area: 850, status: f === 2 ? "UNDER_CONSTRUCTION" : "AVAILABLE", askingPrice: 6500000, currentValuation: 6500000 });
+    unitDefs.push({ phase: "Tower A", type: "BHK_3", unitNumber: `A-${f}02`, floor: f, wing: "A", area: 1200, status: f <= 1 ? "AVAILABLE" : "PLANNED", askingPrice: 9200000, currentValuation: 9200000 });
+  }
+  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-01", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
+  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-02", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
+  unitDefs.push({ phase: "Tower B", type: "BHK_2", unitNumber: "B-101", floor: 1, wing: "B", area: 850, status: "PLANNED", currentValuation: 0 });
+  unitDefs.push({ phase: "Tower B", type: "BHK_3", unitNumber: "B-102", floor: 1, wing: "B", area: 1200, status: "PLANNED", currentValuation: 0 });
+
+  const phaseByName: Record<string, string> = { "Tower A": phase1A.id, "Tower B": phase1B.id };
+  await prisma.builtUnit.createMany({
+    data: unitDefs.map((u) => ({
+      projectId: project1.id,
+      phaseId: phaseByName[u.phase],
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      wing: u.wing,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: u.askingPrice ?? null,
+      currentValuation: u.currentValuation,
+    })),
+  });
+
+  // Hillview Corporate Park (project2) — planned office units so the project
+  // has sellable area for cost-per-sqft allocation (material receipts from PO-10).
+  const hillviewUnits: { unitNumber: string; floor: number; area: number; type: "BHK_2" | "BHK_3" | "SHOP"; status: "PLANNED" | "UNDER_CONSTRUCTION"; currentValuation: number }[] = [];
+  for (let f = 1; f <= 3; f++) {
+    hillviewUnits.push({ unitNumber: `H-${f}01`, floor: f, area: 1500, type: "SHOP", status: "PLANNED", currentValuation: 0 });
+    hillviewUnits.push({ unitNumber: `H-${f}02`, floor: f, area: 2000, type: "SHOP", status: "PLANNED", currentValuation: 0 });
+  }
+  await prisma.builtUnit.createMany({
+    data: hillviewUnits.map((u) => ({
+      projectId: project2.id,
+      phaseId: phase2A.id,
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: null,
+      currentValuation: u.currentValuation,
+    })),
   });
 
   // ── 13. Material issues (consumption to project 1) ──────────
@@ -651,94 +1090,8 @@ async function main() {
   });
 
   // ── 18. Land purchase + parcel + partition ──────────────────
-  const land = await prisma.landPurchase.create({
-    data: {
-      companyId: company.id,
-      projectId: project1.id,
-      sellerName: "Patil Family Trust",
-      sellerContact: "+91 98220 77889",
-      totalArea: 30000,
-      areaUnit: "SQFT",
-      totalCost: 90000000,
-      registryNo: "REG/PUN/2024/04512",
-      location: "Wagholi, Pune",
-      purchaseDate: new Date("2023-11-10"),
-      parcels: {
-        create: {
-          number: "PLOT-1",
-          area: 30000,
-          areaUnit: "SQFT",
-          status: "PARTITIONED",
-          acquisitionCost: 90000000,
-          askingPrice: 120000000,
-          currentValuation: 110000000,
-          projectId: project1.id,
-        },
-      },
-    },
-  });
-  const parentParcel = await prisma.landParcel.findFirstOrThrow({ where: { landPurchaseId: land.id, number: "PLOT-1" } });
-  // Partition the parent into Tower A plot + Tower B plot + amenity plot
-  const childParcels = [
-    { number: "PLOT-1A", area: 12000, status: "AVAILABLE" as const, acquisitionCost: 36000000, currentValuation: 45000000, askingPrice: 52000000 },
-    { number: "PLOT-1B", area: 12000, status: "AVAILABLE" as const, acquisitionCost: 36000000, currentValuation: 44000000, askingPrice: 50000000 },
-    { number: "PLOT-1C", area: 6000, status: "HOLD" as const, acquisitionCost: 18000000, currentValuation: 21000000 },
-  ];
-  await prisma.landParcel.createMany({
-    data: childParcels.map((c) => ({
-      landPurchaseId: land.id,
-      parentParcelId: parentParcel.id,
-      number: c.number,
-      area: c.area,
-      areaUnit: "SQFT",
-      status: c.status,
-      acquisitionCost: c.acquisitionCost,
-      askingPrice: (c as any).askingPrice ?? null,
-      currentValuation: c.currentValuation,
-      projectId: project1.id,
-    })),
-  });
-  await prisma.landPartition.create({
-    data: {
-      parentParcelId: parentParcel.id,
-      partitionDate: new Date("2024-01-05"),
-      childCount: childParcels.length,
-      notes: "Split into Tower A / Tower B / amenity plots",
-    },
-  });
-
-  // ── 19. Built units ─────────────────────────────────────────
-  // Tower A: ground + 4 floors, 2 units per floor (2BHK + 3BHK).
-  // A-101 starts AVAILABLE and is sold via the sale service below (which flips it to SOLD).
-  const unitDefs: { phase: string; type: "BHK_2" | "BHK_3" | "SHOP"; unitNumber: string; floor: number; wing?: string; area: number; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD"; askingPrice?: number; currentValuation: number }[] = [];
-  for (let f = 1; f <= 4; f++) {
-    unitDefs.push({ phase: "Tower A", type: "BHK_2", unitNumber: `A-${f}01`, floor: f, wing: "A", area: 850, status: f === 2 ? "UNDER_CONSTRUCTION" : "AVAILABLE", askingPrice: 6500000, currentValuation: 6500000 });
-    unitDefs.push({ phase: "Tower A", type: "BHK_3", unitNumber: `A-${f}02`, floor: f, wing: "A", area: 1200, status: f <= 1 ? "AVAILABLE" : "PLANNED", askingPrice: 9200000, currentValuation: 9200000 });
-  }
-  // Ground-floor retail shops
-  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-01", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
-  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-02", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
-  // Tower B: planned only
-  unitDefs.push({ phase: "Tower B", type: "BHK_2", unitNumber: "B-101", floor: 1, wing: "B", area: 850, status: "PLANNED", currentValuation: 0 });
-  unitDefs.push({ phase: "Tower B", type: "BHK_3", unitNumber: "B-102", floor: 1, wing: "B", area: 1200, status: "PLANNED", currentValuation: 0 });
-
-  const phaseByName: Record<string, string> = { "Tower A": phase1A.id, "Tower B": phase1B.id };
-  await prisma.builtUnit.createMany({
-    data: unitDefs.map((u) => ({
-      projectId: project1.id,
-      phaseId: phaseByName[u.phase],
-      unitType: u.type,
-      unitNumber: u.unitNumber,
-      floor: u.floor,
-      wing: u.wing,
-      area: u.area,
-      areaUnit: "SQFT",
-      status: u.status,
-      productionCost: 0, // set by reallocateProjectCosts below
-      askingPrice: u.askingPrice ?? null,
-      currentValuation: u.currentValuation,
-    })),
-  });
+  // MOVED BEFORE material issues so reallocateProjectCosts (called during
+  // issue) sees the built units + land and can allocate costs per sqft.
 
   // ── 20. Customers ───────────────────────────────────────────
   const customers = [
@@ -750,7 +1103,7 @@ async function main() {
   ];
   const customerMap: Record<string, string> = {};
   for (const c of customers) {
-    const row = await ensure("customer", { name: c.name }, c);
+    const row = await ensure("customer", { name: c.name, companyId: company.id }, { ...c, companyId: company.id });
     customerMap[c.name] = row.id;
   }
 
@@ -791,6 +1144,7 @@ async function main() {
     assetType: "BUILT_UNIT",
     builtUnitId: unitA101.id,
     customerId: customerMap["Rajesh Sharma"],
+    companyId: company.id,
     salePrice: 6500000,
     paymentMode: "Home Loan (SBI)",
     notes: "Booking amount + first installment received",
@@ -804,6 +1158,7 @@ async function main() {
     assetType: "BUILT_UNIT",
     builtUnitId: unitS01.id,
     customerId: customerMap["Mohit Enterprises"],
+    companyId: company.id,
     salePrice: 4500000,
     paymentMode: "Bank Transfer",
     notes: "Full payment — commercial purchase",
@@ -816,6 +1171,7 @@ async function main() {
     assetType: "LAND",
     landParcelId: parcel1A.id,
     customerId: customerMap["Verma Traders"],
+    companyId: company.id,
     salePrice: 52000000,
     paymentMode: "Bank Loan (HDFC)",
     notes: "Commercial land acquisition — 20% booking",
@@ -832,6 +1188,128 @@ async function main() {
     lines: [{ materialId: matMap["SAF-HELMET"], qty: 45 }],
   });
 
+  // ── 25b. Vendor quotes (comparative quote engine) ───────────
+  // Three quotes against REQ-2024-0003 (electrical rough-in) so the
+  // comparative quote panel has data to show cheapest vs selected.
+  const req3 = await prisma.materialRequisition.findFirstOrThrow({ where: { reqNumber: "REQ-2024-0003" } });
+  const quoteData = [
+    { supplier: "Anand Electricals & Wiring", lines: [{ material: "ELC-WIRE25", qty: 3000, unitPrice: 18 }, { material: "ELC-CONDUIT", qty: 800, unitPrice: 32 }], validUntil: new Date("2024-05-25") },
+    { supplier: "Viman Electricals", lines: [{ material: "ELC-WIRE25", qty: 3000, unitPrice: 19 }, { material: "ELC-CONDUIT", qty: 800, unitPrice: 30 }], validUntil: new Date("2024-05-22") },
+    { supplier: "Maha Lakshmi Hardware", lines: [{ material: "ELC-WIRE25", qty: 3000, unitPrice: 17.5 }, { material: "ELC-CONDUIT", qty: 800, unitPrice: 35 }], validUntil: new Date("2024-05-20") },
+  ];
+  for (const qd of quoteData) {
+    const landedTotal = qd.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+    const vq = await prisma.vendorQuote.create({
+      data: {
+        requisitionId: req3.id,
+        supplierId: supplierMap[qd.supplier],
+        fileUrl: `/uploads/quotes/quote-${qd.supplier.replace(/[^a-zA-Z]/g, "")}.pdf`,
+        fileName: `Quote-${qd.supplier.replace(/\s+/g, "-")}.pdf`,
+        mimeType: "application/pdf",
+        landedTotal: new Decimal(landedTotal),
+        validUntil: qd.validUntil,
+        submittedById: U.manager,
+        notes: `Quote from ${qd.supplier} for electrical rough-in`,
+        status: "PENDING",
+        lines: {
+          create: qd.lines.map((l) => ({
+            materialId: matMap[l.material],
+            qty: new Decimal(l.qty),
+            unitPrice: new Decimal(l.unitPrice),
+            lineTotal: new Decimal(l.qty * l.unitPrice),
+          })),
+        },
+      },
+    });
+    // Select the cheapest quote (Anand Electricals: 3000×18 + 800×32 = 54000+25600 = 79600)
+    // Viman: 3000×19 + 800×30 = 57000+24000 = 81000
+    // Maha Lakshmi: 3000×17.5 + 800×35 = 52500+28000 = 80500
+    // Cheapest = Anand at 79600
+    if (qd.supplier === "Anand Electricals & Wiring") {
+      await prisma.vendorQuote.update({
+        where: { id: vq.id },
+        data: { isCheapest: true, status: "SELECTED", selectedById: U.owner, selectedAt: new Date("2024-05-03"), selectionReason: "Lowest landed total with acceptable lead time" },
+      });
+    }
+  }
+
+  // Three quotes against REQ-2024-0005 (paint + primer)
+  const req5 = await prisma.materialRequisition.findFirstOrThrow({ where: { reqNumber: "REQ-2024-0005" } });
+  const paintQuotes = [
+    { supplier: "Asian Paints Depot", lines: [{ material: "PNT-ACPRM", qty: 150, unitPrice: 120 }, { material: "PNT-EMULSION", qty: 100, unitPrice: 180 }], validUntil: new Date("2024-06-10") },
+    { supplier: "Berger Paints Wholesale", lines: [{ material: "PNT-ACPRM", qty: 150, unitPrice: 115 }, { material: "PNT-EMULSION", qty: 100, unitPrice: 175 }], validUntil: new Date("2024-06-08") },
+    { supplier: "Maha Lakshmi Hardware", lines: [{ material: "PNT-ACPRM", qty: 150, unitPrice: 125 }, { material: "PNT-EMULSION", qty: 100, unitPrice: 185 }], validUntil: new Date("2024-06-05") },
+  ];
+  for (const qd of paintQuotes) {
+    const landedTotal = qd.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+    const vq = await prisma.vendorQuote.create({
+      data: {
+        requisitionId: req5.id,
+        supplierId: supplierMap[qd.supplier],
+        fileUrl: `/uploads/quotes/quote-paint-${qd.supplier.replace(/[^a-zA-Z]/g, "")}.pdf`,
+        fileName: `Quote-Paint-${qd.supplier.replace(/\s+/g, "-")}.pdf`,
+        mimeType: "application/pdf",
+        landedTotal: new Decimal(landedTotal),
+        validUntil: qd.validUntil,
+        submittedById: U.manager,
+        notes: `Paint quote from ${qd.supplier}`,
+        status: "PENDING",
+        lines: {
+          create: qd.lines.map((l) => ({
+            materialId: matMap[l.material],
+            qty: new Decimal(l.qty),
+            unitPrice: new Decimal(l.unitPrice),
+            lineTotal: new Decimal(l.qty * l.unitPrice),
+          })),
+        },
+      },
+    });
+    // Berger is cheapest: 150×115 + 100×175 = 17250+17500 = 34750
+    // Asian: 150×120 + 100×180 = 18000+18000 = 36000
+    // Maha Lakshmi: 150×125 + 100×185 = 18750+18500 = 37250
+    if (qd.supplier === "Berger Paints Wholesale") {
+      await prisma.vendorQuote.update({
+        where: { id: vq.id },
+        data: { isCheapest: true, status: "PENDING" },
+      });
+    }
+  }
+
+  // ── 25c. Additional supplier returns ────────────────────────
+  // Return defective electrical conduit to Anand Electricals
+  await prisma.supplierReturn.create({
+    data: {
+      returnNumber: "RET-2024-0002",
+      supplierId: supplierMap["Anand Electricals & Wiring"],
+      companyId: company.id,
+      purchaseOrderId: po4.id,
+      locationId: site1.id,
+      status: "COMPLETED",
+      returnDate: new Date("2024-05-20"),
+      creditNoteNo: "CN-2024-0102",
+      notes: "50m conduit cracked — manufacturing defect, credit note received",
+      lines: {
+        create: [{ materialId: matMap["ELC-CONDUIT"], qty: 50, unitCost: 32, reason: "Manufacturing defect — cracked conduit" }],
+      },
+    },
+  });
+  // Return excess safety helmets (wrong size)
+  await prisma.supplierReturn.create({
+    data: {
+      returnNumber: "RET-2024-0003",
+      supplierId: supplierMap["SafeGuard Safety Equip"],
+      companyId: company.id,
+      purchaseOrderId: po6.id,
+      locationId: warehouse.id,
+      status: "SUBMITTED",
+      returnDate: new Date("2024-05-30"),
+      notes: "15 helmets wrong size — awaiting credit note",
+      lines: {
+        create: [{ materialId: matMap["SAF-HELMET"], qty: 15, unitCost: 180, reason: "Wrong size — exchanged for correct size" }],
+      },
+    },
+  });
+
   // ── 26. Audit logs ──────────────────────────────────────────
   await prisma.auditLog.createMany({
     data: [
@@ -842,8 +1320,197 @@ async function main() {
       { userId: U.owner, action: "APPROVE", entityType: "MaterialRequisition", entityId: req1.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-03-03") },
       { userId: U.sales, action: "CREATE", entityType: "AssetSale", entityId: sale1.id, after: { saleNumber: sale1.saleNumber, assetType: "BUILT_UNIT" } as any, timestamp: new Date("2024-05-15") },
       { userId: U.accountant, action: "RECEIVE", entityType: "AssetSalePayment", entityId: sale1.id, after: { amount: 650000, mode: "RTGS" } as any, timestamp: new Date("2024-05-15") },
+      { userId: U.manager, action: "CREATE", entityType: "PurchaseOrder", entityId: po4.id, after: { status: "DRAFT" } as any, timestamp: new Date("2024-05-02") },
+      { userId: U.owner, action: "APPROVE", entityType: "PurchaseOrder", entityId: po4.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-05-03") },
+      { userId: U.supervisor, action: "RECEIVE", entityType: "GoodsReceipt", entityId: gr4.id, after: { status: "PASSED" } as any, timestamp: new Date("2024-05-17") },
+      { userId: U.manager, action: "CREATE", entityType: "PurchaseOrder", entityId: po5.id, after: { status: "DRAFT" } as any, timestamp: new Date("2024-05-16") },
+      { userId: U.owner, action: "APPROVE", entityType: "PurchaseOrder", entityId: po5.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-05-17") },
+      { userId: U.supervisor, action: "RECEIVE", entityType: "GoodsReceipt", entityId: gr5.id, after: { status: "PARTIAL" } as any, timestamp: new Date("2024-05-31") },
+      { userId: U.manager, action: "CREATE", entityType: "PurchaseOrder", entityId: po6.id, after: { status: "DRAFT" } as any, timestamp: new Date("2024-05-21") },
+      { userId: U.owner, action: "APPROVE", entityType: "PurchaseOrder", entityId: po6.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-05-22") },
+      { userId: U.supervisor, action: "RECEIVE", entityType: "GoodsReceipt", entityId: gr6.id, after: { status: "PASSED" } as any, timestamp: new Date("2024-05-27") },
+      { userId: U.manager, action: "CREATE", entityType: "PurchaseOrder", entityId: po7.id, after: { status: "DRAFT" } as any, timestamp: new Date("2024-05-12") },
+      { userId: U.owner, action: "APPROVE", entityType: "PurchaseOrder", entityId: po7.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-05-13") },
+      { userId: U.supervisor, action: "RECEIVE", entityType: "GoodsReceipt", entityId: gr7.id, after: { status: "PASSED" } as any, timestamp: new Date("2024-05-24") },
+      { userId: U.manager, action: "CREATE", entityType: "PurchaseOrder", entityId: po10.id, after: { status: "DRAFT" } as any, timestamp: new Date("2024-06-05") },
+      { userId: U.owner, action: "APPROVE", entityType: "PurchaseOrder", entityId: po10.id, after: { status: "APPROVED" } as any, timestamp: new Date("2024-06-06") },
+      { userId: U.supervisor, action: "RECEIVE", entityType: "GoodsReceipt", entityId: gr10.id, after: { status: "PARTIAL" } as any, timestamp: new Date("2024-06-18") },
     ],
   });
+
+  // ── 27b. BOQ + Measurement Book (for Material Reconciliation) ──
+  // A BOQ with sections + line items linked to materials, and a few
+  // approved MB entries so the reconciliation page has real data.
+  const boqSections = [
+    { serialNo: "1", description: "Civil Works", type: "SECTION" },
+    { serialNo: "1.1", description: "Foundation", type: "SUBSECTION" },
+    { serialNo: "1.2", description: "Superstructure", type: "SUBSECTION" },
+    { serialNo: "1.3", description: "Brickwork & Masonry", type: "SUBSECTION" },
+    { serialNo: "1.4", description: "Plastering & Finishing", type: "SUBSECTION" },
+    { serialNo: "2", description: "Electrical Works", type: "SECTION" },
+    { serialNo: "3", description: "Plumbing Works", type: "SECTION" },
+  ];
+  const boqSectionMap: Record<string, string> = {};
+  for (const s of boqSections) {
+    const row = await ensure(
+      "boqItem",
+      { projectId: project1.id, serialNo: s.serialNo },
+      { projectId: project1.id, serialNo: s.serialNo, description: s.description, type: s.type, sortOrder: parseInt(s.serialNo) || 0 },
+    );
+    boqSectionMap[s.serialNo] = row.id;
+  }
+
+  // BOQ line items — linked to materials so reconciliation can join
+  const boqLines = [
+    // Foundation
+    { serialNo: "1.1.1", description: "PCC 1:4:8 for foundation", parentId: "1.1", materialCode: "CEM-OPC53", unit: "BAG", estimatedQty: 850, rate: 380, sortOrder: 1 },
+    { serialNo: "1.1.2", description: "TMT steel reinforcement for footing", parentId: "1.1", materialCode: "STL-TMT12", unit: "KG", estimatedQty: 15000, rate: 78, sortOrder: 2 },
+    { serialNo: "1.1.3", description: "20mm aggregate for PCC", parentId: "1.1", materialCode: "AGG-20MM", unit: "CFT", estimatedQty: 4500, rate: 55, sortOrder: 3 },
+    { serialNo: "1.1.4", description: "River sand for PCC", parentId: "1.1", materialCode: "SND-RIVER", unit: "CFT", estimatedQty: 3000, rate: 45, sortOrder: 4 },
+    // Superstructure (slab)
+    { serialNo: "1.2.1", description: "M25 grade RCC slab", parentId: "1.2", materialCode: "CEM-OPC53", unit: "BAG", estimatedQty: 4600, rate: 380, sortOrder: 1 },
+    { serialNo: "1.2.2", description: "TMT 16mm for slab reinforcement", parentId: "1.2", materialCode: "STL-TMT16", unit: "KG", estimatedQty: 12000, rate: 80, sortOrder: 2 },
+    { serialNo: "1.2.3", description: "Plywood formwork for slab", parentId: "1.2", materialCode: "FRM-PLY18", unit: "NOS", estimatedQty: 60, rate: 1450, sortOrder: 3 },
+    // Brickwork
+    { serialNo: "1.3.1", description: "Brickwork in 230mm wall", parentId: "1.3", materialCode: "BRK-RED", unit: "NOS", estimatedQty: 25000, rate: 7, sortOrder: 1 },
+    { serialNo: "1.3.2", description: "Cement mortar for brickwork", parentId: "1.3", materialCode: "CEM-PPC", unit: "BAG", estimatedQty: 1250, rate: 340, sortOrder: 2 },
+    // Plastering
+    { serialNo: "1.4.1", description: "Internal plaster 12mm", parentId: "1.4", materialCode: "CEM-OPC53", unit: "BAG", estimatedQty: 1750, rate: 380, sortOrder: 1 },
+    { serialNo: "1.4.2", description: "Plastering sand", parentId: "1.4", materialCode: "SND-RIVER", unit: "CFT", estimatedQty: 6000, rate: 45, sortOrder: 2 },
+    // Electrical
+    { serialNo: "2.1", description: "Electrical wiring 2.5sqmm", parentId: "2", materialCode: "ELC-WIRE25", unit: "MTR", estimatedQty: 22500, rate: 18, sortOrder: 1 },
+    { serialNo: "2.2", description: "PVC conduit 20mm", parentId: "2", materialCode: "ELC-CONDUIT", unit: "MTR", estimatedQty: 15000, rate: 32, sortOrder: 2 },
+    // Plumbing
+    { serialNo: "3.1", description: "PVC pipe 4 inch drainage", parentId: "3", materialCode: "PLB-PIPE4", unit: "MTR", estimatedQty: 4000, rate: 220, sortOrder: 1 },
+  ];
+
+  const boqLineMap: Record<string, string> = {};
+  for (const l of boqLines) {
+    const materialId = matMap[l.materialCode];
+    const estimatedQty = l.estimatedQty;
+    const rate = l.rate;
+    const estimatedAmount = estimatedQty * rate;
+    const row = await ensure(
+      "boqItem",
+      { projectId: project1.id, serialNo: l.serialNo },
+      {
+        projectId: project1.id,
+        phaseId: phase1A.id,
+        parentId: boqSectionMap[l.parentId],
+        serialNo: l.serialNo,
+        description: l.description,
+        type: "LINE_ITEM",
+        materialId,
+        unit: l.unit,
+        estimatedQty,
+        rate,
+        estimatedAmount,
+        sortOrder: l.sortOrder,
+      },
+    );
+    boqLineMap[l.serialNo] = row.id;
+  }
+
+  // Measurement Book entries — some approved (consumed), some pending
+  // Foundation: slightly over-consumption on cement (wastage), steel on track
+  const mbEntries = [
+    { boqSerial: "1.1.1", mbNumber: "MB-240301-0001", measuredQty: 420, cumulativeQty: 420, description: "PCC for footing 1-4", locationRef: "Tower A, Foundation", measureDate: new Date("2024-03-01"), status: "APPROVED" },
+    { boqSerial: "1.1.1", mbNumber: "MB-240315-0002", measuredQty: 460, cumulativeQty: 880, description: "PCC for footing 5-8", locationRef: "Tower A, Foundation", measureDate: new Date("2024-03-15"), status: "APPROVED" },
+    // 880 consumed vs 850 required → ~3.5% wastage (within tolerance)
+    { boqSerial: "1.1.2", mbNumber: "MB-240302-0001", measuredQty: 7800, cumulativeQty: 7800, description: "Steel for footing 1-4", locationRef: "Tower A, Foundation", measureDate: new Date("2024-03-02"), status: "APPROVED" },
+    { boqSerial: "1.1.2", mbNumber: "MB-240316-0002", measuredQty: 7600, cumulativeQty: 15400, description: "Steel for footing 5-8", locationRef: "Tower A, Foundation", measureDate: new Date("2024-03-16"), status: "APPROVED" },
+    // 15400 consumed vs 15000 required → ~2.7% wastage (OK)
+    { boqSerial: "1.2.1", mbNumber: "MB-240420-0001", measuredQty: 2300, cumulativeQty: 2300, description: "Slab cast floor 1", locationRef: "Tower A, Floor 1", measureDate: new Date("2024-04-20"), status: "APPROVED" },
+    { boqSerial: "1.2.1", mbNumber: "MB-240505-0002", measuredQty: 2500, cumulativeQty: 4800, description: "Slab cast floor 2", locationRef: "Tower A, Floor 2", measureDate: new Date("2024-05-05"), status: "APPROVED" },
+    // 4800 consumed vs 4600 required → ~4.3% wastage (within 5% tolerance)
+    { boqSerial: "1.3.1", mbNumber: "MB-240410-0001", measuredQty: 12500, cumulativeQty: 12500, description: "Brickwork ground floor", locationRef: "Tower A, GF", measureDate: new Date("2024-04-10"), status: "APPROVED" },
+    { boqSerial: "1.3.1", mbNumber: "MB-240425-0002", measuredQty: 14000, cumulativeQty: 26500, description: "Brickwork first floor", locationRef: "Tower A, FF", measureDate: new Date("2024-04-25"), status: "APPROVED" },
+    // 26500 consumed vs 25000 required → 6% wastage (OVER tolerance → WARNING)
+    { boqSerial: "1.4.1", mbNumber: "MB-240515-0001", measuredQty: 950, cumulativeQty: 950, description: "Internal plaster GF", locationRef: "Tower A, GF", measureDate: new Date("2024-05-15"), status: "APPROVED" },
+    // 950 consumed vs 1750 required → under-consumed (still in progress)
+    { boqSerial: "2.1", mbNumber: "MB-240520-0001", measuredQty: 14000, cumulativeQty: 14000, description: "Wiring floor 1", locationRef: "Tower A, Floor 1", measureDate: new Date("2024-05-20"), status: "VERIFIED" },
+    // VERIFIED but not APPROVED → won't show in reconciliation (only APPROVED counts)
+  ];
+
+  for (const mb of mbEntries) {
+    await ensure(
+      "measurementBookEntry",
+      { projectId: project1.id, mbNumber: mb.mbNumber },
+      {
+        projectId: project1.id,
+        phaseId: phase1A.id,
+        boqItemId: boqLineMap[mb.boqSerial],
+        mbNumber: mb.mbNumber,
+        measuredQty: mb.measuredQty,
+        cumulativeQty: mb.cumulativeQty,
+        description: mb.description,
+        locationRef: mb.locationRef,
+        measureDate: mb.measureDate,
+        status: mb.status,
+        measuredById: U.supervisor,
+        verifiedById: mb.status === "VERIFIED" || mb.status === "APPROVED" ? U.manager : null,
+        approvedById: mb.status === "APPROVED" ? U.manager : null,
+        approvedAt: mb.status === "APPROVED" ? mb.measureDate : null,
+        verifiedAt: mb.status === "VERIFIED" || mb.status === "APPROVED" ? mb.measureDate : null,
+      },
+    );
+  }
+
+  // ── 28. Standard Consumption Benchmarks ─────────────────────
+  // Typical Indian construction consumption rates per work type.
+  // These power the DPR variance analysis / auto-scrap detection.
+  const benchmarks = [
+    // Foundation
+    { workType: "Foundation", materialId: matMap["CEM-OPC53"], standardQty: 8.5, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "PCC + RCC foundation, 50kg bags" },
+    { workType: "Foundation", materialId: matMap["STL-TMT12"], standardQty: 1500, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Reinforcement steel for footing" },
+    { workType: "Foundation", materialId: matMap["AGG-20MM"], standardQty: 45, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Coarse aggregate for PCC" },
+    { workType: "Foundation", materialId: matMap["SND-RIVER"], standardQty: 30, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Fine aggregate for PCC" },
+
+    // Slab Casting (RCC roof slab)
+    { workType: "Slab Casting", materialId: matMap["CEM-OPC53"], standardQty: 9.2, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "M25 grade slab, 50kg bags" },
+    { workType: "Slab Casting", materialId: matMap["STL-TMT16"], standardQty: 1200, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Main bar + distribution steel" },
+    { workType: "Slab Casting", materialId: matMap["STL-TMT12"], standardQty: 450, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Secondary reinforcement" },
+    { workType: "Slab Casting", materialId: matMap["AGG-20MM"], standardQty: 55, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Coarse aggregate for RCC" },
+    { workType: "Slab Casting", materialId: matMap["SND-RIVER"], standardQty: 35, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Fine aggregate for RCC" },
+    { workType: "Slab Casting", materialId: matMap["FRM-PLY18"], standardQty: 1.2, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Formwork + shuttering ply (reusable 5×)" },
+
+    // Brickwork
+    { workType: "Brickwork", materialId: matMap["BRK-RED"], standardQty: 500, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "230mm thick wall, class A bricks" },
+    { workType: "Brickwork", materialId: matMap["CEM-OPC53"], standardQty: 2.5, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Cement mortar 1:6" },
+    { workType: "Brickwork", materialId: matMap["SND-RIVER"], standardQty: 18, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Sand for mortar" },
+
+    // Blockwork (AAC)
+    { workType: "Blockwork", materialId: matMap["BLK-AAC"], standardQty: 67, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "200mm thick AAC block wall" },
+    { workType: "Blockwork", materialId: matMap["CEM-OPC53"], standardQty: 1.8, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Thin-bed mortar adhesive" },
+    { workType: "Blockwork", materialId: matMap["SND-RIVER"], standardQty: 8, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Jointing sand" },
+
+    // Plastering
+    { workType: "Plastering", materialId: matMap["CEM-OPC53"], standardQty: 3.5, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "12mm thick internal plaster, 1:4" },
+    { workType: "Plastering", materialId: matMap["SND-RIVER"], standardQty: 12, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Plastering sand" },
+    { workType: "Plastering", materialId: matMap["CEM-PPC"], standardQty: 3.2, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "External waterproof plaster" },
+
+    // Flooring
+    { workType: "Flooring", materialId: matMap["CEM-OPC53"], standardQty: 4.0, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Vitrified tile fixing + bedding" },
+    { workType: "Flooring", materialId: matMap["SND-RIVER"], standardQty: 10, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Bedding sand" },
+
+    // Painting
+    { workType: "Painting", materialId: matMap["PNT-ACPRM"], standardQty: 2.5, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Primer coat" },
+    { workType: "Painting", materialId: matMap["PNT-EMULSION"], standardQty: 6.0, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "2 coats acrylic emulsion" },
+
+    // Electrical
+    { workType: "Electrical", materialId: matMap["ELC-WIRE25"], standardQty: 45, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Points + loops" },
+    { workType: "Electrical", materialId: matMap["ELC-CONDUIT"], standardQty: 30, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "Concealed conduit" },
+
+    // Plumbing
+    { workType: "Plumbing", materialId: matMap["PLB-PIPE4"], standardQty: 8, baseQty: 100, unitOfMeasure: "per 100 sqft", notes: "SWR drainage + water supply" },
+  ];
+  for (const b of benchmarks) {
+    await ensure(
+      "standardConsumption",
+      { companyId: company.id, workType: b.workType, materialId: b.materialId },
+      { ...b, companyId: company.id },
+    );
+  }
 
   // ── Summary ─────────────────────────────────────────────────
   const unitCount = await prisma.builtUnit.count({ where: { projectId: project1.id } });
@@ -851,19 +1518,25 @@ async function main() {
   const grCount = await prisma.goodsReceipt.count();
   const issueCount = await prisma.materialIssue.count();
   const movementCount = await prisma.stockMovement.count();
+  const reqCount = await prisma.materialRequisition.count();
+  const quoteCount = await prisma.vendorQuote.count();
+  const returnCount = await prisma.supplierReturn.count();
   console.log("Seed complete.");
   console.log(`  Company: ${company.name}`);
   console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${Object.keys(empMap).length}`);
   console.log(`  Projects: 2 · Phases: 3 · Locations: 4`);
   console.log(`  Categories: ${categories.length} · Materials: ${materials.length}`);
   console.log(`  Suppliers: ${suppliers.length} · Subcontractors: ${subcontractors.length}`);
-  console.log(`  Requisitions: 2 · Purchase Orders: ${poCount} · Goods Receipts: ${grCount}`);
+  console.log(`  Requisitions: ${reqCount} · Purchase Orders: ${poCount} · Goods Receipts: ${grCount}`);
+  console.log(`  Vendor Quotes: ${quoteCount} · Supplier Returns: ${returnCount}`);
   console.log(`  Material Issues: ${issueCount} · Stock Movements: ${movementCount}`);
-  console.log(`  Stock Transfers: 2 · Stock Counts: 1 · Supplier Returns: 1`);
+  console.log(`  Stock Transfers: 2 · Stock Counts: 1`);
   console.log(`  Equipment: ${equipmentItems.length} · Maintenance: 2`);
   console.log(`  Land: 1 (1 partitioned parent → 3 children) · Built Units: ${unitCount}`);
   console.log(`  Customers: ${customers.length} · Asset Sales: 3`);
-  console.log(`  Project Costs: 7 · Expenses: 5 · Audit Logs: 7`);
+  console.log(`  Project Costs: 7 · Expenses: 5 · Audit Logs: 21`);
+  console.log(`  Consumption Benchmarks: ${benchmarks.length}`);
+  console.log(`  BOQ Items: ${boqSections.length + boqLines.length} · MB Entries: ${mbEntries.length}`);
 }
 
 main()

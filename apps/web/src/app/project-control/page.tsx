@@ -10,7 +10,7 @@ import { ProjectControlView } from "@/components/project-control/project-control
 
 export default function ProjectControlPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading project control…" variant="cards" />}>
         <ProjectControlContent />
       </Suspense>

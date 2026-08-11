@@ -59,8 +59,8 @@ interface PartitionInput {
 export async function partitionLandParcel(input: PartitionInput) {
   return prisma.$transaction(async (tx) => {
     // 1. Lock + validate parent
-    const parent = await tx.landParcel.findUnique({
-      where: { id: input.parentParcelId },
+    const parent = await tx.landParcel.findFirst({
+      where: { id: input.parentParcelId, deletedAt: null },
     });
     if (!parent) throw new ServiceError("Parent parcel not found", 404);
     if (parent.deletedAt) throw new ServiceError("Parent parcel is deleted");
@@ -249,6 +249,90 @@ export async function updateParcelValuation(
       entityId: parcelId,
       before: { currentValuation: parcel.currentValuation, askingPrice: parcel.askingPrice },
       after: { currentValuation: updated.currentValuation, askingPrice: updated.askingPrice },
+    });
+    return updated;
+  });
+}
+
+/**
+ * Update parcel details — number, area, acquisition cost, valuation, asking
+ * price, infrastructure flag. When area changes on a child parcel, validates
+ * that the sum of sibling areas still equals the parent's area.
+ */
+export async function updateParcelDetails(
+  parcelId: string,
+  data: {
+    number?: string;
+    area?: Decimal | number | string;
+    acquisitionCost?: Decimal | number | string;
+    currentValuation?: Decimal | number | string;
+    askingPrice?: Decimal | number | string | null;
+    isInfrastructure?: boolean;
+  },
+  userId?: string,
+) {
+  const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId } });
+  if (!parcel) throw new ServiceError("Parcel not found", 404);
+  if (parcel.deletedAt) throw new ServiceError("Parcel is deleted");
+  if (parcel.status === "SOLD") throw new ServiceError("Cannot edit a SOLD parcel");
+  if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot edit a PARTITIONED parcel — edit its children instead");
+
+  // If area is changing on a child parcel, validate sibling sum = parent area
+  if (data.area !== undefined && parcel.parentParcelId) {
+    const newArea = new Decimal(data.area);
+    const parent = await prisma.landParcel.findUnique({
+      where: { id: parcel.parentParcelId },
+      include: { children: { where: { deletedAt: null, id: { not: parcelId } } } },
+    });
+    if (parent) {
+      const siblingSum = parent.children.reduce(
+        (s, c) => s.plus(new Decimal(c.area)),
+        newArea,
+      );
+      const parentArea = new Decimal(parent.area);
+      if (!siblingSum.equals(parentArea)) {
+        const diff = siblingSum.minus(parentArea);
+        throw new ServiceError(
+          `Sibling areas (${siblingSum.toFixed(3)} ${parent.areaUnit}) must sum to the parent's area (${parentArea.toFixed(3)} ${parent.areaUnit}). ` +
+          `Current difference: ${diff.gt(0) ? "+" : ""}${diff.toFixed(3)} ${parent.areaUnit}.`,
+        );
+      }
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.landParcel.update({
+      where: { id: parcelId },
+      data: {
+        ...(data.number !== undefined ? { number: data.number } : {}),
+        ...(data.area !== undefined ? { area: new Decimal(data.area) } : {}),
+        ...(data.acquisitionCost !== undefined ? { acquisitionCost: new Decimal(data.acquisitionCost) } : {}),
+        ...(data.currentValuation !== undefined ? { currentValuation: new Decimal(data.currentValuation) } : {}),
+        ...(data.askingPrice !== undefined ? { askingPrice: data.askingPrice === null ? null : new Decimal(data.askingPrice) } : {}),
+        ...(data.isInfrastructure !== undefined ? { isInfrastructure: data.isInfrastructure } : {}),
+      },
+    });
+    await logAction(tx, {
+      userId,
+      action: "LAND_PARCEL_UPDATE",
+      entityType: "LandParcel",
+      entityId: parcelId,
+      before: {
+        number: parcel.number,
+        area: parcel.area,
+        acquisitionCost: parcel.acquisitionCost,
+        currentValuation: parcel.currentValuation,
+        askingPrice: parcel.askingPrice,
+        isInfrastructure: parcel.isInfrastructure,
+      },
+      after: {
+        number: updated.number,
+        area: updated.area,
+        acquisitionCost: updated.acquisitionCost,
+        currentValuation: updated.currentValuation,
+        askingPrice: updated.askingPrice,
+        isInfrastructure: updated.isInfrastructure,
+      },
     });
     return updated;
   });

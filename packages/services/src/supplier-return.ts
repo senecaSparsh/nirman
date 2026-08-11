@@ -1,4 +1,4 @@
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
@@ -13,11 +13,12 @@ import { ServiceError } from "./errors";
  * Tracks credit note number for accounting reconciliation.
  */
 
-function generateReturnNumber(): string {
+async function generateReturnNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `RET-${ymd}-${rand}`;
+  const prefix = `RET-${ymd}-`;
+  const count = await tx.supplierReturn.count({ where: { returnNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 interface CreateSupplierReturnInput {
@@ -40,12 +41,11 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
 
   // Validate supplier + location
   const [supplier, location] = await Promise.all([
-    prisma.supplier.findFirst({ where: { id: input.supplierId, deletedAt: null } }),
-    prisma.stockLocation.findFirst({ where: { id: input.locationId, deletedAt: null } }),
+    prisma.supplier.findFirst({ where: { id: input.supplierId, companyId: input.companyId, deletedAt: null } }),
+    prisma.stockLocation.findFirst({ where: { id: input.locationId, companyId: input.companyId, deletedAt: null } }),
   ]);
   if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
   if (!location) throw new ServiceError("Location not found or deleted", 404);
-  if (location.companyId !== input.companyId) throw new ServiceError("Location doesn't belong to this company");
 
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
@@ -62,7 +62,7 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
   return prisma.$transaction(async (tx) => {
     const ret = await tx.supplierReturn.create({
       data: {
-        returnNumber: generateReturnNumber(),
+        returnNumber: await generateReturnNumber(tx),
         supplierId: input.supplierId,
         companyId: input.companyId,
         purchaseOrderId: input.purchaseOrderId,

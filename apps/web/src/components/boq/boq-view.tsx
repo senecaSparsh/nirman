@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -10,6 +10,7 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import type { LucideIcon } from "lucide-react";
 import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, Folder, FileText } from "lucide-react";
 
@@ -39,18 +40,45 @@ export function BoqView({
   totalEstimatedAmount,
   materials,
   canEdit,
+  onChanged,
 }: {
   projectId: string;
   tree: BoqNode[];
   totalEstimatedAmount: number;
   materials: Material[];
   canEdit: boolean;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BoqNode | null>(null);
-  const [parentId, setParentId] = useState<string | null>(null);
+  const [parentNode, setParentNode] = useState<BoqNode | null>(null);
+
+  // Flat lookup for finding parent nodes by id
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, BoqNode>();
+    function collect(nodes: BoqNode[]) {
+      for (const n of nodes) {
+        map.set(n.id, n);
+        collect(n.children);
+      }
+    }
+    collect(tree);
+    return map;
+  }, [tree]);
+
+  // After tree refetch, sync editingItem + parentNode with fresh data
+  useEffect(() => {
+    if (editingItem) {
+      const fresh = nodeMap.get(editingItem.id);
+      if (fresh && fresh !== editingItem) {
+        setEditingItem(fresh);
+        setParentNode(fresh.parentId ? nodeMap.get(fresh.parentId) ?? null : null);
+      }
+    }
+  }, [nodeMap, editingItem]);
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -77,26 +105,33 @@ export function BoqView({
     setExpanded(new Set());
   }
 
-  function onAdd(parentId: string | null) {
+  function onAdd(parent: BoqNode | null) {
     setEditingItem(null);
-    setParentId(parentId);
+    setParentNode(parent);
     setDialogOpen(true);
   }
 
   function onEdit(item: BoqNode) {
     setEditingItem(item);
-    setParentId(item.parentId ?? null);
+    setParentNode(item.parentId ? nodeMap.get(item.parentId) ?? null : null);
     setDialogOpen(true);
   }
 
   async function onDelete(item: BoqNode) {
-    if (!confirm(`Delete "${item.description}"? This will also delete all child items.`)) return;
+    const ok = await confirm({
+      title: `Delete "${item.description}"?`,
+      description: "This will also delete all child items.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/boq/items/${item.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to delete");
       toast.success("BOQ item deleted");
-      router.refresh();
+      if (onChanged) onChanged();
+      else router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -153,8 +188,11 @@ export function BoqView({
         projectId={projectId}
         materials={materials}
         item={editingItem}
-        parentId={parentId}
+        parentNode={parentNode}
+        tree={tree}
+        onSaved={onChanged}
       />
+      {confirmDialog}
     </div>
   );
 }
@@ -173,7 +211,7 @@ function BoqTree({
   expanded: Set<string>;
   toggle: (id: string) => void;
   canEdit: boolean;
-  onAdd: (parentId: string | null) => void;
+  onAdd: (parent: BoqNode | null) => void;
   onEdit: (item: BoqNode) => void;
   onDelete: (item: BoqNode) => void;
   depth: number;
@@ -207,20 +245,25 @@ function BoqTree({
                   <Folder className="h-3.5 w-3.5 shrink-0 text-primary" />
                 )}
                 <span className="text-muted-foreground text-xs">{node.serialNo}</span>
-                <span className="truncate">{node.description}</span>
+                <div className="min-w-0 flex-1">
+                  <span className="truncate">{node.description}</span>
+                  {node.notes && (
+                    <p className="truncate text-micro text-muted-foreground/70">{node.notes}</p>
+                  )}
+                </div>
                 {node._count?.mbEntries ? (
                   <Badge variant="muted" className="shrink-0 text-xs">{node._count.mbEntries} MB</Badge>
                 ) : null}
               </div>
-              <div className="text-muted-foreground text-xs self-center">{node.unit ?? "—"}</div>
-              <div className="text-right self-center">{node.estimatedQty != null ? formatNumber(node.estimatedQty, 3) : "—"}</div>
-              <div className="text-right self-center">{node.rate != null ? formatCurrency(node.rate) : "—"}</div>
-              <div className="text-right self-center font-medium">{node.estimatedAmount != null ? formatCurrency(node.estimatedAmount) : "—"}</div>
+              <div className="text-muted-foreground text-xs self-center">{node.unit ?? ""}</div>
+              <div className="text-right self-center">{node.estimatedQty != null ? formatNumber(node.estimatedQty, 3) : ""}</div>
+              <div className="text-right self-center">{node.rate != null ? formatCurrency(node.rate) : ""}</div>
+              <div className="text-right self-center font-medium">{node.estimatedAmount != null ? formatCurrency(node.estimatedAmount) : ""}</div>
               <div className="flex items-center gap-1 w-20">
                 {canEdit && (
                   <>
                     {!isLeaf && (
-                      <button onClick={() => onAdd(node.id)} className="text-muted-foreground hover:text-primary" title="Add child">
+                      <button onClick={() => onAdd(node)} className="text-muted-foreground hover:text-primary" title="Add child">
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -259,27 +302,95 @@ export function BoqFormDialog({
   projectId,
   materials,
   item,
-  parentId,
+  parentNode,
+  tree,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
   materials: Material[];
   item: BoqNode | null;
-  parentId: string | null;
+  parentNode: BoqNode | null;
+  tree: BoqNode[];
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const isEdit = item != null;
+  const parentId = parentNode?.id ?? null;
+
+  // ── Smart serial number generator ──
+  // Parses the full tree to find the next available serial at the target level.
+  // Top-level: looks at all root nodes, parses their serial as int, suggests max+1
+  // Under a parent: looks at the parent's children, parses the last segment, suggests max+1
+  function computeNextSerial(parent: BoqNode | null, fullTree: BoqNode[]): string {
+    if (parent) {
+      // Children of this parent — parse the last segment after parent's serial prefix
+      const siblings = parent.children;
+      const prefix = parent.serialNo + ".";
+      let max = 0;
+      for (const s of siblings) {
+        if (s.serialNo.startsWith(prefix)) {
+          const lastSeg = s.serialNo.slice(prefix.length);
+          const n = parseInt(lastSeg, 10);
+          if (!isNaN(n) && n > max) max = n;
+        }
+      }
+      return `${parent.serialNo}.${max + 1}`;
+    } else {
+      // Top-level — parse root serials as integers
+      let max = 0;
+      for (const n of fullTree) {
+        const parsed = parseInt(n.serialNo, 10);
+        if (!isNaN(parsed) && parsed > max) max = parsed;
+      }
+      return String(max + 1);
+    }
+  }
+
+  // Determine allowed types based on parent depth
+  // No parent → SECTION only (top-level)
+  // Parent is SECTION → SUBSECTION or LINE_ITEM
+  // Parent is SUBSECTION → LINE_ITEM only
+  const parentDepth = parentNode
+    ? (parentNode.serialNo.match(/\./g)?.length ?? 0)
+    : -1;
+  const allowedTypes: BoqNode["type"][] =
+    parentDepth < 0 ? ["SECTION"] :
+    parentDepth === 0 ? ["SUBSECTION", "LINE_ITEM"] :
+    ["LINE_ITEM"];
+
+  const defaultType = allowedTypes[0];
+  const nextSerial = isEdit ? (item?.serialNo ?? "") : computeNextSerial(parentNode, tree);
   const [form, setForm] = useState({
-    serialNo: item?.serialNo ?? "",
+    serialNo: item?.serialNo ?? nextSerial,
     description: item?.description ?? "",
-    type: item?.type ?? (parentId ? "LINE_ITEM" : "SECTION"),
+    type: item?.type ?? defaultType,
     materialId: item?.materialId ?? "",
     unit: item?.unit ?? "",
     estimatedQty: item?.estimatedQty?.toString() ?? "",
     rate: item?.rate?.toString() ?? "",
     notes: item?.notes ?? "",
   });
+
+  // Reset form when dialog reopens with different item/parent
+  useEffect(() => {
+    if (open) {
+      const s = isEdit ? (item?.serialNo ?? "") : computeNextSerial(parentNode, tree);
+      setForm({
+        serialNo: s,
+        description: item?.description ?? "",
+        type: item?.type ?? defaultType,
+        materialId: item?.materialId ?? "",
+        unit: item?.unit ?? "",
+        estimatedQty: item?.estimatedQty?.toString() ?? "",
+        rate: item?.rate?.toString() ?? "",
+        notes: item?.notes ?? "",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item, parentNode, tree, defaultType]);
+
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -324,7 +435,8 @@ export function BoqFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save");
       toast.success(isEdit ? "BOQ item updated" : "BOQ item created");
       onOpenChange(false);
-      router.refresh();
+      if (onSaved) onSaved();
+      else router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -332,12 +444,17 @@ export function BoqFormDialog({
     }
   }
 
+  // Context label for the dialog
+  const contextLabel = parentNode
+    ? `Under: ${parentNode.serialNo} — ${parentNode.description}`
+    : "Top-level section";
+
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "Edit BOQ Item" : "New BOQ Item"}
-      description={isEdit ? "Update the BOQ item details." : "Add a new section, subsection, or line item to the bill of quantities."}
+      description={isEdit ? "Update the BOQ item details." : contextLabel}
       className="max-w-2xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
@@ -346,10 +463,16 @@ export function BoqFormDialog({
             <Input value={form.serialNo} onChange={(e) => set("serialNo", e.target.value)} placeholder="1.1.1" required />
           </Field>
           <Field label="Type" required>
-            <Select value={form.type} onChange={(e) => set("type", e.target.value as typeof form.type)}>
-              <option value="SECTION">Section</option>
-              <option value="SUBSECTION">Subsection</option>
-              <option value="LINE_ITEM">Line Item</option>
+            <Select
+              value={form.type}
+              onChange={(e) => set("type", e.target.value as typeof form.type)}
+              disabled={allowedTypes.length === 1}
+            >
+              {allowedTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t === "SECTION" ? "Section" : t === "SUBSECTION" ? "Subsection" : "Line Item"}
+                </option>
+              ))}
             </Select>
           </Field>
         </div>

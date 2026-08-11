@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { trialBalance, getTallySyncStats } from "@nirman/services";
+import { trialBalance, getTallySyncStats, getIntegrationConfig } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -14,7 +14,7 @@ export const metadata = { title: "General Ledger · Nirman" };
 
 export default function GeneralLedgerPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="General Ledger"
         description="Double-entry bookkeeping and GST posting. Every transaction posts a balanced journal entry automatically."
@@ -37,10 +37,11 @@ async function GeneralLedgerContent() {
     );
   }
 
-  const [tb, accounts, tallyStats] = await Promise.all([
+  const [tb, accounts, tallyStats, tallyConfig] = await Promise.all([
     trialBalance(company.id),
     prisma.glAccount.findMany({ orderBy: { code: "asc" } }),
     getTallySyncStats(company.id),
+    getIntegrationConfig({ companyId: company.id, key: "TALLY" }),
   ]);
 
   const accountRows = accounts.map((a) => ({
@@ -69,7 +70,7 @@ async function GeneralLedgerContent() {
         isBalanced={tb.isBalanced}
       />
       {hasPermission(role, PERM.FINANCE_MANAGE) && (
-        <TallySyncPanel stats={tallyStats} />
+        <TallySyncPanel stats={{ ...tallyStats, configured: !!tallyConfig?.enabled }} />
       )}
     </>
   );

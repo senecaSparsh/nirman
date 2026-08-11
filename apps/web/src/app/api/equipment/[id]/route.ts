@@ -1,14 +1,24 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { completeMaintenance, retireEquipment, unretireEquipment, softDelete, logAction } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
+import { z } from "zod";
+import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
+const equipmentUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  model: z.string().max(200).nullable().optional(),
+  serialNumber: z.string().max(200).nullable().optional(),
+  category: z.string().max(100).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
   const eq = await prisma.equipment.findFirst({
-    where: { id, companyId: user.companyId ?? undefined, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       assignments: {
         orderBy: { assignedAt: "desc" },
@@ -95,15 +105,26 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   if (action === "update") {
+    const parsed = equipmentUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    // Verify company ownership before updating
+    const company = await getCompany();
+    const existing = await prisma.equipment.findFirst({
+      where: { id, companyId: company.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
     const updated = await prisma.$transaction(async (tx) => {
       const eq = await tx.equipment.update({
         where: { id },
         data: {
-          ...(body.name ? { name: body.name } : {}),
-          ...(body.model !== undefined ? { model: body.model ?? null } : {}),
-          ...(body.serialNumber !== undefined ? { serialNumber: body.serialNumber ?? null } : {}),
-          ...(body.category !== undefined ? { category: body.category ?? null } : {}),
-          ...(body.notes !== undefined ? { notes: body.notes ?? null } : {}),
+          ...(parsed.data.name ? { name: parsed.data.name } : {}),
+          ...(parsed.data.model !== undefined ? { model: parsed.data.model ?? null } : {}),
+          ...(parsed.data.serialNumber !== undefined ? { serialNumber: parsed.data.serialNumber ?? null } : {}),
+          ...(parsed.data.category !== undefined ? { category: parsed.data.category ?? null } : {}),
+          ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes ?? null } : {}),
         },
       });
       await logAction(tx, {
@@ -123,7 +144,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify company ownership before soft-deleting
+  const existing = await prisma.equipment.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
   try {
     await softDelete("Equipment", id);
     return json({ ok: true });

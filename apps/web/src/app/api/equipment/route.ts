@@ -13,6 +13,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const category = searchParams.get("category");
 
   const equipment = await prisma.equipment.findMany({
+    take: 200,
     where: {
       companyId: company.id,
       deletedAt: null,

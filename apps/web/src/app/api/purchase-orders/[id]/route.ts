@@ -104,7 +104,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
-    await approvePurchaseOrder(id, user.id, body?.approvalNotes);
+    await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes);
   } else if (action === "order") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await orderPurchaseOrder(id, user.id);

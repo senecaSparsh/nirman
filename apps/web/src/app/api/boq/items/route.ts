@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { createBoqItem } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -27,6 +28,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Verify the project belongs to the user's company before creating BOQ items
+  const project = await prisma.project.findFirst({
+    where: { id: parsed.data.projectId, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!project) return json({ error: "Project not found" }, { status: 404 });
   try {
     const d = parsed.data;
     const item = await createBoqItem({
@@ -44,10 +51,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
       sortOrder: d.sortOrder,
       userId: user.id,
     });
-    // Verify project belongs to company
-    if (parsed.data.projectId) {
-      // The service already validates the project exists; we just need to ensure company scope
-    }
     return json(item, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

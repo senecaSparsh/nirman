@@ -5,21 +5,26 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus, Home, Pencil, ArrowRight, Hammer, Pause, Trash2,
-  Search, LayoutGrid, Table as TableIcon, RotateCcw, TrendingDown,
-  ArrowDown, ArrowUp, CircleDollarSign, Building2, Layers,
+  LayoutGrid, Rows3, TrendingDown,
+  CircleDollarSign, Building2, Layers, SearchX,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Segmented } from "@/components/ui/tabs";
+import { DataTable } from "@/components/ui/data-table";
+import { IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
 import { EmptyState } from "@/components/empty-state";
-import { statusColor, StatusPill } from "@/components/page";
+import {
+  statusColor, StatusPill,
+} from "@/components/page";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { BuiltUnitFormDialog } from "./built-unit-form-dialog";
+import { PurchaseUnitDialog } from "./purchase-unit-dialog";
 import { BuiltUnitEditDialog } from "./built-unit-edit-dialog";
 import { UnitValuationDialog } from "./unit-valuation-dialog";
 import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
-import { formatCurrency, formatNumber, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import type {
   BuiltUnitRow, BuiltUnitType, BuiltUnitStatus,
   ProjectOption, PhaseOption, SellableAssetRow,
@@ -39,17 +44,10 @@ const STATUS_LABELS: Record<BuiltUnitStatus, string> = {
   RENTED: "Rented",
 };
 
-// Pipeline order — the funnel
-const PIPELINE_ORDER: BuiltUnitStatus[] = [
-  "PLANNED", "UNDER_CONSTRUCTION", "AVAILABLE", "HOLD", "SOLD",
-];
-
 const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
   BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
   SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", VILLA: "Villa", OTHER: "Other",
 };
-
-const ALL_TYPES: BuiltUnitType[] = ["BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "VILLA", "OTHER"];
 
 const VALID_TRANSITIONS: Record<BuiltUnitStatus, BuiltUnitStatus[]> = {
   PLANNED: ["UNDER_CONSTRUCTION"],
@@ -61,8 +59,33 @@ const VALID_TRANSITIONS: Record<BuiltUnitStatus, BuiltUnitStatus[]> = {
   RENTED: ["AVAILABLE"],
 };
 
-type SortKey = "unitNumber" | "area" | "askingPrice" | "currentValuation" | "productionCost";
-type SortDir = "asc" | "desc";
+// ── Derived figures, defined once ──────────────────────────────────
+// Every one of these is a question a sales manager asks of the whole
+// list ("which unit has the thinnest margin?"), so they have to be
+// sortable columns rather than facts buried in a card.
+
+const marginOf = (u: BuiltUnitRow): number | null =>
+  u.askingPrice != null ? u.askingPrice - u.productionCost : null;
+
+const pricePerSqftOf = (u: BuiltUnitRow): number | null => {
+  // RERA: use superBuiltUpArea (saleable area) for pricing, fall back to area
+  const pricingArea = u.superBuiltUpArea ?? u.area;
+  return u.askingPrice != null && pricingArea > 0 ? u.askingPrice / pricingArea : null;
+};
+
+/**
+ * Unit numbers are strings that people read as numbers — "A-10" must
+ * sort after "A-9". The table sorts with plain `<`, so we hand it a
+ * zero-padded key instead of the raw label.
+ */
+const unitSortKey = (u: BuiltUnitRow): string =>
+  u.unitNumber.replace(/\d+/g, (d) => d.padStart(8, "0"));
+
+/** The spatial detail that disambiguates two units of the same type. */
+const placeOf = (u: BuiltUnitRow): string =>
+  [u.floor != null ? `Floor ${u.floor}` : null, u.wing ? `Wing ${u.wing}` : null]
+    .filter(Boolean)
+    .join(" · ");
 
 // ════════════════════════════════════════════════════════════════
 //  Main component
@@ -81,8 +104,8 @@ export function BuiltUnitsView({
   customers?: { id: string; name: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canSell?: boolean };
 }) {
-  const canCreate = permissions?.canCreate ?? true;
-  const canEdit = permissions?.canEdit ?? true;
+  const canCreate = permissions?.canCreate ?? false;
+  const canEdit = permissions?.canEdit ?? false;
   const canSell = permissions?.canSell ?? false;
   const router = useRouter();
 
@@ -96,15 +119,18 @@ export function BuiltUnitsView({
     if (actingId === null) setUnits(serverUnits);
   }, [serverUnits, actingId]);
 
-  const [projectFilter, setProjectFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<"gallery" | "table">("gallery");
-  const [sortKey, setSortKey] = useState<SortKey>("unitNumber");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  /**
+   * The table is the default. A grid of unit cards cannot answer the
+   * questions this page exists for — which units are still unsold, what
+   * each is worth against what it cost, which one is being sold below
+   * cost — because those are comparisons down a column. The gallery
+   * survives for the one job it does better: sitting beside a buyer and
+   * walking a floor.
+   */
+  const [view, setView] = useState<"table" | "gallery">("table");
 
   const [formOpen, setFormOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<BuiltUnitRow | null>(null);
   const [valuating, setValuating] = useState<BuiltUnitRow | null>(null);
   const [delTarget, setDelTarget] = useState<BuiltUnitRow | null>(null);
@@ -125,12 +151,6 @@ export function BuiltUnitsView({
     }
   }, [searchParams, units, canSell]);
 
-  const hasActiveFilters = Boolean(projectFilter || statusFilter || typeFilter || search);
-
-  function clearFilters() {
-    setProjectFilter(""); setStatusFilter(""); setTypeFilter(""); setSearch("");
-  }
-
   // ── Silent background sync — refreshes server data without layout shift ──
   // Uses router.refresh() but only when no dialog is open and no mutation is
   // in flight, so the user never sees a loading flash.
@@ -138,37 +158,21 @@ export function BuiltUnitsView({
     router.refresh();
   }, [router]);
 
-  // ── Pre-status-filter set (for pipeline bar distribution) ──
-  const preStatusFiltered = useMemo(
-    () => units.filter((u) => {
-      if (projectFilter && u.projectId !== projectFilter) return false;
-      if (typeFilter && u.unitType !== typeFilter) return false;
-      if (search) {
-        const q = search.toLowerCase().trim();
-        const haystack = [
-          u.unitNumber, u.wing ?? "", u.floor != null ? String(u.floor) : "",
-          u.phaseName ?? "", u.projectName, UNIT_TYPE_LABELS[u.unitType],
-        ].join(" ").toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    }),
-    [units, projectFilter, typeFilter, search],
-  );
+  // ── Full set — filtering is now handled inside the DataTable ──
+  const filtered = units;
 
-  const pipelineTotal = preStatusFiltered.length;
-
-  // ── Portfolio metrics (from pre-status-filtered set) ──
+  // ── Portfolio metrics ──
   const portfolio = useMemo(() => {
-    const available = preStatusFiltered.filter((u) => u.status === "AVAILABLE");
-    const sold = preStatusFiltered.filter((u) => u.status === "SOLD");
+    const available = units.filter((u) => u.status === "AVAILABLE");
+    // "Sold" = has an active sale (unit may be RESERVED during staged sale flow)
+    const sold = units.filter((u) => u.saleId != null);
     const sellableValue = available.reduce((s, u) => s + (u.askingPrice ?? 0), 0);
     const realizedRevenue = sold.reduce((s, u) => s + (u.askingPrice ?? u.currentValuation), 0);
     const avgPricePerSqft = available.length > 0
       ? available.reduce((s, u) => s + ((u.askingPrice ?? 0) / Math.max(u.area, 1)), 0) / available.length
       : 0;
-    const salesVelocity = preStatusFiltered.length > 0
-      ? (sold.length / preStatusFiltered.length) * 100
+    const salesVelocity = units.length > 0
+      ? (sold.length / units.length) * 100
       : 0;
     return {
       availableCount: available.length,
@@ -178,32 +182,35 @@ export function BuiltUnitsView({
       salesVelocity,
       soldCount: sold.length,
     };
-  }, [preStatusFiltered]);
+  }, [units]);
 
-  // ── Full filtered + sorted set ──
-  const filtered = useMemo(() => {
-    let result = preStatusFiltered.filter((u) => {
-      if (statusFilter && u.status !== statusFilter) return false;
-      return true;
-    });
-    result = [...result].sort((a, b) => {
-      let cmp = 0;
-      switch (sortKey) {
-        case "unitNumber": cmp = a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }); break;
-        case "area": cmp = a.area - b.area; break;
-        case "askingPrice": cmp = (a.askingPrice ?? 0) - (b.askingPrice ?? 0); break;
-        case "currentValuation": cmp = a.currentValuation - b.currentValuation; break;
-        case "productionCost": cmp = a.productionCost - b.productionCost; break;
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return result;
-  }, [preStatusFiltered, statusFilter, sortKey, sortDir]);
+  /**
+   * Summing area is only honest when every row measures in the same
+   * unit — a total of "1,200 SQFT + 90 SQM" is a lie. So the footer
+   * total for area appears only when the filtered set agrees.
+   */
+  const uniformAreaUnit = useMemo(() => {
+    const units_ = new Set(filtered.map((u) => u.areaUnit));
+    return units_.size === 1 ? [...units_][0] : null;
+  }, [filtered]);
 
-  // ── Group by project → by floor (spatial grouping) ──
+  const sumColumns = useMemo(
+    () => [
+      ...(uniformAreaUnit ? ["area"] : []),
+      "productionCost", "currentValuation", "askingPrice", "margin", "nrvWriteDown",
+    ],
+    [uniformAreaUnit],
+  );
+
+  // ── Group by project → by floor (spatial grouping, gallery only) ──
   const grouped = useMemo(() => {
     const projectMap = new Map<string, { name: string; units: BuiltUnitRow[] }>();
-    for (const u of filtered) {
+    // The gallery reads as a walkthrough, so units keep their natural
+    // building order rather than whatever the table was last sorted by.
+    const ordered = [...filtered].sort((a, b) =>
+      a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }),
+    );
+    for (const u of ordered) {
       const existing = projectMap.get(u.projectId);
       if (existing) existing.units.push(u);
       else projectMap.set(u.projectId, { name: u.projectName, units: [u] });
@@ -271,18 +278,6 @@ export function BuiltUnitsView({
     }
   }
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("asc"); }
-  }
-
-  // ── Helpers ──
-  const margin = (u: BuiltUnitRow): number | null =>
-    u.askingPrice != null ? u.askingPrice - u.productionCost : null;
-
-  const pricePerSqft = (u: BuiltUnitRow): number | null =>
-    u.askingPrice != null && u.area > 0 ? u.askingPrice / u.area : null;
-
   // Convert a BuiltUnitRow into the SellableAssetRow shape the SellAssetDialog expects.
   function toSellableAsset(u: BuiltUnitRow): SellableAssetRow {
     return {
@@ -324,112 +319,422 @@ export function BuiltUnitsView({
     });
   }
 
+  /**
+   * Per-row actions. Identical set to the card footer — transitions,
+   * sell, edit, re-valuate, delete — so nothing is lost by defaulting
+   * to the table.
+   */
+  function rowActions(u: BuiltUnitRow) {
+    const isSold = u.status === "SOLD";
+    return (
+      <>
+        {canEdit && !isSold && renderTransitionButtons(u)}
+        {u.status === "AVAILABLE" && canSell && (
+          <Button
+            variant="brand"
+            size="sm"
+            className="h-7"
+            onClick={() => setSellTarget(u)}
+            disabled={actingId === u.id}
+            title="Sell unit"
+          >
+            <CircleDollarSign className="h-3.5 w-3.5" /> Sell
+          </Button>
+        )}
+        {canEdit && (u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION") && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditTarget(u)} disabled={actingId === u.id} title="Edit unit">
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canEdit && !isSold && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setValuating(u)} disabled={actingId === u.id} title="Edit valuation">
+            <CircleDollarSign className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canEdit && u.status === "PLANNED" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={() => setDelTarget(u)} disabled={actingId === u.id} title="Delete">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {isSold && u.saleId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7"
+            onClick={() => { window.location.href = `/sales`; }}
+            title="View sale"
+          >
+            Sale <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  // ── Extracted toolbar pieces (reused by both table and gallery views) ──
+  const viewToggle = (
+    <Segmented
+      value={view}
+      onChange={setView}
+      iconOnly
+      options={[
+        { value: "table", label: "Table", icon: <Rows3 /> },
+        { value: "gallery", label: "Gallery", icon: <LayoutGrid /> },
+      ]}
+    />
+  );
+
+  const trailingButtons = (
+    <>
+      {canCreate && units.length > 0 && (
+        <>
+          <Button variant="outline" onClick={() => setPurchaseOpen(true)} disabled={projects.length === 0}>
+            <ShoppingCart className="h-4 w-4" /> Purchase unit
+          </Button>
+          <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
+            <Plus className="h-4 w-4" /> New unit
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No units match these filters"
+      description="Widen the search, or clear the column filters to see the whole inventory again."
+    />
+  );
+
   return (
     <div className="space-y-4">
       {/* ════════════════════════════════════════════════════════════
-          1. Header row — title left, search + filters + controls right
+          1. Title
           ════════════════════════════════════════════════════════════ */}
-      <div className="border-b border-border pb-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Title */}
-          <div className="min-w-0 shrink-0">
-            <h1 className="text-title text-foreground">Built Units</h1>
-            <p className="mt-0.5 text-meta text-muted-foreground">
-              Sellable units within projects — status, valuation, and NRV write-downs.
-            </p>
-          </div>
-
-          {/* Search + filters + controls — inline with heading on lg */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[150px] flex-1 lg:w-[200px] lg:flex-none">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search unit, wing…"
-                className="pl-8"
-              />
-            </div>
-            <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="min-w-[120px] flex-1 lg:w-[150px] lg:flex-none">
-              <option value="">All projects</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="min-w-[90px] flex-1 lg:w-[110px] lg:flex-none">
-              <option value="">All types</option>
-              {ALL_TYPES.map((t) => <option key={t} value={t}>{UNIT_TYPE_LABELS[t]}</option>)}
-            </Select>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-w-[100px] flex-1 lg:w-[120px] lg:flex-none">
-              <option value="">All statuses</option>
-              {PIPELINE_ORDER.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-            </Select>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
-                <RotateCcw className="h-3.5 w-3.5" /> Clear
-              </Button>
-            )}
-            {pipelineTotal > 0 && (
-              <span className="hidden text-caption text-muted-foreground tnum lg:inline">
-                <span className="font-medium text-foreground">{filtered.length}</span>
-                {" / "}{pipelineTotal}
-              </span>
-            )}
-            <div className="inline-flex items-center gap-0.5 rounded-lg border border-border/80 bg-muted/50 p-1">
-              <button type="button" onClick={() => setView("gallery")}
-                className={cn("rounded-md p-1.5 transition-colors",
-                  view === "gallery" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                title="Gallery view">
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-              <button type="button" onClick={() => setView("table")}
-                className={cn("rounded-md p-1.5 transition-colors",
-                  view === "table" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-                title="Table view">
-                <TableIcon className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {canCreate && (
-              <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
-                <Plus className="h-4 w-4" /> New Unit
-              </Button>
-            )}
-          </div>
-        </div>
+      <div className="min-w-0">
+        <h1 className="text-title text-foreground">Built Units</h1>
+        <p className="mt-0.5 text-meta text-muted-foreground">
+          Sellable units within projects — status, valuation, and NRV write-downs.
+        </p>
       </div>
-
-      {/* ════════════════════════════════════════════════════════════
-          2. Metrics strip — 4-col grid
-          ════════════════════════════════════════════════════════════ */}
-      {pipelineTotal > 0 && (
-        <MetricsPipelineStrip
-          portfolio={portfolio}
-          total={pipelineTotal}
-        />
-      )}
 
       {/* ════════════════════════════════════════════════════════════
           4. Content
           ════════════════════════════════════════════════════════════ */}
-      {filtered.length === 0 ? (
+      {units.length === 0 ? (
         <EmptyState
-          icon={<Home className="h-5 w-5" />}
-          title={units.length === 0 ? "No built units yet" : "No units match the filters"}
+          icon={<Home />}
+          title="No built units yet"
           description={
-            units.length === 0
-              ? projects.length === 0
-                ? "Create a project first, then add built units."
-                : "Add your first built unit to start tracking inventory."
-              : "Try a different project, type filter, or search query."
+            projects.length === 0
+              ? "A unit lives inside a project. Create a project first, then add the flats, shops or villas that will be sold from it."
+              : "Add the flats, shops or villas this project will sell. Each one carries its own cost, valuation and margin."
           }
+          hint="Production cost is allocated per sq ft from project spend, so a unit's margin appears as soon as materials are issued."
           action={
-            units.length === 0 && projects.length > 0 && canCreate ? (
-              <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Unit</Button>
-            ) : hasActiveFilters ? (
-              <Button variant="outline" size="sm" onClick={clearFilters}><RotateCcw className="h-3.5 w-3.5" /> Clear filters</Button>
+            projects.length > 0 && canCreate ? (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setPurchaseOpen(true)}>
+                  <ShoppingCart className="h-4 w-4" /> Purchase unit
+                </Button>
+                <Button onClick={() => setFormOpen(true)}>
+                  <Plus className="h-4 w-4" /> New unit
+                </Button>
+              </div>
             ) : undefined
           }
+          contactHint={
+            canCreate
+              ? "Create a project first — units are added inside one."
+              : "Ask a manager to add built units."
+          }
         />
-      ) : view === "gallery" ? (
-        /* ── Gallery: project → floor → cards (spatial grouping) ── */
+      ) : view === "table" ? (
+        /*
+         * The register. Sorted by margin so the units losing money — the
+         * ones priced under what they cost to build — are the first thing
+         * a sales manager sees, not something they'd have to hunt for by
+         * opening twenty cards.
+         */
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={filtered}
+            storageKey="built-units"
+            hideable
+            freezeFirstColumn
+            exportFileName="built-units"
+            initialSort={{ key: "margin", direction: "desc" }}
+            onRowClick={(u) => setValuating(u)}
+            searchable
+            searchPlaceholder="Search unit, wing, phase…"
+            toolbarLeading={viewToggle}
+            toolbarTrailing={trailingButtons}
+            showTotals
+            sumColumns={sumColumns}
+            totalFormat={(key, sum) => (key === "area" ? formatNumber(sum, 0) : formatCurrency(sum))}
+            groupBy={{ key: "projectId", label: (u) => u.projectName }}
+            rowTone={(u) => {
+              // A write-down or a below-cost price is real money lost;
+              // an available unit with no asking price cannot be sold at
+              // all, which is the cheapest of the three to fix.
+              if (u.nrvWriteDown > 0) return "danger";
+              const m = marginOf(u);
+              if (m != null && m < 0) return "danger";
+              if (u.status === "AVAILABLE" && u.askingPrice == null) return "warning";
+              return null;
+            }}
+            rowActions={rowActions}
+            emptyState={noMatch}
+            columns={[
+              {
+                key: "unitNumber",
+                label: "Unit",
+                sortable: true,
+                width: "220px",
+                sortValue: unitSortKey,
+                render: (u) => (
+                  <IdentityCell
+                    name={u.unitNumber}
+                    sub={[UNIT_TYPE_LABELS[u.unitType], placeOf(u)].filter(Boolean).join(" · ")}
+                    dot={statusColor(u.status)}
+                  />
+                ),
+                exportValue: (u) => u.unitNumber,
+              },
+              {
+                key: "projectName",
+                label: "Project",
+                sortable: true,
+                filterable: true,
+                width: "180px",
+                render: (u) => (
+                  <IdentityCell name={u.projectName} sub={u.phaseName ?? undefined} icon={<Building2 />} />
+                ),
+                filterValue: (u) => u.projectName,
+              },
+              {
+                key: "status",
+                label: "Status",
+                sortable: true,
+                filterable: true,
+                render: (u) => (
+                  <div className="flex items-center gap-1.5">
+                    <StatusPill status={u.status} />
+                    {u.originType === "PURCHASED" && (
+                      <span className="text-micro px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                        Purchased
+                      </span>
+                    )}
+                  </div>
+                ),
+                filterValue: (u) => `${STATUS_LABELS[u.status]}${u.originType === "PURCHASED" ? " Purchased" : ""}`,
+              },
+              {
+                key: "unitType",
+                label: "Type",
+                sortable: true,
+                filterable: true,
+                defaultHidden: true,
+                render: (u) => UNIT_TYPE_LABELS[u.unitType],
+                exportValue: (u) => UNIT_TYPE_LABELS[u.unitType],
+                filterValue: (u) => UNIT_TYPE_LABELS[u.unitType],
+              },
+              {
+                key: "phaseName",
+                label: "Phase",
+                sortable: true,
+                defaultHidden: true,
+                sortValue: (u) => u.phaseName ?? "",
+                render: (u) => u.phaseName ?? <span className="text-faint">—</span>,
+              },
+              {
+                key: "place",
+                label: "Floor / wing",
+                sortable: true,
+                defaultHidden: true,
+                // Unassigned floors sort last rather than as "floor zero".
+                sortValue: (u) => u.floor ?? Number.MAX_SAFE_INTEGER,
+                render: (u) => placeOf(u) || <span className="text-faint">—</span>,
+                exportValue: (u) => placeOf(u),
+              },
+              {
+                key: "area",
+                label: "Area",
+                align: "right",
+                sortable: true,
+                hint: "Sellable area. This is the basis on which project cost is allocated to the unit.",
+                render: (u) => <QtyCell value={formatNumber(u.area, 0)} unit={u.areaUnit} />,
+                exportValue: (u) => u.area,
+              },
+              {
+                key: "productionCost",
+                label: "Cost to build",
+                align: "right",
+                sortable: true,
+                hint: "Allocated project cost (₹ per sq ft × area) plus anything issued directly to this unit.",
+                render: (u) =>
+                  u.productionCost > 0
+                    ? <MoneyCell value={u.productionCost} formatted={formatCurrency(u.productionCost)} neutral />
+                    : <span className="text-faint">—</span>,
+                exportValue: (u) => u.productionCost,
+              },
+              {
+                key: "currentValuation",
+                label: "Valuation",
+                align: "right",
+                sortable: true,
+                hint: "Latest carrying value. A write-down means the market moved below cost.",
+                render: (u) => (
+                  <MoneyCell
+                    value={u.currentValuation}
+                    formatted={formatCurrency(u.currentValuation)}
+                    neutral
+                    sub={u.nrvWriteDown > 0 ? `${formatCurrency(u.nrvWriteDown)} written down` : undefined}
+                  />
+                ),
+                exportValue: (u) => u.currentValuation,
+              },
+              {
+                key: "askingPrice",
+                label: "Asking",
+                align: "right",
+                sortable: true,
+                hint: "The price quoted to a buyer. An available unit without one cannot be sold.",
+                sortValue: (u) => u.askingPrice ?? 0,
+                render: (u) =>
+                  u.askingPrice != null ? (
+                    <MoneyCell value={u.askingPrice} formatted={formatCurrency(u.askingPrice)} neutral />
+                  ) : (
+                    <span className="italic text-faint">Not set</span>
+                  ),
+                exportValue: (u) => u.askingPrice ?? "",
+              },
+              {
+                key: "salePrice",
+                label: "Sold Price",
+                align: "right",
+                sortable: true,
+                sortValue: (u) => u.salePrice ?? 0,
+                render: (u) =>
+                  u.salePrice != null ? (
+                    <MoneyCell value={u.salePrice} formatted={formatCurrency(u.salePrice)} />
+                  ) : (
+                    <span className="text-faint">—</span>
+                  ),
+                exportValue: (u) => u.salePrice ?? "",
+              },
+              {
+                key: "saleProfit",
+                label: "Profit",
+                align: "right",
+                sortable: true,
+                sortValue: (u) => u.saleProfit ?? 0,
+                render: (u) =>
+                  u.saleProfit != null ? (
+                    <MoneyCell value={u.saleProfit} formatted={`${u.saleProfit >= 0 ? "+" : ""}${formatCurrency(u.saleProfit)}`} showSign />
+                  ) : (
+                    <span className="text-faint">—</span>
+                  ),
+                exportValue: (u) => u.saleProfit ?? "",
+              },
+              {
+                key: "customerName",
+                label: "Buyer",
+                render: (u) =>
+                  u.customerName ? (
+                    <span className="text-foreground">{u.customerName}</span>
+                  ) : (
+                    <span className="text-faint">—</span>
+                  ),
+                exportValue: (u) => u.customerName ?? "",
+              },
+              {
+                key: "saleDate",
+                label: "Sale Date",
+                sortable: true,
+                sortValue: (u) => (u.saleDate ? new Date(u.saleDate).getTime() : 0),
+                render: (u) =>
+                  u.saleDate ? (
+                    <span className="tnum text-muted-foreground">{formatDate(u.saleDate)}</span>
+                  ) : (
+                    <span className="text-faint">—</span>
+                  ),
+                exportValue: (u) => (u.saleDate ? formatDate(u.saleDate) : ""),
+              },
+              {
+                key: "margin",
+                label: "Margin",
+                align: "right",
+                sortable: true,
+                bar: true,
+                hint: "Asking price less cost to build. The percentage is on cost.",
+                // Unpriced units sort as zero rather than as a huge
+                // negative, so they don't drown the genuinely loss-making
+                // ones at the bottom of the list — and so the footer total
+                // stays a real number.
+                sortValue: (u) => marginOf(u) ?? 0,
+                render: (u) => {
+                  const m = marginOf(u);
+                  if (m == null) return <span className="text-faint">—</span>;
+                  return (
+                    <MoneyCell
+                      value={m}
+                      formatted={formatCurrency(m)}
+                      showSign
+                      sub={u.productionCost > 0 ? `${((m / u.productionCost) * 100).toFixed(0)}% on cost` : undefined}
+                    />
+                  );
+                },
+                exportValue: (u) => marginOf(u) ?? "",
+              },
+              {
+                key: "pricePerSqft",
+                label: "₹ / sq ft",
+                align: "right",
+                sortable: true,
+                hint: "Asking price ÷ area — the rate a buyer actually negotiates on.",
+                sortValue: (u) => pricePerSqftOf(u) ?? 0,
+                render: (u) => {
+                  const psf = pricePerSqftOf(u);
+                  return psf != null
+                    ? <QtyCell value={formatNumber(psf, 0)} unit={`/${u.areaUnit.toLowerCase()}`} />
+                    : <span className="text-faint">—</span>;
+                },
+                exportValue: (u) => pricePerSqftOf(u) ?? "",
+              },
+              {
+                key: "nrvWriteDown",
+                label: "NRV write-down",
+                align: "right",
+                sortable: true,
+                defaultHidden: true,
+                hint: "Impairment booked because net realisable value fell below cost.",
+                render: (u) =>
+                  u.nrvWriteDown > 0
+                    ? <span className="font-semibold text-danger">{formatCurrency(u.nrvWriteDown)}</span>
+                    : <span className="text-faint">—</span>,
+                exportValue: (u) => u.nrvWriteDown,
+              },
+            ]}
+          />
+        </div>
+      ) : filtered.length === 0 ? (
+        noMatch
+      ) : (
+        /* ── Gallery: project → floor → cards ──
+           Kept because it answers one thing a table can't: standing in
+           front of a buyer, pointing at the floor they're asking about. */
+        <>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            {viewToggle}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {trailingButtons}
+          </div>
+        </div>
         <div className="space-y-5">
           {grouped.map((group) => {
             return (
@@ -468,8 +773,8 @@ export function BuiltUnitsView({
                         canEdit={canEdit}
                         canSell={canSell}
                         acting={actingId === u.id}
-                        marginVal={margin(u)}
-                        pricePerSqftVal={pricePerSqft(u)}
+                        marginVal={marginOf(u)}
+                        pricePerSqftVal={pricePerSqftOf(u)}
                         onValuate={setValuating}
                         onEdit={setEditTarget}
                         onDelete={setDelTarget}
@@ -484,105 +789,14 @@ export function BuiltUnitsView({
             );
           })}
         </div>
-      ) : (
-        /* ── Table view ── */
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="overflow-x-auto">
-            <Table>
-              <THead>
-                <TR>
-                  <SortTH label="Unit" sortKey="unitNumber" current={sortKey} dir={sortDir} onToggle={toggleSort} />
-                  <TH>Type</TH>
-                  <TH>Phase</TH>
-                  <TH>Floor / Wing</TH>
-                  <SortTH label="Area" sortKey="area" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
-                  <TH>Status</TH>
-                  <SortTH label="Cost" sortKey="productionCost" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
-                  <SortTH label="Valuation" sortKey="currentValuation" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
-                  <SortTH label="Asking" sortKey="askingPrice" current={sortKey} dir={sortDir} onToggle={toggleSort} align="right" />
-                  <TH align="right">₹/Sq.Ft</TH>
-                  <TH align="right">Margin</TH>
-                  {canEdit && <TH align="right">Actions</TH>}
-                </TR>
-              </THead>
-              <TBody>
-                {filtered.map((u) => {
-                  const m = margin(u);
-                  const psf = pricePerSqft(u);
-                  const isSold = u.status === "SOLD";
-                  return (
-                    <TR key={u.id} className={cn(isSold && "opacity-50")}>
-                      <TD>
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColor(u.status) }} />
-                          <span className={cn("font-medium", isSold && "line-through decoration-danger/40")}>{u.unitNumber}</span>
-                        </div>
-                        <div className="text-caption text-muted-foreground">{u.projectName}</div>
-                      </TD>
-                      <TD className="text-muted-foreground">{UNIT_TYPE_LABELS[u.unitType]}</TD>
-                      <TD className="text-muted-foreground">{u.phaseName ?? "—"}</TD>
-                      <TD className="text-muted-foreground">
-                        {u.floor != null || u.wing ? (
-                          <span className="text-caption">
-                            {u.floor != null ? `F${u.floor}` : ""}{u.floor != null && u.wing ? " · " : ""}{u.wing ?? ""}
-                          </span>
-                        ) : "—"}
-                      </TD>
-                      <TD align="right" className="tnum">{formatNumber(u.area, 0)} <span className="text-caption text-muted-foreground">{u.areaUnit}</span></TD>
-                      <TD><StatusPill status={u.status} className="text-micro" /></TD>
-                      <TD align="right" className="tnum text-muted-foreground">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</TD>
-                      <TD align="right" className="tnum">{formatCurrency(u.currentValuation)}</TD>
-                      <TD align="right" className="tnum font-medium">{u.askingPrice != null ? formatCurrency(u.askingPrice) : <span className="italic text-muted-foreground/50">Not set</span>}</TD>
-                      <TD align="right" className="tnum text-caption text-muted-foreground">{psf != null ? formatNumber(psf, 0) : "—"}</TD>
-                      <TD align="right" className={cn("tnum text-caption", m == null ? "text-muted-foreground" : m >= 0 ? "text-success" : "text-danger")}>
-                        {m != null ? `${m >= 0 ? "+" : ""}${formatCurrency(m)}` : "—"}
-                      </TD>
-                      {canEdit && (
-                        <TD align="right">
-                          <div className="flex items-center justify-end gap-0.5">
-                            {renderTransitionButtons(u)}
-                            {u.status === "AVAILABLE" && canSell && (
-                              <Button variant="brand" size="sm" className="h-7" onClick={() => setSellTarget(u)} disabled={actingId === u.id} title="Sell unit">
-                                <CircleDollarSign className="h-3.5 w-3.5" /> Sell
-                              </Button>
-                            )}
-                            {(u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION") && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditTarget(u)} disabled={actingId === u.id} title="Edit unit">
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {!isSold && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setValuating(u)} disabled={actingId === u.id} title="Edit valuation">
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            {u.status === "PLANNED" && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={() => setDelTarget(u)} disabled={actingId === u.id} title="Delete">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </TD>
-                      )}
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </Table>
-          </div>
-          {/* Count footer */}
-          <div className="border-t border-border bg-muted/20 px-3 py-2 text-caption text-muted-foreground tnum">
-            {filtered.length} unit{filtered.length !== 1 ? "s" : ""}
-            {filtered.length !== pipelineTotal && ` of ${pipelineTotal}`}
-            {" · "}{formatCurrency(filtered.reduce((s, u) => s + (u.askingPrice ?? 0), 0))} total asking
-          </div>
-        </div>
+        </>
       )}
 
       {/* ════════════════════════════════════════════════════════════
           Dialogs
           ════════════════════════════════════════════════════════════ */}
       <BuiltUnitFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} phases={phases} />
+      <PurchaseUnitDialog open={purchaseOpen} onOpenChange={setPurchaseOpen} projects={projects} onPurchased={() => window.location.reload()} />
       <BuiltUnitEditDialog
         open={editTarget !== null}
         onOpenChange={(o) => { if (!o) setEditTarget(null); }}
@@ -679,79 +893,7 @@ export function BuiltUnitsView({
 }
 
 // ════════════════════════════════════════════════════════════════
-//  Metrics + Pipeline strip — two clean rows in one card
-//  Row 1: 4-col metrics grid · Row 2: slim pipeline bar with labels
-// ════════════════════════════════════════════════════════════════
-function MetricsPipelineStrip({
-  portfolio, total,
-}: {
-  portfolio: {
-    availableCount: number;
-    sellableValue: number;
-    realizedRevenue: number;
-    avgPricePerSqft: number;
-    salesVelocity: number;
-    soldCount: number;
-  };
-  total: number;
-}) {
-  if (total === 0) return null;
-
-  return (
-    <div className="grid grid-cols-2 divide-x divide-y divide-border overflow-hidden rounded-xl border border-border lg:grid-cols-4 lg:divide-y-0">
-      <MetricCell
-        label="Sellable Value"
-        value={formatCurrency(portfolio.sellableValue)}
-        sub={`${portfolio.availableCount} available`}
-        color="var(--color-stage-sell)"
-      />
-      <MetricCell
-        label="Realized Revenue"
-        value={formatCurrency(portfolio.realizedRevenue)}
-        sub={`${portfolio.soldCount} sold`}
-        color="var(--color-danger)"
-      />
-      <MetricCell
-        label="Avg ₹/Sq.Ft"
-        value={portfolio.avgPricePerSqft > 0 ? formatNumber(portfolio.avgPricePerSqft, 0) : "—"}
-        sub="across available"
-        color="var(--color-stage-manage)"
-      />
-      <MetricCell
-        label="Sales Velocity"
-        value={`${portfolio.salesVelocity.toFixed(0)}%`}
-        sub={`${portfolio.soldCount} of ${total} sold`}
-        color="var(--color-stage-build)"
-      />
-    </div>
-  );
-}
-
-// ── Metric cell — one cell in the 4-col grid ──
-function MetricCell({
-  label, value, sub, color,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
-}) {
-  return (
-    <div className="p-3">
-      <div className="flex items-center gap-1.5">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-label text-muted-foreground/70">{label}</span>
-      </div>
-      <div className="mt-1 tnum text-body font-bold tracking-tight text-foreground">
-        {value}
-      </div>
-      <div className="mt-0.5 text-micro text-muted-foreground/60">{sub}</div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════
-//  Unit card — a property listing card
+//  Unit card — a property listing card, for the gallery view
 // ════════════════════════════════════════════════════════════════
 function UnitCard({
   unit: u, canEdit, canSell, acting, marginVal, pricePerSqftVal,
@@ -805,7 +947,14 @@ function UnitCard({
             </div>
           </div>
           {!isSold && (
-            <StatusPill status={u.status} className="shrink-0 text-micro px-1 py-0" />
+            <div className="flex items-center gap-1">
+              <StatusPill status={u.status} className="shrink-0 text-micro px-1 py-0" />
+              {u.originType === "PURCHASED" && (
+                <span className="text-micro px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                  Purchased
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -826,7 +975,14 @@ function UnitCard({
           {pricePerSqftVal != null ? (
             <span>{formatNumber(pricePerSqftVal, 0)} ₹/{u.areaUnit.toLowerCase()}</span>
           ) : <span>—</span>}
-          <span>{formatNumber(u.area, 0)} {u.areaUnit}</span>
+          <span>
+            {formatNumber(u.superBuiltUpArea ?? u.area, 0)} {u.areaUnit}
+            {u.superBuiltUpArea != null && u.carpetArea != null && (
+              <span className="ml-1 text-faint" title="RERA carpet area">
+                (carpet: {formatNumber(u.carpetArea, 0)})
+              </span>
+            )}
+          </span>
         </div>
 
         {/* Margin — compact, only if available */}
@@ -909,7 +1065,7 @@ function UnitCard({
 }
 
 // ════════════════════════════════════════════════════════════════
-//  Transition button config + Sortable TH
+//  Transition button config
 // ════════════════════════════════════════════════════════════════
 
 const TRANSITION_BUTTON_CONFIG: Record<BuiltUnitStatus, { icon: typeof Hammer; title: string }> = {
@@ -921,32 +1077,3 @@ const TRANSITION_BUTTON_CONFIG: Record<BuiltUnitStatus, { icon: typeof Hammer; t
   SOLD: { icon: ArrowRight, title: "Sold" },
   RENTED: { icon: ArrowRight, title: "Rented" },
 };
-
-function SortTH({
-  label, sortKey, current, dir, onToggle, align = "left",
-}: {
-  label: string;
-  sortKey: SortKey;
-  current: SortKey;
-  dir: SortDir;
-  onToggle: (key: SortKey) => void;
-  align?: "left" | "right";
-}) {
-  const active = current === sortKey;
-  return (
-    <TH align={align}>
-      <button
-        type="button"
-        onClick={() => onToggle(sortKey)}
-        className={cn(
-          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
-          align === "right" && "flex-row-reverse",
-          active ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {label}
-        {active && (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-      </button>
-    </TH>
-  );
-}

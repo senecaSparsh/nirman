@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { submitRaBill, approveRaBill, rejectRaBill } from "@nirman/services";
+import { submitRaBill, approveRaBill, rejectRaBill, payRaBill } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
-  const bill = await prisma.raBill.findUnique({
-    where: { id },
+  const bill = await prisma.raBill.findFirst({
+    where: { id, companyId: company.id },
     include: {
       workOrder: {
         select: {
@@ -51,10 +52,17 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
+
+  // Enforce granular permissions per action (segregation of duties)
+  const requiredPerm =
+    action === "submit" ? PERM.RA_SUBMIT :
+    action === "approve" || action === "reject" ? PERM.RA_APPROVE :
+    action === "pay" ? PERM.RA_PAY :
+    PERM.ASSETS_MANAGE; // fallback
+  const user = await requirePermission(requiredPerm);
 
   try {
     if (action === "submit") {
@@ -71,7 +79,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const bill = await rejectRaBill(id, body.reason, user.id);
       return json(bill);
     }
-    return json({ error: "Unknown action. Use: submit | approve | reject" }, { status: 400 });
+    if (action === "pay") {
+      const bill = await payRaBill(id, user.id, body?.paymentMode, body?.paymentReference);
+      return json(bill);
+    }
+    return json({ error: "Unknown action. Use: submit | approve | reject | pay" }, { status: 400 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

@@ -29,7 +29,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         id: r.id,
         reqNumber: r.reqNumber,
         projectId: r.projectId,
-        projectName: r.project.name,
+        projectName: r.project?.name ?? null,
         phaseId: r.phaseId,
         phaseName: r.phase?.name ?? null,
         status: r.status,
@@ -53,9 +53,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const { phaseId, neededByDate, ...rest } = parsed.data;
+  const company = await getCompany();
   try {
     const req = await createRequisition({
       ...rest,
+      companyId: company.id,
       phaseId: phaseId ?? undefined,
       neededByDate: neededByDate ? new Date(neededByDate) : undefined,
       notes: rest.notes ?? undefined,

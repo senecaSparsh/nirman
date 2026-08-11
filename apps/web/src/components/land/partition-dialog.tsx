@@ -7,7 +7,7 @@ import { Plus, Trash2, Layers, Check, AlertCircle, Construction } from "lucide-r
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatCurrency } from "@/lib/utils";
 import type { LandParcelRow } from "@/lib/types";
 
 type AllocationModel = "PRO_RATA" | "MARKET_VALUE";
@@ -406,10 +406,10 @@ export function PartitionDialog({
           <div className="flex items-center justify-between text-body">
             <span className="font-medium">Cost Allocation Preview</span>
             <span className="text-caption text-muted-foreground tnum">
-              Total basis: ₹{formatNumber(totalBasis)}
+              Total basis: {formatCurrency(totalBasis)}
               {devCost > 0 && (
                 <span className="ml-1 opacity-70">
-                  (acq ₹{formatNumber(parentCost)} + dev ₹{formatNumber(devCost)})
+                  (acq {formatCurrency(parentCost)} + dev {formatCurrency(devCost)})
                 </span>
               )}
             </span>
@@ -422,7 +422,7 @@ export function PartitionDialog({
                   {child.isInfrastructure && " (infra)"}
                 </span>
                 <span className={child.isInfrastructure ? "text-muted-foreground" : "font-medium"}>
-                  ₹{formatNumber(previewCosts[idx] ?? 0)}
+                  {formatCurrency(previewCosts[idx] ?? 0)}
                 </span>
               </div>
             ))}

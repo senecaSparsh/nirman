@@ -139,6 +139,11 @@ export const PERM = {
   FINANCE_VIEW: "finance.view",
   FINANCE_MANAGE: "finance.manage",
   EXPENSE_CREATE: "expense.create",
+  // Subcontractor / Work Orders — segregation of duties
+  WO_MANAGE: "wo.manage",       // create, issue, complete, pay advance
+  RA_SUBMIT: "ra.submit",       // submit RA bill for approval
+  RA_APPROVE: "ra.approve",     // approve / reject RA bill
+  RA_PAY: "ra.pay",             // mark RA bill as paid + release retention
   // Sales
   SALES_VIEW: "sales.view",
   SALES_MANAGE: "sales.manage",
@@ -197,6 +202,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.SALES_VIEW, PERM.SALES_MANAGE, PERM.SALE_CREATE,
       PERM.COMPANY_MANAGE,
       PERM.HR_VIEW, PERM.HR_MANAGE, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_VIEW, PERM.DPR_SUBMIT, PERM.DPR_APPROVE_SUB_ADMIN,
+      PERM.WO_MANAGE, PERM.RA_SUBMIT,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -247,6 +253,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.SALES_VIEW,
       PERM.ASSETS_VIEW,
       PERM.HR_VIEW, PERM.PAYROLL_VIEW, PERM.DPR_VIEW,
+      PERM.RA_PAY,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -257,10 +264,16 @@ export const ROLES: Record<Role, RoleDef> = {
 
 export const ROLE_LIST: RoleDef[] = ALL_ROLES.map((r) => ROLES[r]);
 
-/** Normalize an arbitrary string to a valid Role (falls back to MANAGER). */
+/**
+ * Normalize an arbitrary string to a valid Role.
+ * Falls back to the LEAST-privileged role (SALES) rather than MANAGER,
+ * so a corrupted or manipulated role string never grants broad access.
+ * Callers that need to validate a role should check explicitly rather
+ * than relying on this fallback.
+ */
 export function normalizeRole(raw: string | undefined | null): Role {
   if (raw && raw in ROLES) return raw as Role;
-  return "MANAGER";
+  return "SALES";
 }
 
 /**

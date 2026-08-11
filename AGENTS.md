@@ -69,7 +69,7 @@
   (MANAGER), `ravi@nirman.in` (SUPERVISOR), `karan@nirman.in` (SALES),
   `priya@nirman.in` (ACCOUNTANT) — all password `nirman123`.
 - **RBAC**: 6 roles (OWNER, ADMIN, MANAGER, SUPERVISOR, SALES, ACCOUNTANT) with
-  a View+Manage permission matrix in `@/lib/roles.ts`. ~25 permissions covering
+  a View+Manage permission matrix in `@/lib/roles.ts`. 44 permissions covering
   all modules + approval actions (`po.approve`, `requisition.approve`,
   `stock.transfer`, `stock.issue`, `sale.create`, `expense.create`,
   `asset.sell`, `land.partition`). OWNER/ADMIN = "*" (all permissions).
@@ -98,7 +98,7 @@
   `postLandPurchase`) from `@nirman/services` post balanced double-entry
   `JournalEntry` + `JournalLine` rows INSIDE the same transaction as the source
   mutation (so the books never diverge from reality). The chart of accounts is
-  `GlAccount` (18 system accounts). Account codes are in the `ACCT` const. Input GST (ITC) is debited
+  `GlAccount` (26 system accounts). Account codes are in the `ACCT` const. Input GST (ITC) is debited
   on purchases; Output GST is credited on sales. Seed via `seedChartOfAccounts()`.
   Reporting: `trialBalance()` + `accountLedger()`. UI at `/gl` (PPR page +
   client drill-down). API at `/api/gl/trial-balance`, `/api/gl/ledger`,

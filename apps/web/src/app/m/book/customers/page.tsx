@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { Users } from "lucide-react";
+import { Users, UserPlus } from "lucide-react";
 import { MobilePageHeader, MobileSectionTitle, MobileRow, MobileEmptyState, MobileCta, MobileRefreshButton, MobileStatusBadge } from "@/components/mobile/mobile-primitives";
 
 /** Sales → Customers tab. */
@@ -39,7 +39,12 @@ async function BookCustomersContent() {
 
       <MobileSectionTitle>Recent</MobileSectionTitle>
       {customers.length === 0 ? (
-        <MobileEmptyState icon={Users} title="No customers yet" />
+        <MobileEmptyState
+          icon={Users}
+          title="No customers yet"
+          hint="Create a customer to start booking sales."
+          action={<MobileCta href="/m/customers/new" icon={UserPlus}>Create Customer</MobileCta>}
+        />
       ) : (
         <div>
           {customers.map((c) => {

@@ -358,8 +358,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
         return { stepId: step.id, status: "failed", message: "Missing entityType, entityId, or newStatus" };
       }
 
-      // Generic status update — map entity type to Prisma model
-      const modelMap: Record<string, string> = {
+      // Map entity type to Prisma model — use the typed Prisma client API
+      // (NOT raw SQL) to prevent SQL injection via table name interpolation.
+      const modelMap: Record<string, "project" | "purchaseOrder" | "materialRequisition" | "stockTransfer" | "task"> = {
         Project: "project",
         PurchaseOrder: "purchaseOrder",
         MaterialRequisition: "materialRequisition",
@@ -372,8 +373,13 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
         return { stepId: step.id, status: "failed", message: `Unsupported entity type: ${entityType}` };
       }
 
-      // Use raw SQL for generic update to avoid type complexity
-      await prisma.$executeRaw`UPDATE "${entityType.toLowerCase()}" SET status = ${newStatus}, "updatedAt" = NOW() WHERE id = ${entityId}`;
+      // Use the typed Prisma client — safe from SQL injection
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const model = (prisma as any)[modelName];
+      await model.update({
+        where: { id: entityId },
+        data: { status: newStatus },
+      });
 
       return { stepId: step.id, status: "success", message: `Updated ${entityType} ${entityId} status to ${newStatus}` };
     }

@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { issueWorkOrder, releaseRetention } from "@nirman/services";
+import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
-  const wo = await prisma.subcontractorWorkOrder.findUnique({
-    where: { id },
+  const wo = await prisma.subcontractorWorkOrder.findFirst({
+    where: { id, companyId: company.id },
     include: {
       subcontractor: true,
       project: { select: { id: true, name: true } },
@@ -43,21 +44,36 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
+
+  // Enforce granular permissions per action (segregation of duties)
+  const requiredPerm =
+    action === "issue" || action === "complete" || action === "pay-advance" ? PERM.WO_MANAGE :
+    action === "release-retention" ? PERM.RA_PAY :
+    PERM.ASSETS_MANAGE; // fallback for unknown actions
+  const user = await requirePermission(requiredPerm);
 
   try {
     if (action === "issue") {
       const wo = await issueWorkOrder(id, user.id);
       return json(wo);
     }
-    if (action === "release-retention") {
-      const result = await releaseRetention(id, user.id);
+    if (action === "complete") {
+      const wo = await completeWorkOrder(id, user.id);
+      return json(wo);
+    }
+    if (action === "pay-advance") {
+      const result = await payAdvance(id, body?.amount, user.id, body?.paymentMode, body?.paymentReference);
       return json(result);
     }
-    return json({ error: "Unknown action. Use: issue | release-retention" }, { status: 400 });
+    if (action === "release-retention") {
+      const override = body?.overrideReason ? { reason: body.overrideReason } : undefined;
+      const result = await releaseRetention(id, user.id, body?.paymentMode, body?.paymentReference, override);
+      return json(result);
+    }
+    return json({ error: "Unknown action. Use: issue | complete | pay-advance | release-retention" }, { status: 400 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

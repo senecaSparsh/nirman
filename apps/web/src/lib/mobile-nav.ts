@@ -103,9 +103,11 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     ],
     more: [
       { label: "Full dashboard", href: "/", desktopOnly: true },
+      { label: "Inventory at a glance", href: "/m/pulse/inventory" },
+      { label: "Materials catalogue", href: "/m/materials" },
+      { label: "Stock ledger", href: "/m/stock" },
       { label: "General Ledger", href: "/m/books/gl" },
       { label: "Settings", href: "/settings", desktopOnly: true },
-      { label: "Workflows", href: "/workflows", desktopOnly: true },
     ],
   },
 

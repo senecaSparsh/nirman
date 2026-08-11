@@ -43,7 +43,7 @@ interface ReqLine {
 interface ReqRow {
   id: string;
   requisitionNumber: string;
-  projectName: string;
+  projectName: string | null;
   createdAt: string;
   lines: ReqLine[];
 }
@@ -205,7 +205,7 @@ export function MobileApprovalsQueue({
             isOpen={isOpen}
             onToggle={() => setExpanded(isOpen ? null : `req:${req.id}`)}
             icon={ClipboardList}
-            title={req.projectName}
+            title={req.projectName ?? "N/A"}
             subtitle={`Req ${req.requisitionNumber} · ${formatDate(req.createdAt)}`}
             meta={`${req.lines.length} lines`}
             state={state}

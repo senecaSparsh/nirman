@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -22,6 +22,13 @@ export function CategoryFormDialog({
   const [unit, setUnit] = useState(category?.unit ?? "NOS");
   const [saving, setSaving] = useState(false);
   const isEdit = category != null;
+
+  // Sync form fields when the edit target changes or the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    setName(category?.name ?? "");
+    setUnit(category?.unit ?? "NOS");
+  }, [open, category]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

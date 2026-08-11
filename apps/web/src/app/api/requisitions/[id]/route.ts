@@ -63,7 +63,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     id: req.id,
     reqNumber: req.reqNumber,
     projectId: req.projectId,
-    projectName: req.project.name,
+    projectName: req.project?.name ?? null,
     phaseId: req.phaseId,
     phaseName: req.phase?.name ?? null,
     status: req.status,

@@ -1,15 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Search, Package, Download, RefreshCw, ScrollText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Package, Download, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
-import { MetricGrid, Metric } from "@/components/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { SplitView } from "@/components/ui/split-view";
+import { Dialog } from "@/components/ui/dialog";
 import { IssueMaterialsDialog } from "./issue-materials-dialog";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
@@ -40,70 +36,66 @@ export function StockMovementsView({
   departments: DepartmentOption[];
   permissions?: { canTransfer?: boolean; canIssue?: boolean };
 }) {
-  const canIssue = permissions?.canIssue ?? true;
-  const router = useRouter();
+  const canIssue = permissions?.canIssue ?? false;
   const [typeFilter, setTypeFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [query, setQuery] = useState("");
   const [issueOpen, setIssueOpen] = useState(false);
   const [selected, setSelected] = useState<StockMovementRow | null>(null);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return movements.filter((m) => {
       if (typeFilter && m.movementType !== typeFilter) return false;
       if (locationFilter && m.fromLocationId !== locationFilter && m.toLocationId !== locationFilter) return false;
-      if (!q) return true;
-      return (
-        m.materialName.toLowerCase().includes(q) ||
-        m.materialCode.toLowerCase().includes(q)
-      );
+      return true;
     });
-  }, [movements, typeFilter, locationFilter, query]);
+  }, [movements, typeFilter, locationFilter]);
 
-  const receiptCount = movements.filter((m) => m.movementType === "PURCHASE_RECEIPT").length;
-  const issueCount = movements.filter((m) => m.movementType.startsWith("ISSUE")).length;
-  const transferCount = movements.filter((m) => m.movementType.startsWith("TRANSFER")).length;
-
-  return (
-    <div className="space-y-5">
-      <MetricGrid cols={4}>
-        <Metric label="Total Movements" value={movements.length} icon={<ScrollText />} />
-        <Metric label="Receipts" value={receiptCount} tone="success" />
-        <Metric label="Issues" value={issueCount} tone="warning" />
-        <Metric label="Transfers" value={transferCount} tone="muted" />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-          <div className="relative sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search material…" className="pl-8" />
-          </div>
-          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All types</option>
-            <option value="PURCHASE_RECEIPT">Receipt</option>
-            <option value="TRANSFER_IN">Transfer In</option>
-            <option value="TRANSFER_OUT">Transfer Out</option>
-            <option value="ISSUE_TO_PROJECT">Issue to Project</option>
-            <option value="ISSUE_TO_DEPARTMENT">Issue to Dept</option>
-            <option value="ADJUSTMENT_IN">Adjustment (+)</option>
-            <option value="ADJUSTMENT_OUT">Adjustment (−)</option>
-            <option value="RETURN">Return</option>
-            <option value="SALE">Sale</option>
-          </Select>
-          <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All locations</option>
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => downloadCSV(`stock-movements-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+  // Extract the type + location filters so they can be reused in the
+  // DataTable toolbar without TypeScript narrowing issues.
+  const typeSelect = (
+    <div className="relative shrink-0" style={{ width: 150 }}>
+      <select
+        value={typeFilter}
+        onChange={(e) => setTypeFilter(e.target.value)}
+        style={{ width: 150 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All types</option>
+        <option value="PURCHASE_RECEIPT">Receipt</option>
+        <option value="TRANSFER_IN">Transfer In</option>
+        <option value="TRANSFER_OUT">Transfer Out</option>
+        <option value="ISSUE_TO_PROJECT">Issue to Project</option>
+        <option value="ISSUE_TO_DEPARTMENT">Issue to Dept</option>
+        <option value="ADJUSTMENT_IN">Adjustment (+)</option>
+        <option value="ADJUSTMENT_OUT">Adjustment (−)</option>
+        <option value="RETURN">Return</option>
+        <option value="SALE">Sale</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+  const locationSelect = (
+    <div className="relative shrink-0" style={{ width: 160 }}>
+      <select
+        value={locationFilter}
+        onChange={(e) => setLocationFilter(e.target.value)}
+        style={{ width: 160 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All locations</option>
+        {locations.map((l) => (
+          <option key={l.id} value={l.id}>{l.name}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+  const trailingButtons = (
+    <>
+      {/* Export CSV (icon-only) */}
+      <div className="group relative">
+        <button
+          onClick={() => downloadCSV(`stock-movements-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "timestamp", label: "Date", format: (v) => formatDate(String(v)) },
             { key: "movementLabel", label: "Type" },
             { key: "materialName", label: "Material" },
@@ -115,24 +107,34 @@ export function StockMovementsView({
             { key: "unitCost", label: "Unit Cost", format: (v) => formatCurrency(Number(v)) },
             { key: "balanceAfter", label: "Balance After" },
             { key: "reason", label: "Reason" },
-          ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => downloadExcel("stock-movements")} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export Excel
-          </Button>
-          {canIssue && (
-            <Button onClick={() => setIssueOpen(true)} disabled={locations.length === 0 || (projects.length === 0 && departments.length === 0)}>
-              <Plus className="h-4 w-4" /> Issue Materials
-            </Button>
-          )}
-        </div>
+          ])}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <Download className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export CSV
+        </span>
       </div>
-
-      <div className="text-body text-muted-foreground">
-        {filtered.length} movements
+      {/* Export Excel (icon-only) */}
+      <div className="group relative">
+        <button
+          onClick={() => downloadExcel("stock-movements")}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <FileSpreadsheet className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export Excel
+        </span>
       </div>
+    </>
+  );
 
+  return (
+    <div className="space-y-5">
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Package className="h-5 w-5" />}
@@ -144,28 +146,42 @@ export function StockMovementsView({
           }
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden h-[calc(100vh-22rem)] min-h-[400px]">
-          <SplitView
-            storageKey="split-view-stock-movements"
-            defaultListSize={55}
-            list={
-              <DataTable
-                data={filtered}
-                onRowClick={(m) => setSelected(m)}
-                initialSort={{ key: "timestamp", direction: "desc" }}
-                columns={movementColumns}
-                searchable
-                searchPlaceholder="Search by material, type, reference…"
-                showTotals
-                sumColumns={["qty"]}
-                totalFormat={(_k, sum) => formatNumber(sum, 3)}
-                hideable
-                pageSize={50}
-              />
+        <div className="rounded-lg border border-border overflow-hidden">
+          <DataTable
+            data={filtered}
+            onRowClick={(m) => setSelected(m)}
+            initialSort={{ key: "timestamp", direction: "desc" }}
+            columns={movementColumns}
+            searchable
+            searchPlaceholder="Search by material, type, reference…"
+            showTotals
+            sumColumns={["qty"]}
+            totalFormat={(_k, sum) => formatNumber(sum, 3)}
+            hideable
+            pageSize={50}
+            onAddRow={canIssue && locations.length > 0 && (projects.length > 0 || departments.length > 0) ? () => setIssueOpen(true) : undefined}
+            addRowLabel="Issue Materials"
+            toolbarLeading={
+              <div className="flex w-fit shrink-0 items-center gap-2">
+                {typeSelect}
+                {locationSelect}
+              </div>
             }
-            detail={selected ? <MovementDetailPanel movement={selected} /> : null}
+            toolbarTrailing={trailingButtons}
           />
         </div>
+      )}
+
+      {selected && (
+        <Dialog
+          open={!!selected}
+          onOpenChange={(o) => { if (!o) setSelected(null); }}
+          title={selected.materialName}
+          description={selected.materialCode}
+          size="md"
+        >
+          <MovementDetailPanel movement={selected} />
+        </Dialog>
       )}
 
       <IssueMaterialsDialog

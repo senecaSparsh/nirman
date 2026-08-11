@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { cancelSale, completeSale, recordDeposit, recordPayment } from "@nirman/services";
+import { cancelSale, completeSale, recordDeposit, recordPayment, sendNotification } from "@nirman/services";
 import { apiHandler, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * GET /api/sales/[id] — sale detail with payments, land parcel, built unit.
@@ -47,6 +48,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     projectId: s.projectId,
     projectName: s.project.name,
     salePrice: toNum(s.salePrice),
+    gstRate: toNum(s.gstRate),
+    gstAmount: toNum(s.gstAmount),
     costBasis: toNum(s.costBasis),
     profit: toNum(s.profit),
     saleDate: s.saleDate.toISOString(),
@@ -59,7 +62,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     paymentMode: s.paymentMode,
     notes: s.notes,
     totalPaid,
-    balanceDue: toNum(s.salePrice) - totalPaid,
+    balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
     paymentCount: s.payments.length,
     payments: s.payments.map((p) => ({
       id: p.id,
@@ -104,6 +107,40 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const body = await req.json();
   const action = body?.action as string;
 
+  // ── Resend WhatsApp payment confirmation ──
+  if (action === "resendConfirmation") {
+    const paymentId = body.paymentId as string;
+    if (!paymentId) return json({ error: "paymentId is required" }, { status: 400 });
+    try {
+      const payment = await prisma.assetSalePayment.findUnique({
+        where: { id: paymentId },
+        include: { assetSale: { include: { customer: { select: { name: true, phone: true } } } } },
+      });
+      if (!payment) return json({ error: "Payment not found" }, { status: 404 });
+      if (!payment.assetSale.customer?.phone) {
+        return json({ error: "Customer has no phone number on file" }, { status: 400 });
+      }
+      const message =
+        `✅ *Payment Confirmation*\n\n` +
+        `Dear ${payment.assetSale.customer.name},\n\n` +
+        `We have received your payment of *${formatCurrency(Number(payment.amount))}* on ${payment.paymentDate.toISOString().slice(0, 10)}.\n` +
+        (payment.reference ? `Reference: ${payment.reference}\n` : "") +
+        `\nThank you for your business!`;
+      await sendNotification({
+        companyId: payment.assetSale.companyId,
+        eventType: "PAYMENT_RECEIVED",
+        channel: "WHATSAPP",
+        recipient: payment.assetSale.customer.phone,
+        recipientName: payment.assetSale.customer.name,
+        message,
+        metadata: { saleId: payment.assetSaleId, paymentId, amount: Number(payment.amount) },
+      });
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Failed to send confirmation") }, { status: 400 });
+    }
+  }
+
   // ── Record a deposit (liability, no revenue recognition) ──
   if (action === "deposit") {
     const parsed = depositSchema.safeParse(body);
@@ -118,6 +155,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         reference: parsed.data.reference ?? undefined,
         userId: user.id,
       });
+      // Send WhatsApp payment confirmation to the customer
+      await sendPaymentConfirmation(user.companyId ?? "", id, "deposit", parsed.data.depositAmount, parsed.data.reference ?? undefined);
       return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Deposit failed") }, { status: 400 });
@@ -138,6 +177,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         reference: parsed.data.reference ?? undefined,
         userId: user.id,
       });
+      // Send WhatsApp payment confirmation to the customer
+      await sendPaymentConfirmation(user.companyId ?? "", id, "final", parsed.data.finalPaymentAmount ?? 0, parsed.data.reference ?? undefined);
       return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Complete failed") }, { status: 400 });
@@ -158,6 +199,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         reference: parsed.data.reference ?? undefined,
         userId: user.id,
       });
+      // Send WhatsApp payment confirmation to the customer
+      await sendPaymentConfirmation(user.companyId ?? "", id, "payment", parsed.data.amount, parsed.data.reference ?? undefined);
       return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Payment failed") }, { status: 400 });
@@ -166,3 +209,48 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   return json({ error: "Invalid action. Use deposit, complete, payment, or cancel." }, { status: 400 });
 });
+
+/**
+ * Send a WhatsApp payment confirmation to the customer.
+ * Best-effort: failures are logged but don't block the payment.
+ */
+async function sendPaymentConfirmation(
+  companyId: string,
+  saleId: string,
+  type: "deposit" | "final" | "payment",
+  amount: number,
+  reference?: string,
+) {
+  try {
+    const sale = await prisma.assetSale.findUnique({
+      where: { id: saleId },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        builtUnit: { select: { unitNumber: true } },
+      },
+    });
+    if (!sale?.customer?.phone) return;
+
+    const unitLabel = sale.builtUnit?.unitNumber ?? `Sale ${sale.saleNumber}`;
+    const typeLabel = type === "deposit" ? "Token Deposit" : type === "final" ? "Final Payment" : "Payment";
+    const message =
+      `✅ *${typeLabel} Received*\n\n` +
+      `Dear ${sale.customer.name},\n\n` +
+      `We have received your ${typeLabel.toLowerCase()} of *${formatCurrency(amount)}* for ${unitLabel}.\n` +
+      (reference ? `Reference: ${reference}\n` : "") +
+      `\nThank you for your business!\n` +
+      `— ${sale.companyId ? "Nirman Inventory" : "Our Team"}`;
+
+    await sendNotification({
+      companyId,
+      eventType: "PAYMENT_RECEIVED",
+      channel: "WHATSAPP",
+      recipient: sale.customer.phone,
+      recipientName: sale.customer.name,
+      message,
+      metadata: { saleId, type, amount, reference },
+    });
+  } catch {
+    // Notification failure should not block the payment
+  }
+}

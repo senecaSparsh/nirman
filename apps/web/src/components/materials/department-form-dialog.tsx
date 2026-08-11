@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -37,6 +37,21 @@ export function DepartmentFormDialog({
   );
   const [saving, setSaving] = useState(false);
   const isEdit = department != null;
+
+  // Sync form fields when the edit target changes or the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    setForm(
+      department
+        ? {
+            code: department.code,
+            name: department.name,
+            description: department.description ?? "",
+            active: department.active,
+          }
+        : { code: "", name: "", description: "", active: true },
+    );
+  }, [open, department]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

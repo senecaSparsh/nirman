@@ -4,7 +4,20 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
+import { getApprovalRouting } from "./procurement-advanced";
 import { ServiceError } from "./errors";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { autoSyncEntryToTally } from "./auto-sync";
+
+/** Role hierarchy for value-based approval routing (higher index = more authority). */
+const ROLE_RANK: Record<string, number> = {
+  SUPERVISOR: 0,
+  SALES: 0,
+  ACCOUNTANT: 0,
+  MANAGER: 1,
+  ADMIN: 2,
+  OWNER: 3,
+};
 
 /**
  * Procurement Service — Purchase Order lifecycle.
@@ -35,11 +48,12 @@ interface CreatePOInput {
   }[];
 }
 
-function generatePoNumber(): string {
+async function generatePoNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `PO-${ymd}-${rand}`;
+  const prefix = `PO-${ymd}-`;
+  const count = await tx.purchaseOrder.count({ where: { poNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 export async function createPurchaseOrder(input: CreatePOInput) {
@@ -79,7 +93,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
 
     // 2. Validate supplier
     const supplier = await tx.supplier.findFirst({
-      where: { id: input.supplierId, deletedAt: null },
+      where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
@@ -124,7 +138,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     // 5. Create PO
     const po = await tx.purchaseOrder.create({
       data: {
-        poNumber: generatePoNumber(),
+        poNumber: await generatePoNumber(tx),
         supplierId: input.supplierId,
         procurementScope: input.procurementScope,
         companyId: input.companyId,
@@ -152,6 +166,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
 
     await logAction(tx, {
       userId: input.createdById,
+      companyId: po.companyId,
       action: "PURCHASE_ORDER_CREATE",
       entityType: "PurchaseOrder",
       entityId: po.id,
@@ -161,11 +176,33 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     return po;
 }
 
-export async function approvePurchaseOrder(poId: string, approvedById?: string, approvalNotes?: string) {
-  return prisma.$transaction(async (tx) => {
+export async function approvePurchaseOrder(
+  poId: string,
+  approverRole: string,
+  approvedById?: string,
+  approvalNotes?: string,
+) {
+  const result = await prisma.$transaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
+
+    // Enforce value-based approval routing: check the approver's role is
+    // sufficient for the PO's total value. OWNER/ADMIN always pass (superusers).
+    // approverRole is REQUIRED — callers must always pass it so the routing
+    // check cannot be bypassed by omitting the parameter.
+    if (approverRole !== "OWNER" && approverRole !== "ADMIN") {
+      const routing = await getApprovalRouting(po.total, po.companyId);
+      const approverRank = ROLE_RANK[approverRole] ?? 0;
+      const requiredRank = ROLE_RANK[routing.requiredRole] ?? 0;
+      if (approverRank < requiredRank) {
+        throw new ServiceError(
+          `This PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} approval. ${routing.reason}`,
+          403,
+        );
+      }
+    }
+
     const updated = await tx.purchaseOrder.update({
       where: { id: poId },
       data: {
@@ -177,18 +214,34 @@ export async function approvePurchaseOrder(poId: string, approvedById?: string, 
     });
     await logAction(tx, {
       userId: approvedById,
+      companyId: po.companyId,
       action: "PURCHASE_ORDER_APPROVE",
       entityType: "PurchaseOrder",
       entityId: poId,
       before: { status: po.status },
       after: { status: "APPROVED", approvedAt: updated.approvedAt },
     });
-    return updated;
+    return { updated, po };
   });
+
+  // Emit notification (best-effort, outside the transaction)
+  void emitNotificationEvent({
+    eventType: NotificationEventType.PO_APPROVED,
+    companyId: result.po.companyId,
+    entityType: "PurchaseOrder",
+    entityId: poId,
+    variables: {
+      poNumber: result.updated.poNumber ?? poId,
+      total: new Decimal(result.updated.total).toFixed(2),
+    },
+    timestamp: new Date(),
+  });
+
+  return result.updated;
 }
 
 export async function orderPurchaseOrder(poId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "APPROVED") throw new ServiceError(`Cannot order PO in status ${po.status}`);
@@ -198,14 +251,28 @@ export async function orderPurchaseOrder(poId: string, userId?: string) {
     });
     await logAction(tx, {
       userId,
+      companyId: po.companyId,
       action: "PURCHASE_ORDER_ORDER",
       entityType: "PurchaseOrder",
       entityId: poId,
       before: { status: po.status },
       after: { status: "ORDERED" },
     });
-    return updated;
+    return { updated, po };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.PO_ORDERED,
+    companyId: result.po.companyId,
+    entityType: "PurchaseOrder",
+    entityId: poId,
+    variables: {
+      poNumber: result.updated.poNumber ?? poId,
+    },
+    timestamp: new Date(),
+  });
+
+  return result.updated;
 }
 
 export async function cancelPurchaseOrder(poId: string, userId?: string) {
@@ -228,6 +295,7 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
     const updated = await tx.purchaseOrder.update({ where: { id: poId }, data: { status: "CANCELLED" } });
     await logAction(tx, {
       userId,
+      companyId: po.companyId,
       action: "PURCHASE_ORDER_CANCEL",
       entityType: "PurchaseOrder",
       entityId: poId,
@@ -252,7 +320,7 @@ interface ReceiveGoodsInput {
 }
 
 export async function receiveGoods(input: ReceiveGoodsInput) {
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({
       where: { id: input.purchaseOrderId },
       include: { lines: true },
@@ -266,8 +334,8 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     }
 
     // Enforce procurement scope: COMPANY POs → COMPANY_WAREHOUSE, PROJECT POs → PROJECT_SITE.
-    const destLocation = await tx.stockLocation.findUnique({
-      where: { id: po.destinationLocationId },
+    const destLocation = await tx.stockLocation.findFirst({
+      where: { id: po.destinationLocationId, deletedAt: null },
       select: { type: true },
     });
     if (destLocation) {
@@ -356,22 +424,67 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
 
     // 6. Post the receipt to the General Ledger (inventory + input GST + AP).
     //    Uses each PO line's gstRate to compute the recoverable input tax.
+    let receiptSubtotal = new Decimal(0);
+    let receiptGst = new Decimal(0);
+    const receiptLines = input.lines.map((l) => {
+      const poLine = po.lines.find((pl) => pl.id === l.purchaseOrderLineId)!;
+      const qty = new Decimal(l.qtyReceived);
+      const unitCost = new Decimal(l.unitCost);
+      const gstRate = new Decimal(poLine.gstRate);
+      const lineSubtotal = qty.times(unitCost);
+      const lineGst = lineSubtotal.times(gstRate).div(100);
+      receiptSubtotal = receiptSubtotal.plus(lineSubtotal);
+      receiptGst = receiptGst.plus(lineGst);
+      return { materialId: l.materialId, qty, unitCost, gstRate };
+    });
     await postPurchaseReceipt(tx, {
       companyId: po.companyId,
       purchaseOrderId: input.purchaseOrderId,
       goodsReceiptId: goodsReceipt.id,
       postedById: input.receivedById,
-      lines: input.lines.map((l) => {
-        const poLine = po.lines.find((pl) => pl.id === l.purchaseOrderLineId)!;
-        return {
-          materialId: l.materialId,
-          qty: new Decimal(l.qtyReceived),
-          unitCost: new Decimal(l.unitCost),
-          gstRate: new Decimal(poLine.gstRate),
-        };
-      }),
+      lines: receiptLines,
     });
 
-    return { goodsReceipt, newStatus };
+    // 7. Increment Supplier.balanceOwed by the total invoice amount (subtotal + GST).
+    //    This mirrors the Cr AP posted above and keeps balanceOwed in sync —
+    //    createSupplierPayment decrements it on payment.
+    const receiptTotal = receiptSubtotal.plus(receiptGst);
+    const supplier = await tx.supplier.findUnique({ where: { id: po.supplierId } });
+    if (supplier) {
+      const newBalance = new Decimal(supplier.balanceOwed).plus(receiptTotal);
+      await tx.supplier.update({
+        where: { id: po.supplierId },
+        data: { balanceOwed: newBalance },
+      });
+    }
+
+    return { goodsReceipt, newStatus, po };
   });
+
+  // Emit notification (best-effort, outside the transaction)
+  void emitNotificationEvent({
+    eventType: NotificationEventType.GOODS_RECEIVED,
+    companyId: result.po.companyId,
+    entityType: "PurchaseOrder",
+    entityId: input.purchaseOrderId,
+    variables: {
+      poNumber: result.po.poNumber ?? input.purchaseOrderId,
+      receiptId: result.goodsReceipt.id,
+    },
+    timestamp: new Date(),
+  });
+
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  // Find the journal entry posted for this goods receipt
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: result.goodsReceipt.id, sourceType: "PO_RECEIPT" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(result.po.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return { goodsReceipt: result.goodsReceipt, newStatus: result.newStatus };
 }

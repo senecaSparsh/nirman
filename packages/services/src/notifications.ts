@@ -229,8 +229,19 @@ export async function sendNotification(
   input: SendNotificationInput,
   providers?: { whatsapp?: WhatsAppProvider; email?: EmailProvider },
 ) {
-  const whatsappProvider = providers?.whatsapp ?? createWhatsAppProvider();
-  const emailProvider = providers?.email ?? new StubEmailProvider();
+  // Use provided providers, or try DB-stored config, or fall back to env/stub
+  let whatsappProvider = providers?.whatsapp;
+  let emailProvider = providers?.email;
+  if (!whatsappProvider || !emailProvider) {
+    try {
+      const { createWhatsAppProviderFromConfig, createEmailProviderFromConfig } = await import("./integration-config");
+      if (!whatsappProvider) whatsappProvider = await createWhatsAppProviderFromConfig(input.companyId);
+      if (!emailProvider) emailProvider = await createEmailProviderFromConfig(input.companyId);
+    } catch {
+      if (!whatsappProvider) whatsappProvider = createWhatsAppProvider();
+      if (!emailProvider) emailProvider = new StubEmailProvider();
+    }
+  }
 
   // Find the active template for this event type + channel
   const template = await prisma.notificationTemplate.findFirst({
@@ -430,4 +441,139 @@ export async function getNotificationStats(companyId: string) {
   ]);
 
   return { total, sent, failed, pending };
+}
+
+// ── In-App Notifications ──────────────────────────────────
+
+/**
+ * Create an in-app notification for a specific user.
+ * Shown in the notification bell dropdown in the UI.
+ */
+export async function createInAppNotification(input: {
+  companyId: string;
+  userId: string;
+  eventType: string;
+  title: string;
+  message: string;
+  link?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return prisma.inAppNotification.create({
+    data: {
+      companyId: input.companyId,
+      userId: input.userId,
+      eventType: input.eventType,
+      title: input.title,
+      message: input.message,
+      link: input.link ?? null,
+      metadata: (input.metadata as Prisma.InputJsonValue | undefined) ?? undefined,
+    },
+  });
+}
+
+/**
+ * Get unread in-app notifications for a user.
+ */
+export async function getUnreadNotifications(userId: string, limit = 20) {
+  return prisma.inAppNotification.findMany({
+    where: { userId, isRead: false },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}
+
+/**
+ * Get all in-app notifications for a user (read + unread).
+ */
+export async function getUserNotifications(userId: string, limit = 50) {
+  return prisma.inAppNotification.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}
+
+/**
+ * Mark an in-app notification as read.
+ */
+export async function markNotificationRead(id: string) {
+  return prisma.inAppNotification.update({
+    where: { id },
+    data: { isRead: true, readAt: new Date() },
+  });
+}
+
+/**
+ * Mark all in-app notifications as read for a user.
+ */
+export async function markAllNotificationsRead(userId: string) {
+  await prisma.inAppNotification.updateMany({
+    where: { userId, isRead: false },
+    data: { isRead: true, readAt: new Date() },
+  });
+  return { ok: true };
+}
+
+/**
+ * Get unread notification count for a user (for the bell badge).
+ */
+export async function getUnreadCount(userId: string) {
+  return prisma.inAppNotification.count({
+    where: { userId, isRead: false },
+  });
+}
+
+// ── Notification Preferences ──────────────────────────────
+
+/**
+ * Get a user's notification preferences.
+ */
+export async function getUserPreferences(userId: string) {
+  return prisma.notificationPreference.findMany({
+    where: { userId },
+    orderBy: [{ eventType: "asc" }, { channel: "asc" }],
+  });
+}
+
+/**
+ * Upsert a user's notification preference for a specific event type + channel.
+ */
+export async function upsertNotificationPreference(input: {
+  companyId: string;
+  userId: string;
+  eventType: string;
+  channel: string;
+  enabled: boolean;
+}) {
+  return prisma.notificationPreference.upsert({
+    where: {
+      userId_eventType_channel: {
+        userId: input.userId,
+        eventType: input.eventType,
+        channel: input.channel,
+      },
+    },
+    create: {
+      companyId: input.companyId,
+      userId: input.userId,
+      eventType: input.eventType,
+      channel: input.channel,
+      enabled: input.enabled,
+    },
+    update: { enabled: input.enabled },
+  });
+}
+
+/**
+ * Check if a user has a specific notification preference enabled.
+ * Returns true if no preference is set (default: enabled).
+ */
+export async function isNotificationEnabled(userId: string, eventType: string, channel: string): Promise<boolean> {
+  const pref = await prisma.notificationPreference.findUnique({
+    where: {
+      userId_eventType_channel: { userId, eventType, channel },
+    },
+  });
+  // Default: enabled if no preference set
+  return pref?.enabled ?? true;
 }

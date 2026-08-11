@@ -1,51 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Truck, Plus, Pencil, Trash2, ChevronDown, ChevronRight, ShieldCheck, RefreshCw, Search } from "lucide-react";
+import { Truck, Plus, Pencil, Trash2, ShieldCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { VendorRatingsView } from "@/components/vendor-ratings/vendor-ratings-view";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
+import { DataTable } from "@/components/ui/data-table";
+import { GenericCsvImportDialog } from "@/components/csv-import-dialog";
+import { DateCell, IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
+import { statusColor } from "@/components/page";
+import { useTabParam } from "@/lib/use-tab-param";
 import { formatCurrency, formatDate } from "@/lib/utils";
-
-/** Column definitions for the recent purchase orders DataTable. */
-const vendorPOColumns: Column<VendorRow["recentPOs"][number]>[] = [
-  {
-    key: "poNumber",
-    label: "PO No.",
-    sortable: true,
-    render: (p) => <span className="font-mono text-caption font-medium text-foreground">{p.poNumber}</span>,
-  },
-  {
-    key: "status",
-    label: "Status",
-    sortable: true,
-    render: (p) => <StatusPill status={p.status} />,
-  },
-  {
-    key: "orderDate",
-    label: "Date",
-    sortable: true,
-    sortValue: (p) => new Date(p.orderDate),
-    render: (p) => <span className="tnum text-muted-foreground">{formatDate(p.orderDate)}</span>,
-  },
-  {
-    key: "total",
-    label: "Total",
-    align: "right",
-    sortable: true,
-    render: (p) => <span className="tnum font-medium text-foreground">{formatCurrency(p.total)}</span>,
-  },
-];
 
 export type VendorRow = {
   id: string;
@@ -77,13 +48,13 @@ export function VendorsView({
   permissions?: { canManage?: boolean };
 }) {
   const router = useRouter();
-  const canManage = permissions?.canManage ?? true;
-  const [tab, setTab] = useState("directory");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const canManage = permissions?.canManage ?? false;
+  const [tab, setTab] = useTabParam(["directory", "ratings"] as const, "directory");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<VendorRow | null>(null);
   const [delTarget, setDelTarget] = useState<VendorRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   const [fName, setFName] = useState("");
   const [fGstin, setFGstin] = useState("");
@@ -91,7 +62,6 @@ export function VendorsView({
   const [fEmail, setFEmail] = useState("");
   const [fAddress, setFAddress] = useState("");
   const [fLeadTime, setFLeadTime] = useState("");
-  const [query, setQuery] = useState("");
 
   function openCreate() {
     setEditTarget(null);
@@ -136,17 +106,6 @@ export function VendorsView({
   const totalSpent = vendors.reduce((s, v) => s + v.totalSpent, 0);
   const withDues = vendors.filter((v) => v.balanceOwed > 0).length;
 
-  const filteredVendors = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return vendors;
-    return vendors.filter((v) =>
-      v.name.toLowerCase().includes(q) ||
-      (v.gstin ?? "").toLowerCase().includes(q) ||
-      (v.phone ?? "").includes(q) ||
-      (v.email ?? "").toLowerCase().includes(q),
-    );
-  }, [vendors, query]);
-
   return (
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={setTab}>
@@ -164,117 +123,228 @@ export function VendorsView({
         </TabsList>
 
         <TabsContent value="directory" className="space-y-4">
-          <MetricGrid cols={3}>
-            <Metric label="Total Suppliers" value={vendors.length} icon={<Truck />} />
-            <Metric label="With Dues" value={withDues} tone={withDues > 0 ? "warning" : "muted"} />
-            <Metric label="Total Owed" value={formatCurrency(totalBalance)} tone={totalBalance > 0 ? "danger" : "muted"} sub={`${formatCurrency(totalSpent)} spent`} />
-          </MetricGrid>
-
-          {/* Toolbar */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="relative flex-1 sm:max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search suppliers…" className="pl-8" />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              {canManage && vendors.length > 0 && (
-                <Button size="sm" onClick={openCreate}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Add Vendor
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* List */}
-          {filteredVendors.length === 0 ? (
+          {vendors.length === 0 ? (
             <EmptyState
-              icon={<Truck className="h-5 w-5" />}
-              title={vendors.length === 0 ? "No vendors" : "No vendors match the search"}
-              description="Add suppliers to track purchase orders, GSTINs, and outstanding balances."
-              action={canManage ? <Button onClick={openCreate} size="sm"><Plus className="h-4 w-4" /> Add Vendor</Button> : undefined}
+              icon={<Truck />}
+              title="No vendors yet"
+              description="The vendor directory is where a purchase order gets its supplier, its GSTIN and its lead time. Add one and every PO, receipt and payable lands against it."
+              action={
+                canManage ? (
+                  <Button onClick={openCreate}>
+                    <Plus className="size-4" /> Add vendor
+                  </Button>
+                ) : undefined
+              }
+              contactHint="Ask a purchase manager to add the first vendor."
             />
           ) : (
-            <div className="space-y-2">
-              {filteredVendors.map((v) => (
-            <div key={v.id} className="rounded-lg border border-border bg-card">
-              <button
-                onClick={() => setExpanded(expanded === v.id ? null : v.id)}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-              >
-                {expanded === v.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <div className="flex-1 space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">{v.name}</span>
-                    {v.gstin && <Badge variant="outline">GSTIN: {v.gstin}</Badge>}
-                    {v.openPOs > 0 && <Badge variant="warning">{v.openPOs} open PO{v.openPOs !== 1 ? "s" : ""}</Badge>}
-                  </div>
-                  <div className="text-meta text-muted-foreground">
-                    {v.phone ?? "No phone"} · {v.totalPOs} PO{v.totalPOs !== 1 ? "s" : ""}
-                    {v.leadTimeDays != null && ` · ${v.leadTimeDays}d lead time`}
-                  </div>
-                </div>
-                <div className="text-right">
-                  {v.balanceOwed > 0 ? (
-                    <>
-                      <div className="text-body font-medium text-danger">{formatCurrency(v.balanceOwed)}</div>
-                      <div className="text-caption text-muted-foreground">owed</div>
-                    </>
-                  ) : (
-                    <div className="text-body text-muted-foreground">Settled</div>
-                  )}
-                </div>
-              </button>
-
-              {expanded === v.id && (
-                <div className="border-t border-border p-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
-                    <div><div className="text-muted-foreground">Email</div><div className="text-foreground">{v.email ?? "—"}</div></div>
-                    <div><div className="text-muted-foreground">Phone</div><div className="text-foreground">{v.phone ?? "—"}</div></div>
-                    <div><div className="text-muted-foreground">Address</div><div className="text-foreground">{v.address ?? "—"}</div></div>
-                    <div><div className="text-muted-foreground">Recent spend</div><div className="text-foreground">{formatCurrency(v.totalSpent)}</div></div>
-                  </div>
-
-                  {/* Recent POs */}
-                  <div className="space-y-2">
-                    <div className="text-caption font-medium text-muted-foreground">Recent purchase orders</div>
-                    {v.recentPOs.length === 0 ? (
-                      <div className="rounded-lg border border-border px-3 py-3 text-meta text-muted-foreground">No purchase orders yet.</div>
-                    ) : (
-                      <div className="rounded-lg border border-border overflow-hidden">
-                        <DataTable data={v.recentPOs} columns={vendorPOColumns} getRowId={(p) => p.id} />
-                      </div>
-                    )}
-                  </div>
-
-                  {canManage && (
-                    <div className="flex items-center gap-2">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/suppliers/${v.id}`}>View Details</Link>
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openEdit(v)}>
-                        <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDelTarget(v)} title="Delete vendor">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
-                  {!canManage && (
-                    <div className="flex items-center gap-2">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/suppliers/${v.id}`}>View Details</Link>
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+            /*
+             * A vendor directory is a payables comparison, not a set of
+             * profiles. Expandable cards hid the only two numbers anyone
+             * opens this page for — what we owe and how much we buy — one
+             * click deep and one vendor at a time. As rows they are columns
+             * you can sort, total and export, so "who do we owe the most"
+             * is the first row rather than twenty clicks.
+             */
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                data={vendors}
+                storageKey="vendors"
+                searchable
+                searchPlaceholder="Search name, GSTIN, phone, email…"
+                hideable
+                freezeFirstColumn
+                exportFileName="vendors"
+                columnDividers
+                toolbarTrailing={
+                  canManage ? (
+                    <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+                      <Upload className="mr-1.5 h-3.5 w-3.5" /> CSV Import
+                    </Button>
+                  ) : undefined
+                }
+                initialSort={{ key: "balanceOwed", direction: "desc" }}
+                onAddRow={canManage ? openCreate : undefined}
+                addRowLabel="Add vendor"
+                /* The full purchase history, rate contracts and returns live
+                   on the supplier cockpit — a superset of the old inline
+                   expansion, so the row leads there instead of unfolding. */
+                onRowClick={(v) => router.push(`/suppliers/${v.id}`)}
+                showTotals
+                sumColumns={["openPOs", "totalPOs", "totalSpent", "balanceOwed"]}
+                totalFormat={(key, sum) =>
+                  key === "openPOs" || key === "totalPOs"
+                    ? sum.toLocaleString("en-IN")
+                    : formatCurrency(sum)
+                }
+                rowTone={(v) => (v.balanceOwed > 0 ? "warning" : null)}
+                rowActions={
+                  canManage
+                    ? (v) => (
+                        <>
+                          <Button variant="ghost" size="icon-sm" title="Edit vendor" onClick={() => openEdit(v)}>
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Delete vendor"
+                            className="hover:text-danger"
+                            onClick={() => setDelTarget(v)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </>
+                      )
+                    : undefined
+                }
+                columns={[
+                  {
+                    key: "name",
+                    label: "Vendor",
+                    sortable: true,
+                    width: "260px",
+                    render: (v) => (
+                      <IdentityCell
+                        name={v.name}
+                        sub={v.gstin ? `GSTIN ${v.gstin}` : (v.address ?? "No GSTIN on file")}
+                        /* Amber = we still owe them, green = settled. Same
+                           status map as every pill in the app. */
+                        dot={statusColor(v.balanceOwed > 0 ? "PENDING" : "PAID")}
+                      />
+                    ),
+                  },
+                  {
+                    key: "phone",
+                    label: "Contact",
+                    sortable: true,
+                    sortValue: (v) => v.phone ?? v.email ?? "",
+                    render: (v) =>
+                      v.phone || v.email ? (
+                        <IdentityCell name={v.phone ?? v.email} sub={v.phone ? v.email : undefined} />
+                      ) : (
+                        <span className="text-faint">No contact</span>
+                      ),
+                    exportValue: (v) => v.phone ?? "",
+                  },
+                  {
+                    key: "email",
+                    label: "Email",
+                    sortable: true,
+                    defaultHidden: true,
+                    render: (v) => v.email ?? <span className="text-faint">—</span>,
+                    exportValue: (v) => v.email ?? "",
+                  },
+                  {
+                    key: "gstin",
+                    label: "GSTIN",
+                    sortable: true,
+                    defaultHidden: true,
+                    render: (v) =>
+                      v.gstin ? (
+                        <span className="font-mono text-caption">{v.gstin}</span>
+                      ) : (
+                        <span className="text-faint">—</span>
+                      ),
+                    exportValue: (v) => v.gstin ?? "",
+                  },
+                  {
+                    key: "address",
+                    label: "Address",
+                    defaultHidden: true,
+                    render: (v) => v.address ?? <span className="text-faint">—</span>,
+                    exportValue: (v) => v.address ?? "",
+                  },
+                  {
+                    key: "openPOs",
+                    label: "Open POs",
+                    align: "right",
+                    sortable: true,
+                    hint: "Purchase orders still in draft, approved, ordered or part-received.",
+                    render: (v) =>
+                      v.openPOs > 0 ? (
+                        <QtyCell value={v.openPOs} tone="warning" />
+                      ) : (
+                        <span className="text-faint">—</span>
+                      ),
+                    exportValue: (v) => v.openPOs,
+                  },
+                  {
+                    key: "totalPOs",
+                    label: "Total POs",
+                    align: "right",
+                    sortable: true,
+                    render: (v) => (v.totalPOs > 0 ? v.totalPOs : <span className="text-faint">—</span>),
+                    exportValue: (v) => v.totalPOs,
+                  },
+                  {
+                    key: "lastOrder",
+                    label: "Last order",
+                    sortable: true,
+                    hint: "Date of the most recent purchase order. A long gap is worth knowing before you renegotiate.",
+                    sortValue: (v) => v.recentPOs[0]?.orderDate ?? "",
+                    render: (v) =>
+                      v.recentPOs[0] ? (
+                        <DateCell
+                          date={v.recentPOs[0].orderDate}
+                          formatted={formatDate(v.recentPOs[0].orderDate)}
+                        />
+                      ) : (
+                        <span className="text-faint">Never ordered</span>
+                      ),
+                    exportValue: (v) => (v.recentPOs[0] ? formatDate(v.recentPOs[0].orderDate) : ""),
+                  },
+                  {
+                    key: "leadTimeDays",
+                    label: "Lead time",
+                    align: "right",
+                    sortable: true,
+                    hint: "Agreed days from order to delivery — the number a requisition's urgency is judged against.",
+                    render: (v) =>
+                      v.leadTimeDays != null ? (
+                        <QtyCell value={v.leadTimeDays} unit="days" />
+                      ) : (
+                        <span className="text-faint">—</span>
+                      ),
+                    exportValue: (v) => v.leadTimeDays ?? "",
+                  },
+                  {
+                    key: "totalSpent",
+                    label: "Spent",
+                    align: "right",
+                    sortable: true,
+                    hint: "Value of this vendor's ten most recent purchase orders.",
+                    render: (v) => (
+                      <MoneyCell value={v.totalSpent} formatted={formatCurrency(v.totalSpent)} neutral />
+                    ),
+                    exportValue: (v) => v.totalSpent,
+                  },
+                  {
+                    key: "balanceOwed",
+                    label: "Owed",
+                    align: "right",
+                    sortable: true,
+                    bar: true,
+                    hint: "Unpaid balance against received goods. This is money leaving the company.",
+                    render: (v) =>
+                      v.balanceOwed > 0 ? (
+                        /* A payable is a negative for us, so the sign fed to
+                           MoneyCell is flipped to get the danger tone, while
+                           the printed figure stays the amount a clerk pays. */
+                        <MoneyCell
+                          value={-v.balanceOwed}
+                          formatted={formatCurrency(v.balanceOwed)}
+                          sub="unpaid"
+                        />
+                      ) : (
+                        <span className="text-caption text-muted-foreground">Settled</span>
+                      ),
+                    exportValue: (v) => v.balanceOwed,
+                  },
+                ]}
+              />
             </div>
-          ))}
-        </div>
-      )}
+          )}
         </TabsContent>
 
         <TabsContent value="ratings">
@@ -338,6 +408,25 @@ export function VendorsView({
           onSuccess={() => { setDelTarget(null); }}
         />
       )}
+
+      <GenericCsvImportDialog
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        endpoint="/api/suppliers"
+        entityName="Supplier"
+        templateHeaders="name,gstin,phone,email,address,leadTimeDays"
+        templateSample="ABC Cement Pvt Ltd,27ABCDE1234F1Z5,9876543210,orders@abccement.com,123 Industrial Area Mumbai,7"
+        fieldMap={{
+          name: "name",
+          gstin: "gstin",
+          phone: "phone",
+          email: "email",
+          address: "address",
+          leadTimeDays: "leadTimeDays",
+        }}
+        numericFields={["leadTimeDays"]}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

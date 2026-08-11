@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Wrench, Calendar, IndianRupee, MapPin, User, Settings, Package } from "lucide-react";
+import { Wrench, Calendar, IndianRupee, MapPin, Settings } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -40,11 +40,14 @@ async function MobileEquipmentDetailContent({
   const { id } = await params;
 
   const equipment = await prisma.equipment.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
-      project: { select: { id: true, name: true } },
-      assignedTo: { select: { id: true, name: true } },
-      maintenanceRecords: { orderBy: { date: "desc" }, take: 10 },
+      assignments: {
+        where: { status: "ACTIVE" },
+        include: { project: { select: { id: true, name: true } } },
+        take: 1,
+      },
+      maintenance: { orderBy: { startDate: "desc" }, take: 10 },
     },
   });
 
@@ -57,35 +60,35 @@ async function MobileEquipmentDetailContent({
     );
   }
 
-  const canManage = hasPermission(role, PERM.EQUIPMENT_MANAGE);
+  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  const activeAssignment = equipment.assignments[0];
 
   return (
     <div>
       <MobileDetailHeader
         title={equipment.name}
-        subtitle={equipment.code ?? "no code"}
+        subtitle={equipment.assetTag}
         backHref="/m/equipment"
         right={<MobileRefreshButton />}
       />
 
       <MobileSectionTitle>Details</MobileSectionTitle>
       <div>
-        <MobileInfoRow icon={Wrench} title="Category" value={equipment.category} />
-        <MobileInfoRow icon={Settings} title="Status" value={equipment.status} />
-        {equipment.project && (
-          <MobileInfoRow icon={MapPin} title="Project" value={equipment.project.name} />
+        <MobileInfoRow icon={Wrench} title="Category" value={equipment.category ?? "—"} />
+        <MobileInfoRow icon={Settings} title="Status" value={<MobileStatusBadge status={equipment.status} />} />
+        {activeAssignment?.project && (
+          <MobileInfoRow icon={MapPin} title="Project" value={activeAssignment.project.name} />
         )}
-        {equipment.assignedTo && (
-          <MobileInfoRow icon={User} title="Assigned To" value={equipment.assignedTo.name} />
+        {equipment.purchaseDate && (
+          <MobileInfoRow icon={Calendar} title="Purchase Date" value={formatDate(equipment.purchaseDate)} />
         )}
-        <MobileInfoRow icon={Calendar} title="Purchase Date" value={formatDate(equipment.purchaseDate)} />
       </div>
 
       <MobileSectionTitle>Valuation</MobileSectionTitle>
       <div className="grid grid-cols-2 gap-2 p-3">
         <MobileStatCard
-          label="Purchase Cost"
-          value={formatCurrency(toNum(equipment.purchaseCost))}
+          label="Acquisition Cost"
+          value={formatCurrency(toNum(equipment.acquisitionCost))}
           icon={IndianRupee}
         />
         <MobileStatCard
@@ -96,16 +99,16 @@ async function MobileEquipmentDetailContent({
         />
       </div>
 
-      {equipment.maintenanceRecords.length > 0 && (
+      {equipment.maintenance.length > 0 && (
         <>
           <MobileSectionTitle>Recent Maintenance</MobileSectionTitle>
           <div>
-            {equipment.maintenanceRecords.map((m) => (
+            {equipment.maintenance.map((m) => (
               <MobileRow
                 key={m.id}
                 icon={Settings}
-                title={m.description}
-                subtitle={`${formatDate(m.date)}${m.cost ? " · " + formatCurrency(toNum(m.cost)) : ""}`}
+                title={m.type}
+                subtitle={`${formatDate(m.startDate)}${toNum(m.cost) > 0 ? " · " + formatCurrency(toNum(m.cost)) : ""}`}
               />
             ))}
           </div>

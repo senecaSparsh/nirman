@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Hammer, Plus, Trash2, ChevronDown, ChevronRight, Play, CheckCircle2, XCircle, TrendingUp, Pencil } from "lucide-react";
+import { Hammer, Plus, Trash2, Play, CheckCircle2, XCircle, TrendingUp, Pencil, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { IdentityCell, MoneyCell } from "@/components/ui/cells";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { StatusPill } from "@/components/page";
 
 export type RenovationRow = {
@@ -53,6 +54,13 @@ const TYPE_LABELS: Record<string, string> = {
   REPAIR: "Repair",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  PLANNED: "Planned",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
 const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"];
 
 export function RenovationsView({
@@ -70,14 +78,16 @@ export function RenovationsView({
 }) {
   const router = useRouter();
   const canManage = permissions?.canManage ?? false;
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<RenovationRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [costFormOpen, setCostFormOpen] = useState<string | null>(null);
+  const [costFormOpen, setCostFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<RenovationRow | null>(null);
   const [editTarget, setEditTarget] = useState<RenovationRow | null>(null);
   const [costDeleteTarget, setCostDeleteTarget] = useState<{ renovationId: string; costId: string; label: string } | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<RenovationRow | null>(null);
+  const [completeValuation, setCompleteValuation] = useState("");
 
   // Create form state
   const [fType, setFType] = useState("RENOVATION");
@@ -106,6 +116,9 @@ export function RenovationsView({
     if (!fProject) return [];
     return builtUnits.filter((u) => u.projectId === fProject);
   }, [fProject, builtUnits]);
+
+  // Keep selected in sync with server data after refresh
+  const current = selected ? renovations.find((r) => r.id === selected.id) ?? null : null;
 
   async function submit() {
     if (!fTitle) return toast.error("Title is required");
@@ -148,14 +161,10 @@ export function RenovationsView({
       setConfirmCancelOpen(true);
       return;
     }
-    const body: { action: string; newValuation?: number } = { action };
     if (action === "complete") {
-      // Prompt for new valuation (optional)
-      const input = prompt(
-        `Enter new valuation (leave blank for auto = original + cost = ${formatCurrency(renovation.originalValuation + renovation.actualCost)}):`,
-      );
-      if (input === null) return; // cancelled
-      if (input.trim()) body.newValuation = Number(input);
+      setCompleteTarget(renovation);
+      setCompleteValuation("");
+      return;
     }
 
     setSubmitting(true);
@@ -163,11 +172,35 @@ export function RenovationsView({
       const res = await fetch(`/api/renovations/${renovation.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success(action === "start" ? "Renovation started" : "Renovation completed");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmComplete() {
+    if (!completeTarget) return;
+    const body: { action: string; newValuation?: number } = { action: "complete" };
+    if (completeValuation.trim()) body.newValuation = Number(completeValuation);
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/renovations/${completeTarget.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(action === "start" ? "Renovation started" : action === "complete" ? `Renovation completed (ROI: ${data.roi ?? "N/A"}%)` : "Renovation cancelled");
+      toast.success(`Renovation completed (ROI: ${data.roi ?? "N/A"}%)`);
+      setCompleteTarget(null);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -215,7 +248,7 @@ export function RenovationsView({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add cost");
       toast.success("Cost added");
-      setCostFormOpen(null);
+      setCostFormOpen(false);
       setCCostType("LABOUR"); setCAmount(""); setCVendor(""); setCNotes("");
       router.refresh();
     } catch (err) {
@@ -277,17 +310,18 @@ export function RenovationsView({
 
   function getCostColumns(renovation: RenovationRow): Column<RenovationRow["costs"][number]>[] {
     const cols: Column<RenovationRow["costs"][number]>[] = [
-      { key: "costType", label: "Cost Type", render: (c) => <span className="font-medium text-foreground">{c.costType}</span>, sortValue: (c) => c.costType },
-      { key: "amount", label: "Amount", align: "right", render: (c) => formatCurrency(c.amount), sortValue: (c) => c.amount },
-      { key: "vendor", label: "Vendor", render: (c) => <span className="text-muted-foreground">{c.vendor ?? "—"}</span> },
+      { key: "costType", label: "Cost Type", sortable: true, filterable: true, render: (c) => <span className="font-medium text-foreground">{c.costType}</span>, sortValue: (c) => c.costType, filterValue: (c) => c.costType },
+      { key: "amount", label: "Amount", align: "right", sortable: true, render: (c) => <MoneyCell value={c.amount} formatted={formatCurrency(c.amount)} />, sortValue: (c) => c.amount, exportValue: (c) => c.amount },
+      { key: "vendor", label: "Vendor", sortable: true, filterable: true, render: (c) => <span className="text-muted-foreground">{c.vendor ?? "—"}</span>, filterValue: (c) => c.vendor ?? "—" },
       { key: "notes", label: "Notes", render: (c) => <span className="text-muted-foreground">{c.notes ?? "—"}</span> },
-      { key: "date", label: "Date", render: (c) => <span className="text-muted-foreground">{formatDate(c.date)}</span>, sortValue: (c) => c.date },
+      { key: "date", label: "Date", sortable: true, render: (c) => <span className="text-muted-foreground">{formatDate(c.date)}</span>, sortValue: (c) => c.date },
     ];
     if (canManage && renovation.status !== "COMPLETED") {
       cols.push({
         key: "actions",
         label: "",
         align: "right",
+        noExport: true,
         render: (c) => (
           <Button size="sm" variant="ghost" onClick={() => setCostDeleteTarget({ renovationId: renovation.id, costId: c.id, label: c.costType })} disabled={submitting}>
             <Trash2 className="h-3 w-3 text-danger" />
@@ -298,24 +332,185 @@ export function RenovationsView({
     return cols;
   }
 
-  const totalActual = renovations.filter((r) => r.status !== "CANCELLED").reduce((s, r) => s + r.actualCost, 0);
-  const completed = renovations.filter((r) => r.status === "COMPLETED").length;
+  const columns: Column<RenovationRow>[] = [
+    {
+      key: "title",
+      label: "Renovation",
+      sortable: true,
+      width: "260px",
+      sortValue: (r) => r.title,
+      render: (r) => (
+        <IdentityCell
+          name={r.title}
+          sub={[r.renovationNumber, TYPE_LABELS[r.type] ?? r.type].join(" · ")}
+        />
+      ),
+      exportValue: (r) => r.title,
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      width: "160px",
+      render: (r) => r.projectName ?? <span className="text-faint">—</span>,
+      filterValue: (r) => r.projectName ?? "—",
+      exportValue: (r) => r.projectName ?? "",
+    },
+    {
+      key: "asset",
+      label: "Asset",
+      sortable: true,
+      filterable: true,
+      width: "140px",
+      sortValue: (r) => r.builtUnitNumber ?? r.landParcelNumber ?? "",
+      render: (r) => {
+        if (r.builtUnitNumber) return <span className="text-foreground">Unit {r.builtUnitNumber}</span>;
+        if (r.landParcelNumber) return <span className="text-foreground">Parcel {r.landParcelNumber}</span>;
+        return <span className="text-faint">—</span>;
+      },
+      filterValue: (r) => r.builtUnitNumber ? `Unit ${r.builtUnitNumber}` : r.landParcelNumber ? `Parcel ${r.landParcelNumber}` : "—",
+      exportValue: (r) => r.builtUnitNumber ?? r.landParcelNumber ?? "",
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      render: (r) => <StatusPill status={r.status} />,
+      filterValue: (r) => STATUS_LABELS[r.status] ?? r.status,
+      exportValue: (r) => r.status,
+    },
+    {
+      key: "type",
+      label: "Type",
+      sortable: true,
+      filterable: true,
+      defaultHidden: true,
+      render: (r) => TYPE_LABELS[r.type] ?? r.type,
+      filterValue: (r) => TYPE_LABELS[r.type] ?? r.type,
+      exportValue: (r) => r.type,
+    },
+    {
+      key: "budget",
+      label: "Budget",
+      align: "right",
+      sortable: true,
+      render: (r) => r.budget > 0 ? <MoneyCell value={r.budget} formatted={formatCurrency(r.budget)} neutral /> : <span className="text-faint">—</span>,
+      exportValue: (r) => r.budget,
+    },
+    {
+      key: "actualCost",
+      label: "Actual cost",
+      align: "right",
+      sortable: true,
+      render: (r) => <MoneyCell value={r.actualCost} formatted={formatCurrency(r.actualCost)} />,
+      exportValue: (r) => r.actualCost,
+    },
+    {
+      key: "variance",
+      label: "Budget variance",
+      align: "right",
+      sortable: true,
+      hint: "How far actual cost has deviated from the approved budget.",
+      sortValue: (r) => r.budget > 0 ? ((r.actualCost - r.budget) / r.budget) * 100 : 0,
+      render: (r) => {
+        if (r.budget <= 0) return <span className="text-faint">—</span>;
+        const pct = ((r.actualCost - r.budget) / r.budget) * 100;
+        return (
+          <span className={cn("font-medium tnum", pct > 0 ? "text-danger" : "text-success")}>
+            {pct > 0 ? "+" : ""}{pct.toFixed(0)}%
+          </span>
+        );
+      },
+      exportValue: (r) => r.budget > 0 ? ((r.actualCost - r.budget) / r.budget) * 100 : 0,
+    },
+    {
+      key: "roi",
+      label: "ROI",
+      align: "right",
+      sortable: true,
+      hint: "Return on renovation investment — only available after completion with a new valuation.",
+      sortValue: (r) => {
+        if (r.status !== "COMPLETED" || !r.newValuation || r.actualCost <= 0) return -Infinity;
+        return ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100;
+      },
+      render: (r) => {
+        if (r.status !== "COMPLETED" || !r.newValuation || r.actualCost <= 0) return <span className="text-faint">—</span>;
+        const roi = ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100;
+        return (
+          <span className={cn("font-medium tnum", roi >= 0 ? "text-success" : "text-danger")}>
+            {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
+          </span>
+        );
+      },
+      exportValue: (r) => {
+        if (r.status !== "COMPLETED" || !r.newValuation || r.actualCost <= 0) return "";
+        return ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100;
+      },
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      sortable: true,
+      defaultHidden: true,
+      render: (r) => <span className="text-muted-foreground">{formatDate(r.createdAt)}</span>,
+      sortValue: (r) => r.createdAt,
+      exportValue: (r) => r.createdAt,
+    },
+  ];
+
+  function rowActions(r: RenovationRow) {
+    return (
+      <>
+        {canManage && r.status === "PLANNED" && (
+          <>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)} disabled={submitting} title="Edit">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7" onClick={() => doAction(r, "start")} disabled={submitting} title="Start">
+              <Play className="h-3.5 w-3.5" /> Start
+            </Button>
+          </>
+        )}
+        {canManage && r.status === "IN_PROGRESS" && (
+          <>
+            <Button variant="ghost" size="sm" className="h-7" onClick={() => { setCostFormOpen(true); }} disabled={submitting} title="Add cost">
+              <Plus className="h-3.5 w-3.5" /> Cost
+            </Button>
+            <Button variant="brand" size="sm" className="h-7" onClick={() => doAction(r, "complete")} disabled={submitting} title="Complete">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Complete
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={() => doAction(r, "cancel")} disabled={submitting} title="Cancel">
+              <XCircle className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+      </>
+    );
+  }
+
+  const trailingButtons = (
+    <>
+      {canManage && (
+        <Button onClick={() => setFormOpen(true)}>
+          <Plus className="h-4 w-4" /> New renovation
+        </Button>
+      )}
+    </>
+  );
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No renovations match"
+      description="Adjust the search or column filters to see the renovation register."
+    />
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="text-body text-muted-foreground">
-          {renovations.length} renovation{renovations.length !== 1 ? "s" : ""} · {completed} completed · {formatCurrency(totalActual)} actual cost
-        </div>
-        {canManage && (
-          <Button size="sm" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> New Renovation
-          </Button>
-        )}
-      </div>
-
-      {/* List */}
       {renovations.length === 0 ? (
         <EmptyState
           icon={<Hammer className="h-5 w-5" />}
@@ -328,134 +523,165 @@ export function RenovationsView({
           ) : undefined}
         />
       ) : (
-        <div className="space-y-2">
-          {renovations.map((r) => {
-            const roi = r.status === "COMPLETED" && r.newValuation && r.actualCost > 0
-              ? ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100
-              : null;
-            const budgetVariance = r.budget > 0 ? ((r.actualCost - r.budget) / r.budget) * 100 : null;
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={renovations}
+            columns={columns}
+            storageKey="renovations"
+            hideable
+            exportFileName="renovations"
+            initialSort={{ key: "createdAt", direction: "desc" }}
+            onRowClick={(r) => setSelected(r)}
+            searchable
+            searchPlaceholder="Search title, number, asset…"
+            toolbarTrailing={trailingButtons}
+            showTotals
+            sumColumns={["budget", "actualCost"]}
+            totalFormat={(_key, sum) => formatCurrency(sum)}
+            rowTone={(r) => {
+              if (r.status === "CANCELLED") return "danger";
+              if (r.budget > 0 && r.actualCost > r.budget * 1.2) return "warning";
+              if (r.status === "COMPLETED" && r.newValuation && r.actualCost > 0) {
+                const roi = ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100;
+                if (roi < 0) return "danger";
+              }
+              return null;
+            }}
+            rowActions={rowActions}
+            emptyState={noMatch}
+          />
+        </div>
+      )}
 
-            return (
-              <div key={r.id} className="rounded-lg border border-border bg-card">
-                <button
-                  onClick={() => setExpanded(expanded === r.id ? null : r.id)}
-                  className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-                >
-                  {expanded === r.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  <div className="flex-1 space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-foreground">{r.title}</span>
-                      <Badge variant="outline">{r.renovationNumber}</Badge>
-                      <StatusPill status={r.status} />
-                      <Badge variant="default">{TYPE_LABELS[r.type] ?? r.type}</Badge>
-                      {r.builtUnitNumber && <Badge variant="outline">Unit {r.builtUnitNumber}</Badge>}
-                      {r.landParcelNumber && <Badge variant="outline">Parcel {r.landParcelNumber}</Badge>}
-                    </div>
-                    <div className="text-meta text-muted-foreground">
-                      {r.projectName} · {r.costCount} cost{r.costCount !== 1 ? "s" : ""} · {formatDate(r.createdAt)}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-body font-medium text-foreground">{formatCurrency(r.actualCost)}</div>
-                    <div className="text-caption text-muted-foreground">
-                      budget: {formatCurrency(r.budget)}
-                      {budgetVariance !== null && (
-                        <span className={budgetVariance > 0 ? "ml-1 text-danger" : "ml-1 text-success"}>
-                          ({budgetVariance > 0 ? "+" : ""}{budgetVariance.toFixed(0)}%)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
+      {/* ── Detail dialog ─────────────────────────────────────────── */}
+      {current && (
+        <Dialog
+          open={!!selected}
+          onOpenChange={(o) => { if (!o) setSelected(null); }}
+          title={current.title}
+          description={`${current.renovationNumber} · ${TYPE_LABELS[current.type] ?? current.type}${current.builtUnitNumber ? ` · Unit ${current.builtUnitNumber}` : ""}${current.landParcelNumber ? ` · Parcel ${current.landParcelNumber}` : ""}`}
+          size="xl"
+        >
+          <div className="space-y-4">
+            {/* Status + badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill status={current.status} />
+              <Badge variant="outline">{current.renovationNumber}</Badge>
+              <Badge variant="default">{TYPE_LABELS[current.type] ?? current.type}</Badge>
+              {current.builtUnitNumber && <Badge variant="outline">Unit {current.builtUnitNumber}</Badge>}
+              {current.landParcelNumber && <Badge variant="outline">Parcel {current.landParcelNumber}</Badge>}
+            </div>
+            {/* Description */}
+            {current.description && (
+              <div className="text-body text-muted-foreground">&quot;{current.description}&quot;</div>
+            )}
 
-                {expanded === r.id && (
-                  <div className="border-t border-border p-3 space-y-3">
-                    {/* Description */}
-                    {r.description && <div className="text-body text-muted-foreground">&quot;{r.description}&quot;</div>}
+            {/* Summary grid */}
+            <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
+              <div><div className="text-muted-foreground">Project</div><div className="text-foreground">{current.projectName ?? "—"}</div></div>
+              <div><div className="text-muted-foreground">Original valuation</div><div className="text-foreground">{formatCurrency(current.originalValuation)}</div></div>
+              <div><div className="text-muted-foreground">Budget</div><div className="text-foreground">{formatCurrency(current.budget)}</div></div>
+              <div><div className="text-muted-foreground">Actual cost</div><div className="text-foreground">{formatCurrency(current.actualCost)}</div></div>
+              <div><div className="text-muted-foreground">New valuation</div><div className="text-foreground">{current.newValuation ? formatCurrency(current.newValuation) : "—"}</div></div>
+              <div>
+                <div className="text-muted-foreground">Budget variance</div>
+                <div className={cn(
+                  "text-foreground",
+                  current.budget > 0 && current.actualCost > current.budget ? "text-danger" : "text-success",
+                )}>
+                  {current.budget > 0
+                    ? `${current.actualCost > current.budget ? "+" : ""}${(((current.actualCost - current.budget) / current.budget) * 100).toFixed(0)}%`
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">ROI</div>
+                <div className={
+                  current.status === "COMPLETED" && current.newValuation && current.actualCost > 0
+                    ? ((current.newValuation - current.originalValuation - current.actualCost) / current.actualCost) * 100 >= 0 ? "text-success" : "text-danger"
+                    : "text-muted-foreground"
+                }>
+                  {current.status === "COMPLETED" && current.newValuation && current.actualCost > 0
+                    ? `${((current.newValuation - current.originalValuation - current.actualCost) / current.actualCost) >= 0 ? "+" : ""}${(((current.newValuation - current.originalValuation - current.actualCost) / current.actualCost) * 100).toFixed(1)}%`
+                    : "—"}
+                </div>
+              </div>
+              <div><div className="text-muted-foreground">Started</div><div className="text-foreground">{current.startDate ? formatDate(current.startDate) : "—"}</div></div>
+            </div>
 
-                    {/* Summary grid */}
-                    <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
-                      <div><div className="text-muted-foreground">Original Valuation</div><div className="text-foreground">{formatCurrency(r.originalValuation)}</div></div>
-                      <div><div className="text-muted-foreground">Actual Cost</div><div className="text-foreground">{formatCurrency(r.actualCost)}</div></div>
-                      <div><div className="text-muted-foreground">New Valuation</div><div className="text-foreground">{r.newValuation ? formatCurrency(r.newValuation) : "—"}</div></div>
-                      <div>
-                        <div className="text-muted-foreground">ROI</div>
-                        <div className={roi === null ? "text-muted-foreground" : roi >= 0 ? "text-success" : "text-danger"}>
-                          {roi !== null ? `${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%` : "—"}
-                        </div>
-                      </div>
-                    </div>
+            {/* Costs table */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-body font-semibold text-foreground">Costs ({current.costs.length})</h3>
+                {canManage && current.status === "IN_PROGRESS" && (
+                  <Button size="sm" variant="outline" onClick={() => setCostFormOpen(true)} disabled={submitting}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Cost
+                  </Button>
+                )}
+              </div>
+              <DataTable
+                columns={getCostColumns(current)}
+                data={current.costs}
+                showTotals={current.costs.length > 0}
+                sumColumns={["amount"]}
+                totalFormat={(_key, sum) => formatCurrency(sum)}
+                emptyState={<div className="px-3 py-3 text-center text-meta text-muted-foreground">No costs recorded yet</div>}
+                className="rounded-md border border-border"
+              />
+            </div>
 
-                    {/* Costs table */}
-                    <DataTable
-                      columns={getCostColumns(r)}
-                      data={r.costs}
-                      showTotals={r.costs.length > 0}
-                      sumColumns={["amount"]}
-                      totalFormat={(_key, sum) => formatCurrency(sum)}
-                      emptyState={<div className="px-3 py-3 text-center text-meta text-muted-foreground">No costs recorded yet</div>}
-                      className="rounded-md border border-border"
-                    />
+            {/* Inline cost form */}
+            {costFormOpen && (
+              <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+                <div className="text-body font-medium">Add Cost</div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <Select value={cCostType} onChange={(e) => setCCostType(e.target.value)}>
+                    {COST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </Select>
+                  <Input type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
+                  <Input placeholder="Vendor" value={cVendor} onChange={(e) => setCVendor(e.target.value)} />
+                  <Input placeholder="Notes" value={cNotes} onChange={(e) => setCNotes(e.target.value)} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setCostFormOpen(false)}>Cancel</Button>
+                  <Button size="sm" onClick={() => addCost(current.id)} disabled={submitting}>Add</Button>
+                </div>
+              </div>
+            )}
 
-                    {/* Actions */}
-                    {canManage && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {r.status === "PLANNED" && (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => openEdit(r)} disabled={submitting}>
-                              <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => doAction(r, "start")} disabled={submitting}>
-                              <Play className="mr-1 h-3.5 w-3.5" /> Start
-                            </Button>
-                          </>
-                        )}
-                        {r.status === "IN_PROGRESS" && (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => setCostFormOpen(r.id)} disabled={submitting}>
-                              <Plus className="mr-1 h-3.5 w-3.5" /> Add Cost
-                            </Button>
-                            <Button size="sm" onClick={() => doAction(r, "complete")} disabled={submitting}>
-                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => doAction(r, "cancel")} disabled={submitting}>
-                              <XCircle className="mr-1 h-3.5 w-3.5 text-danger" /> Cancel
-                            </Button>
-                          </>
-                        )}
-                        {r.status === "COMPLETED" && r.newValuation && (
-                          <div className="flex items-center gap-1 text-meta text-success">
-                            <TrendingUp className="h-3.5 w-3.5" />
-                            Valuation updated: {formatCurrency(r.originalValuation)} → {formatCurrency(r.newValuation)}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Inline cost form */}
-                    {costFormOpen === r.id && (
-                      <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
-                        <div className="text-body font-medium">Add Cost</div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <Select value={cCostType} onChange={(e) => setCCostType(e.target.value)}>
-                            {COST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </Select>
-                          <Input type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
-                          <Input placeholder="Vendor" value={cVendor} onChange={(e) => setCVendor(e.target.value)} />
-                          <Input placeholder="Notes" value={cNotes} onChange={(e) => setCNotes(e.target.value)} />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setCostFormOpen(null)}>Cancel</Button>
-                          <Button size="sm" onClick={() => addCost(r.id)} disabled={submitting}>Add</Button>
-                        </div>
-                      </div>
-                    )}
+            {/* Actions */}
+            {canManage && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                {current.status === "PLANNED" && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => openEdit(current)} disabled={submitting}>
+                      <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => doAction(current, "start")} disabled={submitting}>
+                      <Play className="mr-1 h-3.5 w-3.5" /> Start
+                    </Button>
+                  </>
+                )}
+                {current.status === "IN_PROGRESS" && (
+                  <>
+                    <Button size="sm" onClick={() => doAction(current, "complete")} disabled={submitting}>
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => doAction(current, "cancel")} disabled={submitting}>
+                      <XCircle className="mr-1 h-3.5 w-3.5 text-danger" /> Cancel
+                    </Button>
+                  </>
+                )}
+                {current.status === "COMPLETED" && current.newValuation && (
+                  <div className="flex items-center gap-1 text-meta text-success">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Valuation updated: {formatCurrency(current.originalValuation)} → {formatCurrency(current.newValuation)}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        </Dialog>
       )}
 
       {/* Create dialog */}
@@ -535,6 +761,36 @@ export function RenovationsView({
         confirmLabel="Cancel Renovation"
         onConfirm={confirmCancelRenovation}
       />
+
+      {/* Complete dialog (replaces prompt) */}
+      <Dialog
+        open={!!completeTarget}
+        onOpenChange={(o) => { if (!o) setCompleteTarget(null); }}
+        title="Complete renovation"
+        description={
+          completeTarget
+            ? `Enter the new valuation for "${completeTarget.title}". Leave blank to auto-calculate as original + actual cost (${formatCurrency(completeTarget.originalValuation + completeTarget.actualCost)}).`
+            : ""
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <Label>New valuation (optional)</Label>
+            <Input
+              type="number"
+              value={completeValuation}
+              onChange={(e) => setCompleteValuation(e.target.value)}
+              placeholder={`Auto: ${completeTarget ? formatCurrency(completeTarget.originalValuation + completeTarget.actualCost) : ""}`}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCompleteTarget(null)}>Cancel</Button>
+            <Button onClick={confirmComplete} disabled={submitting}>
+              {submitting ? "Completing…" : "Complete Renovation"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Edit dialog */}
       <Dialog

@@ -10,7 +10,7 @@ import { ProjectAssignmentsView } from "@/components/settings/project-assignment
 import { NoAccess } from "@/components/no-access";
 export default function ProjectAssignmentsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Project Assignments"
         description="Scope user access to specific projects. Supervisors, sales, and accountants only see projects they're assigned to."

@@ -14,6 +14,7 @@ import {
   MobileStatCard,
   MobileStatusBadge,
   MobileRefreshButton,
+  MobileCta,
 } from "@/components/mobile/mobile-primitives";
 
 /**
@@ -58,7 +59,7 @@ async function MobileProjectDetailContent({
       where: { projectId: id, deletedAt: null },
       orderBy: { unitNumber: "asc" },
       take: 30,
-      select: { id: true, unitNumber: true, unitType: true, status: true, area: true, areaUnit: true, askingPrice: true },
+      select: { id: true, unitNumber: true, unitType: true, status: true, area: true, areaUnit: true, askingPrice: true, saleId: true },
     }),
     prisma.purchaseOrder.findMany({
       where: { projectId: id },
@@ -81,7 +82,7 @@ async function MobileProjectDetailContent({
   ]);
 
   const availableUnits = units.filter((u) => u.status === "AVAILABLE" || u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION");
-  const soldUnits = units.filter((u) => u.status === "SOLD");
+  const soldUnits = units.filter((u) => u.saleId != null);
 
   return (
     <div>
@@ -114,7 +115,12 @@ async function MobileProjectDetailContent({
 
       <MobileSectionTitle>Units ({units.length})</MobileSectionTitle>
       {units.length === 0 ? (
-        <MobileEmptyState icon={Home} title="No units" hint="Units show here once created" />
+        <MobileEmptyState
+          icon={Home}
+          title="No units"
+          hint="Units show here once created from the desktop Units page."
+          action={<MobileCta href={`/units?project=${project.id}`} icon={Home}>Add Units</MobileCta>}
+        />
       ) : (
         <div>
           {units.map((u) => (

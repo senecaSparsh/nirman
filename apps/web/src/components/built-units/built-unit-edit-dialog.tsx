@@ -56,6 +56,12 @@ export function BuiltUnitEditDialog({
     area: number;
     areaUnit: AreaUnit;
     askingPrice: number | null;
+    // RERA fields
+    carpetArea: number | null;
+    superBuiltUpArea: number | null;
+    balconyArea: number | null;
+    clearHeight: number | null;
+    hasLoadingDock: boolean;
   }) => void;
 }) {
   const router = useRouter();
@@ -67,6 +73,12 @@ export function BuiltUnitEditDialog({
   const [area, setArea] = useState("");
   const [areaUnit, setAreaUnit] = useState<AreaUnit>("SQFT");
   const [askingPrice, setAskingPrice] = useState("");
+  // RERA fields
+  const [carpetArea, setCarpetArea] = useState("");
+  const [superBuiltUpArea, setSuperBuiltUpArea] = useState("");
+  const [balconyArea, setBalconyArea] = useState("");
+  const [clearHeight, setClearHeight] = useState("");
+  const [hasLoadingDock, setHasLoadingDock] = useState(false);
 
   // Pre-populate from the unit whenever the dialog opens
   useEffect(() => {
@@ -78,6 +90,12 @@ export function BuiltUnitEditDialog({
       setArea(unit.area ? String(unit.area) : "");
       setAreaUnit(unit.areaUnit);
       setAskingPrice(unit.askingPrice != null ? String(unit.askingPrice) : "");
+      // RERA fields
+      setCarpetArea(unit.carpetArea != null ? String(unit.carpetArea) : "");
+      setSuperBuiltUpArea(unit.superBuiltUpArea != null ? String(unit.superBuiltUpArea) : "");
+      setBalconyArea(unit.balconyArea != null ? String(unit.balconyArea) : "");
+      setClearHeight(unit.clearHeight != null ? String(unit.clearHeight) : "");
+      setHasLoadingDock(unit.hasLoadingDock);
     }
   }, [open, unit]);
 
@@ -104,6 +122,12 @@ export function BuiltUnitEditDialog({
         area: Number(area) || 0,
         areaUnit,
         askingPrice: askingPrice ? Number(askingPrice) || null : null,
+        // RERA fields
+        carpetArea: carpetArea ? Number(carpetArea) || null : null,
+        superBuiltUpArea: superBuiltUpArea ? Number(superBuiltUpArea) || null : null,
+        balconyArea: balconyArea ? Number(balconyArea) || null : null,
+        clearHeight: clearHeight ? Number(clearHeight) || null : null,
+        hasLoadingDock,
       };
       const res = await fetch(`/api/built-units/${unit.id}`, {
         method: "PATCH",
@@ -121,6 +145,12 @@ export function BuiltUnitEditDialog({
         area: body.area,
         areaUnit,
         askingPrice: body.askingPrice,
+        // RERA fields
+        carpetArea: body.carpetArea,
+        superBuiltUpArea: body.superBuiltUpArea,
+        balconyArea: body.balconyArea,
+        clearHeight: body.clearHeight,
+        hasLoadingDock: body.hasLoadingDock,
       });
       onOpenChange(false);
       router.refresh();
@@ -133,11 +163,12 @@ export function BuiltUnitEditDialog({
 
   if (!unit) return null;
 
-  // Live preview of price-per-sqft from the edited area/asking
+  // Live preview of price-per-sqft — uses superBuiltUpArea (RERA saleable area)
+  // falling back to area if superBuiltUpArea is not set.
   const previewAsking = askingPrice ? Number(askingPrice) : null;
-  const previewArea = area ? Number(area) : unit.area;
-  const previewPricePerSqft = previewAsking != null && previewArea > 0
-    ? previewAsking / previewArea
+  const previewSuperBuiltUp = superBuiltUpArea ? Number(superBuiltUpArea) : (area ? Number(area) : unit.area);
+  const previewPricePerSqft = previewAsking != null && previewSuperBuiltUp > 0
+    ? previewAsking / previewSuperBuiltUp
     : null;
 
   return (
@@ -263,6 +294,71 @@ export function BuiltUnitEditDialog({
               {formatCurrency(Number(askingPrice) || 0)}
             </p>
           )}
+        </div>
+
+        {/* ── RERA Fields ── */}
+        <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
+            <span>RERA Details</span>
+            <span className="text-faint">(optional — required for sale documents & portal listings)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bu-edit-carpet">Carpet Area</Label>
+              <Input
+                id="bu-edit-carpet"
+                type="number"
+                step="any"
+                value={carpetArea}
+                onChange={(e) => setCarpetArea(e.target.value)}
+                placeholder="RERA carpet area"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bu-edit-super">Super Built-Up Area</Label>
+              <Input
+                id="bu-edit-super"
+                type="number"
+                step="any"
+                value={superBuiltUpArea}
+                onChange={(e) => setSuperBuiltUpArea(e.target.value)}
+                placeholder="Saleable area"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="bu-edit-balcony">Balcony Area</Label>
+              <Input
+                id="bu-edit-balcony"
+                type="number"
+                step="any"
+                value={balconyArea}
+                onChange={(e) => setBalconyArea(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bu-edit-height">Clear Height</Label>
+              <Input
+                id="bu-edit-height"
+                type="number"
+                step="any"
+                value={clearHeight}
+                onChange={(e) => setClearHeight(e.target.value)}
+                placeholder="Floor-to-ceiling (industrial)"
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hasLoadingDock}
+              onChange={(e) => setHasLoadingDock(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            <span>Has Loading Dock</span>
+          </label>
         </div>
 
         {/* Actions */}

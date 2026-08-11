@@ -91,6 +91,20 @@ export interface ApproveLeaveInput {
   rejectedReason?: string;
 }
 
+/**
+ * Default annual leave entitlement (in days) per leave type. UNPAID leave has
+ * no cap. These defaults apply because the schema does not yet model per-
+ * employee entitlements; the balance check prevents over-approving paid leave.
+ */
+const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
+  CASUAL: 12,
+  SICK: 12,
+  EARNED: 20,
+  UNPAID: 0, // 0 → no entitlement cap (unpaid, unlimited)
+  MATERNITY: 84,
+  PATERNITY: 5,
+};
+
 export async function approveLeaveRequest(input: ApproveLeaveInput) {
   return prisma.$transaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
@@ -99,6 +113,59 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     if (!leave) throw new ServiceError("Leave request not found", 404);
     if (leave.status !== "PENDING") {
       throw new ServiceError(`Cannot ${input.approve ? "approve" : "reject"} a leave in status ${leave.status}`);
+    }
+
+    // Only validate balance + overlap when approving (not when rejecting).
+    if (input.approve) {
+      const requestedDays = new Decimal(leave.days);
+
+      // ── Overlap check: no two approved leaves for the same employee may
+      //    overlap in date range.
+      const overlapping = await tx.leaveRequest.findFirst({
+        where: {
+          employeeId: leave.employeeId,
+          status: "APPROVED",
+          id: { not: leave.id },
+          startDate: { lte: leave.endDate },
+          endDate: { gte: leave.startDate },
+        },
+        select: { id: true, startDate: true, endDate: true },
+      });
+      if (overlapping) {
+        throw new ServiceError(
+          `Leave overlaps with an already-approved leave (${overlapping.startDate.toISOString().slice(0, 10)} → ${overlapping.endDate.toISOString().slice(0, 10)})`,
+          409,
+        );
+      }
+
+      // ── Balance check: sum already-approved days for the same type in the
+      //    same calendar year and compare against the annual entitlement.
+      const entitlement = ANNUAL_LEAVE_ENTITLEMENT[leave.type] ?? 0;
+      if (entitlement > 0) {
+        const yearStart = new Date(leave.startDate.getFullYear(), 0, 1);
+        const yearEnd = new Date(leave.startDate.getFullYear(), 11, 31, 23, 59, 59);
+        const approvedSameType = await tx.leaveRequest.findMany({
+          where: {
+            employeeId: leave.employeeId,
+            status: "APPROVED",
+            type: leave.type,
+            id: { not: leave.id },
+            startDate: { gte: yearStart, lte: yearEnd },
+          },
+          select: { days: true },
+        });
+        const usedDays = approvedSameType.reduce(
+          (sum, r) => sum.plus(new Decimal(r.days)),
+          new Decimal(0),
+        );
+        const availableDays = new Decimal(entitlement).minus(usedDays);
+        if (requestedDays.gt(availableDays)) {
+          throw new ServiceError(
+            `Insufficient leave balance (available: ${availableDays} days, requested: ${requestedDays} days)`,
+            409,
+          );
+        }
+      }
     }
 
     const updated = await tx.leaveRequest.update({

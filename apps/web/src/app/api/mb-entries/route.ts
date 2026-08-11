@@ -46,6 +46,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   const boqItemId = searchParams.get("boqItemId");
+  const wbsNodeId = searchParams.get("wbsNodeId");
   const status = searchParams.get("status");
 
   const entries = await prisma.measurementBookEntry.findMany({
@@ -53,6 +54,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       project: { companyId: company.id },
       ...(projectId ? { projectId } : {}),
       ...(boqItemId ? { boqItemId } : {}),
+      ...(wbsNodeId ? { wbsNodeId } : {}),
       ...(status ? { status: status as any } : {}),
     },
     orderBy: { measureDate: "desc" },

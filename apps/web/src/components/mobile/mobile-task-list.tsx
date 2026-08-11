@@ -21,6 +21,7 @@ import {
   MobileFilterChips,
   MobileStatusBadge,
   MobileEmptyState,
+  MobileCta,
 } from "@/components/mobile/mobile-primitives";
 
 interface TaskItem {
@@ -163,7 +164,12 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
         <MobileEmptyState
           icon={CheckSquare}
           title="No open tasks"
-          hint="New assignments from your admin appear here"
+          hint="New assignments from your admin appear here. Pull to refresh or tap below to check for updates."
+          action={
+            <MobileCta href="/m/tasks" icon={CheckSquare} variant="outline">
+              Refresh Tasks
+            </MobileCta>
+          }
         />
       )}
 

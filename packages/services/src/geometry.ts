@@ -119,6 +119,7 @@ export function pointInPolygon(p: Point, poly: Polygon): boolean {
 
 /** Centroid (geometric center) of a polygon. */
 export function centroid(poly: Polygon): Point {
+  if (poly.length === 0) throw new Error("Cannot compute centroid of empty polygon");
   let cx = 0, cy = 0, a = 0;
   for (let i = 0; i < poly.length; i++) {
     const j = (i + 1) % poly.length;
@@ -266,6 +267,7 @@ export function areaRatios(
   parentArea: number,
   childAreas: number[],
 ): number[] {
+  if (parentArea === 0) throw new Error("Parent area cannot be zero for area ratio calculation");
   return childAreas.map((a) => a / parentArea);
 }
 

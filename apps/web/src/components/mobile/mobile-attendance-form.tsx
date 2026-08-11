@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrencyCompact } from "@/lib/utils";
 import { Input, Select, Label } from "@/components/ui/input";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE";
 
@@ -72,6 +74,33 @@ export function MobileAttendanceForm({
     }
     return init;
   });
+
+  // ── Draft auto-save ──────────────────────────────────────────
+  type AttendanceDraft = {
+    fProject: string;
+    records: Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }>;
+    gps: { lat: number; lng: number; label: string } | null;
+  };
+
+  const draftKey = `attendance:${today}`;
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<AttendanceDraft>("attendance", draftKey);
+
+  // Auto-save form state (debounced via the hook's internal timer)
+  useEffect(() => {
+    // Only save if the user has made changes (project selected or non-default records)
+    const hasChanges = fProject !== "" || Object.values(records).some((r) => r.status !== "PRESENT" || r.checkIn || r.checkOut || r.hoursWorked);
+    if (hasChanges) {
+      saveDraft({ fProject, records, gps });
+    }
+  }, [fProject, records, gps, saveDraft]);
+
+  function restoreDraft() {
+    if (!draft) return;
+    if (draft.fProject) setFProject(draft.fProject);
+    if (draft.records) setRecords(draft.records);
+    if (draft.gps) setGps(draft.gps);
+    toast.success("Draft restored");
+  }
 
   const filteredEmployees = useMemo(() => {
     if (!search) return employees;
@@ -178,6 +207,7 @@ export function MobileAttendanceForm({
       if (!res.ok) throw new Error(data.error ?? "Failed to save attendance");
       haptic(30);
       toast.success(`Attendance saved for ${employees.length} workers`);
+      clearDraft();
       router.push("/m/site");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -188,6 +218,18 @@ export function MobileAttendanceForm({
 
   return (
     <div className="pb-24">
+      {/* ── Draft restoration banner ─────────────────────────── */}
+      {hasDraft && (
+        <div className="px-3 pt-3">
+          <DraftBanner
+            formName="Attendance"
+            updatedAt={draftUpdatedAt}
+            onRestore={restoreDraft}
+            onDiscard={clearDraft}
+          />
+        </div>
+      )}
+
       {/* ── Summary band ────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card">
         <div className="flex items-center gap-3 text-caption">
@@ -274,7 +316,7 @@ export function MobileAttendanceForm({
                     <div className="min-w-0">
                       <div className="truncate text-body font-medium text-foreground">{emp.name}</div>
                       <div className="truncate text-caption text-muted-foreground">
-                        {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? `₹${emp.dailyRate}/day` : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
+                        {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? `${formatCurrencyCompact(emp.dailyRate)}/day` : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
                       </div>
                     </div>
                   </button>

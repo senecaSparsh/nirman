@@ -41,7 +41,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
       wing: u.wing,
       area: toNum(u.area),
       areaUnit: u.areaUnit,
+      // RERA fields
+      carpetArea: u.carpetArea ? toNum(u.carpetArea) : null,
+      superBuiltUpArea: u.superBuiltUpArea ? toNum(u.superBuiltUpArea) : null,
+      balconyArea: u.balconyArea ? toNum(u.balconyArea) : null,
+      clearHeight: u.clearHeight ? toNum(u.clearHeight) : null,
+      hasLoadingDock: u.hasLoadingDock,
       status: u.status,
+      originType: u.originType,
+      acquisitionCost: toNum(u.acquisitionCost),
+      purchaseDate: u.purchaseDate,
+      landParcelId: u.landParcelId,
       productionCost: toNum(u.productionCost),
       askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
       currentValuation: toNum(u.currentValuation),
@@ -83,6 +93,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
         areaUnit: u!.areaUnit,
         askingPrice: u!.askingPrice ?? undefined,
         phaseId: u!.phaseId ?? null,
+        // RERA fields
+        carpetArea: u!.carpetArea ?? null,
+        superBuiltUpArea: u!.superBuiltUpArea ?? null,
+        balconyArea: u!.balconyArea ?? null,
+        clearHeight: u!.clearHeight ?? null,
+        hasLoadingDock: u!.hasLoadingDock ?? false,
       })),
     });
     return json({ ok: true, count: created.length }, { status: 201 });

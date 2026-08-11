@@ -12,7 +12,7 @@ export const metadata = { title: "My Tasks · Nirman" };
 
 export default function MyTasksPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="My Tasks"
         description="Tasks assigned to you, with step-by-step guidance. Team leads can also switch to the Team Tasks tab to manage everyone's work."

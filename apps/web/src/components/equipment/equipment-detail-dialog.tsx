@@ -42,7 +42,7 @@ export function EquipmentDetailDialog({
   permissions?: { canCreate?: boolean; canEdit?: boolean };
 }) {
   const router = useRouter();
-  const canEdit = permissions?.canEdit ?? true;
+  const canEdit = permissions?.canEdit ?? false;
   const [detail, setDetail] = useState<EquipmentDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState(false);

@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
+import { postNrvWriteDown } from "./gl-posting";
 
 /**
  * Alerts & Reporting Service — low-stock alerts, inventory aging, NRV flagging.
@@ -76,22 +77,34 @@ export async function inventoryAgingReport(companyId?: string) {
     },
   });
 
+  // Batch fetch all relevant inbound movements (avoids N+1 — one query instead of N)
+  const allMovements = await prisma.stockMovement.findMany({
+    where: {
+      materialId: { in: items.map((i) => i.materialId) },
+      toLocationId: { in: items.map((i) => i.locationId) },
+      movementType: { in: ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"] },
+    },
+    orderBy: { timestamp: "desc" },
+    select: { materialId: true, toLocationId: true, timestamp: true },
+  });
+
+  // Build a map of latest movement per (materialId, locationId) pair
+  const latestMovementMap = new Map<string, Date>();
+  for (const m of allMovements) {
+    const key = `${m.materialId}-${m.toLocationId}`;
+    // Movements are ordered desc, so the first one we see for each key is the latest
+    if (!latestMovementMap.has(key)) {
+      latestMovementMap.set(key, m.timestamp);
+    }
+  }
+
   const report = [];
   for (const item of items) {
-    // Find the last inbound movement for this material at this location
-    const lastInbound = await prisma.stockMovement.findFirst({
-      where: {
-        materialId: item.materialId,
-        toLocationId: item.locationId,
-        movementType: { in: ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"] },
-      },
-      orderBy: { timestamp: "desc" },
-      select: { timestamp: true },
-    });
+    const key = `${item.materialId}-${item.locationId}`;
+    const lastInboundDate = latestMovementMap.get(key);
+    if (!lastInboundDate) continue;
 
-    if (!lastInbound) continue;
-
-    const ageDays = Math.floor((Date.now() - lastInbound.timestamp.getTime()) / (1000 * 60 * 60 * 24));
+    const ageDays = Math.floor((Date.now() - lastInboundDate.getTime()) / (1000 * 60 * 60 * 24));
     let bucket: string;
     if (ageDays < 30) bucket = "<30d";
     else if (ageDays < 60) bucket = "30-60d";
@@ -109,7 +122,7 @@ export async function inventoryAgingReport(companyId?: string) {
       qty: new Decimal(item.qty),
       mac: new Decimal(item.movingAvgCost),
       value: new Decimal(item.qty).times(new Decimal(item.movingAvgCost)),
-      lastInboundDate: lastInbound.timestamp,
+      lastInboundDate,
       ageDays,
       bucket,
       isSlowMoving: ageDays > 90,
@@ -131,6 +144,10 @@ export async function inventoryAgingReport(companyId?: string) {
  * For LandParcels: costBasis = acquisitionCost, NRV = currentValuation
  *
  * If NRV < cost → nrvWriteDown = cost - NRV (the amount to write down).
+ *
+ * Phase 3E: now also posts a GL entry for each write-down —
+ * Dr OPERATING_EXPENSE (6000), Cr UNIT_ASSET (1800) / LAND_ASSET (1700).
+ * Only the incremental delta is posted (new write-down minus any existing).
  */
 export async function flagNrvWriteDowns(companyId?: string) {
   const [units, parcels] = await Promise.all([
@@ -140,7 +157,7 @@ export async function flagNrvWriteDowns(companyId?: string) {
         status: { in: ["AVAILABLE", "HOLD"] },
         ...(companyId ? { project: { companyId } } : {}),
       },
-      select: { id: true, productionCost: true, currentValuation: true, nrvWriteDown: true },
+      select: { id: true, productionCost: true, currentValuation: true, nrvWriteDown: true, project: { select: { companyId: true } } },
     }),
     prisma.landParcel.findMany({
       where: {
@@ -148,7 +165,7 @@ export async function flagNrvWriteDowns(companyId?: string) {
         status: { in: ["AVAILABLE", "HOLD"] },
         ...(companyId ? { landPurchase: { companyId } } : {}),
       },
-      select: { id: true, acquisitionCost: true, currentValuation: true },
+      select: { id: true, acquisitionCost: true, currentValuation: true, landPurchase: { select: { companyId: true } } },
     }),
   ]);
 
@@ -160,21 +177,24 @@ export async function flagNrvWriteDowns(companyId?: string) {
     writeDownAmount: Decimal;
   }[] = [];
 
-  // Collect all updates first, then apply atomically
-  const unitUpdates: { id: string; nrvWriteDown: Decimal }[] = [];
-  const parcelUpdates: { id: string; nrvWriteDown: Decimal }[] = [];
+  // Collect all updates + GL postings first, then apply atomically
+  const unitUpdates: { id: string; nrvWriteDown: Decimal; companyId: string; glAmount: Decimal }[] = [];
+  const parcelUpdates: { id: string; nrvWriteDown: Decimal; companyId: string; glAmount: Decimal }[] = [];
 
   // Built units
   for (const unit of units) {
     const cost = new Decimal(unit.productionCost);
     const nrv = new Decimal(unit.currentValuation);
+    const existingWriteDown = unit.nrvWriteDown ? new Decimal(unit.nrvWriteDown) : new Decimal(0);
     if (nrv.lt(cost)) {
       const writeDown = cost.minus(nrv);
       writeDowns.push({ type: "BUILT_UNIT", id: unit.id, costBasis: cost, nrv, writeDownAmount: writeDown });
-      unitUpdates.push({ id: unit.id, nrvWriteDown: writeDown });
-    } else if (unit.nrvWriteDown && new Decimal(unit.nrvWriteDown).gt(0)) {
+      // GL delta = new write-down minus existing (only post the incremental amount)
+      const glAmount = writeDown.minus(existingWriteDown);
+      unitUpdates.push({ id: unit.id, nrvWriteDown: writeDown, companyId: unit.project.companyId, glAmount });
+    } else if (existingWriteDown.gt(0)) {
       // Clear previous write-down if NRV has recovered
-      unitUpdates.push({ id: unit.id, nrvWriteDown: new Decimal(0) });
+      unitUpdates.push({ id: unit.id, nrvWriteDown: new Decimal(0), companyId: unit.project.companyId, glAmount: new Decimal(0) });
     }
   }
 
@@ -185,18 +205,34 @@ export async function flagNrvWriteDowns(companyId?: string) {
     if (nrv.lt(cost)) {
       const writeDown = cost.minus(nrv);
       writeDowns.push({ type: "LAND", id: parcel.id, costBasis: cost, nrv, writeDownAmount: writeDown });
-      parcelUpdates.push({ id: parcel.id, nrvWriteDown: writeDown });
+      parcelUpdates.push({ id: parcel.id, nrvWriteDown: writeDown, companyId: parcel.landPurchase.companyId, glAmount: writeDown });
     }
   }
 
-  // Apply all updates in a single transaction
+  // Apply all updates + GL postings in a single transaction
   if (unitUpdates.length > 0 || parcelUpdates.length > 0) {
     await prisma.$transaction(async (tx) => {
       for (const u of unitUpdates) {
         await tx.builtUnit.update({ where: { id: u.id }, data: { nrvWriteDown: u.nrvWriteDown } });
+        if (u.glAmount.gt(0)) {
+          await postNrvWriteDown(tx, {
+            companyId: u.companyId,
+            entityType: "BUILT_UNIT",
+            entityId: u.id,
+            writeDownAmount: u.glAmount,
+          });
+        }
       }
       for (const p of parcelUpdates) {
         await tx.landParcel.update({ where: { id: p.id }, data: { nrvWriteDown: p.nrvWriteDown } });
+        if (p.glAmount.gt(0)) {
+          await postNrvWriteDown(tx, {
+            companyId: p.companyId,
+            entityType: "LAND",
+            entityId: p.id,
+            writeDownAmount: p.glAmount,
+          });
+        }
       }
     });
   }

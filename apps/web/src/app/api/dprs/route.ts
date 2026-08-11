@@ -21,7 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     orderBy: { date: "desc" },
     take: 500,
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
       submittedBy: { select: { id: true, name: true } },
       subAdminApprovedBy: { select: { name: true } },
       adminApprovedBy: { select: { name: true } },
@@ -41,11 +41,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
       progressPct: toNum(d.progressPct),
       blockers: d.blockers,
       tomorrowPlan: d.tomorrowPlan,
+      photoUrls: d.photoUrls,
       approvalStatus: d.approvalStatus,
       subAdminApprovedByName: d.subAdminApprovedBy?.name ?? null,
       adminApprovedByName: d.adminApprovedBy?.name ?? null,
       materialLineCount: d._count.materialLines,
       laborLineCount: d._count.laborLines,
+      totalProjectCost: d.project?.totalProjectCost ? toNum(d.project.totalProjectCost) : null,
+      costPerSqft: d.project?.costPerSqft ? toNum(d.project.costPerSqft) : null,
+      projectBudget: d.project?.totalBudget ? toNum(d.project.totalBudget) : null,
+      totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null,
     })),
   );
 });
@@ -73,6 +78,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       blockers: parsed.data.blockers ?? undefined,
       tomorrowPlan: parsed.data.tomorrowPlan ?? undefined,
       notes: parsed.data.notes ?? undefined,
+      photoUrls: parsed.data.photoUrls,
       materialLines: parsed.data.materialLines?.map((l) => ({
         materialId: l.materialId,
         qty: l.qty,

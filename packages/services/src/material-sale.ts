@@ -2,8 +2,10 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, refreshMaterialCurrentCost } from "./stock-ledger";
 import { postMaterialSale, reverseJournalEntry } from "./gl-posting";
+import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { autoSyncEntryToTally } from "./auto-sync";
 
 /**
  * Material Sale Service — sell raw materials / stock items to customers.
@@ -19,11 +21,12 @@ import { ServiceError } from "./errors";
  * - All happens inside one Serializable transaction — stock, sale, and GL never diverge
  */
 
-function generateMaterialSaleNumber(): string {
+async function generateMaterialSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `MS-${ymd}-${rand}`;
+  const prefix = `MS-${ymd}-`;
+  const count = await tx.materialSale.count({ where: { saleNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 export interface MaterialSaleLineInput {
@@ -42,15 +45,17 @@ export interface CreateMaterialSaleInput {
   paymentMode?: string;
   notes?: string;
   userId?: string;
+  roundOff?: Decimal | number | string; // rounding adjustment
+  partyName?: string; // override party name on invoice (for walk-in customers)
 }
 
 export async function createMaterialSale(input: CreateMaterialSaleInput) {
   if (input.lines.length === 0) throw new ServiceError("At least one line item is required");
 
-  return prisma.$transaction(async (tx) => {
+  const sale = await prisma.$transaction(async (tx) => {
     // Validate customer
     const customer = await tx.customer.findFirst({
-      where: { id: input.customerId, deletedAt: null },
+      where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
     });
     if (!customer) throw new ServiceError("Customer not found or deleted", 404);
 
@@ -144,22 +149,25 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
     subtotal = subtotal.toDecimalPlaces(2);
     gstTotal = gstTotal.toDecimalPlaces(2);
     totalCost = totalCost.toDecimalPlaces(2);
-    const totalAmount = subtotal.plus(gstTotal);
+    const roundOff = new Decimal(input.roundOff ?? 0).toDecimalPlaces(2);
+    const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
     const grossProfit = subtotal.minus(totalCost);
 
     // Create the material sale
     const sale = await tx.materialSale.create({
       data: {
-        saleNumber: generateMaterialSaleNumber(),
+        saleNumber: await generateMaterialSaleNumber(tx),
         customerId: input.customerId,
         companyId: input.companyId,
         projectId: input.projectId ?? null,
         subtotal,
         gstTotal,
+        roundOff,
         totalAmount,
         totalCost,
         scrapSubtotal,
         grossProfit,
+        partyName: input.partyName,
         paymentMode: input.paymentMode,
         notes: input.notes,
         createdById: input.userId,
@@ -201,6 +209,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
       materialSaleId: sale.id,
       subtotal,
       gstTotal,
+      roundOff,
       totalCost,
       scrapSubtotal,
       postedById: input.userId,
@@ -209,6 +218,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: input.companyId,
         action: "MATERIAL_SALE_CREATE",
         entityType: "MaterialSale",
         entityId: sale.id,
@@ -225,8 +235,27 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
       });
     }
 
+    // If this is a scrap sale linked to a project, the cost recovery changes
+    // the project's per-unit production cost allocation — re-run it.
+    if (input.projectId) {
+      await reallocateProjectCosts(tx, input.projectId);
+    }
+
     return sale;
   }, { isolationLevel: "Serializable" });
+
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: sale.id, sourceType: "MATERIAL_SALE" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(input.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return sale;
 }
 
 /** Cancel a material sale — only if no payments have been received. */
@@ -292,9 +321,16 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
       data: { status: "CANCELLED" },
     });
 
+    // If the cancelled sale was linked to a project, the cost recovery change
+    // affects the project's per-unit production cost allocation — re-run it.
+    if (sale.projectId) {
+      await reallocateProjectCosts(tx, sale.projectId);
+    }
+
     if (userId) {
       await logAction(tx, {
         userId,
+        companyId: sale.companyId,
         action: "MATERIAL_SALE_CANCEL",
         entityType: "MaterialSale",
         entityId: sale.id,

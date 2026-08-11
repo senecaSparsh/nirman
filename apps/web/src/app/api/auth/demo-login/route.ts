@@ -50,9 +50,9 @@ const ROLE_EMAILS: Record<Role, string> = {
 };
 
 export const POST = async (req: NextRequest) => {
-  // Hard dev-only gate. AUTH_BYPASS=true also allows it so the headless
-  // dev escape hatch can still provision logins.
-  if (process.env.NODE_ENV === "production" && process.env.AUTH_BYPASS !== "true") {
+  // Hard dev-only gate. Demo login is NEVER available in production,
+  // even if AUTH_BYPASS is accidentally set.
+  if (process.env.NODE_ENV === "production") {
     return json({ error: "Demo login is disabled in production." }, { status: 403 });
   }
 

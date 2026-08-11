@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, ChevronDown, ChevronRight, Printer, CreditCard, Download } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -12,9 +12,9 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { MaterialSalePaymentFormDialog } from "./material-sale-payment-form-dialog";
 
 /** Column definitions for the material sale line items DataTable. */
@@ -65,6 +65,40 @@ const saleLineColumns: Column<MaterialSaleRow["lines"][number]>[] = [
     align: "right",
     sortable: true,
     render: (l) => <span className="tnum font-medium">{formatCurrency(l.lineTotal)}</span>,
+  },
+];
+
+/** Column definitions for the material sale payment history DataTable. */
+const paymentColumns: Column<MaterialSalePaymentRow>[] = [
+  {
+    key: "amount",
+    label: "Amount",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum font-medium text-foreground">{formatCurrency(p.amount)}</span>,
+  },
+  {
+    key: "paymentMode",
+    label: "Mode",
+    sortable: true,
+    render: (p) => <Badge variant="outline">{p.paymentMode}</Badge>,
+  },
+  {
+    key: "paymentDate",
+    label: "Date",
+    sortable: true,
+    sortValue: (p) => new Date(p.paymentDate),
+    render: (p) => <span className="tnum text-muted-foreground">{formatDate(p.paymentDate)}</span>,
+  },
+  {
+    key: "referenceNo",
+    label: "Reference",
+    render: (p) => p.referenceNo ? <span className="text-muted-foreground">{p.referenceNo}</span> : <span className="text-faint">—</span>,
+  },
+  {
+    key: "createdByName",
+    label: "By",
+    render: (p) => p.createdByName ? <span className="text-muted-foreground">{p.createdByName}</span> : <span className="text-faint">—</span>,
   },
 ];
 
@@ -140,14 +174,14 @@ export function MaterialSalesView({
   permissions?: { canCreate?: boolean; canCancel?: boolean; canRecordPayment?: boolean };
 }) {
   const router = useRouter();
-  const canCreate = permissions?.canCreate ?? true;
-  const canCancel = permissions?.canCancel ?? true;
-  const canRecordPayment = permissions?.canRecordPayment ?? true;
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const canCreate = permissions?.canCreate ?? false;
+  const canCancel = permissions?.canCancel ?? false;
+  const canRecordPayment = permissions?.canRecordPayment ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<MaterialSaleRow | null>(null);
+  const [detailTarget, setDetailTarget] = useState<MaterialSaleRow | null>(null);
   const [paymentDialogSale, setPaymentDialogSale] = useState<MaterialSaleRow | null>(null);
   const [paymentsBySale, setPaymentsBySale] = useState<Record<string, MaterialSalePaymentRow[]>>({});
   const [paymentsLoading, setPaymentsLoading] = useState<string | null>(null);
@@ -203,7 +237,7 @@ export function MaterialSalesView({
     return Math.max(0, sale.totalAmount - paid);
   }
 
-  // Load payments for a sale when it's expanded (only if not already available from server)
+  // Load payments for a sale when it's opened (only if not already available from server)
   async function loadPayments(sale: MaterialSaleRow) {
     if (paymentsBySale[sale.id] || paymentsLoading === sale.id) return;
     // If server already provided payments, seed them into state
@@ -224,14 +258,9 @@ export function MaterialSalesView({
     }
   }
 
-  // Toggle expansion and load payments on expand
-  function toggleExpand(sale: MaterialSaleRow) {
-    if (expanded === sale.id) {
-      setExpanded(null);
-    } else {
-      setExpanded(sale.id);
-      loadPayments(sale);
-    }
+  function openDetail(sale: MaterialSaleRow) {
+    setDetailTarget(sale);
+    loadPayments(sale);
   }
 
   // EditableGrid column definitions for the sale line items
@@ -380,46 +409,143 @@ export function MaterialSalesView({
     }
   }
 
-  const totalRevenue = sales.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.subtotal, 0);
-  const totalProfit = sales.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.grossProfit, 0);
+  const tableColumns: Column<MaterialSaleRow>[] = [
+    {
+      key: "saleNumber",
+      label: "Sale No.",
+      sortable: true,
+      width: "140px",
+      sortValue: (s) => s.saleNumber,
+      render: (s) => (
+        <IdentityCell
+          name={<span className="font-mono">{s.saleNumber}</span>}
+          sub={[
+            s.customerName ?? "Unknown",
+            `${s.lineCount} item${s.lineCount !== 1 ? "s" : ""}`,
+          ].join(" · ")}
+        />
+      ),
+      exportValue: (s) => s.saleNumber,
+    },
+    {
+      key: "customerName",
+      label: "Customer",
+      sortable: true,
+      filterable: true,
+      width: "160px",
+      render: (s) => s.customerName ?? <span className="text-faint">Unknown</span>,
+      filterValue: (s) => s.customerName ?? "Unknown",
+      exportValue: (s) => s.customerName ?? "",
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      width: "140px",
+      render: (s) => s.projectName ?? <span className="text-faint">—</span>,
+      filterValue: (s) => s.projectName ?? "—",
+      exportValue: (s) => s.projectName ?? "",
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      render: (s) => <StatusPill status={s.status} />,
+      filterValue: (s) => s.status,
+      exportValue: (s) => s.status,
+    },
+    {
+      key: "paymentStatus",
+      label: "Payment",
+      sortable: true,
+      filterable: true,
+      render: (s) => (
+        <Badge variant={s.paymentStatus === "PAID" ? "success" : s.paymentStatus === "PARTIAL" ? "warning" : "muted"}>
+          {s.paymentStatus}
+        </Badge>
+      ),
+      filterValue: (s) => s.paymentStatus,
+      exportValue: (s) => s.paymentStatus,
+    },
+    {
+      key: "totalAmount",
+      label: "Total",
+      align: "right",
+      sortable: true,
+      render: (s) => <MoneyCell value={s.totalAmount} formatted={formatCurrency(s.totalAmount)} neutral />,
+      exportValue: (s) => s.totalAmount,
+    },
+    {
+      key: "grossProfit",
+      label: "Profit",
+      align: "right",
+      sortable: true,
+      render: (s) => (
+        <MoneyCell
+          value={s.grossProfit}
+          formatted={`${s.grossProfit >= 0 ? "+" : ""}${formatCurrency(s.grossProfit)}`}
+        />
+      ),
+      exportValue: (s) => s.grossProfit,
+    },
+    {
+      key: "saleDate",
+      label: "Date",
+      sortable: true,
+      render: (s) => <DateCell date={s.saleDate} formatted={formatDate(s.saleDate)} />,
+      sortValue: (s) => new Date(s.saleDate),
+      exportValue: (s) => s.saleDate,
+    },
+  ];
+
+  function rowActions(s: MaterialSaleRow) {
+    return (
+      <>
+        {s.status === "ACTIVE" && (
+          <a
+            href={`/print/material-sale/${s.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Print invoice"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </a>
+        )}
+        {canRecordPayment && s.status === "ACTIVE" && s.paymentStatus !== "PAID" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPaymentDialogSale(s); }} title="Record payment">
+            <CreditCard className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canCancel && s.status === "ACTIVE" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); requestCancelSale(s); }} disabled={submitting} title="Cancel sale">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  const trailingButtons = canCreate ? (
+    <Button onClick={() => setFormOpen(true)}>
+      <Plus className="h-4 w-4" /> New sale
+    </Button>
+  ) : null;
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No sales match"
+      description="Adjust the search or column filters to see all material sales."
+    />
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="text-body text-muted-foreground">
-          {sales.length} sale{sales.length !== 1 ? "s" : ""} · {formatCurrency(totalRevenue)} revenue · {formatCurrency(totalProfit)} profit
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            downloadCSV("material-sales.csv", sales as unknown as Record<string, unknown>[], [
-              { key: "saleNumber", label: "Sale No" },
-              { key: "saleDate", label: "Date", format: (v) => formatDate(v as string) },
-              { key: "customerName", label: "Customer" },
-              { key: "projectName", label: "Project" },
-              { key: "subtotal", label: "Subtotal", format: (v) => formatCurrency(v as number) },
-              { key: "gstTotal", label: "GST", format: (v) => formatCurrency(v as number) },
-              { key: "totalAmount", label: "Total", format: (v) => formatCurrency(v as number) },
-              { key: "totalCost", label: "Cost", format: (v) => formatCurrency(v as number) },
-              { key: "grossProfit", label: "Profit", format: (v) => formatCurrency(v as number) },
-              { key: "status", label: "Status" },
-              { key: "paymentStatus", label: "Payment Status" },
-            ])
-          }
-          title="Export CSV"
-        >
-          <Download className="mr-1 h-3.5 w-3.5" /> Export
-        </Button>
-        {canCreate && (
-          <Button size="sm" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> New Material Sale
-          </Button>
-        )}
-      </div>
-
-      {/* List */}
       {sales.length === 0 ? (
         <EmptyState
           icon={<Package className="h-5 w-5" />}
@@ -428,124 +554,47 @@ export function MaterialSalesView({
           action={canCreate ? <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Material Sale</Button> : undefined}
         />
       ) : (
-        <div className="space-y-2">
-          {sales.map((s) => (
-            <div key={s.id} className="rounded-lg border border-border bg-card">
-              <button
-                onClick={() => toggleExpand(s)}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-              >
-                {expanded === s.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <div className="flex-1 space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">{s.saleNumber}</span>
-                    <Badge variant="outline">{s.customerName ?? "Unknown"}</Badge>
-                    <StatusPill status={s.status} />
-                    <Badge
-                      variant={s.paymentStatus === "PAID" ? "success" : s.paymentStatus === "PARTIAL" ? "warning" : "muted"}
-                    >
-                      {s.paymentStatus}
-                    </Badge>
-                    <Badge variant="muted">{s.lineCount} item{s.lineCount !== 1 ? "s" : ""}</Badge>
-                  </div>
-                  <div className="text-meta text-muted-foreground">
-                    {formatDate(s.saleDate)} · {s.lines.map((l) => l.materialName).filter(Boolean).slice(0, 3).join(", ")}
-                    {s.lines.length > 3 && ` +${s.lines.length - 3} more`}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-body font-medium text-foreground">{formatCurrency(s.totalAmount)}</div>
-                  <div className="text-caption text-muted-foreground">
-                    profit: <span className={s.grossProfit >= 0 ? "text-success" : "text-danger"}>{formatCurrency(s.grossProfit)}</span>
-                  </div>
-                </div>
-              </button>
-
-              {expanded === s.id && (
-                <div className="border-t border-border p-3 space-y-3">
-                  {/* Line items */}
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <DataTable data={s.lines} columns={saleLineColumns} getRowId={(l) => l.id} />
-                  </div>
-
-                  {/* Summary */}
-                  <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
-                    <div><div className="text-muted-foreground">Subtotal</div><div className="text-foreground">{formatCurrency(s.subtotal)}</div></div>
-                    <div><div className="text-muted-foreground">GST</div><div className="text-foreground">{formatCurrency(s.gstTotal)}</div></div>
-                    <div><div className="text-muted-foreground">Cost (MAC)</div><div className="text-foreground">{formatCurrency(s.totalCost)}</div></div>
-                    <div><div className="text-muted-foreground">Gross Profit</div><div className={s.grossProfit >= 0 ? "text-success" : "text-danger"}>{formatCurrency(s.grossProfit)}</div></div>
-                  </div>
-
-                  {s.notes && <div className="text-body text-muted-foreground">&quot;{s.notes}&quot;</div>}
-
-                  {/* Payment summary + history */}
-                  <div className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-body font-medium">Payments</span>
-                      <div className="text-meta text-muted-foreground">
-                        Total: <span className="tnum font-medium text-foreground">{formatCurrency(s.totalAmount)}</span>
-                        {" · "}
-                        Paid: <span className="tnum font-medium text-success">{formatCurrency(totalPaid(s))}</span>
-                        {" · "}
-                        Outstanding: <span className="tnum font-medium text-warning">{formatCurrency(outstandingBalance(s))}</span>
-                      </div>
-                    </div>
-
-                    {paymentsLoading === s.id ? (
-                      <div className="text-meta text-muted-foreground">Loading payments…</div>
-                    ) : (paymentsBySale[s.id] ?? []).length > 0 ? (
-                      <div className="space-y-1">
-                        {(paymentsBySale[s.id] ?? []).map((p) => (
-                          <div key={p.id} className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-1.5 text-meta">
-                            <div className="flex items-center gap-3">
-                              <span className="tnum font-medium text-foreground">{formatCurrency(p.amount)}</span>
-                              <Badge variant="outline">{p.paymentMode}</Badge>
-                              <span className="text-muted-foreground">{formatDate(p.paymentDate)}</span>
-                              {p.referenceNo && <span className="text-muted-foreground">Ref: {p.referenceNo}</span>}
-                              {p.notes && <span className="text-muted-foreground italic">{p.notes}</span>}
-                            </div>
-                            {p.createdByName && <span className="text-muted-foreground">by {p.createdByName}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-meta text-muted-foreground">No payments recorded yet.</div>
-                    )}
-                  </div>
-
-                  {s.status === "ACTIVE" && (
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`/print/material-sale/${s.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
-                        title="Print invoice"
-                      >
-                        <Printer className="h-3.5 w-3.5" /> Print
-                      </a>
-                      {canRecordPayment && s.paymentStatus !== "PAID" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setPaymentDialogSale(s)}
-                          disabled={submitting}
-                        >
-                          <CreditCard className="mr-1 h-3.5 w-3.5" /> Record Payment
-                        </Button>
-                      )}
-                      {canCancel && (
-                        <Button size="sm" variant="outline" onClick={() => requestCancelSale(s)} disabled={submitting}>
-                          <Trash2 className="mr-1 h-3.5 w-3.5" /> Cancel Sale
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={sales}
+            columns={tableColumns}
+            storageKey="material-sales"
+            hideable
+            exportFileName="material-sales"
+            initialSort={{ key: "saleDate", direction: "desc" }}
+            onRowClick={(s) => openDetail(s)}
+            searchable
+            searchPlaceholder="Search sale no, customer, project…"
+            toolbarTrailing={trailingButtons}
+            showTotals
+            sumColumns={["totalAmount", "grossProfit"]}
+            totalFormat={(_key, sum) => formatCurrency(sum)}
+            rowTone={(s) => {
+              if (s.status === "CANCELLED") return "warning";
+              return null;
+            }}
+            rowActions={rowActions}
+            emptyState={noMatch}
+          />
         </div>
+      )}
+
+      {/* Detail dialog */}
+      {detailTarget && (
+        <MaterialSaleDetailDialog
+          sale={detailTarget}
+          payments={paymentsBySale[detailTarget.id] ?? detailTarget.payments ?? []}
+          paymentsLoading={paymentsLoading === detailTarget.id}
+          totalPaid={totalPaid(detailTarget)}
+          outstanding={outstandingBalance(detailTarget)}
+          onClose={() => setDetailTarget(null)}
+          onPrint={() => {}}
+          onRecordPayment={() => { setPaymentDialogSale(detailTarget); setDetailTarget(null); }}
+          onCancel={() => { requestCancelSale(detailTarget); setDetailTarget(null); }}
+          canCancel={canCancel}
+          canRecordPayment={canRecordPayment}
+          submitting={submitting}
+        />
       )}
 
       {/* Create dialog */}
@@ -642,5 +691,148 @@ export function MaterialSalesView({
         />
       )}
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Material Sale Detail Dialog
+// ───────────────────────────────────────────────────────────
+
+function MaterialSaleDetailDialog({
+  sale,
+  payments,
+  paymentsLoading,
+  totalPaid,
+  outstanding,
+  onClose,
+  onPrint,
+  onRecordPayment,
+  onCancel,
+  canCancel,
+  canRecordPayment,
+  submitting,
+}: {
+  sale: MaterialSaleRow;
+  payments: MaterialSalePaymentRow[];
+  paymentsLoading: boolean;
+  totalPaid: number;
+  outstanding: number;
+  onClose: () => void;
+  onPrint: () => void;
+  onRecordPayment: () => void;
+  onCancel: () => void;
+  canCancel: boolean;
+  canRecordPayment: boolean;
+  submitting: boolean;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={sale.saleNumber}
+      description={`${sale.customerName ?? "Unknown"} · ${formatDate(sale.saleDate)}`}
+      className="max-w-2xl"
+      action={
+        sale.status === "ACTIVE" ? (
+          <a
+            href={`/print/material-sale/${sale.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print
+          </a>
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
+        {/* Status + key facts */}
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusPill status={sale.status} />
+          <Badge variant={sale.paymentStatus === "PAID" ? "success" : sale.paymentStatus === "PARTIAL" ? "warning" : "muted"}>
+            {sale.paymentStatus}
+          </Badge>
+          <Badge variant="muted">{sale.lineCount} item{sale.lineCount !== 1 ? "s" : ""}</Badge>
+        </div>
+
+        {/* Summary card */}
+        <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-4">
+          <div>
+            <div className="text-label text-muted-foreground">Subtotal</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(sale.subtotal)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">GST</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(sale.gstTotal)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Cost (MAC)</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(sale.totalCost)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Gross Profit</div>
+            <div className={cn("text-body font-semibold tnum", sale.grossProfit >= 0 ? "text-success" : "text-danger")}>
+              {formatCurrency(sale.grossProfit)}
+            </div>
+          </div>
+        </div>
+
+        {/* Line items table */}
+        <div className="space-y-2">
+          <div className="text-caption font-medium text-muted-foreground">Line items</div>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <DataTable data={sale.lines} columns={saleLineColumns} getRowId={(l) => l.id} hideToolbar />
+          </div>
+        </div>
+
+        {/* Notes */}
+        {sale.notes && (
+          <div>
+            <div className="text-label text-muted-foreground">Notes</div>
+            <p className="mt-1 text-body leading-relaxed whitespace-pre-wrap">{sale.notes}</p>
+          </div>
+        )}
+
+        {/* Payment summary + history */}
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-body font-medium">Payments</span>
+            <div className="text-meta text-muted-foreground">
+              Total: <span className="tnum font-medium text-foreground">{formatCurrency(sale.totalAmount)}</span>
+              {" · "}
+              Paid: <span className="tnum font-medium text-success">{formatCurrency(totalPaid)}</span>
+              {" · "}
+              Outstanding: <span className="tnum font-medium text-warning">{formatCurrency(outstanding)}</span>
+            </div>
+          </div>
+
+          {paymentsLoading ? (
+            <div className="text-meta text-muted-foreground">Loading payments…</div>
+          ) : payments.length > 0 ? (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <DataTable data={payments} columns={paymentColumns} getRowId={(p) => p.id} hideToolbar />
+            </div>
+          ) : (
+            <div className="text-meta text-muted-foreground">No payments recorded yet.</div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {sale.status === "ACTIVE" && (canRecordPayment || canCancel) && (
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            {canRecordPayment && sale.paymentStatus !== "PAID" && (
+              <Button size="sm" variant="outline" onClick={onRecordPayment} disabled={submitting}>
+                <CreditCard className="h-3.5 w-3.5" /> Record Payment
+              </Button>
+            )}
+            {canCancel && (
+              <Button size="sm" variant="outline" className="text-danger" onClick={onCancel} disabled={submitting}>
+                <Trash2 className="h-3.5 w-3.5" /> Cancel Sale
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }

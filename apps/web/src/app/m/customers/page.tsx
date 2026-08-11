@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Users } from "lucide-react";
+import { Users, UserPlus } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
@@ -10,6 +10,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileRefreshButton,
+  MobileCta,
 } from "@/components/mobile/mobile-primitives";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 
@@ -82,7 +83,12 @@ async function MobileCustomersContent() {
       </div>
 
       {rows.length === 0 ? (
-        <MobileEmptyState icon={Users} title="No customers yet" hint="Add customers from a new sale" />
+        <MobileEmptyState
+          icon={Users}
+          title="No customers yet"
+          hint="Create a customer to start booking sales."
+          action={<MobileCta href="/m/customers/new" icon={UserPlus}>Create Customer</MobileCta>}
+        />
       ) : (
         <MobileCustomersList items={rows} />
       )}

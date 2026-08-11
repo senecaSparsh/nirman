@@ -51,7 +51,7 @@ async function DprsContent() {
       orderBy: { date: "desc" },
       take: 100,
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
         submittedBy: { select: { name: true } },
         subAdminApprovedBy: { select: { name: true } },
         adminApprovedBy: { select: { name: true } },
@@ -94,6 +94,10 @@ async function DprsContent() {
     adminApprovedByName: d.adminApprovedBy?.name ?? null,
     materialLineCount: d._count.materialLines,
     laborLineCount: d._count.laborLines,
+    totalProjectCost: d.project?.totalProjectCost ? toNum(d.project.totalProjectCost) : null,
+    costPerSqft: d.project?.costPerSqft ? toNum(d.project.costPerSqft) : null,
+    projectBudget: d.project?.totalBudget ? toNum(d.project.totalBudget) : null,
+    totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null,
   }));
 
   return (

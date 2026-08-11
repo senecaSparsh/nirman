@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, TrendingUp, TrendingDown,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -21,6 +21,8 @@ import { ParcelsTree } from "./parcels-tree";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption, SellableAssetRow } from "@/lib/types";
+import { useTabParam } from "@/lib/use-tab-param";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 
 export type LandHubData = {
   purchase: {
@@ -65,6 +67,27 @@ export type LandHubData = {
   permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean; canSell: boolean };
   customers: { id: string; name: string }[];
   projectOptions: ProjectOption[];
+  // Built units linked to parcels (subdivided inventory)
+  parcelBuiltUnits?: ParcelBuiltUnitRow[];
+};
+
+export type ParcelBuiltUnitRow = {
+  id: string;
+  unitNumber: string;
+  unitType: string;
+  status: string;
+  area: number;
+  areaUnit: string;
+  floor: number | null;
+  wing: string | null;
+  originType: string;
+  acquisitionCost: number;
+  productionCost: number;
+  askingPrice: number | null;
+  currentValuation: number;
+  landParcelId: string;
+  projectId: string;
+  projectName: string;
 };
 
 const PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
@@ -75,8 +98,17 @@ const PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "dange
 };
 
 export function LandHub({ data }: { data: LandHubData }) {
-  const { purchase, parcels, parcelSummaries, stats, permissions, customers } = data;
-  const [tab, setTab] = useState("parcels");
+  const { purchase, parcels, parcelSummaries, stats, permissions, customers, parcelBuiltUnits } = data;
+  const hasBuiltUnits = parcelBuiltUnits && parcelBuiltUnits.length > 0;
+  const [tab, setTab] = useTabParam(
+    hasBuiltUnits ? (["parcels","units","sales"] as const) : (["parcels","sales"] as const),
+    "parcels",
+  );
+  const trackRecent = useTrackRecent();
+
+  useEffect(() => {
+    trackRecent({ type: "land", id: purchase.id, label: `Land from ${purchase.sellerName}`, href: `/land/${purchase.id}` });
+  }, [purchase.id, purchase.sellerName, trackRecent]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -84,6 +116,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [canvasParcel, setCanvasParcel] = useState<LandParcelRow | null>(null);
   const [valuateParcel, setValuateParcel] = useState<LandParcelRow | null>(null);
   const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
+  const [deleteParcel, setDeleteParcel] = useState<LandParcelRow | null>(null);
 
   function toSellableAsset(p: LandParcelRow): SellableAssetRow {
     return {
@@ -177,17 +210,11 @@ export function LandHub({ data }: { data: LandHubData }) {
           </div>
 
           {/* Field grid — structured key/value columns like a property record sheet */}
-          <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border/70 pt-3 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-3 border-t border-border/70 pt-3">
             <FieldItem
               icon={<MapPinned className="h-3 w-3" />}
               label="Location"
               value={purchase.location ?? "—"}
-            />
-            <FieldItem
-              icon={<ScrollText className="h-3 w-3" />}
-              label="Registry No"
-              value={purchase.registryNo ?? "—"}
-              mono
             />
             <FieldItem
               icon={<Calendar className="h-3 w-3" />}
@@ -203,58 +230,37 @@ export function LandHub({ data }: { data: LandHubData }) {
             />
           </div>
 
-          {/* KPI row — two groups: Holding (what you own) | Performance (how it's doing) */}
-          <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border/70 pt-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-            {/* Holding group */}
-            <div>
-              <div className="text-label text-muted-foreground/60">Holding</div>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
-                <KpiItem label="Area" value={`${formatNumber(purchase.totalArea, 0)} ${purchase.areaUnit}`} />
-                <KpiItem label="Cost" value={formatCurrency(purchase.totalCost)} sub={`${formatCurrency(costPerUnit)}/${purchase.areaUnit}`} />
-                <KpiItem label="Parcels" value={String(stats.parcelCount)} />
-              </div>
-            </div>
-
-            {/* Vertical separator */}
-            <div className="hidden w-px self-stretch bg-border/70 md:block" />
-
-            {/* Performance group */}
-            <div className="md:text-right">
-              <div className="text-label text-muted-foreground/60">Performance</div>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1.5 md:justify-end">
-                <KpiItem label="Unsold" value={formatCurrency(stats.unsoldValue)} />
-                <KpiItem
-                  label="Unrealized"
-                  value={`${gainPositive ? "+" : ""}${formatCurrency(stats.valuationGain)}`}
-                  tone={gainPositive ? "positive" : "negative"}
-                  icon={gainPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                />
-                <KpiItem
-                  label="Sold Profit"
-                  value={`${profitPositive ? "+" : ""}${formatCurrency(stats.soldProfit)}`}
-                  sub={stats.soldCount > 0 ? `${stats.soldCount} · ${formatCurrency(stats.soldRevenue)}` : undefined}
-                  tone={profitPositive ? "positive" : "negative"}
-                  icon={profitPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                />
-              </div>
-            </div>
+          {/* KPI row — single clean band of stats */}
+          <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-3 border-t border-border/70 pt-3 sm:grid-cols-6">
+            <KpiItem label="Area" value={`${formatNumber(purchase.totalArea, 0)} ${purchase.areaUnit}`} />
+            <KpiItem label="Cost" value={formatCurrency(purchase.totalCost)} sub={`${formatCurrency(costPerUnit)}/${purchase.areaUnit}`} />
+            <KpiItem label="Available" value={String(stats.availableCount)} />
+            <KpiItem label="Unsold" value={formatCurrency(stats.unsoldValue)} />
+            <KpiItem
+              label="Unrealized"
+              value={`${gainPositive ? "+" : ""}${formatCurrency(stats.valuationGain)}`}
+              tone={gainPositive ? "positive" : "negative"}
+            />
+            <KpiItem
+              label="Realized"
+              value={`${profitPositive ? "+" : ""}${formatCurrency(stats.soldProfit)}`}
+              sub={stats.soldCount > 0 ? `${stats.soldCount} sold` : undefined}
+              tone={profitPositive ? "positive" : "negative"}
+            />
           </div>
         </div>
       </div>
 
       {/* Split layout: cadastre plan (sticky left) + tabs (right) */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         {/* Left: Cadastre plan — sticky, the map IS the header */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-label text-muted-foreground/70">Cadastre Plan</span>
             <CadastreLegend />
           </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <CadastrePlan parcels={parcelSummaries} height={80} />
-            <div className="mt-2 border-t border-border/60 pt-2 text-caption text-muted-foreground tnum">
-              {stats.availableCount} available · {stats.soldCount} sold · {stats.partitionedCount} partitioned
-            </div>
+          <div className="rounded-lg border border-border bg-card p-2">
+            <CadastrePlan parcels={parcelSummaries} height={65} />
           </div>
         </div>
 
@@ -265,6 +271,11 @@ export function LandHub({ data }: { data: LandHubData }) {
               <TabsTrigger value="parcels">
                 <span className="flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" /> Parcels <CountBadge n={stats.parcelCount} /></span>
               </TabsTrigger>
+              {hasBuiltUnits && (
+                <TabsTrigger value="units">
+                  <span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Built Units <CountBadge n={parcelBuiltUnits!.length} /></span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="sales">
                 <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Sales <CountBadge n={data.sales.length} /></span>
               </TabsTrigger>
@@ -279,8 +290,53 @@ export function LandHub({ data }: { data: LandHubData }) {
                 onCanvasPartition={setCanvasParcel}
                 onValuate={setValuateParcel}
                 onSell={setSellParcel}
+                onDelete={permissions.canDelete ? setDeleteParcel : undefined}
               />
             </TabsContent>
+
+            {hasBuiltUnits && (
+              <TabsContent value="units">
+                <div className="rounded-md border border-border">
+                  <Table>
+                    <THead>
+                      <TR className="hover:bg-transparent">
+                        <TH>Unit</TH>
+                        <TH>Type</TH>
+                        <TH>Parcel</TH>
+                        <TH>Status</TH>
+                        <TH>Origin</TH>
+                        <TH className="text-right">Area</TH>
+                        <TH className="text-right">Cost</TH>
+                        <TH className="text-right">Asking</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {parcelBuiltUnits!.map((u) => {
+                        const parcel = parcels.find((p) => p.id === u.landParcelId);
+                        return (
+                          <TR key={u.id}>
+                            <TD className="font-medium">{u.unitNumber}</TD>
+                            <TD className="text-muted-foreground">{u.unitType.replace("_", " ")}</TD>
+                            <TD className="font-mono text-caption">{parcel?.number ?? "—"}</TD>
+                            <TD><StatusPill status={u.status} /></TD>
+                            <TD>
+                              {u.originType === "PURCHASED" ? (
+                                <span className="text-micro px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Purchased</span>
+                              ) : (
+                                <span className="text-micro text-muted-foreground">Created</span>
+                              )}
+                            </TD>
+                            <TD className="tnum text-right">{formatNumber(u.area, 0)} {u.areaUnit}</TD>
+                            <TD className="tnum text-right">{formatCurrency(u.originType === "PURCHASED" ? u.acquisitionCost : u.productionCost)}</TD>
+                            <TD className="tnum text-right">{u.askingPrice ? formatCurrency(u.askingPrice) : "—"}</TD>
+                          </TR>
+                        );
+                      })}
+                    </TBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            )}
 
             <TabsContent value="sales">
               {data.sales.length === 0 ? (
@@ -342,6 +398,7 @@ export function LandHub({ data }: { data: LandHubData }) {
           totalCost: purchase.totalCost,
           registryNo: purchase.registryNo,
           location: purchase.location,
+          documentUrl: purchase.documentUrl,
         } as LandPurchaseEditInitial}
       />
       <DeleteConfirmDialog
@@ -367,6 +424,8 @@ export function LandHub({ data }: { data: LandHubData }) {
         open={valuateParcel != null}
         onOpenChange={(o) => !o && setValuateParcel(null)}
         parcel={valuateParcel}
+        siblings={valuateParcel ? parcels.filter((p) => p.parentParcelId === valuateParcel.parentParcelId && p.parentParcelId !== null) : undefined}
+        parentArea={valuateParcel?.parentParcelId ? parcels.find((p) => p.id === valuateParcel.parentParcelId)?.area ?? null : null}
       />
       {permissions.canSell && sellParcel && (
         <SellAssetDialog
@@ -377,6 +436,14 @@ export function LandHub({ data }: { data: LandHubData }) {
           onSold={() => setSellParcel(null)}
         />
       )}
+      <DeleteConfirmDialog
+        open={deleteParcel != null}
+        onOpenChange={(o) => { if (!o) setDeleteParcel(null); }}
+        endpoint={deleteParcel ? `/api/land-parcels/${deleteParcel.id}` : ""}
+        title="Delete parcel?"
+        description={deleteParcel ? `Parcel ${deleteParcel.number} will be deleted. This is only possible for AVAILABLE or HOLD parcels with no sales.` : ""}
+        successMessage="Parcel deleted"
+      />
     </div>
   );
 }
@@ -392,8 +459,8 @@ function FieldItem({
   href?: string;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-1 text-label text-muted-foreground/60">
+    <div className="min-w-0 text-center">
+      <div className="flex items-center justify-center gap-1 text-label leading-none text-muted-foreground/60">
         {icon}
         {label}
       </div>
@@ -402,12 +469,12 @@ function FieldItem({
           href={href}
           target="_blank"
           rel="noreferrer"
-          className="mt-1 inline-flex items-center gap-1 text-body font-medium text-foreground underline underline-offset-2 hover:text-muted-foreground"
+          className="mt-1.5 inline-flex items-center gap-1 text-body font-medium leading-none text-foreground underline underline-offset-2 hover:text-muted-foreground"
         >
           {value} <ExternalLink className="h-3 w-3" />
         </a>
       ) : (
-        <div className={`mt-1 truncate text-body text-foreground ${mono ? "font-mono tnum" : "font-medium"}`}>
+        <div className={`mt-1.5 truncate text-body leading-none text-foreground ${mono ? "font-mono tnum" : "font-medium"}`}>
           {value}
         </div>
       )}
@@ -415,26 +482,22 @@ function FieldItem({
   );
 }
 
-/** A KPI in the grouped performance/holding row. */
+/** A KPI in the stats band. */
 function KpiItem({
-  label, value, sub, tone, icon,
+  label, value, sub, tone,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "positive" | "negative";
-  icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-label text-muted-foreground/60">{label}</span>
-      <span className="flex items-baseline gap-1">
-        {icon && <span className={tone === "positive" ? "text-success" : tone === "negative" ? "text-danger" : "text-muted-foreground"}>{icon}</span>}
-        <span className={`tnum text-body font-semibold ${tone === "positive" ? "text-success" : tone === "negative" ? "text-danger" : "text-foreground"}`}>
-          {value}
-        </span>
-        {sub && <span className="text-micro text-muted-foreground tnum">{sub}</span>}
-      </span>
+    <div className="min-w-0 text-center">
+      <div className="text-label leading-none text-muted-foreground/60">{label}</div>
+      <div className={`mt-1.5 tnum text-body font-semibold leading-none ${tone === "positive" ? "text-success" : tone === "negative" ? "text-danger" : "text-foreground"}`}>
+        {value}
+      </div>
+      {sub && <div className="mt-1 text-micro leading-none text-muted-foreground tnum">{sub}</div>}
     </div>
   );
 }

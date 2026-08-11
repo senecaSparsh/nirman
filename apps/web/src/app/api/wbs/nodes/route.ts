@@ -15,6 +15,7 @@ const schema = z.object({
   description: z.string().optional().nullable(),
   plannedStart: z.string().datetime().optional().nullable(),
   plannedEnd: z.string().datetime().optional().nullable(),
+  isCritical: z.boolean().optional(),
   sortOrder: z.coerce.number().optional(),
 });
 
@@ -36,6 +37,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       description: d.description ?? undefined,
       plannedStart: d.plannedStart ? new Date(d.plannedStart) : undefined,
       plannedEnd: d.plannedEnd ? new Date(d.plannedEnd) : undefined,
+      isCritical: d.isCritical,
       sortOrder: d.sortOrder,
       userId: user.id,
     });

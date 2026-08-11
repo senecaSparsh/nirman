@@ -130,7 +130,7 @@ async function PoDetailContent({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title={po.poNumber}
         description={`${po.supplier.name} · ${po.procurementScope === "COMPANY" ? "Company scope" : `Project: ${po.project?.name ?? "—"}`}`}

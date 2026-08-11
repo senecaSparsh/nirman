@@ -10,7 +10,7 @@ import { ProfitCenterView } from "@/components/profit-center/profit-center-view"
 
 export default function ProfitCenterPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading profit center…" variant="default" />}>
         <PcContent />
       </Suspense>

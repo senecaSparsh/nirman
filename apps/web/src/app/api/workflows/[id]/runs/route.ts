@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { executeWorkflow } from "@/lib/workflow-engine";
 
@@ -23,10 +23,13 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  */
 export const POST = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.WORKFLOWS_RUN);
+  const company = await getCompany();
 
   const { id } = await params;
-  const workflow = await prisma.workflow.findUnique({ where: { id } });
-  if (!workflow || workflow.deletedAt) {
+  const workflow = await prisma.workflow.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+  });
+  if (!workflow) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 

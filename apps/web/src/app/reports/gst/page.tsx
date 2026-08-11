@@ -15,7 +15,7 @@ export default function GstReportPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading GST report…" variant="cards" />}>
         <GstReportContent searchParams={searchParams} />
       </Suspense>
@@ -156,7 +156,7 @@ async function GstReportContent({
     <>
       <PageHeader
         title="GST Report"
-        description="Input GST (ITC) vs Output GST — your net tax liability position for the selected period."
+        description="Input GST (ITC) vs Output GST — net liability position over the selected period."
         stats={[
           { label: "Input GST (ITC)", value: formatCurrency(totalInput) },
           { label: "Output GST", value: formatCurrency(totalOutput) },

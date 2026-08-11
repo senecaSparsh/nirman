@@ -3,7 +3,6 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Printer } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
@@ -102,8 +101,8 @@ async function MobileRequisitionDetailContent({
     id: req.id,
     reqNumber: req.reqNumber,
     status: req.status,
-    projectName: req.project.name,
-    projectId: req.project.id,
+    projectName: req.project?.name ?? null,
+    projectId: req.project?.id ?? null,
     phaseName: req.phase?.name ?? null,
     requestDate: req.requestDate.toISOString(),
     neededByDate: req.neededByDate?.toISOString() ?? null,
@@ -116,7 +115,7 @@ async function MobileRequisitionDetailContent({
     <div>
       <MobileDetailHeader
         title={req.reqNumber}
-        subtitle={req.project.name}
+        subtitle={req.project?.name ?? "N/A"}
         backHref="/m/requisitions"
         right={<MobileStatusBadge status={req.status} />}
       />
@@ -124,13 +123,13 @@ async function MobileRequisitionDetailContent({
       <MobileSectionTitle>Summary</MobileSectionTitle>
       <div>
         <Link
-          href={`/m/projects/${req.project.id}`}
+          href={`/m/projects/${req.project?.id ?? ""}`}
           className="flex min-h-11 items-center gap-2.5 border-b border-border/70 bg-card px-4 py-2 transition-colors active:bg-accent"
         >
           <div className="min-w-0 flex-1">
             <div className="truncate text-body text-foreground">Project</div>
           </div>
-          <span className="shrink-0 truncate text-body font-semibold text-brand">{req.project.name}</span>
+          <span className="shrink-0 truncate text-body font-semibold text-brand">{req.project?.name ?? "N/A"}</span>
         </Link>
         {req.phase && <MobileInfoRow title="Phase" value={req.phase.name} />}
         <MobileInfoRow title="Requested" value={formatDate(req.requestDate)} />
@@ -183,7 +182,7 @@ async function MobileRequisitionDetailContent({
         links={[
           {
             label: "Print Requisition",
-            icon: Printer,
+            icon: "Printer",
             href: `/print/requisition/${req.id}`,
             variant: "outline",
           },

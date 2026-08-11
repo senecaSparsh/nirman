@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Ruler, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Ruler, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,14 +63,11 @@ export function StandardConsumptionsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <Select value={workTypeFilter} onChange={(e) => setWorkTypeFilter(e.target.value)} className="w-auto">
           <option value="">All work types</option>
           {workTypes.map((w) => <option key={w} value={w}>{w}</option>)}
         </Select>
-        <div className="ml-auto text-body text-muted-foreground">
-          {filtered.length} benchmark{filtered.length !== 1 ? "s" : ""}
-        </div>
         {canManage && benchmarks.length > 0 && (
           <Button size="sm" onClick={() => { setEditTarget(null); setFormOpen(true); }} disabled={materials.length === 0}>
             <Plus className="mr-1 h-3.5 w-3.5" /> New Benchmark

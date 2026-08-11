@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { postScrapGeneration } from "./gl-posting";
 
 /**
  * Scrap / "Create" Material Generation Service.
@@ -93,7 +94,22 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
   return withStockTransaction(async (tx) => {
     const scrapNumber = await generateScrapNumber(tx);
 
-    // Record stock movements for each line
+    // Create the ScrapGeneration record FIRST so we have the ID to pass
+    // directly to recordMovement — avoids the broad updateMany that could
+    // link unrelated orphaned movements (race condition fix, EC-2.6).
+    const scrap = await tx.scrapGeneration.create({
+      data: {
+        scrapNumber,
+        companyId: input.companyId,
+        toLocationId: input.toLocationId,
+        sourceMaterialId: input.sourceMaterialId,
+        projectId: input.projectId,
+        notes: input.notes,
+        createdById: input.createdById,
+      },
+    });
+
+    // Record stock movements for each line, linked directly via refId
     const lineResults: { materialId: string; qty: Decimal; unitCost: Decimal; lineTotal: Decimal }[] = [];
     let totalValue = new Decimal(0);
 
@@ -106,6 +122,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
         unitCost: new Decimal(line.unitCost),
         reason: input.notes ?? "Scrap / created material generation",
         refType: "SCRAP_GENERATION",
+        refId: scrap.id,
         userId: input.createdById,
       });
 
@@ -119,34 +136,24 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
       });
     }
 
-    // Create the ScrapGeneration + lines audit record
-    const scrap = await tx.scrapGeneration.create({
-      data: {
-        scrapNumber,
-        companyId: input.companyId,
-        toLocationId: input.toLocationId,
-        sourceMaterialId: input.sourceMaterialId,
-        projectId: input.projectId,
-        notes: input.notes,
-        createdById: input.createdById,
-        lines: {
-          create: lineResults.map((l) => ({
-            materialId: l.materialId,
-            qty: l.qty,
-            unitCost: l.unitCost,
-          })),
-        },
-      },
-      include: {
-        lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
-        toLocation: { select: { name: true } },
-      },
+    // Create the scrap generation lines (after movements, so the stock
+    // ledger is already updated — same pattern as the DPR auto-scrap path).
+    await tx.scrapGenerationLine.createMany({
+      data: lineResults.map((l) => ({
+        scrapGenerationId: scrap.id,
+        materialId: l.materialId,
+        qty: l.qty,
+        unitCost: l.unitCost,
+      })),
     });
 
-    // Update refId on the stock movements (now that we have the scrap generation ID)
-    await tx.stockMovement.updateMany({
-      where: { refType: "SCRAP_GENERATION", refId: null, toLocationId: input.toLocationId },
-      data: { refId: scrap.id },
+    // Post the GL entry — Dr Inventory / Cr WIP (project) or Cr Operating Expense (standalone)
+    await postScrapGeneration(tx, {
+      companyId: input.companyId,
+      scrapGenerationId: scrap.id,
+      projectId: input.projectId,
+      totalValue,
+      postedById: input.createdById,
     });
 
     await logAction(tx, {
@@ -162,7 +169,14 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
       },
     });
 
-    return scrap;
+    // Re-fetch with includes for the return value
+    return tx.scrapGeneration.findUniqueOrThrow({
+      where: { id: scrap.id },
+      include: {
+        lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
+        toLocation: { select: { name: true } },
+      },
+    });
   });
 }
 

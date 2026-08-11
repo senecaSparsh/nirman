@@ -22,5 +22,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     totalActual: bv.totalActual.toNumber(),
     totalVariance: bv.totalVariance.toNumber(),
     totalVariancePct: bv.totalVariancePct.toNumber(),
+    boqBudget: bv.boqBudget.toNumber(),
+    nonBoqBudget: bv.nonBoqBudget.toNumber(),
   });
 });

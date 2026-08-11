@@ -129,10 +129,22 @@ export async function listRoot(model: ModelKey, companyId: string): Promise<Reco
   return rows;
 }
 
-/** Fetch a single record by id (for breadcrumb titles / detail). */
-export async function findRecord(model: ModelKey, id: string): Promise<Record<string, unknown> | null> {
+/** Fetch a single record by id (for breadcrumb titles / detail).
+ *  Company-scoped models are filtered by companyId to prevent cross-company access. */
+export async function findRecord(model: ModelKey, id: string, companyId?: string): Promise<Record<string, unknown> | null> {
   const mod = MODULES[model];
   const include = leafRelationInclude(mod);
+
+  // For company-scoped models, use findFirst with companyId filter to prevent cross-company access.
+  if (mod.scope === "company" && companyId) {
+    const where: Record<string, unknown> = { id, companyId };
+    if (mod.softDelete) where.deletedAt = null;
+    return (prisma as unknown as Record<string, { findFirst: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null> }>)[model]!.findFirst({
+      where,
+      ...(include ? { include } : {}),
+    });
+  }
+
   return (prisma as unknown as Record<string, { findUnique: (args: Record<string, unknown>) => Promise<Record<string, unknown> | null> }>)[model]!.findUnique({
     where: { id },
     ...(include ? { include } : {}),

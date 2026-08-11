@@ -90,8 +90,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       businessType: data.businessType ?? null,
       parentCompanyId: data.parentCompanyId ?? null,
       // The creator becomes an OWNER of the new company.
+      // Skip only in dev-bypass mode where the user is the synthetic "dev" fallback.
       userMemberships:
-        user.id === "dev" ? undefined : { create: { userId: user.id, role: "OWNER" } },
+        process.env.AUTH_BYPASS === "true" && user.id === "dev" ? undefined : { create: { userId: user.id, role: "OWNER" } },
     },
     select: { id: true, name: true },
   });

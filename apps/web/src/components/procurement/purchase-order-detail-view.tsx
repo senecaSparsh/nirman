@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { PurchaseOrderDetail } from "@/lib/types";
 
 /**
@@ -32,6 +33,11 @@ export function PurchaseOrderDetailView({
   const [detail, setDetail] = useState<PurchaseOrderDetail>(po);
   const [recvOpen, setRecvOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const trackRecent = useTrackRecent();
+
+  useEffect(() => {
+    trackRecent({ type: "po", id: po.id, label: po.poNumber, href: `/procurement/${po.id}` });
+  }, [po.id, po.poNumber, trackRecent]);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
 

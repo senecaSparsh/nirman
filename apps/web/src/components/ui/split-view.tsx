@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { X } from "lucide-react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./resizable";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,9 @@ interface SplitViewProps {
   /** Right panel — typically the detail. When null/undefined a
    *  placeholder is shown and the detail panel collapses. */
   detail: React.ReactNode | null;
+  /** Called when the user clicks the close button on the detail panel.
+   *  The parent should set `detail` to null to collapse the panel. */
+  onClose?: () => void;
   /** Initial list panel size as percentage (default 40) */
   defaultListSize?: number;
   /** Minimum list panel size as percentage (default 25) */
@@ -30,6 +34,7 @@ interface SplitViewProps {
 export function SplitView({
   list,
   detail,
+  onClose,
   defaultListSize = 40,
   minListSize = 25,
   storageKey,
@@ -71,7 +76,19 @@ export function SplitView({
             minSize="25%"
             className="min-h-0"
           >
-            <div className="h-full overflow-y-auto">{detail}</div>
+            <div className="relative h-full overflow-y-auto">
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  aria-label="Close detail panel"
+                  title="Close"
+                  className="absolute right-3 top-3 z-50 inline-flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+              {detail}
+            </div>
           </ResizablePanel>
         </>
       )}

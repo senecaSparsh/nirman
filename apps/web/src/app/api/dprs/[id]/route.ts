@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR } from "@nirman/services";
+import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.DPR_VIEW);
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const dpr = await prisma.dailyProgressReport.findFirst({
     where: { id, companyId: company.id },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
       submittedBy: { select: { id: true, name: true } },
       subAdminApprovedBy: { select: { id: true, name: true } },
       adminApprovedBy: { select: { id: true, name: true } },
@@ -39,6 +39,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     blockers: dpr.blockers,
     tomorrowPlan: dpr.tomorrowPlan,
     notes: dpr.notes,
+    photoUrls: dpr.photoUrls,
     workType: dpr.workType,
     workQty: dpr.workQty ? toNum(dpr.workQty) : null,
     workUnit: dpr.workUnit,
@@ -50,6 +51,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     adminApprovedByName: dpr.adminApprovedBy?.name ?? null,
     adminApprovedAt: dpr.adminApprovedAt?.toISOString() ?? null,
     approvalNotes: dpr.approvalNotes,
+    totalProjectCost: dpr.project?.totalProjectCost ? toNum(dpr.project.totalProjectCost) : null,
+    costPerSqft: dpr.project?.costPerSqft ? toNum(dpr.project.costPerSqft) : null,
+    projectBudget: dpr.project?.totalBudget ? toNum(dpr.project.totalBudget) : null,
+    totalSellableArea: dpr.project?.totalSellableArea ? toNum(dpr.project.totalSellableArea) : null,
     materialLines: dpr.materialLines.map((l) => ({
       id: l.id,
       materialId: l.materialId,
@@ -134,14 +139,28 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
           });
         }
       } catch { /* notification failure should not block approval */ }
+
+      // DPR-Finance Bridge: auto-generate MaterialIssue from approved DPR
+      // (best-effort — failures don't block the approval)
+      try {
+        const result = await generateMaterialIssueFromDPR(id, user.id);
+        if (result && result.materialIssueId) {
+          return json({ ok: true, materialIssueGenerated: true, linesCreated: result.linesCreated, skipped: result.skipped });
+        }
+      } catch (err) {
+        console.error(`[dpr-finance-bridge] Failed to generate MaterialIssue from DPR ${id}:`, err);
+      }
+
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
     }
   }
   if (body.action === "reject") {
-    // Both sub-admin and admin can reject
-    const user = await requirePermission(PERM.DPR_APPROVE_SUB_ADMIN);
+    // Both sub-admin and admin can reject — accept either permission
+    const user = await requireUser();
+    const canReject = hasPermission(user.role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(user.role, PERM.DPR_APPROVE_ADMIN);
+    if (!canReject) return json({ error: "Forbidden — DPR rejection requires approval permission" }, { status: 403 });
     if (!body.reason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
     try {
       await rejectDpr(id, user.id, body.reason.trim());
@@ -154,6 +173,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.DPR_SUBMIT);
     try {
       await resubmitDpr(id, user.id);
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
+    }
+  }
+  if (body.action === "markCostPosted") {
+    const user = await requirePermission(PERM.FINANCE_VIEW);
+    try {
+      await markDprCostPosted(id, user.id);
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -202,7 +230,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.HR_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the DPR belongs to the user's company before deleting
+  const dpr = await prisma.dailyProgressReport.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true },
+  });
+  if (!dpr) return json({ error: "DPR not found" }, { status: 404 });
   try {
     await deleteDpr(id, user.id);
     return json({ ok: true });

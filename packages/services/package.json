@@ -8,15 +8,18 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx prisma/seed.ts",
-    "seed:testify": "tsx prisma/seed-testify.ts"
+    "seed:testify": "tsx prisma/seed-testify.ts",
+    "backfill:wip": "tsx scripts/backfill-wip-capitalization.ts"
   },
   "dependencies": {
     "@nirman/db": "workspace:*",
     "decimal.js": "^10.4.3",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "nodemailer": "^9.0.5"
   },
   "devDependencies": {
     "@types/node": "^20.19.0",
+    "@types/nodemailer": "^8.0.1",
     "tsx": "^4.23.1",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"

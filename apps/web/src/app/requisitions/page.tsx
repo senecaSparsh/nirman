@@ -11,11 +11,7 @@ import type { RequisitionRow } from "@/lib/types";
 import { NoAccess } from "@/components/no-access";
 export default function RequisitionsPage() {
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Material Indents"
-        description="Site raises an indent for material — approve it, then convert it to a purchase order."
-      />
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading requisitions…" />}>
         <RequisitionsContent />
       </Suspense>
@@ -87,7 +83,7 @@ async function RequisitionsContent() {
     id: r.id,
     reqNumber: r.reqNumber,
     projectId: r.projectId,
-    projectName: r.project.name,
+    projectName: r.project?.name ?? null,
     phaseId: r.phaseId,
     phaseName: r.phase?.name ?? null,
     status: r.status,
@@ -102,15 +98,31 @@ async function RequisitionsContent() {
     quotesWaived: r.quotesWaived,
   }));
 
+  const draftCount = rows.filter((r) => r.status === "DRAFT").length;
+  const submittedCount = rows.filter((r) => r.status === "SUBMITTED").length;
+  const approvedCount = rows.filter((r) => r.status === "APPROVED").length;
+
   return (
-    <RequisitionsView
-      requisitions={rows}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      phases={phases.map((p) => ({ id: p.id, name: p.name, projectId: p.projectId }))}
-      materials={materials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit }))}
-      suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-      locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Material Indents"
+        description="Site raises an indent for material — approve it, then convert it to a purchase order."
+        stats={[
+          { label: "Total", value: rows.length, hint: "All material indents raised by site, across every status." },
+          { label: "Drafts", value: draftCount, tone: "muted", hint: "Indents still in DRAFT — not yet submitted for approval." },
+          { label: "Pending", value: submittedCount, tone: submittedCount > 0 ? "warning" : "muted", hint: "Indents submitted and awaiting approval." },
+          { label: "Approved", value: approvedCount, tone: approvedCount > 0 ? "success" : "muted", hint: "Indents that have been approved and are ready to convert to a purchase order." },
+        ]}
+      />
+      <RequisitionsView
+        requisitions={rows}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        phases={phases.map((p) => ({ id: p.id, name: p.name, projectId: p.projectId }))}
+        materials={materials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit }))}
+        suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+        locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+        permissions={perms}
+      />
+    </>
   );
 }

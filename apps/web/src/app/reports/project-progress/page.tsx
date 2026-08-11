@@ -12,7 +12,7 @@ import { ProjectProgressReport } from "@/components/reports/project-progress-rep
 import { NoAccess } from "@/components/no-access";
 export default function ProjectProgressPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading project progress…" variant="list" />}>
         <ProjectProgressContent />
       </Suspense>

@@ -6,11 +6,12 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { VendorsView } from "@/components/vendors/vendors-view";
+import { formatCurrency } from "@/lib/utils";
 
 import { NoAccess } from "@/components/no-access";
 export default function VendorsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading vendors…" variant="list" />}>
         <VendorsContent />
       </Suspense>
@@ -85,11 +86,19 @@ async function VendorsContent() {
     };
   });
 
+  const withDues = vendorRows.filter((v) => v.balanceOwed > 0).length;
+  const totalOwed = vendorRows.reduce((s, v) => s + v.balanceOwed, 0);
+
   return (
     <>
       <PageHeader
         title="Vendors"
         description="Supplier directory, purchase history, outstanding balances — and auto-computed vendor ratings."
+        stats={[
+          { label: "Total", value: vendorRows.length, hint: "Total vendors in the directory." },
+          { label: "With Dues", value: withDues, tone: withDues > 0 ? "warning" : "muted", hint: "Vendors with an unpaid balance for received goods." },
+          { label: "Total Owed", value: formatCurrency(totalOwed), tone: totalOwed > 0 ? "danger" : "muted", hint: "Sum of all unpaid balances across vendors. This is money leaving the company." },
+        ]}
       />
       <VendorsView vendors={vendorRows} permissions={perms} />
     </>

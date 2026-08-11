@@ -6,13 +6,14 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { SettingsView } from "@/components/settings/settings-view";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
+import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Settings"
         description="Company settings, stock locations, cost centres, people, and application preferences."
@@ -164,6 +165,9 @@ async function SettingsContent() {
           <NotificationsPanel />
         </div>
       )}
+      <div className="mt-6">
+        <NotificationPreferences />
+      </div>
     </>
   );
 }

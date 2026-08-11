@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { Prisma } from "@nirman/db";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 import { MODULES, type ModelKey } from "@/lib/modules/registry";
 import { findRecord, getField } from "@/lib/modules/resolver";
 
@@ -65,6 +65,7 @@ function summarize(model: ModelKey, record: Record<string, unknown>): NodeSummar
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requireUser();
+  const company = await getCompany();
   const sp = req.nextUrl.searchParams;
   const model = sp.get("model") as ModelKey | null;
   const id = sp.get("id");
@@ -74,7 +75,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (!id) {
     return json({ error: "Missing record id." }, { status: 400 });
   }
-  const record = await findRecord(model, id);
+  const record = await findRecord(model, id, company.id);
   if (!record) {
     return json({ error: "Record not found." }, { status: 404 });
   }
@@ -89,6 +90,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   await requireUser();
+  const company = await getCompany();
   const body = await req.json();
   const items: { model: ModelKey; id: string }[] = Array.isArray(body?.nodes) ? body.nodes : [];
   if (items.length === 0) {
@@ -100,7 +102,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     capped.map(async ({ model, id }) => {
       if (!MODULES[model]) return null;
       try {
-        const record = await findRecord(model, id);
+        const record = await findRecord(model, id, company.id);
         if (!record) return null;
         return serialize(summarize(model, record)) as NodeSummary;
       } catch {

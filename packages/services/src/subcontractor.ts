@@ -1,7 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postProjectCost } from "./gl-posting";
+import { postProjectCost, postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
 
@@ -23,6 +23,20 @@ import { ServiceError } from "./errors";
  * Retention: typically 5-10% held per bill, released on project completion
  * or after defect liability period.
  */
+
+// ── Payment modes ──────────────────────────────────────────
+
+export const VALID_PAYMENT_MODES = ["BANK_TRANSFER", "CHEQUE", "CASH", "DEMAND_DRAFT", "NEFT", "RTGS", "UPI"] as const;
+export type PaymentMode = (typeof VALID_PAYMENT_MODES)[number];
+
+function normalizePaymentMode(mode?: string): PaymentMode {
+  if (!mode || !mode.trim()) return "BANK_TRANSFER";
+  const upper = mode.trim().toUpperCase();
+  if (!VALID_PAYMENT_MODES.includes(upper as PaymentMode)) {
+    throw new ServiceError(`Invalid payment mode '${mode}'. Valid modes: ${VALID_PAYMENT_MODES.join(", ")}`, 400);
+  }
+  return upper as PaymentMode;
+}
 
 // ── Work Order ─────────────────────────────────────────────
 
@@ -71,7 +85,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
     if (!project) throw new ServiceError("Project not found in this company", 404);
 
     const sub = await tx.subcontractor.findFirst({
-      where: { id: input.subcontractorId, deletedAt: null },
+      where: { id: input.subcontractorId, companyId: input.companyId, deletedAt: null },
     });
     if (!sub) throw new ServiceError("Subcontractor not found or deleted", 404);
 
@@ -79,8 +93,14 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       throw new ServiceError("Work order must have at least one line (BOQ item)", 400);
     }
 
-    // Validate all BOQ items exist and belong to this project (batch query)
+    // Prevent duplicate BOQ items in the same work order
     const boqItemIds = input.lines.map((l) => l.boqItemId);
+    const uniqueBoqItemIds = new Set(boqItemIds);
+    if (uniqueBoqItemIds.size !== boqItemIds.length) {
+      throw new ServiceError("Duplicate BOQ items detected — each BOQ item can only appear once in a work order", 400);
+    }
+
+    // Validate all BOQ items exist and belong to this project (batch query)
     const boqItems = await tx.boqItem.findMany({
       where: { id: { in: boqItemIds }, projectId: input.projectId, type: "LINE_ITEM" },
       select: { id: true },
@@ -165,6 +185,110 @@ export async function issueWorkOrder(id: string, userId?: string) {
   });
 }
 
+/**
+ * Pay an advance to a subcontractor — records the cash outflow and posts a GL entry.
+ * GL: Dr Advances to Subcontractors (asset), Cr Cash
+ * The advance is recovered proportionally from subsequent RA bills via advanceRecoveryPct.
+ */
+export async function payAdvance(
+  workOrderId: string,
+  amount: Decimal | number | string,
+  userId?: string,
+  paymentMode?: string,
+  paymentReference?: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id: workOrderId } });
+    if (!wo) throw new ServiceError("Work order not found", 404);
+    if (wo.status === "DRAFT" || wo.status === "CANCELLED" || wo.status === "CLOSED") {
+      throw new ServiceError(`Cannot pay advance for work order in status ${wo.status}`, 400);
+    }
+
+    const advanceAmount = new Decimal(amount);
+    if (advanceAmount.lte(0)) {
+      throw new ServiceError("Advance amount must be > 0", 400);
+    }
+
+    const mode = normalizePaymentMode(paymentMode);
+
+    // Update the work order's advance amount (add to existing)
+    const newAdvanceAmount = new Decimal(wo.advanceAmount).plus(advanceAmount);
+    await tx.subcontractorWorkOrder.update({
+      where: { id: workOrderId },
+      data: { advanceAmount: newAdvanceAmount.toString() },
+    });
+
+    // GL: Dr Advances to Subcontractors (asset), Cr Cash
+    await postJournalEntry(tx, {
+      companyId: wo.companyId,
+      sourceType: "ADVANCE_PAYMENT",
+      sourceId: workOrderId,
+      memo: `Advance payment — ${wo.workOrderNumber}`,
+      postedById: userId,
+      lines: [
+        { accountCode: ACCT.ADVANCE_TO_SUB, debit: advanceAmount, credit: 0, entityType: "SubcontractorWorkOrder", entityId: workOrderId, memo: "Advance to subcontractor" },
+        { accountCode: ACCT.CASH, debit: 0, credit: advanceAmount, entityType: "SubcontractorWorkOrder", entityId: workOrderId, memo: `Payment via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}` },
+      ],
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "ADVANCE_PAYMENT",
+        entityType: "SubcontractorWorkOrder",
+        entityId: workOrderId,
+        after: {
+          workOrderNumber: wo.workOrderNumber,
+          advanceAmount: advanceAmount.toString(),
+          totalAdvance: newAdvanceAmount.toString(),
+          paymentMode: mode,
+        },
+      });
+    }
+
+    return { advanceAmount, totalAdvance: newAdvanceAmount };
+  });
+}
+
+/**
+ * Mark a work order as COMPLETED — work is finished, retention pending release.
+ * Validates that no RA bills are in a non-terminal state (DRAFT/SUBMITTED/APPROVED).
+ */
+export async function completeWorkOrder(id: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id } });
+    if (!wo) throw new ServiceError("Work order not found", 404);
+    if (wo.status !== "ACTIVE" && wo.status !== "ISSUED") {
+      throw new ServiceError(`Cannot complete work order in status ${wo.status} (must be ACTIVE or ISSUED)`, 400);
+    }
+
+    // Check for pending RA bills (non-terminal states)
+    const pendingBills = await tx.raBill.count({
+      where: { workOrderId: id, status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } },
+    });
+    if (pendingBills > 0) {
+      throw new ServiceError(`Cannot complete: ${pendingBills} RA bill(s) still pending (DRAFT/SUBMITTED/APPROVED). Process or reject them first.`, 400);
+    }
+
+    const updated = await tx.subcontractorWorkOrder.update({
+      where: { id },
+      data: { status: "COMPLETED", endDate: wo.endDate ?? new Date() },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "WORK_ORDER_COMPLETE",
+        entityType: "SubcontractorWorkOrder",
+        entityId: id,
+        after: { workOrderNumber: wo.workOrderNumber, status: "COMPLETED" },
+      });
+    }
+
+    return updated;
+  });
+}
+
 // ── RA Bill ────────────────────────────────────────────────
 
 async function generateRaBillNumber(tx: Prisma.TransactionClient): Promise<string> {
@@ -200,6 +324,11 @@ export interface CreateRaBillInput {
  */
 export async function createRaBill(input: CreateRaBillInput) {
   return prisma.$transaction(async (tx) => {
+    // Validate billing period
+    if (input.periodFrom > input.periodTo) {
+      throw new ServiceError("Billing period 'from' date cannot be after 'to' date", 400);
+    }
+
     const wo = await tx.subcontractorWorkOrder.findUnique({
       where: { id: input.workOrderId },
       include: { lines: { include: { boqItem: true } } },
@@ -364,14 +493,23 @@ export async function createRaBill(input: CreateRaBillInput) {
       include: { lines: true },
     });
 
-    // Link MB entries to the RA bill lines
+    // Link MB entries to the RA bill lines — atomic claim with row-level locking.
+    // The `raBillLineId: null` check in the WHERE clause prevents double-billing:
+    // if another transaction already claimed these entries, the UPDATE will match 0 rows
+    // (PostgreSQL re-evaluates the WHERE after waiting on row locks), and we abort.
     for (const line of lines) {
       const raBillLine = raBill.lines.find((rl) => rl.boqItemId === line.boqItemId);
       if (!raBillLine) continue;
-      await tx.measurementBookEntry.updateMany({
-        where: { id: { in: line.mbEntryIds } },
+      const claimResult = await tx.measurementBookEntry.updateMany({
+        where: { id: { in: line.mbEntryIds }, raBillLineId: null },
         data: { raBillLineId: raBillLine.id },
       });
+      if (claimResult.count !== line.mbEntryIds.length) {
+        throw new ServiceError(
+          `Some MB entries were claimed by another RA bill concurrently (expected ${line.mbEntryIds.length}, claimed ${claimResult.count}). Please retry.`,
+          409,
+        );
+      }
     }
 
     if (input.userId) {
@@ -440,7 +578,7 @@ export async function approveRaBill(id: string, approvedById: string) {
 
     // Post to GL: Dr Contractor Expense (project cost), Cr Cash (net), Cr TDS Payable, Cr Retention Payable
     // We use ProjectCost to record the contractor expense, and a GL entry for the payable side
-    await tx.projectCost.create({
+    const projectCost = await tx.projectCost.create({
       data: {
         projectId: wo.projectId,
         costType: "CONTRACTOR",
@@ -449,6 +587,20 @@ export async function approveRaBill(id: string, approvedById: string) {
         notes: `RA Bill ${bill.raBillNumber} — ${wo.workTitle}`,
         createdById: approvedById,
       },
+    });
+
+    // GL: Dr WIP (gross), Cr AP (net + advance + other), Cr TDS Payable, Cr Retention Payable
+    await postRaBillApproval(tx, {
+      companyId: bill.companyId,
+      raBillId: id,
+      projectId: wo.projectId,
+      grossAmount: bill.grossAmount,
+      netPayable: bill.netPayable,
+      tdsAmount: bill.tdsAmount,
+      retentionAmount: bill.retentionAmount,
+      advanceRecovery: bill.advanceRecovery,
+      otherDeductions: bill.otherDeductions,
+      postedById: approvedById,
     });
 
     // Trigger cost reallocation
@@ -495,10 +647,22 @@ export async function submitRaBill(id: string, userId?: string) {
 
 export async function rejectRaBill(id: string, rejectReason: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
-    const bill = await tx.raBill.findUnique({ where: { id } });
+    const bill = await tx.raBill.findUnique({
+      where: { id },
+      include: { lines: { select: { id: true } } },
+    });
     if (!bill) throw new ServiceError("RA bill not found", 404);
     if (bill.status === "APPROVED" || bill.status === "PAID") {
       throw new ServiceError(`Cannot reject RA bill in status ${bill.status}`, 400);
+    }
+
+    // Unlink all MB entries from this bill's lines so they can be re-billed
+    const lineIds = bill.lines.map((l) => l.id);
+    if (lineIds.length > 0) {
+      await tx.measurementBookEntry.updateMany({
+        where: { raBillLineId: { in: lineIds } },
+        data: { raBillLineId: null },
+      });
     }
 
     const updated = await tx.raBill.update({
@@ -512,7 +676,7 @@ export async function rejectRaBill(id: string, rejectReason: string, userId?: st
         action: "RA_BILL_REJECT",
         entityType: "RaBill",
         entityId: id,
-        after: { raBillNumber: bill.raBillNumber, status: "REJECTED", rejectReason },
+        after: { raBillNumber: bill.raBillNumber, status: "REJECTED", rejectReason, unlinkedMbEntries: lineIds.length },
       });
     }
 
@@ -521,7 +685,13 @@ export async function rejectRaBill(id: string, rejectReason: string, userId?: st
 }
 
 /** Release retention money after defect liability period. */
-export async function releaseRetention(workOrderId: string, userId?: string) {
+export async function releaseRetention(
+  workOrderId: string,
+  userId?: string,
+  paymentMode?: string,
+  paymentReference?: string,
+  overrideDefectPeriod?: { reason: string },
+) {
   return prisma.$transaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id: workOrderId } });
     if (!wo) throw new ServiceError("Work order not found", 404);
@@ -532,7 +702,23 @@ export async function releaseRetention(workOrderId: string, userId?: string) {
       throw new ServiceError("No retention balance to release", 400);
     }
 
+    // Validate defect liability period has elapsed (unless overridden with a reason)
+    if (!overrideDefectPeriod?.reason?.trim()) {
+      const defectLiabilityMonths = wo.defectLiabilityMonths ?? 12;
+      const completionDate = wo.endDate ?? new Date();
+      const defectPeriodEnd = new Date(completionDate);
+      defectPeriodEnd.setMonth(defectPeriodEnd.getMonth() + defectLiabilityMonths);
+      const now = new Date();
+      if (now < defectPeriodEnd) {
+        throw new ServiceError(
+          `Defect liability period (${defectLiabilityMonths} months) has not elapsed. Completion date: ${completionDate.toISOString().slice(0, 10)}, eligible after: ${defectPeriodEnd.toISOString().slice(0, 10)}. Use override with a reason to release early.`,
+          400,
+        );
+      }
+    }
+
     const retentionToRelease = new Decimal(wo.retentionBalance);
+    const mode = normalizePaymentMode(paymentMode);
 
     await tx.subcontractorWorkOrder.update({
       where: { id: workOrderId },
@@ -543,16 +729,297 @@ export async function releaseRetention(workOrderId: string, userId?: string) {
       },
     });
 
+    // GL: Dr Retention Payable (settle liability), Cr Cash (money out)
+    await postJournalEntry(tx, {
+      companyId: wo.companyId,
+      sourceType: "RETENTION_RELEASE",
+      sourceId: workOrderId,
+      memo: `Retention release — ${wo.workOrderNumber}`,
+      postedById: userId,
+      lines: [
+        { accountCode: ACCT.RETENTION_PAYABLE, debit: retentionToRelease, credit: 0, entityType: "SubcontractorWorkOrder", entityId: workOrderId, memo: "Release retention liability" },
+        { accountCode: ACCT.CASH, debit: 0, credit: retentionToRelease, entityType: "SubcontractorWorkOrder", entityId: workOrderId, memo: `Payment via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}` },
+      ],
+    });
+
     if (userId) {
       await logAction(tx, {
         userId,
         action: "RETENTION_RELEASE",
         entityType: "SubcontractorWorkOrder",
         entityId: workOrderId,
-        after: { workOrderNumber: wo.workOrderNumber, releasedAmount: retentionToRelease.toString() },
+        after: {
+          workOrderNumber: wo.workOrderNumber,
+          releasedAmount: retentionToRelease.toString(),
+          paymentMode: mode,
+          ...(overrideDefectPeriod?.reason ? { defectPeriodOverridden: true, overrideReason: overrideDefectPeriod.reason } : {}),
+        },
       });
     }
 
     return { releasedAmount: retentionToRelease };
   });
+}
+
+/**
+ * Pay an approved RA bill — settles the net payable to the subcontractor.
+ *
+ * GL: Dr Accounts Payable (netPayable), Cr Cash (netPayable)
+ * (The payable was created on approval via postRaBillApproval; this settles it.)
+ * Updates the work order's totalPaid and marks the bill as PAID.
+ */
+export async function payRaBill(
+  id: string,
+  paidById?: string,
+  paymentMode?: string,
+  paymentReference?: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const bill = await tx.raBill.findUnique({
+      where: { id },
+      include: { workOrder: true },
+    });
+    if (!bill) throw new ServiceError("RA bill not found", 404);
+    if (bill.status !== "APPROVED") {
+      throw new ServiceError(`Cannot pay RA bill in status ${bill.status} (must be APPROVED)`, 400);
+    }
+
+    const netPayable = new Decimal(bill.netPayable);
+    if (netPayable.lte(0)) {
+      throw new ServiceError("Net payable must be > 0", 400);
+    }
+
+    const mode = normalizePaymentMode(paymentMode);
+
+    // Mark bill as PAID
+    const updated = await tx.raBill.update({
+      where: { id },
+      data: {
+        status: "PAID",
+        notes: [bill.notes, `Paid via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}`].filter(Boolean).join("\n"),
+      },
+    });
+
+    // Update work order totalPaid
+    const wo = bill.workOrder;
+    await tx.subcontractorWorkOrder.update({
+      where: { id: wo.id },
+      data: {
+        totalPaid: new Decimal(wo.totalPaid).plus(netPayable).toString(),
+      },
+    });
+
+    // GL: Dr AP (settle the payable), Cr Cash (money out)
+    await postJournalEntry(tx, {
+      companyId: bill.companyId,
+      sourceType: "RA_BILL_PAYMENT",
+      sourceId: id,
+      memo: `RA Bill payment — ${bill.raBillNumber}`,
+      postedById: paidById,
+      lines: [
+        { accountCode: ACCT.AP, debit: netPayable, credit: 0, entityType: "RaBill", entityId: id, memo: "Settle subcontractor payable" },
+        { accountCode: ACCT.CASH, debit: 0, credit: netPayable, entityType: "RaBill", entityId: id, memo: `Payment via ${mode}` },
+      ],
+    });
+
+    await logAction(tx, {
+      userId: paidById,
+      companyId: bill.companyId,
+      action: "RA_BILL_PAY",
+      entityType: "RaBill",
+      entityId: id,
+      before: { status: bill.status },
+      after: { status: "PAID", netPayable: netPayable.toString(), paymentMode: mode },
+    });
+
+    return updated;
+  });
+}
+
+// ── TDS Certificate ──────────────────────────────────────────
+
+export type TdsCertificateData = {
+  subcontractor: {
+    id: string;
+    name: string;
+    gstin: string | null;
+    pan: string | null;
+    trade: string | null;
+  };
+  company: {
+    id: string;
+    name: string;
+    gstin: string | null;
+    pan: string | null;
+  };
+  financialYear: string; // e.g. "2025-26"
+  tdsRate: number;
+  tdsSection: string; // "194C"
+  bills: Array<{
+    raBillNumber: string;
+    billDate: string;
+    grossAmount: number;
+    tdsAmount: number;
+    workOrderNumber: string;
+    projectName: string;
+  }>;
+  totalGross: number;
+  totalTds: number;
+  billCount: number;
+};
+
+/**
+ * Generate a TDS certificate for a subcontractor for a given financial year.
+ * Aggregates all PAID RA bills where TDS was deducted.
+ * Indian FY: April 1 to March 31 (e.g. FY 2025-26 = 2025-04-01 to 2026-03-31).
+ */
+export async function getTdsCertificate(
+  subcontractorId: string,
+  financialYear: string,
+  companyId?: string,
+): Promise<TdsCertificateData> {
+  // Parse FY string "YYYY-YY" → start and end dates
+  const m = financialYear.match(/^(\d{4})-(\d{2})$/);
+  if (!m || !m[1]) throw new ServiceError("Invalid financial year format. Use YYYY-YY (e.g. 2025-26).", 400);
+  const startYear = parseInt(m[1], 10);
+  const fyStart = new Date(`${startYear}-04-01T00:00:00.000Z`);
+  const fyEnd = new Date(`${startYear + 1}-03-31T23:59:59.999Z`);
+
+  const subcontractor = await prisma.subcontractor.findFirst({
+    where: { id: subcontractorId, deletedAt: null, ...(companyId ? { companyId } : {}) },
+    include: { company: { select: { id: true, name: true, gstin: true } } },
+  });
+  if (!subcontractor) throw new ServiceError("Subcontractor not found", 404);
+
+  // Get all PAID RA bills for this subcontractor's work orders in the FY
+  const raBills = await prisma.raBill.findMany({
+    where: {
+      status: "PAID",
+      billDate: { gte: fyStart, lte: fyEnd },
+      workOrder: { subcontractorId },
+      ...(companyId ? { companyId } : {}),
+    },
+    include: {
+      workOrder: {
+        select: {
+          workOrderNumber: true,
+          tdsPct: true,
+          tdsCategory: true,
+          subcontractor: { select: { id: true, name: true, gstin: true, trade: true } },
+        },
+      },
+      project: { select: { name: true } },
+    },
+    orderBy: { billDate: "asc" },
+  });
+
+  const bills = raBills.map((b) => ({
+    raBillNumber: b.raBillNumber,
+    billDate: b.billDate.toISOString(),
+    grossAmount: new Decimal(b.grossAmount).toNumber(),
+    tdsAmount: new Decimal(b.tdsAmount).toNumber(),
+    workOrderNumber: b.workOrder.workOrderNumber,
+    projectName: b.project.name,
+  }));
+
+  const totalGross = bills.reduce((s, b) => s + b.grossAmount, 0);
+  const totalTds = bills.reduce((s, b) => s + b.tdsAmount, 0);
+  const tdsRate = raBills.length > 0 ? new Decimal(raBills[0]!.workOrder.tdsPct).toNumber() : 0;
+
+  return {
+    subcontractor: {
+      id: subcontractor.id,
+      name: subcontractor.name,
+      gstin: subcontractor.gstin,
+      pan: subcontractor.gstin?.slice(2, 12) ?? null, // PAN is embedded in GSTIN (chars 3-12)
+      trade: subcontractor.trade,
+    },
+    company: {
+      id: subcontractor.company.id,
+      name: subcontractor.company.name,
+      gstin: subcontractor.company.gstin,
+      pan: subcontractor.company.gstin?.slice(2, 12) ?? null,
+    },
+    financialYear,
+    tdsRate,
+    tdsSection: "194C",
+    bills,
+    totalGross,
+    totalTds,
+    billCount: bills.length,
+  };
+}
+
+/**
+ * List all subcontractors with TDS deducted in a given financial year.
+ * Used to populate the TDS certificate index page.
+ */
+export async function listTdsSubcontractors(
+  financialYear: string,
+  companyId: string,
+): Promise<Array<{
+  subcontractorId: string;
+  subcontractorName: string;
+  trade: string | null;
+  pan: string | null;
+  billCount: number;
+  totalGross: number;
+  totalTds: number;
+}>> {
+  const m = financialYear.match(/^(\d{4})-(\d{2})$/);
+  if (!m || !m[1]) throw new ServiceError("Invalid financial year format. Use YYYY-YY (e.g. 2025-26).", 400);
+  const startYear = parseInt(m[1], 10);
+  const fyStart = new Date(`${startYear}-04-01T00:00:00.000Z`);
+  const fyEnd = new Date(`${startYear + 1}-03-31T23:59:59.999Z`);
+
+  const raBills = await prisma.raBill.findMany({
+    where: {
+      status: "PAID",
+      companyId,
+      billDate: { gte: fyStart, lte: fyEnd },
+      tdsAmount: { gt: 0 },
+    },
+    include: {
+      workOrder: {
+        select: {
+          subcontractor: { select: { id: true, name: true, trade: true, gstin: true } },
+        },
+      },
+    },
+  });
+
+  // Group by subcontractor
+  const bySub = new Map<string, {
+    subcontractorId: string;
+    subcontractorName: string;
+    trade: string | null;
+    pan: string | null;
+    billCount: number;
+    totalGross: number;
+    totalTds: number;
+  }>();
+
+  for (const b of raBills) {
+    const sub = b.workOrder.subcontractor;
+    const existing = bySub.get(sub.id);
+    const gross = new Decimal(b.grossAmount).toNumber();
+    const tds = new Decimal(b.tdsAmount).toNumber();
+    if (existing) {
+      existing.billCount++;
+      existing.totalGross += gross;
+      existing.totalTds += tds;
+    } else {
+      bySub.set(sub.id, {
+        subcontractorId: sub.id,
+        subcontractorName: sub.name,
+        trade: sub.trade,
+        pan: sub.gstin?.slice(2, 12) ?? null,
+        billCount: 1,
+        totalGross: gross,
+        totalTds: tds,
+      });
+    }
+  }
+
+  return Array.from(bySub.values()).sort((a, b) => b.totalTds - a.totalTds);
 }

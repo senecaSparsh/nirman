@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,8 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { FileText, Plus, XCircle } from "lucide-react";
 
 type RateContract = {
@@ -115,10 +115,10 @@ function rcColumnsWithActions(onCancel: (id: string) => void): Column<RateContra
 }
 
 export function RateContractsView({ canCreate }: { canCreate: boolean }) {
-  const router = useRouter();
   const [contracts, setContracts] = useState<RateContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     loadContracts();
@@ -134,7 +134,13 @@ export function RateContractsView({ canCreate }: { canCreate: boolean }) {
   }
 
   async function onCancel(id: string) {
-    if (!confirm("Cancel this rate contract?")) return;
+    const ok = await confirm({
+      title: "Cancel this rate contract?",
+      description: "This will mark the rate contract as cancelled. Existing POs linked to it will not be affected, but no new POs can be created against it.",
+      confirmLabel: "Cancel Contract",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/rate-contracts/${id}`, {
         method: "PATCH",
@@ -154,14 +160,6 @@ export function RateContractsView({ canCreate }: { canCreate: boolean }) {
 
   return (
     <div className="space-y-4">
-      {canCreate && contracts.length > 0 && (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> New Rate Contract
-          </Button>
-        </div>
-      )}
-
       {contracts.length === 0 ? (
         <EmptyState
           icon={<FileText />}
@@ -186,6 +184,8 @@ export function RateContractsView({ canCreate }: { canCreate: boolean }) {
             totalFormat={(_key, sum) => formatNumber(sum, 3)}
             hideable
             pageSize={50}
+            onAddRow={canCreate ? () => setDialogOpen(true) : undefined}
+            addRowLabel="New Rate Contract"
           />
         </div>
       )}
@@ -195,6 +195,7 @@ export function RateContractsView({ canCreate }: { canCreate: boolean }) {
         onOpenChange={setDialogOpen}
         onCreated={loadContracts}
       />
+      {confirmDialog}
     </div>
   );
 }

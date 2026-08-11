@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
@@ -11,6 +12,10 @@ import {
   ClipboardList,
   ArrowRight,
   Truck,
+  Recycle,
+  ListTodo,
+  Boxes,
+  ArrowUpRight,
 } from "lucide-react";
 import { getCompany, getCurrentUser } from "@/lib/server";
 import { formatNumber, formatDate } from "@/lib/utils";
@@ -30,7 +35,7 @@ import { MobileAttentionBanner, type AttentionItem } from "@/components/mobile/m
 /**
  * Field persona home — "Site".
  * SUPERVISOR. On-site, phone-in-hand: DPR, attendance, stock, receive, tasks.
- * This is the heaviest mobile persona — capture, don't browse.
+ * Refined layout matching IMG_0871, IMG_0872, IMG_0873 architecture.
  */
 export default function SitePage() {
   return (
@@ -95,7 +100,7 @@ async function SiteContent() {
     });
   }
 
-  // 2. Overdue tasks (due date passed, not completed)
+  // 2. Overdue tasks
   const overdueTasks = myTasks.filter((t) => t.dueDate && new Date(t.dueDate) < startOfToday);
   if (overdueTasks.length > 0) {
     attentionItems.push({
@@ -106,96 +111,211 @@ async function SiteContent() {
     });
   }
 
-  // 3. Overdue POs (expected date passed, not received)
+  // 3. Overdue POs
   const overduePOs = inTransitPOs.filter((p) => p.expectedDate && new Date(p.expectedDate) < startOfToday);
   if (overduePOs.length > 0) {
     attentionItems.push({
       title: `${overduePOs.length} PO${overduePOs.length > 1 ? "s" : ""} overdue for receipt`,
       subtitle: `${overduePOs[0]!.supplier.name} · PO ${overduePOs[0]!.poNumber}`,
       meta: "overdue",
-      href: `/m/site/field?po=${overduePOs[0]!.id}`,
+      href: `/m/site/receive?po=${overduePOs[0]!.id}`,
     });
   }
 
   return (
-    <div>
-      <MobilePageHeader title="Site" subtitle={formatDate(today)} right={<MobileRefreshButton />} />
+    <div className="space-y-4 pb-6">
+      <MobilePageHeader title="Site Command" subtitle={formatDate(today)} right={<MobileRefreshButton />} />
 
-      {/* ── Smart attention banner ───────────────────────────
-          Surfaces what's urgent TODAY: overdue POs, overdue tasks,
-          missing DPR. Collapses into one row + expand. */}
+      {/* ── Smart attention banner ─────────────────────────── */}
       <MobileAttentionBanner items={attentionItems} />
 
-      {/* ── Today's quick stats ───────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard label="My Tasks" value={formatNumber(myTasks.length, 0)} hint="open" icon={CheckSquare} tone={myTasks.length > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Checked In" value={formatNumber(attendanceToday, 0)} hint="today" icon={CalendarCheck} />
-        <MobileStatCard label="In Transit" value={formatNumber(inTransitPOs.length, 0)} hint="POs to receive" icon={Truck} />
-        <MobileStatCard label="Today&apos;s DPR" value={myDprToday ? "Submitted" : "Pending"} icon={ClipboardList} tone={myDprToday ? "success" : "warning"} />
-      </div>
-
-      {/* ── Primary action ────────────────────────────────── */}
-      <div className="px-4 pb-1">
-        <MobileCta href="/m/site/field" icon={ScanLine}>
-          Receive materials (scan)
-        </MobileCta>
-      </div>
-
-      {/* ── Today's DPR ───────────────────────────────────── */}
-      <MobileSectionTitle>Daily Progress Report</MobileSectionTitle>
-      {myDprToday ? (
-        <MobileRow href="/m/site/dpr" icon={ClipboardList} title="DPR submitted" subtitle={formatDate(myDprToday.date)} meta="edit" tone="success" />
-      ) : (
-        <MobileRow href="/m/site/dpr" icon={ClipboardList} title="Today's DPR pending" subtitle="Tap to submit your daily progress report" meta="due" tone="warning" />
-      )}
-
-      {/* ── My tasks ──────────────────────────────────────── */}
-      <MobileSectionTitle>My Tasks</MobileSectionTitle>
-      {myTasks.length === 0 ? (
-        <MobileEmptyState icon={CheckSquare} title="No open tasks" hint="New assignments appear here" />
-      ) : (
-        <div>
-          {myTasks.map((t) => (
-            <MobileInfoRow key={t.id} icon={CheckSquare} title={t.title} subtitle={t.priority} value="" badge={<MobileStatusBadge status={t.status} />} />
-          ))}
+      {/* ── Action Grid (IMG_0871 & IMG_0873 Architecture) ───── */}
+      <div className="px-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Quick Field Actions
+          </span>
         </div>
-      )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* Quick Issue */}
+          <Link
+            href="/m/site/issue"
+            className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 transition-all active:scale-95 hover:bg-amber-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                <Package className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Quick Issue</span>
+              <span className="block text-[11px] text-muted-foreground">Material Issue Challan</span>
+            </div>
+          </Link>
+
+          {/* Receive Stock */}
+          <Link
+            href="/m/site/receive"
+            className="flex flex-col justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 transition-all active:scale-95 hover:bg-blue-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                <Truck className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Receive Stock</span>
+              <span className="block text-[11px] text-muted-foreground">Scan PO / Gate Entry</span>
+            </div>
+          </Link>
+
+          {/* DPR Submission */}
+          <Link
+            href="/m/site/dpr"
+            className="flex flex-col justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 transition-all active:scale-95 hover:bg-emerald-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <ClipboardList className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Submit DPR</span>
+              <span className="block text-[11px] text-muted-foreground">Progress &amp; Variance</span>
+            </div>
+          </Link>
+
+          {/* Site Attendance */}
+          <Link
+            href="/m/site/attendance"
+            className="flex flex-col justify-between rounded-xl border border-purple-500/20 bg-purple-500/5 p-3.5 transition-all active:scale-95 hover:bg-purple-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400">
+                <CalendarCheck className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Site Attendance</span>
+              <span className="block text-[11px] text-muted-foreground">GPS Tagged Attendance</span>
+            </div>
+          </Link>
+
+          {/* Scrap Log */}
+          <Link
+            href="/m/scrap-generations"
+            className="flex flex-col justify-between rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5 transition-all active:scale-95 hover:bg-orange-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-orange-500/20 text-orange-600 dark:text-orange-400">
+                <Recycle className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Scrap Log</span>
+              <span className="block text-[11px] text-muted-foreground">Log Scrap Generation</span>
+            </div>
+          </Link>
+
+          {/* Open Tasks */}
+          <Link
+            href="/m/site/tasks"
+            className="flex flex-col justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5 transition-all active:scale-95 hover:bg-cyan-500/10 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-600 dark:text-cyan-400">
+                <ListTodo className="size-5" />
+              </span>
+              <ArrowUpRight className="size-4 text-muted-foreground" />
+            </div>
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-foreground">Open Tasks</span>
+              <span className="block text-[11px] text-muted-foreground">Site Punch List</span>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Today's KPI Stats ───────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2 px-3">
+        <MobileStatCard label="My Tasks" value={formatNumber(myTasks.length, 0)} hint="open" icon={CheckSquare} tone={myTasks.length > 0 ? "warning" : "default"} />
+        <MobileStatCard label="Checked In" value={formatNumber(attendanceToday, 0)} hint="workers today" icon={CalendarCheck} />
+        <MobileStatCard label="In Transit" value={formatNumber(inTransitPOs.length, 0)} hint="POs to receive" icon={Truck} />
+        <MobileStatCard label="Today's DPR" value={myDprToday ? "Submitted" : "Pending"} icon={ClipboardList} tone={myDprToday ? "success" : "warning"} />
+      </div>
+
+      {/* ── Today's DPR Card ───────────────────────────────── */}
+      <div>
+        <MobileSectionTitle>Daily Progress Report</MobileSectionTitle>
+        {myDprToday ? (
+          <MobileRow href="/m/site/dpr" icon={ClipboardList} title="DPR submitted" subtitle={formatDate(myDprToday.date)} meta="edit" tone="success" />
+        ) : (
+          <MobileRow href="/m/site/dpr" icon={ClipboardList} title="Today's DPR pending" subtitle="Tap to submit your daily progress report" meta="due" tone="warning" />
+        )}
+      </div>
+
+      {/* ── My Open Tasks ──────────────────────────────────── */}
+      <div>
+        <MobileSectionTitle>Open Site Tasks</MobileSectionTitle>
+        {myTasks.length === 0 ? (
+          <MobileEmptyState icon={CheckSquare} title="No open tasks" hint="New assignments appear here" />
+        ) : (
+          <div>
+            {myTasks.map((t) => (
+              <MobileInfoRow key={t.id} icon={CheckSquare} title={t.title} subtitle={t.priority} value="" badge={<MobileStatusBadge status={t.status} />} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── In-transit POs to receive ─────────────────────── */}
-      <MobileSectionTitle>Awaiting Receipt</MobileSectionTitle>
-      {inTransitPOs.length === 0 ? (
-        <MobileEmptyState icon={Truck} title="Nothing in transit" />
-      ) : (
-        <div>
-          {inTransitPOs.map((po) => (
-            <MobileRow key={po.id} href={`/m/site/field?po=${po.id}`} icon={Truck} title={po.supplier.name} subtitle={`PO ${po.poNumber} · ${formatDate(po.expectedDate)}`} badge={<MobileStatusBadge status={po.status} />} />
-          ))}
-        </div>
-      )}
+      <div>
+        <MobileSectionTitle>Awaiting Receipt</MobileSectionTitle>
+        {inTransitPOs.length === 0 ? (
+          <MobileEmptyState icon={Truck} title="Nothing in transit" />
+        ) : (
+          <div>
+            {inTransitPOs.map((po) => (
+              <MobileRow key={po.id} href={`/m/site/receive?po=${po.id}`} icon={Truck} title={po.supplier.name} subtitle={`PO ${po.poNumber} · ${formatDate(po.expectedDate)}`} badge={<MobileStatusBadge status={po.status} />} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* ── Recent material issues ────────────────────────── */}
-      <MobileSectionTitle>Recent Issues</MobileSectionTitle>
-      {recentIssues.length === 0 ? (
-        <MobileEmptyState icon={Package} title="No recent material issues" />
-      ) : (
-        <div>
-          {recentIssues.map((i) => (
-            <MobileInfoRow key={i.id} icon={ArrowRight} title={i.project?.name ?? "—"} subtitle={`From ${i.fromLocation?.name ?? "—"}`} value={formatDate(i.createdAt)} />
-          ))}
-        </div>
-      )}
+      {/* ── Recent Material Issues ────────────────────────── */}
+      <div>
+        <MobileSectionTitle>Recent Material Issues</MobileSectionTitle>
+        {recentIssues.length === 0 ? (
+          <MobileEmptyState icon={Package} title="No recent material issues" />
+        ) : (
+          <div>
+            {recentIssues.map((i) => (
+              <MobileInfoRow key={i.id} icon={ArrowRight} title={i.project?.name ?? "—"} subtitle={`From ${i.fromLocation?.name ?? "—"}`} value={formatDate(i.createdAt)} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* ── My projects ───────────────────────────────────── */}
-      <MobileSectionTitle>My Projects</MobileSectionTitle>
-      {projects.length === 0 ? (
-        <MobileEmptyState icon={Home} title="No active projects" />
-      ) : (
-        <div>
-          {projects.map((p) => (
-            <MobileRow key={p.id} href={`/m/projects/${p.id}`} icon={Home} title={p.name} />
-          ))}
-        </div>
-      )}
+      {/* ── My Active Projects ───────────────────────────── */}
+      <div>
+        <MobileSectionTitle>My Projects</MobileSectionTitle>
+        {projects.length === 0 ? (
+          <MobileEmptyState icon={Home} title="No active projects" />
+        ) : (
+          <div>
+            {projects.map((p) => (
+              <MobileRow key={p.id} href={`/m/projects/${p.id}`} icon={Home} title={p.name} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

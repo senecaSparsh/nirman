@@ -1,12 +1,10 @@
 "use client";
 
-import { Download, TrendingUp, TrendingDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { TrendingUp, TrendingDown, SearchX } from "lucide-react";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { formatCurrency, cn } from "@/lib/utils";
 import { AreaSeries, BarSeries } from "./charts";
 
 export type MonthlyProfitRow = {
@@ -38,36 +36,86 @@ export function ProfitReport({
 }) {
   const hasData = monthly.some((m) => m.revenue > 0 || m.cogs > 0 || m.operating > 0 || m.salaries > 0);
 
-  const exportCSV = () => {
-    const rows: Record<string, unknown>[] = monthly.map((m) => ({
-      month: m.label,
-      revenue: m.revenue,
-      cogs: m.cogs,
-      grossProfit: m.grossProfit,
-      operating: m.operating,
-      salaries: m.salaries,
-      netProfit: m.netProfit,
-    }));
-    downloadCSV("profit-loss.csv", rows, [
-      { key: "month", label: "Month" },
-      { key: "revenue", label: "Revenue", format: (v) => formatCurrency(Number(v)) },
-      { key: "cogs", label: "COGS", format: (v) => formatCurrency(Number(v)) },
-      { key: "grossProfit", label: "Gross Profit", format: (v) => formatCurrency(Number(v)) },
-      { key: "operating", label: "Operating", format: (v) => formatCurrency(Number(v)) },
-      { key: "salaries", label: "Salaries", format: (v) => formatCurrency(Number(v)) },
-      { key: "netProfit", label: "Net Profit", format: (v) => formatCurrency(Number(v)) },
-    ]);
-  };
-
   if (!hasData) {
     return (
       <EmptyState
-        icon={<Download className="h-5 w-5" />}
+        icon={<TrendingUp className="h-5 w-5" />}
         title="No financial activity in the last 12 months"
         description="Post sales, expenses, and payroll to see your P&L here."
       />
     );
   }
+
+  const columns: Column<MonthlyProfitRow>[] = [
+    {
+      key: "label",
+      label: "Month",
+      sortable: true,
+      render: (m) => <span className="font-medium text-foreground">{m.label}</span>,
+      exportValue: (m) => m.label,
+    },
+    {
+      key: "revenue",
+      label: "Revenue",
+      align: "right",
+      sortable: true,
+      render: (m) => <span className="tnum">{formatCurrency(m.revenue)}</span>,
+      exportValue: (m) => m.revenue,
+    },
+    {
+      key: "cogs",
+      label: "COGS",
+      align: "right",
+      sortable: true,
+      render: (m) => <span className="tnum">{formatCurrency(m.cogs)}</span>,
+      exportValue: (m) => m.cogs,
+    },
+    {
+      key: "grossProfit",
+      label: "Gross Profit",
+      align: "right",
+      sortable: true,
+      render: (m) => <span className="tnum font-medium">{formatCurrency(m.grossProfit)}</span>,
+      exportValue: (m) => m.grossProfit,
+    },
+    {
+      key: "operating",
+      label: "Operating",
+      align: "right",
+      sortable: true,
+      render: (m) => <span className="tnum">{formatCurrency(m.operating)}</span>,
+      exportValue: (m) => m.operating,
+    },
+    {
+      key: "salaries",
+      label: "Salaries",
+      align: "right",
+      sortable: true,
+      render: (m) => <span className="tnum">{formatCurrency(m.salaries)}</span>,
+      exportValue: (m) => m.salaries,
+    },
+    {
+      key: "netProfit",
+      label: "Net Profit",
+      align: "right",
+      sortable: true,
+      render: (m) => (
+        <span className={cn("tnum font-medium", m.netProfit >= 0 ? "text-success" : "text-danger")}>
+          {formatCurrency(m.netProfit)}
+        </span>
+      ),
+      exportValue: (m) => m.netProfit,
+    },
+  ];
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No matches"
+      description="Adjust the search or column filters."
+    />
+  );
 
   return (
     <div className="space-y-5">
@@ -101,57 +149,33 @@ export function ProfitReport({
 
       {/* Summary table */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-body font-semibold text-foreground">Monthly P&L Breakdown</h3>
-          <Button size="sm" variant="outline" onClick={exportCSV}>
-            <Download className="mr-1 h-3.5 w-3.5" /> CSV
-          </Button>
-        </div>
-        <div className="mt-3 overflow-x-auto">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Month</TH>
-                <TH className="text-right">Revenue</TH>
-                <TH className="text-right">COGS</TH>
-                <TH className="text-right">Gross Profit</TH>
-                <TH className="text-right">Operating</TH>
-                <TH className="text-right">Salaries</TH>
-                <TH className="text-right">Net Profit</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {monthly.map((m) => (
-                <TR key={m.label}>
-                  <TD className="font-medium">{m.label}</TD>
-                  <TD className="text-right">{formatCurrency(m.revenue)}</TD>
-                  <TD className="text-right">{formatCurrency(m.cogs)}</TD>
-                  <TD className="text-right font-medium">{formatCurrency(m.grossProfit)}</TD>
-                  <TD className="text-right">{formatCurrency(m.operating)}</TD>
-                  <TD className="text-right">{formatCurrency(m.salaries)}</TD>
-                  <TD className="text-right font-medium">
-                    <span className={m.netProfit >= 0 ? "text-success" : "text-danger"}>
-                      {formatCurrency(m.netProfit)}
-                    </span>
-                  </TD>
-                </TR>
-              ))}
-              {/* Totals row */}
-              <TR className="border-t-2 border-border bg-muted/30 font-semibold">
-                <TD>Total (12mo)</TD>
-                <TD className="text-right">{formatCurrency(totalRevenue)}</TD>
-                <TD className="text-right">{formatCurrency(totalCogs)}</TD>
-                <TD className="text-right">{formatCurrency(grossProfit)}</TD>
-                <TD className="text-right">{formatCurrency(totalOperating)}</TD>
-                <TD className="text-right">{formatCurrency(totalSalaries)}</TD>
-                <TD className="text-right">
-                  <span className={netProfit >= 0 ? "text-success" : "text-danger"}>
-                    {formatCurrency(netProfit)}
-                  </span>
-                </TD>
-              </TR>
-            </TBody>
-          </Table>
+        <h3 className="mb-3 text-body font-semibold text-foreground">Monthly P&L Breakdown</h3>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <DataTable
+            data={monthly}
+            columns={columns}
+            storageKey="profit-loss"
+            hideable
+            exportFileName="profit-loss"
+            initialSort={{ key: "label", direction: "asc" }}
+            searchable
+            searchPlaceholder="Search month…"
+            showTotals
+            sumColumns={["revenue", "cogs", "grossProfit", "operating", "salaries", "netProfit"]}
+            totalFormat={(key, _sum) => {
+              const totals: Record<string, number> = {
+                revenue: totalRevenue,
+                cogs: totalCogs,
+                grossProfit,
+                operating: totalOperating,
+                salaries: totalSalaries,
+                netProfit,
+              };
+              return formatCurrency(totals[key] ?? 0);
+            }}
+            rowTone={(m) => (m.netProfit < 0 ? "danger" : null)}
+            emptyState={noMatch}
+          />
         </div>
         <div className="mt-3 flex items-center gap-2">
           {netProfit >= 0 ? (

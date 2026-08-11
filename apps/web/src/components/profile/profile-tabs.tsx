@@ -428,7 +428,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
 
 // ── Overview charts ────────────────────────────────────────────────
 
-function OverviewCharts(props: ProfileTabsProps) {
+export function OverviewCharts(props: ProfileTabsProps) {
   const hasProcurement = props.canSeeProcurement && props.procurementTrend.some((m) => m.count > 0);
   const hasStock = props.canSeeStock && props.stockHealth.length > 0;
   const hasPending = props.pendingActions.length > 0;
@@ -537,7 +537,7 @@ function OverviewCharts(props: ProfileTabsProps) {
   );
 }
 
-function KpiCard({
+export function KpiCard({
   label,
   value,
   sub,
@@ -577,7 +577,7 @@ function KpiCard({
 
 // ── Identity strip ─────────────────────────────────────────────────
 
-function IdentityStrip(props: ProfileTabsProps) {
+export function IdentityStrip(props: ProfileTabsProps) {
   return (
     <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3">
       {props.image ? (
@@ -691,7 +691,7 @@ function PermissionMatrix({ modules }: { modules: PermModule[] }) {
 
 // ── Queue card ─────────────────────────────────────────────────────
 
-function QueueCard({ queue }: { queue: QueueData }) {
+export function QueueCard({ queue }: { queue: QueueData }) {
   const Icon = getIcon(queue.icon);
   const blocking = queue.urgency === "blocking";
   return (
@@ -752,7 +752,7 @@ function QueueCard({ queue }: { queue: QueueData }) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function formatActionLabel(action: string): string {
+export function formatActionLabel(action: string): string {
   const parts = action.split(".");
   if (parts.length < 2) return action;
   const module = (parts[0] ?? action).toUpperCase();

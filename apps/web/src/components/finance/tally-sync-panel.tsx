@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox, AlertCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/page";
+import Link from "next/link";
 
 type TallyStats = {
   total: number;
@@ -14,6 +16,7 @@ type TallyStats = {
   pending: number;
   imported?: number;
   variance?: number;
+  configured?: boolean;
 };
 
 export function TallySyncPanel({ stats }: { stats: TallyStats }) {
@@ -83,13 +86,31 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
         <div className="flex items-center gap-2">
           <Download className="h-5 w-5 text-muted-foreground" />
           <div>
-            <h3 className="text-body font-semibold">Tally Sync</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-body font-semibold">Tally Sync</h3>
+              {stats.configured ? (
+                <Badge variant="success" className="text-[10px]">
+                  <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Connected
+                </Badge>
+              ) : (
+                <Badge variant="warning" className="text-[10px]">
+                  <AlertCircle className="h-2.5 w-2.5 mr-0.5" /> Not configured
+                </Badge>
+              )}
+            </div>
             <p className="text-caption text-muted-foreground">
               Two-way sync with Tally ERP — push vouchers out, pull vouchers in
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!stats.configured && (
+            <Link href="/settings?tab=integrations">
+              <Button size="sm" variant="outline">
+                <Settings className="mr-1 h-3.5 w-3.5" /> Configure
+              </Button>
+            </Link>
+          )}
           <Button size="sm" variant="outline" onClick={loadLog}>
             View Log
           </Button>

@@ -40,6 +40,74 @@ export interface PortalSyncResult {
   error?: string;
 }
 
+/**
+ * Manual portal provider — instead of calling a fake API, generates a real
+ * pre-filled listing URL on the portal's website that the user can click
+ * to manually complete the listing. This is the fallback when no API key
+ * is configured.
+ *
+ * The listing is marked as "DRAFT" with a URL the user can follow. The
+ * PortalListing record stores the URL so the user can come back to it.
+ */
+export class ManualPortalProvider implements PortalProvider {
+  constructor(private portalName: string = "99acres") {}
+
+  /**
+   * Build a pre-filled listing URL for the portal.
+   * 99acres: https://www.99acres.com/post-property?... (pre-fill via query params)
+   * MagicBricks: https://www.magicbricks.com/post-property-for-sale?...
+   * Housing.com: https://www.housing.com/listing/new?...
+   */
+  private buildListingUrl(listing: PortalListingPayload): string {
+    const params = new URLSearchParams();
+    params.set("title", listing.title);
+    if (listing.description) params.set("description", listing.description);
+    params.set("price", String(listing.askingPrice));
+    params.set("area", String(listing.area));
+    params.set("areaUnit", listing.areaUnit);
+    if (listing.bedrooms != null) params.set("bedrooms", String(listing.bedrooms));
+    if (listing.bathrooms != null) params.set("bathrooms", String(listing.bathrooms));
+    if (listing.floor != null) params.set("floor", String(listing.floor));
+    if (listing.furnishing) params.set("furnishing", listing.furnishing);
+
+    const baseUrl = this.portalName.toLowerCase();
+    switch (baseUrl) {
+      case "99acres":
+        return `https://www.99acres.com/post-property-for-sale?${params.toString()}`;
+      case "magicbricks":
+        return `https://www.magicbricks.com/post-property-for-sale?${params.toString()}`;
+      case "housing.com":
+        return `https://www.housing.com/listing/new?${params.toString()}`;
+      default:
+        return `https://www.${baseUrl}.com/post-property?${params.toString()}`;
+    }
+  }
+
+  async createListing(listing: PortalListingPayload): Promise<PortalSyncResult> {
+    const url = this.buildListingUrl(listing);
+    console.log(`[Portal Manual:${this.portalName}] Generated listing URL: ${url}`);
+    return {
+      success: true,
+      portalListingId: `MANUAL-${Date.now()}`,
+      listingUrl: url,
+    };
+  }
+
+  async updateListing(portalListingId: string, listing: PortalListingPayload): Promise<PortalSyncResult> {
+    const url = this.buildListingUrl(listing);
+    return { success: true, portalListingId, listingUrl: url };
+  }
+
+  async delistListing(portalListingId: string): Promise<PortalSyncResult> {
+    // Manual listings can't be auto-delisted — the user must do it manually
+    console.log(`[Portal Manual:${this.portalName}] Manual delist required for ${portalListingId}`);
+    return {
+      success: false,
+      error: "Manual listings cannot be auto-delisted. Please remove the listing manually on the portal.",
+    };
+  }
+}
+
 /** Stub portal provider — logs the listing and returns success. */
 export class StubPortalProvider implements PortalProvider {
   constructor(private portalName: string = "99acres") {}
@@ -341,17 +409,17 @@ export function createPortalProvider(portalName: string): PortalProvider {
     case "99acres": {
       const apiKey = process.env.PORTAL_99ACRES_API_KEY;
       if (apiKey) return new NineAcresProvider(apiKey);
-      return new StubPortalProvider("99acres");
+      return new ManualPortalProvider("99acres");
     }
     case "MagicBricks": {
       const apiKey = process.env.PORTAL_MAGICBRICKS_API_KEY;
       if (apiKey) return new MagicBricksProvider(apiKey);
-      return new StubPortalProvider("MagicBricks");
+      return new ManualPortalProvider("MagicBricks");
     }
     case "Housing.com": {
       const apiKey = process.env.PORTAL_HOUSING_API_KEY;
       if (apiKey) return new HousingProvider(apiKey);
-      return new StubPortalProvider("Housing.com");
+      return new ManualPortalProvider("Housing.com");
     }
     default:
       throw new ServiceError(`Unknown portal: ${portalName}`, 400);
@@ -397,6 +465,8 @@ export async function createPortalListing(input: CreatePortalListingInput) {
       deletedAt: null,
       project: { companyId: input.companyId, deletedAt: null },
     },
+    // Include RERA fields — Housing.com requires carpetArea, 99acres/MagicBricks use superBuiltUpArea
+    // (falls back to area if RERA fields are not set)
     include: { project: { select: { name: true } } },
   });
   if (!unit) throw new ServiceError("Built unit not found", 404);
@@ -406,6 +476,13 @@ export async function createPortalListing(input: CreatePortalListingInput) {
     where: { builtUnitId_portalName: { builtUnitId: input.builtUnitId, portalName: input.portalName } },
   });
   if (existing) throw new ServiceError("Listing already exists for this unit on this portal", 409);
+
+  // RERA: Housing.com requires carpetArea; 99acres/MagicBricks use superBuiltUpArea.
+  // Fall back to unit.area if the RERA field is not set (backward compatible).
+  const isHousing = input.portalName.toLowerCase().includes("housing");
+  const reraArea = isHousing
+    ? (unit.carpetArea ?? unit.superBuiltUpArea ?? unit.area)
+    : (unit.superBuiltUpArea ?? unit.area);
 
   const listing = await prisma.portalListing.create({
     data: {
@@ -417,7 +494,7 @@ export async function createPortalListing(input: CreatePortalListingInput) {
       askingPrice: new Decimal(input.askingPrice),
       bedrooms: input.bedrooms ?? null,
       bathrooms: input.bathrooms ?? null,
-      area: unit.area,
+      area: reraArea,
       areaUnit: unit.areaUnit,
       floor: unit.floor,
       furnishing: input.furnishing ?? null,
@@ -449,7 +526,14 @@ export async function syncListingToPortal(listingId: string, userId?: string) {
   });
   if (!listing) throw new ServiceError("Portal listing not found", 404);
 
-  const provider = getProvider(listing.portalName);
+  // Use DB-stored config if available, fall back to env-based / manual provider
+  let provider: PortalProvider;
+  try {
+    const { createPortalProviderFromConfig } = await import("./integration-config");
+    provider = await createPortalProviderFromConfig(listing.companyId, listing.portalName);
+  } catch {
+    provider = getProvider(listing.portalName);
+  }
   const payload: PortalListingPayload = {
     title: listing.title,
     description: listing.description ?? "",

@@ -5,10 +5,10 @@ import { toast } from "sonner";
 import { Plus, ClipboardList } from "lucide-react";
 import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/field";
 import { BoqView, BoqFormDialog, type BoqNode } from "./boq-view";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
+import { cn } from "@/lib/utils";
 
 type Project = { id: string; name: string };
 type Material = { id: string; code: string; name: string; unit: string };
@@ -28,7 +28,7 @@ export function BoqProjectView({
   const [loading, setLoading] = useState(false);
   const [emptyDialogOpen, setEmptyDialogOpen] = useState(false);
 
-  useEffect(() => {
+  const fetchTree = () => {
     if (!projectId) return;
     setLoading(true);
     fetch(`/api/boq/tree?projectId=${projectId}`)
@@ -39,6 +39,11 @@ export function BoqProjectView({
       })
       .catch(() => toast.error("Failed to load BOQ"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchTree();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   if (projects.length === 0) {
@@ -51,17 +56,28 @@ export function BoqProjectView({
     );
   }
 
+  const projectSelector = (
+    <div className="shrink-0">
+      <Select
+        value={projectId}
+        onChange={(e) => setProjectId(e.target.value)}
+        className="h-7 w-auto min-w-[180px] text-caption"
+      >
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </Select>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      <Field label="Project">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="max-w-sm">
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </Select>
-      </Field>
+      <header className="flex flex-wrap items-center gap-3 min-w-0">
+        <h1 className="text-title text-foreground">Bill of Quantities</h1>
+        {projectSelector}
+      </header>
 
-      {loading ? (
+      {loading && tree.length === 0 ? (
         <PageLoading label="Loading BOQ…" variant="default" />
       ) : tree.length === 0 ? (
         <>
@@ -82,18 +98,23 @@ export function BoqProjectView({
               projectId={projectId}
               materials={materials}
               item={null}
-              parentId={null}
+              parentNode={null}
+              tree={[]}
+              onSaved={fetchTree}
             />
           )}
         </>
       ) : (
-        <BoqView
-          projectId={projectId}
-          tree={tree}
-          totalEstimatedAmount={total}
-          materials={materials}
-          canEdit={canEdit}
-        />
+        <div className={cn("space-y-4", loading && "pointer-events-none opacity-60 transition-opacity")}>
+          <BoqView
+            projectId={projectId}
+            tree={tree}
+            totalEstimatedAmount={total}
+            materials={materials}
+            canEdit={canEdit}
+            onChanged={fetchTree}
+          />
+        </div>
       )}
     </div>
   );

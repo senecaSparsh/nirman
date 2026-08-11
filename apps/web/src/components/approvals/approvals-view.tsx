@@ -4,14 +4,114 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, X, Inbox, ArrowRight, Search, RefreshCw } from "lucide-react";
+import {
+  Check, X, Inbox, ArrowRight, Search, RefreshCw, Loader2,
+  AlertTriangle, Clock, CalendarClock, ChevronDown, ChevronRight,
+  TrendingDown, Package,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
-import { Page, Section, StatusPill, MetricGrid, Metric } from "@/components/page";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { ApprovalPORow, ApprovalReqRow } from "@/lib/types";
+
+// ── Urgency badge ──────────────────────────────────────────────
+
+function UrgencyBadge({ urgency }: { urgency: string }) {
+  if (urgency === "overdue") {
+    return (
+      <Badge variant="danger" className="gap-1">
+        <AlertTriangle className="h-3 w-3" /> Overdue
+      </Badge>
+    );
+  }
+  if (urgency === "due_today") {
+    return (
+      <Badge variant="warning" className="gap-1">
+        <Clock className="h-3 w-3" /> Due today
+      </Badge>
+    );
+  }
+  if (urgency === "due_this_week") {
+    return (
+      <Badge variant="muted" className="gap-1">
+        <CalendarClock className="h-3 w-3" /> This week
+      </Badge>
+    );
+  }
+  return null;
+}
+
+// ── Budget context badge ───────────────────────────────────────
+
+function BudgetBadge({
+  budgetRemaining,
+  utilizationPct,
+  wouldExceedBudget,
+}: {
+  budgetRemaining: number | null;
+  utilizationPct: number | null;
+  wouldExceedBudget: boolean;
+}) {
+  if (budgetRemaining === null || utilizationPct === null) return null;
+
+  const tone = wouldExceedBudget
+    ? "danger"
+    : utilizationPct >= 95
+      ? "danger"
+      : utilizationPct >= 80
+        ? "warning"
+        : "success";
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {wouldExceedBudget && (
+        <Badge variant="danger" className="gap-1">
+          <AlertTriangle className="h-3 w-3" /> Exceeds budget
+        </Badge>
+      )}
+      <Badge variant={tone} className="tnum">
+        {utilizationPct.toFixed(0)}% used · {formatCurrency(budgetRemaining)} left
+      </Badge>
+    </div>
+  );
+}
+
+// ── Budget context detail line ─────────────────────────────────
+
+function BudgetDetail({
+  projectBudget,
+  projectSpent,
+  budgetRemaining,
+  budgetUtilizationPct,
+}: {
+  projectBudget: number | null;
+  projectSpent: number | null;
+  budgetRemaining: number | null;
+  budgetUtilizationPct: number | null;
+}) {
+  if (projectBudget === null) return null;
+  return (
+    <div className="flex items-center gap-3 text-caption text-muted-foreground">
+      <span>
+        Budget: <span className="tnum text-foreground font-medium">{formatCurrency(projectBudget)}</span>
+      </span>
+      <span>
+        Spent: <span className="tnum text-foreground font-medium">{formatCurrency(projectSpent ?? 0)}</span>
+      </span>
+      <span>
+        Remaining: <span className="tnum text-foreground font-medium">{formatCurrency(budgetRemaining ?? 0)}</span>
+      </span>
+      {budgetUtilizationPct !== null && (
+        <span>
+          Utilization: <span className="tnum text-foreground font-medium">{budgetUtilizationPct.toFixed(1)}%</span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 /**
  * Approvals queue — lists POs (DRAFT) and requisitions (SUBMITTED)
@@ -76,13 +176,7 @@ export function ApprovalsView({
 
   return (
     <Page>
-      <MetricGrid cols={3}>
-        <Metric label="Total Pending" value={totalCount} icon={<Inbox />} tone="warning" />
-        <Metric label="Purchase Orders" value={purchaseOrders.length} sub="awaiting approval" />
-        <Metric label="Material Indents" value={requisitions.length} sub="awaiting approval" />
-      </MetricGrid>
-
-      <div className="flex items-center gap-2">
+      <Toolbar attached={false}>
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by no, supplier, project…" className="pl-8" />
@@ -90,7 +184,8 @@ export function ApprovalsView({
         <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
           <RefreshCw className="h-4 w-4" />
         </Button>
-      </div>
+        <ToolbarCount>{totalCount} items</ToolbarCount>
+      </Toolbar>
 
       {empty ? (
         <EmptyState
@@ -180,11 +275,12 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
-      <div className="min-w-0 space-y-1">
+    <div className={`flex items-start justify-between gap-4 p-4 ${po.wouldExceedBudget ? "bg-danger/5" : ""}`}>
+      <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-body font-semibold text-foreground">{po.poNumber}</span>
           <StatusPill status={po.status} />
+          <UrgencyBadge urgency={po.urgency} />
         </div>
         <div className="text-caption text-muted-foreground">
           {po.supplierName}
@@ -195,6 +291,14 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
           Created {formatDate(po.createdAt)}
           {po.expectedDate ? ` · expected ${formatDate(po.expectedDate)}` : ""}
         </div>
+        {po.projectBudget !== null && (
+          <BudgetDetail
+            projectBudget={po.projectBudget}
+            projectSpent={po.projectSpent}
+            budgetRemaining={po.budgetRemaining}
+            budgetUtilizationPct={po.budgetUtilizationPct}
+          />
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <div className="text-right">
@@ -205,10 +309,17 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
             {po.lineCount} line{po.lineCount === 1 ? "" : "s"}
           </div>
         </div>
+        {po.projectBudget !== null && (
+          <BudgetBadge
+            budgetRemaining={po.budgetRemaining}
+            utilizationPct={po.budgetUtilizationPct}
+            wouldExceedBudget={po.wouldExceedBudget}
+          />
+        )}
         {po.canApprove && (
           <div className="flex gap-2">
             <Button size="sm" disabled={acting} onClick={() => act("approve")}>
-              <Check className="h-3.5 w-3.5" /> Approve
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
             </Button>
           </div>
         )}
@@ -222,6 +333,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   async function act(action: "approve" | "reject") {
     setActing(true);
@@ -283,43 +395,126 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
     );
   }
 
+  // Check if any line has low stock (currentStock < qtyRequested)
+  const hasLowStock = req.lineDetails.some(
+    (l) => l.currentStock !== null && l.currentStock < l.qtyRequested,
+  );
+
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-body font-semibold text-foreground">{req.reqNumber}</span>
-          <StatusPill status={req.status} />
-        </div>
-        <div className="text-caption text-muted-foreground">
-          {req.projectName}
-          {req.phaseName ? ` · ${req.phaseName}` : ""}
-          {req.requestedByName ? ` · raised by ${req.requestedByName}` : ""}
-        </div>
-        <div className="text-caption text-muted-foreground">
-          Created {formatDate(req.createdAt)}
-          {req.neededByDate ? ` · needed by ${formatDate(req.neededByDate)}` : ""}
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <div className="text-right">
-          <div className="text-body font-semibold tnum text-foreground">
-            {req.totalQty.toLocaleString()} units
+    <div className={`p-4 ${req.wouldExceedBudget ? "bg-danger/5" : ""}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-body font-semibold text-foreground">{req.reqNumber}</span>
+            <StatusPill status={req.status} />
+            <UrgencyBadge urgency={req.urgency} />
+            {hasLowStock && (
+              <Badge variant="warning" className="gap-1">
+                <Package className="h-3 w-3" /> Low stock
+              </Badge>
+            )}
           </div>
           <div className="text-caption text-muted-foreground">
-            {req.lineCount} line{req.lineCount === 1 ? "" : "s"}
+            {req.projectName}
+            {req.phaseName ? ` · ${req.phaseName}` : ""}
+            {req.requestedByName ? ` · raised by ${req.requestedByName}` : ""}
           </div>
+          <div className="text-caption text-muted-foreground">
+            Created {formatDate(req.createdAt)}
+            {req.neededByDate ? ` · needed by ${formatDate(req.neededByDate)}` : ""}
+          </div>
+          {req.projectBudget !== null && (
+            <BudgetDetail
+              projectBudget={req.projectBudget}
+              projectSpent={req.projectSpent}
+              budgetRemaining={req.budgetRemaining}
+              budgetUtilizationPct={req.budgetUtilizationPct}
+            />
+          )}
         </div>
-        {req.canApprove && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
-              <X className="h-3.5 w-3.5" /> Reject
-            </Button>
-            <Button size="sm" disabled={acting} onClick={() => act("approve")}>
-              <Check className="h-3.5 w-3.5" /> Approve
-            </Button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="text-right">
+            <div className="text-body font-semibold tnum text-foreground">
+              {req.totalQty.toLocaleString()} units
+            </div>
+            <div className="text-caption text-muted-foreground">
+              {req.lineCount} line{req.lineCount === 1 ? "" : "s"}
+            </div>
           </div>
-        )}
+          {req.projectBudget !== null && (
+            <BudgetBadge
+              budgetRemaining={req.budgetRemaining}
+              utilizationPct={req.budgetUtilizationPct}
+              wouldExceedBudget={req.wouldExceedBudget}
+            />
+          )}
+          {req.canApprove && (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+                {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+              </Button>
+              <Button size="sm" disabled={acting} onClick={() => act("approve")}>
+                {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Expandable line details with stock/rate context */}
+      {req.lineDetails.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-caption text-brand hover:underline"
+          >
+            {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showDetails ? "Hide line details" : `Show ${req.lineDetails.length} line${req.lineDetails.length === 1 ? "" : "s"} (stock & rates)`}
+          </button>
+          {showDetails && (
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-caption">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="py-1.5 pr-4 font-medium">Material</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Qty Requested</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Current Stock</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Last Rate</th>
+                    <th className="py-1.5 pr-4 font-medium">Last Rate Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {req.lineDetails.map((line) => {
+                    const lowStock = line.currentStock !== null && line.currentStock < line.qtyRequested;
+                    return (
+                      <tr key={line.materialId}>
+                        <td className="py-1.5 pr-4">
+                          <div className="font-medium text-foreground">{line.materialName}</div>
+                          <div className="text-muted-foreground">{line.materialCode} · {line.unit}</div>
+                        </td>
+                        <td className="py-1.5 pr-4 text-right tnum text-foreground">
+                          {formatNumber(line.qtyRequested)} {line.unit}
+                        </td>
+                        <td className={`py-1.5 pr-4 text-right tnum ${lowStock ? "text-danger font-medium" : "text-foreground"}`}>
+                          {line.currentStock !== null ? `${formatNumber(line.currentStock)} ${line.unit}` : "—"}
+                          {lowStock && <TrendingDown className="inline h-3 w-3 ml-1" />}
+                        </td>
+                        <td className="py-1.5 pr-4 text-right tnum text-foreground">
+                          {line.lastRate !== null ? formatCurrency(line.lastRate) : "—"}
+                        </td>
+                        <td className="py-1.5 pr-4 text-muted-foreground">
+                          {line.lastRateDate ? formatDate(line.lastRateDate) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileRefreshButton,
+  MobileCta,
 } from "@/components/mobile/mobile-primitives";
 import { MobileMaterialsList } from "./MobileMaterialsList";
 
@@ -31,7 +32,7 @@ async function MobileMaterialsContent() {
   const company = await getCompany();
 
   const materials = await prisma.material.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
     select: {
       id: true,
       code: true,
@@ -92,7 +93,12 @@ async function MobileMaterialsContent() {
       {rows.length === 0 && (
         <>
           <MobileSectionTitle>All Materials</MobileSectionTitle>
-          <MobileEmptyState icon={Package} title="No materials" hint="Add materials from the desktop Setup" />
+          <MobileEmptyState
+            icon={Package}
+            title="No materials"
+            hint="Add materials from the desktop Setup page to start tracking stock."
+            action={<MobileCta href="/materials" icon={Package}>Go to Materials Setup</MobileCta>}
+          />
         </>
       )}
     </div>

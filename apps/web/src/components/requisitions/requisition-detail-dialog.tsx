@@ -11,6 +11,7 @@ import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ConvertToPoDialog } from "./convert-to-po-dialog";
 import { AuditTrail } from "@/components/audit-trail";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { RequisitionDetail, RequisitionRow } from "@/lib/types";
 
 type SupplierOption = { id: string; name: string };
@@ -39,6 +40,7 @@ export function RequisitionDetailDialog({
   const [loading, setLoading] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const trackRecent = useTrackRecent();
 
   useEffect(() => {
     if (open && requisition) {
@@ -48,8 +50,10 @@ export function RequisitionDetailDialog({
         .then((r) => r.json())
         .then((d) => { if (!d.error) setDetail(d); })
         .finally(() => setLoading(false));
+      // Track in recently viewed
+      trackRecent({ type: "requisition", id: requisition.id, label: requisition.reqNumber, href: `/requisitions?req=${requisition.id}` });
     }
-  }, [open, requisition]);
+  }, [open, requisition, trackRecent]);
 
   async function doAction(action: "submit" | "approve" | "reject") {
     if (!requisition) return;

@@ -154,7 +154,7 @@ async function CommandContent() {
       ) : (
         <div>
           {pendingReqs.map((r) => (
-            <MobileRow key={r.id} href={`/m/requisitions/${r.id}`} icon={ClipboardList} title={r.project.name} subtitle={`Submitted ${formatDate(r.createdAt)}`} badge={<MobileStatusBadge status={r.status} />} />
+            <MobileRow key={r.id} href={`/m/requisitions/${r.id}`} icon={ClipboardList} title={r.project?.name ?? "N/A"} subtitle={`Submitted ${formatDate(r.createdAt)}`} badge={<MobileStatusBadge status={r.status} />} />
           ))}
         </div>
       )}

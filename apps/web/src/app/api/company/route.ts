@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
   const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
-  const isDevBypass = user.id === "dev";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && user.id === "dev";
 
   const visible = await prisma.company.findMany({
     where: {

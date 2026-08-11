@@ -10,7 +10,7 @@ import { MaterialReconciliationView } from "@/components/material-reconciliation
 
 export default function MaterialReconciliationPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading reconciliation…" variant="default" />}>
         <ReconContent />
       </Suspense>

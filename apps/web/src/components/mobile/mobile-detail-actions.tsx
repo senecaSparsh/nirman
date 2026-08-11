@@ -2,10 +2,32 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, type LucideIcon } from "lucide-react";
+import {
+  Loader2,
+  Printer,
+  CheckCircle2,
+  Scale,
+  XCircle,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
+
+/**
+ * Map of icon name → lucide component. Server Components pass icon
+ * names (strings) since functions cannot be serialized across the
+ * Server→Client boundary.
+ */
+const ICON_MAP: Record<string, LucideIcon> = {
+  Printer,
+  CheckCircle2,
+  Scale,
+  XCircle,
+  Send,
+};
 
 /**
  * Generic inline action bar for mobile detail pages. Surfaces
@@ -17,7 +39,7 @@ import { haptic } from "@/lib/haptic";
  *
  * Each action specifies:
  *  - `label`      — button text
- *  - `icon`       — lucide icon
+ *  - `icon`       — lucide icon name (key in ICON_MAP)
  *  - `method`     — HTTP method ("PATCH" | "POST")
  *  - `endpoint`   — full API path (e.g. `/api/supplier-returns/${id}`)
  *  - `body`       — request body (JSON)
@@ -28,7 +50,7 @@ import { haptic } from "@/lib/haptic";
 
 export interface MobileAction {
   label: string;
-  icon: LucideIcon;
+  icon: keyof typeof ICON_MAP;
   method?: "PATCH" | "POST";
   endpoint: string;
   body?: Record<string, unknown>;
@@ -43,7 +65,7 @@ export interface MobileAction {
  */
 export interface MobileActionLink {
   label: string;
-  icon: LucideIcon;
+  icon: keyof typeof ICON_MAP;
   href: string;
   variant?: "primary" | "outline" | "danger";
 }
@@ -57,11 +79,20 @@ export function MobileDetailActions({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<number | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   if (actions.length === 0 && links.length === 0) return null;
 
   async function act(action: MobileAction, index: number) {
-    if (action.confirm && !window.confirm(action.confirm)) return;
+    if (action.confirm) {
+      const ok = await confirm({
+        title: "Confirm action",
+        description: action.confirm,
+        confirmLabel: "Confirm",
+        variant: action.variant === "danger" ? "destructive" : "default",
+      });
+      if (!ok) return;
+    }
     haptic(10);
     setBusy(index);
     try {
@@ -88,7 +119,7 @@ export function MobileDetailActions({
           key={i}
           onClick={() => act(a, i)}
           busy={busy === i}
-          icon={a.icon}
+          iconName={a.icon}
           label={a.label}
           variant={a.variant ?? "primary"}
         />
@@ -97,11 +128,12 @@ export function MobileDetailActions({
         <LinkButton
           key={`link-${i}`}
           href={l.href}
-          icon={l.icon}
+          iconName={l.icon}
           label={l.label}
           variant={l.variant ?? "outline"}
         />
       ))}
+      {confirmDialog}
     </div>
   );
 }
@@ -109,16 +141,17 @@ export function MobileDetailActions({
 function ActionButton({
   onClick,
   busy,
-  icon: Icon,
+  iconName,
   label,
   variant,
 }: {
   onClick: () => void;
   busy: boolean;
-  icon: LucideIcon;
+  iconName: keyof typeof ICON_MAP;
   label: string;
   variant: "primary" | "outline" | "danger";
 }) {
+  const Icon = ICON_MAP[iconName];
   return (
     <button
       type="button"
@@ -133,7 +166,7 @@ function ActionButton({
             : "border border-border bg-card text-foreground",
       )}
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : Icon ? <Icon className="h-4 w-4" /> : null}
       {label}
     </button>
   );
@@ -141,15 +174,16 @@ function ActionButton({
 
 function LinkButton({
   href,
-  icon: Icon,
+  iconName,
   label,
   variant,
 }: {
   href: string;
-  icon: LucideIcon;
+  iconName: keyof typeof ICON_MAP;
   label: string;
   variant: "primary" | "outline" | "danger";
 }) {
+  const Icon = ICON_MAP[iconName];
   return (
     <a
       href={href}
@@ -164,7 +198,7 @@ function LinkButton({
             : "border border-border bg-card text-foreground",
       )}
     >
-      <Icon className="h-4 w-4" />
+      {Icon ? <Icon className="h-4 w-4" /> : null}
       {label}
     </a>
   );

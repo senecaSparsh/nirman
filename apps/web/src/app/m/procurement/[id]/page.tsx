@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { ScanLine, Printer } from "lucide-react";
+import { ScanLine } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -210,7 +210,7 @@ async function MobilePoDetailContent({
         links={[
           {
             label: "Print Purchase Order",
-            icon: Printer,
+            icon: "Printer",
             href: `/print/purchase-order/${po.id}`,
             variant: "outline",
           },

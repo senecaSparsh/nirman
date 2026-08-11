@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { softDelete, updateUnitStatus, updateUnitValuation, updateBuiltUnit } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
   const unit = await prisma.builtUnit.findFirst({
-    where: { id, project: { companyId: user.companyId ?? undefined }, deletedAt: null },
+    where: { id, project: { companyId: company.id }, deletedAt: null },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
@@ -27,6 +28,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     wing: unit.wing,
     area: toNum(unit.area),
     areaUnit: unit.areaUnit,
+    // RERA fields
+    carpetArea: unit.carpetArea ? toNum(unit.carpetArea) : null,
+    superBuiltUpArea: unit.superBuiltUpArea ? toNum(unit.superBuiltUpArea) : null,
+    balconyArea: unit.balconyArea ? toNum(unit.balconyArea) : null,
+    clearHeight: unit.clearHeight ? toNum(unit.clearHeight) : null,
+    hasLoadingDock: unit.hasLoadingDock,
     status: unit.status,
     productionCost: toNum(unit.productionCost),
     askingPrice: unit.askingPrice ? toNum(unit.askingPrice) : null,
@@ -87,6 +94,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       area: body?.area,
       areaUnit: body?.areaUnit,
       askingPrice: body?.askingPrice,
+      carpetArea: body?.carpetArea,
+      superBuiltUpArea: body?.superBuiltUpArea,
+      balconyArea: body?.balconyArea,
+      clearHeight: body?.clearHeight,
+      hasLoadingDock: body?.hasLoadingDock,
     });
     if (!parsed.success) {
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -100,6 +112,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         area: parsed.data.area,
         areaUnit: parsed.data.areaUnit,
         askingPrice: parsed.data.askingPrice ?? null,
+        // RERA fields
+        carpetArea: parsed.data.carpetArea ?? null,
+        superBuiltUpArea: parsed.data.superBuiltUpArea ?? null,
+        balconyArea: parsed.data.balconyArea ?? null,
+        clearHeight: parsed.data.clearHeight ?? null,
+        hasLoadingDock: parsed.data.hasLoadingDock,
         userId: user.id,
       });
       return json({ ok: true });
@@ -113,7 +131,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify company ownership before soft-deleting
+  const existing = await prisma.builtUnit.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Unit not found" }, { status: 404 });
   await softDelete("BuiltUnit", id);
   return json({ ok: true });
 });

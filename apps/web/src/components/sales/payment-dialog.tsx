@@ -85,10 +85,14 @@ export function PaymentDialog({
       className="max-w-md"
     >
       {/* Sale summary */}
-      <div className="mb-4 grid grid-cols-3 gap-3 rounded-md border bg-muted/40 p-3 text-body">
+      <div className="mb-4 grid grid-cols-4 gap-3 rounded-md border bg-muted/40 p-3 text-body">
         <div>
           <p className="text-caption text-muted-foreground">Sale Price</p>
           <p className="font-medium tnum">{formatCurrency(sale.salePrice)}</p>
+        </div>
+        <div>
+          <p className="text-caption text-muted-foreground">GST</p>
+          <p className="font-medium tnum">{formatCurrency(sale.gstAmount ?? 0)}</p>
         </div>
         <div>
           <p className="text-caption text-muted-foreground">Total Paid</p>

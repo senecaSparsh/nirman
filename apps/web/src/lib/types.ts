@@ -237,6 +237,7 @@ export type StockCountLineRow = {
   countedQty: number;
   systemQty: number;
   variance: number;
+  unitCost?: number;
 };
 
 export type StockCountRow = {
@@ -459,6 +460,7 @@ export type LandPurchaseRow = {
   totalCost: number;
   registryNo: string | null;
   location: string | null;
+  documentUrl: string | null;
   parcelCount: number;
   availableArea: number;
   // ── Aggregates for the rich card + portfolio ──
@@ -539,12 +541,29 @@ export type BuiltUnitRow = {
   wing: string | null;
   area: number;
   areaUnit: AreaUnit;
+  // ── RERA compliance fields ──
+  carpetArea: number | null;
+  superBuiltUpArea: number | null;
+  balconyArea: number | null;
+  clearHeight: number | null;
+  hasLoadingDock: boolean;
   status: BuiltUnitStatus;
+  // ── Origin tracking ──
+  originType: "CREATED" | "PURCHASED";
+  acquisitionCost: number;
+  purchaseDate: string | null;
+  landParcelId: string | null;
   productionCost: number;
   askingPrice: number | null;
   currentValuation: number;
   nrvWriteDown: number;
   saleId: string | null;
+  // ── Sale info (only present for units with an active sale; optional elsewhere) ──
+  salePrice?: number | null;
+  saleProfit?: number | null;
+  saleNumber?: string | null;
+  saleDate?: string | null;
+  customerName?: string | null;
 };
 
 export type PhaseOption = {
@@ -593,6 +612,8 @@ export type AssetSaleRow = {
   projectId: string;
   projectName: string;
   salePrice: number;
+  gstRate: number;
+  gstAmount: number;
   costBasis: number;
   profit: number;
   saleDate: string;
@@ -676,6 +697,8 @@ export type AuditLogRow = {
   entityType: string;
   entityId: string | null;
   details: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
   timestamp: string;
 };
 
@@ -783,8 +806,8 @@ export type RequisitionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "CONVERTED"
 export type RequisitionRow = {
   id: string;
   reqNumber: string;
-  projectId: string;
-  projectName: string;
+  projectId: string | null;
+  projectName: string | null;
   phaseId: string | null;
   phaseName: string | null;
   status: RequisitionStatus;
@@ -940,12 +963,31 @@ export type ApprovalPORow = {
   createdAt: string;
   expectedDate: string | null;
   canApprove: boolean;
+  // Budget context (null for COMPANY-scoped POs or projects without a budget)
+  projectBudget: number | null;
+  projectSpent: number | null;
+  budgetRemaining: number | null;
+  budgetUtilizationPct: number | null;
+  wouldExceedBudget: boolean;
+  // Urgency: "overdue" | "due_today" | "due_this_week" | "normal"
+  urgency: string;
+};
+
+export type ApprovalReqLineDetail = {
+  materialId: string;
+  materialName: string;
+  materialCode: string;
+  unit: string;
+  qtyRequested: number;
+  currentStock: number | null;
+  lastRate: number | null;
+  lastRateDate: string | null;
 };
 
 export type ApprovalReqRow = {
   id: string;
   reqNumber: string;
-  projectName: string;
+  projectName: string | null;
   phaseName: string | null;
   status: string;
   lineCount: number;
@@ -954,6 +996,16 @@ export type ApprovalReqRow = {
   neededByDate: string | null;
   createdAt: string;
   canApprove: boolean;
+  // Budget context (null for projects without a budget)
+  projectBudget: number | null;
+  projectSpent: number | null;
+  budgetRemaining: number | null;
+  budgetUtilizationPct: number | null;
+  wouldExceedBudget: boolean;
+  // Urgency: "overdue" | "due_today" | "due_this_week" | "normal"
+  urgency: string;
+  // Line-level stock/rate context for the approver
+  lineDetails: ApprovalReqLineDetail[];
 };
 
 

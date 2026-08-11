@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Plus, Cloud, AlertTriangle, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, Download } from "lucide-react";
+import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -12,9 +12,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { StatusPill } from "@/components/page";
-import { formatDate, formatNumber } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
+import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
 
 export type DprApprovalStatus = "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED";
 
@@ -25,12 +23,53 @@ const APPROVAL_LABELS: Record<DprApprovalStatus, string> = {
   REJECTED: "Rejected",
 };
 
-const APPROVAL_VARIANTS: Record<DprApprovalStatus, "muted" | "warning" | "success" | "danger"> = {
-  SUBMITTED: "warning",
-  SUB_ADMIN_APPROVED: "muted",
-  APPROVED: "success",
-  REJECTED: "danger",
+const APPROVAL_BADGE: Record<DprApprovalStatus, string> = {
+  SUBMITTED: "bg-warning/10 text-warning",
+  SUB_ADMIN_APPROVED: "bg-info/10 text-info",
+  APPROVED: "bg-success/10 text-success",
+  REJECTED: "bg-danger/10 text-danger",
 };
+
+/** DPR summary stats bar. */
+function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
+  const total = dprs.length;
+  const pending = dprs.filter((d) => d.approvalStatus === "SUBMITTED").length;
+  const subApproved = dprs.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED").length;
+  const approved = dprs.filter((d) => d.approvalStatus === "APPROVED").length;
+  const rejected = dprs.filter((d) => d.approvalStatus === "REJECTED").length;
+  const avgProgress = total > 0 ? dprs.reduce((sum, d) => sum + d.progressPct, 0) / total : 0;
+
+  return (
+    <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-5 sm:divide-x divide-y sm:divide-y-0">
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Total DPRs</span>
+        <span className="text-figure text-foreground">{total}</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Pending</span>
+        <span className="text-figure text-warning">{pending}</span>
+        <span className="text-micro text-muted-foreground">awaiting sub-admin</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Sub-Approved</span>
+        <span className="text-figure text-info">{subApproved}</span>
+        <span className="text-micro text-muted-foreground">awaiting admin</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Approved</span>
+        <span className="text-figure text-success">{approved}</span>
+        <span className="text-micro text-muted-foreground">{rejected} rejected</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Avg Progress</span>
+        <span className="text-figure text-foreground">{avgProgress.toFixed(1)}%</span>
+        <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-[var(--color-world-hr)]" style={{ width: `${Math.min(avgProgress, 100)}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export type DprRow = {
   id: string;
@@ -49,6 +88,10 @@ export type DprRow = {
   adminApprovedByName: string | null;
   materialLineCount: number;
   laborLineCount: number;
+  totalProjectCost: number | null;
+  costPerSqft: number | null;
+  projectBudget: number | null;
+  totalSellableArea: number | null;
 };
 
 export interface DprDetail {
@@ -78,6 +121,10 @@ export interface DprDetail {
   autoScrapGenerationId: string | null;
   materialLines: { id: string; materialId: string; materialName: string; unit: string; qty: number; unitCost: number }[];
   laborLines: { id: string; employeeId: string | null; employeeName: string | null; crewId: string | null; crewName: string | null; hoursWorked: number; taskDescription: string }[];
+  totalProjectCost: number | null;
+  costPerSqft: number | null;
+  projectBudget: number | null;
+  totalSellableArea: number | null;
 }
 
 export function DprsView({
@@ -96,10 +143,9 @@ export function DprsView({
   permissions?: { canSubmit?: boolean; canSubAdminApprove?: boolean; canAdminApprove?: boolean };
 }) {
   const router = useRouter();
-  const canSubmit = permissions?.canSubmit ?? true;
+  const canSubmit = permissions?.canSubmit ?? false;
   const canSubAdminApprove = permissions?.canSubAdminApprove ?? false;
   const canAdminApprove = permissions?.canAdminApprove ?? false;
-  const [projectFilter, setProjectFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<DprRow | null>(null);
   const [editTarget, setEditTarget] = useState<DprDetail | null>(null);
@@ -108,8 +154,6 @@ export function DprsView({
   const [rejectTarget, setRejectTarget] = useState<DprRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approving, setApproving] = useState(false);
-
-  const filtered = dprs.filter((d) => !projectFilter || d.projectId === projectFilter);
 
   function openCreate() {
     setEditTarget(null);
@@ -165,30 +209,46 @@ export function DprsView({
       sortable: true,
       sortValue: (d) => new Date(d.date),
       render: (d) => <span className="tnum text-muted-foreground">{formatDate(d.date)}</span>,
+      exportValue: (d) => d.date,
     },
     {
       key: "projectName",
       label: "Project",
       sortable: true,
+      filterable: true,
       render: (d) => <span className="text-body font-medium">{d.projectName}</span>,
+      filterValue: (d) => d.projectName,
+      exportValue: (d) => d.projectName,
     },
     {
       key: "approvalStatus",
       label: "Status",
       sortable: true,
-      render: (d) => <StatusPill status={d.approvalStatus} className="text-micro" />,
+      filterable: true,
+      render: (d) => (
+        <span className={cn("inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-caption font-medium", APPROVAL_BADGE[d.approvalStatus])}>
+          <span className={cn("h-1.5 w-1.5 rounded-full", d.approvalStatus === "SUBMITTED" ? "bg-warning" : d.approvalStatus === "SUB_ADMIN_APPROVED" ? "bg-info" : d.approvalStatus === "APPROVED" ? "bg-success" : "bg-danger")} />
+          {APPROVAL_LABELS[d.approvalStatus]}
+        </span>
+      ),
+      filterValue: (d) => APPROVAL_LABELS[d.approvalStatus],
+      exportValue: (d) => d.approvalStatus,
     },
     {
       key: "workType",
       label: "Work Type",
       sortable: true,
+      filterable: true,
       render: (d) => d.workType ? <Badge variant="outline" className="text-micro">{d.workType}</Badge> : <span className="text-muted-foreground">—</span>,
+      filterValue: (d) => d.workType ?? "—",
+      exportValue: (d) => d.workType ?? "",
     },
     {
       key: "submittedByName",
       label: "Submitted By",
       sortable: true,
       render: (d) => <span className="text-caption text-muted-foreground">{d.submittedByName ?? "—"}</span>,
+      exportValue: (d) => d.submittedByName ?? "",
     },
     {
       key: "materialLineCount",
@@ -196,6 +256,7 @@ export function DprsView({
       align: "right",
       sortable: true,
       render: (d) => <span className="tnum text-caption">{d.materialLineCount > 0 ? d.materialLineCount : "—"}</span>,
+      exportValue: (d) => d.materialLineCount,
     },
     {
       key: "laborLineCount",
@@ -203,93 +264,108 @@ export function DprsView({
       align: "right",
       sortable: true,
       render: (d) => <span className="tnum text-caption">{d.laborLineCount > 0 ? d.laborLineCount : "—"}</span>,
+      exportValue: (d) => d.laborLineCount,
     },
     {
       key: "progressPct",
       label: "Progress",
       align: "right",
       sortable: true,
-      render: (d) => <span className="tnum text-body font-bold">{formatNumber(d.progressPct, 1)}%</span>,
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      align: "left",
       render: (d) => (
-        <div className="flex flex-wrap items-center gap-1">
-          {canSubAdminApprove && d.approvalStatus === "SUBMITTED" && (
-            <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "subAdminApprove"); }}>
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin
-            </Button>
-          )}
-          {canAdminApprove && d.approvalStatus === "SUB_ADMIN_APPROVED" && (
-            <Button size="sm" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "adminApprove"); }}>
-              <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Approve
-            </Button>
-          )}
-          {((canSubAdminApprove || canAdminApprove) && (d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED")) && (
-            <Button size="sm" variant="ghost" className="text-danger" onClick={(e) => { e.stopPropagation(); setRejectTarget(d); setRejectReason(""); }}>
-              <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
-            </Button>
-          )}
-          {canSubmit && d.approvalStatus === "REJECTED" && (
-            <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "resubmit"); }}>
-              <RotateCw className="mr-1 h-3.5 w-3.5" /> Resubmit
-            </Button>
-          )}
-          {canSubmit && d.approvalStatus !== "APPROVED" && (
-            <>
-              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openEdit(d); }} disabled={loadingEdit}>
-                <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-              </Button>
-              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDelTarget(d); }}>
-                <Trash2 className="mr-1 h-3.5 w-3.5" />
-              </Button>
-            </>
-          )}
+        <div className="flex items-center justify-end gap-2">
+          <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">
+            <div className={cn("h-full rounded-full", d.progressPct >= 75 ? "bg-success" : d.progressPct >= 50 ? "bg-warning" : "bg-[var(--color-world-hr)]")} style={{ width: `${Math.min(d.progressPct, 100)}%` }} />
+          </div>
+          <span className="tnum text-body font-bold">{formatNumber(d.progressPct, 1)}%</span>
         </div>
       ),
+      exportValue: (d) => d.progressPct,
+    },
+    {
+      key: "totalProjectCost",
+      label: "Project Cost",
+      align: "right",
+      sortable: true,
+      render: (d) => {
+        if (d.totalProjectCost == null) return <span className="text-muted-foreground">—</span>;
+        const budget = d.projectBudget;
+        const utilization = budget != null && budget > 0 ? (d.totalProjectCost / budget) * 100 : null;
+        const tone = utilization == null ? "text-muted-foreground" : utilization >= 95 ? "text-danger" : utilization >= 80 ? "text-warning" : "text-success";
+        return (
+          <div className="flex flex-col items-end">
+            <span className={`tnum text-caption font-medium ${tone}`}>{formatCurrencyCompact(d.totalProjectCost)}</span>
+            {utilization != null && (
+              <span className={`text-micro ${tone}`}>{formatNumber(utilization, 0)}% of budget</span>
+            )}
+            {d.costPerSqft != null && (
+              <span className="text-micro text-muted-foreground">{formatCurrencyCompact(d.costPerSqft)}/sqft</span>
+            )}
+          </div>
+        );
+      },
+      exportValue: (d) => d.totalProjectCost ?? "",
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="w-auto">
-          <option value="">All projects</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </Select>
-        <div className="ml-auto text-body text-muted-foreground">
-          {filtered.length} DPR{filtered.length !== 1 ? "s" : ""}
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            downloadCSV("dprs.csv", filtered as unknown as Record<string, unknown>[], [
-              { key: "date", label: "Date", format: (v) => formatDate(v as string) },
-              { key: "projectName", label: "Project" },
-              { key: "workSummary", label: "Work Summary" },
-              { key: "workType", label: "Work Type" },
-              { key: "progressPct", label: "Progress %" },
-              { key: "submittedByName", label: "Submitted By" },
-              { key: "approvalStatus", label: "Approval Status" },
-            ])
-          }
-          title="Export CSV"
-        >
-          <Download className="mr-1 h-3.5 w-3.5" /> Export
-        </Button>
-        {canSubmit && (
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> New DPR
+  function dprRowActions(d: DprRow) {
+    return (
+      <>
+        {canSubAdminApprove && d.approvalStatus === "SUBMITTED" && (
+          <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "subAdminApprove"); }}>
+            <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin
           </Button>
         )}
-      </div>
+        {canAdminApprove && d.approvalStatus === "SUB_ADMIN_APPROVED" && (
+          <Button size="sm" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "adminApprove"); }}>
+            <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Approve
+          </Button>
+        )}
+        {((canSubAdminApprove || canAdminApprove) && (d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+          <Button size="sm" variant="ghost" className="text-danger" onClick={(e) => { e.stopPropagation(); setRejectTarget(d); setRejectReason(""); }}>
+            <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+          </Button>
+        )}
+        {canSubmit && d.approvalStatus === "REJECTED" && (
+          <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "resubmit"); }}>
+            <RotateCw className="mr-1 h-3.5 w-3.5" /> Resubmit
+          </Button>
+        )}
+        {canSubmit && d.approvalStatus !== "APPROVED" && (
+          <>
+            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openEdit(d); }} disabled={loadingEdit}>
+              <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+            </Button>
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDelTarget(d); }}>
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+      </>
+    );
+  }
+
+  const trailingButtons = canSubmit ? (
+    <Button onClick={openCreate}>
+      <Plus className="h-4 w-4" /> New DPR
+    </Button>
+  ) : null;
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No DPRs match"
+      description="Adjust the search or column filters to see all DPRs."
+    />
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Summary stats bar */}
+      <DprStatsBar dprs={dprs} />
 
       {/* DPR list */}
-      {filtered.length === 0 ? (
+      {dprs.length === 0 ? (
         <EmptyState
           icon={<ClipboardList className="h-5 w-5" />}
           title="No DPRs found"
@@ -301,15 +377,27 @@ export function DprsView({
           ) : undefined}
         />
       ) : (
-        <DataTable
-          data={filtered}
-          columns={dprColumns}
-          onRowClick={(d) => setDetailTarget(d)}
-          searchable
-          searchPlaceholder="Search by project, submitter…"
-          hideable
-          pageSize={50}
-        />
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={dprs}
+            columns={dprColumns}
+            storageKey="dprs"
+            hideable
+            exportFileName="dprs"
+            initialSort={{ key: "date", direction: "desc" }}
+            onRowClick={(d) => setDetailTarget(d)}
+            searchable
+            searchPlaceholder="Search project, submitter, work type…"
+            toolbarTrailing={trailingButtons}
+            rowActions={dprRowActions}
+            rowTone={(d) => {
+              if (d.approvalStatus === "REJECTED") return "danger";
+              return null;
+            }}
+            pageSize={50}
+            emptyState={noMatch}
+          />
+        </div>
       )}
 
       {/* Form dialog */}
@@ -327,7 +415,15 @@ export function DprsView({
 
       {/* Detail dialog */}
       {detailTarget && (
-        <DprDetailDialog dpr={detailTarget} onClose={() => setDetailTarget(null)} />
+        <DprDetailDialog
+          dpr={detailTarget}
+          onClose={() => setDetailTarget(null)}
+          canSubAdminApprove={canSubAdminApprove}
+          canAdminApprove={canAdminApprove}
+          approving={approving}
+          onApprove={(action) => { approvalAction(detailTarget.id, action); setDetailTarget(null); }}
+          onReject={() => { setRejectTarget(detailTarget); setDetailTarget(null); }}
+        />
       )}
 
       {/* Delete confirm */}
@@ -599,13 +695,30 @@ function DprFormDialog({
   );
 }
 
-function DprDetailDialog({ dpr, onClose }: { dpr: DprRow; onClose: () => void }) {
+function DprDetailDialog({
+  dpr,
+  onClose,
+  canSubAdminApprove,
+  canAdminApprove,
+  approving,
+  onApprove,
+  onReject,
+}: {
+  dpr: DprRow;
+  onClose: () => void;
+  canSubAdminApprove: boolean;
+  canAdminApprove: boolean;
+  approving: boolean;
+  onApprove: (action: string) => void;
+  onReject: () => void;
+}) {
   const [detail, setDetail] = useState<DprDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [runningVariance, setRunningVariance] = useState(false);
   const [scrapDialogOpen, setScrapDialogOpen] = useState(false);
   const [locations, setLocations] = useState<{ id: string; name: string; type: string }[]>([]);
   const [scrapLocationId, setScrapLocationId] = useState("");
+  const [scrapValuationPct, setScrapValuationPct] = useState("50");
   const [generatingScrap, setGeneratingScrap] = useState(false);
 
   async function loadDetail() {
@@ -660,7 +773,7 @@ function DprDetailDialog({ dpr, onClose }: { dpr: DprRow; onClose: () => void })
       const res = await fetch(`/api/dprs/${dpr.id}/variance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ autoGenerateScrap: true, scrapToLocationId: scrapLocationId }),
+        body: JSON.stringify({ autoGenerateScrap: true, scrapToLocationId: scrapLocationId, scrapValuationPct: Number(scrapValuationPct) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to generate scrap");
@@ -701,6 +814,116 @@ function DprDetailDialog({ dpr, onClose }: { dpr: DprRow; onClose: () => void })
                 <Badge variant="muted" className="text-warning">Scrap generated</Badge>
               )}
             </div>
+
+            {/* ── Project cost context for approvers ── */}
+            {detail.totalProjectCost != null && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <div className="mb-2 flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
+                  <Wallet className="h-3.5 w-3.5" /> Project Cost Context
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <div className="text-micro text-muted-foreground">Total Cost</div>
+                    <div className="tnum text-body font-semibold">{formatCurrency(detail.totalProjectCost)}</div>
+                  </div>
+                  {detail.projectBudget != null && detail.projectBudget > 0 ? (
+                    <div>
+                      <div className="text-micro text-muted-foreground">Budget</div>
+                      <div className="tnum text-body font-semibold">{formatCurrency(detail.projectBudget)}</div>
+                      <div className={`text-micro font-medium ${detail.totalProjectCost / detail.projectBudget >= 0.95 ? "text-danger" : detail.totalProjectCost / detail.projectBudget >= 0.8 ? "text-warning" : "text-success"}`}>
+                        {formatNumber((detail.totalProjectCost / detail.projectBudget) * 100, 0)}% used
+                      </div>
+                    </div>
+                  ) : detail.projectBudget != null ? (
+                    <div>
+                      <div className="text-micro text-muted-foreground">Budget</div>
+                      <div className="tnum text-body font-semibold">{formatCurrency(detail.projectBudget)}</div>
+                      <div className="text-micro text-muted-foreground">No utilization (zero budget)</div>
+                    </div>
+                  ) : null}
+                  {detail.costPerSqft != null && (
+                    <div>
+                      <div className="text-micro text-muted-foreground">Cost / sqft</div>
+                      <div className="tnum text-body font-semibold">{formatCurrency(detail.costPerSqft)}</div>
+                    </div>
+                  )}
+                  {detail.totalSellableArea != null && (
+                    <div>
+                      <div className="text-micro text-muted-foreground">Sellable Area</div>
+                      <div className="tnum text-body font-semibold">{formatNumber(detail.totalSellableArea, 0)} sqft</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── DPR Cost Preview (for approvers) ── */}
+            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED") ||
+              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+              <div className="rounded-lg border border-brand/20 bg-brand/5 p-3">
+                <div className="mb-2 flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
+                  <Wallet className="h-3.5 w-3.5" /> DPR Cost Preview
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div>
+                    <div className="text-micro text-muted-foreground">Material Cost</div>
+                    <div className="tnum text-body font-semibold">
+                      {formatCurrency(
+                        (detail.materialLines ?? []).reduce((s, l) => s + l.qty * l.unitCost, 0),
+                      )}
+                    </div>
+                    <div className="text-micro text-muted-foreground">
+                      {(detail.materialLines ?? []).length} line(s)
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-micro text-muted-foreground">Labor Hours</div>
+                    <div className="tnum text-body font-semibold">
+                      {formatNumber(
+                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0),
+                        1,
+                      )} hrs
+                    </div>
+                    <div className="text-micro text-muted-foreground">
+                      {(detail.laborLines ?? []).length} line(s)
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-micro text-muted-foreground">Est. Labor Cost*</div>
+                    <div className="tnum text-body font-semibold">
+                      {formatCurrency(
+                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0) * 250,
+                      )}
+                    </div>
+                    <div className="text-micro text-muted-foreground">*₹250/hr estimate</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-micro text-muted-foreground">
+                  Material cost will be posted to WIP via MaterialIssue on admin approval. Labor cost is informational only.
+                </p>
+              </div>
+            )}
+
+            {/* ── Approval actions (visible alongside cost context) ── */}
+            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED") ||
+              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+              <div className="flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 p-3">
+                <span className="text-caption font-medium text-muted-foreground">Approve this DPR:</span>
+                {canSubAdminApprove && dpr.approvalStatus === "SUBMITTED" && (
+                  <Button size="sm" variant="outline" disabled={approving} onClick={() => onApprove("subAdminApprove")}>
+                    <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin Approve
+                  </Button>
+                )}
+                {canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED" && (
+                  <Button size="sm" disabled={approving} onClick={() => onApprove("adminApprove")}>
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Admin Approve
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="text-danger" onClick={onReject}>
+                  <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+                </Button>
+              </div>
+            )}
             <div>
               <Label>Work Summary</Label>
               <p className="mt-1 text-body">{detail.workSummary}</p>
@@ -729,8 +952,8 @@ function DprDetailDialog({ dpr, onClose }: { dpr: DprRow; onClose: () => void })
                       <TR key={l.id}>
                         <TD>{l.materialName}</TD>
                         <TD className="tnum">{l.qty} {l.unit}</TD>
-                        <TD className="tnum">₹{l.unitCost}</TD>
-                        <TD className="tnum font-medium">₹{(l.qty * l.unitCost).toFixed(2)}</TD>
+                        <TD className="tnum">{formatCurrencyDetailed(l.unitCost)}</TD>
+                        <TD className="tnum font-medium">{formatCurrencyDetailed(l.qty * l.unitCost)}</TD>
                       </TR>
                     ))}
                   </TBody>
@@ -845,8 +1068,20 @@ function DprDetailDialog({ dpr, onClose }: { dpr: DprRow; onClose: () => void })
                   {locations.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
                 </Select>
               </div>
-              <div className="rounded-lg bg-muted/30 p-2 text-caption text-muted-foreground">
-                Over-consumption deltas will be stocked as scrap at 50% of the issue cost. The scrap will appear in the Scrap Generations page.
+              <div className="space-y-1.5">
+                <Label>Scrap Valuation (% of issue cost)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={scrapValuationPct}
+                  onChange={(e) => setScrapValuationPct(e.target.value)}
+                  placeholder="50"
+                />
+                <p className="text-caption text-muted-foreground">
+                  Over-consumption deltas will be stocked as scrap at {scrapValuationPct || 0}% of the issue cost. The scrap will appear in the Scrap Generations page.
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setScrapDialogOpen(false)} disabled={generatingScrap}>Cancel</Button>

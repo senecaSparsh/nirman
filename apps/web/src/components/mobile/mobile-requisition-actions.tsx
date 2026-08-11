@@ -20,7 +20,8 @@ interface ReqPayload {
   id: string;
   reqNumber: string;
   status: string;
-  projectName: string;
+  projectName: string | null;
+  projectId: string | null;
 }
 interface ReqLine {
   id: string;

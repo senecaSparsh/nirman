@@ -10,7 +10,7 @@ import { MaterialSalesView } from "@/components/material-sales/material-sales-vi
 import { NoAccess } from "@/components/no-access";
 export default function MaterialSalesPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Material Sales"
         description="Sell raw materials and inventory items to customers — stock is relieved at MAC and revenue is recognised in the GL."
@@ -62,7 +62,7 @@ async function MaterialSalesContent() {
       },
     }),
     prisma.customer.findMany({
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),

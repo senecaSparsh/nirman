@@ -46,6 +46,12 @@ type UnitRow = {
   areaUnit: AreaUnit;
   askingPrice: string;
   phaseId: string;
+  // RERA fields (optional)
+  carpetArea: string;
+  superBuiltUpArea: string;
+  balconyArea: string;
+  clearHeight: string;
+  hasLoadingDock: boolean;
 };
 
 function emptyRow(areaUnit: AreaUnit = "SQFT"): UnitRow {
@@ -59,6 +65,11 @@ function emptyRow(areaUnit: AreaUnit = "SQFT"): UnitRow {
     areaUnit,
     askingPrice: "",
     phaseId: "",
+    carpetArea: "",
+    superBuiltUpArea: "",
+    balconyArea: "",
+    clearHeight: "",
+    hasLoadingDock: false,
   };
 }
 
@@ -130,7 +141,7 @@ export function BuiltUnitFormDialog({
     setRows((r) => r.filter((_, i) => i !== idx));
   }
 
-  function updateRow(idx: number, key: keyof UnitRow, value: string) {
+  function updateRow(idx: number, key: keyof UnitRow, value: string | boolean) {
     setRows((r) => r.map((row, i) => (i === idx ? { ...row, [key]: value } : row)));
   }
 
@@ -211,6 +222,12 @@ export function BuiltUnitFormDialog({
         area: Number(r.area) || 0,
         areaUnit: r.areaUnit,
         askingPrice: r.askingPrice ? Number(r.askingPrice) || null : null,
+        // RERA fields
+        carpetArea: r.carpetArea ? Number(r.carpetArea) || null : null,
+        superBuiltUpArea: r.superBuiltUpArea ? Number(r.superBuiltUpArea) || null : null,
+        balconyArea: r.balconyArea ? Number(r.balconyArea) || null : null,
+        clearHeight: r.clearHeight ? Number(r.clearHeight) || null : null,
+        hasLoadingDock: r.hasLoadingDock,
       }));
       const res = await fetch("/api/built-units", {
         method: "POST",
@@ -477,6 +494,70 @@ export function BuiltUnitFormDialog({
                     />
                   </div>
                 </div>
+
+                {/* Row 3: RERA fields (collapsible) */}
+                <details className="mt-2 group">
+                  <summary className="cursor-pointer text-caption text-muted-foreground select-none hover:text-foreground">
+                    RERA Details (optional)
+                  </summary>
+                  <div className="mt-2 grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-3 space-y-1">
+                      <Label className="text-caption">Carpet Area</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={row.carpetArea}
+                        onChange={(e) => updateRow(idx, "carpetArea", e.target.value)}
+                        placeholder="RERA carpet"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-3 space-y-1">
+                      <Label className="text-caption">Super Built-Up</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={row.superBuiltUpArea}
+                        onChange={(e) => updateRow(idx, "superBuiltUpArea", e.target.value)}
+                        placeholder="Saleable area"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-3 space-y-1">
+                      <Label className="text-caption">Balcony Area</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={row.balconyArea}
+                        onChange={(e) => updateRow(idx, "balconyArea", e.target.value)}
+                        placeholder="Optional"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-caption">Clear Height</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={row.clearHeight}
+                        onChange={(e) => updateRow(idx, "clearHeight", e.target.value)}
+                        placeholder="Optional"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="col-span-1 flex items-end pb-1.5">
+                      <label className="flex items-center gap-1 text-caption text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={row.hasLoadingDock}
+                          onChange={(e) => updateRow(idx, "hasLoadingDock", e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-border"
+                        />
+                        Dock
+                      </label>
+                    </div>
+                  </div>
+                </details>
               </div>
             );
           })}

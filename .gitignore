@@ -8,4 +8,5 @@ dist
 *.tsbuildinfo
 coverage
 .DS_Store
+.playwright-mcp
 Screenshot 2026-07-30 at 7.29.34 PM.png

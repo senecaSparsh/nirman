@@ -25,8 +25,13 @@ export function computeMovingAverageCost(
   const recvQtyN = new Decimal(receivedQty);
   const recvCostN = new Decimal(receivedUnitCost);
 
+  if (oldMACN.lt(0)) throw new Error("Old MAC cannot be negative");
+  if (recvCostN.lt(0)) throw new Error("Received unit cost cannot be negative");
+
   const newQty = oldQtyN.plus(recvQtyN);
-  if (newQty.isZero()) return new Decimal(0);
+  if (newQty.isZero()) {
+    throw new Error("Cannot compute MAC: total quantity is zero (both old and received quantities are zero)");
+  }
 
   const totalValue = oldQtyN.times(oldMACN).plus(recvQtyN.times(recvCostN));
   return totalValue.div(newQty);

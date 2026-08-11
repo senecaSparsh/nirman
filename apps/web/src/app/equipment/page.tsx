@@ -14,7 +14,7 @@ import type {
 import { NoAccess } from "@/components/no-access";
 export default function EquipmentPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading equipment…" variant="board" />}>
         <EquipmentContent />
       </Suspense>

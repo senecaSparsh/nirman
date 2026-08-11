@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { prisma } from "@nirman/db";
+import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { getCompany, toNum, getUserRole, getCurrentUser } from "@/lib/server";
 import {
@@ -13,8 +14,9 @@ import {
 import { PageLoading } from "@/components/page-loading";
 import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";
+import { CommandCenter } from "@/components/command-center";
+import { OwnerFinancialDashboard, type CashPositionData, type ProjectProfitRow } from "@/components/owner-financial-dashboard";
 import {
-  ProfileTabs,
   type QueueData,
   type MembershipData,
   type ProjectAssignmentData,
@@ -26,35 +28,27 @@ import {
 
 /**
  * ═══════════════════════════════════════════════════════════════════
- * PROFILE — your cockpit in this system.
+ * COMMAND CENTER — your cockpit in this system (§44.3)
  *
- * Three tabs, each short and complete:
+ * The landing page is a role-adaptive dashboard, not a profile page.
+ * It leads with what needs you (queues, tasks), shows KPIs at a glance,
+ * and keeps your profile (access, activity) as a secondary expandable
+ * section below.
  *
- *   Overview   identity + what needs you (queues + tasks)
- *   Access     role, capabilities, permission matrix, companies, scope
- *   Activity   your action counts + recent audit-log timeline
- *
- * What was cut from the previous version:
- *  · The entire "Business" section (PipelineFlow + MetricGrid + Active
- *    Projects list) — it duplicated /finance, /projects and /procurement.
- *    A profile page is about the user, not a mini business dashboard.
- *  · 6 DB queries that only fed that section (inventoryVal, unsoldAssets,
- *    activeProjects, equipmentCount, fieldPOs, unitCount).
- *  · Duplicate "active projects" count (was in header stats, metric grid,
- *    AND project list — now it's not on this page at all).
- *  · Duplicate companies/projects (identity strip showed counts, sidebar
- *    showed lists — now both live in the Access tab, once).
+ * The profile identity strip, access matrix, and activity timeline are
+ * still here — they're just not the first thing you see. The first
+ * thing you see is your work.
  * ═══════════════════════════════════════════════════════════════════
  */
-export default function ProfilePage() {
+export default function CommandCenterPage() {
   return (
-    <Suspense fallback={<PageLoading label="Loading your profile…" />}>
-      <ProfileContent />
+    <Suspense fallback={<PageLoading label="Loading your command center…" variant="list" />}>
+      <CommandCenterContent />
     </Suspense>
   );
 }
 
-async function ProfileContent() {
+async function CommandCenterContent() {
   await connection();
   const company = await getCompany();
   const role = normalizeRole(await getUserRole());
@@ -171,6 +165,52 @@ async function ProfileContent() {
     }),
   ]);
 
+  // ── Owner Financial Dashboard data (OWNER/ADMIN only) ───────────
+  const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
+  let cashPosition: CashPositionData | null = null;
+  let projectProfitRows: ProjectProfitRow[] = [];
+
+  if (isOwnerOrAdmin) {
+    const [tb, projects, invVal] = await Promise.all([
+      trialBalance(company.id),
+      prisma.project.findMany({
+        where: { companyId: company.id, deletedAt: null },
+        select: { id: true, name: true, status: true },
+        orderBy: { name: "asc" },
+      }),
+      materialInventoryValue(company.id),
+    ]);
+
+    // Extract key account balances from trial balance
+    const findBalance = (code: string) => {
+      const acct = tb.accounts.find((a) => a.code === code);
+      return acct ? toNum(acct.balance) : 0;
+    };
+    cashPosition = {
+      cashBalance: findBalance("1000"),
+      arBalance: findBalance("1200"),
+      apBalance: findBalance("2000"),
+      inventoryValue: toNum(invVal),
+    };
+
+    // Compute P&L per project (limit to 10 for performance)
+    const pnlResults = await Promise.all(
+      projects.slice(0, 10).map(async (p) => {
+        const pnl = await projectPnl(p.id);
+        return {
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          revenue: toNum(pnl.revenue),
+          cost: toNum(pnl.total),
+          profit: toNum(pnl.profit),
+          margin: toNum(pnl.margin),
+        } satisfies ProjectProfitRow;
+      }),
+    );
+    projectProfitRows = pnlResults;
+  }
+
   // ── Low stock computation ────────────────────────────────────────
   const lowStock = lowStockItems
     .map((m) => {
@@ -228,7 +268,7 @@ async function ProfileContent() {
     key: "req", title: "Requisitions waiting for approval",
     consequence: "Site can't order material until you approve these",
     count: pendingRequisitions.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardList",
-    items: pendingRequisitions.map((r) => ({ label: r.project.name, sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` })),
+    items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` })),
   });
   if (canApprovePO && draftPOs.length > 0) queues.push({
     key: "po", title: "Purchase orders to approve",
@@ -252,7 +292,7 @@ async function ProfileContent() {
     key: "approved-req", title: "Approved requisitions ready to order",
     consequence: "Convert these to purchase orders so the supplier can be engaged",
     count: approvedReqs.length, href: "/requisitions", cta: "Convert", urgency: "soon", icon: "clipboardList",
-    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project.name })),
+    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A" })),
   });
   if (canApprovePO && approvedPOs.length > 0) queues.push({
     key: "approved-po", title: "Approved POs ready to send",
@@ -393,24 +433,35 @@ async function ProfileContent() {
     project: { id: a.project.id, name: a.project.name, status: a.project.status },
   }));
 
-  // ── PageHeader stats — minimal, no duplicates ────────────────────
-  // Only role + company + member since. No "active projects" or
-  // "actions" — those live in their respective tabs.
-  const headerStats: { label: string; value: string | number }[] = [
+  // ── PageHeader stats — the dashboard's instrument panel ──────────
+  const headerStats: { label: string; value: string | number; tone?: "default" | "warning" | "danger" }[] = [
     { label: "Role", value: roleDef.label },
     { label: "Company", value: company.name },
   ];
-  if (dbUser?.createdAt) headerStats.push({ label: "Member since", value: formatDate(dbUser.createdAt) });
+  if (blockingQueues > 0) {
+    headerStats.push({ label: "Blocking", value: blockingQueues, tone: "danger" });
+  } else if (totalQueues > 0) {
+    headerStats.push({ label: "Pending", value: totalQueues, tone: "warning" });
+  } else {
+    headerStats.push({ label: "Queue", value: "Clear", tone: "success" as "default" });
+  }
 
   return (
     <Page>
       <PageHeader
-        title={currentUser?.name ?? "User"}
-        description={`${roleDef.label} · ${company.name}`}
+        title="Today"
+        description={`${roleDef.label} · ${company.name} · ${formatDate(now)}`}
         stats={headerStats}
       />
 
-      <ProfileTabs
+      {isOwnerOrAdmin && cashPosition && (
+        <OwnerFinancialDashboard
+          cashPosition={cashPosition}
+          projectProfits={projectProfitRows}
+        />
+      )}
+
+      <CommandCenter
         name={currentUser?.name ?? "User"}
         email={currentUser?.email ?? ""}
         phone={dbUser?.phone ?? null}

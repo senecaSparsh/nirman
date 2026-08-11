@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UsersRound, Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { UsersRound, Plus, Pencil, Trash2, MapPin, User, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 
 export type CrewMember = {
   id: string;
@@ -33,6 +33,61 @@ export type CrewRow = {
   members: CrewMember[];
 };
 
+const AVATAR_COLORS = [
+  "bg-[var(--color-world-hr)]/15 text-[var(--color-world-hr)]",
+  "bg-success/15 text-success",
+  "bg-info/15 text-info",
+  "bg-warning/15 text-warning",
+  "bg-brand/15 text-brand",
+  "bg-primary/10 text-primary",
+];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]!;
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+/** Summary stats bar for crews. */
+function CrewStatsBar({ crews }: { crews: CrewRow[] }) {
+  const total = crews.length;
+  const active = crews.filter((c) => c.active).length;
+  const totalMembers = crews.reduce((sum, c) => sum + c.members.length, 0);
+  const assignedToProject = crews.filter((c) => c.projectId).length;
+  const withSupervisor = crews.filter((c) => c.supervisorId).length;
+
+  return (
+    <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Crews</span>
+        <span className="text-figure text-foreground">{total}</span>
+        <span className="text-micro text-muted-foreground">{active} active</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Members</span>
+        <span className="text-figure text-foreground">{totalMembers}</span>
+        <span className="text-micro text-muted-foreground">{total > 0 ? (totalMembers / total).toFixed(1) : 0} avg / crew</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">On Project</span>
+        <span className="text-figure text-foreground">{assignedToProject}</span>
+        <span className="text-micro text-muted-foreground">{total - assignedToProject} unassigned</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">With Supervisor</span>
+        <span className="text-figure text-foreground">{withSupervisor}</span>
+        <span className="text-micro text-muted-foreground">{total - withSupervisor} no lead</span>
+      </div>
+    </div>
+  );
+}
+
 export function CrewsView({
   crews,
   employees,
@@ -45,25 +100,125 @@ export function CrewsView({
   permissions?: { canManage?: boolean };
 }) {
   const router = useRouter();
-  const canManage = permissions?.canManage ?? true;
+  const canManage = permissions?.canManage ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CrewRow | null>(null);
   const [delTarget, setDelTarget] = useState<CrewRow | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<CrewRow | null>(null);
+
+  const crewColumns: Column<CrewRow>[] = [
+    {
+      key: "name",
+      label: "Crew",
+      sortable: true,
+      width: "220px",
+      sortValue: (c) => c.name,
+      render: (c) => (
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-world-hr)]/10">
+            <UsersRound className="h-3.5 w-3.5 text-[var(--color-world-hr)]" />
+          </span>
+          <div className="min-w-0">
+            <div className="font-medium text-foreground">{c.name}</div>
+            {c.supervisorName && <div className="text-caption text-muted-foreground">led by {c.supervisorName}</div>}
+          </div>
+        </div>
+      ),
+      exportValue: (c) => c.name,
+    },
+    {
+      key: "members",
+      label: "Members",
+      align: "right",
+      sortable: true,
+      sortValue: (c) => c.members.length,
+      render: (c) => (
+        <span className="inline-flex items-center gap-1 tnum text-body">
+          <User className="h-3 w-3 text-muted-foreground" />
+          {c.members.length}
+        </span>
+      ),
+      exportValue: (c) => c.members.length,
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      render: (c) => c.projectName ? (
+        <span className="flex items-center gap-1 text-body">
+          <MapPin className="h-3 w-3 text-muted-foreground" />
+          {c.projectName}
+        </span>
+      ) : <span className="text-faint">—</span>,
+      filterValue: (c) => c.projectName ?? "—",
+      exportValue: (c) => c.projectName ?? "",
+    },
+    {
+      key: "dailyCost",
+      label: "Daily Cost",
+      align: "right",
+      sortable: true,
+      sortValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0),
+      render: (c) => {
+        const dailyCost = c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0);
+        return dailyCost > 0 ? <span className="tnum text-body">{formatCurrency(dailyCost)}/day</span> : <span className="text-faint">—</span>;
+      },
+      exportValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0),
+    },
+    {
+      key: "active",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      sortValue: (c) => (c.active ? "ACTIVE" : "INACTIVE"),
+      render: (c) => <StatusPill status={c.active ? "ACTIVE" : "INACTIVE"} />,
+      filterValue: (c) => (c.active ? "ACTIVE" : "INACTIVE"),
+      exportValue: (c) => (c.active ? "ACTIVE" : "INACTIVE"),
+    },
+  ];
+
+  function crewRowActions(c: CrewRow) {
+    if (!canManage) return null;
+    return (
+      <>
+        <button
+          onClick={(e) => { e.stopPropagation(); setEditTarget(c); setFormOpen(true); }}
+          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          title="Edit"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setDelTarget(c); }}
+          className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+          title="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </>
+    );
+  }
+
+  const trailingButtons = canManage ? (
+    <Button onClick={() => { setEditTarget(null); setFormOpen(true); }}>
+      <Plus className="h-4 w-4" /> Add crew
+    </Button>
+  ) : null;
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No crews match"
+      description="Adjust the search or column filters to see all crews."
+    />
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="text-body text-muted-foreground">
-          {crews.length} crew{crews.length !== 1 ? "s" : ""}
-        </div>
-        {canManage && (
-          <Button size="sm" onClick={() => { setEditTarget(null); setFormOpen(true); }}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Add Crew
-          </Button>
-        )}
-      </div>
+      {/* Stats bar */}
+      <CrewStatsBar crews={crews} />
 
       {/* Crew list */}
       {crews.length === 0 ? (
@@ -74,68 +229,28 @@ export function CrewsView({
           action={canManage ? <Button size="sm" onClick={() => { setEditTarget(null); setFormOpen(true); }}><Plus className="h-4 w-4" /> Add Crew</Button> : undefined}
         />
       ) : (
-        <div className="space-y-2">
-          {crews.map((c) => (
-            <div key={c.id} className="rounded-lg border border-border bg-card">
-              <button
-                onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-              >
-                {expanded === c.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-body font-medium">{c.name}</span>
-                    <StatusPill status={c.active ? "ACTIVE" : "INACTIVE"} />
-                  </div>
-                  <div className="mt-0.5 text-caption text-muted-foreground">
-                    {c.members.length} member{c.members.length !== 1 ? "s" : ""}
-                    {c.projectName && ` · ${c.projectName}`}
-                    {c.supervisorName && ` · led by ${c.supervisorName}`}
-                  </div>
-                </div>
-                {canManage && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditTarget(c); setFormOpen(true); }}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      title="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDelTarget(c); }}
-                      className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
-              </button>
-
-              {expanded === c.id && c.members.length > 0 && (
-                <div className="border-t border-border p-3">
-                  <div className="space-y-1">
-                    {c.members.map((m) => (
-                      <div key={m.id} className="flex items-center justify-between py-1">
-                        <div>
-                          <span className="text-body font-medium">{m.name}</span>
-                          {m.trade && <span className="ml-2 text-caption text-muted-foreground">{m.trade}</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{m.wageType}</Badge>
-                          <span className="tnum text-caption text-muted-foreground">
-                            {m.wageType === "DAILY" ? `${formatCurrency(m.dailyRate)}/day` : ""}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={crews}
+            columns={crewColumns}
+            storageKey="crews"
+            hideable
+            exportFileName="crews"
+            initialSort={{ key: "name", direction: "asc" }}
+            onRowClick={(c) => setDetailTarget(c)}
+            searchable
+            searchPlaceholder="Search crew, project, supervisor…"
+            toolbarTrailing={trailingButtons}
+            rowActions={crewRowActions}
+            rowTone={(c) => (c.active ? null : "warning")}
+            emptyState={noMatch}
+          />
         </div>
+      )}
+
+      {/* Detail dialog */}
+      {detailTarget && (
+        <CrewDetailDialog crew={detailTarget} onClose={() => setDetailTarget(null)} />
       )}
 
       {/* Form dialog */}
@@ -161,6 +276,112 @@ export function CrewsView({
         />
       )}
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Crew Detail Dialog
+// ───────────────────────────────────────────────────────────
+
+function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => void }) {
+  const dailyCost = crew.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0);
+  const memberColumns: Column<CrewMember>[] = [
+    {
+      key: "name",
+      label: "Member",
+      sortable: true,
+      sortValue: (m) => m.name,
+      render: (m) => (
+        <div className="flex items-center gap-2.5">
+          <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded text-caption font-semibold", avatarColor(m.name))}>
+            {initials(m.name)}
+          </span>
+          <div className="min-w-0">
+            <span className="block truncate font-medium text-foreground">{m.name}</span>
+            {m.trade && <span className="block truncate text-caption text-muted-foreground">{m.trade}</span>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "wageType",
+      label: "Wage",
+      sortable: true,
+      filterable: true,
+      render: (m) => (
+        <span className={cn(
+          "rounded px-1.5 py-0.5 text-micro font-medium",
+          m.wageType === "DAILY" && "bg-info/10 text-info",
+          m.wageType === "MONTHLY" && "bg-brand/10 text-brand",
+          m.wageType === "FIXED" && "bg-warning/10 text-warning",
+        )}>
+          {m.wageType}
+        </span>
+      ),
+      filterValue: (m) => m.wageType,
+    },
+    {
+      key: "dailyRate",
+      label: "Rate",
+      align: "right",
+      sortable: true,
+      render: (m) => (
+        <span className="tnum text-body">
+          {m.wageType === "DAILY" ? `${formatCurrency(m.dailyRate)}/day` : m.wageType === "MONTHLY" ? "monthly" : "fixed"}
+        </span>
+      ),
+    },
+    {
+      key: "active",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      render: (m) => <StatusPill status={m.active ? "ACTIVE" : "INACTIVE"} />,
+      filterValue: (m) => (m.active ? "ACTIVE" : "INACTIVE"),
+    },
+  ];
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={crew.name}
+      description={`${crew.members.length} member${crew.members.length !== 1 ? "s" : ""}${crew.projectName ? ` · ${crew.projectName}` : ""}${crew.supervisorName ? ` · led by ${crew.supervisorName}` : ""}`}
+      className="max-w-2xl"
+    >
+      <div className="space-y-4">
+        {/* Summary */}
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-muted/20 p-3">
+          <div>
+            <div className="text-label text-muted-foreground">Members</div>
+            <div className="text-body font-semibold tnum">{crew.members.length}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Daily Cost</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(dailyCost)}/day</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Status</div>
+            <div className="pt-0.5"><StatusPill status={crew.active ? "ACTIVE" : "INACTIVE"} /></div>
+          </div>
+        </div>
+
+        {/* Members table */}
+        {crew.members.length > 0 ? (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <DataTable
+              data={crew.members}
+              columns={memberColumns}
+              getRowId={(m) => m.id}
+              hideToolbar
+              pageSize={50}
+            />
+          </div>
+        ) : (
+          <div className="py-6 text-center text-meta text-muted-foreground">No members in this crew.</div>
+        )}
+      </div>
+    </Dialog>
   );
 }
 
@@ -228,18 +449,19 @@ function CrewFormDialog({
       open
       onOpenChange={(o) => !o && onClose()}
       title={isEdit ? "Edit Crew" : "Add Crew"}
-      className="max-h-[85vh] max-w-lg overflow-y-auto"
+      description="Group workers into a crew assigned to a project and supervisor."
+      className="max-w-md"
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Label>Crew Name *</Label>
-          <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required placeholder="Masonry Crew A" />
+          <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Masonry Crew A" required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Project</Label>
             <Select value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}>
-              <option value="">None (floating)</option>
+              <option value="">None</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           </div>
@@ -252,25 +474,28 @@ function CrewFormDialog({
           </div>
         </div>
         <div>
-          <Label>Members</Label>
+          <Label>Members ({selectedMembers.size} selected)</Label>
           <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border p-2">
             {employees.map((e) => (
-              <label key={e.id} className="flex cursor-pointer items-center gap-2 py-0.5 text-body hover:bg-muted/30 rounded px-1">
+              <label
+                key={e.id}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-body hover:bg-subtle"
+              >
                 <input
                   type="checkbox"
                   checked={selectedMembers.has(e.id)}
                   onChange={() => toggleMember(e.id)}
+                  className="rounded"
                 />
-                <span>{e.name}</span>
-                {e.trade && <span className="text-caption text-muted-foreground">· {e.trade}</span>}
+                <span className="flex-1 text-foreground">{e.name}</span>
+                {e.trade && <span className="text-caption text-muted-foreground">{e.trade}</span>}
               </label>
             ))}
           </div>
-          <p className="mt-1 text-micro text-muted-foreground">{selectedMembers.size} selected</p>
         </div>
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Saving…" : isEdit ? "Update Crew" : "Create Crew"}</Button>
         </div>
       </form>
     </Dialog>

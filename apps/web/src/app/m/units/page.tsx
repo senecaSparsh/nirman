@@ -9,6 +9,7 @@ import {
   MobilePageHeader,
   MobileSectionTitle,
   MobileEmptyState,
+  MobileCta,
   MobileStatCard,
   MobileRefreshButton,
 } from "@/components/mobile/mobile-primitives";
@@ -92,7 +93,8 @@ async function MobileUnitsContent() {
           <MobileEmptyState
             icon={Home}
             title="No units yet"
-            hint="Units show here once created from the desktop Setup"
+            hint="Units show here once created from the desktop Setup page. Ask an admin to set up your project's units."
+            action={<MobileCta href="/setup" icon={Home}>Go to Setup</MobileCta>}
           />
         </>
       )}

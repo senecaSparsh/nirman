@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, RefreshCw, Search } from "lucide-react";
+import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
-import { SplitView } from "@/components/ui/split-view";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { Dialog } from "@/components/ui/dialog";
+import { StatusPill } from "@/components/page";
 import { TransferFormDialog } from "@/components/procurement/transfer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { StockLocationRow, TransferRow } from "@/lib/types";
@@ -21,62 +21,95 @@ import type { StockLocationRow, TransferRow } from "@/lib/types";
 export function TransfersTab({ transfers, locations, canTransfer }: { transfers: TransferRow[]; locations: StockLocationRow[]; canTransfer: boolean }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("");
-  const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<TransferRow | null>(null);
 
   const filtered = useMemo(() => {
     let result = transfers;
     if (statusFilter) result = result.filter((t) => t.status === statusFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      result = result.filter((t) =>
-        t.fromLocationName.toLowerCase().includes(q) ||
-        t.toLocationName.toLowerCase().includes(q) ||
-        t.materials.some((m) => m.toLowerCase().includes(q)),
-      );
-    }
     return result;
-  }, [transfers, statusFilter, query]);
+  }, [transfers, statusFilter]);
   const canCreate = canTransfer && locations.length >= 2;
 
-  const inTransitCount = transfers.filter((t) => t.status === "IN_TRANSIT").length;
-  const completedCount = transfers.filter((t) => t.status === "COMPLETED").length;
+  const transferColumns: Column<TransferRow>[] = [
+    {
+      key: "transferDate",
+      label: "Date",
+      sortable: true,
+      sortValue: (t) => new Date(t.transferDate),
+      render: (t) => <span className="tnum text-muted-foreground">{formatDate(t.transferDate)}</span>,
+    },
+    {
+      key: "route",
+      label: "Route",
+      sortable: true,
+      sortValue: (t) => `${t.fromLocationName} → ${t.toLocationName}`,
+      render: (t) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-medium text-foreground">{t.fromLocationName}</span>
+          {t.isInterCompany && t.fromCompanyName && (
+            <span className="text-micro text-muted-foreground">· {t.fromCompanyName}</span>
+          )}
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="font-medium text-foreground">{t.toLocationName}</span>
+          {t.isInterCompany && t.toCompanyName && (
+            <span className="text-micro text-muted-foreground">· {t.toCompanyName}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (t) => (
+        <div className="flex items-center gap-1.5">
+          <StatusPill status={t.status} />
+          {t.isInterCompany && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-2 py-0.5 text-micro font-medium text-brand">
+              <Building2 className="h-3 w-3" /> STO
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "lineCount",
+      label: "Lines",
+      align: "right",
+      sortable: true,
+      render: (t) => <span className="tnum text-muted-foreground">{t.lineCount}</span>,
+    },
+    {
+      key: "materials",
+      label: "Materials",
+      render: (t) => (
+        <span className="truncate text-caption text-muted-foreground">{t.materials.join(", ") || "—"}</span>
+      ),
+    },
+  ];
+
+  // Extract the status filter so it can be used in the DataTable toolbar.
+  const statusSelect = (
+    <div className="relative shrink-0" style={{ width: 140 }}>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        style={{ width: 140 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All statuses</option>
+        <option value="DRAFT">Draft</option>
+        <option value="IN_TRANSIT">In Transit</option>
+        <option value="COMPLETED">Completed</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      <MetricGrid cols={3}>
-        <Metric label="Total Transfers" value={transfers.length} icon={<Truck />} />
-        <Metric label="In Transit" value={inTransitCount} tone="warning" />
-        <Metric label="Completed" value={completedCount} tone="success" />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-          <div className="relative sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search locations, materials…" className="pl-8" />
-          </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="IN_TRANSIT">In Transit</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {canTransfer && transfers.length > 0 && (
-            <Button onClick={() => setFormOpen(true)} disabled={locations.length < 2}>
-              <Plus className="h-4 w-4" /> New Transfer
-            </Button>
-          )}
-        </div>
-      </div>
-
       {canTransfer && locations.length < 2 && (
         <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
           You need at least two stock locations to create a transfer. Add locations in Settings → Locations.
@@ -95,51 +128,33 @@ export function TransfersTab({ transfers, locations, canTransfer }: { transfers:
           ) : undefined}
         />
       ) : (
-        /* ── Split View: transfer list on left, detail on right ─── */
-        <div className="rounded-lg border border-border overflow-hidden h-[calc(100vh-22rem)] min-h-[400px]">
-          <SplitView
-            storageKey="split-view-stock-transfers"
-            defaultListSize={50}
-            list={
-              <div className="divide-y divide-border">
-                {filtered.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelected(t)}
-                    className={`flex w-full flex-col gap-1.5 p-3 text-left transition-colors hover:bg-muted/20 ${
-                      selected?.id === t.id ? "bg-muted/30 ring-1 ring-inset ring-foreground/10" : ""
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-semibold text-foreground">{t.fromLocationName}</span>
-                      {t.isInterCompany && t.fromCompanyName && (
-                        <span className="text-micro text-muted-foreground">· {t.fromCompanyName}</span>
-                      )}
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="font-semibold text-foreground">{t.toLocationName}</span>
-                      {t.isInterCompany && t.toCompanyName && (
-                        <span className="text-micro text-muted-foreground">· {t.toCompanyName}</span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill status={t.status} />
-                      {t.isInterCompany && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-2 py-0.5 text-micro font-medium text-brand">
-                          <Building2 className="h-3 w-3" /> STO
-                        </span>
-                      )}
-                      <span className="text-caption text-muted-foreground tnum">{formatDate(t.transferDate)}</span>
-                    </div>
-                    <div className="truncate text-caption text-muted-foreground">
-                      {t.lineCount} line{t.lineCount !== 1 ? "s" : ""} · {t.materials.join(", ") || "—"}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            }
-            detail={selected ? <TransferDetailPanel transfer={selected} /> : null}
+        <div className="rounded-lg border border-border overflow-hidden">
+          <DataTable
+            data={filtered}
+            onRowClick={(t) => setSelected(t)}
+            initialSort={{ key: "transferDate", direction: "desc" }}
+            columns={transferColumns}
+            searchable
+            searchPlaceholder="Search locations, materials…"
+            hideable
+            pageSize={50}
+            onAddRow={canCreate ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Transfer"
+            toolbarLeading={statusSelect}
           />
         </div>
+      )}
+
+      {selected && (
+        <Dialog
+          open={!!selected}
+          onOpenChange={(o) => { if (!o) setSelected(null); }}
+          title="Transfer Details"
+          description={formatDate(selected.transferDate)}
+          size="lg"
+        >
+          <TransferDetailPanel transfer={selected} />
+        </Dialog>
       )}
 
       <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={locations} />

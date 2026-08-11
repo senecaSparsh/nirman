@@ -39,7 +39,8 @@ export function DepositDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (amountNum <= 0) { toast.error("Deposit amount must be greater than 0"); return; }
-    if (amountNum > sale!.salePrice) { toast.error(`Deposit cannot exceed sale price (${formatCurrency(sale!.salePrice)})`); return; }
+    const maxAmount = sale!.salePrice + (sale!.gstAmount ?? 0);
+    if (amountNum > maxAmount) { toast.error(`Deposit cannot exceed total (${formatCurrency(maxAmount)})`); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/sales/${sale!.id}`, {
@@ -74,10 +75,14 @@ export function DepositDialog({
       description={`${sale.saleNumber} · ${sale.customerName}`}
       className="max-w-md"
     >
-      <div className="mb-4 grid grid-cols-2 gap-3 rounded-md border bg-muted/40 p-3 text-body">
+      <div className="mb-4 grid grid-cols-3 gap-3 rounded-md border bg-muted/40 p-3 text-body">
         <div>
           <p className="text-caption text-muted-foreground">Sale Price</p>
           <p className="font-medium tnum">{formatCurrency(sale.salePrice)}</p>
+        </div>
+        <div>
+          <p className="text-caption text-muted-foreground">GST</p>
+          <p className="font-medium tnum">{formatCurrency(sale.gstAmount ?? 0)}</p>
         </div>
         <div>
           <p className="text-caption text-muted-foreground">Existing Deposit</p>
@@ -92,11 +97,11 @@ export function DepositDialog({
             id="d-amount"
             type="number"
             min="0"
-            max={sale.salePrice}
+            max={sale.salePrice + (sale.gstAmount ?? 0)}
             step="0.01"
             value={form.depositAmount}
             onChange={(e) => set("depositAmount", e.target.value)}
-            placeholder={`Max ${formatCurrency(sale.salePrice)}`}
+            placeholder={`Max ${formatCurrency(sale.salePrice + (sale.gstAmount ?? 0))}`}
             required
           />
         </div>
@@ -116,7 +121,7 @@ export function DepositDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || amountNum <= 0 || amountNum > sale.salePrice}>
+          <Button type="submit" disabled={saving || amountNum <= 0 || amountNum > (sale.salePrice + (sale.gstAmount ?? 0))}>
             {saving ? "Recording…" : "Record Deposit"}
           </Button>
         </div>

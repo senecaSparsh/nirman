@@ -89,7 +89,7 @@ export async function MobileApprovals({ title }: { title: string }) {
   const reqRows = pendingReqs.map((r) => ({
     id: r.id,
     requisitionNumber: r.reqNumber,
-    projectName: r.project.name,
+    projectName: r.project?.name ?? null,
     createdAt: r.createdAt.toISOString(),
     lines: r.lines.map((l) => ({
       materialName: l.material.name,

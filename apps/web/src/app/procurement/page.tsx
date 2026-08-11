@@ -15,7 +15,7 @@ import type {
 import { NoAccess } from "@/components/no-access";
 export default function ProcurementPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading procurement…" variant="board" />}>
         <ProcurementContent />
       </Suspense>
@@ -220,9 +220,9 @@ async function ProcurementContent() {
         title="Procurement"
         description="Buy materials — purchase orders, cash purchases, and your supplier directory. Stock movements (transfers, issues, scrap) live in Stock."
         stats={[
-          { label: "POs", value: poRows.length },
-          { label: "Open value", value: formatCurrency(openPoValue) },
-          { label: "Suppliers", value: supplierRows.length },
+          { label: "POs", value: poRows.length, hint: "Total purchase orders across all statuses — draft, approved, ordered, received." },
+          { label: "Open value", value: formatCurrency(openPoValue), hint: "Value of POs not yet fully received or paid. This is committed spend." },
+          { label: "Suppliers", value: supplierRows.length, hint: "Vendors in the supplier directory." },
         ]}
       />
       <ProcurementView

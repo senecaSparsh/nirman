@@ -23,7 +23,7 @@ export default function FieldPage({
   searchParams: Promise<{ po?: string }>;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="GRN — Field Receiving"
         description="Make a Goods Receipt Note (GRN) by scanning deliveries against purchase orders. Works offline — queued receipts sync when you're back online."

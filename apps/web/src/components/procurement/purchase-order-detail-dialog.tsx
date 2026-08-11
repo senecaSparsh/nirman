@@ -14,6 +14,7 @@ import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { AuditTrail } from "@/components/audit-trail";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/types";
 
 export function PurchaseOrderDetailDialog({
@@ -40,6 +41,7 @@ export function PurchaseOrderDetailDialog({
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
+  const trackRecent = useTrackRecent();
 
   useEffect(() => {
     if (open && po) {
@@ -56,8 +58,10 @@ export function PurchaseOrderDetailDialog({
         .then((r) => r.json())
         .then((d) => { if (Array.isArray(d)) setPayments(d); })
         .catch(() => {/* best-effort */});
+      // Track in recently viewed
+      trackRecent({ type: "po", id: po.id, label: po.poNumber, href: `/procurement/${po.id}` });
     }
-  }, [open, po]);
+  }, [open, po, trackRecent]);
 
   async function doAction(action: "approve" | "order" | "cancel") {
     if (!po) return;

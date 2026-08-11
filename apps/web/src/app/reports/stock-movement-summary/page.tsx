@@ -23,7 +23,7 @@ export default function StockMovementSummaryPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading stock movement summary…" variant="cards" />}>
         <StockMovementSummaryContent searchParams={searchParams} />
       </Suspense>

@@ -1,23 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Package, Truck, Home, LandPlot, Wallet, Wrench,
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
-  ClipboardList, HardHat, Ruler, ListChecks, BarChart3,
+  ClipboardList, HardHat, Ruler, ListChecks,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { statusColor, StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
+import { useTabParam } from "@/lib/use-tab-param";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type {
   PurchaseOrderRow, TransferRow, BuiltUnitRow, LandParcelRow,
   StockMovementRow, ProjectCostRow, MaterialIssueListRow,
@@ -160,63 +163,50 @@ export function ProjectHub({
   data: ProjectHubData;
   editInitial: ProjectFormValues;
 }) {
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useTabParam(
+    ["overview","procurement","stock","construction","units","land","finance","equipment"] as const,
+    "overview",
+  );
   const { project, stats, pnl } = data;
+  const trackRecent = useTrackRecent();
+
+  useEffect(() => {
+    trackRecent({ type: "project", id: project.id, label: project.name, href: `/projects/${project.id}` });
+  }, [project.id, project.name, trackRecent]);
 
   return (
     <div className="space-y-5">
-      {/* Back link */}
-      <div className="flex items-center gap-2">
+      {/* Back link + action buttons on the same row */}
+      <div className="flex items-center justify-between">
         <Button asChild variant="ghost" size="sm">
           <Link href="/projects">← Projects</Link>
         </Button>
+        <div className="flex items-center gap-2">
+          <QuickActionsMenu />
+          <ProjectDetailActions projectId={project.id} initial={editInitial} />
+        </div>
       </div>
 
-      {/* Header */}
+      {/* Header — badges + meta sit in the description slot, right under the title */}
       <PageHeader
         title={project.name}
-        description={project.description ?? undefined}
-        action={<ProjectDetailActions projectId={project.id} initial={editInitial} />}
+        description={
+          <div className="flex flex-wrap items-center gap-4 text-caption text-muted-foreground">
+            <StatusPill status={project.status} />
+            <Badge variant="outline">{TYPE_LABELS[project.type] ?? project.type}</Badge>
+            {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
+            <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDate(project.startDate)} → {formatDate(project.endDate)}</span>
+          </div>
+        }
+        stats={[
+          { label: "Budget", value: project.totalBudget ? formatCurrency(project.totalBudget) : "—", hint: "Total approved budget for this project." },
+          { label: "Cost", value: project.totalProjectCost ? formatCurrency(project.totalProjectCost) : "—", hint: "Actual cost incurred to date (land + material + labour + overhead)." },
+          { label: "Cost/Sq.Ft", value: project.costPerSqft ? formatCurrency(project.costPerSqft) : "—", hint: "Cost per square foot of sellable area." },
+          { label: "Area", value: project.totalSellableArea ? `${formatNumber(project.totalSellableArea, 0)} Sq.Ft` : "—", hint: "Total sellable area across all built units." },
+          { label: "Revenue", value: formatCurrency(pnl.revenue), tone: "success", hint: "Revenue from unit sales and other income." },
+          { label: "Profit", value: formatCurrency(pnl.profit), tone: pnl.profit >= 0 ? "success" : "danger", hint: `Net profit — ${pnl.margin.toFixed(1)}% margin.` },
+        ]}
       />
-
-      {/* Badges + meta */}
-      <div className="flex flex-wrap items-center gap-4 text-caption text-muted-foreground">
-        <StatusPill status={project.status} />
-        <Badge variant="outline">{TYPE_LABELS[project.type] ?? project.type}</Badge>
-        {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
-        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDate(project.startDate)} → {formatDate(project.endDate)}</span>
-      </div>
-
-      {/* Stats strip — inline, no cards */}
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Budget</span>
-          <span className="tnum text-body font-semibold text-foreground">{project.totalBudget ? formatCurrency(project.totalBudget) : "—"}</span>
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Cost</span>
-          <span className="tnum text-body font-semibold text-foreground">{project.totalProjectCost ? formatCurrency(project.totalProjectCost) : "—"}</span>
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Cost/Sq.Ft</span>
-          <span className="tnum text-body font-semibold text-foreground">{project.costPerSqft ? formatCurrency(project.costPerSqft) : "—"}</span>
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Area</span>
-          <span className="tnum text-body font-semibold text-foreground">{project.totalSellableArea ? `${formatNumber(project.totalSellableArea, 0)} Sq.Ft` : "—"}</span>
-        </div>
-        <div className="ml-auto flex items-baseline gap-3">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Revenue</span>
-            <span className="tnum text-body font-semibold text-success">{formatCurrency(pnl.revenue)}</span>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Profit</span>
-            <span className={`tnum text-body font-semibold ${pnl.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(pnl.profit)}</span>
-            <Badge variant={pnl.profit >= 0 ? "success" : "danger"}>{pnl.margin.toFixed(1)}%</Badge>
-          </div>
-        </div>
-      </div>
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
@@ -224,12 +214,10 @@ export function ProjectHub({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="procurement">Procurement <CountBadge n={stats.openPOCount} /></TabsTrigger>
           <TabsTrigger value="stock">Stock <CountBadge n={data.materialIssues.length} /></TabsTrigger>
-          <TabsTrigger value="construction">Construction <CountBadge n={data.boqItems.length + data.workOrders.length} /></TabsTrigger>
-          <TabsTrigger value="dprs">DPRs <CountBadge n={data.dprs.length} /></TabsTrigger>
+          <TabsTrigger value="construction">Construction <CountBadge n={data.boqItems.length + data.workOrders.length + data.dprs.length} /></TabsTrigger>
           <TabsTrigger value="units">Units <CountBadge n={stats.builtUnitCount} /></TabsTrigger>
           <TabsTrigger value="land">Land <CountBadge n={stats.landParcelCount} /></TabsTrigger>
-          <TabsTrigger value="finance">Finance <CountBadge n={data.projectCosts.length} /></TabsTrigger>
-          <TabsTrigger value="variance">Variance</TabsTrigger>
+          <TabsTrigger value="finance">Analytics <CountBadge n={data.projectCosts.length} /></TabsTrigger>
           <TabsTrigger value="equipment">Equipment <CountBadge n={stats.equipmentCount} /></TabsTrigger>
         </TabsList>
 
@@ -237,11 +225,9 @@ export function ProjectHub({
         <TabsContent value="procurement"><ProcurementTab data={data} /></TabsContent>
         <TabsContent value="stock"><StockTab data={data} /></TabsContent>
         <TabsContent value="construction"><ConstructionTab data={data} /></TabsContent>
-        <TabsContent value="dprs"><DprsTab data={data} /></TabsContent>
         <TabsContent value="units"><UnitsTab data={data} /></TabsContent>
         <TabsContent value="land"><LandTab data={data} /></TabsContent>
         <TabsContent value="finance"><FinanceTab data={data} /></TabsContent>
-        <TabsContent value="variance"><VarianceTab data={data} /></TabsContent>
         <TabsContent value="equipment"><EquipmentTab data={data} /></TabsContent>
       </Tabs>
     </div>
@@ -257,80 +243,59 @@ function CountBadge({ n }: { n: number }) {
   return <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-caption font-medium text-muted-foreground">{n}</span>;
 }
 
+const QUICK_ACTIONS = [
+  { href: "/procurement", label: "New Purchase Order", icon: Truck },
+  { href: "/stock?tab=issues", label: "Issue Materials", icon: Package },
+  { href: "/units", label: "Add Built Units", icon: Home },
+  { href: "/sales", label: "Record a Sale", icon: TrendingUp },
+  { href: "/finance", label: "Add Project Cost", icon: Wallet },
+  { href: "/equipment", label: "Assign Equipment", icon: Wrench },
+] as const;
+
+function QuickActionsMenu() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative shrink-0">
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 gap-1.5"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Plus className="size-4" /> Quick Actions
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="overlay-in absolute right-0 top-full z-50 mt-1 min-w-52 rounded-lg border border-border bg-elevated p-1 shadow-overlay">
+            {QUICK_ACTIONS.map((a) => {
+              const Icon = a.icon;
+              return (
+                <Link
+                  key={a.href}
+                  href={a.href}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2 text-body text-foreground transition-colors hover:bg-muted/60"
+                >
+                  <Icon className="size-4 text-muted-foreground" />
+                  {a.label}
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function OverviewTab({ data }: { data: ProjectHubData }) {
   const { stats, project, pnl } = data;
   const budget = project.totalBudget ?? 0;
   const actualCost = pnl.totalCost || project.totalProjectCost || 0;
-  const budgetBurnPct = budget > 0 ? Math.min(100, (actualCost / budget) * 100) : 0;
   const isOverBudget = budget > 0 && actualCost > budget;
-  const salesPct = stats.builtUnitCount > 0 ? (stats.soldUnits / stats.builtUnitCount) * 100 : 0;
-
-  // Timeline progress
-  const now = new Date();
-  const start = project.startDate ? new Date(project.startDate) : null;
-  const end = project.endDate ? new Date(project.endDate) : null;
-  let timelinePct = 0;
-  if (start && end) {
-    const total = end.getTime() - start.getTime();
-    const elapsed = now.getTime() - start.getTime();
-    timelinePct = Math.max(0, Math.min(100, (elapsed / total) * 100));
-  }
 
   return (
     <div className="space-y-6">
-      {/* ── Health bars — the project's vital signs ─────────────── */}
-      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-        {/* Budget burn */}
-        {budget > 0 && (
-          <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Budget Burn</span>
-              <span className={`text-caption tnum ${isOverBudget ? "text-danger font-semibold" : "text-muted-foreground"}`}>
-                {budgetBurnPct.toFixed(0)}%
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className={`h-full ${isOverBudget ? "bg-danger" : budgetBurnPct > 80 ? "bg-warning" : "bg-success"}`} style={{ width: `${Math.min(100, budgetBurnPct)}%` }} />
-            </div>
-            <div className="mt-1 text-micro text-muted-foreground tnum">
-              {formatCurrency(actualCost)} / {formatCurrency(budget)}
-            </div>
-          </div>
-        )}
-
-        {/* Unit sales */}
-        {stats.builtUnitCount > 0 && (
-          <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Units Sold</span>
-              <span className="text-caption tnum text-muted-foreground">{salesPct.toFixed(0)}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full bg-foreground" style={{ width: `${salesPct}%` }} />
-            </div>
-            <div className="mt-1 text-micro text-muted-foreground tnum">
-              {stats.soldUnits} sold · {stats.availableUnits} available · {stats.builtUnitCount} total
-            </div>
-          </div>
-        )}
-
-        {/* Timeline */}
-        {start && end && (
-          <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Timeline</span>
-              <span className="text-caption tnum text-muted-foreground">{timelinePct.toFixed(0)}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className={`h-full ${timelinePct >= 100 ? "bg-muted-foreground" : "bg-foreground"}`} style={{ width: `${timelinePct}%` }} />
-            </div>
-            <div className="mt-1 text-micro text-muted-foreground tnum">
-              {formatDate(project.startDate)} → {formatDate(project.endDate)}
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* ── Two-column: Activity feed + Context sidebar ─────────── */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Activity feed — recent stock movements as a timeline */}
@@ -378,15 +343,15 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
           )}
         </div>
 
-        {/* Context sidebar — inventory counts + phases + locations + actions */}
-        <div className="space-y-5">
-          {/* Inventory counts */}
-          <div>
+        {/* Context sidebar — single card with divided sections */}
+        <div className="space-y-4">
+          {/* Inventory */}
+          <div className="rounded-lg border border-border bg-card p-4 shadow-raised">
             <h2 className="mb-3 text-label text-muted-foreground">Inventory</h2>
-            <div className="space-y-2">
-              <ContextLink href={`/units?project=${project.id}`} label="Built Units" value={stats.builtUnitCount} sub={`${stats.availableUnits} available · ${stats.soldUnits} sold`} />
+            <div className="divide-y divide-border">
+              <ContextLink href={`/units?project=${project.id}`} label="Built Units" value={stats.builtUnitCount} />
               <ContextLink href={`/land?project=${project.id}`} label="Land Parcels" value={stats.landParcelCount} />
-              <ContextLink href="/requisitions" label="Pending Requisitions" value={stats.openRequisitionCount} sub={stats.openRequisitionCount > 0 ? "Awaiting approval or conversion" : undefined} />
+              <ContextLink href="/requisitions" label="Requisitions" value={stats.openRequisitionCount} />
               <ContextLink href="/procurement" label="Open POs" value={stats.openPOCount} />
               <ContextLink href="/equipment" label="Equipment" value={stats.equipmentCount} />
             </div>
@@ -402,7 +367,7 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
                   <p className="text-caption text-muted-foreground">
                     {formatCurrency(actualCost - budget)} over the {formatCurrency(budget)} budget.
                   </p>
-                  <Link href="/finance" className="mt-1.5 inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+                  <Link href="/finance" className="mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
                     Review costs <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -412,15 +377,12 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
 
           {/* Stock locations */}
           {data.stockLocations.length > 0 && (
-            <div>
+            <div className="rounded-lg border border-border bg-card p-4 shadow-raised">
               <h2 className="mb-3 text-label text-muted-foreground">Stock Locations</h2>
-              <div className="space-y-1.5">
+              <div className="divide-y divide-border">
                 {data.stockLocations.map((loc) => (
-                  <div key={loc.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-body">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-foreground">{loc.name}</div>
-                      {loc.address && <div className="truncate text-caption text-muted-foreground">{loc.address}</div>}
-                    </div>
+                  <div key={loc.id} className="flex items-center justify-between py-2">
+                    <span className="truncate text-body text-foreground">{loc.name}</span>
                     <Badge variant={loc.type === "COMPANY_WAREHOUSE" ? "default" : "muted"}>
                       {loc.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"}
                     </Badge>
@@ -429,54 +391,27 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
               </div>
             </div>
           )}
-
-          {/* Phases */}
-          {data.phases.length > 0 && (
-            <div>
-              <h2 className="mb-3 text-label text-muted-foreground">Phases</h2>
-              <PhasesSection projectId={project.id} phases={data.phases} />
-            </div>
-          )}
-
-          {/* Quick actions */}
-          <div>
-            <h2 className="mb-3 text-label text-muted-foreground">Quick Actions</h2>
-            <div className="space-y-1">
-              <ActionLink href="/procurement" label="Create Purchase Order" icon={<Truck className="h-3.5 w-3.5" />} />
-              <ActionLink href="/stock?tab=issues" label="Issue Materials" icon={<Package className="h-3.5 w-3.5" />} />
-              <ActionLink href="/units" label="Add Built Units" icon={<Home className="h-3.5 w-3.5" />} />
-              <ActionLink href="/sales" label="Record a Sale" icon={<TrendingUp className="h-3.5 w-3.5" />} />
-              <ActionLink href="/finance" label="Add Project Cost" icon={<Wallet className="h-3.5 w-3.5" />} />
-              <ActionLink href="/equipment" label="Assign Equipment" icon={<Wrench className="h-3.5 w-3.5" />} />
-            </div>
-          </div>
         </div>
+
+        {/* Phases — full width below the two-column area */}
+        {data.phases.length > 0 && (
+          <div className="lg:col-span-3">
+            <PhasesSection projectId={project.id} phases={data.phases} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function ContextLink({ href, label, value, sub }: { href: string; label: string; value: number; sub?: string }) {
+function ContextLink({ href, label, value }: { href: string; label: string; value: number }) {
   return (
-    <Link href={href} className="group flex items-center justify-between rounded-md border border-border px-3 py-2 transition-colors hover:border-foreground/20 hover:bg-muted/30">
-      <div>
-        <div className="text-body font-medium text-foreground">{label}</div>
-        {sub && <div className="text-caption text-muted-foreground">{sub}</div>}
-      </div>
+    <Link href={href} className="group flex items-center justify-between py-2 transition-colors hover:bg-muted/40 -mx-4 px-4">
+      <span className="text-body text-foreground">{label}</span>
       <div className="flex items-center gap-2">
         <span className="text-body font-semibold tnum text-foreground">{value}</span>
-        <ArrowRight className="h-3 w-3 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
+        <ArrowRight className="h-3 w-3 text-muted-foreground/30 transition-colors group-hover:text-foreground" />
       </div>
-    </Link>
-  );
-}
-
-function ActionLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
-  return (
-    <Link href={href} className="group flex items-center gap-2.5 rounded-md px-3 py-2 text-body text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground">
-      <span className="text-muted-foreground/60 transition-colors group-hover:text-foreground">{icon}</span>
-      <span>{label}</span>
-      <ArrowRight className="ml-auto h-3 w-3 text-muted-foreground/0 transition-all group-hover:text-muted-foreground" />
     </Link>
   );
 }
@@ -487,67 +422,136 @@ function ActionLink({ href, label, icon }: { href: string; label: string; icon: 
 
 function ProcurementTab({ data }: { data: ProjectHubData }) {
   const projectPOs = data.purchaseOrders.filter((p) => p.projectId === data.project.id || p.procurementScope === "COMPANY");
-  const projectTransfers = data.transfers.filter(
-    (t) => t.fromLocationName?.includes(data.project.name) || t.toLocationName?.includes(data.project.name) ||
-    data.stockLocations.some((sl) => sl.id === t.fromLocationId || sl.id === t.toLocationId),
+  const projectTransfers = data.transfers;
+  const [view, setView] = useState<"pos" | "transfers">("pos");
+
+  const toggle = (
+    <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
+      <button
+        onClick={() => setView("pos")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "pos" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        POs <span className="tnum">({projectPOs.length})</span>
+      </button>
+      <button
+        onClick={() => setView("transfers")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "transfers" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Transfers <span className="tnum">({projectTransfers.length})</span>
+      </button>
+    </div>
   );
 
   return (
-    <div className="space-y-5">
-      {/* Purchase Orders */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Purchase Orders</h2>
-          <Link href="/procurement"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New PO</Button></Link>
-        </div>
-        {projectPOs.length === 0 ? (
-          <EmptyState icon={<Truck className="h-5 w-5" />} title="No purchase orders" description="POs for this project will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {projectPOs.map((po) => (
-              <Link
-                key={po.id}
-                href={`/procurement/${po.id}`}
-                className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30"
-              >
-                <span className="w-28 shrink-0 font-mono text-caption font-medium text-foreground">{po.poNumber}</span>
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{po.supplierName}</span>
-                <StatusPill status={po.status} />
-                <span className="w-28 shrink-0 text-right tnum font-medium text-foreground">{formatCurrency(po.total)}</span>
-                <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(po.expectedDate)}</span>
+    <div className="space-y-4">
+      {view === "pos" ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={projectPOs}
+            storageKey="project-pos"
+            searchable
+            searchPlaceholder="Search POs…"
+            hideable
+            exportFileName="project-pos"
+            initialSort={{ key: "createdAt", direction: "desc" }}
+            onRowClick={(po) => window.open(`/procurement/${po.id}`, "_self")}
+            showTotals
+            sumColumns={["total"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            toolbarLeading={toggle}
+            toolbarTrailing={
+              <Link href="/procurement">
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-3.5" /> New PO
+                </Button>
               </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Transfers */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Transfers Involving This Project</h2>
+            }
+            columns={[
+                {
+                  key: "poNumber",
+                  label: "PO #",
+                  sortable: true,
+                  render: (po) => <span className="font-mono text-caption font-medium text-foreground">{po.poNumber}</span>,
+                },
+                {
+                  key: "supplierName",
+                  label: "Supplier",
+                  sortable: true,
+                  render: (po) => <span className="font-medium text-foreground">{po.supplierName}</span>,
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (po) => <StatusPill status={po.status} />,
+                },
+                {
+                  key: "total",
+                  label: "Total",
+                  align: "right",
+                  sortable: true,
+                  render: (po) => <span className="tnum font-medium text-foreground">{formatCurrency(po.total)}</span>,
+                  exportValue: (po) => po.total,
+                },
+                {
+                  key: "expectedDate",
+                  label: "Expected",
+                  sortable: true,
+                  render: (po) => <span className="text-caption text-muted-foreground">{formatDate(po.expectedDate)}</span>,
+                },
+              ]}
+          />
         </div>
-        {projectTransfers.length === 0 ? (
-          <EmptyState icon={<ArrowRight className="h-5 w-5" />} title="No transfers" description="Stock transfers to/from this project's locations will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {projectTransfers.map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30"
-              >
-                <span className="min-w-0 flex-1 truncate">
-                  <span className="font-medium text-foreground">{t.fromLocationName}</span>
-                  <ArrowRight className="mx-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium text-foreground">{t.toLocationName}</span>
-                </span>
-                <StatusPill status={t.status} />
-                <span className="w-16 shrink-0 text-right tnum text-muted-foreground">{t.lineCount} lines</span>
-                <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(t.transferDate)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={projectTransfers}
+            storageKey="project-transfers"
+            searchable
+            searchPlaceholder="Search transfers…"
+            hideable
+            initialSort={{ key: "transferDate", direction: "desc" }}
+            toolbarLeading={toggle}
+            columns={[
+                {
+                  key: "route",
+                  label: "Route",
+                  sortable: false,
+                  render: (t) => (
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium text-foreground">{t.fromLocationName}</span>
+                      <ArrowRight className="mx-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium text-foreground">{t.toLocationName}</span>
+                    </span>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (t) => <StatusPill status={t.status} />,
+                },
+                {
+                  key: "lineCount",
+                  label: "Lines",
+                  align: "right",
+                  sortable: true,
+                  render: (t) => <span className="tnum text-muted-foreground">{t.lineCount}</span>,
+                },
+                {
+                  key: "transferDate",
+                  label: "Date",
+                  sortable: true,
+                  render: (t) => <span className="text-caption text-muted-foreground">{formatDate(t.transferDate)}</span>,
+                },
+              ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -557,93 +561,167 @@ function ProcurementTab({ data }: { data: ProjectHubData }) {
 // ───────────────────────────────────────────────────────────
 
 function StockTab({ data }: { data: ProjectHubData }) {
-  return (
-    <div className="space-y-5">
-      {/* Material Issues — timeline feed */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Material Issues to Project</h2>
-          <Link href="/stock?tab=issues"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Issue Materials</Button></Link>
-        </div>
-        {data.materialIssues.length === 0 ? (
-          <EmptyState icon={<Package className="h-5 w-5" />} title="No material issues" description="Materials issued from stock to this project will appear here." />
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            <div className="space-y-0.5">
-              {data.materialIssues.map((i) => (
-                <div key={i.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
-                  <span className="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background bg-warning" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-body font-medium text-foreground">{i.fromLocationName}</span>
-                      <span className="shrink-0 text-body font-semibold tnum text-danger">−{formatCurrency(i.totalCost)}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
-                      <span className="tnum">{i.lineCount} lines</span>
-                      <span>·</span>
-                      <span className="tnum">{formatDate(i.issueDate)}</span>
-                      {i.notes && <span className="truncate">· {i.notes}</span>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+  const [view, setView] = useState<"issues" | "movements">("issues");
 
-      {/* Stock Movements — timeline feed */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Recent Stock Movements</h2>
+  const toggle = (
+    <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
+      <button
+        onClick={() => setView("issues")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "issues" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Issues <span className="tnum">({data.materialIssues.length})</span>
+      </button>
+      <button
+        onClick={() => setView("movements")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "movements" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Movements <span className="tnum">({data.stockMovements.length})</span>
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {view === "issues" ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.materialIssues}
+            storageKey="project-issues"
+            searchable
+            searchPlaceholder="Search issues…"
+            hideable
+            exportFileName="project-issues"
+            initialSort={{ key: "issueDate", direction: "desc" }}
+            showTotals
+            sumColumns={["totalCost"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            toolbarLeading={toggle}
+            toolbarTrailing={
+              <Link href="/stock?tab=issues">
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-3.5" /> Issue Materials
+                </Button>
+              </Link>
+            }
+            columns={[
+              {
+                key: "issueNumber",
+                label: "Issue #",
+                sortable: true,
+                render: (i) => <span className="font-mono text-caption font-medium text-foreground">{i.issueNumber || "—"}</span>,
+              },
+              {
+                key: "fromLocationName",
+                label: "From Location",
+                sortable: true,
+                render: (i) => <span className="font-medium text-foreground">{i.fromLocationName}</span>,
+              },
+              {
+                key: "lineCount",
+                label: "Lines",
+                align: "right",
+                sortable: true,
+                render: (i) => <span className="tnum text-muted-foreground">{i.lineCount}</span>,
+              },
+              {
+                key: "totalCost",
+                label: "Cost",
+                align: "right",
+                sortable: true,
+                render: (i) => <span className="tnum font-medium text-danger">−{formatCurrency(i.totalCost)}</span>,
+                exportValue: (i) => i.totalCost,
+              },
+              {
+                key: "issueDate",
+                label: "Date",
+                sortable: true,
+                render: (i) => <span className="text-caption text-muted-foreground">{formatDate(i.issueDate)}</span>,
+              },
+              {
+                key: "notes",
+                label: "Notes",
+                sortable: false,
+                render: (i) => <span className="text-caption text-muted-foreground truncate">{i.notes ?? "—"}</span>,
+                defaultHidden: true,
+              },
+            ]}
+          />
         </div>
-        {data.stockMovements.length === 0 ? (
-          <EmptyState icon={<Package className="h-5 w-5" />} title="No movements" description="Stock movements at this project's locations will appear here." />
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            <div className="space-y-0.5">
-              {data.stockMovements.slice(0, 20).map((m) => {
-                const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
-                const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ADJUSTMENT_OUT", "SALE"].includes(m.movementType);
-                const dotColor =
-                  m.movementType === "PURCHASE_RECEIPT" || m.movementType === "ADJUSTMENT_IN" ? "bg-success" :
-                  m.movementType === "ADJUSTMENT_OUT" ? "bg-danger" :
-                  m.movementType === "ISSUE_TO_PROJECT" || m.movementType === "TRANSFER_OUT" ? "bg-warning" :
-                  "bg-foreground/40";
-                return (
-                  <div key={m.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
-                    <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${dotColor}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <div className="min-w-0">
-                          <span className="text-body font-medium text-foreground">{m.materialName}</span>
-                        </div>
-                        <span className={`shrink-0 text-body font-semibold tnum ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>
-                          {isIn ? "+" : isOut ? "−" : ""}{formatNumber(m.qty, 3)} <span className="text-caption font-normal text-muted-foreground">{m.unit}</span>
-                        </span>
-                      </div>
-                      <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
-                        <Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{m.movementLabel}</Badge>
-                        <span className="truncate">
-                          {m.fromLocationName ?? "—"}
-                          <ArrowRight className="mx-1 inline h-3 w-3" />
-                          {m.toLocationName ?? "—"}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-baseline gap-3 text-micro text-muted-foreground">
-                        <span className="tnum">{formatDate(m.timestamp)}</span>
-                        {m.unitCost > 0 && <span className="tnum">@ {formatCurrency(m.unitCost)}</span>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.stockMovements}
+            storageKey="project-movements"
+            searchable
+            searchPlaceholder="Search movements…"
+            hideable
+            exportFileName="project-movements"
+            initialSort={{ key: "timestamp", direction: "desc" }}
+            toolbarLeading={toggle}
+            columns={[
+              {
+                key: "materialName",
+                label: "Material",
+                sortable: true,
+                render: (m) => <span className="font-medium text-foreground">{m.materialName}</span>,
+              },
+              {
+                key: "movementLabel",
+                label: "Type",
+                sortable: true,
+                render: (m) => <Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{m.movementLabel}</Badge>,
+              },
+              {
+                key: "route",
+                label: "Route",
+                sortable: false,
+                render: (m) => (
+                  <span className="truncate text-caption text-muted-foreground">
+                    {m.fromLocationName ?? "—"}
+                    <ArrowRight className="mx-1 inline h-3 w-3" />
+                    {m.toLocationName ?? "—"}
+                  </span>
+                ),
+              },
+              {
+                key: "qty",
+                label: "Qty",
+                align: "right",
+                sortable: true,
+                render: (m) => {
+                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+                  const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ADJUSTMENT_OUT", "SALE"].includes(m.movementType);
+                  return (
+                    <span className={`tnum font-medium ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>
+                      {isIn ? "+" : isOut ? "−" : ""}{formatNumber(m.qty, 3)} <span className="text-caption font-normal text-muted-foreground">{m.unit}</span>
+                    </span>
+                  );
+                },
+                exportValue: (m) => m.qty,
+              },
+              {
+                key: "unitCost",
+                label: "Unit Cost",
+                align: "right",
+                sortable: true,
+                render: (m) => <span className="tnum text-muted-foreground">{m.unitCost > 0 ? formatCurrency(m.unitCost) : "—"}</span>,
+                exportValue: (m) => m.unitCost,
+                defaultHidden: true,
+              },
+              {
+                key: "timestamp",
+                label: "Date",
+                sortable: true,
+                render: (m) => <span className="text-caption text-muted-foreground">{formatDate(m.timestamp)}</span>,
+              },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -654,72 +732,150 @@ function StockTab({ data }: { data: ProjectHubData }) {
 
 function UnitsTab({ data }: { data: ProjectHubData }) {
   const units = data.builtUnits;
-  const totalAsking = units.reduce((s, u) => s + (u.askingPrice ?? 0), 0);
-  const totalArea = units.reduce((s, u) => s + u.area, 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-4 text-body text-muted-foreground">
-          <span>{units.length} units</span>
-          <span>·</span>
-          <span>{formatNumber(totalArea, 0)} Sq.Ft total</span>
-          <span>·</span>
-          <span>Asking: {formatCurrency(totalAsking)}</span>
-        </div>
-        <Link href="/units"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Add Units</Button></Link>
-      </div>
-
       {units.length === 0 ? (
         <EmptyState icon={<Home className="h-5 w-5" />} title="No built units" description="Add built units (flats, shops, offices) to this project." />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {units.map((u) => {
-            const sc = statusColor(u.status);
-            return (
-              <div
-                key={u.id}
-                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
-                style={{ borderLeft: `3px solid ${sc}` }}
-              >
-                {/* Header: unit number + type + status dot */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-body font-semibold text-foreground">{u.unitNumber}</div>
-                    <div className="text-caption text-muted-foreground">{UNIT_TYPE_LABELS[u.unitType] ?? u.unitType}</div>
-                  </div>
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: sc }} />
-                </div>
-
-                {/* Floor/wing */}
-                {(u.floor != null || u.wing) && (
-                  <div className="mt-1 text-caption text-muted-foreground">
-                    {u.floor != null && `Floor ${u.floor}`}
-                    {u.floor != null && u.wing && " · "}
-                    {u.wing && `Wing ${u.wing}`}
-                  </div>
-                )}
-
-                {/* Area + costs */}
-                <div className="mt-3 space-y-1">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-caption text-muted-foreground">Area</span>
-                    <span className="text-body font-semibold tnum text-foreground">{formatNumber(u.area, 0)} <span className="text-caption font-normal text-muted-foreground">{u.areaUnit}</span></span>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-caption text-muted-foreground">Prod. Cost</span>
-                    <span className="text-body tnum text-foreground">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</span>
-                  </div>
-                  {u.askingPrice && (
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-caption text-muted-foreground">Asking</span>
-                      <span className="text-body font-semibold tnum text-foreground">{formatCurrency(u.askingPrice)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={units}
+            storageKey="project-units"
+            searchable
+            searchPlaceholder="Search units…"
+            hideable
+            exportFileName="project-units"
+            initialSort={{ key: "unitNumber", direction: "asc" }}
+            onRowClick={(u) => window.open(`/units?unit=${u.id}`, "_self")}
+            toolbarTrailing={
+              <Link href="/units">
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-3.5" /> Add Units
+                </Button>
+              </Link>
+            }
+            columns={[
+              {
+                key: "unitNumber",
+                label: "Unit #",
+                sortable: true,
+                render: (u) => <span className="font-semibold text-foreground">{u.unitNumber}</span>,
+              },
+              {
+                key: "unitType",
+                label: "Type",
+                sortable: true,
+                render: (u) => <span className="text-muted-foreground">{UNIT_TYPE_LABELS[u.unitType] ?? u.unitType}</span>,
+              },
+              {
+                key: "floor",
+                label: "Floor",
+                align: "right",
+                sortable: true,
+                render: (u) => <span className="tnum text-muted-foreground">{u.floor ?? "—"}</span>,
+              },
+              {
+                key: "wing",
+                label: "Wing",
+                sortable: true,
+                render: (u) => <span className="text-muted-foreground">{u.wing ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "phaseName",
+                label: "Phase",
+                sortable: true,
+                render: (u) => <span className="text-caption text-muted-foreground">{u.phaseName ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "status",
+                label: "Status",
+                sortable: true,
+                render: (u) => <StatusPill status={u.status} />,
+              },
+              {
+                key: "area",
+                label: "Area",
+                align: "right",
+                sortable: true,
+                render: (u) => <span className="tnum text-muted-foreground">{formatNumber(u.area, 0)} <span className="text-caption font-normal text-muted-foreground">{u.areaUnit}</span></span>,
+                exportValue: (u) => u.area,
+              },
+              {
+                key: "productionCost",
+                label: "Prod. Cost",
+                align: "right",
+                sortable: true,
+                render: (u) => <span className="tnum text-muted-foreground">{u.productionCost > 0 ? formatCurrency(u.productionCost) : "—"}</span>,
+                exportValue: (u) => u.productionCost,
+                defaultHidden: true,
+              },
+              {
+                key: "askingPrice",
+                label: "Asking",
+                align: "right",
+                sortable: true,
+                render: (u) => <span className="tnum font-medium text-foreground">{u.askingPrice ? formatCurrency(u.askingPrice) : "—"}</span>,
+                exportValue: (u) => u.askingPrice ?? 0,
+              },
+              {
+                key: "salePrice",
+                label: "Sold Price",
+                align: "right",
+                sortable: true,
+                sortValue: (u) => u.salePrice ?? 0,
+                render: (u) =>
+                  u.salePrice != null ? (
+                    <span className="tnum font-medium text-foreground">{formatCurrency(u.salePrice)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (u) => u.salePrice ?? "",
+              },
+              {
+                key: "saleProfit",
+                label: "Profit",
+                align: "right",
+                sortable: true,
+                sortValue: (u) => u.saleProfit ?? 0,
+                render: (u) =>
+                  u.saleProfit != null ? (
+                    <span className={cn("tnum font-medium", u.saleProfit >= 0 ? "text-success" : "text-danger")}>
+                      {u.saleProfit >= 0 ? "+" : ""}{formatCurrency(u.saleProfit)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (u) => u.saleProfit ?? "",
+              },
+              {
+                key: "customerName",
+                label: "Buyer",
+                render: (u) =>
+                  u.customerName ? (
+                    <span className="text-foreground">{u.customerName}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (u) => u.customerName ?? "",
+              },
+              {
+                key: "saleDate",
+                label: "Sale Date",
+                sortable: true,
+                sortValue: (u) => (u.saleDate ? new Date(u.saleDate).getTime() : 0),
+                render: (u) =>
+                  u.saleDate ? (
+                    <span className="tnum text-muted-foreground">{formatDate(u.saleDate)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (u) => (u.saleDate ? formatDate(u.saleDate) : ""),
+              },
+            ]}
+          />
         </div>
       )}
     </div>
@@ -732,75 +888,146 @@ function UnitsTab({ data }: { data: ProjectHubData }) {
 
 function LandTab({ data }: { data: ProjectHubData }) {
   const parcels = data.landParcels;
-  const totalArea = parcels.reduce((s, p) => s + p.area, 0);
-  const availableArea = parcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-4 text-body text-muted-foreground">
-          <span>{parcels.length} parcels</span>
-          <span>·</span>
-          <span>{formatNumber(totalArea, 0)} Sq.Ft total</span>
-          <span>·</span>
-          <span>{formatNumber(availableArea, 0)} Sq.Ft available</span>
-        </div>
-        <Link href="/land"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Manage Land</Button></Link>
-      </div>
-
       {parcels.length === 0 ? (
         <EmptyState icon={<LandPlot className="h-5 w-5" />} title="No land parcels" description="Land parcels linked to this project will appear here." />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {parcels.map((p) => {
-            const sc = statusColor(p.status);
-            return (
-              <div
-                key={p.id}
-                className="group relative rounded-lg border border-border bg-card p-3.5 transition-all hover:border-foreground/20 hover:shadow-sm"
-                style={{ borderLeft: `3px solid ${sc}` }}
-              >
-                {/* Header: number + parent + status dot */}
-                <div className="flex items-start justify-between gap-2">
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={parcels}
+            storageKey="project-land"
+            searchable
+            searchPlaceholder="Search parcels…"
+            hideable
+            exportFileName="project-land"
+            initialSort={{ key: "number", direction: "asc" }}
+            onRowClick={(p) => window.open(`/land/${p.id}`, "_self")}
+            toolbarTrailing={
+              <Link href="/land">
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-3.5" /> Manage Land
+                </Button>
+              </Link>
+            }
+            columns={[
+              {
+                key: "number",
+                label: "Parcel #",
+                sortable: true,
+                render: (p) => (
                   <div className="min-w-0">
-                    <div className="font-mono text-micro text-muted-foreground">{p.number}</div>
+                    <span className="font-mono text-caption font-medium text-foreground">{p.number}</span>
                     {p.parentParcelNumber && (
-                      <div className="text-micro text-muted-foreground/60">from {p.parentParcelNumber}</div>
+                      <span className="ml-2 text-micro text-muted-foreground/60">from {p.parentParcelNumber}</span>
                     )}
                   </div>
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: sc }} />
-                </div>
-
-                {/* Area — the primary metric */}
-                <div className="mt-3 flex items-baseline justify-between">
-                  <span className="text-caption text-muted-foreground">Area</span>
-                  <span className="text-body font-semibold tnum text-foreground">
-                    {formatNumber(p.area, 0)} <span className="text-caption font-normal text-muted-foreground">{p.areaUnit}</span>
-                  </span>
-                </div>
-
-                {/* Acquisition cost */}
-                <div className="mt-1 flex items-baseline justify-between">
-                  <span className="text-caption text-muted-foreground">Acquisition</span>
-                  <span className="text-body tnum text-foreground">{formatCurrency(p.acquisitionCost)}</span>
-                </div>
-
-                {/* Valuation */}
-                <div className="mt-1 flex items-baseline justify-between">
-                  <span className="text-caption text-muted-foreground">Valuation</span>
-                  <span className="text-body font-semibold tnum text-foreground">{formatCurrency(p.currentValuation)}</span>
-                </div>
-
-                {/* Asking price (if set) */}
-                {p.askingPrice && (
-                  <div className="mt-1 flex items-baseline justify-between">
-                    <span className="text-caption text-muted-foreground">Asking</span>
-                    <span className="text-body tnum text-muted-foreground">{formatCurrency(p.askingPrice)}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                ),
+              },
+              {
+                key: "status",
+                label: "Status",
+                sortable: true,
+                render: (p) => <StatusPill status={p.status} />,
+              },
+              {
+                key: "area",
+                label: "Area",
+                align: "right",
+                sortable: true,
+                render: (p) => <span className="tnum text-muted-foreground">{formatNumber(p.area, 0)} <span className="text-caption font-normal text-muted-foreground">{p.areaUnit}</span></span>,
+                exportValue: (p) => p.area,
+              },
+              {
+                key: "acquisitionCost",
+                label: "Acquisition",
+                align: "right",
+                sortable: true,
+                render: (p) => <span className="tnum text-muted-foreground">{formatCurrency(p.acquisitionCost)}</span>,
+                exportValue: (p) => p.acquisitionCost,
+              },
+              {
+                key: "currentValuation",
+                label: "Valuation",
+                align: "right",
+                sortable: true,
+                render: (p) => <span className="tnum font-medium text-foreground">{formatCurrency(p.currentValuation)}</span>,
+                exportValue: (p) => p.currentValuation,
+              },
+              {
+                key: "askingPrice",
+                label: "Asking",
+                align: "right",
+                sortable: true,
+                render: (p) => <span className="tnum text-muted-foreground">{p.askingPrice ? formatCurrency(p.askingPrice) : "—"}</span>,
+                exportValue: (p) => p.askingPrice ?? 0,
+                defaultHidden: true,
+              },
+              {
+                key: "childCount",
+                label: "Sub-parcels",
+                align: "right",
+                sortable: true,
+                render: (p) => <span className="tnum text-muted-foreground">{p.childCount > 0 ? p.childCount : "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "salePrice",
+                label: "Sold Price",
+                align: "right",
+                sortable: true,
+                sortValue: (p) => p.salePrice ?? 0,
+                render: (p) =>
+                  p.salePrice != null ? (
+                    <span className="tnum font-medium text-foreground">{formatCurrency(p.salePrice)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (p) => p.salePrice ?? "",
+              },
+              {
+                key: "saleProfit",
+                label: "Profit",
+                align: "right",
+                sortable: true,
+                sortValue: (p) => p.saleProfit ?? 0,
+                render: (p) =>
+                  p.saleProfit != null ? (
+                    <span className={cn("tnum font-medium", p.saleProfit >= 0 ? "text-success" : "text-danger")}>
+                      {p.saleProfit >= 0 ? "+" : ""}{formatCurrency(p.saleProfit)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (p) => p.saleProfit ?? "",
+              },
+              {
+                key: "customerName",
+                label: "Buyer",
+                render: (p) =>
+                  p.customerName ? (
+                    <span className="text-foreground">{p.customerName}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (p) => p.customerName ?? "",
+              },
+              {
+                key: "saleDate",
+                label: "Sale Date",
+                sortable: true,
+                sortValue: (p) => (p.saleDate ? new Date(p.saleDate).getTime() : 0),
+                render: (p) =>
+                  p.saleDate ? (
+                    <span className="tnum text-muted-foreground">{formatDate(p.saleDate)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  ),
+                exportValue: (p) => (p.saleDate ? formatDate(p.saleDate) : ""),
+              },
+            ]}
+          />
         </div>
       )}
     </div>
@@ -813,68 +1040,296 @@ function LandTab({ data }: { data: ProjectHubData }) {
 
 function FinanceTab({ data }: { data: ProjectHubData }) {
   const costs = data.projectCosts;
-  const totalCosts = costs.reduce((s, c) => s + c.amount, 0);
-  const materialIssuesTotal = data.materialIssues.reduce((s, i) => s + i.totalCost, 0);
-  const { pnl } = data;
+  const { variance, project, pnl } = data;
+  const budget = project.totalBudget ?? 0;
+  const actual = variance.actualTotal;
+  const isOverBudget = budget > 0 && actual > budget;
+  const varianceAmt = actual - budget;
+  const variancePct = budget > 0 ? (varianceAmt / budget) * 100 : 0;
+  const [view, setView] = useState<"costs" | "breakdown">("costs");
+
+  // ── Cost breakdown bars (unique — header only shows total) ──
+  const costBreakdown = [
+    { label: "Material Issues", amount: variance.materialIssuesTotal, color: "bg-warning" },
+    { label: "Work Orders", amount: variance.workOrderTotal, color: "bg-brand" },
+    { label: "Labour Cost", amount: variance.labourCostTotal, color: "bg-success" },
+    { label: "Land Cost", amount: variance.landCostTotal, color: "bg-muted-foreground" },
+    { label: "Other Costs", amount: variance.otherCostsTotal, color: "bg-foreground/40" },
+  ].filter((c) => c.amount > 0);
+  const maxCost = Math.max(...costBreakdown.map((c) => c.amount), 1);
+
+  // ── Unit sales snapshot (unique — Units tab only lists, doesn't summarize) ──
+  const units = data.builtUnits;
+  // "Sold" = has an active sale (unit may be RESERVED during staged sale flow)
+  const soldUnits = units.filter((u) => u.saleId != null);
+  const availableUnits = units.filter((u) => u.status === "AVAILABLE");
+  const soldPct = units.length > 0 ? (soldUnits.length / units.length) * 100 : 0;
+  const avgSalePrice = soldUnits.length > 0 ? soldUnits.reduce((s, u) => s + (u.askingPrice ?? 0), 0) / soldUnits.length : 0;
+  const soldArea = soldUnits.reduce((s, u) => s + u.area, 0);
+  const revPerSqft = soldArea > 0 ? pnl.revenue / soldArea : 0;
+
+  // ── Procurement spend (unique — Procurement tab only lists POs) ──
+  const pos = data.purchaseOrders.filter((p) => p.projectId === project.id || p.procurementScope === "COMPANY");
+  const poTotal = pos.reduce((s, p) => s + p.total, 0);
+  const openPOs = pos.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status));
+  const receivedPOs = pos.filter((p) => p.status === "RECEIVED");
+  // Top supplier by total spend
+  const supplierTotals = new Map<string, number>();
+  for (const p of pos) supplierTotals.set(p.supplierName, (supplierTotals.get(p.supplierName) ?? 0) + p.total);
+  const topSupplier = [...supplierTotals.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  // ── Work order health (unique — Construction tab only lists WOs) ──
+  const wos = data.workOrders;
+  const woTotal = wos.reduce((s, w) => s + w.totalValue, 0);
+  const completedWOs = wos.filter((w) => w.status === "COMPLETED" || w.status === "CLOSED");
+  const activeWOs = wos.filter((w) => ["DRAFT", "APPROVED", "IN_PROGRESS"].includes(w.status));
+  const totalRABills = wos.reduce((s, w) => s + w.raBillCount, 0);
+
+  const toggle = (
+    <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
+      <button
+        onClick={() => setView("costs")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "costs" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Costs <span className="tnum">({costs.length})</span>
+      </button>
+      <button
+        onClick={() => setView("breakdown")}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "breakdown" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Breakdown
+      </button>
+    </div>
+  );
 
   return (
-    <div className="space-y-5">
-      {/* Inline stats strip — like the project header stats */}
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Material Issues</span>
-          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(materialIssuesTotal)}</span>
+    <div className="space-y-4">
+      {/* Over-budget alert — only unique variance info not in the header */}
+      {isOverBudget && (
+        <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger-soft/40 p-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-danger" />
+          <p className="text-body text-foreground">
+            <span className="font-medium text-danger">{formatCurrency(varianceAmt)} over budget</span>
+            <span className="text-muted-foreground"> — actual is {variancePct.toFixed(1)}% above the {formatCurrency(budget)} budget.</span>
+            <Link href="/budget-variance" className="ml-2 font-medium text-brand hover:underline">Review line-by-line →</Link>
+          </p>
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Other Costs</span>
-          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(totalCosts)}</span>
+      )}
+
+      {/* Insight cards — 2×2 grid, equal height */}
+      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
+        {/* Cost Breakdown — how total cost splits (header only shows the total) */}
+        <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-raised">
+          <div className="flex items-center justify-between">
+            <h2 className="text-label text-muted-foreground">Cost Breakdown</h2>
+            <Link href="/budget-variance" className="text-caption font-medium text-brand hover:underline">Variance Detail →</Link>
+          </div>
+          <div className="mt-4 flex flex-1 flex-col justify-center space-y-2.5">
+            {costBreakdown.length === 0 ? (
+              <p className="text-caption text-muted-foreground">No cost data yet.</p>
+            ) : (
+              costBreakdown.map((c) => (
+                <div key={c.label}>
+                  <div className="mb-1 flex items-baseline justify-between">
+                    <span className="text-body text-foreground">{c.label}</span>
+                    <span className="text-body font-semibold tnum text-foreground">{formatCurrency(c.amount)}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full ${c.color}`} style={{ width: `${(c.amount / maxCost) * 100}%` }} />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Revenue</span>
-          <span className="tnum text-body font-semibold text-success">{formatCurrency(pnl.revenue)}</span>
+
+        {/* Unit Sales Snapshot — Units tab only lists, this summarizes */}
+        <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-raised">
+          <div className="flex items-center justify-between">
+            <h2 className="text-label text-muted-foreground">Unit Sales</h2>
+            <Link href={`/units?project=${project.id}`} className="text-caption font-medium text-brand hover:underline">View Units →</Link>
+          </div>
+          <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Sold</div>
+              <div className="text-section font-semibold tnum text-foreground">{soldUnits.length}</div>
+              <div className="text-caption tnum text-muted-foreground">{soldPct.toFixed(0)}% of {units.length}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Available</div>
+              <div className="text-section font-semibold tnum text-foreground">{availableUnits.length}</div>
+              <div className="text-caption tnum text-muted-foreground">&nbsp;</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Avg Sale</div>
+              <div className="text-section font-semibold tnum text-success">{avgSalePrice > 0 ? formatCurrency(avgSalePrice) : "—"}</div>
+              <div className="text-caption tnum text-muted-foreground">{revPerSqft > 0 ? `${formatCurrency(revPerSqft)}/sq.ft` : "\u00a0"}</div>
+            </div>
+          </div>
         </div>
-        <div className="ml-auto flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Profit</span>
-          <span className={`tnum text-body font-semibold ${pnl.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(pnl.profit)}</span>
-          <Badge variant={pnl.profit >= 0 ? "success" : "danger"}>{pnl.margin.toFixed(1)}%</Badge>
+
+        {/* Procurement Spend — Procurement tab only lists POs */}
+        <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-raised">
+          <div className="flex items-center justify-between">
+            <h2 className="text-label text-muted-foreground">Procurement Spend</h2>
+            <Link href={`/procurement?project=${project.id}`} className="text-caption font-medium text-brand hover:underline">View POs →</Link>
+          </div>
+          <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Total POs</div>
+              <div className="text-section font-semibold tnum text-foreground">{formatCurrency(poTotal)}</div>
+              <div className="text-caption tnum text-muted-foreground">{pos.length} orders</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Open</div>
+              <div className="text-section font-semibold tnum text-warning">{openPOs.length}</div>
+              <div className="text-caption tnum text-muted-foreground">{receivedPOs.length} received</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Top Supplier</div>
+              <div className="text-body font-semibold text-foreground truncate">{topSupplier ? topSupplier[0] : "—"}</div>
+              <div className="text-caption tnum text-muted-foreground">{topSupplier ? formatCurrency(topSupplier[1]) : "\u00a0"}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Work Order Health — Construction tab only lists WOs */}
+        <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-raised">
+          <div className="flex items-center justify-between">
+            <h2 className="text-label text-muted-foreground">Work Order Health</h2>
+            <Link href={`/work-orders?project=${project.id}`} className="text-caption font-medium text-brand hover:underline">View WOs →</Link>
+          </div>
+          <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Total Value</div>
+              <div className="text-section font-semibold tnum text-foreground">{formatCurrency(woTotal)}</div>
+              <div className="text-caption tnum text-muted-foreground">{wos.length} orders</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">Active</div>
+              <div className="text-section font-semibold tnum text-warning">{activeWOs.length}</div>
+              <div className="text-caption tnum text-muted-foreground">{completedWOs.length} completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-label text-muted-foreground/70">RA Bills</div>
+              <div className="text-section font-semibold tnum text-foreground">{totalRABills}</div>
+              <div className="text-caption tnum text-muted-foreground">&nbsp;</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Project Costs — timeline feed */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Project Costs</h2>
-          <Link href="/finance"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> Add Cost</Button></Link>
-        </div>
-        {costs.length === 0 ? (
-          <EmptyState icon={<Wallet className="h-5 w-5" />} title="No project costs" description="Labour, overhead, equipment, and contractor costs will appear here." />
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            <div className="space-y-0.5">
-              {costs.map((c) => (
-                <div key={c.id} className="group relative flex items-start gap-4 rounded-lg p-2.5 pl-0 transition-colors hover:bg-muted/30">
-                  <span className="relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background bg-warning" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className="text-body font-medium text-foreground">{c.costType}</span>
-                        <span className="ml-2 text-caption text-muted-foreground">Project Cost</span>
-                      </div>
-                      <span className="shrink-0 text-body font-semibold tnum text-danger">−{formatCurrency(c.amount)}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
-                      <span className="tnum">{formatDate(c.date)}</span>
-                      {c.vendor && <><span>·</span><span className="truncate">{c.vendor}</span></>}
-                      {c.notes && <><span>·</span><span className="truncate">{c.notes}</span></>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {/* Analysis links */}
+      <div className="flex justify-center gap-4">
+        <Link href="/profit-center" className="text-caption font-medium text-brand hover:underline">Profit Center →</Link>
+        <Link href="/project-control" className="text-caption font-medium text-brand hover:underline">EVM Analysis →</Link>
+        <Link href="/material-reconciliation" className="text-caption font-medium text-brand hover:underline">Material Reconciliation →</Link>
       </div>
+
+      {/* Toggle: Costs table | Breakdown detail */}
+      {view === "costs" ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={costs}
+            storageKey="project-costs"
+            searchable
+            searchPlaceholder="Search costs…"
+            hideable
+            exportFileName="project-costs"
+            initialSort={{ key: "date", direction: "desc" }}
+            showTotals
+            sumColumns={["amount"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            toolbarLeading={toggle}
+            toolbarTrailing={
+              <Link href="/finance">
+                <Button size="sm" className="h-7 gap-1.5">
+                  <Plus className="size-3.5" /> Add Cost
+                </Button>
+              </Link>
+            }
+            columns={[
+              {
+                key: "costType",
+                label: "Type",
+                sortable: true,
+                render: (c) => <span className="font-medium text-foreground">{c.costType}</span>,
+              },
+              {
+                key: "amount",
+                label: "Amount",
+                align: "right",
+                sortable: true,
+                render: (c) => <span className="tnum font-medium text-danger">−{formatCurrency(c.amount)}</span>,
+                exportValue: (c) => c.amount,
+              },
+              {
+                key: "date",
+                label: "Date",
+                sortable: true,
+                render: (c) => <span className="text-caption text-muted-foreground">{formatDate(c.date)}</span>,
+              },
+              {
+                key: "vendor",
+                label: "Vendor",
+                sortable: true,
+                render: (c) => <span className="text-caption text-muted-foreground">{c.vendor ?? "—"}</span>,
+              },
+              {
+                key: "subcontractorName",
+                label: "Subcontractor",
+                sortable: true,
+                render: (c) => <span className="text-caption text-muted-foreground">{c.subcontractorName ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "notes",
+                label: "Notes",
+                sortable: false,
+                render: (c) => <span className="text-caption text-muted-foreground truncate">{c.notes ?? "—"}</span>,
+                defaultHidden: true,
+              },
+            ]}
+          />
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={costBreakdown}
+            storageKey="project-cost-breakdown"
+            exportFileName="project-cost-breakdown"
+            toolbarLeading={toggle}
+            columns={[
+              {
+                key: "label",
+                label: "Cost Category",
+                sortable: true,
+                render: (c) => <span className="font-medium text-foreground">{c.label}</span>,
+              },
+              {
+                key: "amount",
+                label: "Amount",
+                align: "right",
+                sortable: true,
+                render: (c) => <span className="tnum font-semibold text-foreground">{formatCurrency(c.amount)}</span>,
+                exportValue: (c) => c.amount,
+              },
+              {
+                key: "pct",
+                label: "% of Total",
+                align: "right",
+                sortable: true,
+                render: (c) => <span className="tnum text-muted-foreground">{actual > 0 ? ((c.amount / actual) * 100).toFixed(1) : "—"}%</span>,
+                exportValue: (c) => actual > 0 ? ((c.amount / actual) * 100) : 0,
+              },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -945,281 +1400,319 @@ function EquipmentTab({ data }: { data: ProjectHubData }) {
 // ───────────────────────────────────────────────────────────
 
 function ConstructionTab({ data }: { data: ProjectHubData }) {
-  const boqTotal = data.boqItems.reduce((s, i) => s + i.amount, 0);
-  const woTotal = data.workOrders.reduce((s, w) => s + w.totalValue, 0);
+  const [view, setView] = useState<"boq" | "wbs" | "wos" | "mb" | "dprs">("boq");
 
-  return (
-    <div className="space-y-6">
-      {/* BOQ Summary */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-label text-muted-foreground">
-            <ClipboardList className="h-4 w-4" /> Bill of Quantities
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-body font-semibold tnum text-foreground">{formatCurrency(boqTotal)}</span>
-            <Link href={`/boq?project=${data.project.id}`}><Button size="sm" variant="outline">View BOQ</Button></Link>
-          </div>
-        </div>
-        {data.boqItems.length === 0 ? (
-          <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No BOQ items" description="The bill of quantities for this project will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {data.boqItems.slice(0, 10).map((item) => (
-              <div key={item.id} className="flex items-center gap-4 px-4 py-2.5 text-body">
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{item.description}</span>
-                <span className="w-20 shrink-0 text-right tnum text-muted-foreground">{formatNumber(item.qty, 2)} {item.unit}</span>
-                <span className="w-24 shrink-0 text-right tnum text-muted-foreground">@ {formatCurrency(item.rate)}</span>
-                <span className="w-28 shrink-0 text-right tnum font-semibold text-foreground">{formatCurrency(item.amount)}</span>
-              </div>
-            ))}
-            {data.boqItems.length > 10 && (
-              <div className="px-4 py-2 text-center text-caption text-muted-foreground">
-                + {data.boqItems.length - 10} more items
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+  const segments = [
+    { key: "boq" as const, label: "BOQ", count: data.boqItems.length },
+    { key: "wbs" as const, label: "WBS", count: data.wbsNodes.length },
+    { key: "wos" as const, label: "Work Orders", count: data.workOrders.length },
+    { key: "mb" as const, label: "MB", count: data.mbEntries.length },
+    { key: "dprs" as const, label: "DPRs", count: data.dprs.length },
+  ];
 
-      {/* WBS Schedule */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-label text-muted-foreground">
-            <ListChecks className="h-4 w-4" /> Schedule (WBS)
-          </h2>
-          <Link href={`/wbs?project=${data.project.id}`}><Button size="sm" variant="outline">View WBS</Button></Link>
-        </div>
-        {data.wbsNodes.length === 0 ? (
-          <EmptyState icon={<ListChecks className="h-5 w-5" />} title="No schedule" description="Work breakdown structure activities will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {data.wbsNodes.slice(0, 10).map((node) => (
-              <div key={node.id} className="flex items-center gap-4 px-4 py-2.5 text-body">
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium text-foreground">{node.name}</span>
-                  {node.parentNodeName && (
-                    <span className="ml-2 text-caption text-muted-foreground">under {node.parentNodeName}</span>
-                  )}
-                </div>
-                <StatusPill status={node.status} />
-                <div className="w-24 shrink-0">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-foreground" style={{ width: `${Math.min(100, node.progressPct)}%` }} />
-                  </div>
-                  <div className="mt-0.5 text-micro text-muted-foreground tnum text-right">{node.progressPct.toFixed(0)}%</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Work Orders */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-label text-muted-foreground">
-            <HardHat className="h-4 w-4" /> Work Orders
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-body font-semibold tnum text-foreground">{formatCurrency(woTotal)}</span>
-            <Link href={`/work-orders?project=${data.project.id}`}><Button size="sm" variant="outline">View All</Button></Link>
-          </div>
-        </div>
-        {data.workOrders.length === 0 ? (
-          <EmptyState icon={<HardHat className="h-5 w-5" />} title="No work orders" description="Subcontractor work orders for this project will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {data.workOrders.map((wo) => (
-              <Link key={wo.id} href={`/work-orders/${wo.id}`} className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30">
-                <span className="w-28 shrink-0 font-mono text-caption font-medium text-foreground">{wo.woNumber}</span>
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{wo.subcontractorName}</span>
-                <StatusPill status={wo.status} />
-                <span className="w-16 shrink-0 text-right text-caption text-muted-foreground">{wo.raBillCount} RA bills</span>
-                <span className="w-28 shrink-0 text-right tnum font-medium text-foreground">{formatCurrency(wo.totalValue)}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Measurement Book */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-label text-muted-foreground">
-            <Ruler className="h-4 w-4" /> Measurement Book
-          </h2>
-          <Link href={`/measurement-book?project=${data.project.id}`}><Button size="sm" variant="outline">View MB</Button></Link>
-        </div>
-        {data.mbEntries.length === 0 ? (
-          <EmptyState icon={<Ruler className="h-5 w-5" />} title="No measurements" description="Verified measurement book entries will appear here." />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {data.mbEntries.slice(0, 10).map((mb) => (
-              <div key={mb.id} className="flex items-center gap-4 px-4 py-2.5 text-body">
-                <span className="w-24 shrink-0 font-mono text-caption font-medium text-foreground">{mb.mbNumber}</span>
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{mb.description}</span>
-                <span className="w-20 shrink-0 text-right tnum text-muted-foreground">{formatNumber(mb.qty, 2)} {mb.unit}</span>
-                <StatusPill status={mb.status} />
-                <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(mb.date)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+  const toggle = (
+    <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
+      {segments.map((s) => (
+        <button
+          key={s.key}
+          onClick={() => setView(s.key)}
+          className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+            view === s.key ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {s.label} <span className="tnum">({s.count})</span>
+        </button>
+      ))}
     </div>
   );
-}
 
-// ───────────────────────────────────────────────────────────
-//  DPRs tab — daily progress reports for this project
-// ───────────────────────────────────────────────────────────
-
-function DprsTab({ data }: { data: ProjectHubData }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-4 text-body text-muted-foreground">
-          <span>{data.dprs.length} reports</span>
+      {view === "boq" && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.boqItems}
+              storageKey="project-boq"
+              searchable
+              searchPlaceholder="Search BOQ…"
+              hideable
+              exportFileName="project-boq"
+              showTotals
+              sumColumns={["amount"]}
+              totalFormat={(_k, sum) => formatCurrency(sum)}
+              toolbarLeading={toggle}
+              toolbarTrailing={
+                <Link href={`/boq?project=${data.project.id}`}>
+                  <Button size="sm" variant="outline" className="h-7">View BOQ</Button>
+                </Link>
+              }
+              columns={[
+                {
+                  key: "description",
+                  label: "Description",
+                  sortable: true,
+                  render: (item) => <span className="font-medium text-foreground">{item.description}</span>,
+                },
+                {
+                  key: "qty",
+                  label: "Qty",
+                  align: "right",
+                  sortable: true,
+                  render: (item) => <span className="tnum text-muted-foreground">{formatNumber(item.qty, 2)} {item.unit}</span>,
+                  exportValue: (item) => item.qty,
+                },
+                {
+                  key: "rate",
+                  label: "Rate",
+                  align: "right",
+                  sortable: true,
+                  render: (item) => <span className="tnum text-muted-foreground">@ {formatCurrency(item.rate)}</span>,
+                  exportValue: (item) => item.rate,
+                },
+                {
+                  key: "amount",
+                  label: "Amount",
+                  align: "right",
+                  sortable: true,
+                  render: (item) => <span className="tnum font-semibold text-foreground">{formatCurrency(item.amount)}</span>,
+                  exportValue: (item) => item.amount,
+                },
+              ]}
+          />
         </div>
-        <Link href={`/hr/dprs?project=${data.project.id}`}><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New DPR</Button></Link>
-      </div>
+      )}
 
-      {data.dprs.length === 0 ? (
-        <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No DPRs" description="Daily progress reports for this project will appear here." />
-      ) : (
-        <div className="divide-y divide-border rounded-lg border border-border">
-          {data.dprs.map((dpr) => (
-            <Link
-              key={dpr.id}
-              href={`/hr/dprs?id=${dpr.id}`}
-              className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30"
-            >
-              <span className="w-24 shrink-0 tnum text-caption text-muted-foreground">{formatDate(dpr.reportDate)}</span>
-              <div className="min-w-0 flex-1">
-                <span className="font-medium text-foreground">
-                  {dpr.workType ?? "General work"}
-                </span>
-                {dpr.notes && <span className="ml-2 text-caption text-muted-foreground truncate">{dpr.notes}</span>}
-              </div>
-              <span className="w-20 shrink-0 text-right text-caption text-muted-foreground">{dpr.labourCount} workers</span>
-              <StatusPill status={dpr.approvalStatus} />
-            </Link>
-          ))}
+      {view === "wbs" && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.wbsNodes}
+              storageKey="project-wbs"
+              searchable
+              searchPlaceholder="Search WBS…"
+              hideable
+              exportFileName="project-wbs"
+              toolbarLeading={toggle}
+              toolbarTrailing={
+                <Link href={`/wbs?project=${data.project.id}`}>
+                  <Button size="sm" variant="outline" className="h-7">View WBS</Button>
+                </Link>
+              }
+              columns={[
+                {
+                  key: "name",
+                  label: "Activity",
+                  sortable: true,
+                  render: (node) => (
+                    <div className="min-w-0">
+                      <span className="font-medium text-foreground">{node.name}</span>
+                      {node.parentNodeName && (
+                        <span className="ml-2 text-caption text-muted-foreground">under {node.parentNodeName}</span>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (node) => <StatusPill status={node.status} />,
+                },
+                {
+                  key: "progressPct",
+                  label: "Progress",
+                  align: "right",
+                  sortable: true,
+                  render: (node) => (
+                    <div className="w-24 shrink-0">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full bg-foreground" style={{ width: `${Math.min(100, node.progressPct)}%` }} />
+                      </div>
+                      <div className="mt-0.5 text-micro text-muted-foreground tnum text-right">{node.progressPct.toFixed(0)}%</div>
+                    </div>
+                  ),
+                  exportValue: (node) => node.progressPct,
+                },
+              ]}
+          />
+        </div>
+      )}
+
+      {view === "wos" && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.workOrders}
+              storageKey="project-work-orders"
+              searchable
+              searchPlaceholder="Search work orders…"
+              hideable
+              exportFileName="project-work-orders"
+              showTotals
+              sumColumns={["totalValue"]}
+              totalFormat={(_k, sum) => formatCurrency(sum)}
+              onRowClick={(wo) => window.open(`/work-orders/${wo.id}`, "_self")}
+              toolbarLeading={toggle}
+              toolbarTrailing={
+                <Link href={`/work-orders?project=${data.project.id}`}>
+                  <Button size="sm" variant="outline" className="h-7">View All</Button>
+                </Link>
+              }
+              columns={[
+                {
+                  key: "woNumber",
+                  label: "WO #",
+                  sortable: true,
+                  render: (wo) => <span className="font-mono text-caption font-medium text-foreground">{wo.woNumber}</span>,
+                },
+                {
+                  key: "subcontractorName",
+                  label: "Subcontractor",
+                  sortable: true,
+                  render: (wo) => <span className="font-medium text-foreground">{wo.subcontractorName}</span>,
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (wo) => <StatusPill status={wo.status} />,
+                },
+                {
+                  key: "raBillCount",
+                  label: "RA Bills",
+                  align: "right",
+                  sortable: true,
+                  render: (wo) => <span className="tnum text-muted-foreground">{wo.raBillCount}</span>,
+                },
+                {
+                  key: "totalValue",
+                  label: "Value",
+                  align: "right",
+                  sortable: true,
+                  render: (wo) => <span className="tnum font-medium text-foreground">{formatCurrency(wo.totalValue)}</span>,
+                  exportValue: (wo) => wo.totalValue,
+                },
+              ]}
+          />
+        </div>
+      )}
+
+      {view === "mb" && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.mbEntries}
+              storageKey="project-mb"
+              searchable
+              searchPlaceholder="Search MB entries…"
+              hideable
+              exportFileName="project-mb"
+              initialSort={{ key: "date", direction: "desc" }}
+              toolbarLeading={toggle}
+              toolbarTrailing={
+                <Link href={`/measurement-book?project=${data.project.id}`}>
+                  <Button size="sm" variant="outline" className="h-7">View MB</Button>
+                </Link>
+              }
+              columns={[
+                {
+                  key: "mbNumber",
+                  label: "MB #",
+                  sortable: true,
+                  render: (mb) => <span className="font-mono text-caption font-medium text-foreground">{mb.mbNumber}</span>,
+                },
+                {
+                  key: "description",
+                  label: "Description",
+                  sortable: true,
+                  render: (mb) => <span className="font-medium text-foreground">{mb.description}</span>,
+                },
+                {
+                  key: "qty",
+                  label: "Qty",
+                  align: "right",
+                  sortable: true,
+                  render: (mb) => <span className="tnum text-muted-foreground">{formatNumber(mb.qty, 2)} {mb.unit}</span>,
+                  exportValue: (mb) => mb.qty,
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (mb) => <StatusPill status={mb.status} />,
+                },
+                {
+                  key: "date",
+                  label: "Date",
+                  sortable: true,
+                  render: (mb) => <span className="text-caption text-muted-foreground">{formatDate(mb.date)}</span>,
+                },
+              ]}
+          />
+        </div>
+      )}
+
+      {view === "dprs" && (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={data.dprs}
+            storageKey="project-dprs"
+            searchable
+              searchPlaceholder="Search DPRs…"
+              hideable
+              exportFileName="project-dprs"
+              initialSort={{ key: "reportDate", direction: "desc" }}
+              onRowClick={(dpr) => window.open(`/hr/dprs?id=${dpr.id}`, "_self")}
+              toolbarLeading={toggle}
+              toolbarTrailing={
+                <Link href={`/hr/dprs?project=${data.project.id}`}>
+                  <Button size="sm" className="h-7 gap-1.5">
+                    <Plus className="size-3.5" /> New DPR
+                  </Button>
+                </Link>
+              }
+              columns={[
+                {
+                  key: "reportDate",
+                  label: "Date",
+                  sortable: true,
+                  render: (dpr) => <span className="tnum text-caption text-muted-foreground">{formatDate(dpr.reportDate)}</span>,
+                },
+                {
+                  key: "workType",
+                  label: "Work Type",
+                  sortable: true,
+                  render: (dpr) => <span className="font-medium text-foreground">{dpr.workType ?? "General work"}</span>,
+                },
+                {
+                  key: "labourCount",
+                  label: "Workers",
+                  align: "right",
+                  sortable: true,
+                  render: (dpr) => <span className="tnum text-muted-foreground">{dpr.labourCount}</span>,
+                },
+                {
+                  key: "approvalStatus",
+                  label: "Approval",
+                  sortable: true,
+                  render: (dpr) => <StatusPill status={dpr.approvalStatus} />,
+                },
+                {
+                  key: "submittedByName",
+                  label: "Submitted By",
+                  sortable: true,
+                  render: (dpr) => <span className="text-caption text-muted-foreground">{dpr.submittedByName ?? "—"}</span>,
+                  defaultHidden: true,
+                },
+                {
+                  key: "notes",
+                  label: "Summary",
+                  sortable: false,
+                  render: (dpr) => <span className="text-caption text-muted-foreground truncate">{dpr.notes ?? "—"}</span>,
+                  defaultHidden: true,
+                },
+              ]}
+          />
         </div>
       )}
     </div>
   );
 }
 
-// ───────────────────────────────────────────────────────────
-//  Variance tab — budget vs actual, cost breakdown
-// ───────────────────────────────────────────────────────────
-
-function VarianceTab({ data }: { data: ProjectHubData }) {
-  const { variance, project, pnl } = data;
-  const budget = project.totalBudget ?? 0;
-  const actual = variance.actualTotal;
-  const isOverBudget = budget > 0 && actual > budget;
-  const varianceAmt = actual - budget;
-  const variancePct = budget > 0 ? (varianceAmt / budget) * 100 : 0;
-
-  // Cost breakdown for the bar chart
-  const costBreakdown = [
-    { label: "Material Issues", amount: variance.materialIssuesTotal, color: "bg-warning" },
-    { label: "Work Orders", amount: variance.workOrderTotal, color: "bg-brand" },
-    { label: "Labour Cost", amount: variance.labourCostTotal, color: "bg-success" },
-    { label: "Land Cost", amount: variance.landCostTotal, color: "bg-muted-foreground" },
-    { label: "Other Costs", amount: variance.otherCostsTotal, color: "bg-foreground/40" },
-  ].filter((c) => c.amount > 0);
-  const maxCost = Math.max(...costBreakdown.map((c) => c.amount), 1);
-
-  return (
-    <div className="space-y-6">
-      {/* Budget vs Actual */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="text-label text-muted-foreground/70">Budget</div>
-          <div className="mt-1 text-section font-semibold tnum text-foreground">{formatCurrency(budget)}</div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="text-label text-muted-foreground/70">Actual Cost</div>
-          <div className={`mt-1 text-section font-semibold tnum ${isOverBudget ? "text-danger" : "text-foreground"}`}>{formatCurrency(actual)}</div>
-        </div>
-        <div className={`rounded-lg border p-4 ${isOverBudget ? "border-danger/30 bg-danger-soft/40" : "border-border bg-card"}`}>
-          <div className="text-label text-muted-foreground/70">Variance</div>
-          <div className={`mt-1 text-section font-semibold tnum ${isOverBudget ? "text-danger" : "text-success"}`}>
-            {varianceAmt >= 0 ? "+" : ""}{formatCurrency(varianceAmt)}
-          </div>
-          <div className={`mt-0.5 text-caption tnum ${isOverBudget ? "text-danger" : "text-muted-foreground"}`}>
-            {variancePct >= 0 ? "+" : ""}{variancePct.toFixed(1)}%
-          </div>
-        </div>
-      </div>
-
-      {/* Over-budget alert */}
-      {isOverBudget && (
-        <div className="rounded-lg border border-danger/30 bg-danger-soft/40 p-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
-            <div>
-              <p className="text-body font-medium text-danger">Over budget by {formatCurrency(varianceAmt)}</p>
-              <p className="text-caption text-muted-foreground">
-                Actual cost is {variancePct.toFixed(1)}% above the {formatCurrency(budget)} budget.
-                <Link href="/budget-variance" className="ml-1 font-medium text-brand hover:underline">Review line-by-line →</Link>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cost breakdown bars */}
-      <div>
-        <h2 className="mb-3 text-label text-muted-foreground">Cost Breakdown</h2>
-        <div className="space-y-3">
-          {costBreakdown.map((c) => (
-            <div key={c.label}>
-              <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-body text-foreground">{c.label}</span>
-                <span className="text-body font-semibold tnum text-foreground">{formatCurrency(c.amount)}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div className={`h-full ${c.color}`} style={{ width: `${(c.amount / maxCost) * 100}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* P&L summary */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 flex items-center gap-2 text-label text-muted-foreground">
-          <BarChart3 className="h-4 w-4" /> P&L Summary
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-4">
-          <div>
-            <div className="text-label text-muted-foreground/70">Total Cost</div>
-            <div className="mt-0.5 text-body font-semibold tnum text-foreground">{formatCurrency(pnl.totalCost)}</div>
-          </div>
-          <div>
-            <div className="text-label text-muted-foreground/70">Revenue</div>
-            <div className="mt-0.5 text-body font-semibold tnum text-success">{formatCurrency(pnl.revenue)}</div>
-          </div>
-          <div>
-            <div className="text-label text-muted-foreground/70">Profit</div>
-            <div className={`mt-0.5 text-body font-semibold tnum ${pnl.profit >= 0 ? "text-success" : "text-danger"}`}>{formatCurrency(pnl.profit)}</div>
-          </div>
-          <div>
-            <div className="text-label text-muted-foreground/70">Margin</div>
-            <div className={`mt-0.5 text-body font-semibold tnum ${pnl.margin >= 0 ? "text-success" : "text-danger"}`}>{pnl.margin.toFixed(1)}%</div>
-          </div>
-        </div>
-        <div className="mt-3 flex gap-3">
-          <Link href="/profit-center" className="text-caption font-medium text-brand hover:underline">Profit Center →</Link>
-          <Link href="/project-control" className="text-caption font-medium text-brand hover:underline">EVM Analysis →</Link>
-          <Link href="/material-reconciliation" className="text-caption font-medium text-brand hover:underline">Material Reconciliation →</Link>
-        </div>
-      </div>
-    </div>
-  );
-}

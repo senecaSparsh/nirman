@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
@@ -18,7 +19,9 @@ import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/role
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
+import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
+import { useTabParam } from "@/lib/use-tab-param";
 
 type UserRow = {
   id: string;
@@ -60,7 +63,10 @@ export function SettingsView({
   canManageCompanies: boolean;
   actorRole: string;
 }) {
-  const [tab, setTab] = useState("company");
+  const [tab, setTab] = useTabParam(
+    ["company","users","locations","cost-centres","people","companies","integrations"] as const,
+    "company",
+  );
   const router = useRouter();
 
   // Subcontractor form
@@ -237,6 +243,9 @@ export function SettingsView({
               <span className="flex items-center gap-1.5"><Network className="h-3.5 w-3.5" /> Companies</span>
             </TabsTrigger>
           )}
+          <TabsTrigger value="integrations">
+            <span className="flex items-center gap-1.5"><Plug className="h-3.5 w-3.5" /> Integrations</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -276,45 +285,11 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="users">
-          <UsersManager users={users} actorRole={actorRole} />
+          <UsersManager users={users} actorRole={actorRole} companyId={company.id} />
         </TabsContent>
 
         <TabsContent value="locations">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body text-muted-foreground">{locations.length} location{locations.length !== 1 ? "s" : ""}</span>
-              <Button onClick={() => setLocFormOpen(true)}><Plus className="h-4 w-4" /> New Location</Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {locations.map((l) => (
-                <Card key={l.id} className="group relative">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1 min-w-0">
-                        <div className="font-semibold truncate">{l.name}</div>
-                        <Badge variant="outline">{l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Project Site"}</Badge>
-                      </div>
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setDeletingLoc(l)} disabled={l.itemCount > 0} title={l.itemCount > 0 ? "Cannot delete location with stock items" : "Delete location"}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {l.projectName && <div className="text-sm text-muted-foreground truncate">{l.projectName}</div>}
-                    {l.address && (
-                      <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        <span className="truncate">{l.address}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-1 border-t">
-                      <span className="tnum font-bold">{formatCurrency(l.stockValue)}</span>
-                      <span className="text-sm text-muted-foreground">{l.itemCount} item{l.itemCount !== 1 ? "s" : ""}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+          <LocationsTab locations={locations} onDelete={setDeletingLoc} onNew={() => setLocFormOpen(true)} />
         </TabsContent>
         <TabsContent value="cost-centres">
           <CostCentresTab departments={departments} canCreate canEdit canDelete />
@@ -337,6 +312,10 @@ export function SettingsView({
             <CompaniesManager companies={companies} canManage={canManageCompanies} actorRole={actorRole} />
           </TabsContent>
         )}
+
+        <TabsContent value="integrations">
+          <IntegrationsTab />
+        </TabsContent>
       </Tabs>
 
       {/* Location form dialog */}
@@ -494,13 +473,159 @@ export function SettingsView({
   );
 }
 
+// ── Locations Tab — stock locations as a sortable table ──────
+
+function LocationsTab({
+  locations,
+  onDelete,
+  onNew,
+}: {
+  locations: StockLocationRow[];
+  onDelete: (l: StockLocationRow) => void;
+  onNew: () => void;
+}) {
+  const columns: Column<StockLocationRow>[] = [
+    {
+      key: "name",
+      label: "Location",
+      sortable: true,
+      render: (l) => (
+        <div>
+          <div className="font-medium text-foreground">{l.name}</div>
+          {l.address && <div className="truncate text-caption text-muted-foreground">{l.address}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      label: "Type",
+      sortable: true,
+      render: (l) => (
+        <Badge variant="outline">
+          {l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : l.type === "PROJECT_SITE" ? "Project Site" : "Department"}
+        </Badge>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      sortValue: (l) => l.projectName ?? "",
+      render: (l) =>
+        l.projectName ? <span className="text-muted-foreground">{l.projectName}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "itemCount",
+      label: "Items",
+      align: "right",
+      sortable: true,
+      render: (l) => <span className="tnum text-muted-foreground">{l.itemCount}</span>,
+    },
+    {
+      key: "stockValue",
+      label: "Stock Value",
+      align: "right",
+      sortable: true,
+      render: (l) => <span className="tnum font-medium">{formatCurrency(l.stockValue)}</span>,
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (l) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={l.itemCount > 0 ? "Cannot delete location with stock items" : "Delete location"}
+            onClick={() => onDelete(l)}
+            disabled={l.itemCount > 0}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {locations.length > 0 && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={onNew}>
+            <Plus className="size-4" /> New Location
+          </Button>
+        </div>
+      )}
+      {locations.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-muted-foreground">No stock locations yet</p>
+          <Button size="sm" onClick={onNew}>
+            <Plus className="size-4" /> New Location
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={locations}
+            columns={columns}
+            storageKey="settings-locations"
+            searchable
+            searchPlaceholder="Search name, project, address…"
+            hideable
+            initialSort={{ key: "stockValue", direction: "desc" }}
+            showTotals
+            sumColumns={["itemCount", "stockValue"]}
+            totalFormat={(key, sum) =>
+              key === "itemCount" ? sum.toLocaleString("en-IN") : formatCurrency(sum)
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Users Manager — role + active status management ──────────
 
-function UsersManager({ users, actorRole }: { users: UserRow[]; actorRole: string }) {
+function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actorRole: string; companyId: string }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
   const [saving, setSaving] = useState<string | null>(null);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "MANAGER");
+  const [adding, setAdding] = useState(false);
+
+  const assignable = assignableRoles(actorRole);
+
+  async function addUser() {
+    if (!addEmail.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/companies/${companyId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to add user");
+      toast.success("User added", {
+        description: `${addEmail.trim()} added as ${addRole}`,
+      });
+      setAddEmail("");
+      setShowAddUser(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add user");
+    } finally {
+      setAdding(false);
+    }
+  }
 
   const handleRoleChange = async (userId: string, newRole: Role) => {
     setSaving(userId);
@@ -568,7 +693,65 @@ function UsersManager({ users, actorRole }: { users: UserRow[]; actorRole: strin
             {!canManage && " · read-only (your role cannot manage users)"}
           </span>
         </div>
+        {canManage && assignable.length > 0 && (
+          <Button size="sm" onClick={() => setShowAddUser(true)}>
+            <Plus className="h-3.5 w-3.5" /> Add User
+          </Button>
+        )}
       </div>
+
+      {/* Add User Dialog */}
+      {showAddUser && (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-body font-semibold">Add User to Company</span>
+              <button onClick={() => setShowAddUser(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-caption text-muted-foreground">
+              Enter the email of the person to add. If they already have an account, they&apos;ll be added to this company. If not, a new account will be created.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="add-user-email">Email *</Label>
+                <Input
+                  id="add-user-email"
+                  type="email"
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="add-user-role">Role</Label>
+                <Select
+                  id="add-user-role"
+                  value={addRole}
+                  onChange={(e) => setAddRole(e.target.value as Role)}
+                  className="h-8"
+                >
+                  {assignable.map((r) => {
+                    const def = ROLE_LIST.find((rl) => rl.key === r);
+                    return <option key={r} value={r}>{def?.label ?? r}</option>;
+                  })}
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowAddUser(false)} disabled={adding}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={addUser} disabled={adding || !addEmail.trim()}>
+                {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                {adding ? "Adding…" : "Add User"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-0">

@@ -482,6 +482,7 @@ export interface PendingPaymentsData {
     payable: number;
     status: string;
     daysOverdue: number;
+    agingBucket?: string;
   }>;
   receivables: Array<{
     saleNumber: string;
@@ -493,6 +494,7 @@ export interface PendingPaymentsData {
     outstanding: number;
     paymentStatus: string;
     daysSinceSale: number;
+    agingBucket?: string;
   }>;
   draftPOs: Array<{
     poNumber: string;
@@ -519,6 +521,7 @@ export function buildPendingPaymentsReport(data: PendingPaymentsData): ExcelShee
         { header: "Payable", key: "payable", width: 16, format: FMT_CURRENCY },
         { header: "Status", key: "status", width: 12 },
         { header: "Days Overdue", key: "daysOverdue", width: 12, format: FMT_NUMBER },
+        { header: "Aging Bucket", key: "agingBucket", width: 14 },
       ],
       rows: data.overduePOs as unknown as Record<string, unknown>[],
       summary: [{ label: "Total Payable", value: data.totalPayable }],
@@ -536,6 +539,7 @@ export function buildPendingPaymentsReport(data: PendingPaymentsData): ExcelShee
         { header: "Outstanding", key: "outstanding", width: 16, format: FMT_CURRENCY },
         { header: "Payment", key: "paymentStatus", width: 12 },
         { header: "Days Since Sale", key: "daysSinceSale", width: 14, format: FMT_NUMBER },
+        { header: "Aging Bucket", key: "agingBucket", width: 14 },
       ],
       rows: data.receivables as unknown as Record<string, unknown>[],
       summary: [{ label: "Total Receivable", value: data.totalReceivable }],

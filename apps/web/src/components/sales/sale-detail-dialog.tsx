@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Banknote, X, Printer, CheckCircle2, HandCoins } from "lucide-react";
+import { Banknote, X, Printer, CheckCircle2, HandCoins, MessageCircle } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -13,6 +13,7 @@ import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
 import { DepositDialog } from "./deposit-dialog";
 import { CompleteSaleDialog } from "./complete-sale-dialog";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { AssetSaleDetail, AssetSaleRow } from "@/lib/types";
 
 export function SaleDetailDialog({
@@ -34,6 +35,7 @@ export function SaleDetailDialog({
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const trackRecent = useTrackRecent();
 
   useEffect(() => {
     if (open && sale) {
@@ -44,8 +46,10 @@ export function SaleDetailDialog({
         .then((d) => { if (!d.error) setDetail(d); })
         .catch(() => toast.error("Failed to load sale details"))
         .finally(() => setLoading(false));
+      // Track in recently viewed
+      trackRecent({ type: "sale", id: sale.id, label: sale.saleNumber, href: `/sales?sale=${sale.id}` });
     }
-  }, [open, sale]);
+  }, [open, sale, trackRecent]);
 
   async function cancelSale() {
     if (!sale) return;
@@ -70,6 +74,24 @@ export function SaleDetailDialog({
     }
   }
 
+  async function sendWhatsAppConfirmation(paymentId: string) {
+    if (!sale) return;
+    try {
+      const res = await fetch(`/api/sales/${sale.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resendConfirmation", paymentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send confirmation");
+      toast.success("WhatsApp confirmation sent", {
+        description: "The payment receipt has been sent to the customer's WhatsApp.",
+      });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send confirmation");
+    }
+  }
+
   if (!sale) return null;
 
   // Use detail if loaded, otherwise fall back to the row passed in
@@ -84,7 +106,7 @@ export function SaleDetailDialog({
   const isCompleted = saleStage === "COMPLETED";
   const isPending = saleStage === "PENDING";
   const hasDeposit = saleStage === "DEPOSIT_RECEIVED";
-  const canManage = permissions?.canManage ?? true;
+  const canManage = permissions?.canManage ?? false;
 
   // Cancel is allowed for PENDING and DEPOSIT_RECEIVED stages (not COMPLETED)
   const canCancel = !isCancelled && !isCompleted && canManage;
@@ -119,23 +141,23 @@ export function SaleDetailDialog({
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
               {canRecordDeposit && (
-                <Button size="sm" onClick={() => setDepositOpen(true)}>
+                <Button size="sm" onClick={() => setDepositOpen(true)} disabled={acting}>
                   <HandCoins className="h-4 w-4" /> Record Deposit
                 </Button>
               )}
               {canCompleteSale && (
-                <Button size="sm" onClick={() => setCompleteOpen(true)}>
+                <Button size="sm" onClick={() => setCompleteOpen(true)} disabled={acting}>
                   <CheckCircle2 className="h-4 w-4" /> Complete Sale
                 </Button>
               )}
               {canRecordPayment && (
-                <Button size="sm" variant="outline" onClick={() => setPayOpen(true)}>
+                <Button size="sm" variant="outline" onClick={() => setPayOpen(true)} disabled={acting}>
                   <Banknote className="h-4 w-4" /> Record Payment
                 </Button>
               )}
               {canCancel && (
                 <Button size="sm" variant="outline" onClick={() => setCancelOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
-                  <X className="h-4 w-4" /> Cancel Sale
+                  <X className="h-4 w-4" /> {acting ? "Cancelling…" : "Cancel Sale"}
                 </Button>
               )}
               <a
@@ -150,10 +172,14 @@ export function SaleDetailDialog({
             </div>
 
             {/* Sale summary */}
-            <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 p-4 text-body sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 p-4 text-body sm:grid-cols-5">
               <div>
                 <p className="text-caption text-muted-foreground">Sale Price</p>
                 <p className="tnum font-medium">{formatCurrency(sale.salePrice)}</p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">GST {sale.gstRate ? `@ ${sale.gstRate}%` : ""}</p>
+                <p className="tnum font-medium">{formatCurrency(sale.gstAmount ?? 0)}</p>
               </div>
               <div>
                 <p className="text-caption text-muted-foreground">Cost Basis</p>
@@ -215,12 +241,12 @@ export function SaleDetailDialog({
                   </p>
                 </div>
                 {canManage && hasDeposit && (
-                  <Button size="sm" onClick={() => setCompleteOpen(true)}>
+                  <Button size="sm" onClick={() => setCompleteOpen(true)} disabled={acting}>
                     <CheckCircle2 className="h-4 w-4" /> Complete Sale
                   </Button>
                 )}
                 {canManage && isCompleted && (
-                  <Button size="sm" onClick={() => setPayOpen(true)}>
+                  <Button size="sm" onClick={() => setPayOpen(true)} disabled={acting}>
                     <Banknote className="h-4 w-4" /> Record Next Payment
                   </Button>
                 )}
@@ -236,7 +262,7 @@ export function SaleDetailDialog({
                   <p className="text-caption text-muted-foreground">Record a deposit to reserve the asset, or cancel to release it.</p>
                 </div>
                 {canManage && (
-                  <Button size="sm" onClick={() => setDepositOpen(true)}>
+                  <Button size="sm" onClick={() => setDepositOpen(true)} disabled={acting}>
                     <HandCoins className="h-4 w-4" /> Record Deposit
                   </Button>
                 )}
@@ -288,15 +314,24 @@ export function SaleDetailDialog({
                             <StatusPill status={p.status} />
                           </TD>
                           <TD>
-                            <a
-                              href={`/print/payment-receipt/${p.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-foreground"
-                              title="Print receipt"
-                            >
-                              <Printer className="h-3 w-3" />
-                            </a>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={`/print/payment-receipt/${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-foreground"
+                                title="Print receipt"
+                              >
+                                <Printer className="h-3 w-3" />
+                              </a>
+                              <button
+                                onClick={() => sendWhatsAppConfirmation(p.id)}
+                                className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-success"
+                                title="Send WhatsApp confirmation"
+                              >
+                                <MessageCircle className="h-3 w-3" />
+                              </button>
+                            </div>
                           </TD>
                         </TR>
                       ))}

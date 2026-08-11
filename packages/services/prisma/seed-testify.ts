@@ -278,8 +278,12 @@ async function main() {
   console.log("Seeding Testify Overseas (rice mill) reference dataset…");
 
   // ── 1. Company ──────────────────────────────────────────────
+  // Company.name is not @unique, so we findFirst then upsert by id.
+  const existingCompany = await prisma.company.findFirst({
+    where: { name: "Testify Overseas", deletedAt: null },
+  });
   const company = await prisma.company.upsert({
-    where: { name: "Testify Overseas" },
+    where: { id: existingCompany?.id ?? "__not_found__" },
     update: {
       gstin: "09AAACT1234F1Z5",
       pan: "AAACT1234F",
@@ -308,8 +312,12 @@ async function main() {
   }
 
   // ── 3. Central store location ──────────────────────────────
+  // No companyId_name compound unique; findFirst then upsert by id.
+  const existingStore = await prisma.stockLocation.findFirst({
+    where: { companyId: company.id, name: "Central Store", deletedAt: null },
+  });
   const store = await prisma.stockLocation.upsert({
-    where: { companyId_name: { companyId: company.id, name: "Central Store" } },
+    where: { id: existingStore?.id ?? "__not_found__" },
     update: {},
     create: { companyId: company.id, type: "COMPANY_WAREHOUSE", name: "Central Store", address: "Main plant, Sikandrabad" },
   });
@@ -317,10 +325,11 @@ async function main() {
   // ── 4. Material categories + materials ─────────────────────
   const matMap: Record<string, string> = {};
   for (const cat of CATEGORIES) {
+    // MaterialCategory has no companyId field; name is @unique globally.
     const category = await prisma.materialCategory.upsert({
-      where: { companyId_name: { companyId: company.id, name: cat.name } },
+      where: { name: cat.name },
       update: {},
-      create: { companyId: company.id, name: cat.name },
+      create: { name: cat.name },
     });
     for (const m of cat.materials) {
       const row = await prisma.material.upsert({
@@ -348,9 +357,9 @@ async function main() {
     { name: "Pure Water Systems", gstin: "09AAFCP1234F1Z6", phone: "+91 98370 55555" },
   ];
   for (const s of suppliers) {
-    const existing = await prisma.supplier.findFirst({ where: { name: s.name, deletedAt: null } });
+    const existing = await prisma.supplier.findFirst({ where: { name: s.name, companyId: company.id, deletedAt: null } });
     if (!existing) {
-      await prisma.supplier.create({ data: { name: s.name, gstin: s.gstin, phone: s.phone } });
+      await prisma.supplier.create({ data: { name: s.name, gstin: s.gstin, phone: s.phone, companyId: company.id } });
     }
   }
 

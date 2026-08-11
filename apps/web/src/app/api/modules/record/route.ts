@@ -69,10 +69,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
 async function fetchRecordDetail(
   model: ModelKey,
   id: string,
-  _companyId: string,
+  companyId: string,
 ): Promise<RecordDetail | null> {
   const mod = MODULES[model];
-  const record = await findRecord(model, id);
+  const record = await findRecord(model, id, companyId);
   if (!record) return null;
 
   // Build display fields from the module's column definitions

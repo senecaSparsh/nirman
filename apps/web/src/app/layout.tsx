@@ -1,16 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { ResponsiveSurfaceRedirector } from "@/components/responsive-surface-redirector";
 import { SwRegister } from "@/components/sw-register";
+import { CurrencyProvider } from "@/components/currency-provider";
 import { Toaster } from "sonner";
 
-const jakarta = Plus_Jakarta_Sans({
+/**
+ * Inter, not a geometric display face. Inter was cut for interface text
+ * at 11–16px — the exact range this app lives in — and its taller
+ * x-height and open apertures are what let a 12px table label stay
+ * legible. The variable name stays `--font-inter` so nothing downstream
+ * has to change.
+ */
+const sans = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
+  axes: ["opsz"],
 });
 
 const mono = JetBrains_Mono({
@@ -27,36 +36,64 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1c1f" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
 };
 
+/**
+ * Applied before first paint, so neither the collapsed sidebar nor the
+ * dark theme ever flashes the wrong way on reload. Both are pure
+ * presentation preferences; failure is silent and falls back to the
+ * light, expanded default.
+ */
+const BOOT_SCRIPT = `try{
+var r=document.documentElement;
+if(localStorage.getItem('nirman.nav.panel')==='closed')r.dataset.nav='collapsed';
+var t=localStorage.getItem('nirman.theme');
+if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))r.classList.add('dark');
+var c=localStorage.getItem('nirman-currency-mode');
+if(!c){c=window.innerWidth<768?'compact':'detailed';try{localStorage.setItem('nirman-currency-mode',c);}catch(e){}}
+}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        {/* Restore the nav-panel collapse preference before first paint so
-            the sidebar never flashes open and then snaps shut. Purely
-            presentational; failure is silent and falls back to expanded. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(localStorage.getItem('nirman.nav.panel')==='closed'){document.documentElement.dataset.nav='collapsed'}}catch(e){}",
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body className="antialiased">
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
-          <AppShell>{children}</AppShell>
-          {/* Watches the viewport and swaps between the desktop (/) and
-              mobile (/m) surfaces on a screen-size mismatch. Auto-redirects
-              at home routes; offers a toast on deep routes so in-progress
-              work is never lost. Respects the nirman-desktop=1 override. */}
-          <ResponsiveSurfaceRedirector />
+          <CurrencyProvider>
+            <AppShell>{children}</AppShell>
+            {/* Watches the viewport and swaps between the desktop (/) and
+                mobile (/m) surfaces on a screen-size mismatch. Auto-redirects
+                at home routes; offers a toast on deep routes so in-progress
+                work is never lost. Respects the nirman-desktop=1 override. */}
+            <ResponsiveSurfaceRedirector />
+          </CurrencyProvider>
         </Suspense>
-        <Toaster richColors position="top-right" />
+        <Toaster
+          position="top-right"
+          gap={8}
+          toastOptions={{
+            classNames: {
+              toast:
+                "!rounded-lg !border !border-border !bg-elevated !text-foreground !shadow-overlay !text-[13px] !font-sans",
+              description: "!text-muted-foreground !text-[12px]",
+              actionButton: "!bg-primary !text-primary-foreground !rounded-md",
+              cancelButton: "!bg-muted !text-muted-foreground !rounded-md",
+              success: "[&_[data-icon]]:!text-success",
+              error: "[&_[data-icon]]:!text-danger",
+              warning: "[&_[data-icon]]:!text-warning",
+              info: "[&_[data-icon]]:!text-info",
+            },
+          }}
+        />
         <SwRegister />
       </body>
     </html>

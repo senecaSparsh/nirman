@@ -3,13 +3,12 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Hammer, Loader2, RefreshCw, Search, Download } from "lucide-react";
+import { Plus, Hammer, Loader2, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
-import { MetricGrid, Metric, StatusPill } from "@/components/page";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate, formatCurrency, formatNumber } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
@@ -108,44 +107,8 @@ export function ScrapGenerationsView({
   const [formOpen, setFormOpen] = useState(false);
   const router = useRouter();
 
-  const totalValue = scraps.reduce((s, r) => s + r.totalValue, 0);
-
   return (
     <div className="space-y-4">
-      <MetricGrid cols={2}>
-        <Metric label="Total Generations" value={scraps.length} icon={<Hammer />} />
-        <Metric label="Total Value" value={formatCurrency(totalValue)} tone="brand" />
-      </MetricGrid>
-
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() =>
-            downloadCSV("scrap-generations.csv", scraps as unknown as Record<string, unknown>[], [
-              { key: "scrapNumber", label: "Slip No" },
-              { key: "generationDate", label: "Date", format: (v) => formatDate(v as string) },
-              { key: "toLocationName", label: "Location" },
-              { key: "projectName", label: "Project" },
-              { key: "sourceMaterialName", label: "Source Material" },
-              { key: "lineCount", label: "Lines" },
-              { key: "totalValue", label: "Total Value", format: (v) => formatCurrency(v as number) },
-            ])
-          }
-          title="Export CSV"
-        >
-          <Download className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-        {canManage && (
-          <Button onClick={() => setFormOpen(true)} disabled={locations.length === 0 || materials.length === 0}>
-            <Plus className="h-4 w-4" /> New Scrap Generation
-          </Button>
-        )}
-      </div>
-
       {scraps.length === 0 ? (
         <EmptyState
           icon={<Hammer className="h-5 w-5" />}
@@ -158,17 +121,57 @@ export function ScrapGenerationsView({
           ) : undefined}
         />
       ) : (
-        <DataTable
-          data={scraps}
-          columns={scrapColumns}
-          searchable
-          searchPlaceholder="Search by slip no, location, project…"
-          hideable
-          pageSize={50}
-          showTotals
-          sumColumns={["totalValue"]}
-          totalFormat={(_k, sum) => formatCurrency(sum)}
-        />
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <DataTable
+            data={scraps}
+            columns={scrapColumns}
+            searchable
+            searchPlaceholder="Search by slip no, location, project…"
+            hideable
+            pageSize={50}
+            showTotals
+            sumColumns={["totalValue"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            exportFileName="scrap-generations"
+            onAddRow={canManage && locations.length > 0 && materials.length > 0 ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Scrap Generation"
+            rowActions={(s) => (
+              <a
+                href={`/print/scrap/${s.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Print slip"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Printer className="h-3.5 w-3.5" />
+              </a>
+            )}
+            toolbarTrailing={
+              <div className="group relative">
+                <button
+                  onClick={() =>
+                    downloadCSV("scrap-generations.csv", scraps as unknown as Record<string, unknown>[], [
+                      { key: "scrapNumber", label: "Slip No" },
+                      { key: "generationDate", label: "Date", format: (v) => formatDate(v as string) },
+                      { key: "toLocationName", label: "Location" },
+                      { key: "projectName", label: "Project" },
+                      { key: "sourceMaterialName", label: "Source Material" },
+                      { key: "lineCount", label: "Lines" },
+                      { key: "totalValue", label: "Total Value", format: (v) => formatCurrency(v as number) },
+                    ])
+                  }
+                  className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  <Download className="size-3.5" />
+                </button>
+                <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+                  Export CSV
+                </span>
+              </div>
+            }
+          />
+        </div>
       )}
 
       {formOpen && (

@@ -1,6 +1,9 @@
 // Status-bearing error for service validation failures
 export { ServiceError } from "./errors";
 
+// Optimistic locking — concurrent edit conflict detection
+export { ConcurrentEditError, extractVersion } from "./optimistic-locking";
+
 // Moving Average Cost — pure functions
 export {
   computeMovingAverageCost,
@@ -35,6 +38,13 @@ export {
   projectRevenue,
   projectPnl,
   reallocateProjectCosts,
+  getCompanyPortfolioSummary,
+  getRealEstateInventory,
+  type CompanyPortfolioSummary,
+  type PortfolioProjectSummary,
+  type RealEstateInventorySummary,
+  type RealEstateProjectSummary,
+  type MonthlyAddition,
 } from "./valuation";
 
 // Procurement — Purchase Order lifecycle
@@ -84,6 +94,30 @@ export {
   type DprVarianceResult,
 } from "./standard-consumption";
 
+// Integration Config — per-company credentials for Tally, WhatsApp, Email, Portals
+export {
+  encryptSecret,
+  decryptSecret,
+  getIntegrationConfig,
+  listIntegrationConfigs,
+  listIntegrationConfigsMasked,
+  upsertIntegrationConfig,
+  deleteIntegrationConfig,
+  verifyIntegration,
+  getIntegrationStatus,
+  createTallyProviderFromConfig,
+  createWhatsAppProviderFromConfig,
+  createEmailProviderFromConfig,
+  createPortalProviderFromConfig,
+  SmtpEmailProvider,
+  INTEGRATION_SCHEMAS,
+  type IntegrationSchema,
+  type IntegrationFieldSchema,
+} from "./integration-config";
+
+// Auto-Sync — automatic Tally sync after GL posting (if configured)
+export { autoSyncEntryToTally, autoSyncBatchToTally } from "./auto-sync";
+
 // Tally ERP Integration — generate Tally XML vouchers, sync via pluggable provider
 export {
   generateTallyVoucherXml,
@@ -113,6 +147,15 @@ export {
   upsertNotificationTemplate,
   listNotificationLogs,
   getNotificationStats,
+  createInAppNotification,
+  getUnreadNotifications,
+  getUserNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getUnreadCount,
+  getUserPreferences,
+  upsertNotificationPreference,
+  isNotificationEnabled,
   StubWhatsAppProvider,
   CloudWhatsAppProvider,
   createWhatsAppProvider,
@@ -123,6 +166,22 @@ export {
   type SendNotificationInput,
   type WhatsAppTemplateComponent,
 } from "./notifications";
+
+// Notification Event Bus — event-driven notification system
+export {
+  emitNotificationEvent,
+  NotificationEventType,
+  ALL_EVENT_TYPES,
+  EVENT_URGENCY,
+  type NotificationEvent,
+  type NotificationUrgency,
+  type NotificationChannel,
+} from "./notification-event-bus";
+
+export {
+  processPendingNotifications,
+  getEventNotificationStats,
+} from "./notification-handlers";
 
 // Portal Listings — sync built units to 99acres / MagicBricks / Housing.com
 export {
@@ -135,6 +194,7 @@ export {
   getPortalListingStats,
   getUnitListings,
   StubPortalProvider,
+  ManualPortalProvider,
   HttpPortalProvider,
   NineAcresProvider,
   MagicBricksProvider,
@@ -177,6 +237,7 @@ export {
 export {
   partitionLandParcel,
   updateParcelValuation,
+  updateParcelDetails,
   setParcelStatus,
   validateAreaConservation,
   allocateCostByArea,
@@ -229,6 +290,7 @@ export {
   updateBuiltUnit,
   updateUnitStatus,
   updateUnitValuation,
+  purchaseBuiltUnit,
 } from "./built-unit";
 
 // Project Cost — labour/overhead/etc.
@@ -340,6 +402,7 @@ export {
   postDepositRefund,
   postMaterialSalePayment,
   postProjectCost,
+  postRaBillApproval,
   postRenovationCost,
   postExpense,
   postSupplierReturn,
@@ -361,6 +424,18 @@ export {
   type JournalLineInput,
   type PostJournalInput,
 } from "./gl-posting";
+
+// GL Preview — pure functions that compute journal lines without persisting
+export {
+  previewExpenseGl,
+  previewProjectCostGl,
+  previewPurchaseReceiptGl,
+  previewMaterialIssueGl,
+  previewAssetSaleGl,
+  previewStockAdjustmentGl,
+  previewPayrollGl,
+  type GlPreviewLine,
+} from "./gl-preview";
 
 // Task Service — execution engine (subtasks, comments, activity, dependencies, time)
 export {
@@ -411,6 +486,8 @@ export {
   attendanceSummary,
   dprAnalysis,
   payrollSummary,
+  dprFinanceReconciliation,
+  markDprCostPosted,
   attendanceWeight,
   computeDaysWorked,
   computeOvertimeHours,
@@ -436,6 +513,7 @@ export {
   adminApproveDpr,
   rejectDpr,
   resubmitDpr,
+  generateMaterialIssueFromDPR,
 } from "./hr";
 
 // Leave Management — requests with approval workflow
@@ -538,13 +616,20 @@ export {
 export {
   createWorkOrder,
   issueWorkOrder,
+  completeWorkOrder,
+  payAdvance,
   createRaBill,
   submitRaBill,
   approveRaBill,
   rejectRaBill,
+  payRaBill,
   releaseRetention,
+  getTdsCertificate,
+  listTdsSubcontractors,
+  VALID_PAYMENT_MODES,
   type CreateWorkOrderInput,
   type CreateRaBillInput,
+  type TdsCertificateData,
 } from "./subcontractor";
 
 // Scheduling + EVM + Cost Overrun Forecast

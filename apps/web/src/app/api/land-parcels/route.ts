@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
-import { partitionLandParcel, setParcelStatus, updateParcelValuation } from "@nirman/services";
+import { partitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -146,5 +146,28 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
   }
 
-  return json({ error: "Unknown action. Use partition, status, or valuation." }, { status: 400 });
+  if (action === "edit") {
+    const user = await requirePermission(PERM.ASSETS_MANAGE);
+    const parcelId = body?.parcelId as string;
+    if (!parcelId) return json({ error: "parcelId is required" }, { status: 400 });
+    try {
+      await updateParcelDetails(
+        parcelId,
+        {
+          ...(body.number !== undefined ? { number: String(body.number) } : {}),
+          ...(body.area !== undefined ? { area: body.area } : {}),
+          ...(body.acquisitionCost !== undefined ? { acquisitionCost: body.acquisitionCost } : {}),
+          ...(body.currentValuation !== undefined ? { currentValuation: body.currentValuation } : {}),
+          ...(body.askingPrice !== undefined ? { askingPrice: body.askingPrice } : {}),
+          ...(body.isInfrastructure !== undefined ? { isInfrastructure: Boolean(body.isInfrastructure) } : {}),
+        },
+        user.id,
+      );
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Update failed") }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Unknown action. Use partition, status, valuation, or edit." }, { status: 400 });
 });

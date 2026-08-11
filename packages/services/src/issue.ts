@@ -4,6 +4,7 @@ import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postMaterialIssue, postMaterialIssueToDepartment } from "./gl-posting";
+import { autoSyncEntryToTally } from "./auto-sync";
 
 /**
  * Issue Service — issue materials from a stock location to a project.
@@ -32,7 +33,7 @@ interface IssueMaterialsInput {
 }
 
 export async function issueMaterialsToProject(input: IssueMaterialsInput) {
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
@@ -95,6 +96,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         issuedById: input.issuedById,
         notes: input.notes,
         totalCost,
+        builtUnitId: input.builtUnitId ?? null,
         lines: {
           create: lineResults.map((l) => ({
             materialId: l.materialId,
@@ -121,6 +123,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     if (input.issuedById) {
       await logAction(tx, {
         userId: input.issuedById,
+        companyId: project.companyId,
         action: "MATERIAL_ISSUE_CREATE",
         entityType: "MaterialIssue",
         entityId: materialIssue.id,
@@ -130,10 +133,20 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
 
     return { materialIssue, totalCost };
   });
-}
 
-// ───────────────────────────────────────────────────────────
-//  Issue to Department (cost center) — the manufacturing /
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: result.materialIssue.id, sourceType: "MATERIAL_ISSUE" },
+        select: { id: true, companyId: true },
+      });
+      if (je) await autoSyncEntryToTally(je.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result;
+}
 //  operational consumption path. Mirrors issueMaterialsToProject
 //  but: no phase, no subcontractor, no cost-per-sqft reallocation,
 //  and posts to Operating Expenses (not WIP). One of the two
@@ -153,7 +166,7 @@ interface IssueToDepartmentInput {
 }
 
 export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) {
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     // Validate department
     const department = await tx.department.findFirst({
       where: { id: input.departmentId, deletedAt: null },
@@ -237,6 +250,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
     if (input.issuedById) {
       await logAction(tx, {
         userId: input.issuedById,
+        companyId: department.companyId,
         action: "MATERIAL_ISSUE_DEPARTMENT_CREATE",
         entityType: "MaterialIssue",
         entityId: materialIssue.id,
@@ -246,6 +260,19 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
 
     return { materialIssue, totalCost };
   });
+
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: result.materialIssue.id, sourceType: "MATERIAL_ISSUE" },
+        select: { id: true, companyId: true },
+      });
+      if (je) await autoSyncEntryToTally(je.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result;
 }
 
 // ── Amount in words (Indian numbering system) ─────────────────────────

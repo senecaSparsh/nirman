@@ -17,6 +17,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const schema = z.object({
     autoGenerateScrap: z.boolean().optional().default(false),
     scrapToLocationId: z.string().optional(),
+    scrapValuationPct: z.number().min(0).max(100).optional(),
   });
 
   const parsed = schema.parse(body);
@@ -25,6 +26,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     companyId: company.id,
     autoGenerateScrap: parsed.autoGenerateScrap,
     scrapToLocationId: parsed.scrapToLocationId,
+    scrapValuationPct: parsed.scrapValuationPct,
     userId: user.id,
   });
 

@@ -12,7 +12,7 @@ export const metadata = { title: "Workflows · Nirman" };
 
 export default function WorkflowsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Workflows"
         description="Automate your work — build chains of events on the canvas, schedule them, and let the system handle the rest."

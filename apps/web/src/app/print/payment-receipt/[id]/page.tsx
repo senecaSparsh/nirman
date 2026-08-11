@@ -56,7 +56,7 @@ export default async function PaymentReceiptPage({
   const assetLabel = sale.assetType === "LAND" ? "Land Plot" : "Built Unit";
 
   return (
-    <div className="mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-black pb-3">
         <div>

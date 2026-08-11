@@ -12,6 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const activeOnly = url.searchParams.get("active") === "true";
 
   const employees = await prisma.employee.findMany({
+    take: 200,
     where: {
       companyId: company.id,
       deletedAt: null,

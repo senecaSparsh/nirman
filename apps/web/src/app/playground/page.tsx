@@ -13,7 +13,7 @@ export const metadata = { title: "Workspaces · Nirman" };
 
 export default function PlaygroundPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Workspaces"
         description="Drag the modules you've built onto the canvas, connect them into a hierarchy, and save it as a new navigation tab with a live drill-down view."

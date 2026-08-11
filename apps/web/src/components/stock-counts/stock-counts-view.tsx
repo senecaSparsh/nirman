@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, RefreshCw } from "lucide-react";
+import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, ChevronDown, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
@@ -12,8 +12,10 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
+import { StatusPill } from "@/components/page";
+import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import { formatNumber, formatDate } from "@/lib/utils";
+import type { GlPreviewLine } from "@nirman/services";
 import type { StockCountRow } from "@/lib/types";
 
 type LocationWithStock = {
@@ -41,22 +43,21 @@ export function StockCountsView({
   locations: LocationWithStock[];
   permissions: { canCreate?: boolean; canManage?: boolean };
 }) {
-  const canCreate = permissions?.canCreate ?? true;
-  const canManage = permissions?.canManage ?? true;
+  const canCreate = permissions?.canCreate ?? false;
+  const canManage = permissions?.canManage ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<StockCountRow | null>(null);
   const [delTarget, setDelTarget] = useState<StockCountRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [previewing, setPreviewing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);
   const router = useRouter();
 
   const filteredCounts = useMemo(
     () => (statusFilter ? counts.filter((c) => c.status === statusFilter) : counts),
     [counts, statusFilter],
   );
-
-  const draftCount = counts.filter((c) => c.status === "DRAFT").length;
-  const confirmedCount = counts.filter((c) => c.status === "COUNTED").length;
-  const reconciledCount = counts.filter((c) => c.status === "RECONCILED").length;
 
   const countColumns: Column<StockCountRow>[] = [
     { key: "countDate", label: "Date", render: (c) => <span className="text-meta">{formatDate(c.countDate)}</span>, sortValue: (c) => c.countDate },
@@ -154,34 +155,53 @@ export function StockCountsView({
     }
   }
 
+  async function previewGl(count: StockCountRow) {
+    const lines = (count.lines ?? []).map((l) => ({
+      variance: l.variance,
+      unitCost: l.unitCost ?? 0,
+    }));
+    if (lines.length === 0 || lines.every((l) => l.variance === 0)) {
+      toast.info("No variances to preview — all counted quantities match system stock.");
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const res = await fetch("/api/gl/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "stockAdjustment", lines }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to preview");
+      setPreviewLines(data.lines);
+      setShowPreview(true);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Preview failed");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  // Extract the status filter so it can be used in the DataTable toolbar.
+  const statusSelect = (
+    <div className="relative shrink-0" style={{ width: 140 }}>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        style={{ width: 140 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All statuses</option>
+        <option value="DRAFT">Draft</option>
+        <option value="COUNTED">Counted</option>
+        <option value="RECONCILED">Reconciled</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      <MetricGrid cols={4}>
-        <Metric label="Total Counts" value={counts.length} icon={<ClipboardCheck />} />
-        <Metric label="Draft" value={draftCount} tone="muted" />
-        <Metric label="Counted" value={confirmedCount} tone="warning" />
-        <Metric label="Reconciled" value={reconciledCount} tone="success" />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-          <option value="">All statuses</option>
-          <option value="DRAFT">Draft</option>
-          <option value="COUNTED">Counted</option>
-          <option value="RECONCILED">Reconciled</option>
-        </Select>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {canCreate && (
-            <Button onClick={() => setFormOpen(true)}>
-              <Plus className="h-4 w-4" /> New Stock Count
-            </Button>
-          )}
-        </div>
-      </div>
-
       {filteredCounts.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck className="h-5 w-5" />}
@@ -190,16 +210,20 @@ export function StockCountsView({
           action={canCreate ? <Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> New Stock Count</Button> : undefined}
         />
       ) : (
-        <DataTable
-          columns={countColumns}
-          data={filteredCounts}
-          onRowClick={(c) => setDetailTarget(c)}
-          searchable
-          searchPlaceholder="Search by date, location…"
-          className="rounded-lg border border-border/60"
-          hideable
-          pageSize={50}
-        />
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <DataTable
+            columns={countColumns}
+            data={filteredCounts}
+            onRowClick={(c) => setDetailTarget(c)}
+            searchable
+            searchPlaceholder="Search by date, location…"
+            hideable
+            pageSize={50}
+            onAddRow={canCreate ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Stock Count"
+            toolbarLeading={statusSelect}
+          />
+        </div>
       )}
 
       <StockCountFormDialog
@@ -213,6 +237,8 @@ export function StockCountsView({
         onOpenChange={(o) => { if (!o) setDetailTarget(null); }}
         canManage={canManage}
         onAction={doAction}
+        onPreviewGl={previewGl}
+        previewing={previewing}
       />
 
       {delTarget && (
@@ -225,6 +251,17 @@ export function StockCountsView({
           successMessage="Stock count deleted"
           onSuccess={() => { setDelTarget(null); }}
         />
+      )}
+
+      {showPreview && previewLines.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)]">
+          <GlPreviewPanel
+            lines={previewLines}
+            title="GL Impact — Stock Reconciliation"
+            description="These journal entries will be posted when you reconcile the stock count."
+            defaultOpen
+          />
+        </div>
       )}
     </div>
   );
@@ -411,11 +448,15 @@ function StockCountDetailDialog({
   onOpenChange,
   canManage,
   onAction,
+  onPreviewGl,
+  previewing,
 }: {
   count: StockCountRow | null;
   onOpenChange: (o: boolean) => void;
   canManage: boolean;
   onAction: (id: string, action: "confirm" | "reconcile") => void;
+  onPreviewGl: (count: StockCountRow) => void;
+  previewing: boolean;
 }) {
   if (!count) return null;
 
@@ -438,9 +479,24 @@ function StockCountDetailDialog({
               </Button>
             )}
             {canManage && count.status === "COUNTED" && (
-              <Button size="sm" onClick={() => onAction(count.id, "reconcile")}>
-                <ArrowRight className="h-4 w-4" /> Reconcile
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onPreviewGl(count)}
+                  disabled={previewing}
+                >
+                  {previewing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <BookOpen className="h-4 w-4" />
+                  )}
+                  Preview GL
+                </Button>
+                <Button size="sm" onClick={() => onAction(count.id, "reconcile")}>
+                  <ArrowRight className="h-4 w-4" /> Reconcile
+                </Button>
+              </>
             )}
           </div>
         </div>

@@ -197,19 +197,19 @@ export async function evaluateRequisitionRouting(
 ): Promise<RoutingDecision> {
   const req = await prisma.materialRequisition.findUnique({
     where: { id: requisitionId },
-    include: { lines: true, project: { include: { company: true } } },
+    include: { lines: true, project: { include: { company: true } }, department: { include: { company: true } } },
   });
   if (!req) throw new ServiceError("Requisition not found", 404);
-  if (!req.project) throw new ServiceError("Requisition has no project");
+  if (!req.project && !req.department) throw new ServiceError("Requisition has no project or department");
 
-  const company = req.project.company;
+  const company = req.project?.company ?? req.department?.company;
   const weights = opts.weights ?? parseLciWeights(company?.lciWeights);
 
   // Threshold: explicit override → project → company default → DEFAULT
   let threshold: Decimal;
   if (opts.threshold !== undefined) {
     threshold = new Decimal(opts.threshold);
-  } else if (req.project.lciThreshold) {
+  } else if (req.project?.lciThreshold) {
     threshold = new Decimal(req.project.lciThreshold);
   } else if (company?.lciThresholdDefault) {
     threshold = new Decimal(company.lciThresholdDefault);

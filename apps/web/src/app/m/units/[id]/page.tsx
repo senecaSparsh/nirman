@@ -17,6 +17,7 @@ import {
   MobileStatusBadge,
   MobileRefreshButton,
 } from "@/components/mobile/mobile-primitives";
+import { ShareButton } from "@/components/share-button";
 
 /**
  * /m/units/[id] — built-unit detail with valuation, production cost, and
@@ -94,6 +95,42 @@ async function MobileUnitDetailContent({
         </div>
       </div>
 
+      {/* RERA areas (only show if any are set) */}
+      {(unit.carpetArea || unit.superBuiltUpArea || unit.balconyArea) && (
+        <MobileSectionTitle>RERA Areas</MobileSectionTitle>
+      )}
+      {(unit.carpetArea || unit.superBuiltUpArea || unit.balconyArea) && (
+        <div>
+          {unit.superBuiltUpArea && (
+            <MobileInfoRow
+              title="Super Built-Up Area"
+              value={`${formatNumber(toNum(unit.superBuiltUpArea), 0)} ${unit.areaUnit}`}
+            />
+          )}
+          {unit.carpetArea && (
+            <MobileInfoRow
+              title="Carpet Area (RERA)"
+              value={`${formatNumber(toNum(unit.carpetArea), 0)} ${unit.areaUnit}`}
+            />
+          )}
+          {unit.balconyArea && (
+            <MobileInfoRow
+              title="Balcony Area"
+              value={`${formatNumber(toNum(unit.balconyArea), 0)} ${unit.areaUnit}`}
+            />
+          )}
+          {unit.clearHeight && (
+            <MobileInfoRow
+              title="Clear Height"
+              value={`${formatNumber(toNum(unit.clearHeight), 0)} ${unit.areaUnit}`}
+            />
+          )}
+          {unit.hasLoadingDock && (
+            <MobileInfoRow title="Loading Dock" value="Yes" />
+          )}
+        </div>
+      )}
+
       <MobileSectionTitle>Project</MobileSectionTitle>
       <div>
         <MobileRow
@@ -120,12 +157,21 @@ async function MobileUnitDetailContent({
           <MobileCta href={`/m/sales/new?builtUnitId=${unit.id}`} icon={ShoppingCart}>
             Sell this unit
           </MobileCta>
+          <ShareButton
+            title={`Unit ${unit.unitNumber} — ${unit.project.name}`}
+            text={`Unit ${unit.unitNumber} (${unit.unitType.replace(/_/g, " ")}) at ${unit.project.name}${unit.askingPrice ? ` — Price: ${formatCurrency(toNum(unit.askingPrice))}` : ""}`}
+            url={`/print/unit-spec/${unit.id}`}
+            variant="outline"
+            size="touch"
+            label="Share Unit Details"
+            className="w-full"
+          />
         </div>
       )}
-      {unit.status === "SOLD" && (
+      {unit.saleId != null && (
         <div className="px-4 pb-6 pt-3">
           <div className="rounded-md border border-success/30 bg-success/5 px-3 py-2 text-meta text-success">
-            This unit is sold.
+            {unit.status === "SOLD" ? "This unit is sold." : "This unit has an active sale in progress."}
           </div>
         </div>
       )}

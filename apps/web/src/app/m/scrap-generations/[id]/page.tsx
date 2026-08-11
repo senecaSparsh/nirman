@@ -13,6 +13,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/mobile-primitives";
+import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
 
 /**
  * /m/scrap-generations/[id] — scrap generation slip detail. Shows
@@ -142,6 +143,17 @@ async function MobileScrapDetailContent({
           ))}
         </div>
       )}
+
+      <MobileDetailActions
+        links={[
+          {
+            label: "Print Slip",
+            icon: "Printer",
+            href: `/print/scrap/${scrap.id}`,
+            variant: "outline",
+          },
+        ]}
+      />
     </div>
   );
 }

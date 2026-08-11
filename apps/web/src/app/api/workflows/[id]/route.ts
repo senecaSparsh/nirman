@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
+import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -46,7 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  * PATCH /api/workflows/[id] — update workflow name/description/graph/status
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const user = await requirePermission(PERM.WORKFLOWS_MANAGE);
   const company = await getCompany();
 
   const { id } = await params;
@@ -67,9 +68,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (parsed.data.graphJson !== undefined) update.graphJson = parsed.data.graphJson;
   if (parsed.data.status !== undefined) update.status = parsed.data.status;
 
-  const updated = await prisma.workflow.update({
-    where: { id },
-    data: update,
+  const updated = await prisma.$transaction(async (tx) => {
+    const wf = await tx.workflow.update({
+      where: { id },
+      data: update,
+    });
+    await logAction(tx, {
+      userId: user.id,
+      companyId: company.id,
+      action: "WORKFLOW_UPDATE",
+      entityType: "Workflow",
+      entityId: id,
+      before: { name: existing.name, status: existing.status },
+      after: update,
+    });
+    return wf;
   });
 
   return json({ ok: true, id: updated.id });
@@ -79,7 +92,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  * DELETE /api/workflows/[id] — soft delete a workflow
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const user = await requirePermission(PERM.WORKFLOWS_MANAGE);
   const company = await getCompany();
 
   const { id } = await params;
@@ -88,9 +101,19 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 
-  await prisma.workflow.update({
-    where: { id },
-    data: { deletedAt: new Date(), status: "ARCHIVED" },
+  await prisma.$transaction(async (tx) => {
+    await tx.workflow.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: "ARCHIVED" },
+    });
+    await logAction(tx, {
+      userId: user.id,
+      companyId: company.id,
+      action: "WORKFLOW_DELETE",
+      entityType: "Workflow",
+      entityId: id,
+      before: { name: existing.name, status: existing.status },
+    });
   });
 
   return json({ ok: true });

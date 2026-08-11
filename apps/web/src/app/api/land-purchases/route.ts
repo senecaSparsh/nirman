@@ -28,6 +28,7 @@ export const GET = apiHandler(async () => {
       totalCost: toNum(lp.totalCost),
       registryNo: lp.registryNo,
       location: lp.location,
+      documentUrl: lp.documentUrl,
       parcelCount: lp.parcels.length,
       availableArea: lp.parcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),
     })),
@@ -56,7 +57,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
       createdById: user.id,
     });
-    return json({ id: result.landPurchase.id }, { status: 201 });
+    return json({ id: result.landPurchase.id, rootParcelId: result.parcel.id, rootParcelNumber: result.parcel.number, rootParcelArea: toNum(result.parcel.area), rootParcelAreaUnit: result.parcel.areaUnit, rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost) }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase") }, { status: 400 });
   }

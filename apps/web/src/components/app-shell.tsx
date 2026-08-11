@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ChevronRight,
   ChevronsLeft,
   Menu,
+  PanelLeft,
   X,
   Workflow,
   Loader2,
@@ -27,6 +29,11 @@ import {
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/command-palette";
 import { CompanySwitcher } from "@/components/company-switcher";
+import { AlertBell } from "@/components/alert-bell";
+import { NotificationBell } from "@/components/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CurrencyToggle } from "@/components/currency-toggle";
+import { BuildNavPanel } from "@/components/build/build-nav-panel";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 
 /**
@@ -213,9 +220,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .flatMap((s) => s.items)
       .reduce((sum, i) => sum + (badgeCounts[i.href] ?? 0), 0);
 
+  // ── Build alert items for the AlertBell ───────────────────────
+  // Map each badge link to an urgency level based on its href.
+  const alertItems = badgeLinksFor(userRole)
+    .filter((link) => (badgeCounts[link.href] ?? 0) > 0)
+    .map((link) => {
+      const href = link.href;
+      const count = badgeCounts[href] ?? 0;
+      // Approvals and submitted requisitions are blocking.
+      // POs in progress and pending tasks are "soon".
+      const urgency: "blocking" | "soon" | "info" =
+        href === "/approvals" || href === "/requisitions" ? "blocking" : "soon";
+      // Use a shorter label for the bell dropdown
+      const label = link.label;
+      return { href, label, count, urgency };
+    });
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── World rail — always visible, 56px, dark ──────────────── */}
+      {/* ── World rail — always visible, 64px, dark ──────────────── */}
       <WorldRail
         worlds={worlds}
         activeKey={activeWorld.key}
@@ -237,7 +260,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           pathname={pathname}
           workspaceNav={workspaceNav}
           onCollapse={togglePanel}
-          className="nav-panel fixed inset-y-0 left-14 z-30 w-56"
+          className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
+        />
+      ) : activeWorld.key === "build" ? (
+        <BuildNavPanel
+          world={activeWorld}
+          pathname={pathname}
+          badgeCounts={badgeCounts}
+          workspaceNav={workspaceNav}
+          onCollapse={togglePanel}
+          className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
       ) : (
         <WorldPanel
@@ -246,7 +278,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           badgeCounts={badgeCounts}
           workspaceNav={workspaceNav}
           onCollapse={togglePanel}
-          className="nav-panel fixed inset-y-0 left-14 z-30 w-56"
+          className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
       )}
 
@@ -254,7 +286,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
+            className="drawer-backdrop absolute inset-0 bg-foreground/40 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 flex shadow-overlay">
@@ -277,6 +309,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
               />
+            ) : activeWorld.key === "build" ? (
+              <BuildNavPanel
+                world={activeWorld}
+                pathname={pathname}
+                badgeCounts={badgeCounts}
+                workspaceNav={workspaceNav}
+                onNavigate={() => setMobileOpen(false)}
+                className="flex w-60"
+              />
             ) : (
               <WorldPanel
                 world={activeWorld}
@@ -289,89 +330,118 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <button
-            className="absolute right-4 top-4 rounded-md bg-card p-2 text-muted-foreground shadow-raised"
+            className="absolute right-4 top-3.5 flex size-9 items-center justify-center rounded-full border border-border bg-elevated text-muted-foreground shadow-floating transition-colors hover:text-foreground"
             onClick={() => setMobileOpen(false)}
             aria-label="Close menu"
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </button>
         </div>
       )}
 
       {/* ── Main ─────────────────────────────────────────────────── */}
       <div className="nav-main flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border bg-background/85 px-3 backdrop-blur-md lg:px-6">
+        {/*
+          TOPBAR — 52px, and it holds only things that are true on every
+          page: where you are, how to find anything, what needs you, and
+          which company's books you're looking at.
+
+          The search field is a *field*, not an icon. It is the fastest
+          route to any of the 144 pages and 20k records in here, and an
+          18px magnifier in a corner does not communicate that. It reads
+          as the primary affordance in the bar, because it is.
+        */}
+        <header className="sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-xl lg:px-6 no-print">
           <button
-            className="touch -ml-1 flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+            className="-ml-1.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="size-[18px]" />
           </button>
 
           {/* Only visible while the panel is collapsed — see `.nav-expand` */}
           <button
             onClick={togglePanel}
-            className="nav-expand items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="nav-expand -ml-1.5 size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Show navigation"
+            title="Show navigation"
           >
-            <Menu className="h-4 w-4" />
+            <PanelLeft className="size-4" />
           </button>
 
           {/* Breadcrumb — world, then page. The dot carries the colour. */}
-          <nav className="flex min-w-0 items-center gap-2 text-meta">
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-meta">
             <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: onSettings ? "var(--color-world-admin)" : activeWorld.color }}
+              className="size-1.5 shrink-0 rounded-full"
+              style={{
+                backgroundColor: onSettings ? "var(--color-world-admin)" : activeWorld.color,
+              }}
             />
             {onSettings ? (
               <Link
                 href="/settings"
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                className="shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Settings
               </Link>
             ) : (
               <Link
                 href={activeWorld.href}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                className="shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {activeWorld.label}
               </Link>
             )}
             {activeLink && activeLink.href !== activeWorld.href && !onSettings && (
               <>
-                <span className="text-border">/</span>
-                <span className="truncate font-medium text-foreground">{activeLink.label}</span>
+                <ChevronRight className="size-3 shrink-0 text-faint" />
+                <span className="truncate font-semibold text-foreground">{activeLink.label}</span>
               </>
             )}
             {onSettings && pathname !== "/settings" && (
               <>
-                <span className="text-border">/</span>
-                <span className="truncate font-medium text-foreground">
-                  {settingsLinks.find((l) => pathname.startsWith(l.href) && l.href !== "/settings")?.label ?? "Settings"}
+                <ChevronRight className="size-3 shrink-0 text-faint" />
+                <span className="truncate font-semibold text-foreground">
+                  {settingsLinks.find((l) => pathname.startsWith(l.href) && l.href !== "/settings")
+                    ?.label ?? "Settings"}
                 </span>
               </>
             )}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5">
             <button
-              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-              className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-caption text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+              onClick={() =>
+                window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
+              }
+              className={cn(
+                "group flex h-8 items-center gap-2 rounded-md border border-input bg-card pl-2.5 pr-1.5 text-meta",
+                "text-muted-foreground shadow-raised transition-colors",
+                "hover:border-border-strong hover:text-foreground",
+                "w-8 justify-center sm:w-56 sm:justify-start lg:w-64",
+              )}
               title="Search anything (⌘K)"
             >
-              <Search className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded border border-border bg-muted px-1 py-px font-mono text-micro text-muted-foreground sm:inline">
-                ⌘K
-              </kbd>
+              <Search className="size-3.5 shrink-0" />
+              <span className="hidden sm:inline">Search or jump to…</span>
+              <kbd className="kbd ml-auto hidden sm:inline-flex">⌘K</kbd>
             </button>
+            <AlertBell items={alertItems} />
+            <NotificationBell />
+            <CurrencyToggle tone="surface" />
+            <ThemeToggle tone="surface" />
+            <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
             <CompanySwitcher companies={companies} />
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        {/*
+          The measure cap lives here rather than on each page. 1400px is
+          about 150 characters at our body size — past that a table row's
+          first and last cell stop being readable as the same row.
+        */}
+        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-7">
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
       </div>
@@ -412,18 +482,38 @@ function WorldRail({
       .join("")
       .toUpperCase() || "N";
 
+  /**
+   * The rail is the only piece of chrome present on literally every
+   * screen, so it earns two changes over v1:
+   *
+   *  · Each world now carries a 3-letter label under its icon. An icon
+   *    alone is a memory test — five near-identical grey glyphs, and new
+   *    users hover every one of them to find "Finance". A label costs
+   *    8px of height and removes the test entirely.
+   *  · The active world is marked by a filled tile *and* a world-coloured
+   *    rule, so "which floor am I on" survives both a glance and a
+   *    colour-vision deficiency.
+   */
   return (
-    <aside className={cn("w-14 flex-col items-center bg-sidebar py-3", className)}>
-      {/* Brand mark — the one place ochre fills a shape */}
+    <aside
+      className={cn(
+        "w-16 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar py-2.5",
+        className,
+      )}
+    >
+      {/* Brand mark — the one place amber fills a shape */}
       <Link
         href="/"
-        className="mb-4 flex h-8 w-8 items-center justify-center rounded-md bg-brand font-mono text-body font-bold text-brand-foreground"
+        className={cn(
+          "mb-2 flex size-9 items-center justify-center rounded-lg bg-brand font-mono text-[15px] font-bold",
+          "text-brand-foreground shadow-raised transition-transform hover:scale-105",
+        )}
         title={companyName}
       >
         N
       </Link>
 
-      <nav className="flex flex-1 flex-col items-center gap-1">
+      <nav className="flex w-full flex-1 flex-col items-center gap-0.5 px-1.5">
         {worlds.map((w) => {
           const active = w.key === activeKey;
           const Icon = w.icon;
@@ -433,22 +523,35 @@ function WorldRail({
               key={w.key}
               href={w.href}
               title={`${w.label} — ${w.tagline}`}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-                active ? "bg-white/10 text-white" : "text-sidebar-foreground/45 hover:bg-white/5 hover:text-sidebar-foreground",
+                "group relative flex w-full flex-col items-center gap-1 rounded-lg py-2 transition-colors",
+                active
+                  ? "bg-sidebar-accent text-white"
+                  : "text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
               )}
             >
-              {/* Active indicator — world colour, 2px, flush left */}
+              {/* Active indicator — world colour, 2px, flush to the rail edge */}
               {active && (
                 <span
-                  className="absolute -left-[9px] h-5 w-0.5 rounded-full"
+                  className="absolute -left-1.5 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full"
                   style={{ backgroundColor: w.color }}
                 />
               )}
-              <Icon className="h-[18px] w-[18px]" />
-              {count > 0 && (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand ring-2 ring-sidebar" />
-              )}
+              <span className="relative">
+                <Icon className="size-[18px]" style={active ? { color: w.color } : undefined} />
+                {count > 0 && (
+                  <span className="absolute -right-1.5 -top-1 size-2 rounded-full bg-brand ring-2 ring-sidebar" />
+                )}
+              </span>
+              <span
+                className={cn(
+                  "max-w-full truncate text-[9px] font-semibold uppercase leading-none tracking-wide",
+                  active ? "text-white/85" : "text-sidebar-muted/80",
+                )}
+              >
+                {w.label}
+              </span>
             </Link>
           );
         })}
@@ -457,42 +560,48 @@ function WorldRail({
       {/* Settings gear — not a world, always at the bottom. Only shown
           if the role has at least one settings link. */}
       {settingsLinks.length > 0 && (
-        <div className="mt-2 flex flex-col items-center gap-1 border-t border-white/10 pt-2">
+        <div className="mt-1 w-full border-t border-sidebar-border px-1.5 pt-1.5">
           <Link
             href="/settings"
             title="Settings"
             className={cn(
-              "group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+              "group relative flex w-full items-center justify-center rounded-lg py-2 transition-colors",
               onSettings
-                ? "bg-white/10 text-white"
-                : "text-sidebar-foreground/45 hover:bg-white/5 hover:text-sidebar-foreground",
+                ? "bg-sidebar-accent text-white"
+                : "text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
             )}
           >
             {onSettings && (
               <span
-                className="absolute -left-[9px] h-5 w-0.5 rounded-full"
+                className="absolute -left-1.5 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full"
                 style={{ backgroundColor: "var(--color-world-admin)" }}
               />
             )}
-            <Settings className="h-[18px] w-[18px]" />
+            <Settings className="size-[18px]" />
           </Link>
         </div>
       )}
 
-      <div className="mt-3 flex flex-col items-center gap-2">
+      <div className="mt-1.5 flex flex-col items-center gap-1.5">
+        <CurrencyToggle />
+        <ThemeToggle />
         <button
           onClick={() => authSignOut().then(() => (window.location.href = "/sign-in"))}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/35 transition-colors hover:bg-white/5 hover:text-sidebar-foreground"
+          className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           title="Sign out"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="size-4" />
         </button>
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-micro font-semibold text-white"
+        <Link
+          href="/"
+          className={cn(
+            "flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-[10px] font-bold",
+            "text-sidebar-foreground ring-1 ring-inset ring-white/10 transition-colors hover:bg-brand hover:text-brand-foreground",
+          )}
           title={`${userName || "You"} · ${userRole}`}
         >
           {initials}
-        </span>
+        </Link>
       </div>
     </aside>
   );
@@ -528,23 +637,34 @@ function WorldPanel({
           href={item.href}
           onClick={onNavigate}
           title={item.hint}
+          aria-current={active ? "page" : undefined}
           className={cn(
-            "group flex items-center gap-2.5 rounded-md px-2 py-[7px] text-meta transition-colors",
+            "group relative flex items-center gap-2.5 rounded-md py-2 pl-2.5 pr-2 text-[13px] transition-colors",
             active
               ? "bg-accent font-semibold text-foreground"
               : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
+          {/* The active item carries the world colour as a 2px stub, so
+              the panel echoes the rail's wayfinding rather than inventing
+              a second visual language for "you are here". */}
+          {active && (
+            <span
+              className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full"
+              style={{ backgroundColor: world.color }}
+            />
+          )}
           <Icon
-            className={cn("h-4 w-4 shrink-0", active ? "" : "text-muted-foreground/60")}
+            className={cn("size-4 shrink-0", !active && "text-faint group-hover:text-muted-foreground")}
             style={active ? { color: world.color } : undefined}
           />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
           {badge != null && badge > 0 && (
             <span
               className={cn(
-                "shrink-0 rounded px-1.5 py-px text-micro font-semibold tnum",
-                active ? "bg-foreground text-background" : "bg-brand-soft text-brand",
+                "inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1",
+                "text-[10px] font-semibold tabular-nums leading-none",
+                active ? "bg-foreground text-background" : "bg-brand-soft text-brand-strong",
               )}
             >
               {badge > 99 ? "99+" : badge}
@@ -554,20 +674,20 @@ function WorldPanel({
 
         {/* Saved workspaces nest under their parent link */}
         {item.href === "/playground" && workspaceNav.length > 0 && (
-          <ul className="ml-4 mt-px space-y-px border-l border-border pl-2">
+          <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
             {workspaceNav.map((w) => (
               <li key={w.href}>
                 <Link
                   href={w.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-caption transition-colors",
+                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-meta transition-colors",
                     pathname === w.href
                       ? "bg-accent font-semibold text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <Workflow className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                  <Workflow className="size-3 shrink-0 text-faint" />
                   <span className="truncate">{w.label}</span>
                 </Link>
               </li>
@@ -581,49 +701,51 @@ function WorldPanel({
   return (
     <div className={cn("flex-col border-r border-border bg-card", className)}>
       {/* World identity — title + the one-line explanation of the world */}
-      <div className="relative border-b border-border px-4 pb-3 pt-3.5">
+      <div className="relative shrink-0 border-b border-border px-3.5 pb-3.5 pt-4">
         <span
-          className="absolute left-0 top-0 h-0.5 w-full"
+          className="absolute left-0 top-0 h-[3px] w-full"
           style={{ backgroundColor: world.color }}
         />
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="text-section text-foreground">{world.label}</h2>
-            <p className="mt-0.5 text-caption leading-snug text-muted-foreground">{world.tagline}</p>
+            <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.015em] text-foreground">
+              {world.label}
+            </h2>
+            <p className="mt-1 text-caption leading-snug text-muted-foreground">{world.tagline}</p>
           </div>
           {onCollapse && (
             <button
               onClick={onCollapse}
-              className="-mr-1 -mt-0.5 shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+              className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-faint transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Collapse navigation"
-              title="Collapse"
+              title="Collapse navigation"
             >
-              <ChevronsLeft className="h-3.5 w-3.5" />
+              <ChevronsLeft className="size-4" />
             </button>
           )}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
         {world.sections
           .map((s) => ({ ...s, items: s.items.filter((i) => !i.hidden) }))
           .filter((s) => s.items.length > 0)
           .map((section, si, arr) => (
-            <div key={section.label} className={cn(si > 0 && "mt-4")}>
+            <div key={section.label} className={cn(si > 0 && "mt-5")}>
               {/* A section label is only worth its space if the world has
                   more than one section — otherwise it's noise. */}
               {arr.length > 1 && (
-                <p className="px-2 pb-1 text-label text-muted-foreground/55">{section.label}</p>
+                <p className="mb-1.5 px-2.5 text-label text-faint">{section.label}</p>
               )}
-              <ul className="space-y-px">
-                {section.items.map((item) => renderItem(item))}
-              </ul>
+              <ul className="space-y-0.5">{section.items.map((item) => renderItem(item))}</ul>
             </div>
           ))}
       </nav>
 
-      <div className="border-t border-border px-3 py-2">
-        <span className="text-micro text-muted-foreground/60">⌘K to search anything</span>
+      <div className="shrink-0 border-t border-border px-3 py-2.5">
+        <span className="flex items-center gap-1.5 text-caption text-faint">
+          <kbd className="kbd">⌘K</kbd> to search anything
+        </span>
       </div>
     </div>
   );
@@ -657,15 +779,22 @@ function SettingsPanel({
           href={item.href}
           onClick={onNavigate}
           title={item.hint}
+          aria-current={active ? "page" : undefined}
           className={cn(
-            "group flex items-center gap-2.5 rounded-md px-2 py-[7px] text-meta transition-colors",
+            "group relative flex items-center gap-2.5 rounded-md py-2 pl-2.5 pr-2 text-[13px] transition-colors",
             active
               ? "bg-accent font-semibold text-foreground"
               : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
+          {active && (
+            <span
+              className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full"
+              style={{ backgroundColor: settingsColor }}
+            />
+          )}
           <Icon
-            className={cn("h-4 w-4 shrink-0", active ? "" : "text-muted-foreground/60")}
+            className={cn("size-4 shrink-0", !active && "text-faint group-hover:text-muted-foreground")}
             style={active ? { color: settingsColor } : undefined}
           />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -673,20 +802,20 @@ function SettingsPanel({
 
         {/* Saved workspaces nest under the Workspaces link */}
         {item.href === "/playground" && workspaceNav.length > 0 && (
-          <ul className="ml-4 mt-px space-y-px border-l border-border pl-2">
+          <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
             {workspaceNav.map((w) => (
               <li key={w.href}>
                 <Link
                   href={w.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-caption transition-colors",
+                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-meta transition-colors",
                     pathname === w.href
                       ? "bg-accent font-semibold text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <Workflow className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                  <Workflow className="size-3 shrink-0 text-faint" />
                   <span className="truncate">{w.label}</span>
                 </Link>
               </li>
@@ -699,39 +828,41 @@ function SettingsPanel({
 
   return (
     <div className={cn("flex-col border-r border-border bg-card", className)}>
-      <div className="relative border-b border-border px-4 pb-3 pt-3.5">
+      <div className="relative shrink-0 border-b border-border px-3.5 pb-3.5 pt-4">
         <span
-          className="absolute left-0 top-0 h-0.5 w-full"
+          className="absolute left-0 top-0 h-[3px] w-full"
           style={{ backgroundColor: settingsColor }}
         />
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="text-section text-foreground">Settings</h2>
-            <p className="mt-0.5 text-caption leading-snug text-muted-foreground">
+            <h2 className="text-[15px] font-semibold leading-tight tracking-[-0.015em] text-foreground">
+              Settings
+            </h2>
+            <p className="mt-1 text-caption leading-snug text-muted-foreground">
               Company, access and automation
             </p>
           </div>
           {onCollapse && (
             <button
               onClick={onCollapse}
-              className="-mr-1 -mt-0.5 shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+              className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-faint transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Collapse navigation"
-              title="Collapse"
+              title="Collapse navigation"
             >
-              <ChevronsLeft className="h-3.5 w-3.5" />
+              <ChevronsLeft className="size-4" />
             </button>
           )}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
-        <ul className="space-y-px">
-          {links.map((item) => renderItem(item))}
-        </ul>
+      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
+        <ul className="space-y-0.5">{links.map((item) => renderItem(item))}</ul>
       </nav>
 
-      <div className="border-t border-border px-3 py-2">
-        <span className="text-micro text-muted-foreground/60">⌘K to search anything</span>
+      <div className="shrink-0 border-t border-border px-3 py-2.5">
+        <span className="flex items-center gap-1.5 text-caption text-faint">
+          <kbd className="kbd">⌘K</kbd> to search anything
+        </span>
       </div>
     </div>
   );

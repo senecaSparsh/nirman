@@ -56,7 +56,7 @@ async function MobileRequisitionsContent() {
     id: r.id,
     reqNumber: r.reqNumber,
     status: r.status,
-    projectName: r.project.name,
+    projectName: r.project?.name ?? null,
     createdAt: r.createdAt.toISOString(),
     lineCount: r.lines.length,
   }));

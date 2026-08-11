@@ -14,6 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Material is a global catalog entity (no companyId); stock is scoped per
   // company via the stockItems relation → StockLocation.companyId.
   const materials = await prisma.material.findMany({
+    take: 200,
     where: {
       deletedAt: null,
       ...(categoryId ? { categoryId } : {}),
@@ -60,6 +61,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       bulkDiscountPct: m.bulkDiscountPct == null ? null : toNum(m.bulkDiscountPct),
       isCorporateCommodity: m.isCorporateCommodity ?? false,
       description: m.description,
+      version: m.version,
       totalQty,
       totalValue,
       lowStock,
@@ -114,4 +116,71 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return mat;
   });
   return json(created, { status: 201 });
+});
+
+// ── Bulk CSV import ─────────────────────────────────────────────
+// POST /api/materials with { bulk: true, items: [...] } creates
+// multiple materials in one transaction. Skips duplicates (by code)
+// and returns a summary of created/skipped/failed items.
+
+export const PUT = apiHandler(async (req: NextRequest) => {
+  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const body = await req.json();
+  const items: unknown = body.items;
+  if (!Array.isArray(items)) {
+    return json({ error: "Expected { items: [...] } array" }, { status: 400 });
+  }
+
+  const results = { created: 0, skipped: 0, errors: [] as { row: number; error: string }[] };
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const parsed = materialSchema.safeParse(item);
+    if (!parsed.success) {
+      results.errors.push({ row: i + 1, error: parsed.error.issues[0]?.message ?? "Invalid input" });
+      continue;
+    }
+    const existing = await prisma.material.findUnique({ where: { code: parsed.data.code } });
+    if (existing && !existing.deletedAt) {
+      results.skipped++;
+      continue;
+    }
+    try {
+      await prisma.$transaction(async (tx) => {
+        if (existing && existing.deletedAt) {
+          // Restore soft-deleted material
+          await tx.material.update({
+            where: { id: existing.id },
+            data: { ...parsed.data, deletedAt: null },
+          });
+          await logAction(tx, {
+            userId: user.id,
+            action: "MATERIAL_RESTORE",
+            entityType: "Material",
+            entityId: existing.id,
+            after: { code: parsed.data.code, name: parsed.data.name },
+          });
+        } else {
+          const mat = await tx.material.create({
+            data: { ...parsed.data, currentCost: parsed.data.standardCost },
+          });
+          await logAction(tx, {
+            userId: user.id,
+            action: "MATERIAL_CREATE",
+            entityType: "Material",
+            entityId: mat.id,
+            after: { code: mat.code, name: mat.name },
+          });
+        }
+      });
+      results.created++;
+    } catch (err) {
+      results.errors.push({
+        row: i + 1,
+        error: err instanceof Error ? err.message : "Database error",
+      });
+    }
+  }
+
+  return json(results, { status: 200 });
 });

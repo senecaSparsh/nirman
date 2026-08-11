@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -78,6 +78,31 @@ export function MaterialFormDialog({
   const [saving, setSaving] = useState(false);
 
   const isEdit = material != null;
+
+  // Sync form fields when the edit target changes or the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    setForm(
+      material
+        ? {
+            code: material.code,
+            name: material.name,
+            categoryId: material.categoryId ?? "",
+            unit: material.unit,
+            hsnCode: material.hsnCode ?? "",
+            gstRate: String(material.gstRate),
+            standardCost: String(material.standardCost),
+            minStock: material.minStock == null ? "" : String(material.minStock),
+            reorderPoint: material.reorderPoint == null ? "" : String(material.reorderPoint),
+            economicOrderQty: material.economicOrderQty == null ? "" : String(material.economicOrderQty),
+            volumetricDensity: material.volumetricDensity == null ? "" : String(material.volumetricDensity),
+            bulkDiscountPct: material.bulkDiscountPct == null ? "" : String(material.bulkDiscountPct),
+            isCorporateCommodity: material.isCorporateCommodity ?? false,
+            description: material.description ?? "",
+          }
+        : empty,
+    );
+  }, [open, material]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

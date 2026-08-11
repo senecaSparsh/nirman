@@ -119,12 +119,13 @@ export async function generateAutoRequisition(opts: {
   }
 
   // 5. Create the DRAFT requisition (one per call, batching all due materials).
-  const d = new Date();
-  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  const reqNumber = `AREQ-${ymd}-${rand}`;
-
   const created = await prisma.$transaction(async (tx) => {
+    const d = new Date();
+    const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    const prefix = `AREQ-${ymd}-`;
+    const count = await tx.materialRequisition.count({ where: { reqNumber: { startsWith: prefix } } });
+    const reqNumber = `${prefix}${String(count + 1).padStart(4, "0")}`;
+
     const req = await tx.materialRequisition.create({
       data: {
         reqNumber,

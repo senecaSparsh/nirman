@@ -15,7 +15,7 @@ export default function PurchaserPerformancePage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading purchaser performance…" variant="list" />}>
         <PurchaserPerformanceContent searchParams={searchParams} />
       </Suspense>

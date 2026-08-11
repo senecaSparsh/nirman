@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
  * component just asks the user to confirm — the parent decides what happens next.
  *
  * Use this instead of native `confirm()` for a consistent, styled UX.
+ * The description accepts ReactNode so multi-line messages, bold text,
+ * or structured content can be rendered properly.
  */
 export function ConfirmDialog({
   open,
@@ -24,7 +26,7 @@ export function ConfirmDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "destructive" | "default" | "outline";

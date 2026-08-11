@@ -2,12 +2,14 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, json, requirePermission, subcontractorSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, subcontractorSchema } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
+  const company = await getCompany();
   const subs = await prisma.subcontractor.findMany({
-    where: { deletedAt: null },
+    take: 200,
+    where: { companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
   });
   return json(
@@ -31,6 +33,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const created = await prisma.$transaction(async (tx) => {
+    const company = await getCompany();
     const sub = await tx.subcontractor.create({
       data: {
         name: parsed.data.name,
@@ -39,6 +42,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         email: parsed.data.email ?? null,
         address: parsed.data.address ?? null,
         trade: parsed.data.trade ?? null,
+        companyId: company.id,
       },
     });
     await logAction(tx, {

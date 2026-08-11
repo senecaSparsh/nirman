@@ -31,7 +31,7 @@ async function EditPlaygroundContent({ params }: { params: Promise<{ id: string 
   if (!ws) notFound();
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PlaygroundCanvas
         mode="edit"
         workspaceId={ws.id}

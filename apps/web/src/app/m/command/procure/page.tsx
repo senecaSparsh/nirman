@@ -97,7 +97,7 @@ async function CommandProcureContent() {
       ) : (
         <div>
           {pendingReqs.map((r) => (
-            <MobileRow key={r.id} href={`/m/requisitions/${r.id}`} icon={ClipboardList} title={r.project.name} subtitle={formatDate(r.createdAt)} badge={<MobileStatusBadge status={r.status} />} />
+            <MobileRow key={r.id} href={`/m/requisitions/${r.id}`} icon={ClipboardList} title={r.project?.name ?? "N/A"} subtitle={formatDate(r.createdAt)} badge={<MobileStatusBadge status={r.status} />} />
           ))}
         </div>
       )}

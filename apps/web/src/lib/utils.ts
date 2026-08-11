@@ -57,7 +57,57 @@ export function formatCurrency(value: number | string | null | undefined, curren
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+/**
+ * Compact currency format — Indian lakhs/crores notation (₹1.2L, ₹3.5Cr).
+ * Use for KPI cards, dashboard stats, summary badges, and other display-only
+ * contexts where full numbers would add visual noise.
+ */
+export function formatCurrencyCompact(value: number | string | null | undefined, currency = "INR") {
+  if (value == null) return "—";
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  const symbol = currency === "INR" ? "₹" : "";
+  if (abs >= 1_00_00_000) {
+    // ≥ 1 crore
+    const cr = abs / 1_00_00_000;
+    return `${sign}${symbol}${cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(2)}Cr`;
+  }
+  if (abs >= 1_00_000) {
+    // ≥ 1 lakh
+    const l = abs / 1_00_000;
+    return `${sign}${symbol}${l % 1 === 0 ? l.toFixed(0) : l.toFixed(2)}L`;
+  }
+  if (abs >= 1_000) {
+    // ≥ 1 thousand — show as ₹1.2K
+    const k = abs / 1_000;
+    return `${sign}${symbol}${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}K`;
+  }
+  // < 1000 — show whole rupees
+  return `${sign}${symbol}${Math.round(abs).toLocaleString("en-IN")}`;
+}
+
+/**
+ * Detailed currency format — shows paise (2 decimal places). Use for
+ * GL entries, audit logs, invoices, reconciliation views, and any
+ * financial context where hidden paise could cause phantom
+ * reconciliation discrepancies.
+ */
+export function formatCurrencyDetailed(value: number | string | null | undefined, currency = "INR") {
+  if (value == null) return "—";
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -75,4 +125,19 @@ export function formatDate(value: Date | string | null | undefined) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+export function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  if (hours < 24) return `${hours} hr ago`;
+  if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
+  return formatDate(date);
 }

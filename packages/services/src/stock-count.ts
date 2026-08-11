@@ -123,11 +123,24 @@ export async function reconcileStockCount(countId: string, userId?: string) {
 
       if (variance.gt(0)) {
         // Positive variance → ADJUSTMENT_IN (stock appeared)
+        // Fetch the current StockLocationItem to use its MAC as the unit cost,
+        // so the incoming stock is valued at the current moving average and
+        // the MAC calculation is not corrupted (adding at zero cost).
+        const item = await tx.stockLocationItem.findUnique({
+          where: {
+            locationId_materialId: {
+              locationId: count.locationId,
+              materialId: line.materialId,
+            },
+          },
+        });
+        const currentMAC = item ? new Decimal(item.movingAvgCost) : new Decimal(0);
         await recordMovement(tx, {
           materialId: line.materialId,
           movementType: "ADJUSTMENT_IN",
           toLocationId: count.locationId,
           qty: variance,
+          unitCost: currentMAC,
           reason: `Stock count adjustment (+${variance})`,
           refType: "STOCK_COUNT",
           refId: countId,
@@ -173,8 +186,8 @@ export async function reconcileStockCount(countId: string, userId?: string) {
     }
 
     // Post the inventory variance to the GL (gains/losses at MAC).
-    const location = await tx.stockLocation.findUnique({
-      where: { id: count.locationId },
+    const location = await tx.stockLocation.findFirst({
+      where: { id: count.locationId, deletedAt: null },
       select: { companyId: true },
     });
     if (location) {

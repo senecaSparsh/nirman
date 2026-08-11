@@ -15,7 +15,7 @@ import { processScheduledWorkflows } from "@/lib/workflow-engine";
  * If not set, falls back to requiring auth (for dev convenience).
  */
 export async function POST(req: NextRequest) {
-  // Check for scheduler secret
+  // Check for scheduler secret — required in production, optional in dev
   const secret = process.env.SCHEDULER_SECRET;
   if (secret) {
     const authHeader = req.headers.get("authorization");
@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
     if (provided !== secret) {
       return json({ error: "Unauthorized — invalid scheduler secret" }, { status: 401 });
     }
+  } else if (process.env.NODE_ENV === "production") {
+    // In production without a secret configured, reject all requests
+    return json({ error: "Unauthorized — SCHEDULER_SECRET must be configured in production" }, { status: 401 });
   }
 
   try {

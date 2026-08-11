@@ -1,0 +1,87 @@
+name: Drift Check
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  audit-counts:
+    runs-on: ubuntu-latest
+    # Advisory only — does not fail CI even if counts drift.
+    continue-on-error: true
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Compare with committed counts
+        id: compare
+        run: |
+          if [ ! -f docs/audit-counts.json ]; then
+            echo "No committed audit-counts.json found — skipping drift check."
+            echo "drift=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Save the committed version, then regenerate current counts.
+          COMMITTED=$(cat docs/audit-counts.json)
+          node scripts/audit-counts.mjs
+          CURRENT=$(cat docs/audit-counts.json)
+
+          # Extract just the counts (ignore timestamp)
+          COMMITTED_COUNTS=$(echo "$COMMITTED" | jq 'del(.timestamp)')
+          CURRENT_COUNTS=$(echo "$CURRENT" | jq 'del(.timestamp)')
+
+          if [ "$COMMITTED_COUNTS" = "$CURRENT_COUNTS" ]; then
+            echo "No drift detected."
+            echo "drift=false" >> $GITHUB_OUTPUT
+          else
+            echo "Drift detected!"
+            echo "drift=true" >> $GITHUB_OUTPUT
+            echo "committed<<EOF" >> $GITHUB_OUTPUT
+            echo "$COMMITTED_COUNTS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "current<<EOF" >> $GITHUB_OUTPUT
+            echo "$CURRENT_COUNTS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR if drift detected
+        if: steps.compare.outputs.drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const committed = JSON.parse(process.env.COMMITTED_COUNTS);
+            const current = JSON.parse(process.env.CURRENT_COUNTS);
+
+            const lines = ["## Audit Count Drift Detected", ""];
+            lines.push("| Metric | Committed | Current | Delta |");
+            lines.push("|--------|-----------|---------|-------|");
+            for (const key of ["tests", "accounts", "routes", "pages", "components", "permissions"]) {
+              const c = committed[key] ?? 0;
+              const n = current[key] ?? 0;
+              const delta = n - c;
+              const sign = delta > 0 ? "+" : "";
+              lines.push(`| ${key} | ${c} | ${n} | ${sign}${delta} |`);
+            }
+            lines.push("");
+            lines.push("> Advisory only — this does not block the PR. Update `docs/audit-counts.json` if the drift is expected.");
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: lines.join("\n"),
+            });
+        env:
+          COMMITTED_COUNTS: ${{ steps.compare.outputs.committed }}
+          CURRENT_COUNTS: ${{ steps.compare.outputs.current }}

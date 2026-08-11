@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Truck, ArrowRight, Plus, FileText, Undo2, Package,
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 
 // ───────────────────────────────────────────────────────────
 //  Types
@@ -79,6 +80,11 @@ export type SupplierCockpitData = {
 export function SupplierCockpit({ data }: { data: SupplierCockpitData }) {
   const [tab, setTab] = useState("overview");
   const { supplier, stats } = data;
+  const trackRecent = useTrackRecent();
+
+  useEffect(() => {
+    trackRecent({ type: "supplier", id: supplier.id, label: supplier.name, href: `/suppliers/${supplier.id}` });
+  }, [supplier.id, supplier.name, trackRecent]);
 
   return (
     <div className="space-y-5">

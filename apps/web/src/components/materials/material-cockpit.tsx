@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Package, ArrowRight, Plus, TrendingUp, ShoppingCart, ClipboardList,
@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { useTrackRecent } from "@/lib/use-recently-viewed";
 
 // ───────────────────────────────────────────────────────────
 //  Types
@@ -110,6 +111,11 @@ export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
   const totalQty = data.stockItems.reduce((s, si) => s + si.qty, 0);
   const totalValue = data.stockItems.reduce((s, si) => s + si.totalValue, 0);
   const isLowStock = material.reorderPoint != null && totalQty <= material.reorderPoint;
+  const trackRecent = useTrackRecent();
+
+  useEffect(() => {
+    trackRecent({ type: "material", id: material.id, label: material.name, href: `/materials/${material.id}` });
+  }, [material.id, material.name, trackRecent]);
 
   return (
     <div className="space-y-5">

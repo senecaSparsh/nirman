@@ -72,6 +72,8 @@ model Company {
   tallySyncLogs        TallySyncLog[]
   notificationTemplates NotificationTemplate[]
   notificationLogs      NotificationLog[]
+  notificationPreferences NotificationPreference[]
+  inAppNotifications   InAppNotification[]
   portalListings        PortalListing[]
   subcontractorWorkOrders SubcontractorWorkOrder[]
   raBills                RaBill[]
@@ -79,6 +81,11 @@ model Company {
   supplierPayments       SupplierPayment[]
   supplierInvoices       SupplierInvoice[]
   materialLots           MaterialLot[]
+  auditLogs              AuditLog[]
+  suppliers              Supplier[]
+  subcontractors         Subcontractor[]
+  customers              Customer[]
+  integrationConfigs     IntegrationConfig[]
 
   @@index([parentCompanyId])
 }
@@ -192,6 +199,8 @@ model Employee {
   userId    String?  // link to auth User — lets site workers log in (self-service attendance, DPR, tasks)
   company   Company  @relation(fields: [companyId], references: [id])
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Optimistic locking — see Material.version comment
+  version   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -288,6 +297,9 @@ model User {
   salePayments         MaterialSalePayment[]   @relation("SalePaymentCreator")
   receivedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceReceiver")
   approvedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceApprover")
+  // Notification system — preferences + in-app notifications
+  notificationPreferences NotificationPreference[]
+  inAppNotifications      InAppNotification[]
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -394,6 +406,8 @@ model Project {
   totalProjectCost Decimal?  @db.Decimal(14, 2) // materials + labour/overhead + allocated land
   totalSellableArea Decimal? @db.Decimal(14, 3) // sum of sellable unit areas
   lciThreshold       Decimal? @db.Decimal(5, 2)  // per-project LCI threshold override (null → company default)
+  // Optimistic locking — see Material.version comment
+  version      Int           @default(0)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
@@ -561,6 +575,10 @@ model Material {
   secondaryUnit    String?                          // optional display/transaction UOM
   uomConversionFactor Decimal? @db.Decimal(12, 6)   // 1 secondary unit = N base units
   description      String?
+  // Optimistic locking — incremented on every update. Clients send the
+  // version they read; if it doesn't match, the update is rejected as a
+  // concurrent edit conflict.
+  version          Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   deletedAt        DateTime?
@@ -649,6 +667,7 @@ model StandardConsumption {
 
 model Supplier {
   id          String   @id @default(cuid())
+  companyId   String
   name        String
   gstin       String?
   phone       String?
@@ -656,12 +675,15 @@ model Supplier {
   address     String?
   balanceOwed Decimal  @default(0) @db.Decimal(14, 2)
   leadTimeDays Int?    // average vendor lead time in days — LCI input (S_lead)
+  // Optimistic locking — see Material.version comment
+  version     Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  purchaseOrders PurchaseOrder[]
-  supplierReturns SupplierReturn[]
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  purchaseOrders   PurchaseOrder[]
+  supplierReturns  SupplierReturn[]
   requisitionLines MaterialRequisitionLine[]
   directPurchases  DirectPurchase[]
   vendorQuotes     VendorQuote[]
@@ -669,10 +691,15 @@ model Supplier {
   supplierPayments SupplierPayment[]
   supplierInvoices SupplierInvoice[]
   materialLots     MaterialLot[]
+
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+  @@index([name])
 }
 
 model Subcontractor {
   id          String   @id @default(cuid())
+  companyId   String
   name        String
   gstin       String?
   phone       String?
@@ -683,9 +710,14 @@ model Subcontractor {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  materialIssues MaterialIssue[]
-  projectCosts   ProjectCost[]
-  workOrders     SubcontractorWorkOrder[]
+  company         Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  materialIssues  MaterialIssue[]
+  projectCosts    ProjectCost[]
+  workOrders      SubcontractorWorkOrder[]
+
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+  @@index([name])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -711,6 +743,7 @@ model Department {
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   stockLocation StockLocation? @relation("DepartmentLocation") // optional own stock room
   materialIssues MaterialIssue[]
+  requisitions  MaterialRequisition[] // department-scoped requisitions (rice mill)
   userScopes    UserScope[]    // Sub-Admin scope entries pointing at this department
 
   @@unique([companyId, code])
@@ -831,11 +864,14 @@ model PayrollLine {
   overtimeAmount  Decimal  @default(0) @db.Decimal(14, 2)
   allowance       Decimal  @default(0) @db.Decimal(14, 2) // HRA, travel, food, etc.
   bonus           Decimal  @default(0) @db.Decimal(14, 2) // performance / festival bonus
-  pf              Decimal  @default(0) @db.Decimal(14, 2) // provident fund (employee + employer)
+  pf              Decimal  @default(0) @db.Decimal(14, 2) // employee provident fund (deducted from gross)
+  employerPf      Decimal  @default(0) @db.Decimal(14, 2) // employer provident fund (additional expense, not deducted from employee)
+  esi             Decimal  @default(0) @db.Decimal(14, 2) // ESI deduction (employee portion)
+  professionTax   Decimal  @default(0) @db.Decimal(14, 2) // profession tax (deducted from gross)
   tax             Decimal  @default(0) @db.Decimal(14, 2) // TDS / income tax deducted
   deductions      Decimal  @default(0) @db.Decimal(14, 2) // other deductions (loans, advances, penalties)
   grossPay        Decimal  @default(0) @db.Decimal(14, 2) // basic + overtime + allowance + bonus
-  totalDeductions Decimal  @default(0) @db.Decimal(14, 2) // deductions + pf + tax
+  totalDeductions Decimal  @default(0) @db.Decimal(14, 2) // deductions + pf + esi + professionTax + tax
   netPay          Decimal  @default(0) @db.Decimal(14, 2) // grossPay - totalDeductions
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -876,6 +912,9 @@ model DailyProgressReport {
   workUnit             String?  // unit of work (e.g. "sqft", "cubic meter", "unit")
   varianceAnalysis     Json?    // stored variance results from calculateConsumptionVariance()
   autoScrapGenerationId String? @unique // link to auto-generated ScrapGeneration if over-consumption detected
+  // DPR-Finance Bridge: track when DPR costs were posted to the GL
+  costPostedDate       DateTime? // null = not yet posted to finance
+  costPostedAmount     Decimal?  @db.Decimal(14, 2) // total cost posted (material + labor)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -887,6 +926,9 @@ model DailyProgressReport {
   adminApprovedBy    User? @relation("DprAdminApprover", fields: [adminApprovedById], references: [id], onDelete: SetNull)
   materialLines DPRMaterialLine[]
   laborLines    DPRLaborLine[]
+  // DPR-Finance Bridge: back-relations to cost postings linked from this DPR
+  materialIssues MaterialIssue[] @relation("DprMaterialIssues")
+  projectCosts   ProjectCost[]   @relation("DprProjectCosts")
 
   @@unique([projectId, date]) // one DPR per project per day
   @@index([companyId, date])
@@ -996,6 +1038,7 @@ model SupplierPayment {
   paymentNumber String   @unique // SP-YYMMDD-NNNN
   supplierId    String
   purchaseOrderId String? // optional link to a specific PO
+  invoiceId     String?  // optional link to a specific SupplierInvoice
   companyId     String
   amount        Decimal  @db.Decimal(14, 2)
   tdsAmount     Decimal  @default(0) @db.Decimal(14, 2) // TDS deducted at source
@@ -1009,14 +1052,16 @@ model SupplierPayment {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  supplier       Supplier       @relation(fields: [supplierId], references: [id])
-  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  createdBy      User?          @relation("SupplierPaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  supplier       Supplier         @relation(fields: [supplierId], references: [id])
+  purchaseOrder  PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  invoice        SupplierInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy      User?            @relation("SupplierPaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([supplierId])
   @@index([purchaseOrderId])
+  @@index([invoiceId])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1044,11 +1089,12 @@ model SupplierInvoice {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  supplier       Supplier       @relation(fields: [supplierId], references: [id])
-  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  company        Company        @relation(fields: [companyId], references: [id])
-  receivedBy     User?          @relation("SupplierInvoiceReceiver", fields: [receivedById], references: [id])
-  approvedBy     User?          @relation("SupplierInvoiceApprover", fields: [approvedById], references: [id])
+  supplier       Supplier         @relation(fields: [supplierId], references: [id])
+  purchaseOrder  PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  company        Company          @relation(fields: [companyId], references: [id])
+  receivedBy     User?            @relation("SupplierInvoiceReceiver", fields: [receivedById], references: [id])
+  approvedBy     User?            @relation("SupplierInvoiceApprover", fields: [approvedById], references: [id])
+  payments       SupplierPayment[]
 
   @@index([companyId])
   @@index([supplierId])
@@ -1212,6 +1258,8 @@ model MaterialIssue {
   roundOff       Decimal  @default(0) @db.Decimal(14, 2)
   // Chargeable total = totalCost + roundOff (paper slip's "Amount Chargeable")
   totalAmount    Decimal  @default(0) @db.Decimal(14, 2)
+  // DPR-Finance Bridge: link this issue back to the DPR that triggered it
+  sourceDprId    String?  // null = manual issue (not from DPR)
   createdAt      DateTime @default(now())
 
   project       Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1221,6 +1269,7 @@ model MaterialIssue {
   fromLocation  StockLocation      @relation(fields: [fromLocationId], references: [id])
   subcontractor Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   issuedBy      User?              @relation(fields: [issuedById], references: [id])
+  sourceDpr     DailyProgressReport? @relation("DprMaterialIssues", fields: [sourceDprId], references: [id], onDelete: SetNull)
   lines         MaterialIssueLine[]
 
   @@index([projectId])
@@ -1228,6 +1277,7 @@ model MaterialIssue {
   @@index([fromLocationId])
   @@index([phaseId])
   @@index([builtUnitId])
+  @@index([sourceDprId])
 }
 
 model MaterialIssueLine {
@@ -1473,6 +1523,7 @@ model LandParcel {
   children     LandParcel[]  @relation("ParcelChildren")
   partitions    LandPartition[]
   project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  builtUnits   BuiltUnit[]   @relation("LandParcelBuiltUnits")
   renovations   RenovationProject[]
 
   @@index([landPurchaseId])
@@ -1524,6 +1575,14 @@ enum BuiltUnitStatus {
   RENTED
 }
 
+// How a built unit entered the real estate inventory:
+// CREATED — built by us (construction costs accumulate via WIP → capitalization)
+// PURCHASED — bought as-is (acquisitionCost is the cost basis, no WIP)
+enum UnitOrigin {
+  CREATED
+  PURCHASED
+}
+
 model BuiltUnit {
   id              String           @id @default(cuid())
   projectId       String
@@ -1534,18 +1593,40 @@ model BuiltUnit {
   wing            String?
   area            Decimal          @db.Decimal(14, 3)
   areaUnit        AreaUnit         @default(SQFT)
+  // ── RERA compliance fields (all nullable — backward compatible) ──
+  // carpetArea: RERA-defined carpet area (usable internal floor area)
+  // superBuiltUpArea: saleable area (carpet + walls + balcony + common share)
+  // balconyArea: external balcony area
+  // clearHeight: floor-to-ceiling height (warehouse/industrial)
+  // hasLoadingDock: industrial/warehouse units
+  carpetArea       Decimal?         @db.Decimal(14, 3)
+  superBuiltUpArea Decimal?         @db.Decimal(14, 3)
+  balconyArea      Decimal?         @db.Decimal(14, 3)
+  clearHeight      Decimal?         @db.Decimal(14, 3)
+  hasLoadingDock   Boolean          @default(false)
   status          BuiltUnitStatus  @default(PLANNED)
+  // ── Origin tracking ──
+  // CREATED: built by us — productionCost accumulates via material issues + cost allocation
+  // PURCHASED: bought as-is — acquisitionCost is the purchase price, status starts AVAILABLE
+  originType      UnitOrigin       @default(CREATED)
+  acquisitionCost Decimal          @default(0) @db.Decimal(14, 2) // purchase price (PURCHASED units only)
+  purchaseDate    DateTime?        // when a PURCHASED unit was acquired
+  landParcelId    String?          // link to the plot/parcel this unit is built on (subdivided inventory)
   productionCost  Decimal          @default(0) @db.Decimal(14, 2)
   askingPrice     Decimal?         @db.Decimal(14, 2)
   currentValuation Decimal         @default(0) @db.Decimal(14, 2)
   nrvWriteDown    Decimal          @default(0) @db.Decimal(14, 2) // NRV < cost → write-down amount
+  capitalizedAmount Decimal        @default(0) @db.Decimal(14, 2) // total WIP capitalized to this unit (for idempotency)
   saleId          String?
+  // Optimistic locking — see Material.version comment
+  version         Int              @default(0)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
 
   project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   phase   ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  landParcel LandParcel? @relation("LandParcelBuiltUnits", fields: [landParcelId], references: [id], onDelete: SetNull)
   renovations   RenovationProject[]
   portalListings PortalListing[]
   materialIssues MaterialIssue[]
@@ -1553,8 +1634,10 @@ model BuiltUnit {
 
   @@index([projectId])
   @@index([phaseId])
+  @@index([landParcelId])
   @@index([status])
   @@index([unitType])
+  @@index([originType])
   @@unique([projectId, unitNumber])
 }
 
@@ -1704,7 +1787,8 @@ enum RequisitionStatus {
 model MaterialRequisition {
   id          String           @id @default(cuid())
   reqNumber   String           @unique
-  projectId   String
+  projectId   String?          // optional — for department-scoped requisitions (rice mill)
+  departmentId String?         // set when the requisition is for a department (cost center)
   phaseId     String?
   requestedById String?
   status      RequisitionStatus @default(DRAFT)
@@ -1735,7 +1819,8 @@ model MaterialRequisition {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  department  Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   phase       ProjectPhase?    @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   requestedBy User?            @relation("ReqRequester", fields: [requestedById], references: [id], onDelete: SetNull)
   approvedBy  User?            @relation("ReqApprover", fields: [approvedById], references: [id], onDelete: SetNull)
@@ -1745,6 +1830,7 @@ model MaterialRequisition {
   vendorQuotes VendorQuote[]
 
   @@index([projectId])
+  @@index([departmentId])
   @@index([status])
   @@index([approvedById])
 }
@@ -1952,18 +2038,27 @@ model DirectPurchaseLine {
 
 model Customer {
   id        String   @id @default(cuid())
+  companyId String
   name      String
-  phone     String?  @unique
+  phone     String?
   email     String?
   gstin     String?
   address   String?
+  // Optimistic locking — see Material.version comment
+  version   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  assetSales AssetSale[]
-  materialSales MaterialSale[]
-  tenancies  Tenancy[]
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  assetSales     AssetSale[]
+  materialSales  MaterialSale[]
+  tenancies      Tenancy[]
+
+  @@unique([companyId, phone])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+  @@index([name])
 }
 
 enum AssetType {
@@ -2066,15 +2161,19 @@ model ProjectCost {
   notes     String?
   receiptUrl String?
   createdById String?
+  // DPR-Finance Bridge: link this cost back to the DPR that triggered it
+  sourceDprId String?  // null = manual cost entry (not from DPR)
   createdAt DateTime        @default(now())
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   subcontractor Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sourceDpr     DailyProgressReport? @relation("DprProjectCosts", fields: [sourceDprId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([costType])
   @@index([createdById])
+  @@index([sourceDprId])
 }
 
 model Expense {
@@ -2100,6 +2199,7 @@ model Expense {
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
+  companyId  String?
   action     String
   entityType String
   entityId   String
@@ -2107,10 +2207,12 @@ model AuditLog {
   after      Json?
   timestamp  DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([userId])
+  @@index([companyId])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -2132,6 +2234,7 @@ enum AccountType {
   EQUITY
   REVENUE
   EXPENSE
+  CONTRA_EXPENSE
 }
 
 model GlAccount {
@@ -2235,6 +2338,36 @@ enum TallySyncStatus {
 }
 
 // ───────────────────────────────────────────────────────────
+//  INTEGRATION CONFIG — per-company credentials and settings
+//  for external integrations (Tally, WhatsApp, Email, Portals).
+//  Secrets are stored encrypted-at-rest via the `encrypted` flag
+//  and application-level AES-256-GCM encryption (see crypto utils).
+//  Only OWNER/ADMIN roles can view/edit these settings.
+// ───────────────────────────────────────────────────────────
+
+model IntegrationConfig {
+  id          String   @id @default(cuid())
+  companyId   String
+  // Integration key: "TALLY" | "WHATSAPP" | "EMAIL_SMTP" | "PORTAL_99ACRES" | "PORTAL_MAGICBRICKS" | "PORTAL_HOUSING"
+  key         String
+  // Whether this integration is enabled (master switch)
+  enabled     Boolean  @default(false)
+  // JSON blob of config values. Secret fields (passwords, API keys, tokens)
+  // are individually encrypted and marked with `__enc__: true` in the JSON.
+  config      Json
+  // When this config was last verified (test connection run)
+  lastVerifiedAt DateTime?
+  lastVerifyError String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@index([companyId])
+}
+
+// ───────────────────────────────────────────────────────────
 //  NOTIFICATIONS — WhatsApp / email / in-app alert system with
 //  pluggable providers. Templates are per-company per-event-type.
 //  Triggers: low stock, task assignment, quote approval, DPR
@@ -2261,6 +2394,7 @@ model NotificationTemplate {
 model NotificationLog {
   id            String   @id @default(cuid())
   companyId     String
+  userId        String?  // target user for in-app notifications
   templateId    String?
   eventType     String
   channel       String   // WHATSAPP | EMAIL | IN_APP
@@ -2271,6 +2405,7 @@ model NotificationLog {
   status        NotificationStatus @default(PENDING)
   sentAt        DateTime?
   errorMessage  String?
+  error         String?  // legacy field alias for errorMessage
   metadata      Json?    // additional context (materialId, taskId, etc.)
   createdAt     DateTime @default(now())
 
@@ -2278,6 +2413,7 @@ model NotificationLog {
   template  NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([companyId, eventType])
+  @@index([userId, status])
   @@index([status])
   @@index([createdAt])
 }
@@ -2286,6 +2422,48 @@ enum NotificationStatus {
   PENDING
   SENT
   FAILED
+}
+
+// ── Event-Driven Notification System ──
+// Per-user preferences for which events they want to be notified about,
+// and via which channel. Overrides the company-level template defaults.
+model NotificationPreference {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  eventType   String   // LOW_STOCK | TASK_ASSIGNMENT | QUOTE_APPROVAL | DPR_APPROVAL | PAYMENT_RECEIVED | SCRAP_GENERATED | etc.
+  channel     String   // WHATSAPP | EMAIL | IN_APP
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventType, channel])
+  @@index([companyId, eventType])
+  @@index([userId])
+}
+
+// In-app notification — shown in the notification bell dropdown
+model InAppNotification {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String   // recipient user
+  eventType   String
+  title       String
+  message     String
+  link        String?  // optional URL to navigate to when clicked
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([companyId, createdAt])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -2674,10 +2852,12 @@ model MaterialSale {
   saleDate      DateTime      @default(now())
   subtotal      Decimal       @default(0) @db.Decimal(14, 2) // Σ line.qty × line.unitPrice (pre-GST)
   gstTotal      Decimal       @default(0) @db.Decimal(14, 2) // Σ line.gstAmount
-  totalAmount   Decimal       @default(0) @db.Decimal(14, 2) // subtotal + gstTotal
+  roundOff      Decimal       @default(0) @db.Decimal(14, 2) // rounding adjustment (common in Indian invoices)
+  totalAmount   Decimal       @default(0) @db.Decimal(14, 2) // subtotal + gstTotal + roundOff
   totalCost     Decimal       @default(0) @db.Decimal(14, 2) // Σ line.qty × line.unitCost (MAC at sale time)
   scrapSubtotal Decimal       @default(0) @db.Decimal(14, 2) // portion of subtotal from scrap-material lines (cost recovery)
   grossProfit   Decimal       @default(0) @db.Decimal(14, 2) // subtotal - totalCost
+  partyName     String?       // override party name on invoice (for walk-in / cash customers not in CRM)
   status        SaleStatus    @default(ACTIVE)
   paymentStatus PaymentStatus @default(PENDING)
   paymentMode   String?

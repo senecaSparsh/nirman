@@ -9,8 +9,11 @@ import {
   postDepositRefund,
   postJournalEntry,
   reverseJournalEntry,
+  ACCT,
 } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { autoSyncEntryToTally } from "./auto-sync";
 
 /**
  * Sale Service — sell land parcels or built units to customers.
@@ -30,11 +33,12 @@ import { ServiceError } from "./errors";
  * - Cancellation refunds the deposit and releases the asset back to AVAILABLE.
  */
 
-function generateSaleNumber(): string {
+async function generateSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `SAL-${ymd}-${rand}`;
+  const prefix = `SAL-${ymd}-`;
+  const count = await tx.assetSale.count({ where: { saleNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 export interface SellAssetInput {
@@ -42,6 +46,7 @@ export interface SellAssetInput {
   landParcelId?: string;
   builtUnitId?: string;
   customerId: string;
+  companyId: string;
   salePrice: Decimal | number | string;
   gstRate?: Decimal | number | string; // GST % applied on sale (e.g. 1, 5, 18). Default 0.
   paymentMode?: string;
@@ -52,10 +57,10 @@ export interface SellAssetInput {
 }
 
 export async function sellAsset(input: SellAssetInput) {
-  return prisma.$transaction(async (tx) => {
+  const sale = await prisma.$transaction(async (tx) => {
     // Validate customer
     const customer = await tx.customer.findFirst({
-      where: { id: input.customerId, deletedAt: null },
+      where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
     });
     if (!customer) throw new ServiceError("Customer not found or deleted", 404);
 
@@ -134,17 +139,19 @@ export async function sellAsset(input: SellAssetInput) {
     const gstAmount = salePrice.mul(gstRate).div(100).toDecimalPlaces(2);
 
     // Determine whether this is an immediate full-payment sale or a staged sale.
+    // Total collectible = salePrice + gstAmount (GST is charged on top of sale price).
+    const totalCollectible = salePrice.plus(gstAmount);
     const initAmount = input.initialPayment ? new Decimal(input.initialPayment) : new Decimal(0);
-    if (initAmount.gt(0) && initAmount.gt(salePrice)) {
-      throw new ServiceError(`Initial payment ${initAmount} exceeds sale price ${salePrice}`);
+    if (initAmount.gt(0) && initAmount.gt(totalCollectible)) {
+      throw new ServiceError(`Initial payment ${initAmount} exceeds total ${totalCollectible} (sale price + GST)`);
     }
-    const isImmediateFullPayment = initAmount.gt(0) && initAmount.gte(salePrice);
+    const isImmediateFullPayment = initAmount.gt(0) && initAmount.gte(totalCollectible);
 
     // Create the sale (always starts as PENDING; upgraded below if immediate)
     const profit = salePrice.minus(costBasis);
     const sale = await tx.assetSale.create({
       data: {
-        saleNumber: generateSaleNumber(),
+        saleNumber: await generateSaleNumber(tx),
         assetType: input.assetType,
         landParcelId,
         builtUnitId,
@@ -248,6 +255,7 @@ export async function sellAsset(input: SellAssetInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId,
         action: "ASSET_SALE_CREATE",
         entityType: "AssetSale",
         entityId: sale.id,
@@ -261,7 +269,33 @@ export async function sellAsset(input: SellAssetInput) {
     }
 
     return sale;
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.SALE_CREATED,
+    companyId: input.companyId,
+    entityType: "AssetSale",
+    entityId: sale.id,
+    variables: {
+      saleNumber: sale.saleNumber,
+      salePrice: new Decimal(sale.salePrice).toFixed(2),
+      assetType: sale.assetType,
+    },
+    timestamp: new Date(),
   });
+
+  // Auto-sync to Tally (best-effort)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: sale.id, sourceType: "ASSET_SALE" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(input.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return sale;
 }
 
 // ───────────────────────────────────────────────────────────
@@ -290,11 +324,13 @@ export async function recordDeposit(input: RecordDepositInput) {
     if (!depositAmount.gt(0)) throw new ServiceError("Deposit amount must be > 0");
 
     const salePrice = new Decimal(sale.salePrice);
+    const gstAmount = new Decimal(sale.gstAmount);
+    const totalCollectible = salePrice.plus(gstAmount);
     const existingDeposit = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
     const cumulativeDeposit = existingDeposit.plus(depositAmount);
-    if (cumulativeDeposit.gt(salePrice)) {
+    if (cumulativeDeposit.gt(totalCollectible)) {
       throw new ServiceError(
-        `Deposit ${cumulativeDeposit} would exceed sale price ${salePrice}`,
+        `Deposit ${cumulativeDeposit} would exceed total ${totalCollectible} (sale price + GST)`,
       );
     }
 
@@ -309,7 +345,7 @@ export async function recordDeposit(input: RecordDepositInput) {
     });
 
     // Update sale stage + deposit fields
-    const paymentStatus = cumulativeDeposit.gte(salePrice) ? "PAID" : "PARTIAL";
+    const paymentStatus = cumulativeDeposit.gte(totalCollectible) ? "PAID" : "PARTIAL";
     await tx.assetSale.update({
       where: { id: input.saleId },
       data: {
@@ -334,6 +370,7 @@ export async function recordDeposit(input: RecordDepositInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: sale.companyId,
         action: "ASSET_SALE_DEPOSIT",
         entityType: "AssetSale",
         entityId: input.saleId,
@@ -342,7 +379,7 @@ export async function recordDeposit(input: RecordDepositInput) {
     }
 
     return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus };
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -382,6 +419,9 @@ export async function completeSale(input: CompleteSaleInput) {
       ? new Decimal(input.finalPaymentAmount)
       : remainingBalance;
     if (finalPayment.lt(0)) throw new ServiceError("Final payment cannot be negative");
+    if (finalPayment.gt(remainingBalance)) {
+      throw new ServiceError(`Final payment (${finalPayment}) exceeds remaining balance (${remainingBalance})`);
+    }
     if (finalPayment.gt(0)) {
       // Record the final payment
       await tx.assetSalePayment.create({
@@ -431,8 +471,8 @@ export async function completeSale(input: CompleteSaleInput) {
         memo: "Settle customer deposit against receivable on sale completion",
         postedById: input.userId,
         lines: [
-          { accountCode: "2400", debit: depositAmount, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "Reverse deposit liability" },
-          { accountCode: "1200", debit: 0, credit: depositAmount, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable with deposit" },
+          { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: depositAmount, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "Reverse deposit liability" },
+          { accountCode: ACCT.AR, debit: 0, credit: depositAmount, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable with deposit" },
         ],
       });
     }
@@ -457,6 +497,7 @@ export async function completeSale(input: CompleteSaleInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: sale.companyId,
         action: "ASSET_SALE_COMPLETE",
         entityType: "AssetSale",
         entityId: input.saleId,
@@ -466,7 +507,7 @@ export async function completeSale(input: CompleteSaleInput) {
     }
 
     return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const };
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -482,7 +523,7 @@ export interface RecordPaymentInput {
 }
 
 export async function recordPayment(input: RecordPaymentInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.assetSaleId },
       include: { payments: true },
@@ -493,14 +534,15 @@ export async function recordPayment(input: RecordPaymentInput) {
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
     const existingTotal = sale.payments.reduce(
       (sum, p) => sum.plus(new Decimal(p.amount)),
       new Decimal(0),
     );
     const cumulative = existingTotal.plus(amount);
-    if (cumulative.gt(new Decimal(sale.salePrice))) {
+    if (cumulative.gt(totalCollectible)) {
       throw new ServiceError(
-        `Overpayment: cumulative ${cumulative} > sale price ${sale.salePrice}`,
+        `Overpayment: cumulative ${cumulative} > total ${totalCollectible} (sale price + GST)`,
       );
     }
 
@@ -513,11 +555,11 @@ export async function recordPayment(input: RecordPaymentInput) {
       },
     });
 
-    // Recompute payment status
+    // Recompute payment status (against total collectible = salePrice + GST)
     let paymentStatus: "PENDING" | "PARTIAL" | "PAID";
     if (cumulative.isZero()) {
       paymentStatus = "PENDING";
-    } else if (cumulative.lt(new Decimal(sale.salePrice))) {
+    } else if (cumulative.lt(totalCollectible)) {
       paymentStatus = "PARTIAL";
     } else {
       paymentStatus = "PAID";
@@ -540,6 +582,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: sale.companyId,
         action: "ASSET_SALE_PAYMENT",
         entityType: "AssetSale",
         entityId: input.assetSaleId,
@@ -547,8 +590,23 @@ export async function recordPayment(input: RecordPaymentInput) {
       });
     }
 
-    return { payment, paymentStatus };
+    return { payment, paymentStatus, companyId: sale.companyId };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.SALE_PAYMENT_RECEIVED,
+    companyId: result.companyId,
+    entityType: "AssetSale",
+    entityId: input.assetSaleId,
+    variables: {
+      amount: new Decimal(input.amount).toFixed(2),
+      mode: input.mode,
+      paymentStatus: result.paymentStatus,
+    },
+    timestamp: new Date(),
   });
+
+  return { payment: result.payment, paymentStatus: result.paymentStatus };
 }
 
 // ───────────────────────────────────────────────────────────
@@ -603,6 +661,7 @@ export async function cancelSale(saleId: string, userId?: string) {
     if (userId) {
       await logAction(tx, {
         userId,
+        companyId: sale.companyId,
         action: "ASSET_SALE_CANCEL",
         entityType: "AssetSale",
         entityId: saleId,
@@ -612,7 +671,7 @@ export async function cancelSale(saleId: string, userId?: string) {
     }
 
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 // ───────────────────────────────────────────────────────────

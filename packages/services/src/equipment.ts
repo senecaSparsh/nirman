@@ -84,9 +84,8 @@ interface AssignEquipmentInput {
 
 export async function assignEquipment(input: AssignEquipmentInput) {
   return prisma.$transaction(async (tx) => {
-    const equipment = await tx.equipment.findUnique({ where: { id: input.equipmentId } });
+    const equipment = await tx.equipment.findFirst({ where: { id: input.equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
-    if (equipment.deletedAt) throw new ServiceError("Equipment is deleted");
     if (equipment.status !== "AVAILABLE") {
       throw new ServiceError(`Cannot assign equipment in status ${equipment.status}. Must be AVAILABLE.`);
     }

@@ -6,10 +6,12 @@ import {
   Search, CornerDownLeft, Package, Truck,
   LandPlot, ShoppingCart, Wallet,
   ScrollText, ScanLine, BookOpen, CheckSquare, ClipboardList, ClipboardCheck,
-  TrendingUp, CalendarCheck, HardHat, Recycle, Globe, Zap, type LucideIcon,
+  TrendingUp, CalendarCheck, HardHat, Recycle, Globe, Zap, Users, ShieldCheck,
+  Clock, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { linksFor, settingsLinksFor, WORLD_BY_KEY, type NavLink, type WorldKey } from "@/lib/nav";
+import { useRecentlyViewed, type RecentItem } from "@/lib/use-recently-viewed";
 
 type PageLink = NavLink & { world: WorldKey };
 
@@ -58,6 +60,35 @@ const ACTIONS: ActionItem[] = [
   { label: "List unit on portal", hint: "99acres / MagicBricks sync", icon: Globe, href: "/portal-listings", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
   { label: "Generate auto-requisition", hint: "Reorder low-stock materials", icon: Zap, href: "/requisitions?auto=1", keywords: ["auto requisition", "reorder", "low stock", "eoq", "automatic", "generate requisition"] },
   { label: "Run payroll", hint: "Attendance to salary", icon: HardHat, href: "/hr/payroll", keywords: ["payroll", "salary", "wage", "pay", "tankha", "run"] },
+
+  /**
+   * ── Hub tabs, as first-class destinations ─────────────────────
+   *
+   * A dozen screens in this app live *inside* a hub tab — Customers is
+   * inside Sales, Crews inside Employees, Scrap and Counts inside Stock.
+   * Before the tab state moved into the URL these were unreachable
+   * except by clicking through the parent, so a user searching
+   * "customers" found nothing and concluded the feature didn't exist.
+   *
+   * Now that each tab has an address, every one of them is one keystroke
+   * away. This is cheaper than adding a dozen more rows to the sidebar,
+   * which is what made the old 45-link nav unusable.
+   */
+  { label: "Customers", hint: "Inside Sales", icon: Users, href: "/sales?tab=customers", keywords: ["customer", "buyer", "client", "party", "contact", "purchaser"] },
+  { label: "Crews & gangs", hint: "Inside Employees", icon: Users, href: "/hr/employees?tab=crews", keywords: ["crew", "gang", "team", "group", "mazdoor gang", "labour group", "contractor"] },
+  { label: "Suppliers ledger", hint: "Inside Purchase Orders", icon: Truck, href: "/procurement?tab=suppliers", keywords: ["supplier", "vendor", "payable", "ledger", "outstanding"] },
+  { label: "Cash purchases", hint: "Inside Purchase Orders", icon: Wallet, href: "/procurement?tab=direct-purchases", keywords: ["cash purchase", "direct purchase", "petty", "over the counter", "spot buy"] },
+  { label: "Stock counts", hint: "Inside Stock", icon: ClipboardCheck, href: "/stock?tab=counts", keywords: ["stock count", "physical verification", "cycle count", "audit", "reconcile", "variance"] },
+  { label: "Scrap generation", hint: "Inside Stock", icon: Recycle, href: "/stock?tab=scrap", keywords: ["scrap", "by-product", "waste", "generate scrap", "surplus"] },
+  { label: "Stock movements", hint: "Inside Stock", icon: ScrollText, href: "/stock?tab=movements", keywords: ["movement", "ledger", "history", "audit trail", "stock register"] },
+  { label: "Low stock", hint: "Inside Material Catalogue", icon: Package, href: "/materials?tab=low-stock", keywords: ["low stock", "reorder", "shortage", "below minimum", "out of stock"] },
+  { label: "Material categories", hint: "Inside Material Catalogue", icon: Package, href: "/materials?tab=categories", keywords: ["category", "group", "classification", "material category"] },
+  { label: "Users & access", hint: "Inside Settings", icon: Users, href: "/settings?tab=users", keywords: ["user", "access", "role", "permission", "rbac", "login", "team member"] },
+  { label: "Stock locations", hint: "Inside Settings", icon: Package, href: "/settings?tab=locations", keywords: ["location", "warehouse", "godown", "site yard", "store"] },
+  { label: "Cost centres", hint: "Inside Settings", icon: Wallet, href: "/settings?tab=cost-centres", keywords: ["cost centre", "cost center", "department", "allocation"] },
+  { label: "Leave requests", hint: "Inside Attendance", icon: CalendarCheck, href: "/hr/attendance?tab=leave", keywords: ["leave", "absence", "holiday", "time off", "chutti", "leave request", "approve leave"] },
+  { label: "Portal listings", hint: "Inside Built Units", icon: Globe, href: "/units?tab=portals", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
+  { label: "Supplier ratings", hint: "Inside Suppliers", icon: ShieldCheck, href: "/suppliers?tab=ratings", keywords: ["rating", "score", "performance", "on-time", "quality", "supplier rating", "vendor rating"] },
 ];
 
 // ── Entity search ───────────────────────────────────────────────
@@ -128,6 +159,22 @@ const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (i
       })),
   },
 ];
+
+// ── Recently viewed icon mapping ────────────────────────────────
+
+const RECENT_ICONS: Record<string, LucideIcon> = {
+  project: LandPlot,
+  po: Truck,
+  supplier: Truck,
+  material: Package,
+  land: LandPlot,
+  sale: ShoppingCart,
+  requisition: ClipboardList,
+};
+
+function recentIcon(type: string): LucideIcon {
+  return RECENT_ICONS[type] ?? Clock;
+}
 
 // ── Fuzzy search ────────────────────────────────────────────────
 
@@ -204,6 +251,7 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
   const [entityLoading, setEntityLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const recentItems = useRecentlyViewed();
 
   // ── Keyboard shortcut: ⌘K / Ctrl+K ────────────────────────────
   useEffect(() => {
@@ -263,12 +311,14 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
     type Result =
       | { kind: "page"; item: PageLink }
       | { kind: "action"; action: ActionItem }
-      | { kind: "entity"; entity: EntityResult };
+      | { kind: "entity"; entity: EntityResult }
+      | { kind: "recent"; item: RecentItem };
 
     const all: Result[] = [];
 
     if (!query) {
-      // No query — lead with things to *do*, then places to go.
+      // No query — lead with recently viewed, then things to *do*, then places to go.
+      recentItems.slice(0, 5).forEach((item) => all.push({ kind: "recent", item }));
       ACTIONS.slice(0, 6).forEach((action) => all.push({ kind: "action", action }));
       linksFor(userRole)
         .slice(0, 6)
@@ -284,11 +334,17 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
     const actions = searchActions(query).slice(0, 4);
     actions.forEach((r) => all.push({ kind: "action", action: r.action }));
 
+    // Recently viewed (fuzzy-matched by label)
+    const recentMatches = recentItems
+      .filter((r) => fuzzyScore(query, r.label) >= 0)
+      .slice(0, 3);
+    recentMatches.forEach((item) => all.push({ kind: "recent", item }));
+
     // Entities (from API)
     entities.forEach((entity) => all.push({ kind: "entity", entity }));
 
     return all;
-  }, [query, entities, userRole]);
+  }, [query, entities, userRole, recentItems]);
 
   // Reset selection when results change
   useEffect(() => {
@@ -314,6 +370,7 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
     if (result.kind === "page") router.push(result.item.href);
     else if (result.kind === "action") router.push(result.action.href);
     else if (result.kind === "entity") router.push(result.entity.href);
+    else if (result.kind === "recent") router.push(result.item.href);
     setOpen(false);
   }
 
@@ -364,19 +421,23 @@ export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) 
             const icon =
               result.kind === "page" ? result.item.icon :
               result.kind === "action" ? result.action.icon :
-              Search;
+              result.kind === "entity" ? Search :
+              recentIcon(result.item.type);
             const label =
               result.kind === "page" ? result.item.label :
               result.kind === "action" ? result.action.label :
-              result.entity.label;
+              result.kind === "entity" ? result.entity.label :
+              result.item.label;
             const sublabel =
               result.kind === "page" ? result.item.hint :
               result.kind === "action" ? result.action.hint :
-              result.entity.sublabel;
+              result.kind === "entity" ? result.entity.sublabel :
+              new Date(result.item.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
             const tag =
               result.kind === "page" ? WORLD_BY_KEY[result.item.world].label :
               result.kind === "action" ? "Action" :
-              result.entity.type;
+              result.kind === "entity" ? result.entity.type :
+              "Recent";
 
             return (
               <button

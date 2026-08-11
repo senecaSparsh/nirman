@@ -1,10 +1,11 @@
-import { prisma, type RequisitionStatus } from "@nirman/db";
+import { prisma, type Prisma, type RequisitionStatus } from "@nirman/db";
 import Decimal from "decimal.js";
 import { createPurchaseOrderTx } from "./procurement";
 import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 import { isQuoteGateSatisfied } from "./quote-comparison";
 import { ServiceError } from "./errors";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -17,15 +18,18 @@ import { ServiceError } from "./errors";
  * schedules. Managers approve. Approved requisitions convert to Purchase Orders.
  */
 
-function generateReqNumber(): string {
+async function generateReqNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `REQ-${ymd}-${rand}`;
+  const prefix = `REQ-${ymd}-`;
+  const count = await tx.materialRequisition.count({ where: { reqNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
 interface CreateRequisitionInput {
-  projectId: string;
+  companyId: string;
+  projectId?: string;          // optional — for department-scoped requisitions
+  departmentId?: string;       // set when the requisition is for a department (cost center)
   phaseId?: string;
   requestedById?: string;
   neededByDate?: Date;
@@ -40,12 +44,31 @@ interface CreateRequisitionInput {
 
 export async function createRequisition(input: CreateRequisitionInput) {
   if (input.lines.length === 0) throw new ServiceError("Requisition must have at least one line");
+  if (!input.projectId && !input.departmentId) {
+    throw new ServiceError("Either projectId or departmentId must be set", 400);
+  }
 
-  // Validate project
-  const project = await prisma.project.findFirst({
-    where: { id: input.projectId, deletedAt: null },
-  });
-  if (!project) throw new ServiceError("Project not found or deleted", 404);
+  // Validate project (if provided)
+  let project: { id: string; companyId: string } | null = null;
+  if (input.projectId) {
+    project = await prisma.project.findFirst({
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+      select: { id: true, companyId: true },
+    });
+    if (!project) throw new ServiceError("Project not found or deleted", 404);
+  }
+
+  // Validate department (if provided)
+  if (input.departmentId) {
+    const dept = await prisma.department.findFirst({
+      where: { id: input.departmentId, companyId: input.companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!dept) throw new ServiceError("Department not found or deleted", 404);
+  }
+
+  // Use the project's companyId or the input companyId for stock scoping
+  const scopeCompanyId = project?.companyId ?? input.companyId;
 
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
@@ -72,14 +95,18 @@ export async function createRequisition(input: CreateRequisitionInput) {
   // saw — even if stock or rates change before approval.
   const stockSnapshots = await prisma.stockLocationItem.groupBy({
     by: ["materialId"],
-    where: { materialId: { in: materialIds }, location: { deletedAt: null } },
+    where: { materialId: { in: materialIds }, location: { companyId: scopeCompanyId, deletedAt: null } },
     _sum: { qty: true },
   });
   const stockMap = new Map(stockSnapshots.map((s) => [s.materialId, s._sum.qty ?? new Decimal(0)]));
 
   // Last purchase rate: find the most recent GoodsReceiptLine for each material
+  // (scoped to this company's stock locations to prevent cross-company leaks)
   const lastReceipts = await prisma.goodsReceiptLine.findMany({
-    where: { materialId: { in: materialIds } },
+    where: {
+      materialId: { in: materialIds },
+      goodsReceipt: { location: { companyId: scopeCompanyId } },
+    },
     include: { goodsReceipt: { select: { receiptDate: true } } },
     orderBy: { goodsReceipt: { receiptDate: "desc" } },
     distinct: ["materialId"],
@@ -89,8 +116,9 @@ export async function createRequisition(input: CreateRequisitionInput) {
   return prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.create({
       data: {
-        reqNumber: generateReqNumber(),
-        projectId: input.projectId,
+        reqNumber: await generateReqNumber(tx),
+        projectId: input.projectId ?? null,
+        departmentId: input.departmentId ?? null,
         phaseId: input.phaseId,
         requestedById: input.requestedById,
         neededByDate: input.neededByDate,
@@ -112,6 +140,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
     });
     await logAction(tx, {
       userId: input.requestedById,
+      companyId: scopeCompanyId,
       action: "REQUISITION_CREATE",
       entityType: "MaterialRequisition",
       entityId: req.id,
@@ -122,20 +151,29 @@ export async function createRequisition(input: CreateRequisitionInput) {
 }
 
 export async function submitRequisition(reqId: string, userId?: string) {
-  const updated = await prisma.$transaction(async (tx) => {
-    const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+    const req = await tx.materialRequisition.findUnique({
+      where: { id: reqId },
+      include: {
+        project: { select: { companyId: true } },
+        department: { select: { companyId: true } },
+      },
+    });
     if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status !== "DRAFT") throw new ServiceError(`Cannot submit requisition in status ${req.status}`);
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
     const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "SUBMITTED" } });
     await logAction(tx, {
       userId,
+      companyId: reqCompanyId,
       action: "REQUISITION_SUBMIT",
       entityType: "MaterialRequisition",
       entityId: reqId,
       before: { status: req.status },
       after: { status: "SUBMITTED" },
     });
-    return updated;
+    return { updated, companyId: reqCompanyId };
   });
 
   // Logistics Decision Engine — evaluate routing on submit so the approver sees
@@ -148,14 +186,31 @@ export async function submitRequisition(reqId: string, userId?: string) {
     console.error(`[lci] evaluateRequisitionRouting failed for ${reqId}:`, err);
   }
 
+  void emitNotificationEvent({
+    eventType: NotificationEventType.REQUISITION_SUBMITTED,
+    companyId,
+    entityType: "MaterialRequisition",
+    entityId: reqId,
+    variables: { requisitionId: reqId },
+    timestamp: new Date(),
+  });
+
   return updated;
 }
 
 export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string) {
-  return prisma.$transaction(async (tx) => {
-    const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+    const req = await tx.materialRequisition.findUnique({
+      where: { id: reqId },
+      include: {
+        project: { select: { companyId: true } },
+        department: { select: { companyId: true } },
+      },
+    });
     if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve requisition in status ${req.status}`);
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -167,21 +222,41 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     });
     await logAction(tx, {
       userId: approvedById,
+      companyId: reqCompanyId,
       action: "REQUISITION_APPROVE",
       entityType: "MaterialRequisition",
       entityId: reqId,
       before: { status: req.status },
       after: { status: "APPROVED", approvedAt: updated.approvedAt },
     });
-    return updated;
+    return { updated, companyId: reqCompanyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.REQUISITION_APPROVED,
+    companyId,
+    entityType: "MaterialRequisition",
+    entityId: reqId,
+    variables: { requisitionId: reqId },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 export async function rejectRequisition(reqId: string, rejectedById?: string, rejectReason?: string) {
-  return prisma.$transaction(async (tx) => {
-    const req = await tx.materialRequisition.findUnique({ where: { id: reqId } });
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+    const req = await tx.materialRequisition.findUnique({
+      where: { id: reqId },
+      include: {
+        project: { select: { companyId: true } },
+        department: { select: { companyId: true } },
+      },
+    });
     if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject requisition in status ${req.status}`);
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -193,14 +268,26 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
     });
     await logAction(tx, {
       userId: rejectedById,
+      companyId: reqCompanyId,
       action: "REQUISITION_REJECT",
       entityType: "MaterialRequisition",
       entityId: reqId,
       before: { status: req.status },
       after: { status: "REJECTED", rejectReason },
     });
-    return updated;
+    return { updated, companyId: reqCompanyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.REQUISITION_REJECTED,
+    companyId,
+    entityType: "MaterialRequisition",
+    entityId: reqId,
+    variables: { requisitionId: reqId, reason: rejectReason ?? "" },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 interface ConvertRequisitionInput {
@@ -272,15 +359,21 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     include: { lines: true },
   });
 
-  return prisma.$transaction(async (tx) => {
+  const { po, companyId } = await prisma.$transaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: input.requisitionId },
-      include: { lines: true, project: true },
+      include: { lines: true, project: true, department: { select: { companyId: true } } },
     });
     if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status !== "APPROVED") {
       throw new ServiceError(`Cannot convert requisition in status ${req.status}. Must be APPROVED.`);
     }
+    if (req.convertedPoId) {
+      throw new ServiceError("Requisition has already been converted to a PO.");
+    }
+    // Resolve companyId from project or department (one must exist)
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department — cannot determine company", 400);
 
     // Build PO lines from requisition lines. If a winning quote exists, auto-fill
     // costs from it (overriding manual lineCosts). Otherwise use manual lineCosts.
@@ -298,8 +391,8 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     const po = await createPurchaseOrderTx(tx, {
       supplierId: input.supplierId,
       procurementScope,
-      companyId: req.project.companyId,
-      projectId: procurementScope === "PROJECT" ? req.projectId : undefined,
+      companyId: reqCompanyId,
+      projectId: procurementScope === "PROJECT" ? req.projectId ?? undefined : undefined,
       destinationLocationId: input.destinationLocationId,
       expectedDate: input.expectedDate,
       notes: input.notes,
@@ -324,6 +417,7 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
 
     await logAction(tx, {
       userId: input.userId,
+      companyId: reqCompanyId,
       action: "REQUISITION_CONVERT",
       entityType: "MaterialRequisition",
       entityId: input.requisitionId,
@@ -331,6 +425,17 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       after: { status: "CONVERTED", purchaseOrderId: po.id, winningQuoteId: winningQuote?.id ?? null },
     });
 
-    return po;
+    return { po, companyId: reqCompanyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.REQUISITION_CONVERTED_TO_PO,
+    companyId,
+    entityType: "MaterialRequisition",
+    entityId: input.requisitionId,
+    variables: { requisitionId: input.requisitionId, poId: po.id, poNumber: po.poNumber ?? po.id },
+    timestamp: new Date(),
+  });
+
+  return po;
 }

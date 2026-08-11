@@ -29,7 +29,7 @@ export interface CreateBoqItemInput {
   unit?: string;
   estimatedQty?: Decimal | number | string;
   rate?: Decimal | number | string;
-  notes?: string;
+  notes?: string | null;
   sortOrder?: number;
   userId?: string;
 }
@@ -257,6 +257,7 @@ export interface CreateWbsNodeInput {
   description?: string;
   plannedStart?: Date;
   plannedEnd?: Date;
+  isCritical?: boolean;
   sortOrder?: number;
   userId?: string;
 }
@@ -294,6 +295,7 @@ export async function createWbsNode(input: CreateWbsNodeInput) {
         description: input.description ?? null,
         plannedStart: input.plannedStart ?? null,
         plannedEnd: input.plannedEnd ?? null,
+        isCritical: input.isCritical ?? false,
         sortOrder: input.sortOrder ?? 0,
       },
     });
@@ -456,7 +458,7 @@ export async function getWbsTree(projectId: string) {
     where: { projectId },
     orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     include: {
-      boqItem: { select: { id: true, serialNo: true, description: true, estimatedAmount: true } },
+      boqItem: { select: { id: true, serialNo: true, description: true, estimatedAmount: true, estimatedQty: true, unit: true, rate: true } },
       _count: { select: { mbEntries: true, children: true } },
     },
   });
@@ -548,6 +550,19 @@ export async function createMbEntry(input: CreateMbEntryInput) {
     );
     const cumulativeQty = prevQty.plus(qty);
 
+    // ── BOQ quantity guard: cumulative measured qty must not exceed the
+    //    BOQ line item's estimated quantity.
+    if (boqItem.estimatedQty != null) {
+      const estimatedQty = new Decimal(boqItem.estimatedQty);
+      const totalAfterThisEntry = cumulativeQty;
+      if (totalAfterThisEntry.gt(estimatedQty)) {
+        throw new ServiceError(
+          `MB entry quantity exceeds BOQ estimated quantity. BOQ: ${estimatedQty}, already measured: ${prevQty}, this entry: ${qty}, total would be: ${totalAfterThisEntry}`,
+          409,
+        );
+      }
+    }
+
     const mbNumber = await generateMbNumber(tx);
 
     const entry = await tx.measurementBookEntry.create({
@@ -623,18 +638,23 @@ export async function approveMbEntry(id: string, approvedById: string) {
     if (entry.wbsNodeId && entry.boqItemId) {
       const boq = await tx.boqItem.findUnique({ where: { id: entry.boqItemId } });
       if (boq?.estimatedQty) {
+        const estimatedQtyDec = new Decimal(boq.estimatedQty);
+        if (estimatedQtyDec.eq(0)) {
+          throw new ServiceError("Cannot compute BOQ progress: estimated quantity is zero");
+        }
         const approvedEntries = await tx.measurementBookEntry.aggregate({
           where: { boqItemId: entry.boqItemId, status: "APPROVED" },
           _sum: { measuredQty: true },
         });
         const totalMeasured = new Decimal(approvedEntries._sum.measuredQty ?? 0);
         const progressPct = totalMeasured
-          .div(new Decimal(boq.estimatedQty))
+          .div(estimatedQtyDec)
           .times(100)
           .toDecimalPlaces(2);
+        const cappedProgress = progressPct.gt(100) ? new Decimal(100) : progressPct;
         await tx.wbsNode.update({
           where: { id: entry.wbsNodeId },
-          data: { progressPct: progressPct.toString() },
+          data: { progressPct: cappedProgress.toString() },
         });
       }
     }

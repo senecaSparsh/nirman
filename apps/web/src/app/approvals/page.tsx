@@ -6,16 +6,35 @@ import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
-import type { ApprovalPORow, ApprovalReqRow } from "@/lib/types";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalReqLineDetail } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
+
+/** Compute urgency from a target date (expectedDate for POs, neededByDate for requisitions). */
+function computeUrgency(dateStr: string | null): string {
+  if (!dateStr) return "normal";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "due_today";
+  if (diffDays <= 7) return "due_this_week";
+  return "normal";
+}
+
+/** Sort items by urgency: overdue → due_today → due_this_week → normal. */
+const URGENCY_ORDER: Record<string, number> = {
+  overdue: 0,
+  due_today: 1,
+  due_this_week: 2,
+  normal: 3,
+};
+
 export default function ApprovalsPage() {
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Approvals"
-        description="Purchase orders and material indents awaiting your approval."
-      />
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading approval queue…" />}>
         <ApprovalsContent />
       </Suspense>
@@ -66,7 +85,7 @@ async function ApprovalsContent() {
           orderBy: { createdAt: "desc" },
           include: {
             supplier: { select: { id: true, name: true } },
-            project: { select: { id: true, name: true } },
+            project: { select: { id: true, name: true, totalBudget: true, totalProjectCost: true } },
             lines: { select: { qtyOrdered: true, unitCost: true } },
             createdBy: { select: { id: true, name: true } },
           },
@@ -77,14 +96,75 @@ async function ApprovalsContent() {
           where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqProjectFilter },
           orderBy: { createdAt: "desc" },
           include: {
-            project: { select: { id: true, name: true } },
+            project: { select: { id: true, name: true, totalBudget: true, totalProjectCost: true } },
             phase: { select: { id: true, name: true } },
-            lines: { select: { qtyRequested: true } },
+            lines: {
+              select: {
+                qtyRequested: true,
+                currentStock: true,
+                lastRate: true,
+                lastRateDate: true,
+                material: { select: { id: true, name: true, code: true, unit: true } },
+              },
+            },
             requestedBy: { select: { id: true, name: true } },
           },
         })
       : [],
   ]);
+
+  // ── Build a project budget lookup so we can compute budget context per item ──
+  const projectIds = new Set<string>();
+  for (const po of purchaseOrders) {
+    if (po.projectId) projectIds.add(po.projectId);
+  }
+  for (const r of requisitions) {
+    if (r.projectId) projectIds.add(r.projectId);
+  }
+
+  // Budget context is already fetched via the include on project above,
+  // but we build a lookup for convenience.
+  const projectBudgetMap = new Map<string, { budget: number | null; spent: number | null }>();
+  for (const po of purchaseOrders) {
+    if (po.projectId && po.project && !projectBudgetMap.has(po.projectId)) {
+      projectBudgetMap.set(po.projectId, {
+        budget: po.project.totalBudget ? toNum(po.project.totalBudget) : null,
+        spent: po.project.totalProjectCost ? toNum(po.project.totalProjectCost) : null,
+      });
+    }
+  }
+  for (const r of requisitions) {
+    if (r.projectId && r.project && !projectBudgetMap.has(r.projectId)) {
+      projectBudgetMap.set(r.projectId, {
+        budget: r.project.totalBudget ? toNum(r.project.totalBudget) : null,
+        spent: r.project.totalProjectCost ? toNum(r.project.totalProjectCost) : null,
+      });
+    }
+  }
+
+  /** Compute budget context for a project + pending amount. */
+  function budgetContext(projectId: string | null, pendingAmount: number) {
+    if (!projectId) return {
+      projectBudget: null, projectSpent: null, budgetRemaining: null,
+      budgetUtilizationPct: null, wouldExceedBudget: false,
+    };
+    const ctx = projectBudgetMap.get(projectId);
+    if (!ctx || ctx.budget === null) return {
+      projectBudget: null, projectSpent: ctx?.spent ?? null, budgetRemaining: null,
+      budgetUtilizationPct: null, wouldExceedBudget: false,
+    };
+    const spent = ctx.spent ?? 0;
+    const remaining = ctx.budget - spent;
+    const utilizationPct = ctx.budget > 0 ? (spent / ctx.budget) * 100 : 0;
+    const wouldExceed = (spent + pendingAmount) > ctx.budget;
+    return {
+      projectBudget: ctx.budget,
+      projectSpent: spent,
+      budgetRemaining: remaining,
+      budgetUtilizationPct: Math.round(utilizationPct * 10) / 10,
+      wouldExceedBudget: wouldExceed,
+    };
+  }
 
   const poRows: ApprovalPORow[] = purchaseOrders.map((po) => ({
     id: po.id,
@@ -101,21 +181,67 @@ async function ApprovalsContent() {
     createdAt: po.createdAt.toISOString(),
     expectedDate: po.expectedDate?.toISOString() ?? null,
     canApprove: canApprovePo,
+    urgency: computeUrgency(po.expectedDate?.toISOString() ?? null),
+    ...budgetContext(po.projectId, toNum(po.total)),
   }));
 
-  const reqRows: ApprovalReqRow[] = requisitions.map((r) => ({
-    id: r.id,
-    reqNumber: r.reqNumber,
-    projectName: r.project.name,
-    phaseName: r.phase?.name ?? null,
-    status: r.status,
-    lineCount: r.lines.length,
-    totalQty: r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0),
-    requestedByName: r.requestedBy?.name ?? null,
-    neededByDate: r.neededByDate?.toISOString() ?? null,
-    createdAt: r.createdAt.toISOString(),
-    canApprove: canApproveReq,
-  }));
+  const reqRows: ApprovalReqRow[] = requisitions.map((r) => {
+    const lineDetails: ApprovalReqLineDetail[] = r.lines.map((l) => ({
+      materialId: l.material.id,
+      materialName: l.material.name,
+      materialCode: l.material.code,
+      unit: l.material.unit,
+      qtyRequested: toNum(l.qtyRequested),
+      currentStock: l.currentStock ? toNum(l.currentStock) : null,
+      lastRate: l.lastRate ? toNum(l.lastRate) : null,
+      lastRateDate: l.lastRateDate?.toISOString() ?? null,
+    }));
 
-  return <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />;
+    // Estimate pending cost from last rates (best available estimate)
+    const estimatedCost = r.lines.reduce((sum, l) => {
+      const rate = l.lastRate ? toNum(l.lastRate) : 0;
+      return sum + toNum(l.qtyRequested) * rate;
+    }, 0);
+
+    return {
+      id: r.id,
+      reqNumber: r.reqNumber,
+      projectName: r.project?.name ?? null,
+      phaseName: r.phase?.name ?? null,
+      status: r.status,
+      lineCount: r.lines.length,
+      totalQty: r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0),
+      requestedByName: r.requestedBy?.name ?? null,
+      neededByDate: r.neededByDate?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      canApprove: canApproveReq,
+      urgency: computeUrgency(r.neededByDate?.toISOString() ?? null),
+      lineDetails,
+      ...budgetContext(r.projectId, estimatedCost),
+    };
+  });
+
+  // Sort by urgency: overdue → due_today → due_this_week → normal
+  const urgencyRank = (u: string) => URGENCY_ORDER[u] ?? 99;
+  poRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
+  reqRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
+
+  const totalCount = poRows.length + reqRows.length;
+  const overdueCount = [...poRows, ...reqRows].filter((r) => r.urgency === "overdue").length;
+
+  return (
+    <>
+      <PageHeader
+        title="Approvals"
+        description="Purchase orders and material indents awaiting your approval."
+        stats={[
+          { label: "Pending", value: totalCount, tone: totalCount > 0 ? "warning" : "muted", hint: "Total items awaiting your approval — purchase orders plus material indents." },
+          { label: "Overdue", value: overdueCount, tone: overdueCount > 0 ? "danger" : "muted", hint: "Items past their expected or needed-by date." },
+          { label: "POs", value: poRows.length, hint: "Draft purchase orders pending your approval before they can be ordered." },
+          { label: "Indents", value: reqRows.length, hint: "Submitted material indents pending your approval before conversion to a PO." },
+        ]}
+      />
+      <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />
+    </>
+  );
 }

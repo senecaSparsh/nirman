@@ -31,6 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     totalCost: toNum(lp.totalCost),
     registryNo: lp.registryNo,
     location: lp.location,
+    documentUrl: lp.documentUrl,
     parcels: lp.parcels.map((p) => ({
       id: p.id,
       landPurchaseId: p.landPurchaseId,

@@ -59,8 +59,8 @@ export async function getProjectMaterialReconciliation(
   projectId: string,
   tolerancePct: Decimal | number = 5,
 ): Promise<ProjectReconciliation> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
     select: { id: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
@@ -117,7 +117,7 @@ export async function getProjectMaterialReconciliation(
       const stock = await prisma.stockLocationItem.aggregate({
         where: {
           materialId: item.materialId,
-          location: { projectId },
+          location: { projectId, deletedAt: null },
         },
         _sum: { qty: true },
       });

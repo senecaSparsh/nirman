@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,6 +28,18 @@ export function CustomerFormDialog({
     gstin: customer?.gstin ?? "",
     address: customer?.address ?? "",
   });
+
+  // Sync form fields when the edit target changes or the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      name: customer?.name ?? "",
+      phone: customer?.phone ?? "",
+      email: customer?.email ?? "",
+      gstin: customer?.gstin ?? "",
+      address: customer?.address ?? "",
+    });
+  }, [open, customer]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

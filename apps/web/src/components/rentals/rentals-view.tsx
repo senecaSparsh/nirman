@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, Play, Square, Banknote, ChevronDown, ChevronRight, Pencil, Download } from "lucide-react";
+import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -11,9 +11,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
 
 /** Column definitions for the rental payment history DataTable. */
 const paymentColumns: Column<TenancyRow["payments"][number]>[] = [
@@ -101,11 +101,11 @@ export function RentalsView({
   permissions?: { canManage?: boolean; canTerminate?: boolean };
 }) {
   const router = useRouter();
-  const canManage = permissions?.canManage ?? true;
-  const canTerminate = permissions?.canTerminate ?? true;
+  const canManage = permissions?.canManage ?? false;
+  const canTerminate = permissions?.canTerminate ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [payTarget, setPayTarget] = useState<TenancyRow | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<TenancyRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false);
   const [terminateTarget, setTerminateTarget] = useState<TenancyRow | null>(null);
@@ -302,39 +302,148 @@ export function RentalsView({
     }
   }
 
+  const columns: Column<TenancyRow>[] = [
+    {
+      key: "tenantName",
+      label: "Tenant",
+      sortable: true,
+      width: "240px",
+      sortValue: (t) => t.tenantName,
+      render: (t) => (
+        <IdentityCell
+          name={t.tenantName}
+          sub={[
+            t.assetType === "LAND" ? "Land parcel" : "Built unit",
+            t.rentAgreementNo ? `#${t.rentAgreementNo}` : null,
+          ].filter(Boolean).join(" · ")}
+        />
+      ),
+      exportValue: (t) => t.tenantName,
+    },
+    {
+      key: "assetType",
+      label: "Asset",
+      sortable: true,
+      filterable: true,
+      width: "100px",
+      render: (t) => <Badge variant="outline">{t.assetType === "LAND" ? "Land" : "Unit"}</Badge>,
+      filterValue: (t) => (t.assetType === "LAND" ? "Land" : "Unit"),
+      exportValue: (t) => t.assetType,
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      width: "160px",
+      render: (t) => t.projectName ?? <span className="text-faint">—</span>,
+      filterValue: (t) => t.projectName ?? "—",
+      exportValue: (t) => t.projectName ?? "",
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      render: (t) => tenancyStatusPill(t.status),
+      filterValue: (t) => t.status,
+      exportValue: (t) => t.status,
+    },
+    {
+      key: "monthlyRent",
+      label: "Monthly rent",
+      align: "right",
+      sortable: true,
+      render: (t) => <MoneyCell value={t.monthlyRent} formatted={formatCurrency(t.monthlyRent)} neutral />,
+      exportValue: (t) => t.monthlyRent,
+    },
+    {
+      key: "securityDeposit",
+      label: "Deposit",
+      align: "right",
+      sortable: true,
+      defaultHidden: true,
+      render: (t) => <MoneyCell value={t.securityDeposit} formatted={formatCurrency(t.securityDeposit)} neutral />,
+      exportValue: (t) => t.securityDeposit,
+    },
+    {
+      key: "startDate",
+      label: "Start",
+      sortable: true,
+      render: (t) => <DateCell date={t.startDate} formatted={formatDate(t.startDate)} />,
+      sortValue: (t) => new Date(t.startDate),
+      exportValue: (t) => t.startDate,
+    },
+    {
+      key: "endDate",
+      label: "End",
+      sortable: true,
+      render: (t) => <DateCell date={t.endDate} formatted={formatDate(t.endDate)} />,
+      sortValue: (t) => new Date(t.endDate),
+      exportValue: (t) => t.endDate,
+    },
+    {
+      key: "totalReceived",
+      label: "Received",
+      align: "right",
+      sortable: true,
+      render: (t) => (
+        <MoneyCell
+          value={t.totalReceived}
+          formatted={formatCurrency(t.totalReceived)}
+          sub={`${t.paymentCount} payment${t.paymentCount !== 1 ? "s" : ""}`}
+        />
+      ),
+      exportValue: (t) => t.totalReceived,
+    },
+  ];
+
+  function rowActions(t: TenancyRow) {
+    return (
+      <>
+        {canManage && t.status === "PENDING" && (
+          <>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(t); }} disabled={submitting} title="Edit">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); activateTenancy(t.id); }} disabled={submitting} title="Activate">
+              <Play className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
+        {canManage && t.status === "ACTIVE" && (
+          <>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPayTarget(t); setPAmount(String(t.monthlyRent)); setPDate(""); setPRef(""); }} title="Record payment">
+              <Banknote className="h-3.5 w-3.5" />
+            </Button>
+            {canTerminate && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); requestTerminate(t); }} disabled={submitting} title="Terminate">
+                <Square className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </>
+        )}
+      </>
+    );
+  }
+
+  const trailingButtons = canManage ? (
+    <Button onClick={() => setFormOpen(true)}>
+      <Plus className="h-4 w-4" /> New tenancy
+    </Button>
+  ) : null;
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No tenancies match"
+      description="Adjust the search or column filters to see all tenancies."
+    />
+  );
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-body text-muted-foreground">
-          {tenancies.length} tenanc{tenancies.length !== 1 ? "ies" : "y"}
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            downloadCSV("rentals.csv", tenancies as unknown as Record<string, unknown>[], [
-              { key: "tenantName", label: "Tenant" },
-              { key: "assetType", label: "Asset Type" },
-              { key: "projectName", label: "Project" },
-              { key: "startDate", label: "Start Date", format: (v) => formatDate(v as string) },
-              { key: "endDate", label: "End Date", format: (v) => formatDate(v as string) },
-              { key: "monthlyRent", label: "Monthly Rent", format: (v) => formatCurrency(v as number) },
-              { key: "securityDeposit", label: "Security Deposit", format: (v) => formatCurrency(v as number) },
-              { key: "status", label: "Status" },
-              { key: "totalReceived", label: "Total Received", format: (v) => formatCurrency(v as number) },
-            ])
-          }
-          title="Export CSV"
-        >
-          <Download className="mr-1 h-3.5 w-3.5" /> Export
-        </Button>
-        {canManage && tenancies.length > 0 && (
-          <Button size="sm" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> New Tenancy
-          </Button>
-        )}
-      </div>
-
       {tenancies.length === 0 ? (
         <EmptyState
           icon={<KeyRound className="h-5 w-5" />}
@@ -347,85 +456,45 @@ export function RentalsView({
           ) : undefined}
         />
       ) : (
-        <div className="space-y-2">
-          {tenancies.map((t) => (
-            <div key={t.id} className="rounded-lg border border-border bg-card">
-              <button
-                onClick={() => setExpanded(expanded === t.id ? null : t.id)}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-              >
-                {expanded === t.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <div className="flex-1 space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">{t.tenantName}</span>
-                    <Badge variant="outline">{t.assetType === "LAND" ? "Land" : "Unit"}</Badge>
-                    {tenancyStatusPill(t.status)}
-                    {t.rentAgreementNo && <Badge variant="muted">#{t.rentAgreementNo}</Badge>}
-                  </div>
-                  <div className="text-meta text-muted-foreground">
-                    {formatDate(t.startDate)} → {formatDate(t.endDate)} · {formatCurrency(t.monthlyRent)}/mo
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-body font-medium text-foreground">{formatCurrency(t.totalReceived)}</div>
-                  <div className="text-caption text-muted-foreground">received · {t.paymentCount} payment{t.paymentCount !== 1 ? "s" : ""}</div>
-                </div>
-              </button>
-
-              {expanded === t.id && (
-                <div className="border-t border-border p-3 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-meta sm:grid-cols-4">
-                    <div><div className="text-muted-foreground">Tenant phone</div><div className="text-foreground">{t.tenantPhone ?? "—"}</div></div>
-                    <div><div className="text-muted-foreground">Customer</div><div className="text-foreground">{t.customerName ?? "—"}</div></div>
-                    <div><div className="text-muted-foreground">Security deposit</div><div className="text-foreground">{formatCurrency(t.securityDeposit)}</div></div>
-                    <div><div className="text-muted-foreground">Project</div><div className="text-foreground">{t.projectName ?? "—"}</div></div>
-                  </div>
-                  {t.notes && <div className="text-body text-muted-foreground">“{t.notes}”</div>}
-
-                  {/* Payments */}
-                  <div className="space-y-2">
-                    <div className="text-caption font-medium text-muted-foreground">Payment history</div>
-                    {t.payments.length === 0 ? (
-                      <div className="rounded-lg border border-border px-3 py-3 text-meta text-muted-foreground">No payments recorded yet.</div>
-                    ) : (
-                      <div className="rounded-lg border border-border overflow-hidden">
-                        <DataTable data={t.payments} columns={paymentColumns} getRowId={(p) => p.id} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  {canManage && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {t.status === "PENDING" && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => openEdit(t)} disabled={submitting}>
-                            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                          </Button>
-                          <Button size="sm" onClick={() => activateTenancy(t.id)} disabled={submitting}>
-                            <Play className="mr-1 h-3.5 w-3.5" /> Activate
-                          </Button>
-                        </>
-                      )}
-                      {t.status === "ACTIVE" && (
-                        <>
-                          <Button size="sm" onClick={() => { setPayTarget(t); setPAmount(String(t.monthlyRent)); setPDate(""); setPRef(""); }}>
-                            <Banknote className="mr-1 h-3.5 w-3.5" /> Record Payment
-                          </Button>
-                          {canTerminate && (
-                            <Button size="sm" variant="outline" onClick={() => requestTerminate(t)} disabled={submitting}>
-                              <Square className="mr-1 h-3.5 w-3.5" /> Terminate
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={tenancies}
+            columns={columns}
+            storageKey="rentals"
+            hideable
+            exportFileName="rentals"
+            initialSort={{ key: "startDate", direction: "desc" }}
+            onRowClick={(t) => setDetailTarget(t)}
+            searchable
+            searchPlaceholder="Search tenant, project, agreement no…"
+            toolbarTrailing={trailingButtons}
+            showTotals
+            sumColumns={["monthlyRent", "totalReceived"]}
+            totalFormat={(_key, sum) => formatCurrency(sum)}
+            rowTone={(t) => {
+              if (t.status === "TERMINATED") return "warning";
+              if (t.status === "PENDING") return null;
+              return null;
+            }}
+            rowActions={rowActions}
+            emptyState={noMatch}
+          />
         </div>
+      )}
+
+      {/* Detail dialog */}
+      {detailTarget && (
+        <TenancyDetailDialog
+          tenancy={detailTarget}
+          onClose={() => setDetailTarget(null)}
+          onEdit={() => { openEdit(detailTarget); setDetailTarget(null); }}
+          onActivate={() => { activateTenancy(detailTarget.id); setDetailTarget(null); }}
+          onPay={() => { setPayTarget(detailTarget); setPAmount(String(detailTarget.monthlyRent)); setPDate(""); setPRef(""); setDetailTarget(null); }}
+          onTerminate={() => { requestTerminate(detailTarget); setDetailTarget(null); }}
+          canManage={canManage}
+          canTerminate={canTerminate}
+          submitting={submitting}
+        />
       )}
 
       {/* Create tenancy dialog */}
@@ -621,5 +690,131 @@ export function RentalsView({
         </div>
       </Dialog>
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Tenancy Detail Dialog
+// ───────────────────────────────────────────────────────────
+
+function TenancyDetailDialog({
+  tenancy,
+  onClose,
+  onEdit,
+  onActivate,
+  onPay,
+  onTerminate,
+  canManage,
+  canTerminate,
+  submitting,
+}: {
+  tenancy: TenancyRow;
+  onClose: () => void;
+  onEdit: () => void;
+  onActivate: () => void;
+  onPay: () => void;
+  onTerminate: () => void;
+  canManage: boolean;
+  canTerminate: boolean;
+  submitting: boolean;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={tenancy.tenantName}
+      description={`${tenancy.assetType === "LAND" ? "Land Parcel" : "Built Unit"} · ${tenancy.projectName ?? "No project"}`}
+      className="max-w-xl"
+      action={
+        canManage && tenancy.status === "PENDING" ? (
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
+        {/* Status + agreement no */}
+        <div className="flex flex-wrap items-center gap-2">
+          {tenancyStatusPill(tenancy.status)}
+          <Badge variant="outline">{tenancy.assetType === "LAND" ? "Land" : "Unit"}</Badge>
+          {tenancy.rentAgreementNo && (
+            <Badge variant="muted" className="font-mono text-micro">#{tenancy.rentAgreementNo}</Badge>
+          )}
+        </div>
+
+        {/* Key facts grid */}
+        <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-4">
+          <div>
+            <div className="text-label text-muted-foreground">Monthly Rent</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(tenancy.monthlyRent)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Deposit</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(tenancy.securityDeposit)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Total Received</div>
+            <div className="text-body font-semibold tnum">{formatCurrency(tenancy.totalReceived)}</div>
+          </div>
+          <div>
+            <div className="text-label text-muted-foreground">Payments</div>
+            <div className="text-body font-semibold tnum">{tenancy.paymentCount}</div>
+          </div>
+        </div>
+
+        {/* Tenancy details */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-meta sm:grid-cols-3">
+          <div><span className="text-muted-foreground">Start: </span>{formatDate(tenancy.startDate)}</div>
+          <div><span className="text-muted-foreground">End: </span>{formatDate(tenancy.endDate)}</div>
+          <div><span className="text-muted-foreground">Tenant phone: </span>{tenancy.tenantPhone ?? "—"}</div>
+          <div><span className="text-muted-foreground">Customer: </span>{tenancy.customerName ?? "—"}</div>
+          <div><span className="text-muted-foreground">Project: </span>{tenancy.projectName ?? "—"}</div>
+        </div>
+
+        {/* Notes */}
+        {tenancy.notes && (
+          <div>
+            <div className="text-label text-muted-foreground">Notes</div>
+            <p className="mt-1 text-body leading-relaxed whitespace-pre-wrap">{tenancy.notes}</p>
+          </div>
+        )}
+
+        {/* Payment history */}
+        <div className="space-y-2">
+          <div className="text-caption font-medium text-muted-foreground">Payment history</div>
+          {tenancy.payments.length === 0 ? (
+            <div className="rounded-lg border border-border px-3 py-3 text-meta text-muted-foreground">No payments recorded yet.</div>
+          ) : (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <DataTable data={tenancy.payments} columns={paymentColumns} getRowId={(p) => p.id} hideToolbar />
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {canManage && (
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            {tenancy.status === "PENDING" && (
+              <Button size="sm" onClick={onActivate} disabled={submitting}>
+                <Play className="h-3.5 w-3.5" /> Activate
+              </Button>
+            )}
+            {tenancy.status === "ACTIVE" && (
+              <>
+                <Button size="sm" onClick={onPay}>
+                  <Banknote className="h-3.5 w-3.5" /> Record Payment
+                </Button>
+                {canTerminate && (
+                  <Button size="sm" variant="outline" className="text-danger" onClick={onTerminate} disabled={submitting}>
+                    <Square className="h-3.5 w-3.5" /> Terminate
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }

@@ -52,8 +52,9 @@ export interface SyncResult {
 // ── IndexedDB wrapper ────────────────────────────────────────────
 
 const DB_NAME = "nirman-field";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "queue";
+const DRAFTS_STORE = "drafts";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -68,6 +69,12 @@ function openDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORE, { keyPath: "id" });
         store.createIndex("status", "status", { unique: false });
         store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      // v2: add drafts store for auto-saving form state
+      if (!db.objectStoreNames.contains(DRAFTS_STORE)) {
+        const draftStore = db.createObjectStore(DRAFTS_STORE, { keyPath: "key" });
+        draftStore.createIndex("formType", "formType", { unique: false });
+        draftStore.createIndex("updatedAt", "updatedAt", { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);

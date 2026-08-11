@@ -13,6 +13,7 @@ import { Input, Label } from "@/components/ui/input";
 import { cn, formatNumber, formatCurrency } from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import type { QueuedOperation } from "@/lib/offline/queue";
+import { BarcodeScanner } from "@/components/mobile/barcode-scanner";
 
 // ── Types (mirrors the server-component payload) ────────────────
 
@@ -38,58 +39,17 @@ interface ReceivablePo {
   lines: ReceivableLine[];
 }
 
-// ── Barcode scanning via BarcodeDetector ────────────────────────
-
-async function scanBarcode(): Promise<string | null> {
-  // Native BarcodeDetector API (Chrome on Android). Falls back gracefully
-  // where unavailable — the operator types the code manually.
-  if (typeof window === "undefined" || !("BarcodeDetector" in window)) return null;
-  try {
-    // @ts-expect-error — BarcodeDetector is not in TS lib defs yet
-    const detector = new window.BarcodeDetector({
-      formats: ["code_128", "ean_13", "ean_8", "qr_code", "data_matrix"],
-    });
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-    });
-    const video = document.createElement("video");
-    video.srcObject = stream;
-    video.play();
-    return await new Promise<string | null>((resolve) => {
-      const start = performance.now();
-      const tick = async () => {
-        if (performance.now() - start > 20000) {
-          stream.getTracks().forEach((t) => t.stop());
-          resolve(null);
-          return;
-        }
-        try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            stream.getTracks().forEach((t) => t.stop());
-            resolve(codes[0].rawValue);
-            return;
-          }
-        } catch {
-          // detection frame failed — keep trying
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
-  } catch {
-    return null;
-  }
-}
-
 // ── Component ────────────────────────────────────────────────────
 
 export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: ReceivablePo[]; initialPoId?: string }) {
   const router = useRouter();
   const { queue, pending, online, syncing, enqueue, sync } = useOfflineQueue();
   const [selectedPoId, setSelectedPoId] = useState<string>(initialPoId ?? "");
+  const [gateEntryNumber, setGateEntryNumber] = useState<string>("");
+  const [receiptNotes, setReceiptNotes] = useState<string>("");
   const [receipts, setReceipts] = useState<Record<string, string>>({}); // lineId → qty
   const [scanning, setScanning] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [confirmLines, setConfirmLines] = useState<{ name: string; qty: number; unit: string; cost: number }[] | null>(null);
 
   const selectedPo = useMemo(
@@ -112,19 +72,20 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
     setReceipts((r) => ({ ...r, [lineId]: qty }));
   }
 
-  // Scan a barcode and match it to a PO line, focusing that line's qty input.
-  async function onScan() {
-    setScanning(true);
-    const code = await scanBarcode();
-    setScanning(false);
-    if (!code) {
-      toast.info("Barcode scan unavailable — enter the code manually.");
-      return;
-    }
+  // Open the barcode scanner overlay. When a code is scanned, match it
+  // to a PO line and pre-fill the remaining qty.
+  function onScanBtn() {
     if (!selectedPo) {
       toast.error("Select a purchase order first.");
       return;
     }
+    setShowScanner(true);
+  }
+
+  function handleScannedCode(code: string) {
+    setShowScanner(false);
+    setScanning(false);
+    if (!selectedPo) return;
     const line = selectedPo.lines.find(
       (l) => l.barcode === code || l.materialCode === code,
     );
@@ -192,10 +153,17 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       unitCost: number;
     }[];
 
+    const notesCombined = [
+      gateEntryNumber.trim() ? `Gate Entry: ${gateEntryNumber.trim()}` : "",
+      receiptNotes.trim() ? receiptNotes.trim() : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
     const payload = {
       purchaseOrderId: selectedPo.id,
       locationId: selectedPo.destinationLocationId,
-      notes: null,
+      notes: notesCombined || null,
       lines,
     };
 
@@ -207,6 +175,8 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
           : `Offline — GRN queued (${pending + 1}). Will sync when online.`,
       );
       setReceipts({});
+      setGateEntryNumber("");
+      setReceiptNotes("");
       setConfirmLines(null);
       router.refresh();
     });
@@ -255,6 +225,29 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
             ))}
           </select>
         )}
+
+        {selectedPo && (
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+            <div>
+              <Label className="text-[11px]">Gate Entry No.</Label>
+              <Input
+                placeholder="e.g. GE-2026-081"
+                value={gateEntryNumber}
+                onChange={(e) => setGateEntryNumber(e.target.value)}
+                className="font-mono text-xs mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px]">Receipt Remarks</Label>
+              <Input
+                placeholder="Vehicle / challan no."
+                value={receiptNotes}
+                onChange={(e) => setReceiptNotes(e.target.value)}
+                className="text-xs mt-1"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Lines */}
@@ -269,7 +262,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                 {" · "}{selectedPo.destinationLocationName}
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onScan} disabled={scanning}>
+            <Button variant="outline" size="sm" onClick={onScanBtn} disabled={scanning}>
               <ScanLine className="mr-1.5 h-3.5 w-3.5" />
               {scanning ? "Scanning…" : "Scan"}
             </Button>
@@ -374,6 +367,17 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       {/* Offline queue */}
       {queue.length > 0 && (
         <QueuePanel queue={queue} />
+      )}
+
+      {/* Cross-platform barcode scanner overlay */}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={handleScannedCode}
+          onClose={() => {
+            setShowScanner(false);
+            setScanning(false);
+          }}
+        />
       )}
     </div>
   );

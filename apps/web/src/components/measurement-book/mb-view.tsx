@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -16,8 +15,8 @@ import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 
 type Project = { id: string; name: string };
-type BoqItem = { id: string; serialNo: string; description: string; unit: string | null; rate: number | null };
-type WbsNode = { id: string; code: string; name: string };
+type BoqItem = { id: string; serialNo: string; description: string; unit: string | null; rate: number | null; estimatedQty: number | null };
+type WbsNode = { id: string; code: string; name: string; boqItemId: string | null };
 
 type MbEntry = {
   id: string;
@@ -140,13 +139,15 @@ export function MeasurementBookView({
   projects: Project[];
   canCreate: boolean;
 }) {
-  const router = useRouter();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [entries, setEntries] = useState<MbEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
   const [wbsNodes, setWbsNodes] = useState<WbsNode[]>([]);
+  // Rejection dialog state — replaces native prompt() for rejection reason input
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (!projectId) return;
@@ -166,7 +167,7 @@ export function MeasurementBookView({
       function collect(nodes: any[]) {
         for (const n of nodes) {
           if (n.type === "LINE_ITEM") {
-            items.push({ id: n.id, serialNo: n.serialNo, description: n.description, unit: n.unit, rate: n.rate });
+            items.push({ id: n.id, serialNo: n.serialNo, description: n.description, unit: n.unit, rate: n.rate, estimatedQty: n.estimatedQty });
           }
           if (n.children) collect(n.children);
         }
@@ -177,7 +178,7 @@ export function MeasurementBookView({
       const nodes: WbsNode[] = [];
       function collectWbs(ns: any[]) {
         for (const n of ns) {
-          nodes.push({ id: n.id, code: n.code, name: n.name });
+          nodes.push({ id: n.id, code: n.code, name: n.name, boqItemId: n.boqItem?.id ?? null });
           if (n.children) collectWbs(n.children);
         }
       }
@@ -187,19 +188,47 @@ export function MeasurementBookView({
   }, [projectId]);
 
   async function onAction(id: string, action: "verify" | "approve" | "reject") {
-    const reason = action === "reject" ? prompt("Rejection reason:") : null;
-    if (action === "reject" && !reason) return;
+    if (action === "reject") {
+      // Open the rejection dialog instead of using native prompt()
+      setRejectReason("");
+      setRejectTarget(id);
+      return;
+    }
     try {
       const res = await fetch(`/api/mb-entries/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "reject" ? { action, reason } : { action }),
+        body: JSON.stringify({ action }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       toast.success(`Entry ${action}ed`);
-      router.refresh();
+      if (action === "approve") {
+        toast.info("WBS progress auto-updated", { description: "Linked activity progress recalculated from approved quantities." });
+      }
       // Refresh entries
+      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function submitReject() {
+    if (!rejectTarget) return;
+    if (!rejectReason.trim()) {
+      toast.error("Rejection reason is required");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/mb-entries/${rejectTarget}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", reason: rejectReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Entry rejected");
+      setRejectTarget(null);
       fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -218,11 +247,6 @@ export function MeasurementBookView({
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </Field>
-        {canCreate && entries.length > 0 && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> New Entry
-          </Button>
-        )}
       </div>
 
       {loading ? (
@@ -251,6 +275,8 @@ export function MeasurementBookView({
             totalFormat={(_key, sum) => formatNumber(sum, 3)}
             hideable
             pageSize={50}
+            onAddRow={canCreate ? () => setDialogOpen(true) : undefined}
+            addRowLabel="New Entry"
           />
         </div>
       )}
@@ -261,7 +287,33 @@ export function MeasurementBookView({
         projectId={projectId}
         boqItems={boqItems}
         wbsNodes={wbsNodes}
+        onCreated={() => fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []))}
       />
+
+      {/* Rejection reason dialog — replaces native prompt() */}
+      <Dialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => { if (!open) setRejectTarget(null); }}
+        title="Reject Measurement Book Entry"
+        description="Provide a reason for rejecting this entry. The reason will be visible to the submitter."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={submitReject}>Reject Entry</Button>
+          </>
+        }
+      >
+        <Field label="Rejection reason">
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="e.g. Measured quantity exceeds BOQ scope. Please re-measure and resubmit."
+            rows={3}
+            autoFocus
+          />
+        </Field>
+      </Dialog>
     </div>
   );
 }
@@ -272,14 +324,15 @@ function MbEntryDialog({
   projectId,
   boqItems,
   wbsNodes,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
   boqItems: BoqItem[];
   wbsNodes: WbsNode[];
+  onCreated?: () => void;
 }) {
-  const router = useRouter();
   const [form, setForm] = useState({
     boqItemId: "",
     wbsNodeId: "",
@@ -292,6 +345,16 @@ function MbEntryDialog({
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  // Auto-suggest WBS node when BOQ item is selected
+  function onBoqItemChange(boqItemId: string) {
+    const linkedNode = wbsNodes.find((w) => w.boqItemId === boqItemId);
+    setForm((f) => ({ ...f, boqItemId, wbsNodeId: linkedNode?.id ?? f.wbsNodeId }));
+  }
+
+  // Filter WBS nodes to show: the auto-suggested one first, then all activities
+  const selectedBoq = boqItems.find((b) => b.id === form.boqItemId);
+  const suggestedWbsNode = wbsNodes.find((w) => w.boqItemId === form.boqItemId);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -318,7 +381,7 @@ function MbEntryDialog({
       toast.success("MB entry created");
       onOpenChange(false);
       setForm({ boqItemId: "", wbsNodeId: "", measuredQty: "", description: "", locationRef: "" });
-      router.refresh();
+      onCreated?.();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -336,24 +399,42 @@ function MbEntryDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <Field label="BOQ Line Item" required>
-          <Select value={form.boqItemId} onChange={(e) => set("boqItemId", e.target.value)} required>
+          <Select value={form.boqItemId} onChange={(e) => onBoqItemChange(e.target.value)} required>
             <option value="">— Select BOQ item —</option>
             {boqItems.map((b) => (
-              <option key={b.id} value={b.id}>{b.serialNo} — {b.description} ({b.unit ?? "—"})</option>
+              <option key={b.id} value={b.id}>{b.serialNo} — {b.description} ({b.unit ?? "—"}) · {formatCurrency(b.rate ?? 0)}/{b.unit ?? "unit"}</option>
             ))}
           </Select>
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="WBS Activity (optional)">
+          <Field label="WBS Activity">
             <Select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)}>
               <option value="">— None —</option>
               {wbsNodes.map((w) => (
                 <option key={w.id} value={w.id}>{w.code} — {w.name}</option>
               ))}
             </Select>
+            {suggestedWbsNode && form.wbsNodeId === suggestedWbsNode.id && (
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">
+                Auto-linked from BOQ item. Progress will update on approval.
+              </p>
+            )}
+            {!suggestedWbsNode && form.boqItemId && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                This BOQ item isn't linked to any WBS activity. Link it in the WBS page for auto-progress.
+              </p>
+            )}
           </Field>
-          <Field label="Measured Quantity" required>
+          <Field label={`Measured Quantity${selectedBoq ? ` (${selectedBoq.unit ?? "units"})` : ""}`} required>
             <Input type="number" step="0.001" value={form.measuredQty} onChange={(e) => set("measuredQty", e.target.value)} placeholder="0.000" required />
+            {selectedBoq && selectedBoq.estimatedQty != null && form.measuredQty && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                BOQ est: {formatNumber(selectedBoq.estimatedQty, 3)} {selectedBoq.unit ?? ""}
+                {parseFloat(form.measuredQty) > 0 && (
+                  <> · This entry: {((parseFloat(form.measuredQty) / selectedBoq.estimatedQty) * 100).toFixed(1)}% of BOQ</>
+                )}
+              </p>
+            )}
           </Field>
         </div>
         <Field label="Description of Work" required>

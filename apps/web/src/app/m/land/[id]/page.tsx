@@ -1,128 +1,177 @@
 import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { MapPin, IndianRupee, Layers, TrendingUp, FileText, Route } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import {
-  MobileDetailHeader,
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileRow,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileStatusBadge,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { PageLoading } from "@/components/page-loading";
+import { LandHub, type LandHubData } from "@/components/land/land-hub";
+import type { LandParcelRow, LandParcelSummary, ProjectOption } from "@/lib/types";
 
-export default function MobileLandDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/**
+ * /m/land/[id] — mobile land detail. Uses the EXACT same desktop
+ * LandHub component wrapped in .mobile-scale to shrink text to 9-11px.
+ * Layout is identical to desktop.
+ */
+export default function MobileLandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileLandDetailContent params={params} />
-    </Suspense>
+    <div className="mobile-scale px-3 py-4">
+      <Suspense fallback={<PageLoading label="Loading land purchase…" />}>
+        <MobileLandDetailContent params={params} />
+      </Suspense>
+    </div>
   );
 }
 
-async function MobileLandDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+async function MobileLandDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const company = await getCompany();
   const { id } = await params;
+  const role = await getUserRole();
+  const company = await getCompany();
 
-  const parcel = await prisma.landParcel.findFirst({
-    where: { id, landPurchase: { companyId: company.id } },
+  const purchase = await prisma.landPurchase.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
-      landPurchase: { select: { id: true, purchaseNumber: true, project: { select: { name: true } } } },
-      parentParcel: { select: { id: true, number: true } },
-      childParcels: { orderBy: { number: "asc" } },
+      project: { select: { id: true, name: true, type: true, status: true } },
+      parcels: {
+        where: { deletedAt: null },
+        orderBy: [{ number: "asc" }],
+        include: {
+          parentParcel: { select: { number: true } },
+          _count: { select: { children: true } },
+        },
+      },
     },
   });
+  if (!purchase) notFound();
 
-  if (!parcel) {
-    return (
-      <div>
-        <MobileDetailHeader title="Land Parcel" backHref="/m/land" />
-        <MobileEmptyState icon={MapPin} title="Parcel not found" />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <MobileDetailHeader
-        title={parcel.number}
-        subtitle={parcel.landPurchase?.project?.name ?? "no project"}
-        backHref="/m/land"
-        right={<MobileRefreshButton />}
-      />
-
-      <MobileSectionTitle>Details</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={MapPin} title="Status" value={parcel.status} />
-        <MobileInfoRow icon={Layers} title="Area" value={`${formatNumber(toNum(parcel.area))} ${parcel.areaUnit}`} />
-        {parcel.parentParcel && (
-          <MobileInfoRow icon={FileText} title="Parent Parcel" value={parcel.parentParcel.number} />
-        )}
-        {parcel.isInfrastructure && (
-          <MobileInfoRow icon={Route} title="Infrastructure" value="Non-saleable" />
-        )}
-      </div>
-
-      <MobileSectionTitle>Valuation</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Acquisition Cost"
-          value={formatCurrency(toNum(parcel.acquisitionCost))}
-          icon={IndianRupee}
-        />
-        <MobileStatCard
-          label="Current Valuation"
-          value={formatCurrency(toNum(parcel.currentValuation))}
-          icon={TrendingUp}
-          tone="brand"
-        />
-        {parcel.askingPrice && (
-          <MobileStatCard
-            label="Asking Price"
-            value={formatCurrency(toNum(parcel.askingPrice))}
-            icon={IndianRupee}
-            tone="warning"
-          />
-        )}
-        {parcel.marketValue && (
-          <MobileStatCard
-            label="Market Value"
-            value={formatCurrency(toNum(parcel.marketValue))}
-            icon={IndianRupee}
-          />
-        )}
-      </div>
-
-      {parcel.childParcels.length > 0 && (
-        <>
-          <MobileSectionTitle>Child Parcels ({parcel.childParcels.length})</MobileSectionTitle>
-          <div>
-            {parcel.childParcels.map((child) => (
-              <MobileRow
-                key={child.id}
-                href={`/m/land/${child.id}`}
-                icon={MapPin}
-                title={child.number}
-                subtitle={`${formatNumber(toNum(child.area))} ${child.areaUnit} · ${formatCurrency(toNum(child.acquisitionCost))}`}
-                badge={<MobileStatusBadge status={child.status} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+  const parcelIds = purchase.parcels.map((p) => p.id);
+  const [landSales, customers] = await Promise.all([
+    prisma.assetSale.findMany({
+      where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+      select: {
+        id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
+        landParcelId: true, paymentStatus: true,
+        customer: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.customer.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+  const saleByParcel = new Map(
+    landSales.map((s) => [s.landParcelId!, {
+      salePrice: toNum(s.salePrice),
+      saleProfit: toNum(s.profit),
+      saleNumber: s.saleNumber,
+      saleDate: s.saleDate.toISOString(),
+      paymentStatus: s.paymentStatus,
+      customerName: s.customer.name,
+    }]),
   );
+
+  const parcelRows: LandParcelRow[] = purchase.parcels.map((p) => {
+    // Attach sale info regardless of parcel status — the sale service uses a
+    // staged flow (PENDING → DEPOSIT_RECEIVED → COMPLETED), so a parcel with
+    // an active sale may still be HOLD/RESERVED, not SOLD.
+    const sale = saleByParcel.get(p.id);
+    return {
+      id: p.id,
+      landPurchaseId: p.landPurchaseId,
+      parentParcelId: p.parentParcelId,
+      parentParcelNumber: p.parentParcel?.number ?? null,
+      number: p.number,
+      area: toNum(p.area),
+      areaUnit: p.areaUnit,
+      status: p.status,
+      acquisitionCost: toNum(p.acquisitionCost),
+      askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
+      currentValuation: toNum(p.currentValuation),
+      isInfrastructure: p.isInfrastructure,
+      marketValue: p.marketValue ? toNum(p.marketValue) : null,
+      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
+      projectId: p.projectId,
+      projectName: purchase.project?.name ?? null,
+      geometry: p.geometry,
+      childCount: p._count.children,
+      salePrice: sale?.salePrice ?? null,
+      saleProfit: sale?.saleProfit ?? null,
+      saleNumber: sale?.saleNumber ?? null,
+      saleDate: sale?.saleDate ?? null,
+      customerName: sale?.customerName ?? null,
+    };
+  });
+
+  const parcelSummaries: LandParcelSummary[] = parcelRows.map((p) => ({
+    id: p.id, number: p.number, status: p.status, area: p.area,
+    acquisitionCost: p.acquisitionCost, currentValuation: p.currentValuation,
+    parentParcelId: p.parentParcelId, childCount: p.childCount,
+    geometry: p.geometry,
+  }));
+
+  const sellable = parcelRows.filter((p) => p.status !== "PARTITIONED");
+  const sold = sellable.filter((p) => p.salePrice != null);
+  const unsold = sellable.filter((p) => p.salePrice == null);
+  const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
+  const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
+  const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
+  const soldProfit = sold.reduce((s, p) => s + (p.saleProfit ?? 0), 0);
+
+  const projectOptions: ProjectOption[] = purchase.project
+    ? [{ id: purchase.project.id, name: purchase.project.name, type: purchase.project.type, status: purchase.project.status }]
+    : [];
+
+  const data: LandHubData = {
+    purchase: {
+      id: purchase.id,
+      sellerName: purchase.sellerName,
+      sellerContact: purchase.sellerContact,
+      purchaseDate: purchase.purchaseDate.toISOString(),
+      totalArea: toNum(purchase.totalArea),
+      areaUnit: purchase.areaUnit,
+      totalCost: toNum(purchase.totalCost),
+      registryNo: purchase.registryNo,
+      location: purchase.location,
+      documentUrl: purchase.documentUrl,
+      projectId: purchase.projectId,
+      projectName: purchase.project?.name ?? null,
+    },
+    parcels: parcelRows,
+    parcelSummaries,
+    sales: landSales.map((s) => ({
+      id: s.id,
+      saleNumber: s.saleNumber,
+      salePrice: toNum(s.salePrice),
+      profit: toNum(s.profit),
+      saleDate: s.saleDate.toISOString(),
+      paymentStatus: s.paymentStatus,
+      parcelNumber: purchase.parcels.find((p) => p.id === s.landParcelId)?.number ?? "—",
+      customerName: s.customer.name,
+    })),
+    stats: {
+      parcelCount: sellable.length,
+      availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
+      holdCount: unsold.filter((p) => p.status === "HOLD").length,
+      soldCount: sold.length,
+      partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
+      availableArea: unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
+      unsoldValue,
+      costBasis,
+      valuationGain: unsoldValue - costBasis,
+      soldRevenue,
+      soldProfit,
+    },
+    permissions: {
+      canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
+      canDelete: hasPermission(role, PERM.ASSETS_MANAGE),
+      canPartition: hasPermission(role, PERM.LAND_PARTITION),
+      canSell: hasPermission(role, PERM.SALE_CREATE),
+    },
+    customers: customers.map((c) => ({ id: c.id, name: c.name })),
+    projectOptions,
+  };
+
+  return <LandHub data={data} />;
 }

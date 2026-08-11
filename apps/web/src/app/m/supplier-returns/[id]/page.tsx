@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Undo2, FileText, Building2, MapPin, Send, XCircle, CheckCircle2 } from "lucide-react";
+import { Undo2, FileText, Building2, MapPin } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -79,7 +79,7 @@ async function MobileSupplierReturnDetailContent({
           ? [
               {
                 label: "Submit Return",
-                icon: Send,
+                icon: "Send",
                 endpoint: `/api/supplier-returns/${ret.id}`,
                 body: { action: "submit" },
                 successMsg: `Return ${ret.returnNumber} submitted`,
@@ -92,7 +92,7 @@ async function MobileSupplierReturnDetailContent({
           ? [
               {
                 label: "Mark Completed",
-                icon: CheckCircle2,
+                icon: "CheckCircle2",
                 endpoint: `/api/supplier-returns/${ret.id}`,
                 body: { action: "complete" },
                 successMsg: `Return ${ret.returnNumber} completed`,
@@ -105,7 +105,7 @@ async function MobileSupplierReturnDetailContent({
           ? [
               {
                 label: "Cancel Return",
-                icon: XCircle,
+                icon: "XCircle",
                 endpoint: `/api/supplier-returns/${ret.id}`,
                 body: { action: "cancel" },
                 successMsg: `Return ${ret.returnNumber} cancelled`,

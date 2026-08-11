@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { postScrapGeneration } from "./gl-posting";
 
 /**
  * Standard Consumption Benchmark Service.
@@ -381,9 +382,23 @@ export async function runDprVarianceAnalysis(
         dpr.materialLines.map((ml) => [ml.materialId, ml.unitCost]),
       );
 
-      // Record stock movements for each over-consumption line
+      // Create the ScrapGeneration record first (without lines) so we have
+      // the ID to pass directly to recordMovement — avoids the broad
+      // updateMany that could link unrelated orphaned movements.
+      const scrap = await tx.scrapGeneration.create({
+        data: {
+          scrapNumber,
+          companyId: dpr.companyId,
+          toLocationId: options.scrapToLocationId!,
+          projectId: dpr.projectId,
+          notes: `Auto-generated from DPR variance analysis (work type: ${dpr.workType})`,
+          createdById: options.userId,
+        },
+      });
+
+      // Record stock movements for each over-consumption line, linked
+      // directly to the scrap generation via refId.
       for (const line of overConsumptionLines) {
-        // Scrap valuation = DPR line's actual issue cost × valuationPct
         const issueCost = lineCostMap.get(line.materialId);
         const scrapUnitCost = issueCost
           ? new Decimal(issueCost).times(valuationPct)
@@ -397,45 +412,50 @@ export async function runDprVarianceAnalysis(
           unitCost: scrapUnitCost,
           reason: `Auto-detected over-consumption from DPR ${dpr.workType} (${dpr.date.toISOString().slice(0, 10)})`,
           refType: "SCRAP_GENERATION",
+          refId: scrap.id,
           userId: options.userId,
         });
       }
 
-      // Create the ScrapGeneration record
-      const scrap = await tx.scrapGeneration.create({
-        data: {
-          scrapNumber,
-          companyId: dpr.companyId,
-          toLocationId: options.scrapToLocationId!,
-          projectId: dpr.projectId,
-          notes: `Auto-generated from DPR variance analysis (work type: ${dpr.workType})`,
-          createdById: options.userId,
-          lines: {
-            create: overConsumptionLines.map((l) => {
-              const issueCost = lineCostMap.get(l.materialId);
-              const scrapUnitCost = issueCost
-                ? new Decimal(issueCost).times(valuationPct)
-                : new Decimal(0);
-              return {
-                materialId: l.materialId,
-                qty: l.scrapQty,
-                unitCost: scrapUnitCost,
-              };
-            }),
-          },
-        },
+      // Now create the scrap generation lines (after movements, so the
+      // stock ledger is already updated).
+      await tx.scrapGenerationLine.createMany({
+        data: overConsumptionLines.map((l) => {
+          const issueCost = lineCostMap.get(l.materialId);
+          const scrapUnitCost = issueCost
+            ? new Decimal(issueCost).times(valuationPct)
+            : new Decimal(0);
+          return {
+            scrapGenerationId: scrap.id,
+            materialId: l.materialId,
+            qty: l.scrapQty,
+            unitCost: scrapUnitCost,
+          };
+        }),
+      });
+
+      // Post the GL entry — Dr Inventory / Cr WIP (project-linked) or Cr Operating Expense (standalone)
+      // This ensures the DPR auto-scrap path has the same GL posting as manual scrap generation.
+      const scrapTotalValue = overConsumptionLines.reduce((sum, l) => {
+        const issueCost = lineCostMap.get(l.materialId);
+        const scrapUnitCost = issueCost
+          ? new Decimal(issueCost).times(valuationPct)
+          : new Decimal(0);
+        return sum.plus(new Decimal(l.scrapQty).times(scrapUnitCost));
+      }, new Decimal(0));
+
+      await postScrapGeneration(tx, {
+        companyId: dpr.companyId,
+        scrapGenerationId: scrap.id,
+        projectId: dpr.projectId ?? undefined,
+        totalValue: scrapTotalValue,
+        postedById: options.userId,
       });
 
       // Update DPR with the scrap generation link
       await tx.dailyProgressReport.update({
         where: { id: dprId },
         data: { autoScrapGenerationId: scrap.id },
-      });
-
-      // Update stock movements with the scrap generation ID
-      await tx.stockMovement.updateMany({
-        where: { refType: "SCRAP_GENERATION", refId: null, toLocationId: options.scrapToLocationId! },
-        data: { refId: scrap.id },
       });
 
       await logAction(tx, {

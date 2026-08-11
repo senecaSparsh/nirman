@@ -58,8 +58,8 @@ export async function recordMovement(
   }
 
   // ── Fetch the material for lot-tracking + UOM conversion ──
-  const material = await tx.material.findUnique({
-    where: { id: input.materialId },
+  const material = await tx.material.findFirst({
+    where: { id: input.materialId, deletedAt: null },
     select: {
       isLotTracked: true,
       baseUnit: true,
@@ -79,6 +79,9 @@ export async function recordMovement(
     rawQty = new Decimal(baseQty);
   }
   const moveQty = rawQty;
+  if (!moveQty.gt(0)) {
+    throw new ServiceError(`Movement quantity must be > 0 (got ${moveQty})`);
+  }
 
   // ── Lot tracking ──
   let lotId: string | undefined = input.lotId;
@@ -275,6 +278,9 @@ export async function recordTransfer(
     userId?: string;
   },
 ) {
+  if (!new Decimal(opts.qty).gt(0)) {
+    throw new ServiceError(`Transfer quantity must be > 0 (got ${opts.qty})`);
+  }
   // Source: TRANSFER_OUT
   const outResult = await recordMovement(tx, {
     materialId: opts.materialId,
@@ -335,7 +341,7 @@ export async function refreshMaterialCurrentCost(
 ): Promise<void> {
   for (const materialId of materialIds) {
     const avg = await tx.stockLocationItem.aggregate({
-      where: { materialId, location: { deletedAt: null } },
+      where: { materialId, location: { deletedAt: null }, material: { deletedAt: null } },
       _avg: { movingAvgCost: true },
     });
     if (avg._avg.movingAvgCost != null) {

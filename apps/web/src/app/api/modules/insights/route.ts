@@ -118,7 +118,7 @@ async function companyInsights(companyId: string): Promise<ModuleInsights> {
     prisma.stockLocation.count({ where: { companyId, deletedAt: null } }),
     prisma.employee.count({ where: { companyId, deletedAt: null } }),
     prisma.equipment.count({ where: { companyId, deletedAt: null } }),
-    prisma.material.count({ where: { deletedAt: null } }),
+    prisma.material.count({ where: { deletedAt: null, stockItems: { some: { location: { companyId } } } } }),
     // Supplier has no companyId — scope to suppliers with POs in this company.
     prisma.supplier.count({ where: { deletedAt: null, purchaseOrders: { some: { companyId } } } }),
     // Use shared service functions — same numbers as the main dashboard
@@ -367,9 +367,8 @@ async function materialInsights(companyId: string): Promise<ModuleInsights> {
 }
 
 async function supplierInsights(companyId: string): Promise<ModuleInsights> {
-  // Supplier has no companyId — scope to suppliers with POs in this company.
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null, purchaseOrders: { some: { companyId } } },
+    where: { companyId, deletedAt: null },
     select: { id: true, name: true, balanceOwed: true, _count: { select: { purchaseOrders: { where: { companyId } } } } },
   });
   const totalOwed = suppliers.reduce((s, sup) => s + Number(sup.balanceOwed), 0);
@@ -388,9 +387,8 @@ async function supplierInsights(companyId: string): Promise<ModuleInsights> {
 }
 
 async function subcontractorInsights(companyId: string): Promise<ModuleInsights> {
-  // Subcontractor has no companyId — scope to subcontractors with work orders in this company.
   const subs = await prisma.subcontractor.findMany({
-    where: { deletedAt: null, workOrders: { some: { companyId } } },
+    where: { companyId, deletedAt: null },
     select: { id: true, name: true, trade: true, _count: { select: { materialIssues: true, projectCosts: true } } },
   });
   const trades = new Map<string, number>();
@@ -773,9 +771,8 @@ async function builtUnitInsights(companyId: string): Promise<ModuleInsights> {
 }
 
 async function customerInsights(companyId: string): Promise<ModuleInsights> {
-  // Customer has no companyId — scope to customers with sales in this company.
   const customers = await prisma.customer.findMany({
-    where: { deletedAt: null, assetSales: { some: { companyId } } },
+    where: { companyId, deletedAt: null },
     select: { id: true, name: true, _count: { select: { assetSales: { where: { companyId } } } } },
   });
   const [totalSales, totalSaleValue] = await Promise.all([

@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { BookOpen, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GlPreviewPanel } from "./gl-preview-panel";
+import type { GlPreviewLine } from "@nirman/services";
 import type { ProjectOption, ProjectCostRow } from "@/lib/types";
 
 const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"] as const;
@@ -33,6 +36,9 @@ export function ProjectCostFormDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);
   const [form, setForm] = useState({
     projectId: "",
     costType: "LABOUR" as (typeof COST_TYPES)[number],
@@ -62,6 +68,30 @@ export function ProjectCostFormDialog({
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function previewGl() {
+    const amount = Number(form.amount);
+    if (!form.amount || Number.isNaN(amount) || amount <= 0) {
+      toast.error("Enter an amount to preview GL impact");
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const res = await fetch("/api/gl/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "projectCost", amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to preview");
+      setPreviewLines(data.lines);
+      setShowPreview(true);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Preview failed");
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -171,10 +201,36 @@ export function ProjectCostFormDialog({
           <Label htmlFor="pc-notes">Notes</Label>
           <Textarea id="pc-notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Optional" />
         </div>
+
+        {/* GL Impact Preview — collapsible inline panel before submit */}
+        {!editing && previewLines.length > 0 && (
+          <GlPreviewPanel
+            lines={previewLines}
+            title="GL Impact — Project Cost"
+            description="This journal entry will be posted when you add the project cost."
+            defaultOpen
+          />
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
+          {!editing && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={previewGl}
+              disabled={previewing || saving || !form.amount}
+            >
+              {previewing ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <BookOpen className="mr-2 h-3.5 w-3.5" />
+              )}
+              Preview GL
+            </Button>
+          )}
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : editing ? "Save Changes" : "Add Cost"}
           </Button>

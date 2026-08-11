@@ -21,7 +21,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const { companyId } = parsed.data;
 
-  const isDevBypass = user.id === "dev";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && user.id === "dev";
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,

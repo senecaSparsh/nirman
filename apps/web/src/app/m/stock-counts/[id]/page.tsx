@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { ScanLine, FileText, CheckCircle2, Scale } from "lucide-react";
+import { ScanLine, FileText } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber } from "@/lib/utils";
@@ -78,7 +78,7 @@ async function MobileStockCountDetailContent({
           ? [
               {
                 label: "Confirm Count",
-                icon: CheckCircle2,
+                icon: "CheckCircle2",
                 endpoint: `/api/stock-counts/${count.id}`,
                 body: { action: "confirm" },
                 successMsg: `Stock count confirmed`,
@@ -91,7 +91,7 @@ async function MobileStockCountDetailContent({
           ? [
               {
                 label: "Reconcile",
-                icon: Scale,
+                icon: "Scale",
                 endpoint: `/api/stock-counts/${count.id}`,
                 body: { action: "reconcile" },
                 successMsg: `Stock count reconciled`,

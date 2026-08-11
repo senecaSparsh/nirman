@@ -6,7 +6,7 @@ import { Plus, Package, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
-import { MetricGrid, Metric } from "@/components/page";
+
 import { IssueFormDialog } from "@/components/procurement/issue-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type {
@@ -44,7 +44,6 @@ export function IssuesTab({
   const [formOpen, setFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
-  const totalCost = issues.reduce((s, i) => s + i.totalCost, 0);
   const issueDisabled = (projects.length === 0 && departments.length === 0) || materialOptions.length === 0;
 
   // Auto-open the issue dialog when navigated from receive goods
@@ -67,16 +66,8 @@ export function IssuesTab({
     return result;
   }, [issues, query, projectFilter]);
 
-  const filteredCost = filtered.reduce((s, i) => s + i.totalCost, 0);
-
   return (
     <div className="space-y-4">
-      <MetricGrid cols={3}>
-        <Metric label="Total Issues" value={issues.length} icon={<Package />} />
-        <Metric label="Filtered Cost" value={formatCurrency(filteredCost)} tone="brand" sub={`${filtered.length} shown`} />
-        <Metric label="Total Cost" value={formatCurrency(totalCost)} tone="danger" />
-      </MetricGrid>
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-2 sm:flex-row">
           <div className="relative sm:max-w-xs">

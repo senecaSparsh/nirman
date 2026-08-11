@@ -10,7 +10,7 @@ import { MeasurementBookView } from "@/components/measurement-book/mb-view";
 
 export default function MeasurementBookPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading measurement book…" variant="default" />}>
         <MbContent />
       </Suspense>

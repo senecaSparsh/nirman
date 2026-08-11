@@ -12,10 +12,10 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { Input, Select, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MobileSearchBar, MobileFilterChips, MobileStatusBadge } from "@/components/mobile/mobile-primitives";
+import { MobileSearchBar, MobileFilterChips, MobileStatusBadge, MobileEmptyState, MobileCta } from "@/components/mobile/mobile-primitives";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
@@ -118,12 +118,20 @@ export function MobileSalesList({ sales }: { sales: SaleItem[] }) {
       ))}
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <ShoppingCart className="mb-3 h-10 w-10 text-muted-foreground/55" />
-          <p className="text-body font-semibold text-foreground">
-            {activeSales.length === 0 ? "No sales yet" : "No sales match your search"}
-          </p>
-        </div>
+        activeSales.length === 0 ? (
+          <MobileEmptyState
+            icon={ShoppingCart}
+            title="No sales yet"
+            hint="Create your first sale to start tracking bookings and payments."
+            action={<MobileCta href="/m/sales/new" icon={ShoppingCart}>New Sale</MobileCta>}
+          />
+        ) : (
+          <MobileEmptyState
+            icon={ShoppingCart}
+            title="No sales match your search"
+            hint="Try adjusting your search or filter to find what you're looking for."
+          />
+        )
       )}
     </div>
   );

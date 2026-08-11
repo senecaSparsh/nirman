@@ -7,12 +7,10 @@ import {
   KeyRound,
   Wallet,
   Settings,
-  Workflow,
   Wrench,
   ClipboardList,
   ScrollText,
   CheckSquare,
-  Zap,
   ListChecks,
   ClipboardCheck,
   ScanLine,
@@ -33,8 +31,11 @@ import {
   Layers,
   UserCheck,
   Ruler,
-  Globe,
   Recycle,
+  UserCircle,
+  Scale,
+  History,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -229,17 +230,18 @@ export const WORLDS: World[] = [
 
   // ══ BUILD ════════════════════════════════════════════════════════
   // The merged pipeline. Five flat lifecycle sections — no sub-branches.
-  // Entry point is /projects (viewable by every role) so a SALES user
-  // who enters Build lands on a page they can see. Sections they can't
-  // act on are filtered out by worldsFor(), so their panel is genuinely
-  // smaller.
+  // Entry point is /build — the pipeline overview with expandable cards
+  // for each stage (Acquire, Procure, Stock, Construct, Sell). Clicking
+  // a card expands it to show that stage's pages. Pin two cards for a
+  // split-view comparison. Sections a role can't act on are filtered out
+  // by worldsFor(), so their panel is genuinely smaller.
   {
     key: "build",
     label: "Build",
     tagline: "The asset lifecycle — acquire land, buy material, build, sell",
     icon: Building2,
     color: "var(--color-world-inventory)",
-    href: "/projects",
+    href: "/build",
     roles: EVERYONE,
     sections: [
       // ── Acquire ────────────────────────────────────────────────
@@ -247,7 +249,7 @@ export const WORLDS: World[] = [
         label: "Acquire",
         items: [
           {
-            label: "Land Parcels",
+            label: "Land",
             href: "/land",
             icon: LandPlot,
             hint: "What land you own, what it cost, and how it's been subdivided",
@@ -438,9 +440,9 @@ export const WORLDS: World[] = [
             label: "Projects",
             href: "/projects",
             icon: Building2,
-            hint: "Each site: its phases, its spend, and its cost per sq.ft (renovations shown via type filter)",
+            hint: "Each site: its phases, its spend, and its cost per sq.ft",
             roles: EVERYONE,
-            keywords: ["site", "tower", "phase", "construction", "wip", "project", "rera", "renovation", "addition", "improvement", "refurbish", "value add"],
+            keywords: ["site", "tower", "phase", "construction", "wip", "project", "rera"],
           },
           {
             label: "BOQ",
@@ -525,9 +527,9 @@ export const WORLDS: World[] = [
             label: "Built Units",
             href: "/units",
             icon: Home,
-            hint: "Flats, shops, plots — what's available, booked, or sold (portal listings tab inside)",
+            hint: "Flats, shops, plots — what's available, booked, or sold (renovations + portal listings tabs inside)",
             roles: SELLING,
-            keywords: ["flat", "shop", "apartment", "unit", "available", "stock", "inventory", "99acres", "magicbricks", "housing.com", "portal", "listing", "property", "sync", "marketplace"],
+            keywords: ["flat", "shop", "apartment", "unit", "available", "stock", "inventory", "99acres", "magicbricks", "housing.com", "portal", "listing", "property", "sync", "marketplace", "renovation", "addition", "improvement", "refurbish", "value add", "repair"],
           },
           {
             label: "Sales",
@@ -553,15 +555,17 @@ export const WORLDS: World[] = [
             roles: SELLING,
             keywords: ["surplus", "scrap", "resale", "material sale", "cost recovery", "by-product"],
           },
-          {
-            label: "Portal Listings",
-            href: "/portal-listings",
-            icon: Globe,
-            hint: "Sync available built units to 99acres, MagicBricks and Housing.com",
-            roles: SELLING,
-            keywords: ["99acres", "magicbricks", "housing.com", "portal", "listing", "sync", "marketplace", "property portal"],
-          },
           // ── Sales reports (hidden from sidebar, on /reports) ──
+          {
+            label: "Real Estate Inventory",
+            href: "/reports/real-estate-inventory",
+            icon: Building2,
+            hint: "Units sold, remaining, monthly additions, construction cost per project — the real estate inventory dashboard",
+            roles: [...BOOKS, "SALES", "SUPERVISOR"],
+            keywords: ["real estate", "inventory", "units", "sold", "available", "construction cost", "land cost", "asset value", "monthly additions", "whole", "subdivided", "plots", "flats"],
+            hidden: true,
+            group: RG.SELL,
+          },
           {
             label: "Sales & Revenue",
             href: "/reports/sales-revenue",
@@ -696,6 +700,27 @@ export const WORLDS: World[] = [
             roles: BOOKS,
             keywords: ["receivable", "payable", "outstanding", "overdue", "dues", "pending payment"],
           },
+          // ── Finance reports (hidden from sidebar, on /reports) ──
+          {
+            label: "Cash Flow",
+            href: "/reports/cash-flow",
+            hint: "Projected inflows vs outflows per project — scheduled payments, commitments, RA bills, payroll",
+            keywords: ["cash flow", "forecast", "inflow", "outflow", "liquidity", "treasury"],
+            icon: Wallet,
+            hidden: true,
+            roles: REPORTS,
+            group: RG.BOOKS,
+          },
+          {
+            label: "Job Costing",
+            href: "/reports/job-costing",
+            hint: "Direct vs indirect cost classification per project — overhead absorption rate",
+            keywords: ["job costing", "direct cost", "indirect cost", "overhead", "absorption", "cost accounting"],
+            icon: Calculator,
+            hidden: true,
+            roles: REPORTS,
+            group: RG.BOOKS,
+          },
           {
             label: "Expenses",
             href: "/reports/expenses",
@@ -718,12 +743,36 @@ export const WORLDS: World[] = [
             keywords: ["gl", "journal", "trial balance", "accounting", "tally", "double entry", "ledger"],
           },
           {
+            label: "DPR-Finance Reconciliation",
+            href: "/finance/dpr-reconciliation",
+            icon: Scale,
+            hint: "Compare DPR-recorded costs (material + labor) against GL-posted costs — find variances before month-end",
+            roles: BOOKS,
+            keywords: ["dpr", "finance", "reconciliation", "variance", "cost", "bridge", "posted"],
+          },
+          {
+            label: "Audit Trail",
+            href: "/finance/audit",
+            icon: History,
+            hint: "System-wide activity log — every create, update, and delete across all modules with before/after diff",
+            roles: ["OWNER", "ADMIN"],
+            keywords: ["audit", "log", "activity", "history", "changes", "before", "after", "diff"],
+          },
+          {
             label: "GST",
             href: "/reports/gst",
             icon: FileText,
             hint: "Input tax credit (ITC), output tax and what's payable this period",
             roles: BOOKS,
             keywords: ["tax", "gst", "itc", "input tax credit", "return", "filing", "gstr"],
+          },
+          {
+            label: "TDS Certificates",
+            href: "/reports/tds-certificates",
+            icon: Receipt,
+            hint: "Generate Form 16C-style TDS certificates for subcontractors (Section 194C)",
+            roles: BOOKS,
+            keywords: ["tds", "certificate", "194c", "form 16c", "subcontractor", "tax deducted", "tds certificate"],
           },
           // ── Books reports (hidden from sidebar, on /reports) ──
           {
@@ -757,6 +806,14 @@ export const WORLDS: World[] = [
 // a world. The gear opens the settings page directly.
 export const SETTINGS_LINKS: NavLink[] = [
   {
+    label: "Your Settings",
+    href: "/me",
+    icon: UserCircle,
+    hint: "Edit your profile, change your password, and switch companies",
+    roles: EVERYONE,
+    keywords: ["me", "profile", "personal", "password", "phone", "account", "my account", "settings"],
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: Settings,
@@ -771,22 +828,6 @@ export const SETTINGS_LINKS: NavLink[] = [
     hint: "Scope a person to a site so they only see their own work",
     roles: OWNERS,
     keywords: ["access", "permission", "role", "assignment", "scope", "sub admin", "user access"],
-  },
-  {
-    label: "Workflows",
-    href: "/workflows",
-    icon: Zap,
-    hint: "Rules that act on their own — reorder, remind, escalate",
-    roles: LEADERSHIP,
-    keywords: ["automation", "rule", "trigger", "auto", "workflow"],
-  },
-  {
-    label: "Workspaces",
-    href: "/playground",
-    icon: Workflow,
-    hint: "Model your business on a canvas before you commit to it",
-    roles: LEADERSHIP,
-    keywords: ["canvas", "playground", "model", "diagram", "plan", "workspace"],
   },
 ];
 
@@ -835,12 +876,21 @@ export function linksFor(role: string): (NavLink & { world: WorldKey })[] {
  *
  * Longest-prefix wins so `/reports/gst` resolves to Books (which
  * owns that link) rather than Today, and `/` only ever matches Today.
- * Settings paths (/settings, /workflows, /playground) don't belong to
+ * Settings paths (/settings) don't belong to
  * any world — they return the Today world as a neutral fallback (the
  * rail highlights the gear, not a world).
  */
 export function worldForPath(pathname: string): World {
   let best: { world: World; len: number } | null = null;
+  // First check the world's own entry href (e.g. /build, /hr) — this
+  // handles the world overview page which isn't a nav item.
+  for (const w of WORLDS) {
+    if (w.href === pathname || (w.href !== "/" && pathname.startsWith(w.href))) {
+      if (!best || w.href.length > best.len) {
+        best = { world: w, len: w.href.length };
+      }
+    }
+  }
   for (const w of WORLDS) {
     for (const s of w.sections) {
       for (const i of s.items) {

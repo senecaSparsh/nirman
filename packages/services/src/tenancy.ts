@@ -69,8 +69,24 @@ export async function createTenancy(input: CreateTenancyInput) {
 
     // Validate customer if provided
     if (input.customerId) {
-      const customer = await tx.customer.findFirst({ where: { id: input.customerId, deletedAt: null } });
+      const customer = await tx.customer.findFirst({ where: { id: input.customerId, companyId: input.companyId, deletedAt: null } });
       if (!customer) throw new ServiceError("Customer not found or deleted", 404);
+    }
+
+    // Check for overlapping tenancies on the same asset
+    const overlapping = await tx.tenancy.findFirst({
+      where: {
+        status: { in: ["PENDING", "ACTIVE"] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+        OR: [
+          ...(input.landParcelId ? [{ landParcelId: input.landParcelId }] : []),
+          ...(input.builtUnitId ? [{ builtUnitId: input.builtUnitId }] : []),
+        ],
+      },
+    });
+    if (overlapping) {
+      throw new ServiceError("An overlapping tenancy already exists for this asset and date range", 409);
     }
 
     const tenancy = await tx.tenancy.create({
@@ -209,7 +225,7 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
     }
     if (input.customerId !== undefined && input.customerId !== t.customerId) {
       if (input.customerId) {
-        const customer = await tx.customer.findFirst({ where: { id: input.customerId, deletedAt: null } });
+        const customer = await tx.customer.findFirst({ where: { id: input.customerId, companyId: input.companyId, deletedAt: null } });
         if (!customer) throw new ServiceError("Customer not found or deleted", 404);
         data.customer = { connect: { id: input.customerId } };
       } else {
@@ -337,6 +353,14 @@ export async function recordRentPayment(input: RecordRentInput) {
 
     const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
     const dueDate = input.dueDate ? new Date(input.dueDate) : paymentDate;
+
+    // Guard against duplicate payments for the same tenancy + payment date
+    const existingPayment = await tx.rentalPayment.findFirst({
+      where: { tenancyId: t.id, paymentDate },
+    });
+    if (existingPayment) {
+      throw new ServiceError("Payment already recorded for this period", 409);
+    }
 
     const payment = await tx.rentalPayment.create({
       data: {

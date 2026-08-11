@@ -40,7 +40,7 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
 
   // Land sales for this purchase's parcels
   const parcelIds = purchase.parcels.map((p) => p.id);
-  const [landSales, customers] = await Promise.all([
+  const [landSales, customers, parcelBuiltUnits] = await Promise.all([
     prisma.assetSale.findMany({
       where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
       select: {
@@ -53,6 +53,19 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
+    }),
+    // Built units linked to parcels (subdivided inventory)
+    prisma.builtUnit.findMany({
+      where: { landParcelId: { in: parcelIds }, deletedAt: null },
+      select: {
+        id: true, unitNumber: true, unitType: true, status: true,
+        area: true, areaUnit: true, floor: true, wing: true,
+        originType: true, acquisitionCost: true, productionCost: true,
+        askingPrice: true, currentValuation: true,
+        landParcelId: true, projectId: true,
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: [{ unitNumber: "asc" }],
     }),
   ]);
   const saleByParcel = new Map(
@@ -67,7 +80,10 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
   );
 
   const parcelRows: LandParcelRow[] = purchase.parcels.map((p) => {
-    const sale = p.status === "SOLD" ? saleByParcel.get(p.id) : undefined;
+    // Attach sale info regardless of parcel status — the sale service uses a
+    // staged flow (PENDING → DEPOSIT_RECEIVED → COMPLETED), so a parcel with
+    // an active sale may still be HOLD/RESERVED, not SOLD.
+    const sale = saleByParcel.get(p.id);
     return {
       id: p.id,
       landPurchaseId: p.landPurchaseId,
@@ -102,8 +118,12 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
     geometry: p.geometry,
   }));
 
-  const sold = parcelRows.filter((p) => p.status === "SOLD");
-  const unsold = parcelRows.filter((p) => p.status === "AVAILABLE" || p.status === "HOLD");
+  // Sellable parcels exclude PARTITIONED parents (containers, not units).
+  // "Sold" = has an active sale (regardless of parcel status, which may still
+  // be HOLD/RESERVED during the staged sale flow).
+  const sellable = parcelRows.filter((p) => p.status !== "PARTITIONED");
+  const sold = sellable.filter((p) => p.salePrice != null);
+  const unsold = sellable.filter((p) => p.salePrice == null);
   const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
   const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
   const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
@@ -141,12 +161,12 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       customerName: s.customer.name,
     })),
     stats: {
-      parcelCount: parcelRows.length,
-      availableCount: parcelRows.filter((p) => p.status === "AVAILABLE").length,
-      holdCount: parcelRows.filter((p) => p.status === "HOLD").length,
+      parcelCount: sellable.length,
+      availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
+      holdCount: unsold.filter((p) => p.status === "HOLD").length,
       soldCount: sold.length,
       partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
-      availableArea: parcelRows.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
+      availableArea: unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
       unsoldValue,
       costBasis,
       valuationGain: unsoldValue - costBasis,
@@ -161,6 +181,24 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
     },
     customers: customers.map((c) => ({ id: c.id, name: c.name })),
     projectOptions,
+    parcelBuiltUnits: parcelBuiltUnits.map((u) => ({
+      id: u.id,
+      unitNumber: u.unitNumber,
+      unitType: u.unitType,
+      status: u.status,
+      area: toNum(u.area),
+      areaUnit: u.areaUnit,
+      floor: u.floor,
+      wing: u.wing,
+      originType: u.originType,
+      acquisitionCost: toNum(u.acquisitionCost),
+      productionCost: toNum(u.productionCost),
+      askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
+      currentValuation: toNum(u.currentValuation),
+      landParcelId: u.landParcelId!,
+      projectId: u.projectId,
+      projectName: u.project.name,
+    })),
   };
 
   return <LandHub data={data} />;

@@ -13,7 +13,7 @@ import { NoAccess } from "@/components/no-access";
 
 export default function SupplierReturnsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading supplier returns…" variant="list" />}>
         <SupplierReturnsContent />
       </Suspense>

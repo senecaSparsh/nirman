@@ -7,13 +7,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
   const body = await req.json();
+  // Convert date strings to Date, preserve null (clear), drop undefined (don't touch)
+  const toDate = (v: unknown) => (v == null ? (v === null ? null : undefined) : new Date(v as string));
   try {
     const node = await updateWbsNode(id, {
       ...body,
-      plannedStart: body.plannedStart ? new Date(body.plannedStart) : undefined,
-      plannedEnd: body.plannedEnd ? new Date(body.plannedEnd) : undefined,
-      actualStart: body.actualStart ? new Date(body.actualStart) : undefined,
-      actualEnd: body.actualEnd ? new Date(body.actualEnd) : undefined,
+      plannedStart: toDate(body.plannedStart),
+      plannedEnd: toDate(body.plannedEnd),
+      actualStart: toDate(body.actualStart),
+      actualEnd: toDate(body.actualEnd),
       userId: user.id,
     });
     return json(node);

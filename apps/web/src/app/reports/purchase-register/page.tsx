@@ -22,7 +22,7 @@ export default function PurchaseRegisterPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading purchase register…" variant="list" />}>
         <PurchaseRegisterContent searchParams={searchParams} />
       </Suspense>

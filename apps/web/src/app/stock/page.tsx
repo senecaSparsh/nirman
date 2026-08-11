@@ -36,7 +36,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
 
 export default function StockPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading stock…" variant="list" />}>
         <StockContent />
       </Suspense>
@@ -435,9 +435,9 @@ async function StockContent() {
         title="Stock"
         description="The full stock lifecycle — what you have on hand, every movement, transfers, issues to site, scrap, and counts."
         stats={[
-          { label: "On-hand value", value: formatCurrency(stockValue) },
-          { label: "Locations", value: companyLocationRows.length },
-          { label: "Movements", value: movementRows.length },
+          { label: "On-hand value", value: formatCurrency(stockValue), hint: "Total value of all stock currently on hand, valued at moving average cost per location." },
+          { label: "Locations", value: companyLocationRows.length, hint: "Number of active stock locations (warehouses, project sites) in this company." },
+          { label: "Movements", value: movementRows.length, hint: "Recent stock movements (receipts, transfers, issues, adjustments) shown in the list." },
         ]}
       />
       <StockHubView

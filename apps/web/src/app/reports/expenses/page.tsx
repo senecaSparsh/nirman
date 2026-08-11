@@ -15,7 +15,7 @@ export default function ExpensesReportPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading expenses report…" variant="cards" />}>
         <ExpensesReportContent searchParams={searchParams} />
       </Suspense>

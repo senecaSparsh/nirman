@@ -76,7 +76,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         paymentMode: s.paymentMode,
         notes: s.notes,
         totalPaid,
-        balanceDue: toNum(s.salePrice) - totalPaid,
+        balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
         paymentCount: s.payments.length,
       };
     }),
@@ -91,11 +91,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
+    const company = await getCompany();
     const sale = await sellAsset({
       assetType: parsed.data.assetType,
       landParcelId: parsed.data.landParcelId ?? undefined,
       builtUnitId: parsed.data.builtUnitId ?? undefined,
       customerId: parsed.data.customerId,
+      companyId: company.id,
       salePrice: parsed.data.salePrice,
       gstRate: parsed.data.gstRate ?? 0,
       paymentMode: parsed.data.paymentMode ?? undefined,

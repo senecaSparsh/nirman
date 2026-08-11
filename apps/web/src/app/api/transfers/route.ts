@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { createTransfer } from "@nirman/services";
-import { apiHandler, json, transferSchema, toNum, getCompany } from "@/lib/server";
+import { apiHandler, json, transferSchema, toNum, getCompany, getCompanyGroupIds, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -55,10 +54,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
+    const groupIds = await getCompanyGroupIds();
     const transfer = await createTransfer({
       fromLocationId: parsed.data.fromLocationId,
       toLocationId: parsed.data.toLocationId,
       notes: parsed.data.notes ?? undefined,
+      companyGroupIds: groupIds,
       freight: parsed.data.freight,
       handlingFee: parsed.data.handlingFee,
       markupPct: parsed.data.markupPct,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,6 +62,12 @@ export interface EditableColumn<R> {
   cellClassName?: string | ((row: R) => string);
   /** Format function for display in computed/readonly cells. */
   format?: (value: string | number) => string;
+  /** When true, renders a filter dropdown in this column's header. */
+  filterable?: boolean;
+  /** Options for the filter dropdown. Required when filterable is true. */
+  filterOptions?: { value: string; label: string }[];
+  /** Current filter value for this column. Empty string = no filter. */
+  filterValue?: string;
 }
 
 export interface EditableGridProps<R> {
@@ -85,6 +92,8 @@ export interface EditableGridProps<R> {
     className?: string;
     show?: (row: R) => boolean;
   }[];
+  /** Called when a column filter value changes. Receives the column key and new value. */
+  onFilterChange?: (columnKey: string, value: string) => void;
 }
 
 type CellPos = { row: number; col: number } | null;
@@ -99,6 +108,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
   className,
   emptyState,
   actions,
+  onFilterChange,
 }: EditableGridProps<R>) {
   const [editing, setEditing] = useState<CellPos>(null);
   const [selected, setSelected] = useState<CellPos>(null);
@@ -333,7 +343,23 @@ export function EditableGrid<R extends Record<string, unknown>>({
                 )}
                 style={col.width ? { width: col.width } : undefined}
               >
-                {col.label}
+                {col.filterable && col.filterOptions ? (
+                  <div className="relative inline-flex">
+                    <select
+                      value={col.filterValue ?? ""}
+                      onChange={(e) => onFilterChange?.(col.key, e.target.value)}
+                      className="h-6 cursor-pointer appearance-none truncate rounded border border-transparent bg-transparent pr-5 text-label font-medium text-muted-foreground/80 hover:border-border hover:bg-card focus-visible:border-brand focus-visible:outline-none"
+                    >
+                      <option value="">{col.label}</option>
+                      {col.filterOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-0.5 top-1/2 size-3 -translate-y-1/2 text-faint" />
+                  </div>
+                ) : (
+                  col.label
+                )}
               </th>
             ))}
             {actions && actions.length > 0 && (

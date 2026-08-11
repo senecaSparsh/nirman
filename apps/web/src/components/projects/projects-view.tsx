@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, MapPin, Plus, Hammer, RefreshCw, Download } from "lucide-react";
+import { Building2, LayoutGrid, MapPin, Plus, Rows3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Segmented } from "@/components/ui/tabs";
+import { DataTable } from "@/components/ui/data-table";
+import { IdentityCell, MoneyCell, ProgressCell } from "@/components/ui/cells";
 import { EmptyState } from "@/components/empty-state";
-import { StatusPill, statusColor, MetricGrid, Metric } from "@/components/page";
+import { StatusPill, statusColor } from "@/components/page";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadCSV } from "@/lib/export";
-import { ProjectsToolbar } from "./projects-toolbar";
 import { ProjectFormDialog } from "./project-form-dialog";
-import { RenovationsView, type RenovationRow } from "@/components/renovations/renovations-view";
 
 type ProjectHealth = {
   id: string;
@@ -37,143 +36,234 @@ export function ProjectsView({
   projects,
   typeLabels,
   permissions,
-  renovationRows,
-  renovationProjects,
-  renovationBuiltUnits,
-  renovationLandParcels,
-  canManageRenovations,
-  canViewRenovations,
 }: {
   projects: ProjectHealth[];
   typeLabels: Record<string, string>;
   permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean; canApprove?: boolean };
-  renovationRows?: RenovationRow[];
-  renovationProjects?: { id: string; name: string }[];
-  renovationBuiltUnits?: { id: string; unitNumber: string; unitType: string; projectId: string }[];
-  renovationLandParcels?: { id: string; number: string }[];
-  canManageRenovations?: boolean;
-  canViewRenovations?: boolean;
 }) {
-  const [filters, setFilters] = useState({ search: "", status: "", type: "" });
   const [createOpen, setCreateOpen] = useState(false);
-  const [tab, setTab] = useState("projects");
+  /**
+   * Table is the default. Cards are the exception, kept for the one case
+   * they're genuinely better — walking a client or an investor through a
+   * small portfolio, where the health bars do the talking.
+   */
+  const [view, setView] = useState<"table" | "cards">("table");
   const router = useRouter();
 
-  const filtered = useMemo(() => {
-    return projects.filter((p) => {
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        if (!p.name.toLowerCase().includes(q) && !(p.address ?? "").toLowerCase().includes(q)) {
-          return false;
-        }
-      }
-      if (filters.status && p.status !== filters.status) return false;
-      if (filters.type && p.type !== filters.type) return false;
-      return true;
-    });
-  }, [projects, filters]);
-
-  const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
-  const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
-  const totalBudget = projects.reduce((s, p) => s + p.totalBudget, 0);
+  const viewToggle = (
+    <Segmented
+      value={view}
+      onChange={setView}
+      options={[
+        { value: "table", label: "Table", icon: <Rows3 /> },
+        { value: "cards", label: "Cards", icon: <LayoutGrid /> },
+      ]}
+    />
+  );
 
   return (
     <>
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="projects">
-            <span className="flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" /> Projects
-            </span>
-          </TabsTrigger>
-          {canViewRenovations && (
-            <TabsTrigger value="renovations">
-              <span className="flex items-center gap-1.5">
-                <Hammer className="h-3.5 w-3.5" /> Renovations
-              </span>
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="projects" className="space-y-3">
-          {projects.length > 0 && (
-            <>
-              <MetricGrid cols={4}>
-                <Metric label="Total Projects" value={projects.length} icon={<Building2 />} />
-                <Metric label="Active" value={activeCount} tone="brand" />
-                <Metric label="Completed" value={completedCount} tone="success" />
-                <Metric label="Total Budget" value={formatCurrency(totalBudget)} tone="brand" />
-              </MetricGrid>
-
-              <div className="flex items-center justify-between">
-                <ProjectsToolbar filters={filters} onFilterChange={setFilters} canCreate={permissions?.canCreate ?? true} />
-                <div className="ml-2 flex shrink-0 gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      downloadCSV("projects.csv", filtered as unknown as Record<string, unknown>[], [
-                        { key: "name", label: "Project" },
-                        { key: "type", label: "Type" },
-                        { key: "status", label: "Status" },
-                        { key: "budget", label: "Budget", format: (v) => formatCurrency(v as number) },
-                        { key: "startDate", label: "Start Date", format: (v) => v ? formatDate(v as string) : "" },
-                        { key: "endDate", label: "End Date", format: (v) => v ? formatDate(v as string) : "" },
-                        { key: "unitCount", label: "Units" },
-                        { key: "soldUnits", label: "Sold Units" },
-                      ])
-                    }
-                    title="Export CSV"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {projects.length === 0 ? (
-            <EmptyState
-              icon={<Building2 className="h-5 w-5" />}
-              title="No projects yet"
-              description="Create your first project to start tracking materials, land and built units."
-              action={permissions?.canCreate ? <Button onClick={() => setCreateOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Project</Button> : undefined}
-            />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={<Building2 className="h-5 w-5" />}
-              title="No projects match the filters"
-              description="Try adjusting your search or filters."
-            />
-          ) : (
-            <div className="space-y-3">
-              {filtered.map((p) => (
-                <ProjectHealthCard key={p.id} project={p} typeLabel={typeLabels[p.type] ?? p.type} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {canViewRenovations && (
-          <TabsContent value="renovations">
-            {renovationRows && renovationProjects && renovationBuiltUnits && renovationLandParcels ? (
-              <RenovationsView
-                renovations={renovationRows}
-                projects={renovationProjects}
-                builtUnits={renovationBuiltUnits}
-                landParcels={renovationLandParcels}
-                permissions={{ canManage: canManageRenovations }}
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={<Building2 />}
+          title="No projects yet"
+          description="A project is the container for everything else — materials issued, land bought, units built and sold. Create one to start tracking."
+          action={permissions?.canCreate ? <Button onClick={() => setCreateOpen(true)}><Plus className="size-4" /> New project</Button> : undefined}
+          contactHint="Ask an admin to create the first project."
+        />
+      ) : view === "cards" ? (
+        <>
+          {/* Cards view toolbar — view toggle + New button */}
+          <div className="flex flex-wrap items-center gap-2">
+            {viewToggle}
+            {permissions?.canCreate && (
+              <Button className="ml-auto" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" /> New Project
+              </Button>
+            )}
+          </div>
+          <div className="grid gap-3 xl:grid-cols-2">
+            {projects.map((p) => (
+              <ProjectHealthCard key={p.id} project={p} typeLabel={typeLabels[p.type] ?? p.type} />
+            ))}
+          </div>
+        </>
+      ) : (
+        /*
+         * The portfolio is a comparison, not a set of profiles. Twenty
+         * project cards is twenty screens of scrolling with no way to
+         * answer "which one is bleeding?" — the whole reason an owner
+         * opens this page. As rows, margin and burn are columns you can
+         * sort, and the answer is the first row.
+         */
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                data={projects}
+                storageKey="projects"
+                searchable
+                searchPlaceholder="Search projects…"
+                hideable
+                exportFileName="projects"
+                className="[&>div:nth-child(2)]:overflow-x-hidden"
+                initialSort={{ key: "pnl.profit", direction: "desc" }}
+                onRowClick={(p) => router.push(`/projects/${p.id}`)}
+                showTotals
+                sumColumns={["totalBudget", "spent", "revenue", "pnl.profit"]}
+                totalFormat={(_k, sum) => formatCurrency(sum)}
+                rowTone={(p) =>
+                  p.totalBudget > 0 && (p.pnl.totalCost || p.totalProjectCost) > p.totalBudget
+                    ? "danger"
+                    : null
+                }
+                toolbarLeading={viewToggle}
+                toolbarTrailing={
+                  permissions?.canCreate ? (
+                    <Button size="sm" className="h-7 gap-1.5" onClick={() => setCreateOpen(true)}>
+                      <Plus className="size-3.5" /> New Project
+                    </Button>
+                  ) : undefined
+                }
+                columns={[
+                  {
+                    key: "name",
+                    label: "Project",
+                    sortable: true,
+                    width: "1fr",
+                    render: (p) => (
+                      <IdentityCell
+                        name={p.name}
+                        sub={p.address ?? typeLabels[p.type] ?? p.type}
+                        dot={statusColor(p.status)}
+                      />
+                    ),
+                  },
+                  {
+                    key: "type",
+                    label: "Type",
+                    sortable: true,
+                    render: (p) => <Badge variant="outline">{typeLabels[p.type] ?? p.type}</Badge>,
+                    exportValue: (p) => typeLabels[p.type] ?? p.type,
+                  },
+                  {
+                    key: "status",
+                    label: "Status",
+                    sortable: true,
+                    render: (p) => <StatusPill status={p.status} />,
+                  },
+                  {
+                    key: "burn",
+                    label: "Budget burn",
+                    sortable: true,
+                    hint: "Actual cost as a share of the approved budget. Red past 100%.",
+                    sortValue: (p) =>
+                      p.totalBudget > 0 ? (p.pnl.totalCost || p.totalProjectCost) / p.totalBudget : -1,
+                    render: (p) => (
+                      <ProgressCell
+                        value={p.pnl.totalCost || p.totalProjectCost}
+                        total={p.totalBudget}
+                        label={formatCurrency(p.totalBudget)}
+                      />
+                    ),
+                    exportValue: (p) =>
+                      p.totalBudget > 0
+                        ? `${(((p.pnl.totalCost || p.totalProjectCost) / p.totalBudget) * 100).toFixed(0)}%`
+                        : "",
+                  },
+                  {
+                    key: "sold",
+                    label: "Units sold",
+                    sortable: true,
+                    hint: "Sold units as a share of all built units in the project.",
+                    sortValue: (p) => (p.unitCount > 0 ? p.soldUnits / p.unitCount : -1),
+                    render: (p) => (
+                      <ProgressCell
+                        value={p.soldUnits}
+                        total={p.unitCount}
+                        invert
+                        label={`${p.soldUnits}/${p.unitCount}`}
+                      />
+                    ),
+                    exportValue: (p) => `${p.soldUnits}/${p.unitCount}`,
+                  },
+                  {
+                    key: "timeline",
+                    label: "Timeline",
+                    sortable: true,
+                    defaultHidden: true,
+                    sortValue: (p) => timelinePct(p.startDate, p.endDate),
+                    render: (p) =>
+                      p.startDate && p.endDate ? (
+                        <ProgressCell
+                          value={timelinePct(p.startDate, p.endDate)}
+                          total={100}
+                          label={formatDate(p.endDate)}
+                          warnAt={101}
+                          dangerAt={102}
+                        />
+                      ) : (
+                        <span className="text-faint">—</span>
+                      ),
+                  },
+                  {
+                    key: "totalBudget",
+                    label: "Budget",
+                    align: "right",
+                    sortable: true,
+                    render: (p) => (p.totalBudget ? formatCurrency(p.totalBudget) : <span className="text-faint">—</span>),
+                    exportValue: (p) => p.totalBudget,
+                  },
+                  {
+                    key: "spent",
+                    label: "Spent",
+                    align: "right",
+                    sortable: true,
+                    sortValue: (p) => p.pnl.totalCost || p.totalProjectCost,
+                    render: (p) => formatCurrency(p.pnl.totalCost || p.totalProjectCost),
+                    exportValue: (p) => p.pnl.totalCost || p.totalProjectCost,
+                  },
+                  {
+                    key: "revenue",
+                    label: "Revenue",
+                    align: "right",
+                    sortable: true,
+                    sortValue: (p) => p.pnl.revenue,
+                    render: (p) => (p.pnl.revenue ? formatCurrency(p.pnl.revenue) : <span className="text-faint">—</span>),
+                    exportValue: (p) => p.pnl.revenue,
+                  },
+                  {
+                    key: "pnl.profit",
+                    label: "Profit",
+                    align: "right",
+                    sortable: true,
+                    bar: true,
+                    hint: "Revenue booked less total cost. Margin shown beneath.",
+                    sortValue: (p) => p.pnl.profit,
+                    render: (p) => (
+                      <MoneyCell
+                        value={p.pnl.profit}
+                        formatted={formatCurrency(p.pnl.profit)}
+                        showSign
+                        sub={p.pnl.revenue > 0 ? `${p.pnl.margin.toFixed(1)}% margin` : undefined}
+                      />
+                    ),
+                    exportValue: (p) => p.pnl.profit,
+                  },
+                ]}
               />
-            ) : null}
-          </TabsContent>
-        )}
-      </Tabs>
+            </div>
+      )}
       <ProjectFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );
+}
+
+/** Elapsed share of a project's planned duration, clamped to 0–100. */
+function timelinePct(startDate: string | null, endDate: string | null): number {
+  if (!startDate || !endDate) return -1;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  if (end <= start) return -1;
+  return Math.max(0, Math.min(100, ((Date.now() - start) / (end - start)) * 100));
 }
 
 function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typeLabel: string }) {

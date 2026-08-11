@@ -23,6 +23,8 @@ function serializeNode(node: any): any {
       ? {
           ...node.boqItem,
           estimatedAmount: node.boqItem.estimatedAmount != null ? toNum(node.boqItem.estimatedAmount) : null,
+          estimatedQty: node.boqItem.estimatedQty != null ? toNum(node.boqItem.estimatedQty) : null,
+          rate: node.boqItem.rate != null ? toNum(node.boqItem.rate) : null,
         }
       : null,
     children: (node.children ?? []).map(serializeNode),

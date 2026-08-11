@@ -166,7 +166,7 @@ export function threeWayMatch(
     // For now, qty × price is the line total by definition, so this
     // check passes unless a separate total is supplied. We include it
     // for completeness and future extension.
-    if (invLineTotal.abs().lt(roundingTolerance.neg())) {
+    if (invLineTotal.abs().gt(roundingTolerance)) {
       variances.push({
         line: lineNo,
         field: "lineTotal",
@@ -214,7 +214,7 @@ export async function createSupplierInvoice(input: {
   return prisma.$transaction(async (tx) => {
     // 1. Validate supplier
     const supplier = await tx.supplier.findFirst({
-      where: { id: input.supplierId, deletedAt: null },
+      where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 

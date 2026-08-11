@@ -25,7 +25,7 @@ import type { LandParcelSummary, LandParcelStatus } from "@/lib/types";
  */
 
 const STATUS_FILL: Record<LandParcelStatus, string> = {
-  AVAILABLE: "var(--color-stage-sell)",
+  AVAILABLE: "var(--color-success)",
   HOLD: "var(--color-warning)",
   PARTITIONED: "var(--color-muted-foreground)",
   RESERVED: "var(--color-brand)",
@@ -227,9 +227,8 @@ export function CadastrePlan({
 /** A compact legend for the cadastre plan. */
 export function CadastreLegend() {
   const items: { label: string; color: string }[] = [
-    { label: "Available", color: "var(--color-stage-sell)" },
+    { label: "Available", color: "var(--color-success)" },
     { label: "Hold", color: "var(--color-warning)" },
-    { label: "Partitioned", color: "var(--color-muted-foreground)" },
     { label: "Sold", color: "var(--color-danger)" },
   ];
   return (

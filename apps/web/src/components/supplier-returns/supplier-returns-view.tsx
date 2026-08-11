@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Undo2, Check, X, Send, FileText } from "lucide-react";
+import { Plus, Undo2, Check, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
@@ -43,14 +43,6 @@ export function SupplierReturnsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
-        {canCreate && (
-          <Button onClick={() => setFormOpen(true)} disabled={suppliers.length === 0 || locations.length === 0}>
-            <Plus className="h-4 w-4" /> New Supplier Return
-          </Button>
-        )}
-      </div>
-
       {returns.length === 0 ? (
         <EmptyState
           icon={<Undo2 className="h-5 w-5" />}
@@ -65,16 +57,19 @@ export function SupplierReturnsView({
           }
         />
       ) : (
-        <DataTable
-          columns={returnColumns}
-          data={returns}
-          onRowClick={(r) => setDetail(r)}
-          searchable
-          searchPlaceholder="Search by return no, supplier…"
-          className="rounded-lg border border-border/60"
-          hideable
-          pageSize={50}
-        />
+        <div className="overflow-hidden rounded-lg border border-border/60">
+          <DataTable
+            columns={returnColumns}
+            data={returns}
+            onRowClick={(r) => setDetail(r)}
+            searchable
+            searchPlaceholder="Search by return no, supplier…"
+            hideable
+            pageSize={50}
+            onAddRow={canCreate && suppliers.length > 0 && locations.length > 0 ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Supplier Return"
+          />
+        </div>
       )}
 
       <SupplierReturnFormDialog

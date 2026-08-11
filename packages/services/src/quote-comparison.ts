@@ -118,16 +118,22 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
   // Validate requisition exists and is in a quote-collectable state
   const req = await prisma.materialRequisition.findUnique({
     where: { id: input.requisitionId },
-    include: { lines: true },
+    include: {
+      lines: true,
+      project: { select: { companyId: true } },
+      department: { select: { companyId: true } },
+    },
   });
   if (!req) throw new ServiceError("Requisition not found", 404);
   if (req.status === "CONVERTED") throw new ServiceError("Cannot add quotes to a converted requisition");
   if (req.status === "REJECTED") throw new ServiceError("Cannot add quotes to a rejected requisition");
   if (req.quotesLockedAt) throw new ServiceError("Quotes are locked — a winner has already been selected");
 
-  // Validate supplier
+  // Validate supplier belongs to the same company as the requisition's project/department
+  const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+  if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
   const supplier = await prisma.supplier.findFirst({
-    where: { id: input.supplierId, deletedAt: null },
+    where: { id: input.supplierId, companyId: reqCompanyId, deletedAt: null },
   });
   if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
@@ -313,9 +319,14 @@ export async function selectWinningQuote(input: SelectWinnerInput) {
       throw new ServiceError("Cannot select a quote for an already-converted requisition");
     }
 
-    // Mark all other quotes for this requisition as REJECTED, select this one
+    // Mark all other quotes for this requisition as REJECTED (including any
+    // previously SELECTED quote), then select this one.
     await tx.vendorQuote.updateMany({
-      where: { requisitionId: quote.requisitionId, status: "PENDING" },
+      where: {
+        requisitionId: quote.requisitionId,
+        status: { in: ["PENDING", "SELECTED"] },
+        id: { not: input.quoteId },
+      },
       data: { status: "REJECTED" },
     });
     const updated = await tx.vendorQuote.update({

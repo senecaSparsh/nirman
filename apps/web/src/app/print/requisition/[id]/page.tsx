@@ -50,7 +50,7 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
   };
 
   return (
-    <div className="mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-black pb-3">
         <div>
@@ -69,7 +69,7 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
           <span className="font-semibold">Project: </span>
-          <span>{req.project.name}</span>
+          <span>{req.project?.name ?? "—"}</span>
         </div>
         <div>
           <span className="font-semibold">Phase: </span>

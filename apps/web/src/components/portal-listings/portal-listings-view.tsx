@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Globe, Plus, RefreshCw, ExternalLink, XCircle, Loader2,
-  CheckCircle2, AlertCircle, Clock, Pencil, Trash2, Eye,
-  Building2, Zap, ImageOff,
+  CheckCircle2, AlertCircle, Clock, Pencil, Trash2,
+  Zap, SearchX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -15,7 +15,9 @@ import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
+import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 
 type ListingStatus = "DRAFT" | "LISTED" | "DELISTED" | "SYNC_FAILED";
 
@@ -95,6 +97,16 @@ function timeAgo(iso: string | null): string | null {
   return formatDate(iso);
 }
 
+function StatusBadge({ status }: { status: ListingStatus }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.DRAFT;
+  const Icon = cfg.icon;
+  return (
+    <Badge variant={cfg.variant} className="text-micro">
+      <Icon className="mr-0.5 h-3 w-3" /> {cfg.label}
+    </Badge>
+  );
+}
+
 export function PortalListingsView({
   listings,
   unitOptions,
@@ -107,10 +119,6 @@ export function PortalListingsView({
   permissions?: { canManage?: boolean };
 }) {
   const canManage = permissions?.canManage ?? false;
-  const [statusFilter, setStatusFilter] = useState("");
-  const [portalFilter, setPortalFilter] = useState("");
-  const [projectFilter, setProjectFilter] = useState("");
-  const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ListingRow | null>(null);
   const [detailTarget, setDetailTarget] = useState<ListingRow | null>(null);
@@ -120,37 +128,8 @@ export function PortalListingsView({
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const router = useRouter();
 
-  const filtered = useMemo(() => {
-    return listings.filter((l) => {
-      if (statusFilter && l.status !== statusFilter) return false;
-      if (portalFilter && l.portalName !== portalFilter) return false;
-      if (projectFilter && l.projectName !== projectFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const hay = `${l.title} ${l.unitNumber} ${l.projectName} ${l.portalName} ${unitTypeLabel(l.unitType)}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [listings, statusFilter, portalFilter, projectFilter, search]);
-
-  const groupedByPortal = useMemo(() => {
-    const map = new Map<string, ListingRow[]>();
-    for (const l of filtered) {
-      const arr = map.get(l.portalName) ?? [];
-      arr.push(l);
-      map.set(l.portalName, arr);
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered]);
-
   const pendingSyncCount = useMemo(
     () => listings.filter((l) => l.status === "DRAFT" || l.status === "SYNC_FAILED").length,
-    [listings],
-  );
-
-  const projectNames = useMemo(
-    () => [...new Set(listings.map((l) => l.projectName))].sort(),
     [listings],
   );
 
@@ -205,217 +184,220 @@ export function PortalListingsView({
     }
   }
 
-  const hasFilters = statusFilter || portalFilter || projectFilter || search;
+  const columns: Column<ListingRow>[] = [
+    {
+      key: "title",
+      label: "Listing",
+      sortable: true,
+      width: "280px",
+      sortValue: (l) => l.title,
+      render: (l) => {
+        const pps = pricePerSqft(l.askingPrice, l.area);
+        return (
+          <IdentityCell
+            name={l.title}
+            sub={[
+              l.projectName,
+              `${l.unitNumber} (${unitTypeLabel(l.unitType)})`,
+              pps != null ? `${formatCurrency(pps)}/${l.areaUnit.replace(/_/g, " ").toLowerCase()}` : null,
+            ].filter(Boolean).join(" · ")}
+          />
+        );
+      },
+      exportValue: (l) => l.title,
+    },
+    {
+      key: "portalName",
+      label: "Portal",
+      sortable: true,
+      filterable: true,
+      width: "120px",
+      render: (l) => (
+        <span className="inline-flex items-center gap-1.5 text-foreground">
+          <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+          {l.portalName}
+        </span>
+      ),
+      filterValue: (l) => l.portalName,
+      exportValue: (l) => l.portalName,
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      width: "160px",
+      render: (l) => l.projectName,
+      filterValue: (l) => l.projectName,
+      exportValue: (l) => l.projectName,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      render: (l) => <StatusBadge status={l.status} />,
+      filterValue: (l) => STATUS_CONFIG[l.status]?.label ?? l.status,
+      exportValue: (l) => l.status,
+    },
+    {
+      key: "askingPrice",
+      label: "Asking price",
+      align: "right",
+      sortable: true,
+      render: (l) => <MoneyCell value={l.askingPrice} formatted={formatCurrency(l.askingPrice)} />,
+      exportValue: (l) => l.askingPrice,
+    },
+    {
+      key: "area",
+      label: "Area",
+      align: "right",
+      sortable: true,
+      render: (l) => <QtyCell value={formatNumber(l.area, 0)} unit={l.areaUnit.replace(/_/g, " ").toLowerCase()} />,
+      exportValue: (l) => l.area,
+    },
+    {
+      key: "bedrooms",
+      label: "BHK",
+      align: "right",
+      sortable: true,
+      defaultHidden: true,
+      render: (l) => l.bedrooms != null ? `${l.bedrooms} BHK` : <span className="text-faint">—</span>,
+      sortValue: (l) => l.bedrooms ?? -1,
+      exportValue: (l) => l.bedrooms ?? "",
+    },
+    {
+      key: "lastSyncedAt",
+      label: "Last synced",
+      sortable: true,
+      defaultHidden: true,
+      sortValue: (l) => l.lastSyncedAt ?? "",
+      render: (l) => {
+        if (l.syncError) return <span className="text-danger text-meta">{l.syncError.slice(0, 40)}</span>;
+        if (l.lastSyncedAt) return <span className="text-muted-foreground">{timeAgo(l.lastSyncedAt)}</span>;
+        return <span className="text-faint">—</span>;
+      },
+      exportValue: (l) => l.lastSyncedAt ?? "",
+    },
+    {
+      key: "listedAt",
+      label: "Listed on",
+      sortable: true,
+      defaultHidden: true,
+      sortValue: (l) => l.listedAt ?? "",
+      render: (l) => l.listedAt ? <span className="text-muted-foreground">{formatDate(l.listedAt)}</span> : <span className="text-faint">—</span>,
+      exportValue: (l) => l.listedAt ?? "",
+    },
+  ];
+
+  function rowActions(l: ListingRow) {
+    return (
+      <>
+        {l.listingUrl && (
+          <a
+            href={l.listingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-info"
+            title={`View on ${l.portalName}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+        {canManage && l.status !== "DELISTED" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => { e.stopPropagation(); sync(l.id); }}
+            disabled={syncing === l.id}
+            title={l.status === "DRAFT" ? "Push to portal" : "Re-sync"}
+          >
+            {syncing === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+        {canManage && l.status !== "LISTED" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditTarget(l); setFormOpen(true); }} title="Edit listing">
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canManage && l.status === "LISTED" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); setDelistTarget(l); }} disabled={syncing === l.id} title="Delist from portal">
+            <XCircle className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canManage && l.status !== "LISTED" && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }} title="Delete listing">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  const trailingButtons = (
+    <>
+      {canManage && pendingSyncCount > 0 && (
+        <Button variant="outline" onClick={bulkSync} disabled={bulkSyncing}>
+          {bulkSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+          Sync All ({pendingSyncCount})
+        </Button>
+      )}
+      {canManage && unitOptions.length > 0 && (
+        <Button onClick={() => { setEditTarget(null); setFormOpen(true); }}>
+          <Plus className="h-4 w-4" /> New listing
+        </Button>
+      )}
+    </>
+  );
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No listings match"
+      description="Adjust the search or column filters to see all portal listings."
+    />
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-          <Input
-            placeholder="Search title, unit, project…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sm:max-w-[220px]"
-          />
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[150px]">
-            <option value="">All statuses</option>
-            {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </Select>
-          <Select value={portalFilter} onChange={(e) => setPortalFilter(e.target.value)} className="sm:max-w-[150px]">
-            <option value="">All portals</option>
-            {PORTAL_NAMES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </Select>
-          <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All projects</option>
-            {projectNames.map((p) => <option key={p} value={p}>{p}</option>)}
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-body text-muted-foreground">{filtered.length} listing{filtered.length !== 1 ? "s" : ""}</span>
-          {canManage && pendingSyncCount > 0 && (
-            <Button size="sm" variant="outline" onClick={bulkSync} disabled={bulkSyncing}>
-              {bulkSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              Sync All ({pendingSyncCount})
-            </Button>
-          )}
-          {canManage && unitOptions.length > 0 && listings.length > 0 && (
+      {listings.length === 0 ? (
+        <EmptyState
+          icon={<Globe className="h-5 w-5" />}
+          title="No portal listings yet"
+          description="Sync your available built units to property portals like 99acres, MagicBricks, and Housing.com to reach more buyers."
+          action={canManage && unitOptions.length > 0 ? (
             <Button size="sm" onClick={() => { setEditTarget(null); setFormOpen(true); }}>
               <Plus className="mr-1 h-3.5 w-3.5" /> New Listing
             </Button>
-          )}
-        </div>
-      </div>
-
-      {/* List */}
-      {filtered.length === 0 ? (
-        listings.length === 0 ? (
-          <EmptyState
-            icon={<Globe className="h-5 w-5" />}
-            title="No portal listings yet"
-            description="Sync your available built units to property portals like 99acres, MagicBricks, and Housing.com to reach more buyers."
-            action={canManage && unitOptions.length > 0 ? (
-              <Button size="sm" onClick={() => { setEditTarget(null); setFormOpen(true); }}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> New Listing
-              </Button>
-            ) : undefined}
-          />
-        ) : (
-          <EmptyState
-            icon={<Globe className="h-5 w-5" />}
-            title="No listings match your filters"
-            description="Try clearing the search or filters to see all listings."
-            action={
-              <Button size="sm" variant="outline" onClick={() => { setStatusFilter(""); setPortalFilter(""); setProjectFilter(""); setSearch(""); }}>
-                Clear filters
-              </Button>
-            }
-          />
-        )
+          ) : undefined}
+        />
       ) : (
-        <div className="space-y-4">
-          {groupedByPortal.map(([portal, rows]) => {
-            const listedCount = rows.filter((r) => r.status === "LISTED").length;
-            return (
-              <div key={portal} className="rounded-lg border border-border bg-card overflow-hidden">
-                <div className="flex items-center justify-between bg-muted/30 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-body font-semibold">{portal}</span>
-                    <Badge variant="muted" className="text-micro">{rows.length}</Badge>
-                    {listedCount > 0 && (
-                      <Badge variant="success" className="text-micro">{listedCount} live</Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="divide-y divide-border">
-                  {rows.map((l) => {
-                    const cfg = STATUS_CONFIG[l.status] ?? STATUS_CONFIG.DRAFT;
-                    const Icon = cfg.icon;
-                    const pps = pricePerSqft(l.askingPrice, l.area);
-                    return (
-                      <div key={l.id} className="flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/15">
-                        {/* Photo thumbnail */}
-                        <div className="hidden h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted sm:block">
-                          {l.photos.length > 0 ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={l.photos[0]} alt={l.title} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-                              <ImageOff className="h-4 w-4" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Main content */}
-                        <button
-                          onClick={() => setDetailTarget(l)}
-                          className="flex-1 min-w-0 text-left"
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-body font-medium hover:text-brand transition-colors">{l.title}</span>
-                            <Badge variant={cfg.variant} className="text-micro">
-                              <Icon className="mr-0.5 h-3 w-3" /> {cfg.label}
-                            </Badge>
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-caption text-muted-foreground">
-                            <Building2 className="h-3 w-3" />
-                            {l.projectName} — {l.unitNumber} ({unitTypeLabel(l.unitType)})
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                            <span className="text-body font-semibold">{formatCurrency(l.askingPrice)}</span>
-                            {pps != null && (
-                              <span className="text-caption text-muted-foreground">
-                                {formatCurrency(pps)}/{l.areaUnit.replace(/_/g, " ").toLowerCase()}
-                              </span>
-                            )}
-                            <span className="text-caption text-muted-foreground">
-                              {formatNumber(l.area, 0)} {l.areaUnit.replace(/_/g, " ").toLowerCase()}
-                              {l.floor != null && ` · Fl ${l.floor}`}
-                              {l.bedrooms != null && ` · ${l.bedrooms} BHK`}
-                              {l.bathrooms != null && ` · ${l.bathrooms} bath`}
-                            </span>
-                          </div>
-                          {l.syncError && (
-                            <div className="mt-1 flex items-start gap-1 text-micro text-danger">
-                              <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                              <span className="line-clamp-1">{l.syncError}</span>
-                            </div>
-                          )}
-                          {l.lastSyncedAt && (
-                            <div className="mt-0.5 text-micro text-muted-foreground">
-                              Synced {timeAgo(l.lastSyncedAt)}
-                            </div>
-                          )}
-                        </button>
-
-                        {/* Actions */}
-                        <div className="flex shrink-0 items-center gap-1">
-                          {l.listingUrl && (
-                            <a
-                              href={l.listingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-info"
-                              title={`View on ${l.portalName}`}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setDetailTarget(l)} title="View details">
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          {canManage && (
-                            <>
-                              {l.status !== "DELISTED" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => sync(l.id)}
-                                  disabled={syncing === l.id}
-                                  title={l.status === "DRAFT" ? "Push to portal" : "Re-sync"}
-                                >
-                                  {syncing === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                                </Button>
-                              )}
-                              {l.status !== "LISTED" && (
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditTarget(l); setFormOpen(true); }} title="Edit">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {l.status === "LISTED" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-danger"
-                                  onClick={() => setDelistTarget(l)}
-                                  disabled={syncing === l.id}
-                                  title="Delist from portal"
-                                >
-                                  <XCircle className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {l.status !== "LISTED" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 text-danger"
-                                  onClick={() => setDeleteTarget(l)}
-                                  title="Delete listing"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={listings}
+            columns={columns}
+            storageKey="portal-listings"
+            hideable
+            exportFileName="portal-listings"
+            initialSort={{ key: "askingPrice", direction: "desc" }}
+            onRowClick={(l) => setDetailTarget(l)}
+            searchable
+            searchPlaceholder="Search title, unit, project, portal…"
+            toolbarTrailing={trailingButtons}
+            showTotals
+            sumColumns={["askingPrice"]}
+            totalFormat={(_key, sum) => formatCurrency(sum)}
+            rowTone={(l) => {
+              if (l.status === "SYNC_FAILED") return "danger";
+              if (l.status === "DELISTED") return "warning";
+              return null;
+            }}
+            rowActions={rowActions}
+            emptyState={noMatch}
+          />
         </div>
       )}
 
@@ -665,7 +647,6 @@ function ListingForm({
   const selectedUnit = unitOptions.find((u) => u.id === builtUnitId);
   const isEdit = !!editTarget;
 
-  // Auto-fill from selected unit (only on create, not edit)
   function onUnitChange(id: string) {
     setBuiltUnitId(id);
     if (isEdit) return;

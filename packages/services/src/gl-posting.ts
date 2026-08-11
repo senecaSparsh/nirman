@@ -26,6 +26,9 @@ import { ServiceError } from "./errors";
  *   1800 Unsold Assets - Units  (ASSET)
  *   2000 Accounts Payable       (LIABILITY)
  *   2100 Output GST             (LIABILITY) — tax collected on sales, owed to the tax authority
+ *   2400 TDS Payable            (LIABILITY) — tax deducted at source on subcontractor/supplier payments
+ *   2500 Customer Deposits      (LIABILITY) — unearned revenue from property bookings
+ *   2600 Retention Payable      (LIABILITY) — retention held from subcontractor RA bills
  *   4000 Sales Revenue          (REVENUE)
  *   5000 Cost of Goods Sold     (EXPENSE)
  *   6000 Operating Expenses     (EXPENSE)
@@ -37,19 +40,25 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1300", name: "Inventory - Materials", type: "ASSET" as const },
   { code: "1400", name: "Input GST / ITC", type: "ASSET" as const },
   { code: "1500", name: "WIP - Project Costs", type: "ASSET" as const },
+  { code: "1600", name: "Advances to Subcontractors", type: "ASSET" as const },
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
   { code: "2100", name: "Output GST", type: "LIABILITY" as const },
   { code: "2200", name: "Salaries Payable", type: "LIABILITY" as const },
+  { code: "2250", name: "PF Payable", type: "LIABILITY" as const },
   { code: "2300", name: "Security Deposits Payable", type: "LIABILITY" as const },
+  { code: "2350", name: "ESI Payable", type: "LIABILITY" as const },
   { code: "2400", name: "TDS Payable", type: "LIABILITY" as const },
+  { code: "2450", name: "Profession Tax Payable", type: "LIABILITY" as const },
   { code: "2500", name: "Customer Deposits - Unearned Revenue", type: "LIABILITY" as const },
+  { code: "2600", name: "Retention Payable - Subcontractor", type: "LIABILITY" as const },
   { code: "3000", name: "Retained Earnings", type: "EQUITY" as const },
   { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
-  { code: "4100", name: "Cost Recovery - Scrap Sales", type: "REVENUE" as const },
+  { code: "4100", name: "Cost Recovery - Scrap Sales", type: "CONTRA_EXPENSE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
+  { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
   { code: "6100", name: "Salaries & Wages Expense", type: "EXPENSE" as const },
 ];
@@ -61,19 +70,25 @@ export const ACCT = {
   INVENTORY: "1300",
   INPUT_GST: "1400",
   WIP: "1500",
+  ADVANCE_TO_SUB: "1600",
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
   AP: "2000",
   OUTPUT_GST: "2100",
   SALARIES_PAYABLE: "2200",
+  PF_PAYABLE: "2250",
   SECURITY_DEPOSITS_PAYABLE: "2300",
+  ESI_PAYABLE: "2350",
   TDS_PAYABLE: "2400",
+  PROFESSION_TAX_PAYABLE: "2450",
   CUSTOMER_DEPOSIT: "2500",
+  RETENTION_PAYABLE: "2600",
   RETAINED_EARNINGS: "3000",
   SALES_REVENUE: "4000",
   COST_RECOVERY: "4100",
   COGS: "5000",
+  INVENTORY_SHRINKAGE: "5500",
   OPERATING_EXPENSE: "6000",
   SALARIES_EXPENSE: "6100",
 } as const;
@@ -108,6 +123,7 @@ export interface PostJournalInput {
   memo?: string;
   postedById?: string;
   lines: JournalLineInput[];
+  entryDate?: Date; // optional — defaults to now; used by backfill scripts to post historical entries
 }
 
 /**
@@ -140,10 +156,11 @@ export async function postJournalEntry(
     return null;
   }
 
-  const d = new Date();
+  const d = input.entryDate ?? new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const rand = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-  const entryNumber = `JE-${ymd}-${rand}`;
+  const prefix = `JE-${ymd}-`;
+  const count = await tx.journalEntry.count({ where: { entryNumber: { startsWith: prefix } } });
+  const entryNumber = `${prefix}${String(count + 1).padStart(5, "0")}`;
 
   const entry = await tx.journalEntry.create({
     data: {
@@ -295,6 +312,94 @@ export async function postMaterialIssue(
     lines: [
       { accountCode: ACCT.WIP, debit: opts.totalCost, credit: 0, entityType: "Project", entityId: opts.projectId },
       { accountCode: ACCT.INVENTORY, debit: 0, credit: opts.totalCost, entityType: "MaterialIssue", entityId: opts.materialIssueId },
+    ],
+  });
+}
+
+/**
+ * WIP Capitalization: move completed production costs from WIP into the
+ * finished asset account. This is the MISSING DEBIT side of the unit sale —
+ * postAssetSale credits UNIT_ASSET (1800) on sale, but nothing ever debited
+ * it. This function is called when a unit transitions to AVAILABLE, moving
+ * its accumulated production cost from WIP (1500) to Unsold Assets - Units
+ * (1800).
+ *
+ *   Dr Unsold Assets - Units  (1800)   [costBasis]
+ *   Cr WIP - Project Costs    (1500)   [costBasis]
+ *
+ * Idempotent by design — the caller checks `BuiltUnit.capitalizedAmount`
+ * and only posts the delta (productionCost - capitalizedAmount). If the
+ * delta is zero, postJournalEntry returns null (no entry posted).
+ */
+export async function postWipCapitalization(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    builtUnitId: string;
+    projectId: string;
+    costBasis: Decimal;
+    postedById?: string;
+    entryDate?: Date; // optional — used by backfill to post historical entries
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "WIP_CAPITALIZATION",
+    sourceId: opts.builtUnitId,
+    memo: "WIP capitalized — unit completed",
+    postedById: opts.postedById,
+    entryDate: opts.entryDate,
+    lines: [
+      { accountCode: ACCT.UNIT_ASSET, debit: opts.costBasis, credit: 0, entityType: "BuiltUnit", entityId: opts.builtUnitId },
+      { accountCode: ACCT.WIP, debit: 0, credit: opts.costBasis, entityType: "Project", entityId: opts.projectId },
+    ],
+  });
+}
+
+/**
+ * Scrap Generation: record the value of internally generated scrap material
+ * added to stock. The scrap is valued at a user-specified (or auto-calculated)
+ * unit cost, typically lower than the source material's MAC.
+ *
+ * For project-linked scrap: credit WIP (1500) — the scrap value is recovered
+ * from the project's work-in-progress, reducing the project's capitalized cost.
+ *
+ * For standalone scrap (no project): credit OPERATING_EXPENSE (6000) — the
+ * scrap value is treated as a contra-expense (reduction of operating costs),
+ * NOT as revenue. Revenue is recognized at SALE time via postMaterialSale()
+ * which credits COST_RECOVERY (4100). Crediting revenue at generation time
+ * would violate the revenue recognition principle.
+ *
+ *   Dr Inventory - Materials  (1300)   [totalValue]
+ *   Cr WIP - Project Costs    (1500)   [totalValue]   — if project-linked
+ *   Cr Operating Expenses     (6000)   [totalValue]   — if standalone
+ */
+export async function postScrapGeneration(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    scrapGenerationId: string;
+    projectId?: string;
+    totalValue: Decimal;
+    postedById?: string;
+  },
+) {
+  const value = new Decimal(opts.totalValue);
+  if (value.isZero()) return null;
+
+  const creditAccount = opts.projectId ? ACCT.WIP : ACCT.OPERATING_EXPENSE;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SCRAP_GENERATION",
+    sourceId: opts.scrapGenerationId,
+    memo: opts.projectId
+      ? "Scrap generated — cost recovered from WIP"
+      : "Scrap material generated — cost recovery",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.INVENTORY, debit: value, credit: 0, entityType: "ScrapGeneration", entityId: opts.scrapGenerationId },
+      { accountCode: creditAccount, debit: 0, credit: value, entityType: opts.projectId ? "Project" : "ScrapGeneration", entityId: opts.projectId ?? opts.scrapGenerationId },
     ],
   });
 }
@@ -519,6 +624,7 @@ export async function postMaterialSale(
     materialSaleId: string;
     subtotal: Decimal;
     gstTotal: Decimal;
+    roundOff?: Decimal;
     totalCost: Decimal;
     /** Portion of subtotal from scrap-material lines — credited to Cost Recovery instead of Sales Revenue */
     scrapSubtotal?: Decimal;
@@ -526,7 +632,8 @@ export async function postMaterialSale(
   },
 ) {
   const gst = new Decimal(opts.gstTotal);
-  const receivable = new Decimal(opts.subtotal).plus(gst);
+  const roundOff = new Decimal(opts.roundOff ?? 0);
+  const receivable = new Decimal(opts.subtotal).plus(gst).plus(roundOff);
   const scrapSubtotal = new Decimal(opts.scrapSubtotal ?? 0);
   const regularSubtotal = new Decimal(opts.subtotal).minus(scrapSubtotal);
   // Revenue leg — split scrap revenue (Cost Recovery) from regular sales revenue
@@ -590,6 +697,67 @@ export async function postProjectCost(
       { accountCode: ACCT.WIP, debit: opts.amount, credit: 0, entityType: "Project", entityId: opts.projectId },
       { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "ProjectCost", entityId: opts.projectCostId },
     ],
+  });
+}
+
+/**
+ * RA Bill Approval (subcontractor billing): capitalise the gross contractor
+ * work into WIP, and credit the payable side — net payable to AP, TDS to TDS
+ * Payable, retention to Retention Payable, advance recovery + other deductions
+ * to AP (reducing the subcontractor's payable).
+ *
+ *   Dr WIP - Project Costs          (grossAmount)
+ *   Cr Accounts Payable             (netPayable + advanceRecovery + otherDeductions)
+ *   Cr TDS Payable                  (tdsAmount)
+ *   Cr Retention Payable            (retentionAmount)
+ */
+export async function postRaBillApproval(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    raBillId: string;
+    projectId: string;
+    grossAmount: Decimal | number | string;
+    netPayable: Decimal | number | string;
+    tdsAmount: Decimal | number | string;
+    retentionAmount: Decimal | number | string;
+    advanceRecovery: Decimal | number | string;
+    otherDeductions: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const gross = new Decimal(opts.grossAmount);
+  const net = new Decimal(opts.netPayable);
+  const tds = new Decimal(opts.tdsAmount);
+  const retention = new Decimal(opts.retentionAmount);
+  const advance = new Decimal(opts.advanceRecovery);
+  const other = new Decimal(opts.otherDeductions);
+  // AP credit = net payable + other deductions (advance recovery goes to the advance asset account)
+  const apCredit = net.plus(other);
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.WIP, debit: gross, credit: 0, entityType: "RaBill", entityId: opts.raBillId, memo: "Contractor expense capitalised" },
+  ];
+  if (apCredit.gt(0)) {
+    lines.push({ accountCode: ACCT.AP, debit: 0, credit: apCredit, entityType: "RaBill", entityId: opts.raBillId, memo: "Net payable + other deductions" });
+  }
+  if (advance.gt(0)) {
+    lines.push({ accountCode: ACCT.ADVANCE_TO_SUB, debit: 0, credit: advance, entityType: "RaBill", entityId: opts.raBillId, memo: "Advance recovery — reduces advance asset" });
+  }
+  if (tds.gt(0)) {
+    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tds, entityType: "RaBill", entityId: opts.raBillId, memo: "TDS deducted at source" });
+  }
+  if (retention.gt(0)) {
+    lines.push({ accountCode: ACCT.RETENTION_PAYABLE, debit: 0, credit: retention, entityType: "RaBill", entityId: opts.raBillId, memo: "Retention held" });
+  }
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "RA_BILL_APPROVAL",
+    sourceId: opts.raBillId,
+    memo: `RA Bill approval — contractor expense`,
+    postedById: opts.postedById,
+    lines,
   });
 }
 
@@ -766,37 +934,93 @@ export async function postLandPurchase(
 }
 
 /**
- * Payroll (processed): recognise the salary expense and book a liability
- * to the employees (Salaries Payable) until the payroll is settled.
+ * Payroll (processed): recognise the GROSS salary expense + employer PF
+ * (an additional expense on top of gross), and book separate liabilities
+ * for net pay, PF, ESI, profession tax, and TDS. This is the correct
+ * gross-expense accounting treatment — the employer's wage cost is the
+ * gross amount, and deductions (PF, ESI, profession tax, TDS) are
+ * liabilities payable to the government, not reductions of the expense.
+ * Employer PF is an additional employer cost (not deducted from the
+ * employee's gross), so it's debited as extra salary expense and credited
+ * to PF Payable alongside the employee portion.
  *
- *   Dr Salaries & Wages Expense   (totalNet = gross + overtime − deductions)
+ *   Dr Salaries & Wages Expense   (totalGross + employerPf)
  *   Cr Salaries Payable            (totalNet)
+ *   Cr PF Payable                  (totalPF + employerPf)  — employee + employer PF
+ *   Cr ESI Payable                 (totalESI)              — if totalESI > 0
+ *   Cr Profession Tax Payable      (totalProfessionTax)    — if > 0
+ *   Cr TDS Payable                 (totalTDS)             — if totalTDS > 0
+ *   Cr Salaries Payable            (otherDeductions)      — residual, if > 0
  *
- * Note: we post the NET amount as the expense (deductions reduce the
- * employer's recognised wage cost). If gross-expense accounting is
- * preferred later, the deductions line can be split out separately.
+ * Where otherDeductions = totalDeductions − PF − ESI − professionTax − TDS
+ * (loans, advances, penalties etc. — these are held in Salaries Payable
+ * until settled, not as separate statutory liabilities).
  */
 export async function postPayroll(
   tx: Prisma.TransactionClient,
   opts: {
     companyId: string;
     payrollPeriodId: string;
+    totalGross: Decimal | number | string;
     totalNet: Decimal | number | string;
+    totalPF?: Decimal | number | string;
+    totalEmployerPf?: Decimal | number | string;
+    totalESI?: Decimal | number | string;
+    totalProfessionTax?: Decimal | number | string;
+    totalTDS?: Decimal | number | string;
+    totalDeductions?: Decimal | number | string;
     postedById?: string;
   },
 ) {
+  const totalGross = new Decimal(opts.totalGross);
   const totalNet = new Decimal(opts.totalNet);
-  if (totalNet.isZero()) return null;
+  if (totalGross.isZero() && new Decimal(opts.totalEmployerPf ?? 0).isZero()) return null;
+
+  const totalPF = new Decimal(opts.totalPF ?? 0);
+  const totalEmployerPf = new Decimal(opts.totalEmployerPf ?? 0);
+  const totalESI = new Decimal(opts.totalESI ?? 0);
+  const totalProfessionTax = new Decimal(opts.totalProfessionTax ?? 0);
+  const totalTDS = new Decimal(opts.totalTDS ?? 0);
+  const totalDeductions = new Decimal(opts.totalDeductions ?? 0);
+  // Other deductions = totalDeductions − PF − ESI − professionTax − TDS
+  const otherDeductions = totalDeductions
+    .minus(totalPF)
+    .minus(totalESI)
+    .minus(totalProfessionTax)
+    .minus(totalTDS);
+
+  // Employer PF is an additional expense on top of gross salary
+  const totalExpense = totalGross.plus(totalEmployerPf);
+  // Total PF payable = employee portion + employer portion
+  const totalPfPayable = totalPF.plus(totalEmployerPf);
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.SALARIES_EXPENSE, debit: totalExpense, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Gross salary expense + employer PF" },
+    { accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Net pay payable to employees" },
+  ];
+  if (totalPfPayable.gt(0)) {
+    lines.push({ accountCode: ACCT.PF_PAYABLE, debit: 0, credit: totalPfPayable, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "PF payable to EPFO (employee + employer)" });
+  }
+  if (totalESI.gt(0)) {
+    lines.push({ accountCode: ACCT.ESI_PAYABLE, debit: 0, credit: totalESI, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "ESI payable to ESIC" });
+  }
+  if (totalProfessionTax.gt(0)) {
+    lines.push({ accountCode: ACCT.PROFESSION_TAX_PAYABLE, debit: 0, credit: totalProfessionTax, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Profession tax payable to state" });
+  }
+  if (totalTDS.gt(0)) {
+    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: totalTDS, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "TDS payable to Income Tax" });
+  }
+  if (otherDeductions.gt(0)) {
+    lines.push({ accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: otherDeductions, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Other deductions (loans/advances)" });
+  }
+
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "PAYROLL",
     sourceId: opts.payrollPeriodId,
-    memo: "Payroll processed — salaries expense",
+    memo: "Payroll processed — gross salary expense",
     postedById: opts.postedById,
-    lines: [
-      { accountCode: ACCT.SALARIES_EXPENSE, debit: totalNet, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
-      { accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId },
-    ],
+    lines,
   });
 }
 
@@ -877,7 +1101,11 @@ export async function postDirectPurchase(
 /**
  * Stock Count Adjustment: post the inventory variance to the GL.
  * Positive variance (stock appeared) → Dr Inventory, Cr Operating Expense (gain).
- * Negative variance (stock missing)  → Dr Operating Expense (loss), Cr Inventory.
+ * Negative variance (stock missing)  → Dr Inventory Shrinkage (5500), Cr Inventory.
+ *
+ * Losses are booked to a dedicated Inventory Shrinkage account (5500) so they
+ * can be tracked separately from general operating expenses — useful for
+ * insurance claims, audit trails, and shrinkage KPIs.
  *
  * The MAC of the adjusted stock is used as the unit cost so the GL reflects
  * the actual carrying value of the variance.
@@ -908,7 +1136,7 @@ export async function postStockAdjustment(
     lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gains, entityType: "StockCount", entityId: opts.stockCountId, memo: "Inventory gain on count" });
   }
   if (losses.gt(0)) {
-    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: losses, credit: 0, entityType: "StockCount", entityId: opts.stockCountId, memo: "Inventory loss on count" });
+    lines.push({ accountCode: ACCT.INVENTORY_SHRINKAGE, debit: losses, credit: 0, entityType: "StockCount", entityId: opts.stockCountId, memo: "Inventory shrinkage (stock count loss)" });
     lines.push({ accountCode: ACCT.INVENTORY, debit: 0, credit: losses, entityType: "StockCount", entityId: opts.stockCountId, memo: "Stock count loss" });
   }
   return postJournalEntry(tx, {
@@ -1126,6 +1354,7 @@ export async function trialBalance(companyId: string) {
   const accounts = [...byAccount.values()].sort((a, b) => a.code.localeCompare(b.code));
   // Balance: for assets/expenses, balance = debit - credit; for liabilities/equity/revenue, credit - debit.
   const result = accounts.map((a) => {
+    // Contra-expense accounts have a credit-normal balance (they reduce expenses).
     const isDebitNormal = a.type === "ASSET" || a.type === "EXPENSE";
     const balance = isDebitNormal ? a.debit.minus(a.credit) : a.credit.minus(a.debit);
     return { ...a, balance };
@@ -1156,4 +1385,45 @@ export async function accountLedger(companyId: string, accountCode: string) {
     entityType: l.entityType,
     entityId: l.entityId,
   }));
+}
+
+/**
+ * NRV Write-Down: recognise an impairment loss when an asset's net
+ * realizable value falls below its cost basis (IAS 2: lower of cost or NRV).
+ *
+ * For BuiltUnits: Dr OPERATING_EXPENSE (6000), Cr UNIT_ASSET (1800)
+ * For LandParcels: Dr OPERATING_EXPENSE (6000), Cr LAND_ASSET (1700)
+ *
+ * Only posts the DELTA — if a previous write-down exists, only the
+ * incremental amount is posted. If NRV has recovered, no reversal
+ * entry is posted here (reversal is a manual accounting decision).
+ *
+ * Called by flagNrvWriteDowns() alongside the DB field update.
+ */
+export async function postNrvWriteDown(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    entityType: "BUILT_UNIT" | "LAND";
+    entityId: string;
+    writeDownAmount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.writeDownAmount);
+  if (amount.isZero() || amount.isNegative()) return null;
+
+  const creditAccount = opts.entityType === "BUILT_UNIT" ? ACCT.UNIT_ASSET : ACCT.LAND_ASSET;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "NRV_WRITE_DOWN",
+    sourceId: opts.entityId,
+    memo: `NRV write-down — ${opts.entityType === "BUILT_UNIT" ? "built unit" : "land parcel"} impaired to NRV`,
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.OPERATING_EXPENSE, debit: amount, credit: 0, entityType: opts.entityType, entityId: opts.entityId, memo: "Impairment loss (NRV < cost)" },
+      { accountCode: creditAccount, debit: 0, credit: amount, entityType: opts.entityType, entityId: opts.entityId, memo: "Asset written down to NRV" },
+    ],
+  });
 }

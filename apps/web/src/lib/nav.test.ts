@@ -265,18 +265,6 @@ describe("isSettingsPath", () => {
     expect(isSettingsPath("/settings/project-assignments")).toBe(true);
   });
 
-  it("returns true for /workflows", () => {
-    expect(isSettingsPath("/workflows")).toBe(true);
-  });
-
-  it("returns true for /workflows/123", () => {
-    expect(isSettingsPath("/workflows/123")).toBe(true);
-  });
-
-  it("returns true for /playground", () => {
-    expect(isSettingsPath("/playground")).toBe(true);
-  });
-
   it("returns false for /projects", () => {
     expect(isSettingsPath("/projects")).toBe(false);
   });
@@ -337,9 +325,11 @@ describe("linksFor", () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe("settingsLinksFor", () => {
-  it("returns all 4 settings links for OWNER", () => {
+  it("returns all 3 settings links for OWNER", () => {
     const links = settingsLinksFor(OWNER);
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(3);
+    expect(links.find((l) => l.href === "/settings")).toBeDefined();
+    expect(links.find((l) => l.href === "/settings/project-assignments")).toBeDefined();
   });
 
   it("returns Settings + Who Sees What for ADMIN", () => {
@@ -348,20 +338,21 @@ describe("settingsLinksFor", () => {
     expect(links.find((l) => l.href === "/settings")).toBeDefined();
   });
 
-  it("returns Workflows + Workspaces for MANAGER", () => {
+  it("returns only Your Settings for MANAGER", () => {
     const links = settingsLinksFor(MANAGER);
-    expect(links.find((l) => l.href === "/workflows")).toBeDefined();
-    expect(links.find((l) => l.href === "/playground")).toBeDefined();
+    expect(links.find((l) => l.href === "/me")).toBeDefined();
   });
 
-  it("returns empty for SALES", () => {
+  it("returns only Your Settings for SALES", () => {
     const links = settingsLinksFor(SALES);
-    expect(links).toHaveLength(0);
+    expect(links).toHaveLength(1);
+    expect(links[0]?.href).toBe("/me");
   });
 
-  it("returns empty for SUPERVISOR", () => {
+  it("returns only Your Settings for SUPERVISOR", () => {
     const links = settingsLinksFor(SUPERVISOR);
-    expect(links).toHaveLength(0);
+    expect(links).toHaveLength(1);
+    expect(links[0]?.href).toBe("/me");
   });
 });
 
@@ -423,8 +414,8 @@ describe("structural invariants", () => {
     expect(unique.size).toBe(hrefs.length);
   });
 
-  it("Build world entry is /projects", () => {
-    expect(WORLD_BY_KEY.build.href).toBe("/projects");
+  it("Build world entry is /build", () => {
+    expect(WORLD_BY_KEY.build.href).toBe("/build");
   });
 
   it("Today world entry is /", () => {

@@ -3,14 +3,13 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { BudgetVarianceView } from "@/components/budget-variance/budget-variance-view";
 
 export default function BudgetVariancePage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading budget variance…" variant="default" />}>
         <BvContent />
       </Suspense>
@@ -40,9 +39,6 @@ async function BvContent() {
   });
 
   return (
-    <>
-      <PageHeader title="Budget Variance" stats={[{ label: "Projects", value: projects.length }]} />
-      <BudgetVarianceView projects={projects} />
-    </>
+    <BudgetVarianceView projects={projects} />
   );
 }

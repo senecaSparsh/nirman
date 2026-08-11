@@ -11,6 +11,7 @@ import {
   MobileStatusBadge,
   MobileEmptyState,
 } from "@/components/mobile/mobile-primitives";
+import { VirtualizedList } from "@/components/mobile/virtualized-list";
 
 type MaterialFilter = "ALL" | "LOW" | "OK";
 
@@ -86,6 +87,26 @@ export function MobileMaterialsList({ items }: { items: MaterialItem[] }) {
           icon={Package}
           title="No matching materials"
           hint="Try a different search or filter"
+        />
+      ) : filtered.length > 100 ? (
+        <VirtualizedList
+          items={filtered}
+          estimateSize={68}
+          renderItem={(m) => (
+            <MobileRow
+              href={`/m/materials/${m.id}`}
+              icon={m.isLow ? AlertTriangle : Package}
+              title={m.name}
+              subtitle={`${m.code} · ${m.categoryName}`}
+              meta={`${formatNumber(m.totalQty, 0)} ${m.unit}`}
+              tone={m.isLow ? "danger" : "default"}
+              badge={
+                m.isLow ? (
+                  <MobileStatusBadge status="DRAFT" label="Low" />
+                ) : undefined
+              }
+            />
+          )}
         />
       ) : (
         <div>

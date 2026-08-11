@@ -11,7 +11,7 @@ import { ProfitReport } from "@/components/reports/profit-report";
 import { NoAccess } from "@/components/no-access";
 export default function ProfitReportPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading P&L report…" variant="cards" />}>
         <ProfitReportContent />
       </Suspense>

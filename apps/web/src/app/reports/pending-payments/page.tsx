@@ -11,7 +11,7 @@ import { PendingPaymentsReport } from "@/components/reports/pending-payments-rep
 import { NoAccess } from "@/components/no-access";
 export default function PendingPaymentsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading pending payments…" variant="list" />}>
         <PendingPaymentsContent />
       </Suspense>
@@ -49,6 +49,7 @@ async function PendingPaymentsContent() {
   const overdueRows = overduePOs.map((po) => {
     const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
     const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
+    const daysOverdue = po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0;
     return {
       id: po.id,
       poNumber: po.poNumber,
@@ -58,7 +59,8 @@ async function PendingPaymentsContent() {
       receivedValue,
       payable: receivedValue, // pay for what's been received
       status: po.status,
-      daysOverdue: po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0,
+      daysOverdue,
+      agingBucket: getAgingBucket(daysOverdue),
     };
   });
 
@@ -79,6 +81,7 @@ async function PendingPaymentsContent() {
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return {
       id: s.id,
       saleNumber: s.saleNumber,
@@ -89,7 +92,8 @@ async function PendingPaymentsContent() {
       collected,
       outstanding: toNum(s.salePrice) - collected,
       paymentStatus: s.paymentStatus,
-      daysSinceSale: Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000),
+      daysSinceSale,
+      agingBucket: getAgingBucket(daysSinceSale),
     };
   }).filter((r) => r.outstanding > 0.01);
 
@@ -112,11 +116,15 @@ async function PendingPaymentsContent() {
   const totalDraft = draftRows.reduce((s, r) => s + r.value, 0);
   const netCash = totalReceivable - totalPayable;
 
+  // Aging bucket summaries
+  const payableAging = summarizeAging(overdueRows, (r) => r.payable);
+  const receivableAging = summarizeAging(receivableRows, (r) => r.outstanding);
+
   return (
     <>
       <PageHeader
         title="Pending Payments"
-        description="Outstanding payables (overdue POs received but unpaid), outstanding receivables (sales with balance due), and draft POs awaiting approval."
+        description="Outbound payables (overdue POs received but unpaid), inbound receivables (sales with outstanding balances), and draft POs awaiting approval."
         stats={[
           { label: "Payable (overdue)", value: formatCurrency(totalPayable) },
           { label: "Receivable", value: formatCurrency(totalReceivable) },
@@ -131,7 +139,46 @@ async function PendingPaymentsContent() {
         totalPayable={totalPayable}
         totalReceivable={totalReceivable}
         totalDraft={totalDraft}
+        payableAging={payableAging}
+        receivableAging={receivableAging}
       />
     </>
   );
+}
+
+// ── Aging bucket helpers ────────────────────────────────────
+
+type AgingBucket = "current" | "1-30d" | "31-60d" | "61-90d" | ">90d";
+
+function getAgingBucket(days: number): AgingBucket {
+  if (days <= 0) return "current";
+  if (days <= 30) return "1-30d";
+  if (days <= 60) return "31-60d";
+  if (days <= 90) return "61-90d";
+  return ">90d";
+}
+
+interface AgingSummary {
+  current: number;
+  "1-30d": number;
+  "31-60d": number;
+  "61-90d": number;
+  ">90d": number;
+}
+
+function summarizeAging<T extends { agingBucket: AgingBucket }>(
+  rows: T[],
+  amountFn: (row: T) => number,
+): AgingSummary {
+  const summary: AgingSummary = {
+    current: 0,
+    "1-30d": 0,
+    "31-60d": 0,
+    "61-90d": 0,
+    ">90d": 0,
+  };
+  for (const row of rows) {
+    summary[row.agingBucket] += amountFn(row);
+  }
+  return summary;
 }

@@ -333,7 +333,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const overdueRows = overduePOs.map((po) => {
         const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
         const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
-        return { poNumber: po.poNumber, supplier: po.supplier.name, expectedDate: po.expectedDate?.toISOString() ?? null, orderedValue, receivedValue, payable: receivedValue, status: po.status, daysOverdue: po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0 };
+        const daysOverdue = po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0;
+        return { poNumber: po.poNumber, supplier: po.supplier.name, expectedDate: po.expectedDate?.toISOString() ?? null, orderedValue, receivedValue, payable: receivedValue, status: po.status, daysOverdue, agingBucket: daysOverdue <= 0 ? "current" : daysOverdue <= 30 ? "1-30d" : daysOverdue <= 60 ? "31-60d" : daysOverdue <= 90 ? "61-90d" : ">90d" };
       });
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
@@ -342,7 +343,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project.name, saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice), collected, outstanding: toNum(s.salePrice) - collected, paymentStatus: s.paymentStatus, daysSinceSale: Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000) };
+        const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
+        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project.name, saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice), collected, outstanding: toNum(s.salePrice) - collected, paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
       }).filter((r) => r.outstanding > 0.01);
       const draftPOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: "DRAFT" },

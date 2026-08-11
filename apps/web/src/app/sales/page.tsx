@@ -12,7 +12,7 @@ import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 import { NoAccess } from "@/components/no-access";
 export default function SalesPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading sales…" variant="list" />}>
         <SalesContent />
       </Suspense>
@@ -94,6 +94,8 @@ async function SalesContent() {
       projectId: s.projectId,
       projectName: s.project.name,
       salePrice: toNum(s.salePrice),
+      gstRate: toNum(s.gstRate),
+      gstAmount: toNum(s.gstAmount),
       costBasis: toNum(s.costBasis),
       profit: toNum(s.profit),
       saleDate: s.saleDate.toISOString(),
@@ -106,7 +108,7 @@ async function SalesContent() {
       paymentMode: s.paymentMode,
       notes: s.notes,
       totalPaid,
-      balanceDue: toNum(s.salePrice) - totalPaid,
+      balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
       paymentCount: s.payments.length,
     };
   });
@@ -135,9 +137,9 @@ async function SalesContent() {
         title="Sales"
         description="Sales of land parcels and built units — bookings, payment plans, profit, and cancellations."
         stats={[
-          { label: "Sales", value: saleRows.length },
-          { label: "Revenue", value: formatCurrency(revenue) },
-          { label: "Collected", value: formatCurrency(collected) },
+          { label: "Sales", value: saleRows.length, hint: "Total number of sale records including bookings, active sales, and cancellations." },
+          { label: "Revenue", value: formatCurrency(revenue), hint: "Sum of sale prices across all non-cancelled sales." },
+          { label: "Collected", value: formatCurrency(collected), hint: "Total payments received across all non-cancelled sales." },
         ]}
       />
       <SalesView sales={saleRows} customers={customerRows} permissions={perms} />

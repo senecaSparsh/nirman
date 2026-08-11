@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, FileText, RefreshCw, Check, X, AlertTriangle } from "lucide-react";
+import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -210,18 +210,24 @@ export function SupplierInvoicesView({
       label: "Invoice #",
       sortable: true,
       render: (r) => <span className="font-medium text-foreground">{r.invoiceNumber}</span>,
+      exportValue: (r) => r.invoiceNumber,
     },
     {
       key: "invoiceDate",
       label: "Date",
       sortable: true,
+      sortValue: (r) => new Date(r.invoiceDate).getTime(),
       render: (r) => <span className="text-muted-foreground">{formatDate(r.invoiceDate)}</span>,
+      exportValue: (r) => formatDate(r.invoiceDate),
     },
     {
       key: "supplierName",
       label: "Supplier",
       sortable: true,
+      filterable: true,
       render: (r) => <span className="text-foreground">{r.supplierName}</span>,
+      filterValue: (r) => r.supplierName,
+      exportValue: (r) => r.supplierName,
     },
     {
       key: "poNumber",
@@ -229,25 +235,34 @@ export function SupplierInvoicesView({
       sortable: true,
       render: (r) =>
         r.poNumber ? <span className="text-muted-foreground">{r.poNumber}</span> : <span className="text-muted-foreground/50">—</span>,
+      exportValue: (r) => r.poNumber ?? "",
     },
     {
       key: "totalAmount",
       label: "Amount",
       align: "right",
       sortable: true,
+      sortValue: (r) => Number(r.totalAmount),
       render: (r) => <span className="tnum font-medium text-foreground">{formatCurrency(Number(r.totalAmount))}</span>,
+      exportValue: (r) => Number(r.totalAmount),
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
+      filterable: true,
       render: (r) => <StatusBadge status={r.status} />,
+      filterValue: (r) => r.status,
+      exportValue: (r) => r.status,
     },
     {
       key: "matchStatus",
       label: "Match",
       sortable: true,
+      filterable: true,
       render: (r) => <MatchStatusBadge status={r.matchStatus} />,
+      filterValue: (r) => r.matchStatus ?? "—",
+      exportValue: (r) => r.matchStatus ?? "",
     },
   ];
 
@@ -257,16 +272,9 @@ export function SupplierInvoicesView({
         <p className="text-meta text-muted-foreground">
           Three-way matching: verify invoices against POs and goods receipts before payment.
         </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchInvoices} title="Refresh" disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-          {permissions.canManage && (
-            <Button size="sm" onClick={() => setFormOpen(true)}>
-              <Plus className="h-3.5 w-3.5" /> New Invoice
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" size="icon" onClick={fetchInvoices} title="Refresh" disabled={loading}>
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+        </Button>
       </div>
 
       {invoices.length === 0 && !loading ? (
@@ -287,10 +295,34 @@ export function SupplierInvoicesView({
           <DataTable
             data={invoices}
             columns={invoiceColumns}
+            storageKey="supplier-invoices"
+            hideable
+            exportFileName="supplier-invoices"
             onRowClick={openDetail}
             searchable
             searchPlaceholder="Search by invoice #, supplier, PO #…"
             initialSort={{ key: "invoiceDate", direction: "desc" }}
+            toolbarTrailing={
+              permissions.canManage ? (
+                <Button size="sm" onClick={() => setFormOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> New Invoice
+                </Button>
+              ) : null
+            }
+            rowTone={(r) => {
+              if (r.status === "DISPUTED") return "danger";
+              if (r.status === "PENDING") return "warning";
+              if (r.matchStatus === "UNMATCHED") return "danger";
+              return null;
+            }}
+            emptyState={
+              <EmptyState
+                size="compact"
+                icon={<SearchX />}
+                title="No invoices match"
+                description="Adjust the search or column filters to see all invoices."
+              />
+            }
             pageSize={50}
           />
         </div>

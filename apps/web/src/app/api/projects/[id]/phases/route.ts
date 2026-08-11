@@ -1,11 +1,18 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, projectPhaseSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROJECTS_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  // Verify the project belongs to the user's company
+  const project = await prisma.project.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!project) return json({ error: "Project not found" }, { status: 404 });
   const phases = await prisma.projectPhase.findMany({
     where: { projectId: id },
     orderBy: { sortOrder: "asc" },
@@ -15,8 +22,9 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROJECTS_MANAGE);
+  const company = await getCompany();
   const { id } = await ctx.params;
-  const project = await prisma.project.findFirst({ where: { id, deletedAt: null } });
+  const project = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
   const body = await req.json();
   const parsed = projectPhaseSchema.safeParse(body);

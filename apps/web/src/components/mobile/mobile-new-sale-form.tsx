@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
 import { haptic } from "@/lib/haptic";
+import { MobileCreateCustomerButton } from "./mobile-customer-form";
 
 interface UnitOpt {
   id: string;
@@ -44,11 +45,12 @@ const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as con
 export function MobileNewSaleForm({
   units,
   parcels,
-  customers,
+  customers: initialCustomers,
   projects,
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
+  existingPhones = [],
 }: {
   units: UnitOpt[];
   parcels: ParcelOpt[];
@@ -57,14 +59,16 @@ export function MobileNewSaleForm({
   initialBuiltUnitId?: string;
   initialLandParcelId?: string;
   initialCustomerId?: string;
+  existingPhones?: string[];
 }) {
   const router = useRouter();
+  const [customers, setCustomers] = useState<CustomerOpt[]>(initialCustomers);
   const [assetType, setAssetType] = useState<"BUILT_UNIT" | "LAND">(
     initialBuiltUnitId ? "BUILT_UNIT" : initialLandParcelId ? "LAND" : "BUILT_UNIT",
   );
   const [builtUnitId, setBuiltUnitId] = useState(initialBuiltUnitId ?? units[0]?.id ?? "");
   const [landParcelId, setLandParcelId] = useState(initialLandParcelId ?? parcels[0]?.id ?? "");
-  const [customerId, setCustomerId] = useState(initialCustomerId ?? customers[0]?.id ?? "");
+  const [customerId, setCustomerId] = useState(initialCustomerId ?? initialCustomers[0]?.id ?? "");
   const [salePrice, setSalePrice] = useState("");
   const [gstRate, setGstRate] = useState("0");
   const [initialPayment, setInitialPayment] = useState("");
@@ -178,7 +182,16 @@ export function MobileNewSaleForm({
 
       {/* ── Customer ──────────────────────────────────────────── */}
       <div>
-        <Label>Customer</Label>
+        <div className="flex items-center justify-between">
+          <Label>Customer</Label>
+          <MobileCreateCustomerButton
+            existingPhones={existingPhones}
+            onCreated={(c) => {
+              setCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: c.phone }]);
+              setCustomerId(c.id);
+            }}
+          />
+        </div>
         <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>

@@ -3,14 +3,13 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { BoqProjectView } from "@/components/boq/boq-project-view";
 
 export default function BoqPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading BOQ…" variant="default" />}>
         <BoqContent />
       </Suspense>
@@ -48,14 +47,6 @@ async function BoqContent() {
   const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
 
   return (
-    <>
-      <PageHeader
-        title="Bill of Quantities"
-        stats={[
-          { label: "Projects", value: projects.length },
-        ]}
-      />
-      <BoqProjectView projects={projects} materials={materials} canEdit={canEdit} />
-    </>
+    <BoqProjectView projects={projects} materials={materials} canEdit={canEdit} />
   );
 }

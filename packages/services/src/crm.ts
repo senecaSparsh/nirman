@@ -53,9 +53,9 @@ export interface CreateLeadInput {
  */
 export async function createLead(input: CreateLeadInput) {
   return prisma.$transaction(async (tx) => {
-    // Check if a customer with this phone already exists
+    // Check if a customer with this phone already exists in this company
     const existing = await tx.customer.findFirst({
-      where: { phone: input.phone, deletedAt: null },
+      where: { phone: input.phone, companyId: input.companyId, deletedAt: null },
     });
     if (existing) {
       throw new ServiceError("A customer with this phone number already exists", 409);
@@ -67,8 +67,7 @@ export async function createLead(input: CreateLeadInput) {
         phone: input.phone,
         email: input.email ?? null,
         address: null,
-        // CRM fields — we'll add these to the Customer model
-        // For now, we store lead metadata in a JSON field or separate model
+        companyId: input.companyId,
       },
     });
 
@@ -277,6 +276,9 @@ export async function recordSchedulePayment(
 
     const newPaidAmount = new Decimal(item.paidAmount).plus(payAmount);
     const itemTotal = new Decimal(item.totalAmount);
+    if (newPaidAmount.gt(itemTotal)) {
+      throw new ServiceError(`Payment exceeds installment amount. Outstanding: ${itemTotal.minus(new Decimal(item.paidAmount))}`);
+    }
     const newStatus = newPaidAmount.gte(itemTotal) ? "PAID" : "PARTIAL";
 
     const updated = await tx.paymentScheduleItem.update({

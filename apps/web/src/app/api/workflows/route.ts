@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, workflowSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -46,16 +47,27 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const created = await prisma.workflow.create({
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description ?? null,
-      icon: parsed.data.icon,
-      graphJson: parsed.data.graphJson,
-      status: "DRAFT",
+  const created = await prisma.$transaction(async (tx) => {
+    const wf = await tx.workflow.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        icon: parsed.data.icon,
+        graphJson: parsed.data.graphJson,
+        status: "DRAFT",
+        companyId: company.id,
+        createdBy: user.id,
+      },
+    });
+    await logAction(tx, {
+      userId: user.id,
       companyId: company.id,
-      createdBy: user.id,
-    },
+      action: "WORKFLOW_CREATE",
+      entityType: "Workflow",
+      entityId: wf.id,
+      after: { name: wf.name, status: wf.status },
+    });
+    return wf;
   });
 
   return json({ ok: true, id: created.id }, { status: 201 });

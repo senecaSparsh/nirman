@@ -45,7 +45,7 @@ async function MobileSupplierDetailContent({
         take: 10,
         select: { id: true, poNumber: true, status: true, total: true, createdAt: true },
       },
-      payments: {
+      supplierPayments: {
         where: { companyId: company.id },
         orderBy: { paymentDate: "desc" },
         take: 10,
@@ -64,7 +64,7 @@ async function MobileSupplierDetailContent({
   }
 
   const totalPoValue = supplier.purchaseOrders.reduce((s, po) => s + toNum(po.total), 0);
-  const totalPaid = supplier.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
 
   return (
     <div>
@@ -127,11 +127,11 @@ async function MobileSupplierDetailContent({
         </>
       )}
 
-      {supplier.payments.length > 0 && (
+      {supplier.supplierPayments.length > 0 && (
         <>
           <MobileSectionTitle>Recent Payments</MobileSectionTitle>
           <div>
-            {supplier.payments.map((p) => (
+            {supplier.supplierPayments.map((p) => (
               <MobileRow
                 key={p.id}
                 icon={Banknote}

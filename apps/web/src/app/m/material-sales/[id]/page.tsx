@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Recycle, FileText, Building2, User, Printer, XCircle } from "lucide-react";
+import { Recycle, FileText, Building2, User } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -77,7 +77,7 @@ async function MobileMaterialSaleDetailContent({
     ? [
         {
           label: "Cancel Sale",
-          icon: XCircle,
+          icon: "XCircle",
           method: "POST" as const,
           endpoint: `/api/material-sales/${sale.id}`,
           body: { action: "cancel" },
@@ -91,7 +91,7 @@ async function MobileMaterialSaleDetailContent({
   const links = [
     {
       label: "Print Invoice",
-      icon: Printer,
+      icon: "Printer",
       href: `/print/material-sale/${sale.id}`,
       variant: "outline" as const,
     },

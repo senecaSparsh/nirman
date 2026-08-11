@@ -12,7 +12,7 @@ import type { MaterialCategory, MaterialRow, LowStockRow } from "@/lib/types";
 import { NoAccess } from "@/components/no-access";
 export default function MaterialsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading materials…" variant="cards" />}>
         <MaterialsContent />
       </Suspense>
@@ -132,9 +132,9 @@ async function MaterialsContent() {
         title="Materials"
         description="The material catalogue — every item you buy, its unit, reorder level and current cost. Stock levels and movements live in Stock; locations and cost centres live in Settings."
         stats={[
-          { label: "Materials", value: materialRows.length },
-          { label: "Stock value", value: formatCurrency(stockValue) },
-          { label: "Low stock", value: lowStockRows.length },
+          { label: "Materials", value: materialRows.length, hint: "Total material items in the catalogue, including those with zero stock." },
+          { label: "Stock value", value: formatCurrency(stockValue), hint: "Total value of on-hand stock for this company, valued at moving average cost." },
+          { label: "Low stock", value: lowStockRows.length, hint: "Materials whose current stock has fallen below their minimum stock level." },
         ]}
       />
       <MaterialsView

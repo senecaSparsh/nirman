@@ -39,10 +39,11 @@ async function MobileEmployeeDetailContent({
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
-      department: { select: { id: true, name: true } },
-      attendance: { orderBy: { date: "desc" }, take: 10 },
+      crew: { select: { id: true, name: true } },
+      activeProject: { select: { id: true, name: true } },
+      attendances: { orderBy: { date: "desc" }, take: 10 },
     },
   });
 
@@ -56,14 +57,14 @@ async function MobileEmployeeDetailContent({
   }
 
   const canManage = hasPermission(role, PERM.HR_MANAGE);
-  const presentDays = employee.attendance.filter((a) => a.status === "PRESENT").length;
-  const totalDays = employee.attendance.length;
+  const presentDays = employee.attendances.filter((a) => a.status === "PRESENT").length;
+  const totalDays = employee.attendances.length;
 
   return (
     <div>
       <MobileDetailHeader
         title={employee.name}
-        subtitle={employee.designation ?? "no designation"}
+        subtitle={employee.designation ?? employee.trade ?? "no designation"}
         backHref="/m/hr/employees"
         right={<MobileRefreshButton />}
       />
@@ -72,17 +73,23 @@ async function MobileEmployeeDetailContent({
       <div>
         {employee.phone && <MobileInfoRow icon={Phone} title="Phone" value={employee.phone} />}
         {employee.email && <MobileInfoRow icon={Mail} title="Email" value={employee.email} />}
-        {employee.department && (
-          <MobileInfoRow icon={Briefcase} title="Department" value={employee.department.name} />
+        {employee.trade && <MobileInfoRow icon={Briefcase} title="Trade" value={employee.trade} />}
+        {employee.crew && (
+          <MobileInfoRow icon={Briefcase} title="Crew" value={employee.crew.name} />
         )}
-        <MobileInfoRow icon={Calendar} title="Join Date" value={formatDate(employee.joinDate)} />
+        {employee.activeProject && (
+          <MobileInfoRow icon={Briefcase} title="Project" value={employee.activeProject.name} />
+        )}
+        {employee.joinDate && (
+          <MobileInfoRow icon={Calendar} title="Join Date" value={formatDate(employee.joinDate)} />
+        )}
       </div>
 
       <MobileSectionTitle>Salary</MobileSectionTitle>
       <div className="grid grid-cols-2 gap-2 p-3">
         <MobileStatCard
-          label="Monthly Salary"
-          value={formatCurrency(toNum(employee.monthlySalary))}
+          label={employee.wageType === "DAILY" ? "Daily Rate" : "Monthly Salary"}
+          value={formatCurrency(toNum(employee.wageType === "DAILY" ? employee.dailyRate : employee.monthlySalary))}
           icon={IndianRupee}
           tone="brand"
         />
@@ -93,11 +100,11 @@ async function MobileEmployeeDetailContent({
         />
       </div>
 
-      {employee.attendance.length > 0 && (
+      {employee.attendances.length > 0 && (
         <>
           <MobileSectionTitle>Recent Attendance</MobileSectionTitle>
           <div>
-            {employee.attendance.map((a) => (
+            {employee.attendances.map((a) => (
               <MobileRow
                 key={a.id}
                 icon={Calendar}

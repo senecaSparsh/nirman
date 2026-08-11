@@ -39,14 +39,15 @@ describe("computeMovingAverageCost", () => {
     expect(mac.toNumber()).toBe(52);
   });
 
-  it("returns 0 when total qty is 0 (edge case)", () => {
-    const mac = computeMovingAverageCost(
-      new Decimal(0),
-      new Decimal(0),
-      new Decimal(0),
-      new Decimal(50),
-    );
-    expect(mac.toNumber()).toBe(0);
+  it("throws when total qty is 0 (edge case)", () => {
+    expect(() =>
+      computeMovingAverageCost(
+        new Decimal(0),
+        new Decimal(0),
+        new Decimal(0),
+        new Decimal(50),
+      ),
+    ).toThrow("Cannot compute MAC: total quantity is zero");
   });
 
   it("MAC does not change on issues (handled by caller, but verify the math)", () => {

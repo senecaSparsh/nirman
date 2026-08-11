@@ -1,17 +1,13 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { Users, CalendarCheck, Wallet, ClipboardList, TrendingUp, ArrowRight } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
-import { Page, MetricGrid, Metric, StatusPill } from "@/components/page";
 import { RefreshButton } from "@/components/refresh-button";
-import { HrDprList } from "@/components/hr/hr-dpr-list";
-
+import { HrDashboard } from "@/components/hr/hr-dashboard";
 import { NoAccess } from "@/components/no-access";
+
 export default function HrDashboardPage() {
   return (
     <Suspense fallback={<PageLoading label="Loading HR dashboard…" variant="list" />}>
@@ -26,13 +22,12 @@ async function HrDashboardContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.HR_VIEW)) {
-    return (
-      <NoAccess what="the HR module" />
-    );
+    return <NoAccess what="the HR module" />;
   }
 
   const today = new Date();
   const todayDateOnly = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
 
   const [
     employeeCount,
@@ -44,6 +39,11 @@ async function HrDashboardContent() {
     latestPayroll,
     recentDprs,
     pendingPayrolls,
+    pendingDprApprovals,
+    pendingLeaves,
+    employees,
+    weekAttendance,
+    todayProjectAttendance,
   ] = await Promise.all([
     prisma.employee.count({ where: { companyId: company.id, deletedAt: null } }),
     prisma.employee.count({ where: { companyId: company.id, deletedAt: null, active: true } }),
@@ -54,118 +54,145 @@ async function HrDashboardContent() {
     prisma.payrollPeriod.findFirst({
       where: { companyId: company.id },
       orderBy: [{ year: "desc" }, { month: "desc" }],
+      include: { _count: { select: { lines: true } } },
     }),
     prisma.dailyProgressReport.findMany({
-      where: { companyId: company.id, date: { gte: new Date(today.getTime() - 7 * 86400000) } },
+      where: { companyId: company.id, date: { gte: weekAgo } },
       orderBy: { date: "desc" },
-      take: 5,
+      take: 8,
       include: { project: { select: { name: true } }, submittedBy: { select: { name: true } } },
     }),
     prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
+    prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: "SUBMITTED" } }),
+    prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
+    prisma.employee.findMany({
+      where: { companyId: company.id, deletedAt: null, active: true },
+      select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true },
+    }),
+    prisma.workerAttendance.findMany({
+      where: { companyId: company.id, date: { gte: weekAgo } },
+      select: { date: true, status: true },
+    }),
+    prisma.workerAttendance.findMany({
+      where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
+      include: { project: { select: { name: true } } },
+    }),
   ]);
 
+  // Compute trade breakdown
+  const tradeMap = new Map<string, number>();
+  for (const e of employees) {
+    const trade = e.trade || "Unspecified";
+    tradeMap.set(trade, (tradeMap.get(trade) ?? 0) + 1);
+  }
+  const tradeBreakdown = Array.from(tradeMap.entries()).map(([trade, count]) => ({ trade, count }));
+
+  // Compute monthly labour cost (estimated from active employee daily rates + monthly salaries)
+  let monthlyLabourCost = 0;
+  for (const e of employees) {
+    if (e.wageType === "DAILY") {
+      monthlyLabourCost += toNum(e.dailyRate) * 26; // ~26 working days
+    } else {
+      monthlyLabourCost += toNum(e.monthlySalary);
+    }
+  }
+  // If we have a latest payroll, use its net instead
+  if (latestPayroll) {
+    monthlyLabourCost = toNum(latestPayroll.totalNet);
+  }
+
+  // Compute 7-day attendance trend
+  const trendMap = new Map<string, { present: number; absent: number; leave: number; halfDay: number; overtime: number }>();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 86400000);
+    const dStr = d.toISOString().split("T")[0] ?? "";
+    trendMap.set(dStr, { present: 0, absent: 0, leave: 0, halfDay: 0, overtime: 0 });
+  }
+  for (const r of weekAttendance) {
+    const dStr = r.date.toISOString().split("T")[0] ?? "";
+    const entry = trendMap.get(dStr);
+    if (!entry) continue;
+    if (r.status === "PRESENT") entry.present++;
+    else if (r.status === "OVERTIME") entry.overtime++;
+    else if (r.status === "ABSENT") entry.absent++;
+    else if (r.status === "HALF_DAY") entry.halfDay++;
+    else if (r.status === "LEAVE") entry.leave++;
+  }
+  const attendanceTrend = Array.from(trendMap.entries()).map(([date, v]) => ({
+    date,
+    present: v.present + v.overtime,
+    absent: v.absent,
+    leave: v.leave,
+    halfDay: v.halfDay,
+    overtime: v.overtime,
+  }));
+
+  // Compute project presence today
+  const projectMap = new Map<string, number>();
+  for (const r of todayProjectAttendance) {
+    const name = r.project?.name ?? "Unassigned";
+    projectMap.set(name, (projectMap.get(name) ?? 0) + 1);
+  }
+  const projectPresence = Array.from(projectMap.entries())
+    .map(([projectName, present]) => ({ projectName, present, total: presentToday }))
+    .sort((a, b) => b.present - a.present);
+
+  const attendanceRate = todayAttendance > 0 ? (presentToday / todayAttendance) * 100 : 0;
+
   return (
-    <Page>
-      <div className="flex items-center justify-end">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-section text-foreground">Workforce Overview</h2>
+          <p className="mt-0.5 text-caption text-muted-foreground">
+            {formatDate(today.toISOString())} &middot; {presentToday} on site of {activeEmployees} active employees
+          </p>
+        </div>
         <RefreshButton />
       </div>
 
-      {/* Stats — one instrument panel, not four competing cards */}
-      <MetricGrid cols={4}>
-        <Metric label="Employees" value={employeeCount} sub={`${activeEmployees} active`} href="/hr/employees" icon={<Users />} />
-        <Metric label="Crews" value={crewCount} href="/hr/crews" icon={<Users />} />
-        <Metric label="Present Today" value={presentToday} sub={`${absentToday} absent`} href="/hr/attendance" icon={<CalendarCheck />} />
-        <Metric label="Draft Payrolls" value={pendingPayrolls} href="/hr/payroll" icon={<Wallet />} />
-      </MetricGrid>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        {/* Recent DPRs */}
-        <div>
-          <HrDprList dprs={recentDprs.map((dpr) => ({
-            id: dpr.id,
-            workSummary: dpr.workSummary,
-            progressPct: toNum(dpr.progressPct),
-            date: dpr.date.toISOString(),
-            project: { name: dpr.project.name },
-            submittedBy: dpr.submittedBy ? { name: dpr.submittedBy.name } : null,
-          }))} />
-        </div>
-
-        {/* Payroll summary */}
-        <div className="space-y-4">
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-              <h2 className="text-label text-muted-foreground">Latest Payroll</h2>
-            </div>
-            {latestPayroll ? (
-              <Link
-                href="/hr/payroll"
-                className="group block rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-body font-medium">
-                    {latestPayroll.month}/{latestPayroll.year}
-                  </span>
-                  <StatusPill status={latestPayroll.status} />
-                </div>
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between text-caption">
-                    <span className="text-muted-foreground">Gross</span>
-                    <span className="tnum font-medium">{formatCurrency(toNum(latestPayroll.totalGross))}</span>
-                  </div>
-                  <div className="flex justify-between text-caption">
-                    <span className="text-muted-foreground">Deductions</span>
-                    <span className="tnum font-medium">{formatCurrency(toNum(latestPayroll.totalDeductions))}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-border pt-1 text-body">
-                    <span className="font-medium">Net</span>
-                    <span className="tnum font-bold">{formatCurrency(toNum(latestPayroll.totalNet))}</span>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center gap-1 text-caption text-primary group-hover:underline">
-                  View details <ArrowRight className="h-3 w-3" />
-                </div>
-              </Link>
-            ) : (
-              <div className="rounded-lg border border-border bg-card p-4 text-body text-muted-foreground">
-                No payroll generated yet.{" "}
-                <Link href="/hr/payroll" className="text-primary hover:underline">Generate one →</Link>
-              </div>
-            )}
-          </div>
-
-          {/* Today's attendance summary */}
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-              <h2 className="text-label text-muted-foreground">Today&apos;s Attendance</h2>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <div className="tnum text-body font-bold text-success">{presentToday}</div>
-                  <div className="text-micro text-muted-foreground">Present</div>
-                </div>
-                <div>
-                  <div className="tnum text-body font-bold text-danger">{absentToday}</div>
-                  <div className="text-micro text-muted-foreground">Absent</div>
-                </div>
-                <div>
-                  <div className="tnum text-body font-bold text-muted-foreground">{todayAttendance}</div>
-                  <div className="text-micro text-muted-foreground">Total</div>
-                </div>
-              </div>
-              <Link
-                href="/hr/attendance"
-                className="mt-3 flex items-center justify-center gap-1 text-caption text-primary hover:underline"
-              >
-                Log attendance <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Page>
+      <HrDashboard
+        employeeCount={employeeCount}
+        activeEmployees={activeEmployees}
+        crewCount={crewCount}
+        presentToday={presentToday}
+        absentToday={absentToday}
+        totalAttendanceToday={todayAttendance}
+        attendanceRate={attendanceRate}
+        pendingPayrolls={pendingPayrolls}
+        pendingDprApprovals={pendingDprApprovals}
+        pendingLeaves={pendingLeaves}
+        latestPayroll={latestPayroll ? {
+          month: latestPayroll.month,
+          year: latestPayroll.year,
+          status: latestPayroll.status,
+          totalGross: toNum(latestPayroll.totalGross),
+          totalDeductions: toNum(latestPayroll.totalDeductions),
+          totalNet: toNum(latestPayroll.totalNet),
+          employeeCount: latestPayroll._count.lines,
+        } : null}
+        recentDprs={recentDprs.map((dpr) => ({
+          id: dpr.id,
+          workSummary: dpr.workSummary,
+          progressPct: toNum(dpr.progressPct),
+          date: dpr.date.toISOString(),
+          project: { name: dpr.project.name },
+          submittedBy: dpr.submittedBy ? { name: dpr.submittedBy.name } : null,
+          approvalStatus: dpr.approvalStatus,
+        }))}
+        tradeBreakdown={tradeBreakdown}
+        attendanceTrend={attendanceTrend}
+        projectPresence={projectPresence}
+        monthlyLabourCost={monthlyLabourCost}
+      />
+    </div>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }

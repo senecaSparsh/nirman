@@ -12,8 +12,8 @@
 >   state machines, edge cases, and system invariants.
 > - **Part III — Live Platform Audit** (§§ 29–34): the actual built system as
 >   verified by codebase inspection — Prisma schema (101 models, 49 enums),
->   services package (51 files, 169 unit tests), API routes (180 handlers),
->   UI pages (144 routes), component inventory (187 components), and gap
+>   services package (51 files, 194 unit tests), API routes (184 handlers),
+>   UI pages (160 routes), component inventory (201 components), and gap
 >   analysis.
 > - **Part IV — Source Material & Business Analysis** (§§ 35–41): verbatim
 >   source requirements, the full video transcription with timestamps, the three
@@ -24,7 +24,10 @@
 >   paper system, with maths verification and data-model cross-reference), and
 >   the connected workflow orchestration (persona matrix, end-to-end value
 >   chain, event-driven trigger map, complete output format catalog, cross-module
->   data flow, operational rhythm, and role-based workflow gates).
+>   data flow, operational rhythm, and role-based workflow gates), and the UX/UI master
+>   specification (design audit, principles, role-adaptive command center, shell
+>   architecture, page-level patterns, mobile PWA UX, component specs, interaction
+>   micro-patterns, accessibility, dark mode, and implementation priority).
 >
 > **Previously separate documents now consolidated here:**
 > `ARCHITECTURE.md`, `SYSTEM_DESIGN.md`, `LOGIC.md`, `SYSTEM_MAP.md`,
@@ -73,9 +76,9 @@
 ### Part III — Live Platform Audit
 
 29. [Prisma Schema Audit (101 Models, 49 Enums)](#29-prisma-schema-audit-101-models-49-enums)
-30. [Services Package Audit (51 Files, 169 Tests)](#30-services-package-audit-51-files-169-tests)
-31. [API Route Audit (180 Handlers)](#31-api-route-audit-180-handlers)
-32. [UI Page & Component Audit (144 Pages, 187 Components)](#32-ui-page--component-audit-144-pages-187-components)
+30. [Services Package Audit (51 Files, 194 Tests)](#30-services-package-audit-51-files-194-tests)
+31. [API Route Audit (184 Handlers)](#31-api-route-audit-184-handlers)
+32. [UI Page & Component Audit (160 Pages, 201 Components)](#32-ui-page--component-audit-160-pages-201-components)
 33. [Navigation Architecture (4 Worlds + Context Hubs)](#33-navigation-architecture-4-worlds--context-hubs)
 34. [Audit Findings & Gap Analysis (Live)](#34-audit-findings--gap-analysis-live)
 
@@ -90,6 +93,7 @@
 41. [User Stories & Workflows](#41-user-stories--workflows)
 42. [Stock Issue PDF → Nirman System Mapping (Full)](#42-stock-issue-pdf--nirman-system-mapping-full)
 43. [Connected Workflow Orchestration & Output Specification](#43-connected-workflow-orchestration--output-specification)
+44. [UX/UI Master Specification — The Smartest Enterprise Interface](#44-uxui-master-specification--the-smartest-enterprise-interface)
 
 ---
 ---
@@ -304,7 +308,7 @@ Where:
 
 > **Implementation:** `computeLogisticsComplexityIndex()` and `decideProcurementScope()` in
 > `@nirman/services`/`procurement-routing.ts`. Every `PurchaseOrder` carries
-> `procurementScope = COMPANY | PROJECT`. The LCI engine is unit-tested (12 tests).
+> `procurementScope = COMPANY | PROJECT`. The LCI engine is unit-tested (19 tests).
 
 ---
 
@@ -556,7 +560,7 @@ $$\text{Valuation}_{\text{Raw Materials}} = \sum_{m \in \text{Materials}} \left(
 > `postMaterialSale`, `postMaterialSalePayment`, `postEquipmentAcquisition`,
 > `postEquipmentMaintenance`, `postEquipmentRetirement`, `postPayroll`, `postPayrollPayment`)
 > — all posting balanced double-entry `JournalEntry` + `JournalLine` rows inside the same
-> transaction as the source mutation. Chart of accounts = 18 system `GlAccount`s. Reporting:
+> transaction as the source mutation. Chart of accounts = 26 system `GlAccount`s. Reporting:
 > `trialBalance()` + `accountLedger()`. Cost-per-sqft allocation via
 > `reallocateProjectCosts()`.
 
@@ -682,7 +686,7 @@ A strict node-based hierarchy. A Sub-Admin for Branch A can never see Branch B's
 the Super Admin has the Global Company Map view.
 
 > **Implementation:** 6 roles (OWNER, ADMIN, MANAGER, SUPERVISOR, SALES, ACCOUNTANT) with a
-> View+Manage permission matrix in `@/lib/roles.ts` (~27 permissions). Hierarchical RBAC
+> View+Manage permission matrix in `@/lib/roles.ts` (44 permissions). Hierarchical RBAC
 > (Admin → Sub-Admin → Sub-Sub-Admin) with scope-based filtering via `UserScope`.
 > Multi-company via `UserCompany` join. Every mutation logs an immutable `AuditLog` entry.
 
@@ -1308,7 +1312,7 @@ Every service function either:
 | 28 | `SaleStatus` | `ACTIVE`, `CANCELLED` |
 | 29 | `PaymentStatus` | `PENDING`, `PARTIAL`, `PAID` |
 | 30 | `ProjectCostType` | `LABOUR`, `OVERHEAD`, `EQUIPMENT`, `CONTRACTOR`, `PERMIT`, `OTHER` |
-| 31 | `AccountType` | `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE` |
+| 31 | `AccountType` | `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`, `CONTRA_EXPENSE` |
 | 32 | `JournalEntryStatus` | `POSTED`, `REVERSED` |
 | 33 | `TallySyncStatus` | `PENDING`, `SYNCED`, `FAILED`, `IMPORTED`, `VARIANCE` |
 | 34 | `NotificationStatus` | `PENDING`, `SENT`, `FAILED` |
@@ -1522,7 +1526,7 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 
 ---
 
-## 30. Services Package Audit (51 Files, 169 Tests)
+## 30. Services Package Audit (51 Files, 194 Tests)
 
 > Source: `packages/services/src/`
 
@@ -1582,22 +1586,27 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 | 50 | `index.ts` | Barrel | Re-exports from all modules |
 | 51 | `land.ts` (dup ref) | — | (listed above as #15) |
 
-### 30.2 Unit Test Inventory (11 files, 169 test cases)
+### 30.2 Unit Test Inventory (16 files, 194 test cases)
 
 | Test File | Tests | What It Covers |
 |---|---|---|
-| `geometry.test.ts` | 13 | Polygon area, signed area, segment intersection, point-in-polygon, centroid, polygon splitting, normalization, SVG path, area ratios |
-| `gl-posting.test.ts` | 8 | Chart of accounts structure, account uniqueness, account type coverage, balanced entries (PO receipt, asset sale, supplier return, material issue), unbalanced rejection |
-| `hr.test.ts` | 8 | Attendance weights, days worked, overtime hours, working days, hourly rate, basic amount, net pay |
-| `industrial.test.ts` | 4 | Equipment depreciation (straight-line), NRV write-down |
-| `logic.test.ts` | 8 | Partition area conservation, cost allocation by area, sale profit, payment status, MAC end-to-end |
-| `moving-average-cost.test.ts` | 7 | MAC computation, stock value after issue, movement direction |
-| `procurement-routing.test.ts` | 12 | LCI computation, scope decision, weight parsing, end-to-end routing |
-| `quote-comparison.test.ts` | 6 | Cheapest quote ID, quote variances, quote gate, winning line costs |
-| `rbac.test.ts` | 12 | Default scope type, scope resolution, scope entry validation, cycle detection, role assignment |
-| `task.test.ts` | 7 | Progress computation, blocking logic, duration formatting, total logged minutes |
+| `geometry.test.ts` | 26 | Polygon area, signed area, segment intersection, point-in-polygon, centroid, polygon splitting, normalization, SVG path, area ratios |
+| `gl-posting.test.ts` | 9 | Chart of accounts structure, account uniqueness, account type coverage, balanced entries (PO receipt, asset sale, supplier return, material issue), unbalanced rejection |
+| `hr.test.ts` | 17 | Attendance weights, days worked, overtime hours, working days, hourly rate, basic amount, net pay |
+| `industrial.test.ts` | 8 | Equipment depreciation (straight-line), NRV write-down |
+| `logic.test.ts` | 15 | Partition area conservation, cost allocation by area, sale profit, payment status, MAC end-to-end |
+| `moving-average-cost.test.ts` | 8 | MAC computation, stock value after issue, movement direction |
+| `procurement-routing.test.ts` | 19 | LCI computation, scope decision, weight parsing, end-to-end routing |
+| `quote-comparison.test.ts` | 15 | Cheapest quote ID, quote variances, quote gate, winning line costs |
+| `rbac.test.ts` | 24 | Default scope type, scope resolution, scope entry validation, cycle detection, role assignment |
+| `task.test.ts` | 17 | Progress computation, blocking logic, duration formatting, total logged minutes |
 | `transfer.test.ts` | 11 | Transfer price computation: markup, freight, handling fee, inter-company STO |
-| **Total** | **169** (audited: 169 via grep) | |
+| `test/scrap-gl.test.ts` | 6 | Scrap generation GL posting, scrap sale GL posting |
+| `test/payroll-gl.test.ts` | 6 | Payroll GL posting — gross expense, PF/TDS payables, other deductions |
+| `test/wip-capitalization.test.ts` | 5 | WIP capitalization — unit asset posting, delta capitalization |
+| `test/backfill-wip.test.ts` | 5 | Backfill WIP — historical capitalization |
+| `test/smoke.test.ts` | 3 | DB connectivity smoke test |
+| **Total** | **194** (audited: 194 via `  it(` grep) | |
 
 ### 30.3 Function Category Summary
 
@@ -1610,9 +1619,9 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 
 ---
 
-## 31. API Route Audit (180 Handlers)
+## 31. API Route Audit (184 Handlers)
 
-> Source: `apps/web/src/app/api/` — 180 `route.ts` files.
+> Source: `apps/web/src/app/api/` — 184 `route.ts` files.
 > Every handler calls `requirePermission(PERM.*)` or `requireUser()` at the top of its body.
 
 ### 31.1 Auth & Company (8 routes)
@@ -1806,12 +1815,12 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 
 ---
 
-## 32. UI Page & Component Audit (144 Pages, 187 Components)
+## 32. UI Page & Component Audit (160 Pages, 201 Components)
 
-> Source: `apps/web/src/app/**/page.tsx` (144 routes) and
-> `apps/web/src/components/**/*.tsx` (187 components).
+> Source: `apps/web/src/app/**/page.tsx` (160 routes) and
+> `apps/web/src/components/**/*.tsx` (201 components).
 
-### 32.1 Page Route Inventory (144 routes)
+### 32.1 Page Route Inventory (160 routes)
 
 #### Dashboard & Shell (3 routes)
 
@@ -1985,6 +1994,7 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 | Route | Purpose |
 |---|---|
 | `/settings` | Settings hub |
+| `/me` | Personal settings (profile, password, company switcher) |
 | `/settings/company` | Company settings |
 | `/settings/users` | User management |
 | `/settings/users/[id]` | User detail with scopes |
@@ -2010,7 +2020,7 @@ JournalEntry, etc.) or join tables that are either hard-deleted or never deleted
 | `/renovations/new` | Create renovation |
 | `/renovations/[id]` | Renovation detail with ROI |
 
-### 32.2 Component Inventory (187 components)
+### 32.2 Component Inventory (201 components)
 
 #### UI Primitives (shadcn-style) — 38 components
 
@@ -2176,18 +2186,18 @@ keyboard-navigable.
 | Multi-company hierarchy | ✅ Built | `Company.parentCompanyId`, `UserCompany` join, company switcher |
 | Stock ledger (immutable + MAC) | ✅ Built | `StockMovement` (append-only) + `StockLocationItem` (qty+MAC), 8 MAC tests |
 | Procurement (PO → GRN → Stock) | ✅ Built | Full lifecycle: DRAFT→APPROVED→ORDERED→PARTIAL→RECEIVED, 5 states |
-| LCI routing engine | ✅ Built | `computeLogisticsComplexityIndex()` + `decideProcurementScope()`, 12 tests |
+| LCI routing engine | ✅ Built | `computeLogisticsComplexityIndex()` + `decideProcurementScope()`, 19 tests |
 | Inter-company transfer pricing | ✅ Built | `computeTransferPrice()` with freight+handling+markup, 11 tests |
 | Land partition (area conservation) | ✅ Built | `partitionLandParcel()` atomic, `validateAreaConservation()`, nested support |
 | Cost allocation (pro-rata + market value) | ✅ Built | `allocateCostByArea()` + `allocatePartitionCosts()` |
 | Built unit lifecycle | ✅ Built | 7 states: PLANNED→UNDER_CONSTRUCTION→AVAILABLE→SOLD |
 | Sale flow (asset + payment + profit) | ✅ Built | `sellAsset()` + `recordPayment()` + `computeSaleProfit()`, double-sell guard |
-| GL double-entry (18 accounts) | ✅ Built | `postJournalEntry()` + 18 domain helpers, balanced entries, 8 tests |
+| GL double-entry (26 accounts) | ✅ Built | `postJournalEntry()` + domain helpers, balanced entries, 9 tests |
 | Cost-per-sqft reallocation | ✅ Built | `reallocateProjectCosts()` triggered after every cost-affecting op |
 | Soft delete with guards | ✅ Built | 15 models, `softDelete()` with in-use rejection rules |
-| RBAC (6 roles, ~27 permissions) | ✅ Built | `requirePermission()` on every route, hierarchical scoping |
+| RBAC (6 roles, 44 permissions) | ✅ Built | `requirePermission()` on every route, hierarchical scoping |
 | Audit logging | ✅ Built | `logAction()` on every mutation, `AuditLog` immutable |
-| Comparative quote engine | ✅ Built | `VendorQuote` + min-3 gate + waiver + cheapest flag, 6 tests |
+| Comparative quote engine | ✅ Built | `VendorQuote` + min-3 gate + waiver + cheapest flag, 15 tests |
 | Auto-requisition (reorder point) | ✅ Built | `generateAutoRequisition()` from `reorderPoint`/`economicOrderQty` |
 | DPR multi-tier approval | ✅ Built | SUBMITTED→SUB_ADMIN_APPROVED→APPROVED/REJECTED |
 | Standard consumption + variance | ✅ Built | `StandardConsumption` + `runDprVarianceAnalysis()` + auto-scrap |
@@ -2202,7 +2212,7 @@ keyboard-navigable.
 | Tenancy + rent payments | ✅ Built | 6 functions, security deposit, termination |
 | Renovation + ROI | ✅ Built | 7 functions, cost tracking, ROI computation |
 | Excel export (15 reports) | ✅ Built | `generateExcelWorkbook()` + 15 report builders |
-| Geometry engine (partition canvas) | ✅ Built | 18 pure helpers, polygon splitting, SVG, 13 tests |
+| Geometry engine (partition canvas) | ✅ Built | 18 pure helpers, polygon splitting, SVG, 26 tests |
 | UOM conversion | ✅ Built | `toBaseUnit()` + `toSecondaryUnit()` + `displayQty()` |
 | Task management | ✅ Built | 17 functions, subtasks, dependencies, time logs, comments |
 | Leave management | ✅ Built | `createLeaveRequest()` + `leaveBalance()` |
@@ -2218,7 +2228,7 @@ keyboard-navigable.
 | **Barcode/QR camera scanning** | §8.1 | `camera-capture` component exists but not wired to barcode/QR decode libraries. | Medium |
 | **CAD/GIS vector canvas for land** | §8.2 | `partition-canvas` component exists with geometry engine (18 helpers), but the interactive CAD drawing UI is basic — no survey plan overlay, no GIS coordinate import. | Medium |
 | **Inter-company STO with consolidation elimination** | §6.1 | Transfer pricing is built (`computeTransferPrice`), but full inter-company AP/AR + consolidation elimination rules are not implemented. v1 is single-company with scope routing. | Low (multi-company evolution) |
-| **WIP capitalization to Finished Goods** | §9 | GL has WIP account (1500) and Finished Goods (1300), but the automatic capitalization event (UNDER_CONSTRUCTION→AVAILABLE triggers WIP→Finished Goods journal entry) is not automated. Manual GL entries only. | Medium |
+| **WIP capitalization to Finished Goods** | §9 | ✅ Built (Phase 1). `updateUnitStatus()` auto-capitalizes WIP→Finished Goods on UNDER_CONSTRUCTION→AVAILABLE, posting Dr UNIT_ASSET / Cr WIP. Delta-based capitalization handles subsequent cost additions. | ✅ Done |
 | **Vendor-managed inventory (VMI)** | — | Not in spec, not built. | — |
 | **Multi-currency** | §7.1 | `Company.currency` field exists but no FX conversion logic. All amounts assumed single currency. | Low |
 | **Budget vs. actual at BOQ line level** | — | `getBudgetVariance()` exists at project level, but not drilled down to individual BOQ line items. | Medium |
@@ -2250,26 +2260,26 @@ keyboard-navigable.
 
 | Service File | Has Unit Tests | Coverage |
 |---|---|---|
-| `moving-average-cost.ts` | ✅ | 7 tests — comprehensive |
+| `moving-average-cost.ts` | ✅ | 8 tests — comprehensive |
 | `stock-ledger.ts` | ❌ | No direct tests (tested indirectly via `logic.test.ts`) |
 | `valuation.ts` | ❌ | No direct tests (tested indirectly via `logic.test.ts`) |
 | `procurement.ts` | ❌ | No direct tests |
-| `procurement-routing.ts` | ✅ | 12 tests — comprehensive |
+| `procurement-routing.ts` | ✅ | 19 tests — comprehensive |
 | `transfer.ts` | ✅ | 11 tests — comprehensive |
 | `issue.ts` | ❌ | No direct tests |
-| `partition.ts` | ❌ | No direct tests (tested indirectly via `logic.test.ts` 8 tests) |
+| `partition.ts` | ❌ | No direct tests (tested indirectly via `logic.test.ts` 15 tests) |
 | `sale.ts` | ❌ | No direct tests (tested indirectly via `logic.test.ts`) |
-| `gl-posting.ts` | ✅ | 8 tests — good |
-| `hr.ts` | ✅ | 8 tests — good |
-| `quote-comparison.ts` | ✅ | 6 tests — adequate |
-| `rbac.ts` | ✅ | 12 tests — comprehensive |
-| `task.ts` | ✅ | 7 tests — good |
-| `geometry.ts` | ✅ | 13 tests — comprehensive |
-| `equipment.ts` | ✅ | 4 tests (in `industrial.test.ts`) — minimal |
-| **All other 35 files** | ❌ | No unit tests | 
+| `gl-posting.ts` | ✅ | 9 tests — good |
+| `hr.ts` | ✅ | 17 tests — good |
+| `quote-comparison.ts` | ✅ | 15 tests — adequate |
+| `rbac.ts` | ✅ | 24 tests — comprehensive |
+| `task.ts` | ✅ | 17 tests — good |
+| `geometry.ts` | ✅ | 26 tests — comprehensive |
+| `equipment.ts` | ✅ | 8 tests (in `industrial.test.ts`) — minimal |
+| **All other 35 files** | ❌ | No unit tests |
 
-**Summary**: 11 of 51 service files have direct unit tests (169 total test cases). The
-remaining 40 files rely on indirect coverage or are untested. Priority files needing tests:
+**Summary**: 16 of 51 service files have direct unit tests (194 total test cases). The
+remaining 35 files rely on indirect coverage or are untested. Priority files needing tests:
 `stock-ledger.ts`, `procurement.ts`, `issue.ts`, `partition.ts`, `sale.ts`, `valuation.ts`.
 
 ### 34.6 Architectural Strengths
@@ -2494,15 +2504,15 @@ operates on a fragmented paper-trail system:
 
 #### Phase 3 — Procurement & Logistics (✅ Complete)
 
-- LCI engine + routing — ✅ built (12 tests)
+- LCI engine + routing — ✅ built (19 tests)
 - Inter-company transfer pricing — ✅ built (11 tests)
-- Comparative quote engine — ✅ built (6 tests)
+- Comparative quote engine — ✅ built (15 tests)
 - Auto-requisition from reorder points — ✅ built
 - Supplier returns + payments — ✅ built
 
 #### Phase 4 — Spatial Real Estate (✅ Complete)
 
-- Land partition canvas + geometry engine — ✅ built (13 tests)
+- Land partition canvas + geometry engine — ✅ built (26 tests)
 - Infrastructure cost absorption — ✅ built
 - Built unit capitalization — ✅ built
 - Portal listing sync (99acres etc.) — ✅ built
@@ -2515,7 +2525,7 @@ operates on a fragmented paper-trail system:
 - Tally XML sync — ✅ built
 - Trial balance + account ledger — ✅ built
 - Portfolio valuation vectors — ✅ built (queries exist)
-- WIP → Finished Goods auto-capitalization — **not automated**
+- WIP → Finished Goods auto-capitalization — ✅ **built (Phase 1)** — `updateUnitStatus()` posts Dr UNIT_ASSET / Cr WIP on UNDER_CONSTRUCTION→AVAILABLE
 - Inter-company consolidation elimination — **not built**
 - Tauri desktop app — **not built**
 - Multi-currency — **not built**
@@ -2938,7 +2948,7 @@ construction inventory, real estate sales, and employee performance.
 
 **Evolution**: The simple `Role` column became a full RBAC system with `UserCompany` join
 (multi-company membership), `UserScope` (hierarchical scoping), and `RolePermission`
-(fine-grained overrides). 6 roles with ~27 permissions. See §12.4, §29.
+(fine-grained overrides). 6 roles with 44 permissions. See §12.4, §29.
 
 #### Table: `Inventory_RM`
 
@@ -3141,7 +3151,7 @@ Purchaser performance report available via `getPurchaserPerformance()`.
 | 12 | GL posts: Dr Cash $120,000, Cr Sales Revenue $120,000, Dr COGS $62,500, Cr Finished Inventory $62,500 | `postAssetSale()` | Auto-posted |
 | 13 | Portal listing auto-delisted | `delistPortalListings()` | Auto-triggered |
 
-**Status**: ✅ Fully implemented. 8 tests in `logic.test.ts` covering area conservation,
+**Status**: ✅ Fully implemented. 15 tests in `logic.test.ts` covering area conservation,
 cost allocation, and sale profit.
 
 ### 41.4 Workflow: Material Issue to Built Unit (Value Addition)
@@ -4980,26 +4990,26 @@ Reconcile Stock Count → [MANAGER+]     requirePermission(PERM.INVENTORY_MANAGE
 
 #### What's Broken (Fix)
 
-| # | Problem | Where | Impact | Fix |
-|---|---|---|---|---|
-| 1 | **Profile page is a dead end** | `/` (page.tsx) | Owner lands on "your profile" — identity, access, activity. No business dashboard. The most important user sees the least useful page. | Replace with role-adaptive **Command Center** (§44.3) |
-| 2 | **No global business dashboard** | Missing | Owner/Admin has no single screen showing portfolio health, alerts, approvals, cash flow, project status — the "morning coffee" screen | Build **Command Center** with role-aware widgets |
-| 3 | **Tab overload on hub pages** | `/stock`, `/procurement`, `/projects` | Stock page has 7 tabs (On Hand, Movements, Transfers, Issues, Scrap, Counts, Adjustments) — cognitive overload. Each tab fetches independently. | Split into **focused sub-pages** with a secondary nav strip, not tabs |
-| 4 | **No inline editing** | All list pages | To edit a material's reorder point, you open a dialog, edit, save. 3 clicks for a 1-field change. | **Inline edit** on grid cells with optimistic update |
-| 5 | **No bulk operations** | All list pages | Can't select 10 POs and approve them all. One at a time. | **Multi-select + bulk action bar** |
-| 6 | **No saved views / filters** | All report pages | Every time you open a report, you re-set the date range, re-filter, re-sort. No memory. | **Saved views** per user, default to last-used |
-| 7 | **No keyboard navigation** | Tables | Can't arrow-key through rows, press Enter to open, press E to edit | **Keyboard grid** with row navigation + shortcuts |
-| 8 | **Empty states are empty** | Most pages | "No data" or blank. No guidance on what to do next. | **Actionable empty states** with "here's what to do" |
-| 9 | **No toast / optimistic UI** | Mutations | Every action waits for server round-trip. No optimistic update. Feels slow. | **Optimistic mutations** + toast feedback |
-| 10 | **Mobile is a subset, not a peer** | `/m/*` | Mobile has fewer pages, not a focused experience. Supervisor can't do everything on mobile. | **Mobile-first for field roles** — every field action works offline |
-| 11 | **No contextual help** | All pages | No tooltips on field labels, no "?" icons, no guided tours | **Contextual tooltips** + first-run guided tour |
-| 12 | **No data density toggle** | Tables | One density for all. Owner wants compact; Supervisor wants large touch targets. | **Density toggle** (compact/comfortable/spacious) |
-| 13 | **No column customization** | Tables | Fixed columns. Can't hide/show, reorder, or pin. | **Column picker** + pin/freeze + reorder |
-| 14 | **No real-time updates** | List pages | Data is stale until refresh. No SSE/WebSocket for live counts. | **Server-Sent Events** for live badge counts + list updates |
-| 15 | **Approval queue is flat** | `/approvals` | One list of mixed POs + requisitions. No priority, no grouping, no batch. | **Smart approval queue** — grouped by urgency, batch-approvable |
-| 16 | **No "recently viewed"** | All | Can't get back to the PO you looked at 10 minutes ago. | **Recent items** in command palette + profile |
-| 17 | **No breadcrumbs on detail pages** | Detail pages | Deep pages lose context — where am I in the hierarchy? | **Breadcrumb trail** in PageHeader |
-| 18 | **Print is separate from view** | `/print/*` | Print templates are separate routes. Can't "print this" from the detail page. | **Print modal** from detail page with preview |
+| # | Problem | Where | Impact | Fix | Status |
+|---|---|---|---|---|---|
+| 1 | **Profile page is a dead end** | `/` (page.tsx) | Owner lands on "your profile" — identity, access, activity. No business dashboard. The most important user sees the least useful page. | Replace with role-adaptive **Command Center** (§44.3) | ✅ Fixed (Phase 2) — `/` is now Command Center |
+| 2 | **No global business dashboard** | Missing | Owner/Admin has no single screen showing portfolio health, alerts, approvals, cash flow, project status — the "morning coffee" screen | Build **Command Center** with role-aware widgets | ✅ Fixed (Phase 2) — Command Center built |
+| 3 | **Tab overload on hub pages** | `/stock`, `/procurement`, `/projects` | Stock page has 7 tabs (On Hand, Movements, Transfers, Issues, Scrap, Counts, Adjustments) — cognitive overload. Each tab fetches independently. | Split into **focused sub-pages** with a secondary nav strip, not tabs | ⬜ Backlog |
+| 4 | **No inline editing** | All list pages | To edit a material's reorder point, you open a dialog, edit, save. 3 clicks for a 1-field change. | **Inline edit** on grid cells with optimistic update | ⬜ Backlog |
+| 5 | **No bulk operations** | All list pages | Can't select 10 POs and approve them all. One at a time. | **Multi-select + bulk action bar** | ⬜ Backlog |
+| 6 | **No saved views / filters** | All report pages | Every time you open a report, you re-set the date range, re-filter, re-sort. No memory. | **Saved views** per user, default to last-used | ✅ Fixed (Phase 2B) — saved views implemented |
+| 7 | **No keyboard navigation** | Tables | Can't arrow-key through rows, press Enter to open, press E to edit | **Keyboard grid** with row navigation + shortcuts | ⬜ Backlog |
+| 8 | **Empty states are empty** | Most pages | "No data" or blank. No guidance on what to do next. | **Actionable empty states** with "here's what to do" | ⬜ Backlog |
+| 9 | **No toast / optimistic UI** | Mutations | Every action waits for server round-trip. No optimistic update. Feels slow. | **Optimistic mutations** + toast feedback | ✅ Fixed (Phase 2) — toast + optimistic UI throughout |
+| 10 | **Mobile is a subset, not a peer** | `/m/*` | Mobile has fewer pages, not a focused experience. Supervisor can't do everything on mobile. | **Mobile-first for field roles** — every field action works offline | ⬜ Backlog |
+| 11 | **No contextual help** | All pages | No tooltips on field labels, no "?" icons, no guided tours | **Contextual tooltips** + first-run guided tour | ⬜ Backlog (see UX-BACKLOG.md) |
+| 12 | **No data density toggle** | Tables | One density for all. Owner wants compact; Supervisor wants large touch targets. | **Density toggle** (compact/comfortable/spacious) | ⬜ Backlog |
+| 13 | **No column customization** | Tables | Fixed columns. Can't hide/show, reorder, or pin. | **Column picker** + pin/freeze + reorder | ⬜ Backlog |
+| 14 | **No real-time updates** | List pages | Data is stale until refresh. No SSE/WebSocket for live counts. | **Server-Sent Events** for live badge counts + list updates | ✅ Fixed (Phase 2D) — 30-second polling replaces SSE |
+| 15 | **Approval queue is flat** | `/approvals` | One list of mixed POs + requisitions. No priority, no grouping, no batch. | **Smart approval queue** — grouped by urgency, batch-approvable | ⬜ Backlog |
+| 16 | **No "recently viewed"** | All | Can't get back to the PO you looked at 10 minutes ago. | **Recent items** in command palette + profile | ✅ Fixed (Phase 2C) — recently viewed in command palette |
+| 17 | **No breadcrumbs on detail pages** | Detail pages | Deep pages lose context — where am I in the hierarchy? | **Breadcrumb trail** in PageHeader | ⬜ Backlog |
+| 18 | **Print is separate from view** | `/print/*` | Print templates are separate routes. Can't "print this" from the detail page. | **Print modal** from detail page with preview | ⬜ Backlog (see UX-BACKLOG.md) |
 
 ---
 
@@ -5272,11 +5282,1186 @@ decision violates any of these, the design is wrong.
 ```
 
 ---
-| Status | Living document — supersedes all prior docs |
+
+### 44.4 Shell Architecture — The Improved Navigation
+
+#### Current Shell (Keep + Refine)
+
+The current 3-column shell is fundamentally sound:
+
+```
+┌────┬──────────────┬──────────────────────────────┐
+│ ▮  │  MATERIALS   │  breadcrumb      ⌘K  co  ●   │
+│ ▮  │  raw material│──────────────────────────────│
+│ ▮  │              │                              │
+│ ▮  │  Ask & buy   │        page content          │
+│ ▮  │   · Requisit │                              │
+│ ▮  │   · Orders   │                              │
+│ ───│              │                              │
+│  ⚙ │              │                              │
+└────┴──────────────┴──────────────────────────────┘
+  ↑         ↑
+worlds   this world only (5–8 links)
+```
+
+**What to keep**: The rail + panel split, the world colors, the role-adaptive panel, the
+gear for settings, the command palette.
+
+#### What to Add
+
+**1. Topbar Enhancement**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ◀ Projects / Sunrise Apts / BOQ      ⌘K  🔔3  Nirman▼  ●Amit     │
+└─────────────────────────────────────────────────────────────────────┘
+         ↑                    ↑      ↑      ↑         ↑
+    breadcrumb trail     command  alerts  company   user menu
+```
+
+| Element | Purpose | Behavior |
+|---|---|---|
+| **Breadcrumb** | Context: where am I in the hierarchy? | `World / Section / Page / Detail`. Click any segment to navigate up. |
+| **⌘K** | Command palette trigger | Always visible, always available. Shows keyboard hint on hover. |
+| **🔔 Alert bell** | Notifications + attention items | Badge count = pending approvals + low stock + overdue POs + sync failures. Dropdown shows grouped list. |
+| **Company switcher** | Multi-company context | Shows current company. Dropdown lists all companies in the group. Switching re-scopes all data. |
+| **User menu (●)** | Profile, settings, sign out | Avatar with initials. Dropdown: "My Profile" (`/me`), "Settings" (if OWNER/ADMIN), "Sign Out". |
+
+**2. Alert Bell Dropdown**
+
+```
+┌───────────────────────────────────────┐
+│  NOTIFICATIONS (3)          [Mark all]│
+├───────────────────────────────────────┤
+│  🔴 2 POs awaiting approval           │
+│     PO-031 OM Plastic ₹21,600  [→]   │
+│     PO-032 Moti Lal ₹58,000    [→]   │
+│  ─────────────────────────────────── │
+│  🟡 4 materials low on stock          │
+│     OPC Cement, TMT Steel, ...  [→]  │
+│  ─────────────────────────────────── │
+│  🔵 8 Tally entries pending           │
+│     Last sync: 2 hours ago     [→]   │
+└───────────────────────────────────────┘
+```
+
+**3. World Rail Enhancement — Attention Dots**
+
+The world rail already shows a dot when something inside a world needs attention. Enhance
+it with **color-coded urgency**:
+
+| Dot Color | Meaning | Example |
+|---|---|---|
+| 🔴 Red | Action required now | PO awaiting approval, overdue delivery |
+| 🟡 Yellow | Action required soon | Low stock, DPR pending, payment due |
+| 🔵 Blue | Informational | Tally pending sync, portal sync failed |
+| No dot | All clear | Nothing needs attention in this world |
+
+**4. Panel Section Collapse**
+
+The world panel currently shows all sections at once. For roles with many sections (ADMIN
+sees all 5 Build sections), allow **section collapse** with memory:
+
+```
+  ▼ Acquire
+     Land Parcels
+     Suppliers
+     Rate Contracts
+  ▶ Procure (3)        ← collapsed, badge shows count
+  ▶ Stock (2)
+  ▼ Construct
+     Projects
+     BOQ & WBS
+     ...
+  ▶ Sell (5)
+```
+
+Collapsed state persists per user in `localStorage`. Badge counts show even when collapsed.
+
+**5. Recently Visited — Quick Access Strip**
+
+At the top of the world panel, a horizontal strip of the 5 most recently visited pages:
+
+```
+  Recent:  [PO-031] [Sunrise] [Stock] [GL] [Approvals]
+```
+
+Each is a pill button. Clicking navigates directly. Persists per user. Cleared on sign-out.
+
+---
+
+### 44.5 Page-Level UX Patterns
+
+#### 44.5.1 The List Page Pattern (applies to 20+ pages)
+
+Every list page in the system follows this structure:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  PAGE HEADER                                                        │
+│  Title                    [secondary] [PRIMARY ACTION]              │
+│  Description (one line)                                             │
+│  stat: value  stat: value  stat: value  stat: value                │
+├─────────────────────────────────────────────────────────────────────┤
+│  FILTER BAR                                                         │
+│  [search...]  [date range]  [status▼]  [type▼]  [saved views▼]  ⟳  │
+├─────────────────────────────────────────────────────────────────────┤
+│  DATA TABLE                                                         │
+│  ☐  Col1    Col2    Col3    Col4    Col5           Actions          │
+│  ☐  ...     ...     ...     ...     ...            [⋯]              │
+│  ☐  ...     ...     ...     ...     ...            [⋯]              │
+├─────────────────────────────────────────────────────────────────────┤
+│  PAGINATION / VIRTUAL SCROLL                                        │
+│  Showing 1–50 of 237                    [prev] [1] [2] [3] [next]   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Component | Specification |
+|---|---|
+| **PageHeader** | Keep existing. One primary action. Stats below title. |
+| **FilterBar** | New. Search + faceted filters + date range + saved views. Sticky below header. |
+| **DataTable** | New. Virtualized, sortable, multi-select, inline edit, column customization, keyboard nav. |
+| **Pagination** | Server-side. 50 rows/page default. URL-synced (`?page=2`). |
+| **BulkActionBar** | New. Appears when rows are selected. Shows count + available bulk actions. |
+| **EmptyState** | Enhanced. Shows illustration + message + primary CTA. |
+
+#### 44.5.2 The Filter Bar (new component)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  🔍 Search...        📅 Aug 1 – Aug 8    Status: All ▼    [Save view]│
+│                                                      [Reset]        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+| Feature | Behavior |
+|---|---|
+| **Search** | Full-text search across visible columns. Debounced 300ms. Shows "searching…" indicator. |
+| **Date range** | Calendar picker with presets: Today, This week, This month, This quarter, This FY, Custom. URL-synced (`?from=&to=`). |
+| **Faceted filters** | Dropdown chips for status, type, category, location, project. Multi-select. URL-synced. |
+| **Saved views** | User can save the current filter+sort+column config as a named view. Default view loads on page open. |
+| **Reset** | Clears all filters to default. |
+| **URL sync** | All filter state is in the URL (`?status=APPROVED&from=2026-08-01&sort=-createdAt`). Shareable, bookmarkable. |
+
+#### 44.5.3 The Data Table (new component — replaces all ad-hoc tables)
+
+```
+┌──┬───────────┬───────────┬───────────┬───────────┬───────────┬──────┐
+│☐ │ PO Number │ Supplier  │ Date      │ Status    │ Amount    │      │
+├──┼───────────┼───────────┼───────────┼───────────┼───────────┼──────┤
+│☐ │ PO-031    │ OM Plastic│ 01 Aug    │ APPROVED  │ ₹21,600   │ [⋯] │
+│☐ │ PO-032    │ Moti Lal  │ 02 Aug    │ DRAFT     │ ₹58,000   │ [⋯] │
+│☐ │ PO-033    │ Bhawani   │ 02 Aug    │ ORDERED   │ ₹31,189   │ [⋯] │
+└──┴───────────┴───────────┴───────────┴───────────┴───────────┴──────┘
+ ↑                                                              ↑
+ checkbox (select for bulk)                              row actions menu
+```
+
+**Features:**
+
+| Feature | How It Works |
+|---|---|
+| **Virtualization** | Only renders visible rows (~50). Handles 10,000+ rows without lag. Uses `@tanstack/react-virtual`. |
+| **Sort** | Click column header to sort. Click again for descending. URL-synced (`?sort=-createdAt`). Default sort per page. |
+| **Multi-select** | Checkbox column. Select all on current page. Shift+click for range select. |
+| **Bulk action bar** | When ≥1 row selected, bar slides in from bottom: "3 selected — [Approve] [Export] [Delete]". |
+| **Inline edit** | Double-click a cell to edit in-place. Enter to save, Esc to cancel. Optimistic update + toast. Only on editable fields. |
+| **Row actions** | `[⋯]` menu per row with context-appropriate actions (View, Edit, Print, Delete, etc.). |
+| **Column customization** | Drag to reorder. Click header `⋮` to hide/show columns. Pin columns left/right. Persists per user. |
+| **Keyboard nav** | Arrow keys move focus between rows. Enter opens detail. E edits. Space selects. ⌘A selects all. |
+| **Density toggle** | Three modes: Compact (32px rows), Comfortable (40px, default), Spacious (48px, touch-friendly). Persists per user. |
+| **Sticky header** | Column headers stick on scroll. Sort indicators visible at all times. |
+| **Row striping** | Optional zebra striping in subtle color. Toggle in density menu. |
+| **Cell rendering** | Numbers right-aligned, monospace, tabular. Status as colored badge. Dates in `DD MMM` format. Currency with ₹ prefix and Indian comma format. |
+
+#### 44.5.4 The Detail Page Pattern
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ◀ Projects / Sunrise Apts                                          │
+│  Sunrise Apartments                    [Print] [Edit] [⋯]           │
+│  3BHK residential, 12 units, ₹4.2 Cr budget                         │
+│  stat: value  stat: value  stat: value  stat: value                │
+├─────────────────────────────────────────────────────────────────────┤
+│  TAB STRIP (or sub-page nav)                                        │
+│  [Overview] [BOQ] [WBS] [Costs] [Units] [Documents] [Activity]     │
+├─────────────────────────────────────────────────────────────────────┤
+│  TAB CONTENT                                                         │
+│  ...                                                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Rules:**
+- Breadcrumb at top — shows hierarchy path, clickable to navigate up.
+- PageHeader with detail-specific actions (Print, Edit, more menu).
+- Tabs or sub-page nav for multi-aspect detail pages. URL-synced (`?tab=costs`).
+- **Print** opens a print modal (not a separate route) with preview + `window.print()`.
+- **Edit** toggles inline edit mode on the overview tab, or opens a focused edit dialog.
+
+#### 44.5.5 The Form Pattern
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Create Purchase Order                              [×]            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Section: Supplier & Delivery                                       │
+│  ┌─────────────────┬─────────────────┐                             │
+│  │ Supplier *      │ Delivery Date   │                             │
+│  │ [OM Plastic ▼]  │ [15 Aug 📅]     │                             │
+│  └─────────────────┴─────────────────┘                             │
+│                                                                     │
+│  Section: Line Items                                                │
+│  ┌──┬────────────┬──────┬──────┬──────┬──────────┬───────────────┐  │
+│  │  │ Material   │ Qty  │ Unit │ Rate │ Amount   │               │  │
+│  ├──┼────────────┼──────┼──────┼──────┼──────────┼───────────────┤  │
+│  │1 │ Cement ▼   │ 50   │ bags │ 320  │ 16,000   │ [×]           │  │
+│  │2 │ Steel ▼    │ 2    │ ton  │ 58K  │ 1,16,000 │ [×]           │  │
+│  │  │ [+ Add line]                                              │  │
+│  └──┴────────────┴──────┴──────┴──────┴──────────┴───────────────┘  │
+│                                                     Subtotal: 1,32,000│
+│                                                     GST:       23,760│
+│                                                     Total:    1,55,760│
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  [Cancel]                                    [Save Draft] [Submit] │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Form Rules:**
+
+| Rule | Why |
+|---|---|
+| **Section grouping** | Related fields grouped with a section label. Reduces cognitive load. |
+| **2-column grid on desktop** | Optimal scan width. Single column on mobile. |
+| **Required fields marked with *** | Clear before submission. Validation on blur, not on every keystroke. |
+| **Smart defaults** | Date defaults to today. Location defaults to user's assigned site. Supplier defaults to most-recent. |
+| **Line items: add/remove dynamically** | No fixed number of empty rows. One "Add line" button. Remove per row. |
+| **Live totals** | Subtotal, GST, total update as user types. No "calculate" button. |
+| **Two-button footer** | Secondary (Cancel, left) + Primary (Submit, right). Draft save is secondary. |
+| **Autosave draft** | For long forms (PO, sale), autosave to localStorage every 5 seconds. Restore on reload. |
+| **Validation** | Inline error messages below the field. No modal error popups. Submit disabled until required fields valid. |
+| **Success** | Toast: "Purchase Order PO-031 created." + button to view. Form closes. |
+
+#### 44.5.6 The Empty State Pattern (replaces blank "No data")
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                    📦                                                │
+│                                                                     │
+│           No purchase orders yet                                    │
+│                                                                     │
+│      When you create a purchase order, it will appear here.         │
+│      You can track what you've ordered, from whom, and              │
+│      what's still to arrive at site.                                │
+│                                                                     │
+│           [Create Purchase Order →]                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Empty State Rules:**
+1. **Icon** — Large, muted, contextual to the page (package for PO, box for stock, etc.)
+2. **Title** — One sentence: "No [things] yet."
+3. **Description** — 2 lines explaining what this page is for and what will appear here.
+4. **CTA** — The primary action button to create the first item. Links to the creation flow.
+5. **No CTA if user can't create** — If the role can't create (e.g., ACCOUNTANT viewing POs), show "Contact your manager to create purchase orders" instead.
+
+#### 44.5.7 The Toast / Notification Pattern
+
+```
+┌───────────────────────────────────────────┐
+│  ✓  Purchase Order PO-031 created         │
+│     [View →]                              │
+└───────────────────────────────────────────┘
+   ↑ appears bottom-right, auto-dismiss 4s
+```
+
+| Type | Color | Icon | Duration | Example |
+|---|---|---|---|---|
+| **Success** | Green soft bg | ✓ | 4s | "PO-031 created" |
+| **Info** | Blue soft bg | ℹ | 4s | "Tally sync started" |
+| **Warning** | Amber soft bg | ⚠ | 6s | "3 materials low on stock" |
+| **Error** | Red soft bg | ✕ | 8s (sticky) | "Failed to create PO: supplier required" |
+
+**Rules:**
+- Stack up to 3 toasts. Oldest dismissed when 4th arrives.
+- Action button inside toast (e.g., "View →") navigates to the created item.
+- Errors are sticky — require manual dismissal.
+- No toast for every mutation — only for user-initiated actions that change state.
+
+---
+
+### 44.6 Hub Page Redesigns — From Tab Soup to Focused Sub-Pages
+
+The current hub pages (Stock, Procurement, Projects) cram 5–7 tabs into one page. Each tab
+loads independently, the URL doesn't reflect which tab you're on, and the cognitive load
+is high. The fix: **split tabs into sub-pages** with a secondary nav strip.
+
+#### 44.6.1 Stock Hub → `/stock` with sub-pages
+
+**Current**: 7 tabs (On Hand, Movements, Transfers, Issues, Scrap, Counts, Adjustments) on
+one page, all data fetched upfront.
+
+**Target**: `/stock` is the landing page (On Hand). Secondary nav strip links to sub-pages.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Stock                              [Transfer] [Issue] [Count]      │
+│  What you have, where, and what it's worth                         │
+│  42 items  ₹8.3L total  4 locations  4 low                         │
+├─────────────────────────────────────────────────────────────────────┤
+│  On Hand  │  Movements  │  Transfers  │  Issues  │  Scrap  │ Counts │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  🔍 Search...    📅 As on date    Location: All ▼    [Export CSV]   │
+│                                                                     │
+│  Material        Location     Qty    Unit    MAC     Value          │
+│  ─────────────────────────────────────────────────────────────      │
+│  OPC Cement      Warehouse    120    bags    320     38,400         │
+│  TMT Steel 12mm  Warehouse    2.5    ton     58,000  1,45,000       │
+│  TMT Steel 16mm  Site-3       0.8    ton     56,500  45,200         │
+│  ...                                                                │
+│                                                                     │
+│  ⚠ 4 materials below reorder point  [Create requisition →]         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Sub-page routes:**
+
+| Route | Content | Primary Action |
+|---|---|---|
+| `/stock` | On Hand — current stock by material × location | [Transfer] / [Issue] / [Count] |
+| `/stock/movements` | Stock Movement ledger — immutable, filterable by type/date/material | [Export CSV] |
+| `/stock/transfers` | Stock transfers between locations | [New Transfer] |
+| `/stock/issues` | Material issues to projects/departments | [New Issue] |
+| `/stock/scrap` | Scrap generations | [New Scrap] |
+| `/stock/counts` | Stock counts (physical verification) | [New Count] |
+
+**Secondary nav strip**: Horizontal, sticky below PageHeader. Active item underlined in
+world color. URL-synced. Each sub-page is a separate route (not a tab) — so deep-linking,
+browser back, and bookmarks all work naturally.
+
+**Data fetching**: Each sub-page fetches only its own data. No upfront load of all 7 tabs.
+PPR + Suspense per sub-page.
+
+#### 44.6.2 Procurement Hub → `/procurement` with sub-pages
+
+**Current**: POs + Direct Purchases + Suppliers on one page with tabs.
+
+**Target**: Split into focused sub-pages.
+
+| Route | Content | Primary Action |
+|---|---|---|
+| `/procurement` | Purchase Orders — all POs with status pipeline | [New PO] |
+| `/procurement/direct` | Direct Purchases — small-value, no-PO purchases | [New Direct Purchase] |
+| `/procurement/suppliers` | Suppliers — master list with ratings + outstanding | [New Supplier] |
+
+**PO Pipeline View** (replaces flat list):
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Purchase Orders                              [New Purchase Order]  │
+│  What you've ordered, from whom, and what's still to arrive        │
+│  12 open  ₹8.3L committed  3 overdue  2 awaiting approval          │
+├─────────────────────────────────────────────────────────────────────┤
+│  Orders  │  Direct  │  Suppliers                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  PIPELINE                                                           │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐           │
+│  │ DRAFT    │ APPROVED │ ORDERED  │ PARTIAL  │ RECEIVED │           │
+│  │    2     │    1     │    5     │    3     │    1     │           │
+│  │ ₹85K     │ ₹21.6K   │ ₹4.2L    │ ₹2.8L    │ ₹58K     │           │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘           │
+│                                                                     │
+│  Click a column to filter by that status.                           │
+│  Or search:  🔍 PO number, supplier...                              │
+│                                                                     │
+│  PO Number  Supplier       Date    Status    Amount    Received    │
+│  PO-031     OM Plastic     01 Aug  APPROVED  21,600    —          │
+│  PO-032     Moti Lal       02 Aug  ORDERED   58,000    —          │
+│  PO-033     Bhawani        02 Aug  PARTIAL   31,189    15,000     │
+│  ...                                                                │
+│                                                                     │
+│  ⚠ 3 POs overdue  [View overdue →]                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Pipeline columns** are clickable — clicking "ORDERED (5)" filters the table to show only
+ORDERED POs. This replaces a status dropdown filter with a visual, scannable pipeline.
+
+#### 44.6.3 Projects Hub → `/projects` with project cards
+
+**Current**: Flat table of projects.
+
+**Target**: Card grid for overview + table for detail.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Projects                                    [New Project] [Map 🗺] │
+│  Every site you're building — its cost, progress and profit         │
+│  6 active  ₹18.4 Cr total budget  23.4% avg margin                 │
+├─────────────────────────────────────────────────────────────────────┤
+│  Cards  │  Table  │  Map                                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+│  │ Sunrise Apts │  │ Green Valley │  │ River Side   │              │
+│  │ 3BHK · 12 u  │  │ Villa · 8 u  │  │ Plot · 24 p  │              │
+│  │              │  │              │  │              │              │
+│  │ Budget 4.2Cr │  │ Budget 6.1Cr │  │ Budget 2.8Cr │              │
+│  │ Actual 3.8Cr │  │ Actual 6.8Cr │  │ Actual 2.7Cr │              │
+│  │ Var  -9.5% ✓ │  │ Var +11.5% ⚠│  │ Var  -3.6% ✓ │              │
+│  │ Margin 28.1% │  │ Margin 14.2% │  │ Margin 31.5% │              │
+│  │              │  │              │  │              │              │
+│  │ 8/12 units   │  │ 3/8 units    │  │ 18/24 plots  │              │
+│  │ sold         │  │ sold         │  │ sold         │              │
+│  │              │  │              │  │              │              │
+│  │ [Open →]     │  │ [Open →]     │  │ [Open →]     │              │
+│  └──────────────┘  └──────────────┘  └──────────────┘              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Card view**: Visual project health at a glance. Color-coded variance (green/amber/red).
+Units sold / total. Click to open project detail.
+
+**Table view**: Same data in a sortable, filterable table for power users.
+
+**Map view** (future): Projects plotted on a map with status pins.
+
+#### 44.6.4 Reports Hub → `/reports` with smart grouping
+
+**Current**: All reports listed, grouped by lifecycle stage.
+
+**Target**: Keep grouping, add **search + favorites + recently used**.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Insights                                                           │
+│  Every report, grouped by the Build lifecycle stage it belongs to  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  🔍 Search reports...                                               │
+│                                                                     │
+│  ★ FAVORITES                                                        │
+│  · Stock Movement Summary                                           │
+│  · Project P&L                                                      │
+│  · Purchase Register                                                │
+│                                                                     │
+│  🕐 RECENTLY USED                                                    │
+│  · Inventory Valuation (used 2h ago)                                │
+│  · Department Consumption (used yesterday)                          │
+│                                                                     │
+│  📦 PROCUREMENT                                                      │
+│  · Purchase Register                                                │
+│  · Purchase Trends                                                  │
+│  · Purchaser Performance                                            │
+│                                                                     │
+│  📊 STOCK & MATERIALS                                               │
+│  · Stock Movement Summary                                           │
+│  · Inventory Valuation                                              │
+│  · Inventory Aging                                                  │
+│  · Low Stock Alerts                                                 │
+│  · NRV Write-Downs                                                  │
+│                                                                     │
+│  🏗 CONSTRUCTION & COST                                             │
+│  · Project Progress                                                 │
+│  · Budget Variance                                                  │
+│  · Project Control (EVM)                                            │
+│  · Profit Center                                                    │
+│                                                                     │
+│  🏠 SALES & REVENUE                                                 │
+│  · Sales & Revenue                                                  │
+│                                                                     │
+│  👷 PEOPLE & PAYROLL                                                │
+│  · Labour Cost                                                      │
+│                                                                     │
+│  📚 BOOKS & TAX                                                     │
+│  · Profit & Loss                                                    │
+│  · GST                                                              │
+│  · Comparative Analysis                                             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Star a report** → appears in Favorites. Persists per user.
+- **Recently used** → auto-populated from audit log / page visits. Last 5.
+- **Search** → fuzzy search across report names + keywords. Same as command palette.
+- **Group headers** → lifecycle stage icons + colors from world palette.
+
+#### 44.6.5 Report Page Pattern (every report page)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ◀ Insights / Stock Movement Summary                                │
+│  Opening, received, issued and balance — the stock flow statement   │
+├─────────────────────────────────────────────────────────────────────┤
+│  📅 From: 01 Aug 2026  To: 08 Aug 2026    [This week ▼]    [Export] │
+│  Location: All ▼    Category: All ▼                    [Print] [⭐] │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Company       Opn Amt    Rec Amt   Issue Amt   Bal Amt            │
+│  ─────────────────────────────────────────────────────────────      │
+│  Nirman        31,74,263  67,02,428  60,64,591   38,12,099          │
+│  ─────────────────────────────────────────────────────────────      │
+│  Identity check: Opn + Rec − Issue = Bal  ✓ (0.08 rounding)        │
+│                                                                     │
+│  [▼ Per Location]    [▼ Per Category]    [▼ Per Material]          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Report page rules:**
+1. **Date range** is always the first filter. Presets: Today, This week, This month, This
+   quarter, This FY, Custom. URL-synced.
+2. **Export** = CSV download (always available). Excel export if the report has a builder.
+3. **Print** = opens print modal with print-friendly layout (no nav chrome).
+4. **Star** = add to favorites (appears on `/reports` hub).
+5. **Identity check** = where applicable, show the math verification line.
+6. **Drill-down** = expandable sections for per-location / per-category / per-material views.
+7. **No pagination** for summary reports (they're aggregated). Pagination for register-type
+   reports (line-item lists).
+
+---
+
+### 44.7 Mobile PWA UX — The Field-First Interface
+
+> Mobile is the **primary device** for SUPERVISOR and SALES. It is not a stripped-down
+> desktop — it is a focused, offline-capable, thumb-driven experience designed for the 5
+> actions each role performs daily in the field.
+
+#### 44.7.1 Mobile Shell (enhanced current)
+
+The current `MobileShell` is sound: sticky header, persona-based bottom tabs, pull-to-
+refresh. Enhancements:
+
+```
+┌─────────────────────────────────────┐
+│  N  Sunrise Site          🔍  ●RA  │  ← header (company mark, title, search, avatar)
+│  ─────────────────────────────────  │  ← 2px world color rule
+│                                     │
+│                                     │
+│        PAGE CONTENT                 │  ← scrollable, pull-to-refresh
+│        (full height)                │
+│                                     │
+│                                     │
+│                                     │
+├─────────────────────────────────────┤
+│  🌅Today  📦Stock  📷Receive  ✓Tasks │  ← bottom tab bar (5 tabs max)
+└─────────────────────────────────────┘
+```
+
+**Enhancements to current shell:**
+
+| Feature | Current | Target |
+|---|---|---|
+| **Offline indicator** | None | Banner when offline: "You're offline. Changes will sync when reconnected." Green when online, amber when offline. |
+| **Sync status** | None | Small icon in header: ✓ (synced) / ↻ (syncing) / ⚠ (sync failed). Tappable for detail. |
+| **Haptic feedback** | None | `navigator.vibrate(50ms)` on: barcode scan success, attendance mark, form submit. |
+| **Large touch targets** | 40px | 48px minimum (WCAG). 56px for primary actions (Receive, Issue, Submit). |
+| **Bottom sheet modals** | Full-screen modals | Bottom sheet that slides up from bottom. Swipe down to dismiss. More natural on mobile. |
+| **FAB (Floating Action Button)** | None | For the primary action on each page. Supervisor's stock page: FAB = "Issue". Receive page: FAB = "Scan". |
+| **Offline cache** | None | Service worker caches: nav config, last 50 materials, last 20 POs, user's assigned projects. Available offline. |
+
+#### 44.7.2 Supervisor Mobile Flow — The Daily Routine
+
+The supervisor's entire day, on mobile, without ever needing a desktop:
+
+```
+07:00  ARRIVE AT SITE
+  ┌─────────────────────────────────┐
+  │  Good morning, Ravi             │
+  │  Sunrise Site · Thursday        │
+  │                                 │
+  │  2 deliveries expected today    │
+  │  3 tasks assigned               │
+  │  DPR not filed for yesterday    │
+  │                                 │
+  │  [Start Day →]                  │
+  └─────────────────────────────────┘
+         ↓
+08:00  RECEIVE DELIVERY (barcode scan)
+  ┌─────────────────────────────────┐
+  │  📷 Scan Delivery               │
+  │                                 │
+  │  ┌─────────────────────────┐    │
+  │  │                         │    │
+  │  │   CAMERA VIEWFINDER     │    │
+  │  │   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │    │
+  │  │   ▓▓▓ [barcode] ▓▓▓    │    │
+  │  │   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │    │
+  │  │                         │    │
+  │  └─────────────────────────┘    │
+  │                                 │
+  │  Scanned: PO-2024-031           │
+  │  Supplier: OM Plastic           │
+  │  Expected: 290 bags cement      │
+  │                                 │
+  │  Received Qty: [290] bags       │
+  │  Gate Entry No: [____]          │
+  │                                 │
+  │  [Confirm Receipt]              │
+  │  ✅ Haptic feedback             │
+  └─────────────────────────────────┘
+         ↓
+10:00  ISSUE MATERIALS
+  ┌─────────────────────────────────┐
+  │  Issue Materials                │
+  │                                 │
+  │  To: [Sunrise ▼]                │
+  │  Receiver: [Guljaar]            │
+  │  Mobile: [70381-12461]          │
+  │                                 │
+  │  Line Items:                    │
+  │  ┌─────────────────────────┐    │
+  │  │ Material  Qty  Rate  Amt│    │
+  │  │ Cement    50   320   16K│    │
+  │  │ Steel     2    58K   1.2L│   │
+  │  │ [+ Add line]            │    │
+  │  └─────────────────────────┘    │
+  │                                 │
+  │  Total: ₹1,36,000               │
+  │  Round: ₹0                      │
+  │  Chargeable: ₹1,36,000          │
+  │                                 │
+  │  [Issue & Print Slip]           │
+  └─────────────────────────────────┘
+         ↓
+14:00  MARK ATTENDANCE (GPS-tagged)
+  ┌─────────────────────────────────┐
+  │  Attendance · Sunrise           │
+  │  📍 GPS: 28.5°N, 77.6°E ✓      │
+  │                                 │
+  │  ┌──┬──────┬──────┬──────┐      │
+  │  │  │ Name │ Role │Status│      │
+  │  ├──┼──────┼──────┼──────┤      │
+  │  │☐ │Mohan │Mason │ P ▼ │      │
+  │  │☐ │Rajesh│Helper│ A ▼ │      │
+  │  │☐ │Imran │Mason │ P ▼ │      │
+  │  │☐ │...   │...   │ ▼   │      │
+  │  └──┴──────┴──────┴──────┘      │
+  │                                 │
+  │  P = Present  A = Absent        │
+  │  H = Half-day  O = Overtime     │
+  │                                 │
+  │  18 Present · 2 Absent          │
+  │  [Submit Attendance]            │
+  └─────────────────────────────────┘
+         ↓
+17:00  SUBMIT DPR
+  ┌─────────────────────────────────┐
+  │  Daily Progress Report          │
+  │  Sunrise · 08 Aug 2026          │
+  │                                 │
+  │  Work Type: [Foundation ▼]      │
+  │  Area Done: [450] sqft           │
+  │                                 │
+  │  Material Lines:                │
+  │  Cement: 50 bags (std: 45)      │
+  │  Steel: 2 ton (std: 1.8)        │
+  │  → Variance: +11% (auto-scrap?) │
+  │                                 │
+  │  Labor Lines:                   │
+  │  Mason: 8 (× ₹800) = ₹6,400     │
+  │  Helper: 4 (× ₹400) = ₹1,600    │
+  │                                 │
+  │  [Submit DPR]                   │
+  └─────────────────────────────────┘
+```
+
+**Key mobile UX rules for Supervisor:**
+
+1. **Barcode scanning** uses the device camera via `BarcodeDetector` API (or
+   `html5-qrcode` fallback). No manual PO number entry. Scan → match → confirm.
+2. **GPS attendance** captures coordinates on "Submit Attendance". If GPS unavailable, shows
+   "Location not captured" warning but allows submission.
+3. **Offline mode**: Receive, Issue, and Attendance work offline. Actions are queued in
+   IndexedDB and synced when online. Queue visible in sync status icon.
+4. **DPR variance** is shown inline as the user enters material quantities — they see
+   "Cement: 50 bags (std: 45) → +11% variance" before submitting, not after.
+5. **Print from mobile**: Issue slip can be printed via Bluetooth printer (ESC/POS) or
+   shared as PDF via Web Share API.
+6. **One-thumb operation**: All primary actions are in the bottom third of the screen.
+   Reachable with the thumb of the hand holding the phone.
+
+#### 44.7.3 Sales Mobile Flow
+
+```
+┌─────────────────────────────────┐
+│  Units                           │
+│  142 available · ₹18.4 Cr       │
+├─────────────────────────────────┤
+│  🔍 Search units...              │
+│  Type: All ▼   Project: All ▼   │
+├─────────────────────────────────┤
+│                                 │
+│  ┌─────────────────────────┐    │
+│  │ A-302  3BHK  1450 sqft  │    │
+│  │ ₹62,00,000              │    │
+│  │ Sunrise Apartments      │    │
+│  │ ● Available  📷 3 photos │    │
+│  │ [Sell] [List on Portal] │    │
+│  └─────────────────────────┘    │
+│                                 │
+│  ┌─────────────────────────┐    │
+│  │ B-201  2BHK  1100 sqft  │    │
+│  │ ₹48,00,000              │    │
+│  │ Sunrise Apartments      │    │
+│  │ ● Available  📷 5 photos │    │
+│  │ [Sell] [List on Portal] │    │
+│  └─────────────────────────┘    │
+│                                 │
+│  [+ Add Unit]                   │
+└─────────────────────────────────┘
+```
+
+**Key mobile UX rules for Sales:**
+1. **Card layout** for units — photo-forward, price prominent, status dot.
+2. **Sell flow** = bottom sheet: select customer (or add new) → enter price → confirm.
+   Double-sell guard shows "This unit is being sold by [name]" if someone else is in the flow.
+3. **List on portal** = one tap → creates draft listing → sync to 99acres/MagicBricks.
+4. **Record payment** = bottom sheet: amount → mode (cash/cheque/transfer) → reference → submit.
+5. **Call customer** = `tel:` link directly from payment due list.
+
+#### 44.7.4 Offline Architecture
+
+```
+┌───────────────────────────────────────────────────┐
+│  SERVICE WORKER (cached in browser)               │
+│  ├─ App shell (HTML, CSS, JS)                     │
+│  ├─ Nav config + role                             │
+│  ├─ Last 50 materials (for issue form)            │
+│  ├─ Last 20 POs (for receiving)                   │
+│  ├─ User's assigned projects + locations          │
+│  └─ Employee roster (for attendance)              │
+├───────────────────────────────────────────────────┤
+│  INDEXEDDB (offline action queue)                 │
+│  ├─ {type: "receive", poId, qty, gateEntry, ts}   │
+│  ├─ {type: "issue", lines, projectId, ts}         │
+│  ├─ {type: "attendance", records, gps, ts}        │
+│  └─ {type: "dpr", lines, workType, ts}            │
+├───────────────────────────────────────────────────┤
+│  SYNC ENGINE (when online)                        │
+│  ├─ Read queue in order                           │
+│  ├─ POST each action to API                       │
+│  ├─ On success: remove from queue + toast         │
+│  ├─ On conflict: mark for manual resolution       │
+│  └─ On failure: retry with exponential backoff    │
+└───────────────────────────────────────────────────┘
+```
+
+**Offline rules:**
+1. **Read-only data** is cached eagerly (materials, POs, projects, employees). Stale data
+   is acceptable for reference; freshness check on reconnect.
+2. **Write actions** are queued in IndexedDB with a timestamp. Synced in order when online.
+3. **Conflicts** (e.g., PO already received by someone else) are flagged for manual
+   resolution — the user sees "This PO was already received by [name] at [time]."
+4. **No offline GL/Tally** — financial postings happen server-side only. The queue holds
+   the source action (receive, issue); the server posts the GL entry when it processes it.
+5. **Visual indicator**: header shows "Offline · 3 actions queued" with amber banner. When
+   synced: "3 actions synced ✓" toast, banner clears.
+
+---
+
+### 44.8 Component Specification — The Building Blocks
+
+#### 44.8.1 Status Badge
+
+Used everywhere a status appears (PO status, issue status, sale status, DPR status, sync
+status). Replaces ad-hoc colored spans.
+
+```
+  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  │ DRAFT    │  │ APPROVED │  │ ORDERED  │  │ RECEIVED │
+  └──────────┘  └──────────┘  └──────────┘  └──────────┘
+   gray-soft     blue-soft     amber-soft    green-soft
+```
+
+| Status Category | Color | Examples |
+|---|---|---|
+| **Draft / Pending** | Gray-soft | DRAFT, SUBMITTED, PENDING |
+| **Approved / Active** | Blue-soft | APPROVED, ACTIVE, ORDERED |
+| **In Progress** | Amber-soft | PARTIAL, COUNTED, SYNCING |
+| **Complete / Success** | Green-soft | RECEIVED, COMPLETED, SYNCED, PAID |
+| **Rejected / Failed** | Red-soft | REJECTED, CANCELLED, FAILED, OVERDUE |
+| **Sold / Terminal** | Purple-soft | SOLD, DELISTED, RETIRED |
+
+**Spec**: Pill shape (`rounded-full`), `text-caption` size, `font-medium`, soft background
+(`color-soft` variant), matching text color (darker shade). No border. No icon inside badge
+(icon goes before the label if needed).
+
+#### 44.8.2 Stat Card (KPI tile)
+
+Used in Command Center dashboards and page headers.
+
+```
+  ┌─────────────────┐
+  │  PORTFOLIO      │  ← label (text-label, muted)
+  │  ₹47.2 Cr       │  ← value (text-title, foreground, mono)
+  │  ↑ 3.2% MoM     │  ← trend (text-caption, success/warning/danger)
+  └─────────────────┘
+```
+
+**Spec**: `card` background, `rounded-lg`, `p-4`, `border`. Label is `text-label` muted.
+Value is `text-title` monospace tabular. Trend is `text-caption` with arrow icon (↑/↓/→)
+and color: green for positive, red for negative, amber for neutral. Trend is optional.
+
+#### 44.8.3 Alert Card (attention item)
+
+Used in Command Center attention queues.
+
+```
+  ┌───────────────────────────────────────────────────────┐
+  │  🔴 2 POs awaiting approval    ₹3.2L total   [Review →]│
+  └───────────────────────────────────────────────────────┘
+```
+
+**Spec**: Full-width card, `p-3`, `rounded-md`, `border`. Left: urgency dot (red/amber/
+blue). Middle: title + subtitle. Right: action link. Hover: `bg-accent`. Click anywhere
+on card navigates to the relevant page.
+
+#### 44.8.4 Bulk Action Bar
+
+Appears when rows are selected in a DataTable.
+
+```
+  ┌───────────────────────────────────────────────────────────────┐
+  │  3 selected                              [Approve] [Export] [×]│
+  └───────────────────────────────────────────────────────────────┘
+   ↑ slides in from bottom, sticky, shadow-floating
+```
+
+**Spec**: Fixed bottom, `z-50`, `card` background, `shadow-floating`, `rounded-lg`,
+`px-4 py-3`. Left: count. Right: bulk action buttons (context-appropriate) + clear
+selection (`×`). Animates in with `translate-y` transition (280ms).
+
+#### 44.8.5 Bottom Sheet (mobile modal replacement)
+
+```
+  ┌─────────────────────────────────────┐
+  │                                     │
+  │       (page content dimmed)         │
+  │                                     │
+  ├─────┬───────────────────────────────┤
+  │  ─  │  Sheet Title          [×]     │  ← drag handle + title
+  │     │                               │
+  │     │  Sheet content                │
+  │     │  (form, details, etc.)        │
+  │     │                               │
+  │     │  [Action]                     │
+  └─────┴───────────────────────────────┘
+```
+
+**Spec**: Slides up from bottom. `rounded-t-lg`, `card` background, `shadow-floating`.
+Drag handle at top (swipe down to dismiss). Backdrop dims page content (`bg-black/40`).
+Max height: 85vh. Scrollable content. Primary action at bottom, within thumb reach.
+
+#### 44.8.6 Skeleton Loading (replaces spinners)
+
+```
+  ┌──────────────────────────────────────┐
+  │  ▓▓▓▓▓▓▓▓▓▓▓▓                        │  ← title skeleton
+  │  ▓▓▓▓▓▓▓▓                            │  ← description skeleton
+  │                                      │
+  │  ▓▓▓▓▓▓  ▓▓▓▓▓▓  ▓▓▓▓▓▓  ▓▓▓▓▓▓    │  ← stat skeleton
+  │                                      │
+  │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │  ← table skeleton
+  │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │
+  │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓    │
+  └──────────────────────────────────────┘
+```
+
+**Spec**: `bg-muted` blocks with `animate-pulse` (1.5s ease-in-out). Shape matches the
+content that will load — title bar, stat cards, table rows. No spinner anywhere. The
+skeleton should look like the page at a glance, so the transition to real content is
+imperceptible.
+
+#### 44.8.7 Print Modal (replaces separate print routes)
+
+```
+  ┌───────────────────────────────────────────────────────┐
+  │  Print Preview                              [×]       │
+  ├───────────────────────────────────────────────────────┤
+  │                                                       │
+  │  ┌─────────────────────────────────────────────┐      │
+  │  │                                              │      │
+  │  │  (printable document preview)                │      │
+  │  │  - A4 aspect ratio                           │      │
+  │  │  - actual print layout                       │      │
+  │  │  - no nav chrome                             │      │
+  │  │                                              │      │
+  │  └─────────────────────────────────────────────┘      │
+  │                                                       │
+  │  [Download PDF]  [Print]  [Share]                    │
+  └───────────────────────────────────────────────────────┘
+```
+
+**Spec**: Full-screen modal. Center: A4-aspect preview of the printable document. Footer:
+Download PDF (generates via `react-to-print` or server-side), Print (`window.print()`),
+Share (Web Share API on mobile). The existing `/print/*` routes remain for direct access,
+but every detail page gets a "Print" button that opens this modal.
+
+---
+
+### 44.9 Interaction Micro-Patterns
+
+#### 44.9.1 Optimistic Update Flow
+
+Every mutation follows this pattern:
+
+```
+User clicks "Approve"
+  ↓
+1. UI immediately updates: status badge → APPROVED, button disappears
+   (optimistic — assume success)
+  ↓
+2. API call fires in background
+  ↓
+3a. SUCCESS (200):
+    → Toast: "✓ PO-031 approved"
+    → Badge count decrements
+    → No UI rollback needed (already updated)
+
+3b. FAILURE (4xx/5xx):
+    → UI rolls back: status badge → DRAFT, button reappears
+    → Toast: "✕ Failed to approve: [error message]"
+    → User can retry
+```
+
+**Implementation**: Use React's `useOptimistic` (React 19) or a custom optimistic state
+manager. The key: the UI updates **before** the server responds. The user never waits for
+a spinner on a simple state change.
+
+#### 44.9.2 Keyboard Shortcuts
+
+| Shortcut | Action | Context |
+|---|---|---|
+| `⌘K` / `Ctrl+K` | Open command palette | Global |
+| `Esc` | Close modal / palette / sheet | Global |
+| `↑` / `↓` | Navigate table rows | DataTable |
+| `Enter` | Open focused row | DataTable |
+| `E` | Edit focused row | DataTable |
+| `Space` | Toggle row selection | DataTable |
+| `⌘A` | Select all rows | DataTable |
+| `S` | Save (in form) | Form |
+| `Esc` | Cancel (in form) | Form |
+| `?` | Show keyboard shortcuts help | Global |
+| `G` then `T` | Go to Today | Global |
+| `G` then `S` | Go to Stock | Global |
+| `G` then `P` | Go to Projects | Global |
+| `G` then `F` | Go to Finance | Global |
+| `N` | New (context-aware primary action) | List pages |
+
+**Shortcut help overlay** (`?` key):
+
+```
+┌───────────────────────────────────────────┐
+│  KEYBOARD SHORTCUTS                       │
+├───────────────────────────────────────────┤
+│  Global                                   │
+│  ⌘K  Command palette                      │
+│  ?   Show this help                       │
+│  G+T Go to Today                          │
+│  G+S Go to Stock                          │
+│  ...                                      │
+│  DataTable                                │
+│  ↑↓  Navigate rows                        │
+│  Enter  Open row                          │
+│  E  Edit row                              │
+│  ...                                      │
+└───────────────────────────────────────────┘
+```
+
+#### 44.9.3 Drag-and-Drop Reorder
+
+Used for: BOQ line items, WBS nodes, PO line items, form sections.
+
+**Spec**: Hover over a row → grip handle appears on left (`⠿` icon). Click and drag to
+reorder. Drop target shows a 2px insertion line in brand color. On drop: optimistic
+reorder + API call to persist new order. Haptic feedback on mobile (vibrate 30ms).
+
+#### 44.9.4 Smart Date Picker
+
+```
+  ┌─────────────────────────────────────┐
+  │  📅 August 2026                     │
+  │                                     │
+  │  S  M  T  W  T  F  S               │
+  │  -- -- -- -- -- 01 02              │
+  │  03 04 05 06 07 08 09              │
+  │  10 11 12 13 14 15 16              │
+  │  17 18 19 20 21 22 23              │
+  │  24 25 26 27 28 29 30              │
+  │  31 -- -- -- -- -- --              │
+  │                                     │
+  │  [Today] [This Week] [This Month]   │
+  │  [This Quarter] [This FY] [Custom]  │
+  └─────────────────────────────────────┘
+```
+
+**Spec**: Calendar grid + preset buttons. Presets are contextual: on a report page, "This
+Month" is the default. On an attendance page, "Today" is the default. Range selection:
+click start, click end. URL-synced (`?from=&to=`).
+
+#### 44.9.5 Confirmation Pattern (replaces `confirm()`)
+
+Never use browser `confirm()`. Use a focused confirmation dialog:
+
+```
+  ┌───────────────────────────────────────┐
+  │  Cancel purchase order?               │
+  │                                       │
+  │  PO-031 (OM Plastic, ₹21,600)         │
+  │  will be cancelled. This cannot be    │
+  │  undone.                              │
+  │                                       │
+  │  Reason (optional):                   │
+  │  [___________________________]        │
+  │                                       │
+  │  [Keep PO]      [Cancel PO]           │
+  └───────────────────────────────────────┘
+```
+
+**Spec**: Modal, centered. Title is a question. Body explains what will happen + what will
+be lost. Optional reason field (for audit log). Two buttons: secondary (keep/dismiss) on
+left, primary (confirm) on right. Primary button uses `danger` color for destructive
+actions. Enter triggers primary. Esc triggers secondary.
+
+---
+
+### 44.10 Accessibility (WCAG 2.1 AA)
+
+| Requirement | Implementation |
+|---|---|
+| **Color contrast** | All text ≥ 4.5:1 (normal) / 3:1 (large). Verified against OKLCH tokens. |
+| **Focus visible** | `focus-visible:ring-2 ring-brand ring-offset-2` on all interactive elements. Never remove focus outline without replacement. |
+| **Keyboard nav** | Every action reachable via keyboard. Tab order follows visual order. No keyboard traps. |
+| **ARIA labels** | Icon-only buttons have `aria-label`. Tables have `scope="col"` / `scope="row"`. Live regions for toast notifications (`role="status"`). |
+| **Screen reader** | Semantic HTML (`nav`, `main`, `aside`, `table`, `thead`, `tbody`). `sr-only` text where visual icon conveys meaning. |
+| **Touch targets** | 48×48px minimum on mobile. 40×40px on desktop. |
+| **Motion** | `prefers-reduced-motion` respected — disable animations, use instant transitions. |
+| **Color independence** | Information never conveyed by color alone. Status badges have text. Charts have labels. |
+| **Skip to content** | "Skip to main content" link at top of every page, visible on focus. |
+
+---
+
+### 44.11 Dark Mode
+
+The current design is light-only. Dark mode is a **first-class** requirement — site
+supervisors use the app in bright sunlight (where dark mode reduces glare) and at night
+(where light mode is blinding).
+
+**Implementation**: `data-theme="dark"` on `<html>`. CSS variables swap via
+`@media (prefers-color-scheme: dark)` + manual toggle in user menu.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--color-background` | `oklch(0.983 0.003 80)` (warm paper) | `oklch(0.165 0.008 65)` (warm charcoal) |
+| `--color-foreground` | `oklch(0.185 0.008 60)` (warm ink) | `oklch(0.88 0.006 75)` (warm light) |
+| `--color-card` | `oklch(1 0 0)` (white) | `oklch(0.205 0.008 65)` (raised charcoal) |
+| `--color-muted` | `oklch(0.962 0.005 80)` | `oklch(0.255 0.008 65)` |
+| `--color-border` | `oklch(0.915 0.005 80)` | `oklch(0.305 0.008 65)` |
+| `--color-sidebar` | `oklch(0.165 0.008 65)` | `oklch(0.135 0.008 65)` (darker than light mode) |
+| `--color-brand` | `oklch(0.585 0.145 58)` (ochre) | `oklch(0.685 0.145 58)` (brighter ochre for contrast) |
+| Semantic colors | Current | Brighter variants (+10% lightness) for visibility on dark bg |
+
+**Rules:**
+- Dark mode is warm, not cold. Same hue family (60–80) as light mode.
+- World colors brighten slightly for visibility on dark backgrounds.
+- Shadows become lighter (less visible on dark) — use border + subtle elevation instead.
+- Monospace data text gets slightly brighter for readability.
+- Toggle persists per user. Follows system preference by default.
+
+---
+
+### 44.12 Animation & Motion
+
+| Element | Animation | Duration | Easing |
+|---|---|---|---|
+| **Page transition** | Fade in | 150ms | `ease-out` |
+| **Modal open** | Scale 0.96→1 + fade | 200ms | `ease-out` |
+| **Modal close** | Scale 1→0.96 + fade | 150ms | `ease-in` |
+| **Bottom sheet open** | Translate Y 100%→0 | 280ms | `ease-out` |
+| **Bottom sheet close** | Translate Y 0→100% | 200ms | `ease-in` |
+| **Toast enter** | Translate X 100%→0 + fade | 200ms | `ease-out` |
+| **Toast exit** | Fade out | 150ms | `ease-in` |
+| **Bulk bar enter** | Translate Y 100%→0 | 280ms | `ease-out` |
+| **Skeleton pulse** | Opacity 0.5→1→0.5 | 1500ms | `ease-in-out` (infinite) |
+| **Badge count change** | Scale 1→1.2→1 | 200ms | `ease-out` |
+| **Row hover** | Background transition | 100ms | `linear` |
+| **Tab switch** | Content fade | 100ms | `ease-out` |
+
+**Rules:**
+- Nothing animates longer than 280ms. If it does, it's too slow.
+- `prefers-reduced-motion: reduce` → all animations become instant (0ms).
+- No layout thrashing — only `transform` and `opacity` animate (compositor-only).
+- No bounce/spring physics — this is an enterprise app, not a toy.
+
+---
+
+### 44.13 Implementation Priority
+
+The UX improvements are prioritized by impact × effort:
+
+#### Phase 1 — Quick Wins (high impact, low effort)
+
+| # | Improvement | Impact | Effort | Files |
+|---|---|---|---|---|
+| 1 | Replace Profile page with Command Center | 🔴 Critical | Medium | `app/page.tsx` (rewrite) |
+| 2 | Actionable empty states | 🔴 High | Low | `components/empty-state.tsx` (enhance) |
+| 3 | Toast notification system | 🔴 High | Low | New `components/ui/toast.tsx` |
+| 4 | Breadcrumbs in PageHeader | 🟡 Medium | Low | `components/page-header.tsx` (add) |
+| 5 | Alert bell in topbar | 🟡 Medium | Low | `components/app-shell.tsx` (add) |
+| 6 | Saved views for report filters | 🟡 Medium | Medium | New `lib/saved-views.ts` |
+| 7 | Status badge component | 🟡 Medium | Low | New `components/ui/status-badge.tsx` |
+
+#### Phase 2 — Core UX (high impact, medium effort)
+
+| # | Improvement | Impact | Effort | Files |
+|---|---|---|---|---|
+| 8 | DataTable component (virtualized, sortable, keyboard) | 🔴 Critical | High | New `components/ui/data-table.tsx` |
+| 9 | FilterBar component | 🔴 High | Medium | New `components/ui/filter-bar.tsx` |
+| 10 | Inline edit on grid cells | 🟡 High | Medium | DataTable extension |
+| 11 | Bulk operations + bulk action bar | 🟡 High | Medium | DataTable extension |
+| 12 | Split hub pages into sub-pages (Stock, Procurement) | 🟡 High | Medium | `app/stock/*`, `app/procurement/*` |
+| 13 | Optimistic updates | 🟡 High | Medium | All mutation handlers |
+| 14 | Skeleton loading everywhere | 🟡 Medium | Low | Replace `PageLoading` spinners |
+
+#### Phase 3 — Advanced (medium impact, high effort)
+
+| # | Improvement | Impact | Effort | Files |
+|---|---|---|---|---|
+| 15 | Offline mode (service worker + IndexedDB queue) | 🔴 Critical for field | High | New `lib/offline-*.ts` |
+| 16 | Dark mode | 🟡 Medium | Medium | `globals.css` (add dark tokens) |
+| 17 | Column customization (reorder, hide, pin) | 🟡 Medium | High | DataTable extension |
+| 18 | Keyboard shortcuts (g+letter, ?, etc.) | 🟢 Nice | Medium | New `lib/keyboard.ts` |
+| 19 | Print modal (replaces separate routes) | 🟢 Nice | Medium | New `components/print-modal.tsx` |
+| 20 | SSE for live badge counts | 🟢 Nice | High | New `lib/sse.ts` |
+| 21 | Barcode scanning (mobile) | 🔴 Critical for field | High | New `components/mobile/barcode-scanner.tsx` |
+| 22 | Bluetooth printing (mobile) | 🟡 Medium | High | New `lib/esc-pos.ts` |
+
+#### Phase 4 — Polish (low impact, low effort)
+
+| # | Improvement | Impact | Effort |
+|---|---|---|---|
+| 23 | Contextual tooltips on field labels | 🟢 Nice | Low |
+| 24 | First-run guided tour | 🟢 Nice | Medium |
+| 25 | Recently visited strip in panel | 🟢 Nice | Low |
+| 26 | Density toggle (compact/comfortable/spacious) | 🟢 Nice | Low |
+| 27 | Drag-and-drop reorder for line items | 🟢 Nice | Medium |
+| 28 | Animation polish (page transitions, micro-interactions) | 🟢 Nice | Low |
+
+---
 | Last audited | 2026-08-08 |
 | Audit scope | Full codebase: schema, services, API, UI |
-| Lines | ~5,000 |
-| Sections | 43 (4 parts) |
+| Lines | ~6,500 |
+| Sections | 44 (4 parts) |
 
 ### Superseded Documents
 

@@ -24,7 +24,7 @@ export default function InventoryValuePage({
   searchParams: Promise<{ asOn?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading inventory value…" variant="cards" />}>
         <InventoryValueContent searchParams={searchParams} />
       </Suspense>

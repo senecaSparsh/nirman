@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Select } from "@/components/ui/input";
-import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Card } from "@/components/ui/card";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
-import { formatNumber, formatCurrency, cn } from "@/lib/utils";
-import { ClipboardCheck, AlertTriangle } from "lucide-react";
+import { formatNumber, cn } from "@/lib/utils";
+import { ClipboardCheck, AlertTriangle, ChevronDown } from "lucide-react";
 
 type Project = { id: string; name: string };
 
@@ -129,14 +127,22 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
     return <EmptyState icon={<ClipboardCheck />} title="No projects" description="Create a project to see material reconciliation." />;
   }
 
+  const projectSelect = (
+    <div className="relative shrink-0" style={{ width: 200 }}>
+      <select
+        value={projectId}
+        onChange={(e) => setProjectId(e.target.value)}
+        style={{ width: 200 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <Field label="Project">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="max-w-sm">
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </Select>
-      </Field>
-
       {loading ? (
         <PageLoading label="Loading reconciliation…" variant="default" />
       ) : data ? (
@@ -164,7 +170,7 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
           </div>
 
           {data.items.length > 0 ? (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <DataTable
                 data={data.items}
                 initialSort={{ key: "wastagePct", direction: "desc" }}
@@ -176,6 +182,7 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
                 totalFormat={(_key, sum) => formatNumber(sum, 3)}
                 hideable
                 pageSize={50}
+                toolbarLeading={projectSelect}
               />
             </div>
           ) : (

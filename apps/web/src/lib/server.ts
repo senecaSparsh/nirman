@@ -8,7 +8,7 @@ import {
   APPROVER_ROLES,
   type Role,
 } from "@/lib/roles";
-import { logAction, resolveUserScope } from "@nirman/services";
+import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
 
 /**
  * Server-side helpers shared by API routes and Server Components.
@@ -16,7 +16,7 @@ import { logAction, resolveUserScope } from "@nirman/services";
 export async function getCompany() {
   const user = await getCurrentUser();
   const selectedId = (await cookies()).get("nirman-company-id")?.value;
-  const isDevBypass = process.env.AUTH_BYPASS === "true";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
 
   if (selectedId) {
     const selected = await prisma.company.findFirst({
@@ -37,26 +37,28 @@ export async function getCompany() {
   }
 
   // In dev-bypass mode, fall back to any company (no membership filter).
-  // In production, filter by the user's memberships — but if the user has no
-  // memberships at all, fall back to any company rather than failing.
-  const existing = await prisma.company.findFirst({
-    where: {
-      deletedAt: null,
-      ...(isDevBypass || !user ? {} : { userMemberships: { some: { userId: user.id } } }),
-    },
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
-
-  // Last resort: if no company matched the membership filter, try any company.
-  if (!isDevBypass && user) {
-    const anyCompany = await prisma.company.findFirst({
+  if (isDevBypass) {
+    const existing = await prisma.company.findFirst({
       where: { deletedAt: null },
       orderBy: { createdAt: "asc" },
     });
-    if (anyCompany) return anyCompany;
+    if (existing) return existing;
   }
 
+  // In production, filter by the user's memberships.
+  if (user) {
+    const member = await prisma.company.findFirst({
+      where: {
+        deletedAt: null,
+        userMemberships: { some: { userId: user.id } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (member) return member;
+  }
+
+  // No company found — create a default one and add the user as a member.
+  // This only happens for the very first user or in dev-bypass with an empty DB.
   return prisma.company.create({
     data: {
       name: "Nirman Constructions",
@@ -316,6 +318,12 @@ export const builtUnitSchema = z.object({
   area: z.coerce.number().positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
   askingPrice: z.coerce.number().positive().optional().nullable(),
+  // RERA fields
+  carpetArea: z.coerce.number().nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().nonnegative().optional().nullable(),
+  hasLoadingDock: z.coerce.boolean().optional(),
 });
 
 export const builtUnitStatusSchema = z.enum(["PLANNED", "UNDER_CONSTRUCTION", "AVAILABLE", "HOLD", "SOLD"]);
@@ -333,6 +341,12 @@ export const builtUnitEditSchema = z.object({
   area: z.coerce.number().positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]),
   askingPrice: z.coerce.number().positive().optional().nullable(),
+  // RERA fields
+  carpetArea: z.coerce.number().nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().nonnegative().optional().nullable(),
+  hasLoadingDock: z.coerce.boolean().optional(),
 });
 
 // ── Customers ──
@@ -613,6 +627,9 @@ export const payrollLineUpdateSchema = z.object({
   allowance: z.coerce.number().nonnegative().optional(),
   bonus: z.coerce.number().nonnegative().optional(),
   pf: z.coerce.number().nonnegative().optional(),
+  employerPf: z.coerce.number().nonnegative().optional(),
+  esi: z.coerce.number().nonnegative().optional(),
+  professionTax: z.coerce.number().nonnegative().optional(),
   tax: z.coerce.number().nonnegative().optional(),
   deductions: z.coerce.number().nonnegative().optional(),
 });
@@ -646,6 +663,7 @@ export const dprSchema = z.object({
   blockers: z.string().max(1000).optional().nullable(),
   tomorrowPlan: z.string().max(1000).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  photoUrls: z.array(z.string()).max(8, "Maximum 8 photos").optional(),
   materialLines: z.array(dprMaterialLineSchema).optional(),
   laborLines: z.array(dprLaborLineSchema).optional(),
 });
@@ -764,9 +782,10 @@ async function getDevBypassUser() {
  */
 export async function getSession() {
   // Dev bypass: skip auth entirely ONLY when AUTH_BYPASS=true is set
-  // explicitly. By default (no env var), dev uses real Better-Auth sessions
-  // so sign-in / sign-out and one-click role login work end-to-end.
-  if (process.env.AUTH_BYPASS === "true") {
+  // explicitly AND we're not in production. By default (no env var), dev uses
+  // real Better-Auth sessions so sign-in / sign-out and one-click role login
+  // work end-to-end. The NODE_ENV check prevents accidental bypass in production.
+  if (process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production") {
     const u = await getDevBypassUser();
     return {
       user: {
@@ -825,7 +844,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   // Dev-bypass mode: the session already resolved to a real DB user (via
   // getDevBypassUser) or the synthetic "dev" fallback (empty DB before seeding).
   // For the synthetic fallback, return as-is without DB validation.
-  const isDevBypass = process.env.AUTH_BYPASS === "true";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
   if (isDevBypass && u.id === "dev") {
     return {
       id: u.id,
@@ -858,11 +877,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 }
 
 /**
- * Get the current user's role (normalized). Falls back to MANAGER.
+ * Get the current user's role (normalized). Falls back to the least-privileged
+ * role (SALES) when there is no session — never grants broad access by default.
  */
 export async function getUserRole(): Promise<string> {
   const user = await getCurrentUser();
-  return user?.role ?? "MANAGER";
+  return user?.role ?? "SALES";
 }
 
 /**
@@ -1045,9 +1065,13 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
       }
       return res;
     } catch (err: unknown) {
-      const message = (err instanceof Error ? err.message : "Internal server error");
+      if (err instanceof ServiceError) {
+        return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      // Log the full error server-side but don't leak internal details to the client
+      console.error("[apiHandler] Unhandled error:", err);
       const status = (err as { status?: number })?.status ?? 500;
-      return json({ error: message }, { status });
+      return json({ error: status === 500 ? "Internal server error" : (err instanceof Error ? err.message : "Request failed") }, { status });
     }
   };
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FileText, Upload, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -22,7 +23,7 @@ const errorBorder = "border-danger focus-visible:border-danger focus-visible:rin
 export type LandPurchaseEditInitial = Pick<
   LandPurchaseRow,
   "id" | "projectId" | "sellerName" | "sellerContact" | "purchaseDate" |
-  "totalArea" | "areaUnit" | "totalCost" | "registryNo" | "location"
+  "totalArea" | "areaUnit" | "totalCost" | "registryNo" | "location" | "documentUrl"
 >;
 
 export function LandPurchaseFormDialog({
@@ -36,10 +37,13 @@ export function LandPurchaseFormDialog({
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   editing?: LandPurchaseEditInitial | null;
-  onCreated?: (purchaseId: string) => void;
+  onCreated?: (purchaseId: string, rootParcel?: { id: string; number: string; area: number; areaUnit: string; acquisitionCost: number }) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [documentName, setDocumentName] = useState<string>("");
   const [form, setForm] = useState({
     projectId: "",
     sellerName: "",
@@ -81,13 +85,42 @@ export function LandPurchaseFormDialog({
         location: editing.location ?? "",
         initialParcelNumber: "",
       });
+      setDocumentUrl(editing.documentUrl ?? null);
+      setDocumentName(editing.documentUrl ? editing.documentUrl.split("/").pop() ?? "" : "");
     } else if (open && !editing) {
       setForm({ projectId: "", sellerName: "", sellerContact: "", purchaseDate: "", totalArea: "", areaUnit: "SQFT", totalCost: "", registryNo: "", location: "", initialParcelNumber: "" });
+      setDocumentUrl(null);
+      setDocumentName("");
     }
   }, [open, editing]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setDocumentUrl(data.url);
+      setDocumentName(data.fileName);
+      toast.success("Document uploaded");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeDocument() {
+    setDocumentUrl(null);
+    setDocumentName("");
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -116,6 +149,7 @@ export function LandPurchaseFormDialog({
         totalCost: Number(form.totalCost),
         registryNo: form.registryNo.trim() || null,
         location: form.location.trim() || null,
+        documentUrl: documentUrl,
         ...(editing ? {} : { initialParcelNumber: form.initialParcelNumber.trim() || undefined }),
       };
       const res = await fetch(
@@ -130,14 +164,26 @@ export function LandPurchaseFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save land purchase");
       if (editing) {
         toast.success("Land purchase updated");
+        onOpenChange(false);
+        router.refresh();
       } else {
         toast.success("Land purchase recorded", {
           description: "An initial parcel covers the full area. You can subdivide it into sellable sub-plots.",
         });
-        if (onCreated && data.id) onCreated(data.id);
+        // Call onCreated BEFORE closing — the parent may need to show a
+        // subdivide prompt. We skip router.refresh() here because it would
+        // re-suspend the server boundary and unmount the parent (losing
+        // the subdividePrompt state). The parent handles refresh after the
+        // subdivide flow completes.
+        if (onCreated && data.id) onCreated(data.id, data.rootParcelId ? {
+          id: data.rootParcelId,
+          number: data.rootParcelNumber,
+          area: data.rootParcelArea,
+          areaUnit: data.rootParcelAreaUnit,
+          acquisitionCost: data.rootParcelAcquisitionCost,
+        } : undefined);
+        onOpenChange(false);
       }
-      onOpenChange(false);
-      router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
@@ -202,6 +248,26 @@ export function LandPurchaseFormDialog({
         <div className="space-y-1.5">
           <Label>Location</Label>
           <Textarea value={form.location} onChange={(e) => set("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Document</Label>
+          {documentUrl ? (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+              <a href={documentUrl} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-body text-foreground underline underline-offset-2 hover:text-muted-foreground">
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{documentName || "View document"}</span>
+              </a>
+              <button type="button" onClick={removeDocument} className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger" title="Remove">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-caption text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+              <Upload className="h-4 w-4" />
+              {uploading ? "Uploading…" : "Upload sale deed / registry document"}
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" />
+            </label>
+          )}
         </div>
         {!editing && (
           <div className="space-y-1.5">

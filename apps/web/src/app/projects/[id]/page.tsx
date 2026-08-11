@@ -94,18 +94,32 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       },
     }),
 
-    // Built units for this project
+    // Built units for this project (with active sale info)
     prisma.builtUnit.findMany({
       where: { projectId: id, deletedAt: null },
       orderBy: { unitNumber: "asc" },
-      include: { phase: { select: { name: true } } },
+      include: {
+        phase: { select: { name: true } },
+        assetSales: {
+          where: { status: "ACTIVE" },
+          select: {
+            id: true, saleNumber: true, salePrice: true, profit: true,
+            saleDate: true, paymentStatus: true,
+            customer: { select: { name: true } },
+          },
+          take: 1,
+        },
+      },
     }),
 
-    // Land parcels for this project
+    // Land parcels for this project (with child count)
     prisma.landParcel.findMany({
       where: { projectId: id, deletedAt: null },
       orderBy: { number: "asc" },
-      include: { parentParcel: { select: { number: true } } },
+      include: {
+        parentParcel: { select: { number: true } },
+        _count: { select: { children: true } },
+      },
     }),
 
     // Stock movements at this project's locations
@@ -207,6 +221,30 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     }),
   ]);
 
+  // Fetch active sales for this project's land parcels + built units (for sale info columns)
+  const parcelIds = landParcels.map((p) => p.id);
+  const [landSales] = await Promise.all([
+    parcelIds.length > 0
+      ? prisma.assetSale.findMany({
+          where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+          select: {
+            id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
+            landParcelId: true, paymentStatus: true,
+            customer: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+  const saleByParcel = new Map(
+    landSales.map((s) => [s.landParcelId!, {
+      salePrice: toNum(s.salePrice),
+      saleProfit: toNum(s.profit),
+      saleNumber: s.saleNumber,
+      saleDate: s.saleDate.toISOString(),
+      customerName: s.customer.name,
+    }]),
+  );
+
   // Map POs to rows
   const poRows: PurchaseOrderRow[] = purchaseOrders.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
@@ -260,48 +298,74 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
   }));
 
-  // Map built units
-  const unitRows: BuiltUnitRow[] = builtUnits.map((u) => ({
-    id: u.id,
-    projectId: u.projectId,
-    projectName: project.name,
-    phaseId: u.phaseId,
-    phaseName: u.phase?.name ?? null,
-    unitType: u.unitType as BuiltUnitType,
-    unitNumber: u.unitNumber,
-    floor: u.floor,
-    wing: u.wing,
-    area: toNum(u.area),
-    areaUnit: u.areaUnit as AreaUnit,
-    status: u.status as BuiltUnitStatus,
-    productionCost: toNum(u.productionCost),
-    askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
-    currentValuation: toNum(u.currentValuation),
-    nrvWriteDown: toNum(u.nrvWriteDown),
-    saleId: u.saleId,
-  }));
+  // Map built units (with sale info from the active sale relation)
+  const unitRows: BuiltUnitRow[] = builtUnits.map((u) => {
+    const sale = u.assetSales[0];
+    return {
+      id: u.id,
+      projectId: u.projectId,
+      projectName: project.name,
+      phaseId: u.phaseId,
+      phaseName: u.phase?.name ?? null,
+      unitType: u.unitType as BuiltUnitType,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      wing: u.wing,
+      area: toNum(u.area),
+      areaUnit: u.areaUnit as AreaUnit,
+      // RERA fields
+      carpetArea: u.carpetArea ? toNum(u.carpetArea) : null,
+      superBuiltUpArea: u.superBuiltUpArea ? toNum(u.superBuiltUpArea) : null,
+      balconyArea: u.balconyArea ? toNum(u.balconyArea) : null,
+      clearHeight: u.clearHeight ? toNum(u.clearHeight) : null,
+      hasLoadingDock: u.hasLoadingDock,
+      status: u.status as BuiltUnitStatus,
+      originType: u.originType as "CREATED" | "PURCHASED",
+      acquisitionCost: toNum(u.acquisitionCost),
+      purchaseDate: u.purchaseDate ? u.purchaseDate.toISOString() : null,
+      landParcelId: u.landParcelId,
+      productionCost: toNum(u.productionCost),
+      askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
+      currentValuation: toNum(u.currentValuation),
+      nrvWriteDown: toNum(u.nrvWriteDown),
+      saleId: u.saleId,
+      salePrice: sale ? toNum(sale.salePrice) : null,
+      saleProfit: sale ? toNum(sale.profit) : null,
+      saleNumber: sale?.saleNumber ?? null,
+      saleDate: sale ? sale.saleDate.toISOString() : null,
+      customerName: sale?.customer.name ?? null,
+    };
+  });
 
-  // Map land parcels
-  const parcelRows: LandParcelRow[] = landParcels.map((p) => ({
-    id: p.id,
-    landPurchaseId: p.landPurchaseId,
-    parentParcelId: p.parentParcelId,
-    parentParcelNumber: p.parentParcel?.number ?? null,
-    number: p.number,
-    area: toNum(p.area),
-    areaUnit: p.areaUnit as AreaUnit,
-    status: p.status as LandParcelStatus,
-    acquisitionCost: toNum(p.acquisitionCost),
-    askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
-    currentValuation: toNum(p.currentValuation),
-    isInfrastructure: p.isInfrastructure,
-    marketValue: p.marketValue ? toNum(p.marketValue) : null,
-    weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
-    projectId: p.projectId,
-    projectName: project.name,
-    geometry: p.geometry,
-    childCount: 0,
-  }));
+  // Map land parcels (with sale info + child count)
+  const parcelRows: LandParcelRow[] = landParcels.map((p) => {
+    const sale = saleByParcel.get(p.id);
+    return {
+      id: p.id,
+      landPurchaseId: p.landPurchaseId,
+      parentParcelId: p.parentParcelId,
+      parentParcelNumber: p.parentParcel?.number ?? null,
+      number: p.number,
+      area: toNum(p.area),
+      areaUnit: p.areaUnit as AreaUnit,
+      status: p.status as LandParcelStatus,
+      acquisitionCost: toNum(p.acquisitionCost),
+      askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
+      currentValuation: toNum(p.currentValuation),
+      isInfrastructure: p.isInfrastructure,
+      marketValue: p.marketValue ? toNum(p.marketValue) : null,
+      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
+      projectId: p.projectId,
+      projectName: project.name,
+      geometry: p.geometry,
+      childCount: p._count.children,
+      salePrice: sale?.salePrice ?? null,
+      saleProfit: sale?.saleProfit ?? null,
+      saleNumber: sale?.saleNumber ?? null,
+      saleDate: sale?.saleDate ?? null,
+      customerName: sale?.customerName ?? null,
+    };
+  });
 
   // Map stock movements
   const movementRows: StockMovementRow[] = stockMovements.map((m) => ({
@@ -450,7 +514,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
   // Stats
   const availableUnits = unitRows.filter((u) => u.status === "AVAILABLE").length;
-  const soldUnits = unitRows.filter((u) => u.status === "SOLD").length;
+  const soldUnits = unitRows.filter((u) => u.saleId != null).length;
   const openPOCount = poRows.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
 
   const hubData: ProjectHubData = {

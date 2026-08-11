@@ -15,7 +15,7 @@ export default function DepartmentConsumptionPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading consumption report…" variant="list" />}>
         <ReportContent searchParams={searchParams} />
       </Suspense>

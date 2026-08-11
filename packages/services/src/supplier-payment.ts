@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { autoSyncEntryToTally } from "./auto-sync";
 
 /**
  * Supplier Payment Service — recording money paid out to suppliers.
@@ -30,6 +31,7 @@ export async function createSupplierPayment(input: {
   supplierId: string;
   companyId: string;
   purchaseOrderId?: string;
+  invoiceId?: string;
   amount: number | Decimal;
   tdsAmount?: number | Decimal;
   tdsSection?: string;
@@ -46,10 +48,10 @@ export async function createSupplierPayment(input: {
   if (tdsAmount.gt(amount)) throw new ServiceError("TDS amount cannot exceed payment amount");
   const netPaidAmount = amount.minus(tdsAmount);
 
-  return prisma.$transaction(async (tx) => {
+  const payment = await prisma.$transaction(async (tx) => {
     // 1. Validate supplier exists and isn't deleted
     const supplier = await tx.supplier.findFirst({
-      where: { id: input.supplierId, deletedAt: null },
+      where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
@@ -65,6 +67,18 @@ export async function createSupplierPayment(input: {
       }
     }
 
+    // 2b. Validate invoice exists and belongs to the supplier if invoiceId is provided
+    if (input.invoiceId) {
+      const invoice = await tx.supplierInvoice.findUnique({ where: { id: input.invoiceId } });
+      if (!invoice) throw new ServiceError("Supplier invoice not found", 404);
+      if (invoice.supplierId !== input.supplierId) {
+        throw new ServiceError("Supplier invoice does not belong to this supplier");
+      }
+      if (invoice.companyId !== input.companyId) {
+        throw new ServiceError("Supplier invoice does not belong to this company");
+      }
+    }
+
     // 3. Generate payment number
     const paymentNumber = await generatePaymentNumber(tx);
 
@@ -74,6 +88,7 @@ export async function createSupplierPayment(input: {
         paymentNumber,
         supplierId: input.supplierId,
         purchaseOrderId: input.purchaseOrderId ?? null,
+        invoiceId: input.invoiceId ?? null,
         companyId: input.companyId,
         amount,
         tdsAmount,
@@ -85,7 +100,7 @@ export async function createSupplierPayment(input: {
         notes: input.notes,
         createdById: input.userId,
       },
-      include: { supplier: true, purchaseOrder: true },
+      include: { supplier: true, purchaseOrder: true, invoice: true },
     });
 
     // 5. Update Supplier.balanceOwed (decrement by amount, floor at 0)
@@ -112,6 +127,14 @@ export async function createSupplierPayment(input: {
       lines,
     });
 
+    // 6b. If linked to an invoice, mark it as PAID.
+    if (input.invoiceId) {
+      await tx.supplierInvoice.update({
+        where: { id: input.invoiceId },
+        data: { status: "PAID" },
+      });
+    }
+
     // 7. Log action
     await logAction(tx, {
       userId: input.userId,
@@ -123,6 +146,19 @@ export async function createSupplierPayment(input: {
 
     return payment;
   });
+
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: payment.id, sourceType: "SUPPLIER_PAYMENT" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(input.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return payment;
 }
 
 export async function getSupplierPayments(opts: {
@@ -139,6 +175,7 @@ export async function getSupplierPayments(opts: {
     include: {
       supplier: { select: { id: true, name: true, gstin: true } },
       purchaseOrder: { select: { id: true, poNumber: true, total: true } },
+      invoice: { select: { id: true, invoiceNumber: true, totalAmount: true } },
       createdBy: { select: { id: true, name: true } },
     },
     orderBy: { paymentDate: "desc" },
@@ -151,9 +188,9 @@ export async function getSupplierOutstanding(companyId: string, supplierId?: str
   // procurement/receipt flow (incremented when goods are received on credit).
   const suppliers = await prisma.supplier.findMany({
     where: {
+      companyId,
       deletedAt: null,
       ...(supplierId ? { id: supplierId } : {}),
-      purchaseOrders: { some: { companyId } },
     },
     select: {
       id: true,

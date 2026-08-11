@@ -3,7 +3,11 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postPayroll, postPayrollPayment } from "./gl-posting";
 import { runDprVarianceAnalysis } from "./standard-consumption";
+import { ServiceError } from "./errors";
 import { reallocateProjectCosts } from "./valuation";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { postMaterialIssue } from "./gl-posting";
 
 /**
  * HR & Field Workforce Service — crews, attendance, payroll, and Daily
@@ -143,13 +147,15 @@ export function computeGrossPay(
   return new Decimal(basic).plus(overtime).plus(allowance).plus(bonus);
 }
 
-/** totalDeductions = deductions + pf + tax. */
+/** totalDeductions = deductions + pf + esi + professionTax + tax. */
 export function computeTotalDeductions(
   deductions: Decimal | number | string,
   pf: Decimal | number | string = 0,
+  esi: Decimal | number | string = 0,
+  professionTax: Decimal | number | string = 0,
   tax: Decimal | number | string = 0,
 ): Decimal {
-  return new Decimal(deductions).plus(pf).plus(tax);
+  return new Decimal(deductions).plus(pf).plus(esi).plus(professionTax).plus(tax);
 }
 
 /** netPay = grossPay − totalDeductions. */
@@ -160,10 +166,12 @@ export function computeNetPay(
   allowance: Decimal | number | string = 0,
   bonus: Decimal | number | string = 0,
   pf: Decimal | number | string = 0,
+  esi: Decimal | number | string = 0,
+  professionTax: Decimal | number | string = 0,
   tax: Decimal | number | string = 0,
 ): Decimal {
   const gross = computeGrossPay(basic, overtime, allowance, bonus);
-  const totalDed = computeTotalDeductions(deductions, pf, tax);
+  const totalDed = computeTotalDeductions(deductions, pf, esi, professionTax, tax);
   return gross.minus(totalDed);
 }
 
@@ -652,18 +660,27 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       where: { companyId: input.companyId, deletedAt: null, active: true },
     });
 
+    // Batch fetch all attendances for all employees in one query (avoids N+1)
+    const allAttendances = await tx.workerAttendance.findMany({
+      where: {
+        employeeId: { in: employees.map((e) => e.id) },
+        date: { gte: startDate, lte: endDate },
+      },
+    });
+    const attendancesByEmployee = new Map<string, typeof allAttendances>();
+    for (const att of allAttendances) {
+      const arr = attendancesByEmployee.get(att.employeeId) ?? [];
+      arr.push(att);
+      attendancesByEmployee.set(att.employeeId, arr);
+    }
+
     let totalGross = new Decimal(0);
     let totalOvertime = new Decimal(0);
     let totalDeductions = new Decimal(0);
     let totalNet = new Decimal(0);
 
     for (const emp of employees) {
-      const attendances = await tx.workerAttendance.findMany({
-        where: {
-          employeeId: emp.id,
-          date: { gte: startDate, lte: endDate },
-        },
-      });
+      const attendances = attendancesByEmployee.get(emp.id) ?? [];
       // Skip workers with no attendance in the period (nothing to pay).
       if (attendances.length === 0) continue;
 
@@ -676,11 +693,14 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       const allowance = new Decimal(0);
       const bonus = new Decimal(0);
       const pf = new Decimal(0);
+      const employerPf = new Decimal(0);
+      const esi = new Decimal(0);
+      const professionTax = new Decimal(0);
       const tax = new Decimal(0);
       const deductions = new Decimal(0);
       const grossPay = computeGrossPay(basicAmount, overtimeAmount, allowance, bonus);
-      const lineTotalDeductions = computeTotalDeductions(deductions, pf, tax);
-      const netPay = computeNetPay(basicAmount, overtimeAmount, deductions, allowance, bonus, pf, tax);
+      const lineTotalDeductions = computeTotalDeductions(deductions, pf, esi, professionTax, tax);
+      const netPay = computeNetPay(basicAmount, overtimeAmount, deductions, allowance, bonus, pf, esi, professionTax, tax);
 
       await tx.payrollLine.create({
         data: {
@@ -692,6 +712,9 @@ export async function generatePayroll(input: GeneratePayrollInput) {
           allowance,
           bonus,
           pf,
+          employerPf,
+          esi,
+          professionTax,
           tax,
           deductions,
           grossPay,
@@ -700,9 +723,9 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         },
       });
 
-      totalGross = totalGross.plus(basicAmount);
+      totalGross = totalGross.plus(grossPay);
       totalOvertime = totalOvertime.plus(overtimeAmount);
-      totalDeductions = totalDeductions.plus(deductions);
+      totalDeductions = totalDeductions.plus(lineTotalDeductions);
       totalNet = totalNet.plus(netPay);
     }
 
@@ -728,6 +751,9 @@ export interface AdjustPayrollLineInput {
   allowance?: Decimal | number | string;
   bonus?: Decimal | number | string;
   pf?: Decimal | number | string;
+  employerPf?: Decimal | number | string;
+  esi?: Decimal | number | string;
+  professionTax?: Decimal | number | string;
   tax?: Decimal | number | string;
   deductions?: Decimal | number | string;
   userId?: string;
@@ -753,17 +779,23 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
       input.bonus !== undefined ? new Decimal(input.bonus) : line.bonus;
     const pf =
       input.pf !== undefined ? new Decimal(input.pf) : line.pf;
+    const employerPf =
+      input.employerPf !== undefined ? new Decimal(input.employerPf) : line.employerPf;
+    const esi =
+      input.esi !== undefined ? new Decimal(input.esi) : line.esi;
+    const professionTax =
+      input.professionTax !== undefined ? new Decimal(input.professionTax) : line.professionTax;
     const tax =
       input.tax !== undefined ? new Decimal(input.tax) : line.tax;
     const deductions =
       input.deductions !== undefined ? new Decimal(input.deductions) : line.deductions;
     const grossPay = computeGrossPay(line.basicAmount, overtimeAmount, allowance, bonus);
-    const totalDeductions = computeTotalDeductions(deductions, pf, tax);
-    const netPay = computeNetPay(line.basicAmount, overtimeAmount, deductions, allowance, bonus, pf, tax);
+    const totalDeductions = computeTotalDeductions(deductions, pf, esi, professionTax, tax);
+    const netPay = computeNetPay(line.basicAmount, overtimeAmount, deductions, allowance, bonus, pf, esi, professionTax, tax);
 
     const updated = await tx.payrollLine.update({
       where: { id: input.payrollLineId },
-      data: { overtimeAmount, allowance, bonus, pf, tax, deductions, grossPay, totalDeductions, netPay },
+      data: { overtimeAmount, allowance, bonus, pf, employerPf, esi, professionTax, tax, deductions, grossPay, totalDeductions, netPay },
     });
 
     // Recompute period totals from all lines.
@@ -772,9 +804,9 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
     });
     const totals = allLines.reduce(
       (acc, l) => ({
-        gross: acc.gross.plus(l.basicAmount),
+        gross: acc.gross.plus(l.grossPay),
         ot: acc.ot.plus(l.overtimeAmount),
-        ded: acc.ded.plus(l.deductions),
+        ded: acc.ded.plus(l.totalDeductions),
         net: acc.net.plus(l.netPay),
       }),
       { gross: new Decimal(0), ot: new Decimal(0), ded: new Decimal(0), net: new Decimal(0) },
@@ -794,8 +826,8 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
       action: "PAYROLL_LINE_ADJUST",
       entityType: "PayrollLine",
       entityId: input.payrollLineId,
-      before: { overtimeAmount: line.overtimeAmount.toString(), allowance: line.allowance.toString(), bonus: line.bonus.toString(), pf: line.pf.toString(), tax: line.tax.toString(), deductions: line.deductions.toString(), netPay: line.netPay.toString() },
-      after: { overtimeAmount: overtimeAmount.toString(), allowance: allowance.toString(), bonus: bonus.toString(), pf: pf.toString(), tax: tax.toString(), deductions: deductions.toString(), netPay: netPay.toString() },
+      before: { overtimeAmount: line.overtimeAmount.toString(), allowance: line.allowance.toString(), bonus: line.bonus.toString(), pf: line.pf.toString(), employerPf: line.employerPf.toString(), esi: line.esi.toString(), professionTax: line.professionTax.toString(), tax: line.tax.toString(), deductions: line.deductions.toString(), netPay: line.netPay.toString() },
+      after: { overtimeAmount: overtimeAmount.toString(), allowance: allowance.toString(), bonus: bonus.toString(), pf: pf.toString(), employerPf: employerPf.toString(), esi: esi.toString(), professionTax: professionTax.toString(), tax: tax.toString(), deductions: deductions.toString(), netPay: netPay.toString() },
     });
     return updated;
   });
@@ -816,11 +848,27 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
       throw new HrError("Cannot process a payroll with no lines — generate first", 400);
     }
 
-    // Post the GL entry inside the same transaction.
+    // Sum line-level PF, employer PF, ESI, profession tax, and TDS
+    // (PayrollPeriod has no aggregate fields for these — computed from lines).
+    const totalPF = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.pf)), new Decimal(0));
+    const totalEmployerPf = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.employerPf)), new Decimal(0));
+    const totalESI = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.esi)), new Decimal(0));
+    const totalProfessionTax = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.professionTax)), new Decimal(0));
+    const totalTDS = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.tax)), new Decimal(0));
+
+    // Post the GL entry inside the same transaction — GROSS expense + employer PF
+    // with PF, ESI, profession tax, and TDS as separate statutory payables.
     await postPayroll(tx, {
       companyId: period.companyId,
       payrollPeriodId: period.id,
+      totalGross: period.totalGross,
       totalNet: period.totalNet,
+      totalPF,
+      totalEmployerPf,
+      totalESI,
+      totalProfessionTax,
+      totalTDS,
+      totalDeductions: period.totalDeductions,
       postedById: input.userId,
     });
 
@@ -880,6 +928,9 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
   return prisma.$transaction(async (tx) => {
     const period = await tx.payrollPeriod.findUnique({ where: { id: input.payrollPeriodId } });
     if (!period) throw new HrError("Payroll period not found", 404);
+    if (period.status === "PAID") {
+      throw new HrError("Payroll has already been paid — cannot pay twice", 409);
+    }
     if (period.status !== "PROCESSED") {
       throw new HrError(`Payroll must be PROCESSED before paying (current: ${period.status})`, 409);
     }
@@ -939,6 +990,7 @@ export interface SubmitDprInput {
   blockers?: string;
   tomorrowPlan?: string;
   notes?: string;
+  photoUrls?: string[];
   materialLines?: DprMaterialLineInput[];
   laborLines?: DprLaborLineInput[];
   userId?: string;
@@ -969,6 +1021,7 @@ export async function submitDPR(input: SubmitDprInput) {
       blockers: input.blockers ?? null,
       tomorrowPlan: input.tomorrowPlan ?? null,
       notes: input.notes ?? null,
+      photoUrls: input.photoUrls ?? [],
       submittedById: input.submittedById ?? null,
     };
 
@@ -1041,6 +1094,19 @@ export async function submitDPR(input: SubmitDprInput) {
     }
   }
 
+  void emitNotificationEvent({
+    eventType: NotificationEventType.DPR_SUBMITTED,
+    companyId: input.companyId,
+    entityType: "DailyProgressReport",
+    entityId: dpr.id,
+    variables: {
+      projectId: input.projectId,
+      date: dpr.date.toISOString().slice(0, 10),
+      progressPct: dpr.progressPct.toString(),
+    },
+    timestamp: new Date(),
+  });
+
   return dpr;
 }
 
@@ -1049,7 +1115,9 @@ export async function submitDPR(input: SubmitDprInput) {
 export const createDpr = submitDPR;
 export const updateDpr = submitDPR;
 
-/** Delete a DPR and its child lines, with audit logging. */
+/** Delete a DPR and its child lines, with audit logging.
+ *  Blocks deletion if the DPR has an auto-generated scrap generation linked
+ *  to it — the scrap record (and its stock movements) must be resolved first. */
 export async function deleteDpr(dprId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({
@@ -1057,6 +1125,23 @@ export async function deleteDpr(dprId: string, userId?: string) {
       include: { _count: { select: { materialLines: true, laborLines: true } } },
     });
     if (!dpr) throw new HrError("DPR not found", 404);
+
+    // Prevent deleting a DPR that has auto-generated scrap — the scrap
+    // record and its stock movements have financial implications and
+    // must be handled explicitly (reverse the movements, delete the
+    // scrap generation) before the DPR can be removed.
+    if (dpr.autoScrapGenerationId) {
+      const scrap = await tx.scrapGeneration.findUnique({
+        where: { id: dpr.autoScrapGenerationId },
+        select: { scrapNumber: true },
+      });
+      throw new HrError(
+        `Cannot delete this DPR because it has an auto-generated scrap record (${scrap?.scrapNumber ?? dpr.autoScrapGenerationId}). ` +
+          "Reverse or delete the scrap generation first, then retry.",
+        409,
+      );
+    }
+
     await tx.dPRMaterialLine.deleteMany({ where: { dprId } });
     await tx.dPRLaborLine.deleteMany({ where: { dprId } });
     await tx.dailyProgressReport.delete({ where: { id: dprId } });
@@ -1078,7 +1163,7 @@ export async function deleteDpr(dprId: string, userId?: string) {
 //   (any pre-final stage can be REJECTED)
 
 export async function subAdminApproveDpr(dprId: string, approverId: string, notes?: string) {
-  return prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUBMITTED") {
@@ -1100,12 +1185,23 @@ export async function subAdminApproveDpr(dprId: string, approverId: string, note
       entityId: dprId,
       after: { approvalStatus: "SUB_ADMIN_APPROVED", notes: notes ?? null },
     });
-    return updated;
+    return { updated, companyId: dpr.companyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.DPR_SUB_ADMIN_APPROVED,
+    companyId,
+    entityType: "DailyProgressReport",
+    entityId: dprId,
+    variables: { dprId, notes: notes ?? "" },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 export async function adminApproveDpr(dprId: string, approverId: string, notes?: string) {
-  return prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUB_ADMIN_APPROVED") {
@@ -1127,12 +1223,23 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
       entityId: dprId,
       after: { approvalStatus: "APPROVED", notes: notes ?? null },
     });
-    return updated;
+    return { updated, companyId: dpr.companyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.DPR_APPROVED,
+    companyId,
+    entityType: "DailyProgressReport",
+    entityId: dprId,
+    variables: { dprId, notes: notes ?? "" },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 export async function rejectDpr(dprId: string, rejecterId: string, reason: string) {
-  return prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await prisma.$transaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus === "APPROVED") {
@@ -1154,8 +1261,19 @@ export async function rejectDpr(dprId: string, rejecterId: string, reason: strin
       before: { approvalStatus: previousStatus },
       after: { approvalStatus: "REJECTED", reason },
     });
-    return updated;
+    return { updated, companyId: dpr.companyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.DPR_REJECTED,
+    companyId,
+    entityType: "DailyProgressReport",
+    entityId: dprId,
+    variables: { dprId, reason },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 /** Reset a rejected DPR back to SUBMITTED so it can be re-approved. */
@@ -1352,4 +1470,317 @@ function monthRange(year: number, month: number): { startDate: Date; endDate: Da
   const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
   const endDate = new Date(year, month, 0, 23, 59, 59, 999); // day 0 of next month = last day of this month
   return { startDate, endDate };
+}
+
+// ───────────────────────────────────────────────────────────
+//  DPR-Finance Bridge: reconciliation between DPR costs and GL postings
+// ───────────────────────────────────────────────────────────
+
+export interface DprFinanceReconciliation {
+  dprId: string;
+  projectName: string;
+  date: string;
+  workSummary: string;
+  approvalStatus: string;
+  // DPR-recorded costs (from material + labor lines)
+  dprMaterialCost: number;
+  dprLaborCost: number;
+  dprTotalCost: number;
+  // GL-posted costs linked to this DPR (via sourceDprId)
+  postedMaterialIssueCost: number;
+  postedProjectCost: number;
+  postedTotal: number;
+  // Reconciliation
+  variance: number; // dprTotalCost - postedTotal
+  isPosted: boolean; // costPostedDate is set
+  costPostedDate: string | null;
+}
+
+/**
+ * Get DPR-Finance reconciliation for a company within a date range.
+ * Shows each DPR's recorded costs vs the costs actually posted to the GL
+ * (via MaterialIssue.sourceDprId and ProjectCost.sourceDprId).
+ */
+export async function dprFinanceReconciliation(
+  companyId: string,
+  startDate?: Date,
+  endDate?: Date,
+): Promise<DprFinanceReconciliation[]> {
+  const where: Prisma.DailyProgressReportWhereInput = { companyId };
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = startDate;
+    if (endDate) where.date.lte = endDate;
+  }
+
+  const dprs = await prisma.dailyProgressReport.findMany({
+    where,
+    include: {
+      project: { select: { name: true } },
+      materialLines: { select: { qty: true, unitCost: true } },
+      laborLines: { select: { hoursWorked: true, employee: { select: { dailyRate: true } } } },
+      materialIssues: { select: { totalAmount: true } },
+      projectCosts: { select: { amount: true } },
+    },
+    orderBy: { date: "desc" },
+    take: 100,
+  });
+
+  return dprs.map((d) => {
+    const dprMaterialCost = d.materialLines.reduce(
+      (sum, l) => sum + new Decimal(l.qty).mul(new Decimal(l.unitCost)).toNumber(),
+      0,
+    );
+    const dprLaborCost = d.laborLines.reduce((sum, l) => {
+      const rate = l.employee?.dailyRate ?? new Decimal(0);
+      return sum + new Decimal(l.hoursWorked).mul(new Decimal(rate)).div(new Decimal(8)).toNumber();
+    }, 0);
+    const dprTotalCost = dprMaterialCost + dprLaborCost;
+
+    const postedMaterialIssueCost = d.materialIssues.reduce(
+      (sum, mi) => sum + new Decimal(mi.totalAmount).toNumber(),
+      0,
+    );
+    const postedProjectCost = d.projectCosts.reduce(
+      (sum, pc) => sum + new Decimal(pc.amount).toNumber(),
+      0,
+    );
+    const postedTotal = postedMaterialIssueCost + postedProjectCost;
+
+    return {
+      dprId: d.id,
+      projectName: d.project.name,
+      date: d.date.toISOString().slice(0, 10),
+      workSummary: d.workSummary,
+      approvalStatus: d.approvalStatus,
+      dprMaterialCost,
+      dprLaborCost,
+      dprTotalCost,
+      postedMaterialIssueCost,
+      postedProjectCost,
+      postedTotal,
+      variance: dprTotalCost - postedTotal,
+      isPosted: d.costPostedDate != null,
+      costPostedDate: d.costPostedDate?.toISOString() ?? null,
+    };
+  });
+}
+
+/**
+ * Mark a DPR's costs as posted to the GL. Called after the finance team
+ * has created the corresponding MaterialIssue / ProjectCost records linked
+ * to this DPR via sourceDprId.
+ */
+export async function markDprCostPosted(dprId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
+    if (!dpr) throw new ServiceError("DPR not found", 404);
+
+    // Calculate total posted amount from linked records
+    const [materialIssues, projectCosts] = await Promise.all([
+      tx.materialIssue.findMany({ where: { sourceDprId: dprId }, select: { totalAmount: true } }),
+      tx.projectCost.findMany({ where: { sourceDprId: dprId }, select: { amount: true } }),
+    ]);
+    const postedAmount =
+      materialIssues.reduce((s, mi) => s.plus(new Decimal(mi.totalAmount)), new Decimal(0))
+        .plus(projectCosts.reduce((s, pc) => s.plus(new Decimal(pc.amount)), new Decimal(0)));
+
+    const updated = await tx.dailyProgressReport.update({
+      where: { id: dprId },
+      data: {
+        costPostedDate: new Date(),
+        costPostedAmount: postedAmount,
+      },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "DPR_COST_POSTED",
+        entityType: "DailyProgressReport",
+        entityId: dprId,
+        after: { costPostedDate: updated.costPostedDate?.toISOString(), costPostedAmount: postedAmount.toString() },
+      });
+    }
+
+    return updated;
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+//  DPR-Finance Bridge — auto-generate MaterialIssue from approved DPR
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Generate a MaterialIssue from an approved DPR's material lines.
+ *
+ * Key principle: DPR remains informational; MaterialIssue remains the
+ * financial source of truth. This bridge auto-creates a MaterialIssue
+ * ONLY when:
+ * 1. The DPR is APPROVED (admin approval)
+ * 2. No matching MaterialIssue with sourceDprId already exists (dedup guard)
+ * 3. Stock is available at the project's site location
+ *
+ * The generated MaterialIssue is linked back to the DPR via sourceDprId
+ * and posts to the GL (WIP debit, Inventory credit).
+ */
+export async function generateMaterialIssueFromDPR(
+  dprId: string,
+  userId?: string,
+): Promise<{ materialIssueId: string; linesCreated: number; skipped: number } | null> {
+  return withStockTransaction(async (tx) => {
+    // 1. Load the DPR with material lines
+    const dpr = await tx.dailyProgressReport.findUnique({
+      where: { id: dprId },
+      include: {
+        materialLines: true,
+        project: { select: { id: true, name: true, companyId: true } },
+      },
+    });
+    if (!dpr) throw new HrError("DPR not found", 404);
+
+    // 2. Only generate from APPROVED DPRs
+    if (dpr.approvalStatus !== "APPROVED") {
+      throw new HrError(`DPR must be APPROVED to generate MaterialIssue (current: ${dpr.approvalStatus})`, 409);
+    }
+
+    // 3. Deduplication guard — check if a MaterialIssue already exists for this DPR
+    const existingIssue = await tx.materialIssue.findFirst({
+      where: { sourceDprId: dprId },
+      select: { id: true },
+    });
+    if (existingIssue) {
+      return null; // Already generated — dedup guard
+    }
+
+    // 4. No material lines → nothing to generate
+    if (dpr.materialLines.length === 0) {
+      return null;
+    }
+
+    // 5. Find the project's site location for stock issuance
+    const siteLocation = await tx.stockLocation.findFirst({
+      where: {
+        projectId: dpr.projectId,
+        type: "PROJECT_SITE",
+        deletedAt: null,
+      },
+      select: { id: true, name: true },
+    });
+    if (!siteLocation) {
+      throw new HrError(
+        `No PROJECT_SITE stock location found for project "${dpr.project.name}". ` +
+        `Create a project site location before generating issues from DPRs.`,
+        404,
+      );
+    }
+
+    // 6. Check stock availability for each material line
+    let linesCreated = 0;
+    let skipped = 0;
+    const issueLines: { materialId: string; qty: Decimal; unitCost: Decimal }[] = [];
+
+    for (const dprLine of dpr.materialLines) {
+      const stockItem = await tx.stockLocationItem.findUnique({
+        where: {
+          locationId_materialId: {
+            locationId: siteLocation.id,
+            materialId: dprLine.materialId,
+          },
+        },
+      });
+
+      if (!stockItem || new Decimal(stockItem.qty).lt(new Decimal(dprLine.qty))) {
+        // Skip this line — not enough stock
+        skipped++;
+        continue;
+      }
+
+      issueLines.push({
+        materialId: dprLine.materialId,
+        qty: new Decimal(dprLine.qty),
+        unitCost: new Decimal(dprLine.unitCost),
+      });
+      linesCreated++;
+    }
+
+    if (issueLines.length === 0) {
+      return { materialIssueId: "", linesCreated: 0, skipped };
+    }
+
+    // 7. Create the MaterialIssue
+    const totalCost = issueLines.reduce(
+      (sum, l) => sum.plus(l.qty.times(l.unitCost)),
+      new Decimal(0),
+    );
+
+    const materialIssue = await tx.materialIssue.create({
+      data: {
+        projectId: dpr.projectId,
+        fromLocationId: siteLocation.id,
+        sourceDprId: dprId,
+        issuedById: userId ?? null,
+        issueDate: new Date(),
+        totalCost,
+        totalAmount: totalCost,
+        notes: `Auto-generated from DPR ${dpr.date.toISOString().slice(0, 10)}`,
+      },
+    });
+
+    // 8. Create issue lines + record stock movements
+    for (const line of issueLines) {
+      await tx.materialIssueLine.create({
+        data: {
+          materialIssueId: materialIssue.id,
+          materialId: line.materialId,
+          qty: line.qty,
+          unitCost: line.unitCost,
+        },
+      });
+
+      // Record stock movement (decrement stock)
+      await recordMovement(tx, {
+        fromLocationId: siteLocation.id,
+        materialId: line.materialId,
+        movementType: "ISSUE_TO_PROJECT",
+        qty: line.qty,
+        unitCost: line.unitCost,
+        refType: "MaterialIssue",
+        refId: materialIssue.id,
+        userId,
+      });
+    }
+
+    // 9. Post to GL (WIP debit, Inventory credit)
+    await postMaterialIssue(tx, {
+      companyId: dpr.project.companyId,
+      materialIssueId: materialIssue.id,
+      projectId: dpr.projectId,
+      postedById: userId,
+      totalCost,
+    });
+
+    // 10. Mark the DPR's costPostedDate
+    await tx.dailyProgressReport.update({
+      where: { id: dprId },
+      data: { costPostedDate: new Date() },
+    });
+
+    // 11. Audit log
+    await logAction(tx, {
+      userId,
+      companyId: dpr.project.companyId,
+      action: "DPR_GENERATE_MATERIAL_ISSUE",
+      entityType: "DailyProgressReport",
+      entityId: dprId,
+      after: {
+        materialIssueId: materialIssue.id,
+        linesCreated,
+        skipped,
+        totalCost: totalCost.toString(),
+      },
+    });
+
+    return { materialIssueId: materialIssue.id, linesCreated, skipped };
+  });
 }

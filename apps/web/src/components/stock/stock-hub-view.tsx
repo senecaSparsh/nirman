@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { type ComponentProps } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTabParam } from "@/lib/use-tab-param";
 import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OnHandTab } from "./on-hand-tab";
@@ -78,28 +79,20 @@ export function StockHubView({
 }) {
   const searchParams = useSearchParams();
 
-  // Initial tab from ?tab= (validated against the known set), defaulting to
-  // "on-hand". ?issue=1 forces the Issues tab and auto-opens the issue form
-  // (used by the GRN "Issue to Project" toast action).
-  const requested = searchParams.get("tab") as TabValue | null;
+  /**
+   * The tab lives in `?tab=`, so a tab is a shareable location. v1 only
+   * *read* the param — clicking a tab left the URL on the previous one,
+   * so refresh and the back button both lied about where you were.
+   *
+   * `?issue=1` still forces the Issues tab and auto-opens the issue form
+   * (used by the GRN "Issue to Project" toast action).
+   */
+  const [urlTab, setUrlTab] = useTabParam(TABS, "on-hand");
   const autoIssue = searchParams.get("issue") === "1";
-  const initialTab: TabValue = autoIssue
-    ? "issues"
-    : requested && TABS.includes(requested)
-      ? requested
-      : "on-hand";
-
-  const [tab, setTab] = useState<TabValue>(initialTab);
-
-  // Keep the tab in sync if the query changes (e.g. navigating from elsewhere)
-  useEffect(() => {
-    const r = searchParams.get("tab") as TabValue | null;
-    const ai = searchParams.get("issue") === "1";
-    setTab(ai ? "issues" : r && TABS.includes(r) ? r : "on-hand");
-  }, [searchParams]);
+  const tab: TabValue = autoIssue ? "issues" : urlTab;
 
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+    <Tabs value={tab} onValueChange={(v) => setUrlTab(v as TabValue)}>
       <TabsList>
         <TabsTrigger value="on-hand">
           <span className="flex items-center gap-1.5">

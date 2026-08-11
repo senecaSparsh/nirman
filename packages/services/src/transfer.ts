@@ -140,6 +140,8 @@ interface CreateTransferInput {
   toLocationId: string;
   notes?: string;
   userId?: string;
+  /** IDs of companies in the current company's group — both locations must belong to one of these. */
+  companyGroupIds: string[];
   /** Inter-company STO charges (only applied when from/to are different companies). */
   freight?: Decimal | number | string;
   handlingFee?: Decimal | number | string;
@@ -155,11 +157,12 @@ export async function createTransfer(input: CreateTransferInput) {
     throw new ServiceError("Cannot transfer to the same location");
   }
   if (input.lines.length === 0) throw new ServiceError("Transfer must have at least one line");
+  if (input.companyGroupIds.length === 0) throw new ServiceError("companyGroupIds is required");
 
-  // Validate locations
+  // Validate locations — both must belong to companies within the user's company group
   const [fromLoc, toLoc] = await Promise.all([
-    prisma.stockLocation.findFirst({ where: { id: input.fromLocationId, deletedAt: null } }),
-    prisma.stockLocation.findFirst({ where: { id: input.toLocationId, deletedAt: null } }),
+    prisma.stockLocation.findFirst({ where: { id: input.fromLocationId, companyId: { in: input.companyGroupIds }, deletedAt: null } }),
+    prisma.stockLocation.findFirst({ where: { id: input.toLocationId, companyId: { in: input.companyGroupIds }, deletedAt: null } }),
   ]);
   if (!fromLoc) throw new ServiceError("Source location not found or deleted", 404);
   if (!toLoc) throw new ServiceError("Destination location not found or deleted", 404);
@@ -208,6 +211,7 @@ export async function createTransfer(input: CreateTransferInput) {
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: fromLoc.companyId,
         action: "STOCK_TRANSFER_CREATE",
         entityType: "StockTransfer",
         entityId: transfer.id,
@@ -221,14 +225,14 @@ export async function createTransfer(input: CreateTransferInput) {
     }
 
     return transfer;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function completeTransfer(transferId: string, userId?: string) {
   return withStockTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({
       where: { id: transferId },
-      include: { lines: true },
+      include: { lines: true, fromLocation: { select: { companyId: true } } },
     });
     if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
@@ -255,23 +259,27 @@ export async function completeTransfer(transferId: string, userId?: string) {
 
     if (transfer.isInterCompany) {
       // Inter-company STO: destination receives at Transfer Price (not source MAC).
-      // 1. Capture each line's source MAC.
-      // 2. Compute TP via computeTransferPrice (freight + handling + markup).
-      // 3. TRANSFER_OUT at source MAC, TRANSFER_IN at unitTransferPrice.
+      // 1. Execute TRANSFER_OUT (captures the actual source MAC from the result).
+      // 2. Compute TP via computeTransferPrice using the captured MACs.
+      // 3. TRANSFER_IN at unitTransferPrice.
       // 4. Persist unitCostAtSource / unitTransferPrice / lineTransferTotal on lines.
       const lineInputs: TransferPriceLineInput[] = [];
-      const sourceMacs: Decimal[] = [];
+      const outResults: { lineId: string; materialId: string; sourceMac: Decimal }[] = [];
+
+      // First pass: execute TRANSFER_OUT and capture the actual MAC from each result.
       for (const line of transfer.lines) {
-        const item = await tx.stockLocationItem.findUnique({
-          where: {
-            locationId_materialId: {
-              locationId: transfer.fromLocationId,
-              materialId: line.materialId,
-            },
-          },
+        const outResult = await recordMovement(tx, {
+          materialId: line.materialId,
+          movementType: "TRANSFER_OUT",
+          fromLocationId: transfer.fromLocationId,
+          qty: new Decimal(line.qty),
+          unitCost: undefined, // uses source MAC
+          refType: "STOCK_TRANSFER",
+          refId: transferId,
+          userId,
         });
-        const sourceMac = new Decimal(item?.movingAvgCost ?? 0);
-        sourceMacs.push(sourceMac);
+        const sourceMac = outResult.newMAC;
+        outResults.push({ lineId: line.id, materialId: line.materialId, sourceMac });
         lineInputs.push({ qty: new Decimal(line.qty), unitCostAtSource: sourceMac });
       }
 
@@ -282,20 +290,10 @@ export async function completeTransfer(transferId: string, userId?: string) {
         transfer.markupPct,
       );
 
-      // Execute the stock movements: OUT at source MAC, IN at transfer price.
+      // Second pass: TRANSFER_IN at transfer price + persist costs on lines.
       for (let i = 0; i < transfer.lines.length; i++) {
         const line = transfer.lines[i]!;
         const tpLine = tp.lines[i]!;
-        await recordMovement(tx, {
-          materialId: line.materialId,
-          movementType: "TRANSFER_OUT",
-          fromLocationId: transfer.fromLocationId,
-          qty: new Decimal(line.qty),
-          unitCost: undefined, // uses source MAC
-          refType: "STOCK_TRANSFER",
-          refId: transferId,
-          userId,
-        });
         await recordMovement(tx, {
           materialId: line.materialId,
           movementType: "TRANSFER_IN",
@@ -331,6 +329,7 @@ export async function completeTransfer(transferId: string, userId?: string) {
       if (userId) {
         await logAction(tx, {
           userId,
+          companyId: transfer.fromLocation.companyId,
           action: "STOCK_TRANSFER_COMPLETE",
           entityType: "StockTransfer",
           entityId: transferId,
@@ -369,6 +368,7 @@ export async function completeTransfer(transferId: string, userId?: string) {
     if (userId) {
       await logAction(tx, {
         userId,
+        companyId: transfer.fromLocation.companyId,
         action: "STOCK_TRANSFER_COMPLETE",
         entityType: "StockTransfer",
         entityId: transferId,
@@ -383,7 +383,7 @@ export async function completeTransfer(transferId: string, userId?: string) {
 
 export async function cancelTransfer(transferId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
-    const transfer = await tx.stockTransfer.findUnique({ where: { id: transferId } });
+    const transfer = await tx.stockTransfer.findUnique({ where: { id: transferId }, include: { fromLocation: { select: { companyId: true } } } });
     if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
       throw new ServiceError(`Cannot cancel transfer in status ${transfer.status}`);
@@ -396,6 +396,7 @@ export async function cancelTransfer(transferId: string, userId?: string) {
     if (userId) {
       await logAction(tx, {
         userId,
+        companyId: transfer.fromLocation.companyId,
         action: "STOCK_TRANSFER_CANCEL",
         entityType: "StockTransfer",
         entityId: transferId,
@@ -405,5 +406,5 @@ export async function cancelTransfer(transferId: string, userId?: string) {
     }
 
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }

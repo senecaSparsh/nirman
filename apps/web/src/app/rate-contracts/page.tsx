@@ -9,7 +9,7 @@ import { RateContractsView } from "@/components/rate-contracts/rate-contracts-vi
 
 export default function RateContractsPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading rate contracts…" variant="default" />}>
         <RcContent />
       </Suspense>

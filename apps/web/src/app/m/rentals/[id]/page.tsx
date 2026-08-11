@@ -40,8 +40,6 @@ async function MobileRentalDetailContent({
   const tenancy = await prisma.tenancy.findFirst({
     where: { id, companyId: company.id },
     include: {
-      landParcel: { select: { id: true, number: true } },
-      builtUnit: { select: { id: true, unitNumber: true } },
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
       payments: { orderBy: { paymentDate: "desc" }, take: 10 },
@@ -58,7 +56,9 @@ async function MobileRentalDetailContent({
   }
 
   const totalReceived = tenancy.payments.reduce((s, p) => s + toNum(p.amount), 0);
-  const assetLabel = tenancy.landParcel?.number ?? tenancy.builtUnit?.unitNumber ?? "—";
+  const assetLabel = tenancy.assetType === "LAND"
+    ? `Parcel ${tenancy.landParcelId?.slice(0, 8) ?? "—"}`
+    : `Unit ${tenancy.builtUnitId?.slice(0, 8) ?? "—"}`;
 
   return (
     <div>

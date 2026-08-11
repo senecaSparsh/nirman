@@ -6,6 +6,8 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailHeader, MobileEmptyState } from "@/components/mobile/mobile-primitives";
 import { MobileNewSaleForm } from "@/components/mobile/mobile-new-sale-form";
+import { MobileCreateCustomerButton } from "@/components/mobile/mobile-customer-form";
+import { UserPlus } from "lucide-react";
 
 /**
  * /m/sales/new — mobile new-sale form. Replaces every desktop `/sales`
@@ -92,23 +94,37 @@ async function MobileNewSaleContent({
     areaUnit: p.areaUnit,
   }));
 
+  const customerItems = customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }));
+  const existingPhones = customers.map((c) => c.phone).filter(Boolean) as string[];
+
   return (
     <div>
       <MobileDetailHeader title="New Sale" backHref="/m/book" />
       {customers.length === 0 ? (
         <MobileEmptyState
-          title="Add a customer first"
-          hint="Sales require a customer. Create one from the desktop Customers page."
+          icon={UserPlus}
+          title="No customers yet"
+          hint="Sales require a customer. Create one now to get started."
+          action={
+            <MobileCreateCustomerButton
+              existingPhones={existingPhones}
+              onCreated={() => {
+                // Refresh the page to load the new customer into the list
+                window.location.reload();
+              }}
+            />
+          }
         />
       ) : (
         <MobileNewSaleForm
           units={unitItems}
           parcels={parcelItems}
-          customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
+          customers={customerItems}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
           initialBuiltUnitId={builtUnitId}
           initialLandParcelId={landParcelId}
           initialCustomerId={customerId}
+          existingPhones={existingPhones}
         />
       )}
     </div>

@@ -33,7 +33,9 @@ export interface UomMaterial {
  */
 export function toBaseUnit(qty: number, material: UomMaterial): number {
   if (!material.secondaryUnit || !material.uomConversionFactor) return qty;
-  return qty * Number(material.uomConversionFactor);
+  const factor = Number(material.uomConversionFactor);
+  if (factor === 0) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
+  return qty * factor;
 }
 
 /**
@@ -47,7 +49,9 @@ export function toBaseUnit(qty: number, material: UomMaterial): number {
  */
 export function toSecondaryUnit(qty: number, material: UomMaterial): number {
   if (!material.secondaryUnit || !material.uomConversionFactor) return qty;
-  return qty / Number(material.uomConversionFactor);
+  const factor = Number(material.uomConversionFactor);
+  if (factor === 0) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
+  return qty / factor;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { PrintButton } from "@/components/print/print-button";
+import { ShareButton } from "@/components/share-button";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -44,7 +45,7 @@ export default async function SaleInvoicePage({
     ? await prisma.landParcel.findUnique({ where: { id: sale.landParcelId }, select: { number: true, area: true, areaUnit: true } })
     : null;
   const builtUnit = sale.builtUnitId
-    ? await prisma.builtUnit.findUnique({ where: { id: sale.builtUnitId }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true } })
+    ? await prisma.builtUnit.findUnique({ where: { id: sale.builtUnitId }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true, carpetArea: true, superBuiltUpArea: true } })
     : null;
 
   const salePrice = toNum(sale.salePrice);
@@ -59,7 +60,7 @@ export default async function SaleInvoicePage({
     : `Unit ${builtUnit?.unitNumber ?? "—"}`;
 
   return (
-    <div className="mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-black pb-3">
         <div>
@@ -116,6 +117,18 @@ export default async function SaleInvoicePage({
               <span>{formatNumber(toNum(builtUnit.area))} {builtUnit.areaUnit ?? "Sq.Ft"}</span>
             </div>
           )}
+          {builtUnit?.superBuiltUpArea && (
+            <div>
+              <span className="text-gray-600">Super Built-Up Area: </span>
+              <span>{formatNumber(toNum(builtUnit.superBuiltUpArea))} {builtUnit.areaUnit ?? "Sq.Ft"}</span>
+            </div>
+          )}
+          {builtUnit?.carpetArea && (
+            <div>
+              <span className="text-gray-600">Carpet Area (RERA): </span>
+              <span>{formatNumber(toNum(builtUnit.carpetArea))} {builtUnit.areaUnit ?? "Sq.Ft"}</span>
+            </div>
+          )}
           {landParcel?.area && (
             <div>
               <span className="text-gray-600">Area: </span>
@@ -137,11 +150,14 @@ export default async function SaleInvoicePage({
           <tr className="border-b border-gray-200">
             <td className="border-r border-gray-300 px-2 py-1.5">
               Sale Price — {assetLabel}
-              {builtUnit?.area && (
-                <span className="ml-1 text-xs text-gray-500">
-                  ({formatNumber(toNum(builtUnit.area))} {builtUnit.areaUnit ?? "Sq.Ft"} @ {formatCurrency(salePrice / (toNum(builtUnit.area) || 1))}/Sq.Ft)
-                </span>
-              )}
+              {builtUnit?.area && (() => {
+                const pricingArea = builtUnit.superBuiltUpArea ? toNum(builtUnit.superBuiltUpArea) : toNum(builtUnit.area);
+                return (
+                  <span className="ml-1 text-xs text-gray-500">
+                    ({formatNumber(pricingArea)} {builtUnit.areaUnit ?? "Sq.Ft"} @ {formatCurrency(salePrice / (pricingArea || 1))}/Sq.Ft)
+                  </span>
+                );
+              })()}
             </td>
             <td className="px-2 py-1.5 text-right tnum">{formatCurrency(salePrice)}</td>
           </tr>
@@ -236,9 +252,15 @@ export default async function SaleInvoicePage({
         </div>
       </div>
 
-      {/* Print button (hidden when printing) */}
-      <div className="mt-8 text-center print:hidden">
+      {/* Print + Share buttons (hidden when printing) */}
+      <div className="mt-8 flex items-center justify-center gap-3 print:hidden">
         <PrintButton label="Print Invoice" />
+        <ShareButton
+          title={`Invoice ${sale.saleNumber}`}
+          text={`Invoice ${sale.saleNumber} from ${company.name} — Total: ${formatCurrency(total)}`}
+          whatsappNumber={sale.customer.phone ?? undefined}
+          label="Share"
+        />
       </div>
     </div>
   );

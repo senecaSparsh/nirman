@@ -1,13 +1,21 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { getProjectMaterialReconciliation } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
+  // Verify the project belongs to the user's company
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!project) return json({ error: "Project not found" }, { status: 404 });
   const tolerance = searchParams.get("tolerance");
   const recon = await getProjectMaterialReconciliation(
     projectId,

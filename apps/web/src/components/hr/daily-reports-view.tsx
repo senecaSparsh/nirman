@@ -37,7 +37,7 @@ export function DailyReportsView({
   permissions?: { canSubmit?: boolean };
 }) {
   const router = useRouter();
-  const canSubmit = permissions?.canSubmit ?? true;
+  const canSubmit = permissions?.canSubmit ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DailyReportRow | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);

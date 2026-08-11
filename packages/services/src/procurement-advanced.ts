@@ -125,7 +125,7 @@ export async function computeVendorRating(supplierId: string): Promise<VendorRat
  */
 export async function getVendorRankings(companyId: string): Promise<VendorRating[]> {
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null },
+    where: { companyId, deletedAt: null },
     select: { id: true, name: true },
   });
 
@@ -175,7 +175,7 @@ export interface CreateRateContractInput {
 export async function createRateContract(input: CreateRateContractInput) {
   return prisma.$transaction(async (tx) => {
     const supplier = await tx.supplier.findFirst({
-      where: { id: input.supplierId, deletedAt: null },
+      where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
@@ -312,8 +312,8 @@ export interface ApprovalRouting {
  * Determine who must approve a PO based on its total value.
  * Uses company-configurable thresholds with sensible defaults.
  *
- * - < managerThreshold (default ₹50,000) → MANAGER can approve
- * - < adminThreshold (default ₹500,000) → ADMIN required
+ * - < managerThreshold (default 50,000) → MANAGER can approve
+ * - < adminThreshold (default 500,000) → ADMIN required
  * - >= adminThreshold → OWNER required
  */
 export async function getApprovalRouting(
@@ -322,7 +322,7 @@ export async function getApprovalRouting(
 ): Promise<ApprovalRouting> {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
-    select: { poApprovalThresholdManager: true, poApprovalThresholdAdmin: true },
+    select: { poApprovalThresholdManager: true, poApprovalThresholdAdmin: true, currency: true },
   });
 
   const managerThreshold = company?.poApprovalThresholdManager
@@ -333,25 +333,27 @@ export async function getApprovalRouting(
     : new Decimal(500000);
 
   const amount = new Decimal(totalAmount);
+  const ccy = company?.currency ?? "INR";
+  const sym = ccy === "INR" ? "₹" : ccy === "USD" ? "$" : ccy === "EUR" ? "€" : ccy === "GBP" ? "£" : `${ccy} `;
 
   if (amount.lt(managerThreshold)) {
     return {
       requiredRole: "MANAGER",
       threshold: managerThreshold,
-      reason: `PO value ₹${amount.toFixed(0)} is below the manager threshold (₹${managerThreshold.toFixed(0)})`,
+      reason: `PO value ${sym}${amount.toFixed(0)} is below the manager threshold (${sym}${managerThreshold.toFixed(0)})`,
     };
   }
   if (amount.lt(adminThreshold)) {
     return {
       requiredRole: "ADMIN",
       threshold: adminThreshold,
-      reason: `PO value ₹${amount.toFixed(0)} requires admin approval (threshold ₹${adminThreshold.toFixed(0)})`,
+      reason: `PO value ${sym}${amount.toFixed(0)} requires admin approval (threshold ${sym}${adminThreshold.toFixed(0)})`,
     };
   }
   return {
     requiredRole: "OWNER",
     threshold: adminThreshold,
-    reason: `PO value ₹${amount.toFixed(0)} requires owner approval (threshold ₹${adminThreshold.toFixed(0)})`,
+    reason: `PO value ${sym}${amount.toFixed(0)} requires owner approval (threshold ${sym}${adminThreshold.toFixed(0)})`,
   };
 }
 

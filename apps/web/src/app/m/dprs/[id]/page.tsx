@@ -129,8 +129,8 @@ async function MobileDprDetailContent({
               <MobileRow
                 key={ll.id}
                 icon={Users}
-                title={ll.workType ?? "Labor"}
-                subtitle={`${ll.count} workers · ${ll.hours}h`}
+                title={ll.taskDescription || "Labor"}
+                subtitle={`${formatNumber(Number(ll.hoursWorked), 1)}h`}
               />
             ))}
           </div>

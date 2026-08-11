@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Download, Zap, Loader2, Printer, FileText, RefreshCw } from "lucide-react";
+import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Zap, Loader2, Printer, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
-import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
-import { downloadCSV, downloadExcel } from "@/lib/export";
+import { StatusPill } from "@/components/page";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { downloadExcel } from "@/lib/export";
 import { ComparativeQuotePanel } from "./comparative-quote-panel";
 import type { RequisitionRow, RequisitionStatus } from "@/lib/types";
 
@@ -118,8 +118,8 @@ export function RequisitionsView({
   locations: LocationOption[];
   permissions?: { canCreate?: boolean; canApprove?: boolean };
 }) {
-  const canCreate = permissions?.canCreate ?? true;
-  const canApprove = permissions?.canApprove ?? true;
+  const canCreate = permissions?.canCreate ?? false;
+  const canApprove = permissions?.canApprove ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [convertTarget, setConvertTarget] = useState<RequisitionRow | null>(null);
   const [deleting, setDeleting] = useState<RequisitionRow | null>(null);
@@ -143,9 +143,6 @@ export function RequisitionsView({
   }, [searchParams, requisitions]);
 
   const filtered = statusFilter ? requisitions.filter((r) => r.status === statusFilter) : requisitions;
-  const draftCount = requisitions.filter((r) => r.status === "DRAFT").length;
-  const submittedCount = requisitions.filter((r) => r.status === "SUBMITTED").length;
-  const approvedCount = requisitions.filter((r) => r.status === "APPROVED").length;
 
   const rejectedItems = filtered.filter((r) => r.status === "REJECTED");
   const convertedItems = filtered.filter((r) => r.status === "CONVERTED");
@@ -217,71 +214,45 @@ export function RequisitionsView({
     }
   }
 
+  // Extract the List/Board toggle + status filter so it can be reused in both
+  // list and board views without TypeScript narrowing issues.
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+      <button
+        onClick={() => setView("list")}
+        className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        List
+      </button>
+      <button
+        onClick={() => setView("board")}
+        className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        Board
+      </button>
+    </div>
+  );
+  const statusSelect = (
+    <div className="relative shrink-0" style={{ width: 110 }}>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        style={{ width: 110 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All statuses</option>
+        <option value="DRAFT">Draft</option>
+        <option value="SUBMITTED">Submitted</option>
+        <option value="APPROVED">Approved</option>
+        <option value="REJECTED">Rejected</option>
+        <option value="CONVERTED">Converted</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+
   return (
     <div className="space-y-5">
-      <MetricGrid cols={4}>
-        <Metric label="Total Indents" value={requisitions.length} icon={<ClipboardList />} />
-        <Metric label="Drafts" value={draftCount} tone="muted" />
-        <Metric label="Pending" value={submittedCount} tone="warning" />
-        <Metric label="Approved" value={approvedCount} tone="success" />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-            <button
-              onClick={() => setView("list")}
-              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setView("board")}
-              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Board
-            </button>
-          </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="CONVERTED">Converted</option>
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => downloadCSV(`requisitions-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
-            { key: "reqNumber", label: "Req Number" },
-            { key: "projectName", label: "Project" },
-            { key: "phaseName", label: "Phase" },
-            { key: "status", label: "Status" },
-            { key: "totalQty", label: "Total Qty" },
-            { key: "requestDate", label: "Request Date", format: (v) => v ? formatDate(String(v)) : "" },
-            { key: "neededByDate", label: "Needed By", format: (v) => v ? formatDate(String(v)) : "" },
-          ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => downloadExcel("purchase-trends")} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export Excel
-          </Button>
-          {canCreate && requisitions.length > 0 && (
-            <>
-              <Button variant="outline" onClick={() => setAutoOpen(true)} disabled={projects.length === 0}>
-                <Zap className="h-4 w-4" /> Auto-generate
-              </Button>
-              <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
-                <Plus className="h-4 w-4" /> New Indent
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
       {filtered.length === 0 ? (
         <EmptyState
           icon={<ClipboardList className="h-5 w-5" />}
@@ -314,10 +285,68 @@ export function RequisitionsView({
                 totalFormat={(_key, sum) => formatNumber(sum, 3)}
                 hideable
                 pageSize={50}
+                exportFileName="requisitions"
+                onAddRow={canCreate && projects.length > 0 ? () => setFormOpen(true) : undefined}
+                addRowLabel="New Indent"
+                toolbarLeading={
+                  <div className="flex w-fit shrink-0 items-center gap-2">
+                    {viewToggle}
+                    {statusSelect}
+                  </div>
+                }
+                toolbarTrailing={
+                  <>
+                    {/* Excel export (icon-only) */}
+                    <div className="group relative">
+                      <button
+                        onClick={() => downloadExcel("purchase-trends")}
+                        disabled={filtered.length === 0}
+                        className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        <FileSpreadsheet className="size-3.5" />
+                      </button>
+                      <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+                        Export Excel
+                      </span>
+                    </div>
+                    {/* Auto-generate (icon-only) */}
+                    {canCreate && (
+                      <div className="group relative">
+                        <button
+                          onClick={() => setAutoOpen(true)}
+                          disabled={projects.length === 0}
+                          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <Zap className="size-3.5" />
+                        </button>
+                        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+                          Auto-generate
+                        </span>
+                      </div>
+                    )}
+                  </>
+                }
               />
             </div>
           ) : (
           <>
+          {/* Board view toolbar */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {viewToggle}
+              {statusSelect}
+            </div>
+            <div className="flex gap-2">
+              {canCreate && (
+                <Button variant="outline" size="icon" title="Auto-generate from low stock" onClick={() => setAutoOpen(true)} disabled={projects.length === 0}>
+                  <Zap className="h-4 w-4" />
+                </Button>
+              )}
+              <Button onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
+                <Plus className="h-4 w-4" /> New Indent
+              </Button>
+            </div>
+          </div>
           {/* ── Pipeline (kanban by status) ───────────────────────────
               Indents flow Draft → Submitted → Approved → Converted.
               Rejected drop out to a compact section below. Each card

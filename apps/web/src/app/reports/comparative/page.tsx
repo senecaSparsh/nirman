@@ -11,10 +11,10 @@ import { ComparativeReportView } from "@/components/reports/comparative-report-v
 import { NoAccess } from "@/components/no-access";
 export default function ComparativeReportPage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Comparative Analysis"
-        description="Planned vs actual progress, workforce productivity, and labour costs per project."
+        description="Planned vs actual progress, workforce productivity, and labor costs per project."
       />
       <Suspense fallback={<PageLoading label="Loading comparative analysis…" variant="list" />}>
         <ComparativeContent />

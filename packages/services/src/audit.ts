@@ -46,6 +46,7 @@ async function resolveUserId(tx: Prisma.TransactionClient, userId?: string): Pro
  */
 export async function logAction(tx: Prisma.TransactionClient, entry: {
   userId?: string;
+  companyId?: string;
   action: string; // e.g. "PURCHASE_ORDER_CREATE", "LAND_PARTITION", "ASSET_SALE"
   entityType: string;
   entityId: string;
@@ -56,6 +57,7 @@ export async function logAction(tx: Prisma.TransactionClient, entry: {
   await tx.auditLog.create({
     data: {
       userId: safeUserId,
+      companyId: entry.companyId ?? null,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,

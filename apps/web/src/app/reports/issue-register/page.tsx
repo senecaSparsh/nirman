@@ -21,7 +21,7 @@ export default function IssueRegisterPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading issue register…" variant="list" />}>
         <IssueRegisterContent searchParams={searchParams} />
       </Suspense>

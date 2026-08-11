@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Phone, Mail, HardHat, UserPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, HardHat, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/empty-state";
 import { StatusPill } from "@/components/page";
 import { formatCurrency } from "@/lib/utils";
 
@@ -55,6 +55,116 @@ export function PeopleTab({
 }) {
   const [subTab, setSubTab] = useState<"subcontractors" | "employees">("subcontractors");
 
+  const subColumns: Column<Subcontractor>[] = [
+    {
+      key: "name",
+      label: "Subcontractor",
+      sortable: true,
+      render: (s) => <span className="font-medium text-foreground">{s.name}</span>,
+    },
+    {
+      key: "trade",
+      label: "Trade",
+      sortable: true,
+      sortValue: (s) => s.trade ?? "",
+      render: (s) =>
+        s.trade ? (
+          <span className="text-muted-foreground">{s.trade}</span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        ),
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      sortable: true,
+      render: (s) =>
+        s.phone ? <span className="text-muted-foreground">{s.phone}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "email",
+      label: "Email",
+      sortable: true,
+      render: (s) =>
+        s.email ? <span className="truncate text-muted-foreground">{s.email}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "gstin",
+      label: "GSTIN",
+      sortable: true,
+      render: (s) =>
+        s.gstin ? <span className="font-mono text-caption text-muted-foreground">{s.gstin}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (s) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon-sm" onClick={() => onEditSub(s)} aria-label="Edit subcontractor">
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => onDeleteSub(s.id)} aria-label="Delete subcontractor">
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const empColumns: Column<Employee>[] = [
+    {
+      key: "name",
+      label: "Employee",
+      sortable: true,
+      render: (e) => <span className="font-medium text-foreground">{e.name}</span>,
+    },
+    {
+      key: "trade",
+      label: "Trade",
+      sortable: true,
+      sortValue: (e) => e.trade ?? "",
+      render: (e) =>
+        e.trade ? <span className="text-muted-foreground">{e.trade}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      sortable: true,
+      render: (e) =>
+        e.phone ? <span className="text-muted-foreground">{e.phone}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "dailyRate",
+      label: "Daily Rate",
+      align: "right",
+      sortable: true,
+      render: (e) => <span className="tnum font-medium">{formatCurrency(e.dailyRate)}</span>,
+    },
+    {
+      key: "active",
+      label: "Status",
+      sortable: true,
+      sortValue: (e) => (e.active ? "1" : "0"),
+      render: (e) => <StatusPill status={e.active ? "ACTIVE" : "INACTIVE"} />,
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (e) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e2) => e2.stopPropagation()}>
+          <Button variant="ghost" size="icon-sm" onClick={() => onEditEmp(e)} aria-label="Edit employee">
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => onDeleteEmp(e.id)} aria-label="Delete employee">
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Segmented toggle */}
@@ -83,93 +193,62 @@ export function PeopleTab({
 
       {subTab === "subcontractors" ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-body text-muted-foreground">
-              {subcontractors.length} subcontractor{subcontractors.length !== 1 ? "s" : ""}
-            </span>
-            <Button onClick={onNewSub}>
-              <Plus className="h-4 w-4" /> New Subcontractor
-            </Button>
-          </div>
-
           {subcontractors.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
-              No subcontractors yet
-            </div>
+            <EmptyState
+              icon={<HardHat className="h-5 w-5" />}
+              title="No subcontractors yet"
+              description="Add subcontractors to issue work orders and track RA bills with TDS and retention."
+              action={
+                <Button onClick={onNewSub} size="sm">
+                  <Plus className="size-4" /> New Subcontractor
+                </Button>
+              }
+            />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {subcontractors.map((s) => (
-                <Card key={s.id} className="group relative">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-semibold truncate">{s.name}</div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={() => onEditSub(s)} aria-label="Edit subcontractor">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDeleteSub(s.id)} aria-label="Delete subcontractor">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    {s.trade ? <Badge variant="outline">{s.trade}</Badge> : <span className="text-sm text-muted-foreground">No trade set</span>}
-                    {s.phone && (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Phone className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{s.phone}</span>
-                      </div>
-                    )}
-                    {s.email && (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{s.email}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                data={subcontractors}
+                columns={subColumns}
+                storageKey="settings-subcontractors"
+                searchable
+                searchPlaceholder="Search name, trade, phone, GSTIN…"
+                hideable
+                initialSort={{ key: "name", direction: "asc" }}
+                onAddRow={onNewSub}
+                addRowLabel="New Subcontractor"
+              />
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-body text-muted-foreground">
-              {employees.length} employee{employees.length !== 1 ? "s" : ""}
-            </span>
-            <Button onClick={onNewEmp}>
-              <Plus className="h-4 w-4" /> New Employee
-            </Button>
-          </div>
           {employees.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
-              No employees yet — add people to assign to playground task nodes
-            </div>
+            <EmptyState
+              icon={<UserPlus className="h-5 w-5" />}
+              title="No employees yet"
+              description="Add people to assign to playground task nodes and track workforce costs."
+              action={
+                <Button onClick={onNewEmp} size="sm">
+                  <Plus className="size-4" /> New Employee
+                </Button>
+              }
+            />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {employees.map((e) => (
-                <Card key={e.id} className="group relative">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-semibold truncate">{e.name}</div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={() => onEditEmp(e)} aria-label="Edit employee">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDeleteEmp(e.id)} aria-label="Delete employee">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    {e.trade && <div className="text-sm text-muted-foreground">{e.trade}</div>}
-                    <div className="flex items-center justify-between pt-1 border-t">
-                      <span className="tnum font-bold">{formatCurrency(e.dailyRate)}</span>
-                      <span className="text-sm text-muted-foreground">/day</span>
-                    </div>
-                    <StatusPill status={e.active ? "ACTIVE" : "INACTIVE"} />
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                data={employees}
+                columns={empColumns}
+                storageKey="settings-employees"
+                searchable
+                searchPlaceholder="Search name, trade, phone…"
+                hideable
+                initialSort={{ key: "name", direction: "asc" }}
+                showTotals
+                sumColumns={["dailyRate"]}
+                totalFormat={(_key, sum) => formatCurrency(sum)}
+                onAddRow={onNewEmp}
+                addRowLabel="New Employee"
+              />
             </div>
           )}
         </div>

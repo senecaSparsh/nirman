@@ -43,8 +43,8 @@ export interface ProjectProfitCenter {
  * Costs = land + materials + labour + equipment + subcontractor + overhead
  */
 export async function getProjectProfitCenter(projectId: string): Promise<ProjectProfitCenter> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
     select: { id: true, name: true, totalSellableArea: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
@@ -194,8 +194,8 @@ export interface CashFlowForecast {
  * Outflows: open PO commitments + pending RA bills + pending payroll
  */
 export async function getCashFlowForecast(projectId: string): Promise<CashFlowForecast> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
     select: { id: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
@@ -253,12 +253,15 @@ export async function getCashFlowForecast(projectId: string): Promise<CashFlowFo
   });
   const raBillsDue = new Decimal(pendingRaBills._sum?.netPayable ?? 0);
 
-  // Pending payroll: payroll periods in DRAFT status (not yet paid)
-  const pendingPayroll = await prisma.payrollPeriod.aggregate({
-    where: { status: "DRAFT" },
-    _sum: { totalNet: true },
+  // Pending payroll: payroll lines for employees assigned to this project, in DRAFT periods
+  const pendingPayroll = await prisma.payrollLine.aggregate({
+    where: {
+      employee: { activeProjectId: projectId },
+      payrollPeriod: { status: "DRAFT" },
+    },
+    _sum: { netPay: true },
   });
-  const payrollDue = new Decimal(pendingPayroll._sum?.totalNet ?? 0);
+  const payrollDue = new Decimal(pendingPayroll._sum?.netPay ?? 0);
 
   const totalOutflow = commitments.plus(raBillsDue).plus(payrollDue);
   const netCashFlow = totalInflow.minus(totalOutflow);
@@ -338,38 +341,56 @@ export async function getJobCosting(projectId: string) {
 // ── 4. Budget Variance ─────────────────────────────────────
 
 export interface BudgetVarianceItem {
-  boqItemId: string;
+  id: string;               // boqItemId or synthetic id for non-BOQ categories
   serialNo: string;
   description: string;
-  category: string;       // top-level BOQ section name
+  category: string;          // top-level BOQ section name or cost-type label
+  source: "BOQ" | "LAND" | "MATERIAL" | "PROJECT_COST";
   budgetedAmount: Decimal;
   actualAmount: Decimal;
   variance: Decimal;
   variancePct: Decimal;
-  status: "UNDER" | "ON_TRACK" | "OVER";
+  status: "UNDER" | "ON_TRACK" | "OVER" | "UNBUDGETED";
 }
 
 export interface BudgetVariance {
   projectId: string;
   items: BudgetVarianceItem[];
-  totalBudget: Decimal;
-  totalActual: Decimal;
+  totalBudget: Decimal;      // project.totalBudget (overall)
+  totalActual: Decimal;      // all actual costs
   totalVariance: Decimal;
   totalVariancePct: Decimal;
+  // Budget allocation: how the overall budget splits between BOQ + non-BOQ
+  boqBudget: Decimal;        // sum of BOQ estimatedAmount
+  nonBoqBudget: Decimal;     // totalBudget - boqBudget (the residual for land/material/overhead)
 }
 
 /**
- * Compare BOQ budget vs actual cost, line by line.
- * Actual = material issues + RA bill work done linked to that BOQ item.
+ * Full budget variance: compares project.totalBudget against ALL actual costs.
+ *
+ * The overall project budget covers everything — land, materials, labour, overhead,
+ * AND construction work (BOQ). The BOQ itself only budgets the construction portion.
+ * The residual (totalBudget − Σ BOQ estimates) is the implicit budget for non-BOQ costs.
+ *
+ * Cost categories:
+ * 1. BOQ line items — budget = estimatedAmount, actual = RA bill lines linked to that BOQ item
+ * 2. Land — budget = residual allocation, actual = land purchase totalCost
+ * 3. Material Issues — budget = residual allocation, actual = Σ (qty × unitCost) of material issue lines
+ * 4. Project Costs — budget = residual allocation, actual = Σ ProjectCost.amount
+ *
+ * The non-BOQ categories share the residual budget. If the residual is ≤ 0 (BOQ consumes
+ * the entire budget), they're flagged UNBUDGETED.
  */
 export async function getBudgetVariance(projectId: string): Promise<BudgetVariance> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { id: true },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true, totalBudget: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
 
-  // Get all BOQ line items with their budget
+  const totalBudget = new Decimal(project.totalBudget ?? 0);
+
+  // ── 1. BOQ line items: budget vs RA bills ──
   const boqItems = await prisma.boqItem.findMany({
     where: { projectId, type: "LINE_ITEM" },
     select: {
@@ -381,30 +402,38 @@ export async function getBudgetVariance(projectId: string): Promise<BudgetVarian
     },
   });
 
+  // Batch: single groupBy query instead of N+1 per-item aggregates
+  const boqItemIds = boqItems.map((b) => b.id);
+  const raBillLineSums = boqItemIds.length > 0
+    ? await prisma.raBillLine.groupBy({
+        by: ["boqItemId"],
+        where: { boqItemId: { in: boqItemIds } },
+        _sum: { totalAmount: true },
+      })
+    : [];
+  const actualByBoq = new Map<string, Decimal>();
+  for (const r of raBillLineSums) {
+    actualByBoq.set(r.boqItemId, new Decimal(r._sum?.totalAmount ?? 0));
+  }
+
   const items: BudgetVarianceItem[] = [];
-  let totalBudget = new Decimal(0);
-  let totalActual = new Decimal(0);
+  let boqBudget = new Decimal(0);
+  let boqActual = new Decimal(0);
 
   for (const item of boqItems) {
     const budget = new Decimal(item.estimatedAmount ?? 0);
-
-    // Actual cost: RA bill line items linked to this BOQ item
-    const raBillLines = await prisma.raBillLine.aggregate({
-      where: { boqItemId: item.id },
-      _sum: { totalAmount: true },
-    });
-
-    const actual = new Decimal(raBillLines._sum?.totalAmount ?? 0);
+    const actual = actualByBoq.get(item.id) ?? new Decimal(0);
     const variance = budget.minus(actual);
     const variancePct = budget.gt(0) ? variance.div(budget).times(100) : new Decimal(0);
     const status: "UNDER" | "ON_TRACK" | "OVER" =
       variancePct.lt(-5) ? "OVER" : variancePct.gt(5) ? "UNDER" : "ON_TRACK";
 
     items.push({
-      boqItemId: item.id,
+      id: item.id,
       serialNo: item.serialNo,
       description: item.description,
       category: item.parent?.description ?? "Uncategorized",
+      source: "BOQ",
       budgetedAmount: budget.toDecimalPlaces(2),
       actualAmount: actual.toDecimalPlaces(2),
       variance: variance.toDecimalPlaces(2),
@@ -412,10 +441,98 @@ export async function getBudgetVariance(projectId: string): Promise<BudgetVarian
       status,
     });
 
-    totalBudget = totalBudget.plus(budget);
-    totalActual = totalActual.plus(actual);
+    boqBudget = boqBudget.plus(budget);
+    boqActual = boqActual.plus(actual);
   }
 
+  // ── 2. Non-BOQ costs: land, material issues, project costs ──
+  // These share the residual budget (totalBudget − boqBudget).
+  // We split the residual equally across the non-BOQ categories that have actual costs.
+  const [landPurchases, materialLines, projectCosts] = await Promise.all([
+    prisma.landPurchase.findMany({
+      where: { projectId, deletedAt: null },
+      select: { totalCost: true },
+    }),
+    prisma.materialIssueLine.findMany({
+      where: { materialIssue: { projectId } },
+      select: { qty: true, unitCost: true },
+    }),
+    prisma.projectCost.findMany({
+      where: { projectId },
+      select: { amount: true, costType: true },
+    }),
+  ]);
+
+  const landActual = landPurchases.reduce(
+    (s, p) => s.plus(new Decimal(p.totalCost)), new Decimal(0),
+  );
+  const materialActual = materialLines.reduce(
+    (s, l) => s.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))), new Decimal(0),
+  );
+  const projectCostActual = projectCosts.reduce(
+    (s, c) => s.plus(new Decimal(c.amount)), new Decimal(0),
+  );
+
+  // Group project costs by type for finer granularity
+  const costsByType = new Map<string, Decimal>();
+  for (const c of projectCosts) {
+    const key = c.costType;
+    costsByType.set(key, (costsByType.get(key) ?? new Decimal(0)).plus(new Decimal(c.amount)));
+  }
+
+  const nonBoqActual = landActual.plus(materialActual).plus(projectCostActual);
+  const nonBoqBudget = Decimal.max(0, totalBudget.minus(boqBudget));
+
+  // Allocate the residual proportionally to each non-BOQ category's share of actual cost.
+  // If nonBoqActual is 0, split equally. If residual is 0, all are UNBUDGETED.
+  const nonBoqCategories: { source: "LAND" | "MATERIAL" | "PROJECT_COST"; description: string; actual: Decimal }[] = [];
+
+  if (landActual.gt(0)) {
+    nonBoqCategories.push({ source: "LAND", description: "Land Acquisition", actual: landActual });
+  }
+  if (materialActual.gt(0)) {
+    nonBoqCategories.push({ source: "MATERIAL", description: "Material Issues", actual: materialActual });
+  }
+  // Project costs broken down by type
+  for (const [costType, amount] of costsByType) {
+    if (amount.gt(0)) {
+      nonBoqCategories.push({
+        source: "PROJECT_COST",
+        description: `${costType.charAt(0) + costType.slice(1).toLowerCase()} Costs`,
+        actual: amount,
+      });
+    }
+  }
+
+  const nonBoqCount = nonBoqCategories.length;
+  for (const cat of nonBoqCategories) {
+    const budget = nonBoqActual.gt(0)
+      ? nonBoqBudget.times(cat.actual).div(nonBoqActual)
+      : nonBoqBudget.div(Math.max(nonBoqCount, 1));
+    const actual = cat.actual;
+    const variance = budget.minus(actual);
+    const variancePct = budget.gt(0) ? variance.div(budget).times(100) : new Decimal(0);
+    const status: BudgetVarianceItem["status"] =
+      budget.eq(0) ? "UNBUDGETED" :
+      variancePct.lt(-5) ? "OVER" :
+      variancePct.gt(5) ? "UNDER" : "ON_TRACK";
+
+    items.push({
+      id: `nonboq-${cat.source}-${cat.description}`,
+      serialNo: "—",
+      description: cat.description,
+      category: "Non-BOQ Costs",
+      source: cat.source,
+      budgetedAmount: budget.toDecimalPlaces(2),
+      actualAmount: actual.toDecimalPlaces(2),
+      variance: variance.toDecimalPlaces(2),
+      variancePct: variancePct.toDecimalPlaces(2),
+      status,
+    });
+  }
+
+  // ── 3. Totals ──
+  const totalActual = boqActual.plus(nonBoqActual);
   const totalVariance = totalBudget.minus(totalActual);
   const totalVariancePct = totalBudget.gt(0)
     ? totalVariance.div(totalBudget).times(100)
@@ -428,5 +545,7 @@ export async function getBudgetVariance(projectId: string): Promise<BudgetVarian
     totalActual: totalActual.toDecimalPlaces(2),
     totalVariance: totalVariance.toDecimalPlaces(2),
     totalVariancePct: totalVariancePct.toDecimalPlaces(2),
+    boqBudget: boqBudget.toDecimalPlaces(2),
+    nonBoqBudget: nonBoqBudget.toDecimalPlaces(2),
   };
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Home, Globe } from "lucide-react";
+import { Home, Globe, Hammer } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BuiltUnitsView } from "@/components/built-units/built-units-view";
 import { PortalListingsView } from "@/components/portal-listings/portal-listings-view";
+import { RenovationsView, type RenovationRow } from "@/components/renovations/renovations-view";
+import { useTabParam } from "@/lib/use-tab-param";
 import type { BuiltUnitRow, ProjectOption, PhaseOption } from "@/lib/types";
 
 type PortalListingRow = {
@@ -55,6 +56,11 @@ export function UnitsHub({
   portalProjects,
   portalPermissions,
   canViewPortals,
+  renovationRows,
+  renovationProjects,
+  renovationBuiltUnits,
+  renovationLandParcels,
+  renovationPermissions,
 }: {
   units: BuiltUnitRow[];
   projects: ProjectOption[];
@@ -66,8 +72,16 @@ export function UnitsHub({
   portalProjects: { id: string; name: string }[];
   portalPermissions: { canManage: boolean };
   canViewPortals: boolean;
+  renovationRows: RenovationRow[];
+  renovationProjects: { id: string; name: string }[];
+  renovationBuiltUnits: { id: string; unitNumber: string; unitType: string; projectId: string }[];
+  renovationLandParcels: { id: string; number: string }[];
+  renovationPermissions: { canManage: boolean };
 }) {
-  const [tab, setTab] = useState("units");
+  const [tab, setTab] = useTabParam(
+    canViewPortals ? (["units", "renovations", "portals"] as const) : (["units", "renovations"] as const),
+    "units",
+  );
 
   return (
     <Tabs value={tab} onValueChange={setTab}>
@@ -75,6 +89,11 @@ export function UnitsHub({
         <TabsTrigger value="units">
           <span className="flex items-center gap-1.5">
             <Home className="h-3.5 w-3.5" /> Built Units
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="renovations">
+          <span className="flex items-center gap-1.5">
+            <Hammer className="h-3.5 w-3.5" /> Renovations
           </span>
         </TabsTrigger>
         {canViewPortals && (
@@ -93,6 +112,16 @@ export function UnitsHub({
           phases={phases}
           customers={customers}
           permissions={unitPermissions}
+        />
+      </TabsContent>
+
+      <TabsContent value="renovations">
+        <RenovationsView
+          renovations={renovationRows}
+          projects={renovationProjects}
+          builtUnits={renovationBuiltUnits}
+          landParcels={renovationLandParcels}
+          permissions={renovationPermissions}
         />
       </TabsContent>
 

@@ -24,7 +24,7 @@ export type RequisitionListItem = {
   id: string;
   reqNumber: string;
   status: string;
-  projectName: string;
+  projectName: string | null;
   createdAt: string;
   lineCount: number;
 };
@@ -64,7 +64,7 @@ export function MobileRequisitionsList({
       result = result.filter(
         (r) =>
           r.reqNumber.toLowerCase().includes(q) ||
-          r.projectName.toLowerCase().includes(q),
+          r.projectName?.toLowerCase().includes(q),
       );
     }
     return result;
@@ -119,7 +119,7 @@ function FlatList({ items }: { items: RequisitionListItem[] }) {
             key={r.id}
             href={`/m/requisitions/${r.id}`}
             icon={ClipboardList}
-            title={r.projectName}
+            title={r.projectName ?? "N/A"}
             subtitle={`Req ${r.reqNumber} · ${formatDate(r.createdAt)}`}
             badge={<MobileStatusBadge status={r.status} />}
           />
@@ -152,7 +152,7 @@ function GroupedList({ items }: { items: RequisitionListItem[] }) {
               key={r.id}
               href={`/m/requisitions/${r.id}`}
               icon={ClipboardList}
-              title={r.projectName}
+              title={r.projectName ?? "N/A"}
               subtitle={`Req ${r.reqNumber} · ${formatDate(r.createdAt)}`}
               badge={<MobileStatusBadge status={r.status} />}
             />
@@ -169,7 +169,7 @@ function GroupedList({ items }: { items: RequisitionListItem[] }) {
                 key={r.id}
                 href={`/m/requisitions/${r.id}`}
                 icon={ClipboardList}
-                title={r.projectName}
+                title={r.projectName ?? "N/A"}
                 subtitle={`Req ${r.reqNumber}`}
                 badge={<MobileStatusBadge status={r.status} />}
               />
@@ -187,7 +187,7 @@ function GroupedList({ items }: { items: RequisitionListItem[] }) {
                 key={r.id}
                 href={`/m/requisitions/${r.id}`}
                 icon={ClipboardList}
-                title={r.projectName}
+                title={r.projectName ?? "N/A"}
                 subtitle={`Req ${r.reqNumber}`}
                 badge={<MobileStatusBadge status={r.status} />}
               />
@@ -205,7 +205,7 @@ function GroupedList({ items }: { items: RequisitionListItem[] }) {
                 key={r.id}
                 href={`/m/requisitions/${r.id}`}
                 icon={ClipboardList}
-                title={r.projectName}
+                title={r.projectName ?? "N/A"}
                 subtitle={`Req ${r.reqNumber}`}
                 badge={<MobileStatusBadge status={r.status} />}
               />
@@ -223,7 +223,7 @@ function GroupedList({ items }: { items: RequisitionListItem[] }) {
                 key={r.id}
                 href={`/m/requisitions/${r.id}`}
                 icon={ClipboardList}
-                title={r.projectName}
+                title={r.projectName ?? "N/A"}
                 subtitle={`Req ${r.reqNumber}`}
                 badge={<MobileStatusBadge status={r.status} />}
               />

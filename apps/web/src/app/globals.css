@@ -1,125 +1,242 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ═══════════════════════════════════════════════════════════════════
-   NIRMAN DESIGN LANGUAGE — "Warm Industrial Precision"
+   NIRMAN DESIGN LANGUAGE — v2 "Precision"
 
-   Three ideas drive every token below:
+   The previous system failed for three measurable reasons, all fixed
+   here:
 
-   1. WARM, NOT CLINICAL. Every neutral carries a trace of warmth
-      (hue ~60–80). The app should feel like drafting paper and
-      concrete, not a stainless-steel SaaS dashboard. Site people use
-      this in daylight; cold blue-greys wash out and feel alien.
+   1. THE TYPE WAS TOO SMALL TO BE TAKEN SERIOUSLY.
+      Body text was 12px on a 14px root. Labels were 9px. At that size
+      nothing has hierarchy — every element is "small grey text" — so
+      the interface reads as a cramped prototype no matter how good
+      the layout is. The root is now 16px (so Tailwind's rem spacing
+      is full-size and pages breathe) and the scale starts at 11px and
+      steps in real increments up to a 22px page title.
 
-   2. ONE ACCENT, EARNED. Ochre (--color-brand) is the only chromatic
-      accent in the chrome. It marks exactly one thing: "you are here /
-      act here." If ochre appears twice on a screen competing for
-      attention, the screen is wrong.
+   2. THE PALETTE WAS BEIGE.
+      Warm cream surfaces with an ochre accent read as dated, not
+      industrial. The surfaces are now near-neutral with a whisper of
+      cool (hue 265, chroma ≤ 0.006) — the same neutrality Figma,
+      Linear and Stripe use, because it makes *data* the only coloured
+      thing on screen. Brand amber survives, deepened, and is spent
+      only on "you are here / act here".
 
-   3. COLOR IS WAYFINDING, NOT DECORATION. The six worlds each own a
-      hue. It appears only as a 2px rule, a 6px dot, or an icon tint —
-      never as a filled panel. You learn the building's floors by
-      color without the UI ever shouting.
+   3. NOTHING HAD DEPTH OR STATE.
+      Shadows were below the perceptual threshold, so cards floated
+      ambiguously. Elevation is now a real 4-step ramp, borders come
+      in two weights (hairline vs. structural), and every interactive
+      surface has explicit rest / hover / active / focus states.
 
-   Data is monospace. Chrome is sans. Numbers never move when they
-   change (tabular). Nothing animates longer than 280ms.
+   Invariants kept from v1 because they were right:
+      Data is monospace. Chrome is sans. Numbers are tabular and never
+      change width. Colour is wayfinding, not decoration. Nothing
+      animates longer than 240ms.
    ═══════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* Inter for chrome, JetBrains Mono for data — data must look like data */
+  /* ── Fonts ────────────────────────────────────────────────────────
+     Inter for chrome: it was designed for UI at 11–16px, where
+     geometric display faces (the old Plus Jakarta) lose their
+     apertures and start to look like a toy. JetBrains Mono for data. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
     monospace;
 
-  /* ── Surfaces — warm paper, not cold white ──────────────────────
-     background is a hair warm + darker than card, so cards read as
-     physical objects resting on a surface without needing shadows. */
-  --color-background: oklch(0.983 0.003 80);
-  --color-foreground: oklch(0.185 0.008 60);
+  /* ── Surfaces ─────────────────────────────────────────────────────
+     Near-neutral, very slightly cool. `background` is a step darker
+     than `card`, so cards read as objects resting on a desk without
+     needing heavy shadow. `elevated` is for popovers/menus that must
+     sit above a card. */
+  --color-background: oklch(0.978 0.002 265);
+  --color-foreground: oklch(0.205 0.008 265);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.185 0.008 60);
-  --color-muted: oklch(0.962 0.005 80);
-  --color-muted-foreground: oklch(0.505 0.009 65);
-  --color-border: oklch(0.915 0.005 80);
-  --color-input: oklch(0.915 0.005 80);
+  --color-card-foreground: oklch(0.205 0.008 265);
+  --color-elevated: oklch(1 0 0);
+  --color-muted: oklch(0.965 0.003 265);
+  --color-muted-foreground: oklch(0.535 0.011 265);
+  --color-faint: oklch(0.675 0.009 265);
 
-  /* Subtle: for zebra rows, table heads, inset wells — barely there */
-  --color-subtle: oklch(0.975 0.004 80);
+  /* Two border weights. `border` is the structural line that defines a
+     container; `hairline` is the decorative divider inside one. Using
+     one weight for both is why v1 looked flat. */
+  --color-border: oklch(0.915 0.004 265);
+  --color-border-strong: oklch(0.865 0.006 265);
+  --color-input: oklch(0.895 0.005 265);
 
-  /* ── Ink — the primary action color ─────────────────────────────
-     Warm near-black. Confident, high-contrast, never competes with
-     data. Buttons are ink; the brand accent is reserved for state. */
-  --color-primary: oklch(0.205 0.011 60);
-  --color-primary-foreground: oklch(0.99 0.002 80);
-  --color-accent: oklch(0.955 0.006 80);
-  --color-accent-foreground: oklch(0.225 0.01 60);
+  /* Barely-there fill: zebra rows, table heads, inset wells, toolbars */
+  --color-subtle: oklch(0.973 0.003 265);
 
-  /* ── Brand — ochre. Used ONLY for: active nav, focus ring,
-     brand mark, and the single "act here" affordance per screen. ── */
-  --color-brand: oklch(0.585 0.145 58);
-  --color-brand-foreground: oklch(0.99 0.002 80);
-  --color-brand-soft: oklch(0.955 0.03 75);
-  --color-ring: oklch(0.585 0.145 58);
+  /* ── Ink — the primary action colour ──────────────────────────────
+     Near-black with a trace of blue so it reads intentional next to
+     the cool neutrals rather than like an unstyled default. */
+  --color-primary: oklch(0.225 0.014 265);
+  --color-primary-foreground: oklch(0.99 0.001 265);
+  --color-accent: oklch(0.955 0.004 265);
+  --color-accent-foreground: oklch(0.245 0.012 265);
 
-  /* ── Chrome (nav rail) — warm charcoal, not pure black ──────────
-     Pure black next to warm paper looks like a hole. Warm charcoal
-     reads as the same material, just in shadow. */
-  --color-sidebar: oklch(0.165 0.008 65);
-  --color-sidebar-foreground: oklch(0.86 0.006 75);
-  --color-sidebar-accent: oklch(0.235 0.01 65);
-  --color-sidebar-border: oklch(0.255 0.01 65);
+  /* ── Brand — amber. ONLY for: active nav, focus ring, the brand mark,
+     and the single "act here" affordance per screen. ─────────────── */
+  --color-brand: oklch(0.635 0.155 55);
+  --color-brand-strong: oklch(0.565 0.155 52);
+  --color-brand-foreground: oklch(0.145 0.02 60);
+  --color-brand-soft: oklch(0.958 0.038 72);
+  --color-brand-border: oklch(0.855 0.075 68);
+  --color-ring: oklch(0.635 0.155 55);
 
-  /* ── World colors — wayfinding for the top-level branches ───────
-     Hairlines, dots and icon tints only. Never a filled surface. */
-  --color-world-today: oklch(0.585 0.145 58);
-  --color-world-inventory: oklch(0.52 0.12 188);
-  --color-world-hr: oklch(0.555 0.145 25);
-  --color-world-finance: oklch(0.485 0.145 295);
-  --color-world-admin: oklch(0.50 0.008 65);
-  /* Insights accent — retained for the /reports page question dots. */
-  --color-world-insights: oklch(0.505 0.095 195);
+  /* ── Chrome (nav rail) — deep neutral, not pure black ─────────────
+     Pure black beside a light page looks like a hole punched in it. */
+  --color-sidebar: oklch(0.205 0.011 265);
+  --color-sidebar-foreground: oklch(0.845 0.006 265);
+  --color-sidebar-muted: oklch(0.615 0.009 265);
+  --color-sidebar-accent: oklch(0.265 0.012 265);
+  --color-sidebar-border: oklch(0.295 0.012 265);
 
-  /* Legacy world aliases — kept so older components keep compiling. */
+  /* ── World colours — wayfinding for the top-level branches ────────
+     Hairlines, 6px dots and icon tints only. Never a filled surface.
+     All sit at L≈0.55 so no world shouts louder than another. */
+  --color-world-today: oklch(0.635 0.155 55);
+  --color-world-inventory: oklch(0.575 0.115 215);
+  --color-world-hr: oklch(0.585 0.155 20);
+  --color-world-finance: oklch(0.545 0.155 295);
+  --color-world-admin: oklch(0.555 0.012 265);
+  --color-world-insights: oklch(0.565 0.105 195);
+
+  /* Legacy world aliases — older components still reference these. */
   --color-world-materials: var(--color-world-inventory);
-  --color-world-property: oklch(0.535 0.115 155);
+  --color-world-property: oklch(0.565 0.115 155);
   --color-world-people: var(--color-world-hr);
   --color-world-money: var(--color-world-finance);
   --color-world-setup: var(--color-world-admin);
 
-  /* Legacy stage aliases — kept so older components keep compiling.
-     New work should use --color-world-*. */
-  --color-stage-procure: oklch(0.555 0.115 225);
-  --color-stage-build: oklch(0.555 0.115 225);
-  --color-stage-workforce: oklch(0.555 0.145 25);
-  --color-stage-sell: oklch(0.535 0.115 155);
-  --color-stage-account: oklch(0.485 0.145 295);
-  --color-stage-manage: oklch(0.585 0.145 58);
-  --color-stage-system: oklch(0.50 0.008 65);
+  /* Legacy stage aliases. New work should use --color-world-*. */
+  --color-stage-procure: oklch(0.575 0.115 215);
+  --color-stage-build: oklch(0.575 0.115 215);
+  --color-stage-workforce: oklch(0.585 0.155 20);
+  --color-stage-sell: oklch(0.565 0.115 155);
+  --color-stage-account: oklch(0.545 0.155 295);
+  --color-stage-manage: oklch(0.635 0.155 55);
+  --color-stage-system: oklch(0.555 0.012 265);
 
-  /* ── Semantic — warm-shifted, muted. State, not decoration. ──── */
-  --color-success: oklch(0.535 0.115 155);
-  --color-success-soft: oklch(0.955 0.028 155);
-  --color-warning: oklch(0.635 0.135 70);
-  --color-warning-soft: oklch(0.965 0.035 80);
-  --color-danger: oklch(0.545 0.185 25);
-  --color-danger-soft: oklch(0.96 0.028 25);
-  --color-info: oklch(0.545 0.115 225);
-  --color-info-soft: oklch(0.955 0.025 225);
+  /* ── Semantic — state, not decoration. ────────────────────────────
+     `-soft` is the tinted background, `-border` the tinted hairline,
+     the base is the text/icon colour. Three tokens per state means a
+     status chip is legible on any surface without alpha guesswork. */
+  --color-success: oklch(0.525 0.125 155);
+  --color-success-soft: oklch(0.955 0.032 158);
+  --color-success-border: oklch(0.865 0.06 158);
+  --color-warning: oklch(0.575 0.125 68);
+  --color-warning-soft: oklch(0.965 0.04 78);
+  --color-warning-border: oklch(0.875 0.075 75);
+  --color-danger: oklch(0.535 0.185 25);
+  --color-danger-soft: oklch(0.958 0.03 25);
+  --color-danger-border: oklch(0.872 0.06 25);
+  --color-info: oklch(0.545 0.135 250);
+  --color-info-soft: oklch(0.958 0.028 250);
+  --color-info-border: oklch(0.872 0.055 250);
 
-  /* Radius scale — 6px is the workhorse; nothing is a pill except badges */
+  /* Radius — 8px is the workhorse container, 6px controls, pills badges */
   --radius: 0.5rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
 
-  /* ── Elevation — warm-tinted shadows. Light comes from above.
-     Four steps only: flat, raised, floating, overlay. ── */
-  --shadow-raised: 0 1px 2px -1px oklch(0.185 0.008 60 / 0.08),
-    0 1px 3px oklch(0.185 0.008 60 / 0.04);
-  --shadow-floating: 0 4px 12px -4px oklch(0.185 0.008 60 / 0.10),
-    0 2px 4px -2px oklch(0.185 0.008 60 / 0.06);
-  --shadow-overlay: 0 16px 48px -12px oklch(0.185 0.008 60 / 0.18),
-    0 4px 12px -6px oklch(0.185 0.008 60 / 0.10);
+  /* ── Elevation — a real ramp. Light from above, cool-tinted, and
+     each step pairs a tight contact shadow with a soft ambient one so
+     edges stay crisp while the object still lifts. ───────────────── */
+  --shadow-raised: 0 1px 2px oklch(0.205 0.02 265 / 0.05),
+    0 1px 1px -0.5px oklch(0.205 0.02 265 / 0.04);
+  --shadow-floating: 0 1px 2px oklch(0.205 0.02 265 / 0.05),
+    0 4px 10px -2px oklch(0.205 0.02 265 / 0.08),
+    0 12px 24px -8px oklch(0.205 0.02 265 / 0.06);
+  --shadow-overlay: 0 1px 2px oklch(0.205 0.02 265 / 0.06),
+    0 8px 20px -6px oklch(0.205 0.02 265 / 0.12),
+    0 24px 56px -16px oklch(0.205 0.02 265 / 0.18);
+  --shadow-inset: inset 0 1px 0 oklch(1 0 0 / 0.06);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DARK MODE — a genuine second theme, not an inversion.
+
+   Surfaces climb (background darkest → card → elevated) because in the
+   dark, elevation reads as *lighter*, the opposite of light mode. Text
+   never reaches pure white (it vibrates against dark fields) and the
+   semantic hues are lifted in lightness + dropped in chroma so they
+   stay legible without glowing.
+   ═══════════════════════════════════════════════════════════════════ */
+.dark {
+  --color-background: oklch(0.185 0.008 265);
+  --color-foreground: oklch(0.945 0.003 265);
+  --color-card: oklch(0.225 0.009 265);
+  --color-card-foreground: oklch(0.945 0.003 265);
+  --color-elevated: oklch(0.265 0.01 265);
+  --color-muted: oklch(0.265 0.009 265);
+  --color-muted-foreground: oklch(0.685 0.01 265);
+  --color-faint: oklch(0.555 0.01 265);
+
+  --color-border: oklch(0.305 0.011 265);
+  --color-border-strong: oklch(0.375 0.013 265);
+  --color-input: oklch(0.345 0.012 265);
+  --color-subtle: oklch(0.245 0.009 265);
+
+  --color-primary: oklch(0.945 0.003 265);
+  --color-primary-foreground: oklch(0.205 0.01 265);
+  --color-accent: oklch(0.295 0.011 265);
+  --color-accent-foreground: oklch(0.945 0.003 265);
+
+  --color-brand: oklch(0.735 0.135 62);
+  --color-brand-strong: oklch(0.785 0.13 65);
+  --color-brand-foreground: oklch(0.185 0.02 60);
+  --color-brand-soft: oklch(0.305 0.045 60);
+  --color-brand-border: oklch(0.415 0.075 60);
+  --color-ring: oklch(0.735 0.135 62);
+
+  --color-sidebar: oklch(0.155 0.008 265);
+  --color-sidebar-foreground: oklch(0.865 0.005 265);
+  --color-sidebar-muted: oklch(0.605 0.009 265);
+  --color-sidebar-accent: oklch(0.245 0.011 265);
+  --color-sidebar-border: oklch(0.275 0.011 265);
+
+  --color-world-today: oklch(0.735 0.135 62);
+  --color-world-inventory: oklch(0.705 0.105 215);
+  --color-world-hr: oklch(0.705 0.13 22);
+  --color-world-finance: oklch(0.695 0.13 295);
+  --color-world-admin: oklch(0.685 0.011 265);
+  --color-world-insights: oklch(0.705 0.095 195);
+  --color-world-property: oklch(0.695 0.105 155);
+
+  --color-stage-procure: oklch(0.705 0.105 215);
+  --color-stage-build: oklch(0.705 0.105 215);
+  --color-stage-workforce: oklch(0.705 0.13 22);
+  --color-stage-sell: oklch(0.695 0.105 155);
+  --color-stage-account: oklch(0.695 0.13 295);
+  --color-stage-manage: oklch(0.735 0.135 62);
+  --color-stage-system: oklch(0.685 0.011 265);
+
+  --color-success: oklch(0.735 0.115 158);
+  --color-success-soft: oklch(0.295 0.05 158);
+  --color-success-border: oklch(0.395 0.07 158);
+  --color-warning: oklch(0.775 0.115 78);
+  --color-warning-soft: oklch(0.315 0.05 70);
+  --color-warning-border: oklch(0.415 0.07 70);
+  --color-danger: oklch(0.705 0.155 25);
+  --color-danger-soft: oklch(0.305 0.065 25);
+  --color-danger-border: oklch(0.405 0.09 25);
+  --color-info: oklch(0.725 0.115 250);
+  --color-info-soft: oklch(0.295 0.055 255);
+  --color-info-border: oklch(0.395 0.08 255);
+
+  /* In the dark, shadow alone can't separate surfaces — pair it with a
+     1px top highlight so panels still have a visible top edge. */
+  --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-floating: 0 4px 12px -2px oklch(0 0 0 / 0.4),
+    0 12px 28px -8px oklch(0 0 0 / 0.35);
+  --shadow-overlay: 0 8px 24px -6px oklch(0 0 0 / 0.5),
+    0 28px 64px -16px oklch(0 0 0 / 0.55);
 }
 
 @layer base {
@@ -127,21 +244,40 @@
     border-color: var(--color-border);
   }
 
+  /* 16px root so Tailwind's rem-based spacing scale is full size. v1
+     used 14px, which silently shrank every gap and pad by 12.5% and
+     is the single biggest reason the old UI felt cramped. */
   html {
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 16px;
     -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    /* cv11: single-storey 'a'/'l' disambiguation; ss01: alt digits.
+       Both make Inter clearer at the sizes this app lives at. */
+    font-feature-settings: "cv11" 1, "ss01" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: -0.006em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.018em;
+    text-wrap: balance;
   }
 
   /* Numbers in monospace — data should look like data */
@@ -149,131 +285,360 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
     font-family: var(--font-mono);
+    letter-spacing: -0.02em;
   }
 
   ::selection {
-    background-color: oklch(0.585 0.145 58 / 0.22);
+    background-color: oklch(0.635 0.155 55 / 0.24);
     color: var(--color-foreground);
   }
 
-  /* Keyboard focus is a first-class state, not something to hide.
-     Ochre ring, offset so it never crowds the element it marks. */
+  /* Keyboard focus is a first-class state, not something to hide. */
   :focus-visible {
-    outline: 2px solid var(--color-brand);
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
 
-  /* Pointer users don't need the ring; keyboard users do. */
   [data-focus-ring="none"]:focus-visible {
     outline: none;
   }
+
+  /* Scrollbars: thin, neutral, and only visible against content. Default
+     macOS overlay bars are fine; on Windows/Linux the 16px grey gutter
+     wrecks a dense table layout. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-faint);
+  }
 }
 
-/* ── Typographic scale ──────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   TYPE SCALE
+
+   Six sizes for prose/chrome and three for data. Every step is a real
+   perceptual jump — the v1 scale had 9/10/11/12px, four steps inside
+   3px, which is no scale at all.
+
+     label     11px  uppercase tracked   column heads, metric captions
+     caption   11px                      timestamps, helper text
+     meta      12px                      secondary body, table sub-text
+     body      13px                      the default — set on <body>
+     section   15px  600                 a block heading inside a page
+     title     22px  660                 the page's h1
+     display   28px  680                 dashboard hero numbers/greeting
+
+     figure    20px  mono                a metric in a panel
+     figure-lg 28px  mono                the headline number on a card
+   ═══════════════════════════════════════════════════════════════════ */
+
 @utility text-micro {
-  font-size: 9px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.4;
   letter-spacing: 0.01em;
 }
 @utility text-caption {
-  font-size: 10px;
-  line-height: 1.4;
-}
-@utility text-meta {
   font-size: 11px;
   line-height: 1.45;
+  letter-spacing: 0;
+}
+@utility text-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: -0.003em;
 }
 @utility text-body {
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
 }
 
-/* ── Page title — strong hierarchy anchor ──────────────────────── */
-@utility text-title {
-  font-size: 20px;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  font-weight: 700;
-}
-
-/* ── Technical label — uppercase tracked ────────────────────────── */
+/* ── Technical label — uppercase, tracked, quiet ─────────────────── */
 @utility text-label {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
   font-weight: 600;
 }
 
+/* ── Section heading — the sub-title inside a page ──────────────── */
+@utility text-section {
+  font-size: 15px;
+  line-height: 1.35;
+  letter-spacing: -0.014em;
+  font-weight: 600;
+}
+
+/* ── Page title — the hierarchy anchor ──────────────────────────── */
+@utility text-title {
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  font-weight: 660;
+}
+
+/* ── Display — greetings, hero figures, empty-state headlines ───── */
+@utility text-display {
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.028em;
+  font-weight: 680;
+}
+
 /* ── Numeric display sizes — data has its own scale ─────────────── */
 @utility text-figure {
-  font-size: 17px;
+  font-size: 20px;
   line-height: 1.15;
-  letter-spacing: -0.02em;
-  font-weight: 600;
+  letter-spacing: -0.028em;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
 @utility text-figure-lg {
-  font-size: 23px;
+  font-size: 28px;
   line-height: 1.1;
-  letter-spacing: -0.03em;
-  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
 
-/* ── Section heading — the sub-title inside a page ─────────────── */
-@utility text-section {
-  font-size: 13px;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  font-weight: 650;
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE SCALE — shrinks all text utilities to 9-11px so the exact
+   desktop layout (DataTable, grids, cards) fits on a phone screen
+   without rewriting any component. Apply on a wrapper div.
+   ═══════════════════════════════════════════════════════════════════ */
+.mobile-scale {
+  overflow-x: hidden;
+  /* Allow flex children that are shrink-0 on desktop to shrink on mobile
+     so the PageHeader stats don't force horizontal overflow. */
+  & .shrink-0 { flex-shrink: 1; }
+  /* PageHeader: stack title above stats instead of side-by-side on mobile.
+     The header uses flex-wrap justify-between — force it to column so
+     the title gets full width, then stats wrap below in their own row. */
+  & header > div:first-of-type {
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+  /* PageHeader stats: even gaps, wrap neatly */
+  & header dl {
+    gap: 0.5rem 0.75rem;
+  }
+  /* text-micro 10 → 9 */
+  & .text-micro, &.text-micro {
+    font-size: 9px;
+    line-height: 1.3;
+  }
+  /* text-caption 11 → 9 */
+  & .text-caption, &.text-caption {
+    font-size: 9px;
+    line-height: 1.35;
+  }
+  /* text-meta 12 → 10 */
+  & .text-meta, &.text-meta {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  /* text-body 13 → 11 */
+  & .text-body, &.text-body {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  /* text-label 11 → 9 */
+  & .text-label, &.text-label {
+    font-size: 9px;
+    line-height: 1.3;
+  }
+  /* text-section 15 → 11 */
+  & .text-section, &.text-section {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  /* text-title 22 → 13 */
+  & .text-title, &.text-title {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  /* text-display 28 → 15 */
+  & .text-display, &.text-display {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+  /* text-figure 20 → 12 */
+  & .text-figure, &.text-figure {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+  /* text-figure-lg 28 → 14 */
+  & .text-figure-lg, &.text-figure-lg {
+    font-size: 14px;
+    line-height: 1.1;
+  }
+  /* Arbitrary px sizes used in components → scale down */
+  & [class*="text-[13px]"] { font-size: 10px !important; }
+  & [class*="text-[14px]"] { font-size: 11px !important; }
+  & [class*="text-[15px]"] { font-size: 11px !important; }
+  & [class*="text-[16px]"] { font-size: 11px !important; }
+  & [class*="text-[17px]"] { font-size: 12px !important; }
+  & [class*="text-[18px]"] { font-size: 12px !important; }
+  & [class*="text-[19px]"] { font-size: 12px !important; }
+  & [class*="text-[20px]"] { font-size: 12px !important; }
+  & [class*="text-[22px]"] { font-size: 13px !important; }
+  /* Scale down icons slightly */
+  & svg { width: 0.85em; height: 0.85em; }
+  /* Tighter padding on cards/borders */
+  & .rounded-lg { border-radius: 0.375rem; }
+  /* Smaller gaps */
+  & .gap-6 { gap: 0.75rem; }
+  & .gap-4 { gap: 0.5rem; }
+  & .gap-x-6 { column-gap: 0.625rem; }
+  & .gap-x-8 { column-gap: 0.75rem; }
+  & .space-y-6 > * + * { margin-top: 0.75rem; }
+  & .space-y-4 > * + * { margin-top: 0.5rem; }
+  & .p-4 { padding: 0.5rem; }
+  & .p-3 { padding: 0.375rem; }
+  & .py-4 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  & .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; }
+  & .py-3 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+  /* Tighter DataTable cell padding — px-3 (12px) is too wide at 9-11px text */
+  & table th, & table td { padding-left: 0.375rem; padding-right: 0.375rem; }
+  & table th:first-child, & table td:first-child { padding-left: 0.5rem; }
+  & table th:last-child, & table td:last-child { padding-right: 0.5rem; }
+  /* Tighter row vertical padding */
+  & table td { padding-top: 0.1875rem; padding-bottom: 0.1875rem; }
+  & table th { height: 1.75rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FIELD MODE — opt-in outdoor readability enhancement. When <html>
+   has the `field-mode` class, text sizes are bumped up for sunlight
+   readability and contrast is increased. This overrides the
+   .mobile-scale reductions so field workers get LARGER text, not
+   smaller. CSS-only — toggled by useFieldMode() hook.
+   ═══════════════════════════════════════════════════════════════════ */
+.field-mode {
+  /* Increase contrast for sunlight readability */
+  --color-muted-foreground: oklch(0.42 0.012 265);
+  --color-faint: oklch(0.50 0.012 265);
+}
+
+.field-mode .text-caption,
+.field-mode.text-caption {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.field-mode .text-meta,
+.field-mode.text-meta {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.field-mode .text-body,
+.field-mode.text-body {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.field-mode .text-label,
+.field-mode.text-label {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.field-mode .text-micro,
+.field-mode.text-micro {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.field-mode .text-section,
+.field-mode.text-section {
+  font-size: 18px;
+  line-height: 1.35;
+}
+/* Override arbitrary px sizes used in mobile components */
+.field-mode [class*="text-[9px]"] { font-size: 13px !important; }
+.field-mode [class*="text-[10px]"] { font-size: 14px !important; }
+.field-mode [class*="text-[11px]"] { font-size: 14px !important; }
+.field-mode [class*="text-[12px]"] { font-size: 16px !important; }
+.field-mode [class*="text-[13px]"] { font-size: 16px !important; }
+.field-mode [class*="text-[14px]"] { font-size: 17px !important; }
+.field-mode [class*="text-[15px]"] { font-size: 18px !important; }
+/* Restore icon sizes (mobile-scale shrinks them) */
+.field-mode svg { width: 1em; height: 1em; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SURFACE & INTERACTION UTILITIES
+   ═══════════════════════════════════════════════════════════════════ */
 
 @utility scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+    width: 0;
+    height: 0;
   }
 }
 
-/* ── Interactive card — lifts on hover, never jumps ─────────────── */
+/* ── Panel — the canonical container. Use instead of hand-rolling
+   `rounded-lg border bg-card` on every page. ───────────────────────── */
+@utility panel {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+/* ── Interactive card — lifts on hover, never shifts layout ─────── */
 @utility card-interactive {
   transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background-color 0.15s ease;
+    background-color 0.15s ease, transform 0.15s ease;
   &:hover {
-    border-color: oklch(0.855 0.008 75);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-floating);
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: translateY(0);
     box-shadow: var(--shadow-raised);
   }
 }
 
 /* ── Row — the canonical list/table row hover ───────────────────── */
 @utility row-interactive {
-  transition: background-color 0.12s ease;
+  transition: background-color 0.1s ease;
   &:hover {
     background-color: var(--color-subtle);
   }
 }
 
-/* ── Hairline — a 1px rule that knows it's decorative ──────────── */
 @utility hairline {
   border-color: var(--color-border);
 }
 
-/* ── World accent rules — 2px left rule, the wayfinding mark ───── */
+/* ── World accent rules — 2px inset rule, the wayfinding mark ───── */
 @utility world-today { box-shadow: inset 2px 0 0 var(--color-world-today); }
 @utility world-inventory { box-shadow: inset 2px 0 0 var(--color-world-inventory); }
 @utility world-hr { box-shadow: inset 2px 0 0 var(--color-world-hr); }
 @utility world-finance { box-shadow: inset 2px 0 0 var(--color-world-finance); }
 @utility world-admin { box-shadow: inset 2px 0 0 var(--color-world-admin); }
 @utility world-insights { box-shadow: inset 2px 0 0 var(--color-world-insights); }
-/* Legacy aliases. */
 @utility world-materials { box-shadow: inset 2px 0 0 var(--color-world-materials); }
 @utility world-property { box-shadow: inset 2px 0 0 var(--color-world-property); }
 @utility world-people { box-shadow: inset 2px 0 0 var(--color-world-people); }
@@ -289,7 +654,7 @@
 @utility stage-manage { border-left: 2px solid var(--color-stage-manage); }
 @utility stage-system { border-left: 2px solid var(--color-stage-system); }
 
-/* ── Sunken well — for inset detail panels + empty states ──────── */
+/* ── Sunken well — inset detail panels + empty states ───────────── */
 @utility well {
   background-color: var(--color-subtle);
   border: 1px solid var(--color-border);
@@ -302,13 +667,58 @@
   min-width: 44px;
 }
 
+/* ── Safe areas — the mobile shell docks to the device, not the
+   viewport, so the tab bar clears the iOS home indicator. ───────── */
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+@utility mb-safe {
+  margin-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+/* ── Skeleton — loading is a shape, not a spinner ───────────────── */
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 0%,
+    var(--color-subtle) 50%,
+    var(--color-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Keyboard hint — the ⌘K style chip ──────────────────────────── */
+@utility kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 /* ── Nav panel collapse ─────────────────────────────────────────────
    The collapsed/expanded choice is applied from a root data attribute
-   set by an inline script in the document head, BEFORE first paint.
-
-   Doing it in CSS rather than React state buys two things: the panel
-   never flashes open then snap shut on reload, and the shell doesn't
-   need to call setState from inside an effect to restore a preference.
+   set by an inline script in the document head, BEFORE first paint, so
+   the panel never flashes open and then snaps shut on reload.
    ─────────────────────────────────────────────────────────────────── */
 .nav-panel {
   display: none;
@@ -322,13 +732,13 @@
     display: flex;
   }
   .nav-main {
-    padding-left: 17.5rem; /* 3.5rem rail + 14rem panel */
+    padding-left: 18rem; /* 4rem rail + 14rem panel */
   }
   html[data-nav="collapsed"] .nav-panel {
     display: none;
   }
   html[data-nav="collapsed"] .nav-main {
-    padding-left: 3.5rem;
+    padding-left: 4rem;
   }
   html[data-nav="collapsed"] .nav-expand {
     display: inline-flex;
@@ -380,8 +790,106 @@
 .drawer-panel { animation: drawer-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
 .drawer-backdrop { animation: drawer-backdrop-in 0.2s ease-out; }
 
+/* ── Overlay / popover entrances ── */
+@keyframes overlay-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.overlay-in { animation: overlay-in 0.16s cubic-bezier(0.32, 0.72, 0, 1); }
+.sheet-up { animation: sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1); }
+
 /* ── Progress ring (conic-gradient) ── */
 @keyframes progress-fill {
   from { stroke-dashoffset: var(--circ); }
   to { stroke-dashoffset: var(--offset); }
+}
+
+/* ── Respect the user's motion preference ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Print: strip chrome, keep the document ── */
+@media print {
+  .nav-panel,
+  .no-print {
+    display: none !important;
+  }
+  .nav-main {
+    padding-left: 0 !important;
+  }
+  body {
+    background: #fff;
+    font-size: 11px;
+  }
+
+  /* When printing a specific certificate, hide everything except it */
+  body.printing-certificate > *:not(.print-portal) {
+    display: none !important;
+  }
+  .print-portal {
+    display: block !important;
+    position: static !important;
+  }
+}
+
+/* ── Mobile-responsive print pages ───────────────────────────────
+   Print routes use max-w-3xl + p-8 which overflows on phones.
+   These overrides make them readable on mobile screens and when
+   printed from a mobile browser (where the viewport is narrow).
+   ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .print-page {
+    max-width: 100% !important;
+    padding: 1rem !important;
+  }
+  /* Stack two-column grids vertically on mobile */
+  .print-page .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+  /* Remove left borders on stacked columns */
+  .print-page .border-l {
+    border-left: none !important;
+    padding-left: 0 !important;
+    margin-top: 0.5rem;
+  }
+  /* Tables: reduce padding for mobile */
+  .print-page table {
+    font-size: 12px !important;
+  }
+  .print-page table th,
+  .print-page table td {
+    padding: 0.25rem 0.375rem !important;
+  }
+  /* Signature blocks: stack vertically */
+  .print-page .grid-cols-2.gap-12 {
+    gap: 2rem !important;
+  }
+  /* Reduce heading sizes on mobile */
+  .print-page h1 {
+    font-size: 1.125rem !important;
+  }
+  .print-page h2 {
+    font-size: 1rem !important;
+  }
+}
+
+/* Print portal is hidden on screen, only visible during print */
+.print-portal {
+  display: none;
+}
+@media print {
+  .print-portal {
+    display: block;
+  }
 }

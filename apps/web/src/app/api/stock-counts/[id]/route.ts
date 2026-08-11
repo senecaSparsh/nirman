@@ -21,6 +21,14 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   if (!count || count.location.companyId !== company.id) {
     return json({ error: "Stock count not found" }, { status: 404 });
   }
+
+  // Fetch current MAC per material at this location for GL preview
+  const stockItems = await prisma.stockLocationItem.findMany({
+    where: { locationId: count.locationId },
+    select: { materialId: true, movingAvgCost: true },
+  });
+  const macByMaterial = new Map(stockItems.map((s) => [s.materialId, toNum(s.movingAvgCost)]));
+
   return json({
     id: count.id,
     locationId: count.locationId,
@@ -39,6 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       countedQty: toNum(l.countedQty),
       systemQty: toNum(l.systemQty),
       variance: toNum(l.variance),
+      unitCost: macByMaterial.get(l.materialId) ?? 0,
     })),
   });
 });

@@ -1,25 +1,24 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
-  Phone, Mail, Printer, RefreshCw,
+  Printer, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useTabParam } from "@/lib/use-tab-param";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
+import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { SupplierFormDialog } from "./supplier-form-dialog";
 import { PurchaseOrderFormDialog } from "./purchase-order-form-dialog";
 import { PurchaseOrderDetailPanel } from "./purchase-order-detail-panel";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
-import { SplitView } from "@/components/ui/split-view";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
@@ -38,9 +37,12 @@ export function ProcurementView({
   directPurchases: DirectPurchaseRow[];
   permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean };
 }) {
-  const [tab, setTab] = useState("purchase-orders");
-  const canCreate = permissions?.canCreate ?? true;
-  const canApprove = permissions?.canApprove ?? true;
+  const [tab, setTab] = useTabParam(
+    ["purchase-orders", "suppliers", "direct-purchases"] as const,
+    "purchase-orders",
+  );
+  const canCreate = permissions?.canCreate ?? false;
+  const canApprove = permissions?.canApprove ?? false;
   const canManagePayments = permissions?.canManagePayments ?? false;
 
   // Derive simplified option types for the cash-purchase dialog
@@ -272,7 +274,6 @@ function PurchaseOrdersTab({
   const [selected, setSelected] = useState<PurchaseOrderRow | null>(null);
   const [view, setView] = useState<"list" | "board">("list");
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Auto-open PO detail when navigated with ?po=<id> (e.g. from requisition "View PO")
   useEffect(() => {
@@ -307,66 +308,83 @@ function PurchaseOrdersTab({
   const draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
   const orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
 
-  return (
-    <div className="space-y-4">
-      <MetricGrid cols={4}>
-        <Metric label="Total POs" value={purchaseOrders.length} sub={`${openCount} open`} icon={<ShoppingCart />} />
-        <Metric label="Draft" value={draftCount} tone="muted" icon={<ShoppingCart />} />
-        <Metric label="Ordered" value={orderedCount} tone="success" icon={<ShoppingCart />} />
-        <Metric label="Total Value" value={formatCurrency(totalValue)} tone="brand" sub="excl. cancelled" />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-2">
-          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-            <button
-              onClick={() => setView("list")}
-              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setView("board")}
-              className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Board
-            </button>
-          </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[160px]">
-            <option value="">All statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="APPROVED">Approved</option>
-            <option value="ORDERED">Ordered</option>
-            <option value="PARTIAL">Partial</option>
-            <option value="RECEIVED">Received</option>
-            <option value="CANCELLED">Cancelled</option>
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => downloadCSV(`purchase-orders-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+  // Extract the List/Board toggle + status filter + trailing buttons so they
+  // can be reused in both list and board views without TypeScript narrowing.
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+      <button
+        onClick={() => setView("list")}
+        className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "list" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        List
+      </button>
+      <button
+        onClick={() => setView("board")}
+        className={`rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        Board
+      </button>
+    </div>
+  );
+  const statusSelect = (
+    <div className="relative shrink-0" style={{ width: 130 }}>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        style={{ width: 130 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All statuses</option>
+        <option value="DRAFT">Draft</option>
+        <option value="APPROVED">Approved</option>
+        <option value="ORDERED">Ordered</option>
+        <option value="PARTIAL">Partial</option>
+        <option value="RECEIVED">Received</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+  const trailingButtons = (
+    <>
+      {/* Export CSV (icon-only) */}
+      <div className="group relative">
+        <button
+          onClick={() => downloadCSV(`purchase-orders-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "poNumber", label: "PO Number" },
             { key: "supplierName", label: "Supplier" },
             { key: "procurementScope", label: "Scope" },
             { key: "status", label: "Status" },
             { key: "total", label: "Total", format: (v) => formatCurrency(Number(v)) },
             { key: "expectedDate", label: "Expected", format: (v) => v ? formatDate(String(v)) : "" },
-          ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => downloadExcel("purchase-trends")} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export Excel
-          </Button>
-          {canCreate && (
-            <Button onClick={() => setFormOpen(true)} disabled={suppliers.length === 0 || locations.length === 0}>
-              <Plus className="h-4 w-4" /> New PO
-            </Button>
-          )}
-        </div>
+          ])}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <Download className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export CSV
+        </span>
       </div>
+      {/* Export Excel (icon-only) */}
+      <div className="group relative">
+        <button
+          onClick={() => downloadExcel("purchase-trends")}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <FileSpreadsheet className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export Excel
+        </span>
+      </div>
+    </>
+  );
 
+  return (
+    <div className="space-y-4">
       {filtered.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart className="h-5 w-5" />}
@@ -390,6 +408,21 @@ function PurchaseOrdersTab({
            info: PO number, supplier, total, progress bar, age.
            This is fundamentally different from a table — you see
            the flow of procurement at a glance. */
+        <>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {viewToggle}
+            {statusSelect}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {trailingButtons}
+            {canCreate && (
+              <Button onClick={() => setFormOpen(true)} disabled={suppliers.length === 0 || locations.length === 0}>
+                <Plus className="h-4 w-4" /> New PO
+              </Button>
+            )}
+          </div>
+        </div>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {columns.map((col) => (
             <div key={col.status} className="flex w-64 shrink-0 flex-col">
@@ -460,40 +493,52 @@ function PurchaseOrdersTab({
             </div>
           ))}
         </div>
+        </>
       ) : (
-        /* ── Split View: list on left, detail on right ───────────────
-           The default view. Dense, sortable columns, sticky header,
-           right-aligned tabular numbers. Click a row to show its
-           details in the right panel. Switch to Board for the kanban
-           flow view. */
-        <div className="rounded-lg border border-border overflow-hidden h-[calc(100vh-20rem)] min-h-[400px]">
-          <SplitView
-            storageKey="split-view-procurement-pos"
-            list={
-              <DataTable
-                data={filtered}
-                onRowClick={(po) => setSelected(po)}
-                initialSort={{ key: "createdAt", direction: "desc" }}
-                columns={poColumns}
-                searchable
-                searchPlaceholder="Search POs by number, supplier, project…"
-                showTotals
-                sumColumns={["totalValue"]}
-                totalFormat={(_k, sum) => formatCurrency(sum)}
-                hideable
-                pageSize={50}
-              />
+        /* ── Data Table view (default, enterprise-grade) ──────────
+           Dense, sortable columns. Click a row to open the detail
+           dialog. Switch to Board for the kanban flow view. */
+        <div className="rounded-lg border border-border overflow-hidden">
+          <DataTable
+            data={filtered}
+            onRowClick={(po) => setSelected(po)}
+            initialSort={{ key: "createdAt", direction: "desc" }}
+            columns={poColumns}
+            searchable
+            searchPlaceholder="Search POs by number, supplier, project…"
+            showTotals
+            sumColumns={["totalValue"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            hideable
+            pageSize={50}
+            onAddRow={canCreate && suppliers.length > 0 && locations.length > 0 ? () => setFormOpen(true) : undefined}
+            addRowLabel="New PO"
+            toolbarLeading={
+              <div className="flex w-fit shrink-0 items-center gap-2">
+                {viewToggle}
+                {statusSelect}
+              </div>
             }
-            detail={selected ? (
-              <PurchaseOrderDetailPanel
-                po={selected}
-                canApprove={canApprove}
-                suppliers={suppliers}
-                canManagePayments={canManagePayments}
-              />
-            ) : null}
+            toolbarTrailing={trailingButtons}
           />
         </div>
+      )}
+
+      {selected && (
+        <Dialog
+          open={!!selected}
+          onOpenChange={(o) => { if (!o) setSelected(null); }}
+          title={selected.poNumber}
+          description={selected.supplierName}
+          size="full"
+        >
+          <PurchaseOrderDetailPanel
+            po={selected}
+            canApprove={canApprove}
+            suppliers={suppliers}
+            canManagePayments={canManagePayments}
+          />
+        </Dialog>
       )}
 
       {suppliers.length === 0 && (
@@ -519,111 +564,117 @@ function PurchaseOrdersTab({
 // ───────────────────────────────────────────────────────────
 
 function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow[]; canManagePayments: boolean }) {
-  const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SupplierRow | null>(null);
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
   const [paySupplier, setPaySupplier] = useState<SupplierRow | null>(null);
-  const router = useRouter();
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return suppliers;
-    return suppliers.filter((s) =>
-      s.name.toLowerCase().includes(q) || (s.gstin ?? "").toLowerCase().includes(q) || (s.phone ?? "").includes(q),
-    );
-  }, [suppliers, query]);
 
   const totalOwed = suppliers.reduce((s, v) => s + v.balanceOwed, 0);
   const withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
 
+  const columns: Column<SupplierRow>[] = [
+    {
+      key: "name",
+      label: "Supplier",
+      sortable: true,
+      render: (s) => (
+        <div>
+          <div className="font-medium text-foreground">{s.name}</div>
+          {s.gstin && <div className="font-mono text-micro text-muted-foreground">{s.gstin}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      sortable: true,
+      render: (s) =>
+        s.phone ? <span className="text-muted-foreground">{s.phone}</span> : <span className="text-muted-foreground/40">—</span>,
+    },
+    {
+      key: "openPOs",
+      label: "Open POs",
+      align: "right",
+      sortable: true,
+      render: (s) =>
+        s.openPOs > 0 ? (
+          <span className="tnum font-medium text-warning">{s.openPOs}</span>
+        ) : (
+          <span className="tnum text-muted-foreground/40">0</span>
+        ),
+    },
+    {
+      key: "balanceOwed",
+      label: "Balance Owed",
+      align: "right",
+      sortable: true,
+      render: (s) =>
+        s.balanceOwed > 0 ? (
+          <span className="tnum font-semibold text-danger">{formatCurrency(s.balanceOwed)}</span>
+        ) : (
+          <span className="tnum text-muted-foreground/40">—</span>
+        ),
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (s) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {canManagePayments && s.balanceOwed > 0 && (
+            <Button size="sm" variant="outline" className="h-7 px-2 text-caption" onClick={() => setPaySupplier(s)}>
+              Pay
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => { setEditing(s); setFormOpen(true); }}>
+            <Pencil className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Delete" onClick={() => setDeleting(s)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <MetricGrid cols={3}>
-        <Metric label="Total Suppliers" value={suppliers.length} icon={<Tags />} />
-        <Metric label="With Dues" value={withDues} tone={withDues > 0 ? "warning" : "muted"} />
-        <Metric label="Total Owed" value={formatCurrency(totalOwed)} tone={totalOwed > 0 ? "danger" : "muted"} />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:max-w-xs">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search suppliers…" />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" /> New Supplier
-          </Button>
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
+      {suppliers.length === 0 ? (
         <EmptyState
           icon={<Tags className="h-5 w-5" />}
-          title={suppliers.length === 0 ? "No suppliers yet" : "No suppliers match the search"}
-          description={suppliers.length === 0 ? "Add suppliers to raise purchase orders." : "Try a different search."}
+          title="No suppliers yet"
+          description="Add suppliers to raise purchase orders. Each supplier tracks GSTIN, contact details, and outstanding payables."
+          action={
+            <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm">
+              <Plus className="h-4 w-4" /> New Supplier
+            </Button>
+          }
         />
       ) : (
-        /* ── Contact cards ──────────────────────────────────────────
-           Each supplier is a contact card: name, GSTIN, phone/email
-           with icons, open POs badge, and balance owed. Edit and
-           delete buttons appear on hover. */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              className="group relative flex flex-col rounded-lg border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
-            >
-              {/* Hover actions */}
-              <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setFormOpen(true); }} title="Edit" className="h-7 w-7">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setDeleting(s)} title="Delete" className="h-7 w-7 text-muted-foreground hover:text-danger">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              {/* Name */}
-              <div className="pr-16 font-semibold text-foreground">{s.name}</div>
-
-              {/* GSTIN */}
-              <div className="mt-0.5 font-mono text-caption text-muted-foreground">{s.gstin ?? "—"}</div>
-
-              {/* Phone / Email */}
-              <div className="mt-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{s.phone ?? "—"}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{s.email ?? "—"}</span>
-                </div>
-              </div>
-
-              {/* Footer: open POs + balance */}
-              <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                {s.openPOs > 0 ? (
-                  <Badge variant="warning">{s.openPOs} open PO{s.openPOs !== 1 ? "s" : ""}</Badge>
-                ) : (
-                  <span className="text-caption text-muted-foreground">No open POs</span>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className={`font-mono text-body font-semibold tnum ${s.balanceOwed > 0 ? "text-danger" : "text-muted-foreground"}`}>
-                    {s.balanceOwed > 0 ? formatCurrency(s.balanceOwed) : "—"}
-                  </span>
-                  {canManagePayments && s.balanceOwed > 0 && (
-                    <Button size="sm" variant="outline" className="h-6 px-2 text-caption" onClick={() => setPaySupplier(s)}>
-                      Pay
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+        /*
+         * A supplier directory inside procurement is a payables list, not
+         * a set of contact cards. Cards hid the two numbers that determine
+         * what to do next — open POs and balance owed — one click deep.
+         * As rows, "who do we owe the most" is the first sort, not a scroll.
+         */
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={suppliers}
+            columns={columns}
+            storageKey="procurement-suppliers"
+            searchable
+            searchPlaceholder="Search name, GSTIN, phone…"
+            hideable
+            initialSort={{ key: "balanceOwed", direction: "desc" }}
+            showTotals
+            sumColumns={["openPOs", "balanceOwed"]}
+            totalFormat={(key, sum) =>
+              key === "openPOs" ? sum.toLocaleString("en-IN") : formatCurrency(sum)
+            }
+            rowTone={(s) => (s.balanceOwed > 0 ? "warning" : null)}
+            onAddRow={() => { setEditing(null); setFormOpen(true); }}
+            addRowLabel="New Supplier"
+          />
         </div>
       )}
 
@@ -633,7 +684,7 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
         onOpenChange={(o) => !o && setDeleting(null)}
         endpoint={deleting ? `/api/suppliers/${deleting.id}` : ""}
         title="Delete supplier?"
-        description={deleting ? `“${deleting.name}” will be archived. Suppliers with open POs cannot be deleted.` : ""}
+        description={deleting ? `"${deleting.name}" will be archived. Suppliers with open POs cannot be deleted.` : ""}
         successMessage="Supplier archived"
       />
       <SupplierPaymentFormDialog
@@ -667,34 +718,12 @@ function DirectPurchasesTab({
   canCreate: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
-  const router = useRouter();
   const totalAmount = directPurchases.reduce((s, p) => s + p.billAmount, 0);
 
   const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <div className="space-y-4">
-      <MetricGrid cols={2}>
-        <Metric label="Cash Purchases" value={directPurchases.length} icon={<ShoppingCart />} />
-        <Metric label="Total Amount" value={formatCurrency(totalAmount)} tone="brand" />
-      </MetricGrid>
-
-      <div className="flex items-center justify-between">
-        <span className="text-body text-muted-foreground">
-          {directPurchases.length} cash purchase{directPurchases.length !== 1 ? "s" : ""} · Total: {formatCurrency(totalAmount)}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {canCreate && (
-            <Button onClick={() => setFormOpen(true)} disabled={materials.length === 0 || locations.length === 0}>
-              <Plus className="h-4 w-4" /> New Cash Purchase
-            </Button>
-          )}
-        </div>
-      </div>
-
       {directPurchases.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart className="h-5 w-5" />}
@@ -719,6 +748,8 @@ function DirectPurchasesTab({
             totalFormat={(_k, sum) => formatCurrency(sum)}
             hideable
             pageSize={50}
+            onAddRow={canCreate && materials.length > 0 && locations.length > 0 ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Cash Purchase"
           />
         </div>
       )}

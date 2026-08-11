@@ -47,20 +47,34 @@ async function MobileDprContent() {
   // @db.Date column, so a bare `new Date()` (with time) is unreliable.
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
 
   // Fetch ALL of today's DPRs for the company (one per project — the
   // unique key is [projectId, date]). The form looks up by selected
   // project so a supervisor with multiple projects edits the right one.
-  const todayDprs = await prisma.dailyProgressReport.findMany({
-    where: {
-      companyId: company.id,
-      date: { gte: startOfToday, lt: endOfToday },
-    },
-    include: {
-      materialLines: true,
-      laborLines: true,
-    },
-  });
+  // Also fetch yesterday's DPRs for the "Repeat yesterday" feature.
+  const [todayDprs, yesterdayDprs] = await Promise.all([
+    prisma.dailyProgressReport.findMany({
+      where: {
+        companyId: company.id,
+        date: { gte: startOfToday, lt: endOfToday },
+      },
+      include: {
+        materialLines: true,
+        laborLines: true,
+      },
+    }),
+    prisma.dailyProgressReport.findMany({
+      where: {
+        companyId: company.id,
+        date: { gte: startOfYesterday, lt: startOfToday },
+      },
+      include: {
+        materialLines: true,
+        laborLines: true,
+      },
+    }),
+  ]);
 
   const existingDprsByProject: Record<string, {
     id: string;
@@ -100,6 +114,31 @@ async function MobileDprContent() {
     };
   }
 
+  // Build yesterday's DPRs map for "Repeat yesterday" feature
+  const yesterdayDprsByProject: Record<string, {
+    workSummary: string;
+    weather: string | null;
+    materialLines: { materialId: string; qty: number; unitCost: number }[];
+    laborLines: { employeeId: string | null; crewId: string | null; hoursWorked: number; taskDescription: string }[];
+  }> = {};
+  for (const d of yesterdayDprs) {
+    yesterdayDprsByProject[d.projectId] = {
+      workSummary: d.workSummary,
+      weather: d.weather,
+      materialLines: d.materialLines.map((l) => ({
+        materialId: l.materialId,
+        qty: toNum(l.qty),
+        unitCost: toNum(l.unitCost),
+      })),
+      laborLines: d.laborLines.map((l) => ({
+        employeeId: l.employeeId,
+        crewId: l.crewId,
+        hoursWorked: toNum(l.hoursWorked),
+        taskDescription: l.taskDescription,
+      })),
+    };
+  }
+
   const [projects, employees, crews, materials] = await Promise.all([
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
@@ -117,7 +156,7 @@ async function MobileDprContent() {
       orderBy: { name: "asc" },
     }),
     prisma.material.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
       take: 100,
@@ -131,6 +170,7 @@ async function MobileDprContent() {
       crews={crews.map((c) => ({ id: c.id, name: c.name }))}
       materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
       existingDprsByProject={existingDprsByProject}
+      yesterdayDprsByProject={yesterdayDprsByProject}
     />
   );
 }

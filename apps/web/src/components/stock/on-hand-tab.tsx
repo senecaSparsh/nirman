@@ -1,13 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Boxes, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Boxes, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
-import { MetricGrid, Metric } from "@/components/page";
+
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { StockLocationRow, StockRow } from "@/lib/types";
@@ -22,47 +19,33 @@ import type { StockLocationRow, StockRow } from "@/lib/types";
  * one dense, sortable grid instead of N separate lists.
  */
 export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
-  const router = useRouter();
   const [locationFilter, setLocationFilter] = useState("");
   const filtered = useMemo(
     () => (locationFilter ? stock.filter((s) => s.locationId === locationFilter) : stock),
     [stock, locationFilter],
   );
-  const totalValue = filtered.reduce((s, r) => s + r.value, 0);
-  const totalQty = filtered.reduce((s, r) => s + r.qty, 0);
-  const lowStockCount = filtered.filter((r) => r.qty <= 0).length;
+
+  const locationSelect = (
+    <div className="relative shrink-0" style={{ width: 180 }}>
+      <select
+        value={locationFilter}
+        onChange={(e) => setLocationFilter(e.target.value)}
+        style={{ width: 180 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All locations</option>
+        {locations.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name} ({l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"})
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      <MetricGrid cols={3}>
-        <Metric label="Line Items" value={filtered.length} icon={<Boxes />} />
-        <Metric label="Total Qty" value={formatNumber(totalQty, 3)} sub={`${locations.length} locations`} />
-        <Metric label="Total Value" value={formatCurrency(totalValue)} tone="brand" sub={lowStockCount > 0 ? `${lowStockCount} out of stock` : undefined} />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Select
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-            className="sm:max-w-xs"
-          >
-            <option value="">All locations</option>
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name} ({l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"})
-              </option>
-            ))}
-          </Select>
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-        <span className="text-body text-muted-foreground">
-          {filtered.length} line item{filtered.length !== 1 ? "s" : ""} · {formatCurrency(totalValue)}
-        </span>
-      </div>
-
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Boxes className="h-5 w-5" />}
@@ -70,7 +53,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
           description="Stock appears here once goods are received against purchase orders."
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable
             data={filtered}
             initialSort={{ key: "value", direction: "desc" }}
@@ -82,6 +65,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
             totalFormat={(key, sum) => key === "value" ? formatCurrency(sum) : formatNumber(sum, 3)}
             hideable
             pageSize={50}
+            toolbarLeading={locationSelect}
           />
         </div>
       )}

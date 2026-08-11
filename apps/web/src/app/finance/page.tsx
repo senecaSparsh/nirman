@@ -19,7 +19,7 @@ import type { ProjectCostRow, AuditLogRow, ProjectOption } from "@/lib/types";
 import { NoAccess } from "@/components/no-access";
 export default function FinancePage() {
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading finance…" variant="list" />}>
         <FinanceContent />
       </Suspense>
@@ -55,6 +55,7 @@ async function FinanceContent() {
       include: { project: { select: { name: true } } },
     }),
     prisma.auditLog.findMany({
+      where: { companyId: company.id },
       orderBy: { timestamp: "desc" },
       take: 50,
       include: { user: { select: { name: true } } },
@@ -133,12 +134,18 @@ async function FinanceContent() {
     entityType: log.entityType,
     entityId: log.entityId,
     details: log.after ? JSON.stringify(log.after) : null,
+    before: log.before as Record<string, unknown> | null,
+    after: log.after as Record<string, unknown> | null,
     timestamp: log.timestamp.toISOString(),
   }));
 
   const projectOptions: ProjectOption[] = projects.map((p) => ({
     id: p.id, name: p.name, type: p.type, status: p.status,
   }));
+
+  const totalCosts = projectCostRows.reduce((s, c) => s + c.amount, 0);
+  const totalExpenses = expenseRows.reduce((s, e) => s + e.amount, 0);
+  const outstanding = totalRevenue - totalCollected;
 
   const perms = {
     canCreateExpense: hasPermission(role, PERM.EXPENSE_CREATE),
@@ -150,25 +157,20 @@ async function FinanceContent() {
     <>
       <PageHeader
         title="Finance"
+        description="Company position, project P&L, and money flow — every cost and expense that moved this period, plus supplier invoices awaiting payment."
         stats={[
-          { label: "Inventory", value: formatCurrency(toNum(inventoryVal)) },
-          { label: "Unsold Assets", value: formatCurrency(toNum(unsoldAssets.total)) },
-          { label: "Revenue", value: formatCurrency(totalRevenue) },
-          { label: "Collected", value: formatCurrency(totalCollected) },
+          { label: "Inventory", value: formatCurrency(toNum(inventoryVal)), hint: "Current value of material stock on hand, valued at moving average cost." },
+          { label: "Unsold Assets", value: formatCurrency(toNum(unsoldAssets.total)), hint: "Book value of unsold land parcels and built units still in inventory." },
+          { label: "Revenue", value: formatCurrency(totalRevenue), hint: "Total sale price across all active (non-cancelled) sales." },
+          { label: "Collected", value: formatCurrency(totalCollected), hint: "Total payments received from customers across all active sales." },
+          { label: "Outstanding", value: formatCurrency(outstanding), tone: outstanding > 0 ? "warning" : "muted", hint: "Revenue minus collected — what customers still owe you." },
+          { label: "Costs + Expenses", value: formatCurrency(totalCosts + totalExpenses), tone: "danger", hint: `${formatCurrency(totalCosts)} project costs + ${formatCurrency(totalExpenses)} operating expenses.` },
         ]}
       />
       <FinanceTabs
         overview={
           <FinanceView
             permissions={perms}
-            materialInventoryValue={toNum(inventoryVal)}
-            unsoldAssetValue={{
-              land: toNum(unsoldAssets.land),
-              builtUnits: toNum(unsoldAssets.builtUnits),
-              total: toNum(unsoldAssets.total),
-            }}
-            totalRevenue={totalRevenue}
-            totalCollected={totalCollected}
             projectPnls={pnlResults}
             projectCosts={projectCostRows}
             expenses={expenseRows}

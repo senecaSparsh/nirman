@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, ShoppingCart, Users, Download, Phone, Mail, RefreshCw, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useTabParam } from "@/lib/use-tab-param";
 import { EmptyState } from "@/components/empty-state";
-import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { StatusPill, MetricGrid, Metric } from "@/components/page";
-import { CustomerFormDialog } from "./customer-form-dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusPill } from "@/components/page";
+import { CustomersView } from "./customers-view";
 import { SellAssetDialog } from "./sell-asset-dialog";
 import { SaleDetailDialog } from "./sale-detail-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -27,7 +27,10 @@ export function SalesView({
   defaultTab?: string;
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
-  const [tab, setTab] = useState(defaultTab);
+  const [tab, setTab] = useTabParam(
+    ["sales", "customers"] as const,
+    (defaultTab === "customers" ? "customers" : "sales") as "sales" | "customers",
+  );
   const searchParams = useSearchParams();
   const autoOpenSaleId = searchParams.get("sale");
 
@@ -63,6 +66,104 @@ export function SalesView({
 //  Sales tab
 // ───────────────────────────────────────────────────────────
 
+/** Column definitions for the Sales DataTable — mirrors the visual
+ *  language of the Procurement Orders table (mono numbers, StatusPill,
+ *  inline progress bars) so the two hub pages read as one product. */
+const saleColumns: Column<AssetSaleRow>[] = [
+  {
+    key: "saleNumber",
+    label: "Sale No.",
+    sortable: true,
+    render: (s) => (
+      <span className="font-mono text-caption font-semibold text-foreground">{s.saleNumber}</span>
+    ),
+  },
+  {
+    key: "asset",
+    label: "Asset",
+    sortable: true,
+    sortValue: (s) => s.assetType === "LAND" ? (s.landParcelNumber ?? "") : (s.builtUnitNumber ?? ""),
+    render: (s) => (
+      <span className="font-medium text-foreground">
+        {s.assetType === "LAND" ? `Plot ${s.landParcelNumber ?? "—"}` : `Unit ${s.builtUnitNumber ?? "—"}`}
+      </span>
+    ),
+  },
+  {
+    key: "customerName",
+    label: "Customer",
+    sortable: true,
+    render: (s) => <span className="text-foreground">{s.customerName}</span>,
+  },
+  {
+    key: "projectName",
+    label: "Project",
+    sortable: true,
+    render: (s) => <span className="text-muted-foreground">{s.projectName}</span>,
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (s) => <StatusPill status={s.status} />,
+  },
+  {
+    key: "paymentStatus",
+    label: "Payment",
+    sortable: true,
+    render: (s) => <StatusPill status={s.paymentStatus} />,
+  },
+  {
+    key: "salePrice",
+    label: "Sale Price",
+    align: "right",
+    sortable: true,
+    render: (s) => <span className="font-semibold text-foreground">{formatCurrency(s.salePrice)}</span>,
+  },
+  {
+    key: "totalPaid",
+    label: "Collected",
+    align: "right",
+    sortable: true,
+    render: (s) => {
+      const payPct = s.salePrice > 0 ? Math.min(100, (s.totalPaid / s.salePrice) * 100) : 0;
+      if (s.status === "CANCELLED") return <span className="text-muted-foreground">—</span>;
+      return (
+        <div className="flex items-center justify-end gap-2">
+          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full ${payPct === 100 ? "bg-success" : payPct > 0 ? "bg-warning" : "bg-muted-foreground/30"}`}
+              style={{ width: `${payPct}%` }}
+            />
+          </div>
+          <span className="text-micro tnum text-muted-foreground w-8">{Math.round(payPct)}%</span>
+        </div>
+      );
+    },
+  },
+  {
+    key: "profit",
+    label: "Profit",
+    align: "right",
+    sortable: true,
+    render: (s) =>
+      s.profit === 0 ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <span className={`font-semibold tnum ${s.profit >= 0 ? "text-success" : "text-danger"}`}>
+          {s.profit >= 0 ? "+" : ""}{formatCurrency(s.profit)}
+        </span>
+      ),
+  },
+  {
+    key: "saleDate",
+    label: "Date",
+    sortable: true,
+    sortValue: (s) => new Date(s.saleDate),
+    render: (s) => <span className="text-muted-foreground">{formatDate(s.saleDate)}</span>,
+  },
+];
+
 function SalesTab({
   sales,
   customers,
@@ -79,10 +180,8 @@ function SalesTab({
   const [statusFilter, setStatusFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
-  const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
-  const router = useRouter();
 
   // Auto-open sale detail when navigated with ?sale={id}
   useEffect(() => {
@@ -97,66 +196,40 @@ function SalesTab({
       if (statusFilter && s.status !== statusFilter) return false;
       if (stageFilter && s.saleStage !== stageFilter) return false;
       if (payFilter && s.paymentStatus !== payFilter) return false;
-      if (query.trim()) {
-        const q = query.toLowerCase();
-        if (!s.customerName.toLowerCase().includes(q) &&
-            !(s.saleNumber ?? "").toLowerCase().includes(q) &&
-            !(s.projectName ?? "").toLowerCase().includes(q) &&
-            !(s.landParcelNumber ?? "").toLowerCase().includes(q) &&
-            !(s.builtUnitNumber ?? "").toLowerCase().includes(q)) {
-          return false;
-        }
-      }
       return true;
     }),
-    [sales, statusFilter, stageFilter, payFilter, query],
+    [sales, statusFilter, stageFilter, payFilter],
   );
 
-  const totalRevenue = filtered.filter((s) => s.status !== "CANCELLED").reduce((sum, s) => sum + s.salePrice, 0);
-  const totalCollected = filtered.filter((s) => s.status !== "CANCELLED").reduce((sum, s) => sum + s.totalPaid, 0);
-  const activeCount = sales.filter((s) => s.status === "ACTIVE").length;
-  const reservedCount = sales.filter((s) => s.saleStage === "DEPOSIT_RECEIVED").length;
-  const pendingPayments = sales.filter((s) => s.status !== "CANCELLED" && s.paymentStatus !== "PAID").length;
+  // ── Toolbar controls — same visual language as Procurement's PO table:
+  //    inline appearance-none <select> with a floating chevron, and
+  //    icon-only export buttons with a hover tooltip. ─────────────────
+  const filterSelect = (
+    value: string,
+    onChange: (v: string) => void,
+    width: number,
+    options: { value: string; label: string }[],
+  ) => (
+    <div className="relative shrink-0" style={{ width }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
 
-  return (
-    <div className="space-y-4">
-      <MetricGrid cols={4}>
-        <Metric label="Total Sales" value={sales.length} icon={<ShoppingCart />} />
-        <Metric label="Active" value={activeCount} tone="brand" />
-        <Metric label="Total Revenue" value={formatCurrency(totalRevenue)} tone="brand" sub={`${formatCurrency(totalCollected)} collected`} />
-        <Metric label="Pending Payments" value={pendingPayments} tone={pendingPayments > 0 ? "warning" : "muted"} />
-      </MetricGrid>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-          <div className="relative sm:max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customer, sale no, project…" className="pl-8" />
-          </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="CANCELLED">Cancelled</option>
-          </Select>
-          <Select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All stages</option>
-            <option value="PENDING">Pending</option>
-            <option value="DEPOSIT_RECEIVED">Deposit Received</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-          </Select>
-          <Select value={payFilter} onChange={(e) => setPayFilter(e.target.value)} className="sm:max-w-[180px]">
-            <option value="">All payments</option>
-            <option value="PENDING">Pending</option>
-            <option value="PARTIAL">Partial</option>
-            <option value="PAID">Paid</option>
-          </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+  const trailingButtons = (
+    <>
+      <div className="group relative">
+        <button
+          onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "saleNumber", label: "Sale No." },
             { key: "assetType", label: "Asset Type" },
             { key: "landParcelNumber", label: "Land Parcel" },
@@ -168,136 +241,94 @@ function SalesTab({
             { key: "status", label: "Status" },
             { key: "paymentStatus", label: "Payment" },
             { key: "saleDate", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
-          ])} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => downloadExcel("sales-revenue")} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4" /> Export Excel
-          </Button>
-          {(permissions?.canCreateSale ?? true) && sales.length > 0 && (
-            <Button onClick={() => setFormOpen(true)} disabled={customers.length === 0}>
-              <Plus className="h-4 w-4" /> New Sale
-            </Button>
-          )}
-        </div>
+          ])}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <Download className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export CSV
+        </span>
       </div>
-
-      <div className="flex items-center gap-3 text-caption text-muted-foreground">
-        <span>{filtered.length} sales</span>
-        <span>·</span>
-        <span>Revenue: {formatCurrency(totalRevenue)}</span>
-        <span>·</span>
-        <span>Collected: {formatCurrency(totalCollected)}</span>
+      <div className="group relative">
+        <button
+          onClick={() => downloadExcel("sales-revenue")}
+          disabled={filtered.length === 0}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          <FileSpreadsheet className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Export Excel
+        </span>
       </div>
+    </>
+  );
 
-      {filtered.length === 0 ? (
+  return (
+    <div className="space-y-4">
+      {sales.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart className="h-5 w-5" />}
-          title={sales.length === 0 ? "No sales yet" : "No sales match the filters"}
+          title="No sales yet"
           description={
-            sales.length === 0
-              ? customers.length === 0
-                ? "Create a customer first, then record your first sale."
-                : "Record your first asset sale (land or built unit)."
-              : "Try a different status or payment filter."
+            customers.length === 0
+              ? "Create a customer first, then record your first sale."
+              : "Record your first asset sale (land or built unit)."
           }
           action={
-            sales.length === 0 && customers.length > 0 && (permissions?.canCreateSale ?? true) ? (
+            customers.length > 0 && (permissions?.canCreateSale ?? false) ? (
               <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Sale</Button>
-            ) : sales.length === 0 && customers.length === 0 ? (
+            ) : customers.length === 0 ? (
               <Button onClick={() => onAddCustomer?.()} size="sm"><Users className="h-4 w-4" /> Add a customer</Button>
             ) : undefined
           }
         />
       ) : (
-        /* ── Timeline of sale events ──
-           Not a table. Sales are chronological events — you see the
-           most recent sale at the top, with a vertical line connecting
-           them. Each event shows the asset sold, customer, price, and
-           payment progress as a visual bar. This is the temporal nature
-           of sales made visual. */
-        <div className="relative">
-          {/* Vertical timeline line */}
-          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-
-          <div className="space-y-1">
-            {filtered.map((s) => {
-              const payPct = s.salePrice > 0 ? Math.min(100, (s.totalPaid / s.salePrice) * 100) : 0;
-              const isCancelled = s.status === "CANCELLED";
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => setSelected(s)}
-                  className="group relative flex w-full items-start gap-4 rounded-lg p-2.5 pl-0 text-left transition-colors hover:bg-muted/30"
-                >
-                  {/* Timeline dot */}
-                  <span
-                    className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-background ${
-                      isCancelled ? "bg-danger" :
-                      s.saleStage === "DEPOSIT_RECEIVED" ? "bg-warning" :
-                      s.paymentStatus === "PAID" ? "bg-success" :
-                      s.paymentStatus === "PARTIAL" ? "bg-warning" :
-                      "bg-muted-foreground/40"
-                    }`}
-                  />
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="min-w-0">
-                        <span className="font-mono text-caption font-semibold text-foreground">{s.saleNumber}</span>
-                        <span className="ml-2 text-body font-medium text-foreground">
-                          {s.assetType === "LAND"
-                            ? `Plot ${s.landParcelNumber ?? "—"}`
-                            : `Unit ${s.builtUnitNumber ?? "—"}`}
-                        </span>
-                      </div>
-                      <span className="shrink-0 text-body font-semibold tnum text-foreground">{formatCurrency(s.salePrice)}</span>
-                    </div>
-
-                    <div className="mt-0.5 flex items-baseline gap-2 text-caption text-muted-foreground">
-                      <span className="truncate">{s.customerName}</span>
-                      <span>·</span>
-                      <span className="truncate">{s.projectName}</span>
-                      <span className="ml-auto shrink-0">{formatDate(s.saleDate)}</span>
-                    </div>
-
-                    {/* Payment progress bar */}
-                    {!isCancelled && s.salePrice > 0 && (
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={`h-full ${payPct === 100 ? "bg-success" : payPct > 0 ? "bg-warning" : "bg-muted-foreground/20"}`}
-                            style={{ width: `${payPct}%` }}
-                          />
-                        </div>
-                        <span className="text-micro tnum text-muted-foreground">
-                          {formatCurrency(s.totalPaid)} / {formatCurrency(s.salePrice)}
-                        </span>
-                        {s.balanceDue > 0 && (
-                          <span className="text-micro font-medium text-warning">{formatCurrency(s.balanceDue)} due</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Status badges */}
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <StatusPill status={s.status} />
-                      {s.saleStage && s.saleStage !== "COMPLETED" && (
-                        <StatusPill status={s.saleStage} />
-                      )}
-                      <StatusPill status={s.paymentStatus} />
-                      {s.profit !== 0 && (
-                        <span className={`text-micro tnum font-medium ${s.profit >= 0 ? "text-success" : "text-danger"}`}>
-                          {s.profit >= 0 ? "+" : ""}{formatCurrency(s.profit)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        /* ── Data Table view (enterprise-grade) ────────────────────
+           Dense, sortable columns — the same shape as the Procurement
+           Orders table so Sales stops feeling like a different app. */
+        <div className="rounded-lg border border-border overflow-hidden">
+          <DataTable
+            data={filtered}
+            onRowClick={(s) => setSelected(s)}
+            initialSort={{ key: "saleDate", direction: "desc" }}
+            columns={saleColumns}
+            searchable
+            searchPlaceholder="Search by sale no, customer, project…"
+            showTotals
+            sumColumns={["salePrice", "totalPaid", "profit"]}
+            totalFormat={(_key, sum) => formatCurrency(sum)}
+            hideable
+            pageSize={50}
+            storageKey="sales"
+            onAddRow={(permissions?.canCreateSale ?? false) && customers.length > 0 ? () => setFormOpen(true) : undefined}
+            addRowLabel="New Sale"
+            toolbarLeading={
+              <div className="flex w-fit shrink-0 items-center gap-2">
+                {filterSelect(statusFilter, setStatusFilter, 120, [
+                  { value: "", label: "All statuses" },
+                  { value: "ACTIVE", label: "Active" },
+                  { value: "CANCELLED", label: "Cancelled" },
+                ])}
+                {filterSelect(stageFilter, setStageFilter, 150, [
+                  { value: "", label: "All stages" },
+                  { value: "PENDING", label: "Pending" },
+                  { value: "DEPOSIT_RECEIVED", label: "Deposit Received" },
+                  { value: "COMPLETED", label: "Completed" },
+                  { value: "CANCELLED", label: "Cancelled" },
+                ])}
+                {filterSelect(payFilter, setPayFilter, 130, [
+                  { value: "", label: "All payments" },
+                  { value: "PENDING", label: "Pending" },
+                  { value: "PARTIAL", label: "Partial" },
+                  { value: "PAID", label: "Paid" },
+                ])}
+              </div>
+            }
+            toolbarTrailing={trailingButtons}
+          />
         </div>
       )}
 
@@ -314,136 +345,15 @@ function SalesTab({
 }
 
 // ───────────────────────────────────────────────────────────
-//  Customers tab
+//  Customers tab — delegates to the shared CustomersView
 // ───────────────────────────────────────────────────────────
 
 function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; permissions?: { canCreateSale?: boolean; canManage?: boolean } }) {
-  const [query, setQuery] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<CustomerRow | null>(null);
-  const [deleting, setDeleting] = useState<CustomerRow | null>(null);
-  const router = useRouter();
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((c) =>
-      c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q) || (c.gstin ?? "").toLowerCase().includes(q),
-    );
-  }, [customers, query]);
-
-  const initials = (name: string) =>
-    name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-
+  const canManage = permissions?.canManage ?? false;
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:max-w-xs">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers…" />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {customers.length > 0 && (
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }} disabled={!(permissions?.canManage ?? true)}>
-              <Plus className="h-4 w-4" /> New Customer
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Users className="h-5 w-5" />}
-          title={customers.length === 0 ? "No customers yet" : "No customers match the search"}
-          description={customers.length === 0 ? "Add customers to record asset sales." : "Try a different search."}
-          action={
-            customers.length === 0 ? (
-              <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm" disabled={!(permissions?.canManage ?? true)}><Plus className="h-4 w-4" /> New Customer</Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        /* ── Contact card grid — matches the standalone Customers page ── */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((c) => (
-            <div
-              key={c.id}
-              className="group relative rounded-lg border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background">
-                  {initials(c.name)}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-body font-semibold text-foreground">{c.name}</div>
-                  {c.gstin && (
-                    <div className="truncate font-mono text-micro text-muted-foreground">{c.gstin}</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-1">
-                {c.phone && (
-                  <div className="flex items-center gap-2 text-caption text-muted-foreground">
-                    <Phone className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{c.phone}</span>
-                  </div>
-                )}
-                {c.email && (
-                  <div className="flex items-center gap-2 text-caption text-muted-foreground">
-                    <Mail className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{c.email}</span>
-                  </div>
-                )}
-                {!c.phone && !c.email && (
-                  <div className="text-caption text-muted-foreground/50">No contact info</div>
-                )}
-              </div>
-
-              <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-caption text-muted-foreground">Active sales</span>
-                  <span className={`text-body font-semibold tnum ${c.activeSales > 0 ? "text-foreground" : "text-muted-foreground"}`}>
-                    {c.activeSales}
-                  </span>
-                </div>
-                <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  {(permissions?.canManage ?? true) && (
-                    <button
-                      onClick={() => { setEditing(c); setFormOpen(true); }}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      title="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {(permissions?.canManage ?? true) && (
-                    <button
-                      onClick={() => setDeleting(c)}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <CustomerFormDialog open={formOpen} onOpenChange={setFormOpen} customer={editing} />
-      <DeleteConfirmDialog
-        open={deleting != null}
-        onOpenChange={(o) => !o && setDeleting(null)}
-        endpoint={deleting ? `/api/customers/${deleting.id}` : ""}
-        title="Delete customer?"
-        description={deleting ? `“${deleting.name}” will be archived. Customers with active sales cannot be deleted.` : ""}
-        successMessage="Customer archived"
-      />
-    </div>
+    <CustomersView
+      customers={customers}
+      permissions={{ canCreate: canManage, canEdit: canManage, canDelete: canManage }}
+    />
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronRight, TrendingUp, Users, Clock, DollarSign } from "lucide-react";
+import { TrendingUp, Users, Clock, DollarSign, SearchX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
-import { Select } from "@/components/ui/input";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/empty-state";
+import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 
 export type ProjectAnalysis = {
   id: string;
@@ -30,17 +31,7 @@ export type ProjectAnalysis = {
 };
 
 export function ComparativeReportView({ projects }: { projects: ProjectAnalysis[] }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState("progress");
-
-  const sorted = useMemo(() => {
-    const arr = [...projects];
-    if (sortBy === "progress") arr.sort((a, b) => b.latestProgressPct - a.latestProgressPct);
-    else if (sortBy === "productivity") arr.sort((a, b) => b.attendanceRate - a.attendanceRate);
-    else if (sortBy === "cost") arr.sort((a, b) => b.projectCost - a.projectCost);
-    else if (sortBy === "margin") arr.sort((a, b) => b.margin - a.margin);
-    return arr;
-  }, [projects, sortBy]);
+  const [detailTarget, setDetailTarget] = useState<ProjectAnalysis | null>(null);
 
   const totals = useMemo(() => {
     return {
@@ -55,11 +46,133 @@ export function ComparativeReportView({ projects }: { projects: ProjectAnalysis[
   }, [projects]);
 
   const historyColumns: Column<ProjectAnalysis["history"][number]>[] = [
-    { key: "date", label: "Date", render: (h) => <span className="text-muted-foreground">{formatDate(h.date)}</span>, sortValue: (h) => h.date },
-    { key: "progressPct", label: "Progress %", align: "right", render: (h) => <span className="font-medium">{h.progressPct.toFixed(1)}%</span>, sortValue: (h) => h.progressPct },
-    { key: "laborHours", label: "Labor Hours", align: "right", render: (h) => h.laborHours.toFixed(1), sortValue: (h) => h.laborHours },
-    { key: "workSummary", label: "Work Summary", render: (h) => <span className="text-muted-foreground max-w-xs truncate block">{h.workSummary}</span>, sortValue: (h) => h.workSummary },
+    {
+      key: "date",
+      label: "Date",
+      sortable: true,
+      sortValue: (h) => h.date,
+      render: (h) => <span className="text-muted-foreground">{formatDate(h.date)}</span>,
+      exportValue: (h) => formatDate(h.date),
+    },
+    {
+      key: "progressPct",
+      label: "Progress %",
+      align: "right",
+      sortable: true,
+      sortValue: (h) => h.progressPct,
+      render: (h) => <span className="font-medium">{h.progressPct.toFixed(1)}%</span>,
+      exportValue: (h) => h.progressPct.toFixed(1) + "%",
+    },
+    {
+      key: "laborHours",
+      label: "Labor Hours",
+      align: "right",
+      sortable: true,
+      sortValue: (h) => h.laborHours,
+      render: (h) => <span className="tnum">{h.laborHours.toFixed(1)}</span>,
+      exportValue: (h) => h.laborHours.toFixed(1),
+    },
+    {
+      key: "workSummary",
+      label: "Work Summary",
+      sortable: true,
+      render: (h) => <span className="text-muted-foreground max-w-xs truncate block">{h.workSummary}</span>,
+      sortValue: (h) => h.workSummary,
+      exportValue: (h) => h.workSummary,
+    },
   ];
+
+  const projectColumns: Column<ProjectAnalysis>[] = [
+    {
+      key: "name",
+      label: "Project",
+      sortable: true,
+      filterable: true,
+      render: (p) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">{p.name}</span>
+          <StatusPill status={p.status} />
+        </div>
+      ),
+      filterValue: (p) => p.name,
+      exportValue: (p) => p.name,
+    },
+    {
+      key: "latestProgressPct",
+      label: "Progress",
+      align: "right",
+      sortable: true,
+      render: (p) => (
+        <div className="flex items-center justify-end gap-2">
+          <Badge variant={p.progressDelta >= 0 ? "success" : "danger"}>
+            {p.progressDelta >= 0 ? "+" : ""}{p.progressDelta.toFixed(1)}%
+          </Badge>
+          <span className="tnum font-medium">{p.latestProgressPct.toFixed(1)}%</span>
+        </div>
+      ),
+      exportValue: (p) => p.latestProgressPct.toFixed(1) + "%",
+    },
+    {
+      key: "attendanceRate",
+      label: "Attendance",
+      align: "right",
+      sortable: true,
+      render: (p) => (
+        <span className={cn(
+          "tnum",
+          p.attendanceRate >= 80 ? "text-success" : p.attendanceRate >= 60 ? "text-warning" : "text-danger",
+        )}>
+          {p.attendanceRate.toFixed(0)}%
+        </span>
+      ),
+      exportValue: (p) => p.attendanceRate.toFixed(0) + "%",
+    },
+    {
+      key: "totalLaborHours",
+      label: "Labor Hrs",
+      align: "right",
+      sortable: true,
+      render: (p) => <span className="tnum text-muted-foreground">{formatNumber(p.totalLaborHours, 0)}</span>,
+      exportValue: (p) => p.totalLaborHours.toFixed(0),
+    },
+    {
+      key: "projectCost",
+      label: "Cost",
+      align: "right",
+      sortable: true,
+      render: (p) => <span className="tnum text-warning">{formatCurrency(p.projectCost)}</span>,
+      exportValue: (p) => p.projectCost,
+    },
+    {
+      key: "revenue",
+      label: "Revenue",
+      align: "right",
+      sortable: true,
+      render: (p) => <span className="tnum text-success">{formatCurrency(p.revenue)}</span>,
+      exportValue: (p) => p.revenue,
+    },
+    {
+      key: "margin",
+      label: "Margin",
+      align: "right",
+      sortable: true,
+      render: (p) => (
+        <span className={cn("tnum font-medium", p.margin >= 0 ? "text-success" : "text-danger")}>
+          {p.margin.toFixed(1)}%
+        </span>
+      ),
+      exportValue: (p) => p.margin.toFixed(1) + "%",
+    },
+  ];
+
+  const noMatch = (
+    <EmptyState
+      size="compact"
+      icon={<SearchX />}
+      title="No matches"
+      description="Adjust the search or column filters."
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -91,94 +204,145 @@ export function ComparativeReportView({ projects }: { projects: ProjectAnalysis[
         </div>
       </div>
 
-      {/* Sort selector */}
-      <div className="flex items-center gap-3">
-        <span className="text-meta text-muted-foreground">Sort by:</span>
-        <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-auto">
-          <option value="progress">Progress %</option>
-          <option value="productivity">Attendance Rate</option>
-          <option value="cost">Project Cost</option>
-          <option value="margin">Profit Margin</option>
-        </Select>
-      </div>
-
       {/* Project list */}
-      <div className="space-y-2">
-        {sorted.map((p) => (
-          <div key={p.id} className="rounded-lg border border-border bg-card">
-            <button
-              onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-              className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/20"
-            >
-              {expanded === p.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              <div className="flex-1 space-y-0.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-foreground">{p.name}</span>
-                  <StatusPill status={p.status} />
-                  <Badge variant={p.progressDelta >= 0 ? "success" : "danger"}>
-                    {p.progressDelta >= 0 ? "+" : ""}{p.progressDelta.toFixed(1)}%
-                  </Badge>
-                </div>
-                <div className="text-meta text-muted-foreground">
-                  {p.dprCount} DPRs · {p.totalLaborHours.toFixed(0)} labor hrs · {p.attendanceRate.toFixed(0)}% attendance
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-body font-medium text-foreground">{p.latestProgressPct.toFixed(1)}%</div>
-                <div className="text-caption text-muted-foreground">progress</div>
-              </div>
-            </button>
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={<TrendingUp className="h-5 w-5" />}
+          title="No projects to compare"
+          description="Create projects with DPRs and costs to see comparative analysis."
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            data={projects}
+            columns={projectColumns}
+            storageKey="comparative-analysis"
+            hideable
+            exportFileName="comparative-analysis"
+            initialSort={{ key: "latestProgressPct", direction: "desc" }}
+            onRowClick={(p) => setDetailTarget(p)}
+            searchable
+            searchPlaceholder="Search project, status…"
+            rowTone={(p) => (p.margin < 0 ? "danger" : null)}
+            emptyState={noMatch}
+          />
+        </div>
+      )}
 
-            {expanded === p.id && (
-              <div className="border-t border-border p-3 space-y-3">
-                {/* Metrics grid */}
-                <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
-                  <div><div className="text-muted-foreground">Project Cost</div><div className="text-foreground">{formatCurrency(p.projectCost)}</div></div>
-                  <div><div className="text-muted-foreground">Labour Cost</div><div className="text-foreground">{formatCurrency(p.labourCost)}</div></div>
-                  <div><div className="text-muted-foreground">Revenue</div><div className="text-foreground">{formatCurrency(p.revenue)}</div></div>
-                  <div>
-                    <div className="text-muted-foreground">Margin</div>
-                    <div className={p.margin >= 0 ? "text-success" : "text-danger"}>{p.margin.toFixed(1)}%</div>
-                  </div>
-                </div>
-
-                {/* Workforce */}
-                <div className="grid grid-cols-3 gap-3 text-meta">
-                  <div><div className="text-muted-foreground">Present (30d)</div><div className="text-success">{p.workforcePresent}</div></div>
-                  <div><div className="text-muted-foreground">Absent (30d)</div><div className="text-danger">{p.workforceAbsent}</div></div>
-                  <div><div className="text-muted-foreground">Leave (30d)</div><div className="text-muted-foreground">{p.workforceLeave}</div></div>
-                </div>
-
-                {/* Progress history */}
-                {p.history.length > 0 && (
-                  <div>
-                    <div className="mb-2 text-body font-medium text-foreground">Progress Over Time</div>
-                    <DataTable
-                      columns={historyColumns}
-                      data={p.history.slice(-10).reverse()}
-                      className="rounded-md border border-border"
-                    />
-                  </div>
-                )}
-
-                {/* Simple progress bar */}
-                <div>
-                  <div className="mb-1 flex justify-between text-caption text-muted-foreground">
-                    <span>Progress</span>
-                    <span>{p.latestProgressPct.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${p.latestProgressPct >= 75 ? "bg-success" : p.latestProgressPct >= 40 ? "bg-warning" : "bg-danger"}`}
-                      style={{ width: `${Math.min(p.latestProgressPct, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Detail dialog */}
+      {detailTarget && (
+        <ProjectDetailDialog project={detailTarget} historyColumns={historyColumns} onClose={() => setDetailTarget(null)} />
+      )}
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Project Detail Dialog
+// ───────────────────────────────────────────────────────────
+
+function ProjectDetailDialog({
+  project,
+  historyColumns,
+  onClose,
+}: {
+  project: ProjectAnalysis;
+  historyColumns: Column<ProjectAnalysis["history"][number]>[];
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={project.name}
+      description={`${project.dprCount} DPRs · ${project.totalLaborHours.toFixed(0)} labor hrs · ${project.attendanceRate.toFixed(0)}% attendance`}
+      className="max-w-2xl"
+    >
+      <div className="space-y-4">
+        {/* Status + progress */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <StatusPill status={project.status} />
+            <Badge variant={project.progressDelta >= 0 ? "success" : "danger"}>
+              {project.progressDelta >= 0 ? "+" : ""}{project.progressDelta.toFixed(1)}%
+            </Badge>
+          </div>
+          <div className="text-right">
+            <div className="text-body font-medium text-foreground">{project.latestProgressPct.toFixed(1)}%</div>
+            <div className="text-caption text-muted-foreground">progress</div>
+          </div>
+        </div>
+
+        {/* Metrics grid */}
+        <div className="grid grid-cols-2 gap-3 text-meta sm:grid-cols-4">
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Project Cost</div>
+            <div className="text-foreground font-medium">{formatCurrency(project.projectCost)}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Labour Cost</div>
+            <div className="text-foreground font-medium">{formatCurrency(project.labourCost)}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Revenue</div>
+            <div className="text-foreground font-medium">{formatCurrency(project.revenue)}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Margin</div>
+            <div className={cn("font-medium", project.margin >= 0 ? "text-success" : "text-danger")}>{project.margin.toFixed(1)}%</div>
+          </div>
+        </div>
+
+        {/* Workforce */}
+        <div className="grid grid-cols-3 gap-3 text-meta">
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Present (30d)</div>
+            <div className="text-success font-medium">{project.workforcePresent}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Absent (30d)</div>
+            <div className="text-danger font-medium">{project.workforceAbsent}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5">
+            <div className="text-muted-foreground">Leave (30d)</div>
+            <div className="text-muted-foreground font-medium">{project.workforceLeave}</div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div>
+          <div className="mb-1 flex justify-between text-caption text-muted-foreground">
+            <span>Progress</span>
+            <span>{project.latestProgressPct.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full",
+                project.latestProgressPct >= 75 ? "bg-success" : project.latestProgressPct >= 40 ? "bg-warning" : "bg-danger",
+              )}
+              style={{ width: `${Math.min(project.latestProgressPct, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Progress history */}
+        {project.history.length > 0 && (
+          <div>
+            <div className="mb-2 text-body font-medium text-foreground">Progress Over Time</div>
+            <div className="overflow-hidden rounded-md border border-border">
+              <DataTable
+                columns={historyColumns}
+                data={project.history.slice(-10).reverse()}
+                storageKey="comparative-project-history"
+                exportFileName={`project-history-${project.id}`}
+                searchable={false}
+                pageSize={10}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }
