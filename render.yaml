@@ -1,0 +1,70 @@
+# Render deployment config — https://render.com/docs/blueprint-spec
+#
+# What this creates:
+#   1. A PostgreSQL database (free tier OK for demo; upgrade for production)
+#   2. A web service running the Next.js app
+#
+# The web service:
+#   - Installs deps with pnpm
+#   - Runs Prisma migrations (migrate deploy)
+#   - Runs the demo seed (creates company, users, sample data)
+#   - Sets demo passwords so the owner can sign in
+#   - Builds the Next.js app
+#   - Starts the production server
+#
+# Required env vars (set in Render dashboard or via .env):
+#   NEXT_PUBLIC_APP_URL — the public URL of the deployed app (e.g. https://nirman.onrender.com)
+#   SEED_PASSWORD — the password for demo users (defaults to "nirman123" if not set)
+#
+# After first deploy, sign in with:
+#   amit@nirman.in / <SEED_PASSWORD>  (OWNER — full access)
+
+services:
+  - type: postgres
+    name: nirman-db
+    ipAllowList: []  # allow connections from Render services only
+    database: nirman_inventory
+    user: nirman
+
+  - type: web
+    name: nirman-inventory
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    healthCheckPath: /sign-in
+
+    # Node + pnpm setup
+    buildCommand: |
+      corepack enable &&
+      corepack prepare pnpm@latest --activate &&
+      pnpm install --frozen-lockfile
+
+    # Build: generate Prisma client, run migrations, seed, build Next.js
+    preDeployCommand: |
+      pnpm --filter @nirman/db generate &&
+      pnpm --filter @nirman/db migrate:deploy &&
+      pnpm --filter @nirman/services seed &&
+      pnpm --filter @nirman/web seed:prod
+
+    # Start the production Next.js server
+    startCommand: cd apps/web && pnpm start
+
+    # Env vars that come from other Render services
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nirman-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Generate a secret: openssl rand -hex 32
+      # Set these in the Render dashboard (don't commit real secrets):
+      # - key: BETTER_AUTH_SECRET
+      #   sync: false  # paste the generated secret
+      # - key: BETTER_AUTH_URL
+      #   value: https://your-app.onrender.com
+      # - key: NEXT_PUBLIC_APP_URL
+      #   value: https://your-app.onrender.com
+      # - key: SEED_PASSWORD
+      #   sync: false  # set a strong password for demo users

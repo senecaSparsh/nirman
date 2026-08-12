@@ -83,7 +83,9 @@ export function middleware(req: NextRequest) {
   }
 
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
-  if (process.env.AUTH_BYPASS === "true") {
+  // Hard-gated to non-production so it can never leak into a real deploy
+  // even if the env var is accidentally set.
+  if (process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production") {
     return NextResponse.next();
   }
 
@@ -109,10 +111,14 @@ export function middleware(req: NextRequest) {
   }
 
   // Check for the better-auth session cookie.
-  // better-auth uses "better-auth.session_token" (and a .sig variant for signed cookies).
+  // better-auth uses "better-auth.session_token" in dev and
+  // "__Secure-better-auth.session_token" in production (secure cookie prefix).
+  // Also check the ".sig" variant used for signed cookies.
   const sessionCookie =
     req.cookies.get("better-auth.session_token")?.value ||
-    req.cookies.get("better-auth.session_token.sig")?.value;
+    req.cookies.get("__Secure-better-auth.session_token")?.value ||
+    req.cookies.get("better-auth.session_token.sig")?.value ||
+    req.cookies.get("__Secure-better-auth.session_token.sig")?.value;
 
   if (!sessionCookie) {
     const signInUrl = new URL("/sign-in", req.url);

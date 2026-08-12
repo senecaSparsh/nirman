@@ -13,7 +13,8 @@
     "db:generate": "pnpm --filter @nirman/db generate",
     "db:push": "pnpm --filter @nirman/db push",
     "db:migrate": "pnpm --filter @nirman/db migrate",
-    "db:studio": "pnpm --filter @nirman/db studio"
+    "db:studio": "pnpm --filter @nirman/db studio",
+    "postinstall": "pnpm --filter @nirman/db generate"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
