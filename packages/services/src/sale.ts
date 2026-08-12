@@ -530,6 +530,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment against a cancelled sale");
+    if (sale.saleStage === "COMPLETED") throw new ServiceError("Cannot record payment on a completed sale");
 
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
