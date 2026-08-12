@@ -77,8 +77,80 @@ The `postExpense()` GL posting function is called from the API route handler (`/
 
 ---
 
+## Extended Workflow Testing (25 workflows, 90+ test cases)
+
+### Issues Found and Fixed
+
+#### MAJOR — Task dependency cycle detection followed wrong edge direction
+- **File**: `packages/services/src/task.ts` (`addDependency`)
+- **Bug**: The DFS followed `blockedById` edges (what blocks me) instead of `blockerId` edges (what I block). This allowed cycles (A→B→C→A) because the traversal couldn't detect them — it was looking in the wrong direction.
+- **Fix**: Reversed the edge direction in the DFS — now follows `blockerId` edges (what the current task blocks) to see if we reach the proposed blocker.
+
+#### MAJOR — Task dependency enforcement used wrong Prisma relation
+- **File**: `packages/services/src/task.ts` (`updateTaskStatus`, `getTaskDetail`)
+- **Bug**: The Prisma relation `task.blockedBy` (confusingly named) actually contains the tasks THAT THIS TASK blocks (not the tasks blocking it). The correct relation is `task.blocking`. This meant:
+  - Blocked tasks could be started (blockers not checked)
+  - Unblocked tasks were incorrectly blocked (showed wrong blocker names)
+- **Fix**: Swapped `blockedBy` → `blocking` in both `updateTaskStatus` and `getTaskDetail`.
+
+#### MAJOR — Task status state machine allowed reopening terminal states
+- **File**: `packages/services/src/task.ts` (`updateTaskStatus`)
+- **Bug**: No terminal-state check — a COMPLETED task could be set back to IN_PROGRESS or PENDING. A CANCELLED task could be reactivated.
+- **Fix**: Added terminal state guards — COMPLETED and CANCELLED are now terminal (throw 409 on any status change attempt).
+
+#### MAJOR — PO creation bypassed comparative quote gate
+- **File**: `apps/web/src/app/api/purchase-orders/route.ts`
+- **Bug**: The POST handler silently accepted `requisitionId` in the body but passed it to `createPurchaseOrder()` which ignores it. This allowed creating a PO from a requisition with fewer than `minQuotesRequired` quotes, completely bypassing the quote engine.
+- **Fix**: Reject `requisitionId` in POST /api/purchase-orders. Requisition-to-PO conversion must go through PATCH /api/requisitions/[id] with action:"convert" (which enforces the quote gate via `isQuoteGateSatisfied()`).
+
+#### MEDIUM — Concurrent stock operations returned raw Prisma errors
+- **File**: `packages/services/src/stock-ledger.ts` (`withStockTransaction`)
+- **Bug**: Serializable isolation causes write conflicts on concurrent stock modifications. The raw Prisma error ("Transaction failed due to a write conflict") was passed through to the user.
+- **Fix**: Added retry logic (3 attempts with exponential backoff: 50ms, 100ms, 200ms) for write conflicts/deadlocks. Returns clean 409 error on persistent conflicts. Verified: 3 concurrent issues all succeed with retries.
+
+#### MEDIUM — recordPayment() accepted payments on completed sales
+- **File**: `packages/services/src/sale.ts` (`recordPayment`)
+- **Bug**: Only checked for CANCELLED status, not COMPLETED saleStage. Allowed payment attempts on completed sales (which would fail with confusing "Overpayment" error).
+- **Fix**: Added `saleStage === "COMPLETED"` check.
+
+### Workflows Tested (all pass)
+
+| # | Workflow | Tests | Status |
+|---|----------|-------|--------|
+| 1 | Procurement (requisition → PO → receive) | 8 | ✅ |
+| 2 | Stock (issue → transfer → stock count) | 6 | ✅ |
+| 3 | Sales (create → payment → complete → GL) | 6 | ✅ |
+| 4 | DPR (submit → sub-admin → admin → reject → resubmit) | 5 | ✅ |
+| 5 | Equipment (create → assign → return → maintenance → retire) | 7 | ✅ |
+| 6 | Land (purchase → partition → sell) | 5 | ✅ |
+| 7 | Finance (expense → GL → trial balance) | 4 | ✅ |
+| 8 | Supplier returns (create → submit → complete) | 5 | ✅ |
+| 9 | Scrap + material sale (cost recovery) | 5 | ✅ |
+| 10 | Edge cases (invalid IDs, concurrent ops, state machine) | 14 | ✅ |
+| 11 | Tasks (create → assign → dependencies → cycles) | 11 | ✅ |
+| 12 | Comparative quote engine (upload → select → waive → convert) | 7 | ✅ |
+| 13 | Auto-requisition (reorder point trigger) | 1 | ✅ |
+| 14 | Direct purchase (bypass PO) | 1 | ✅ |
+| 15 | Supplier payments + GL | 1 | ✅ |
+| 16 | BOQ + RA bills | 2 | ✅ |
+| 17 | GPS-tagged attendance (bulk) | 2 | ✅ |
+| 18 | Portal listings (create → sync → delist) | 3 | ✅ |
+| 19 | Standard consumption benchmarks | 2 | ✅ |
+| 20 | DPR variance analysis | 1 | ✅ |
+| 21 | Project costs (add → delete → GL) | 2 | ✅ |
+| 22 | Built unit lifecycle (state machine) | 7 | ✅ |
+| 23 | Tally sync (push batch) | 1 | ✅ |
+| 24 | Audit log | 1 | ✅ |
+| 25 | Notifications (test send) | 1 | ✅ |
+
+---
+
 ## Verification
 
 - Typecheck: 0 errors
 - Tests: 194/194 pass (16 test files)
 - All fixes verified against the gauntlet rubric
+- GL trial balance verified balanced after every workflow
+- Stock quantities verified exact after every operation
+- State machines verified (PO, requisition, DPR, equipment, task, built unit, sale)
+- Concurrent operations verified (3 parallel stock issues with retry logic)
