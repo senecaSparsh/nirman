@@ -61,6 +61,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Reject requisitionId — requisition-to-PO conversion must go through
+  // PATCH /api/requisitions/[id] with action:"convert" (enforces quote gate)
+  if (body?.requisitionId) {
+    return json({ error: "Use PATCH /api/requisitions/[id] with action:\"convert\" to convert a requisition to a PO" }, { status: 400 });
+  }
   const { expectedDate, projectId, ...rest } = parsed.data;
   try {
     const po = await createPurchaseOrder({

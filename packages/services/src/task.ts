@@ -194,15 +194,23 @@ export async function updateTaskStatus({ taskId, status, userId }: StatusChangeI
   return prisma.$transaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
-      include: { blockedBy: { include: { blocker: { select: { id: true, title: true, status: true } } } } },
+      include: { blocking: { include: { blocker: { select: { id: true, title: true, status: true } } } } },
     });
     if (!task) throw new TaskError("Task not found", 404);
 
     if (status === task.status) return task;
 
+    // State machine: COMPLETED and CANCELLED are terminal states
+    if (task.status === "COMPLETED") {
+      throw new TaskError("Cannot change status of a completed task", 409);
+    }
+    if (task.status === "CANCELLED") {
+      throw new TaskError("Cannot change status of a cancelled task", 409);
+    }
+
     // Dependency enforcement: cannot start a blocked task.
     if (status === "IN_PROGRESS") {
-      const openBlockers = task.blockedBy.filter(
+      const openBlockers = task.blocking.filter(
         (d) => d.blocker.status !== "COMPLETED" && d.blocker.status !== "CANCELLED",
       );
       if (openBlockers.length > 0) {
@@ -377,19 +385,20 @@ export async function addDependency(blockerId: string, blockedById: string, user
   return prisma.$transaction(async (tx) => {
     // Prevent cycles: if blockedById already (transitively) blocks blockerId,
     // adding blockerId→blockedById would create a cycle.
-    // DFS: starting from blockedById, follow blockerId edges to see if we reach blockerId.
+    // DFS: starting from blockedById, follow "blocks" edges (blockerId=currentId)
+    // to see if we reach blockerId.
     const visited = new Set<string>();
     async function wouldCycle(currentId: string): Promise<boolean> {
       if (currentId === blockerId) return true;
       if (visited.has(currentId)) return false;
       visited.add(currentId);
-      // Find all dependencies where currentId is the blockedBy (i.e., currentId is blocked by these blockers)
+      // Find all tasks that currentId blocks (currentId is the blocker)
       const deps = await tx.taskDependency.findMany({
-        where: { blockedById: currentId },
-        select: { blockerId: true },
+        where: { blockerId: currentId },
+        select: { blockedById: true },
       });
       for (const d of deps) {
-        if (await wouldCycle(d.blockerId)) return true;
+        if (await wouldCycle(d.blockedById)) return true;
       }
       return false;
     }
@@ -511,8 +520,8 @@ export async function getTaskDetail(taskId: string) {
         include: { user: { select: { id: true, name: true } } },
       },
       timeLogs: { orderBy: { startedAt: "desc" }, include: { user: { select: { id: true, name: true } } } },
-      blockedBy: { include: { blocker: { select: { id: true, title: true, status: true } } } },
-      blocking: { include: { blockedBy: { select: { id: true, title: true, status: true } } } },
+      blocking: { include: { blocker: { select: { id: true, title: true, status: true } } } },
+      blockedBy: { include: { blockedBy: { select: { id: true, title: true, status: true } } } },
     },
   });
 }
