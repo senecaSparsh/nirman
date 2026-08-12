@@ -1239,6 +1239,7 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
 }
 
 export async function rejectDpr(dprId: string, rejecterId: string, reason: string) {
+  if (!reason?.trim()) throw new HrError("Rejection reason is required", 400);
   const { updated, companyId } = await prisma.$transaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);

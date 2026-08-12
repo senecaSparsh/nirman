@@ -375,12 +375,27 @@ export async function deleteComment(commentId: string, userId: string) {
 export async function addDependency(blockerId: string, blockedById: string, userId?: string) {
   if (blockerId === blockedById) throw new TaskError("A task cannot block itself");
   return prisma.$transaction(async (tx) => {
-    // Prevent cycles: blockedBy must not (transitively) block blocker.
-    // Simple guard: check the reverse edge doesn't already exist.
-    const reverse = await tx.taskDependency.findUnique({
-      where: { blockerId_blockedById: { blockerId: blockedById, blockedById: blockerId } },
-    });
-    if (reverse) throw new TaskError("This would create a circular dependency", 409);
+    // Prevent cycles: if blockedById already (transitively) blocks blockerId,
+    // adding blockerId→blockedById would create a cycle.
+    // DFS: starting from blockedById, follow blockerId edges to see if we reach blockerId.
+    const visited = new Set<string>();
+    async function wouldCycle(currentId: string): Promise<boolean> {
+      if (currentId === blockerId) return true;
+      if (visited.has(currentId)) return false;
+      visited.add(currentId);
+      // Find all dependencies where currentId is the blockedBy (i.e., currentId is blocked by these blockers)
+      const deps = await tx.taskDependency.findMany({
+        where: { blockedById: currentId },
+        select: { blockerId: true },
+      });
+      for (const d of deps) {
+        if (await wouldCycle(d.blockerId)) return true;
+      }
+      return false;
+    }
+    if (await wouldCycle(blockedById)) {
+      throw new TaskError("This would create a circular dependency", 409);
+    }
 
     const existing = await tx.taskDependency.findUnique({
       where: { blockerId_blockedById: { blockerId, blockedById } },

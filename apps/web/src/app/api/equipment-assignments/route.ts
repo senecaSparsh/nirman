@@ -41,11 +41,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = equipmentAssignSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Validate equipment belongs to the user's company
+  const equipment = await prisma.equipment.findFirst({
+    where: { id: parsed.data.equipmentId, companyId: company.id, deletedAt: null },
+  });
+  if (!equipment) return json({ error: "Equipment not found in your company" }, { status: 404 });
   try {
     const assignment = await assignEquipment({
       equipmentId: parsed.data.equipmentId,

@@ -256,6 +256,18 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
     const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status === "RETIRED") throw new ServiceError("Equipment already retired");
+    if (equipment.status === "ASSIGNED") {
+      // Auto-return any active assignment before retiring
+      const activeAssignment = await tx.equipmentAssignment.findFirst({
+        where: { equipmentId, status: "ACTIVE" },
+      });
+      if (activeAssignment) {
+        await tx.equipmentAssignment.update({
+          where: { id: activeAssignment.id },
+          data: { status: "RETURNED", returnedAt: new Date() },
+        });
+      }
+    }
 
     const updated = await tx.equipment.update({
       where: { id: equipmentId },

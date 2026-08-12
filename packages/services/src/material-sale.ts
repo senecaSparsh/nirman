@@ -1,6 +1,6 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordMovement, refreshMaterialCurrentCost } from "./stock-ledger";
+import { recordMovement, refreshMaterialCurrentCost, withStockTransaction } from "./stock-ledger";
 import { postMaterialSale, reverseJournalEntry } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
@@ -52,7 +52,7 @@ export interface CreateMaterialSaleInput {
 export async function createMaterialSale(input: CreateMaterialSaleInput) {
   if (input.lines.length === 0) throw new ServiceError("At least one line item is required");
 
-  const sale = await prisma.$transaction(async (tx) => {
+  const sale = await withStockTransaction(async (tx) => {
     // Validate customer
     const customer = await tx.customer.findFirst({
       where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
@@ -242,7 +242,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
     }
 
     return sale;
-  }, { isolationLevel: "Serializable" });
+  });
 
   // Auto-sync to Tally (best-effort, outside the transaction)
   void (async () => {
@@ -260,7 +260,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
 
 /** Cancel a material sale — only if no payments have been received. */
 export async function cancelMaterialSale(id: string, companyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withStockTransaction(async (tx) => {
     const sale = await tx.materialSale.findFirst({
       where: { id, companyId },
       include: { lines: true },
@@ -340,5 +340,5 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }

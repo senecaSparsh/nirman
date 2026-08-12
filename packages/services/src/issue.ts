@@ -49,6 +49,14 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     });
     if (!location) throw new Error("Source location not found or deleted");
 
+    // Validate builtUnitId belongs to the project (if specified)
+    if (input.builtUnitId) {
+      const unit = await tx.builtUnit.findFirst({
+        where: { id: input.builtUnitId, projectId: input.projectId },
+      });
+      if (!unit) throw new Error("Built unit not found or does not belong to this project");
+    }
+
     // Validate lines
     if (input.lines.length === 0) throw new Error("Issue must have at least one line");
     const materialIds = input.lines.map((l) => l.materialId);

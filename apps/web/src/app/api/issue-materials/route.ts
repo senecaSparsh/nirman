@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@nirman/db";
 import { issueMaterialsToProject, issueMaterialsToDepartment } from "@nirman/services";
-import { apiHandler, json, issueMaterialsSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 /**
  * POST /api/issue-materials — issue materials from a stock location to a
@@ -17,11 +17,17 @@ import { requirePermission } from "@/lib/server";
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.STOCK_ISSUE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = issueMaterialsSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Validate the source location belongs to the user's company
+  const location = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.fromLocationId, companyId: company.id, deletedAt: null },
+  });
+  if (!location) return json({ error: "Source location not found in your company" }, { status: 404 });
   try {
     const common = {
       fromLocationId: parsed.data.fromLocationId,
