@@ -5,12 +5,7 @@ import { prisma } from "@nirman/db";
 import { Wallet, Building2 } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileFinanceList } from "./MobileFinanceList";
 
 /**
@@ -66,13 +61,7 @@ async function MobileFinanceContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Finance"
-        subtitle="Expenses & project costs"
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2 mb-3">
         <MobileStatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={Wallet} />
         <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} />
       </div>

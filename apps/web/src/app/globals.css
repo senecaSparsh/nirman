@@ -160,6 +160,54 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   MOBILE WARM TOKENS — "site-grade" palette from Nirman OS.
+
+   Used only by /m/* mobile pages. Desktop keeps the cool oklch palette
+   above + dark mode below. These tokens are globally available via
+   Tailwind v4's @theme but are only referenced by mobile components.
+
+   The aesthetic: warm neutrals (ink/paper/concrete), hi-vis amber signal,
+   construction-green go, red stop. Borders over shadows (hairlines
+   survive sunlight, drop-shadows don't). 56px touch targets for gloved
+   hands. Tabular numerals — prices and quantities are the content.
+   ═══════════════════════════════════════════════════════════════════ */
+@theme {
+  /* ── Warm neutrals ─────────────────────────────────────────────── */
+  --color-ink-950: #12110d;   /* headings, primary button fill        */
+  --color-ink-900: #1c1a15;   /* body text                             */
+  --color-ink-700: #3d3930;   /* secondary text                        */
+  --color-ink-500: #6b6558;   /* tertiary / captions                   */
+  --color-ink-300: #a8a294;   /* disabled                              */
+
+  /* ── Surfaces ──────────────────────────────────────────────────── */
+  --color-paper:    #ffffff;  /* cards                                 */
+  --color-paper-2:  #faf8f4;  /* page bg — warm, less glare than #fff  */
+  --color-concrete: #efece5;  /* wells, table stripes                  */
+  --color-line:     #ddd8cd;  /* hairlines                             */
+
+  /* ── Signal amber — hi-vis, survives sunlight ──────────────────── */
+  --color-signal:        #ffb020;
+  --color-signal-active: #f0a416;  /* pressed/active state           */
+  --color-signal-dark:   #b87400;  /* amber text on light bg         */
+  --color-signal-wash:   #fff6e3;
+
+  /* ── Steel — secondary actions, info ───────────────────────────── */
+  --color-steel:      #35505f;
+  --color-steel-wash: #eaf0f3;
+
+  /* ── Go / Stop — state colours ─────────────────────────────────── */
+  --color-go:        #1f7a4c;
+  --color-go-wash:   #e8f4ed;
+  --color-stop:        #c1341a;
+  --color-stop-wash:   #fdecea;
+  --color-stop-active: #a52b15;
+
+  /* ── Touch targets — gloved hands on site ──────────────────────── */
+  --size-touch:    3.5rem;   /* 56px — WCAG floor + glove margin      */
+  --size-touch-lg: 4.5rem;   /* 72px — primary mobile actions         */
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    DARK MODE — a genuine second theme, not an inversion.
 
    Surfaces climb (background darkest → card → elevated) because in the
@@ -679,6 +727,57 @@
   margin-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
+/* ── Mobile bottom-nav clearance — clears the fixed 56px tab bar. ── */
+@utility pb-nav {
+  padding-bottom: calc(4.5rem + max(env(safe-area-inset-bottom), 0px));
+}
+
+/* ── Safe-area padding for fixed bars on notched devices. ── */
+@utility pb-safe {
+  padding-bottom: calc(1rem + max(env(safe-area-inset-bottom), 0px));
+}
+
+/* ── Press feedback — snappy tap animation for mobile touch targets. */
+@utility press {
+  transition: transform 140ms cubic-bezier(0.32, 0.72, 0, 1),
+              color 140ms cubic-bezier(0.32, 0.72, 0, 1),
+              background-color 140ms cubic-bezier(0.32, 0.72, 0, 1),
+              border-color 140ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* ── Fade-in — calm opacity entrance for content blocks. ── */
+@utility fade-in {
+  animation: fade-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Hide scrollbar on horizontal chip rows. ── */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Side panel — slides in from the left edge. ── */
+@keyframes panel-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes panel-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+.panel-in  { animation: panel-in  220ms cubic-bezier(0.16, 1, 0.3, 1); }
+.panel-out { animation: panel-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
 /* ── Skeleton — loading is a shape, not a spinner ───────────────── */
 @utility skeleton {
   background: linear-gradient(
@@ -801,6 +900,23 @@
 }
 .overlay-in { animation: overlay-in 0.16s cubic-bezier(0.32, 0.72, 0, 1); }
 .sheet-up { animation: sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1); }
+
+/* ── Bottom sheet in/out + overlay out (for popups) ── */
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+.overlay-out { animation: overlay-out 0.2s ease-in forwards; }
+.sheet-in { animation: sheet-in 0.26s cubic-bezier(0.32, 0.72, 0, 1); }
+.sheet-out { animation: sheet-out 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
 
 /* ── Progress ring (conic-gradient) ── */
 @keyframes progress-fill {

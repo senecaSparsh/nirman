@@ -1,63 +1,88 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Home } from "lucide-react";
+import { Home, ChevronLeft } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
-  MobilePageHeader,
-  MobileSectionTitle,
   MobileEmptyState,
   MobileCta,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileUnitsList } from "./MobileUnitsList";
 
 /**
- * /m/units — mobile built-unit inventory. Replaces every desktop `/units`
- * link from the mobile surface. Grouped by availability status so a sales
- * user sees sellable stock first.
+ * /m/units — mobile built-unit inventory.
+ *
+ * Supports `?project=<id>` to filter to a single project (used when
+ * navigated from a project detail page). Without the filter, shows
+ * all units across the company.
  */
-export default function MobileUnitsPage() {
+export default function MobileUnitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   return (
     <Suspense fallback={<MobileSkeletonList rows={8} />}>
-      <MobileUnitsContent />
+      <MobileUnitsContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function MobileUnitsContent() {
+async function MobileUnitsContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   await connection();
   const company = await getCompany();
+  const { project: projectId } = await searchParams;
+
+  const project = projectId
+    ? await prisma.project.findFirst({
+        where: { id: projectId, companyId: company.id, deletedAt: null },
+        select: { id: true, name: true, type: true },
+      })
+    : null;
 
   const units = await prisma.builtUnit.findMany({
     where: {
       deletedAt: null,
       project: { companyId: company.id, deletedAt: null },
+      ...(projectId ? { projectId } : {}),
     },
     orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
-    take: 100,
+    take: 200,
     include: { project: { select: { id: true, name: true } } },
   });
 
   const byStatus = (s: string) => units.filter((u) => u.status === s);
-  const available = [
-    ...byStatus("AVAILABLE"),
-    ...byStatus("PLANNED"),
-    ...byStatus("UNDER_CONSTRUCTION"),
-  ];
+  const available = byStatus("AVAILABLE");
+  const underConstruction = byStatus("UNDER_CONSTRUCTION");
+  const planned = byStatus("PLANNED");
   const sold = byStatus("SOLD");
   const hold = byStatus("HOLD");
   const rented = byStatus("RENTED");
+  const reserved = byStatus("RESERVED");
 
-  const availableValue = available.reduce(
+  const sellable = [...available, ...underConstruction, ...planned];
+  const otherCount = hold.length + rented.length + reserved.length;
+
+  // Financial metrics — NOT counts (those are in the hero breakdown bar)
+  const inventoryValue = sellable.reduce(
     (s, u) => s + toNum(u.askingPrice ?? u.currentValuation),
     0,
   );
+  const pricedSellable = sellable.filter((u) => u.askingPrice);
+  const avgPricePerSqft =
+    pricedSellable.length > 0
+      ? pricedSellable.reduce((s, u) => s + toNum(u.askingPrice) / toNum(u.area), 0) / pricedSellable.length
+      : 0;
+  const unpricedCount = sellable.filter((u) => !u.askingPrice).length;
 
-  // Serialize for the client component (search + filter chips + badges)
+  // Serialize for the client component
   const serialized = units.map((u) => ({
     id: u.id,
     unitNumber: u.unitNumber,
@@ -72,32 +97,123 @@ async function MobileUnitsContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Units"
-        subtitle={`${units.length} total · ${available.length} available`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard label="Available" value={formatNumber(available.length, 0)} hint={formatCurrency(availableValue)} icon={Home} tone="success" />
-        <MobileStatCard label="Sold" value={formatNumber(sold.length, 0)} icon={Home} />
-        <MobileStatCard label="On Hold" value={formatNumber(hold.length, 0)} icon={Home} tone={hold.length > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Rented" value={formatNumber(rented.length, 0)} icon={Home} />
+      {/* ── Back + project context ── */}
+      <div className="mb-2">
+        {project ? (
+          <Link
+            href={`/m/projects/${project.id}`}
+            className="flex items-center gap-1 text-[0.875rem] font-semibold"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            <ChevronLeft className="size-5" />
+          </Link>
+        ) : (
+          <Link
+            href="/m/home"
+            className="flex items-center gap-1 text-[0.875rem] font-semibold"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            <ChevronLeft className="size-5" />
+          </Link>
+        )}
       </div>
 
-      <MobileUnitsList items={serialized} />
+      {/* ── Compact summary card — name, breakdown bar, key financials in one ── */}
+      {units.length > 0 ? (
+        <div
+          className="rounded-[0.625rem] border p-2.5 mb-2"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          {/* Row 1: name + count */}
+          <div className="flex items-baseline justify-between gap-2 mb-1.5">
+            <h1 className="font-bold text-[0.875rem] leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+              {project ? project.name : "All Units"}
+            </h1>
+            <span className="text-[0.5625rem] tabular-nums shrink-0" style={{ color: "var(--color-ink-500)" }}>
+              {units.length} unit{units.length !== 1 ? "s" : ""}
+            </span>
+          </div>
 
-      {units.length === 0 && (
-        <>
-          <MobileSectionTitle>Available</MobileSectionTitle>
-          <MobileEmptyState
-            icon={Home}
-            title="No units yet"
-            hint="Units show here once created from the desktop Setup page. Ask an admin to set up your project's units."
-            action={<MobileCta href="/setup" icon={Home}>Go to Setup</MobileCta>}
-          />
-        </>
-      )}
+          {/* Row 2: breakdown bar */}
+          <div className="flex h-1.5 rounded-full overflow-hidden mb-1.5" style={{ backgroundColor: "var(--color-concrete)" }}>
+            {available.length > 0 ? (
+              <div style={{ width: `${(available.length / units.length) * 100}%`, backgroundColor: "var(--color-go)" }} />
+            ) : null}
+            {underConstruction.length > 0 ? (
+              <div style={{ width: `${(underConstruction.length / units.length) * 100}%`, backgroundColor: "var(--color-signal)" }} />
+            ) : null}
+            {planned.length > 0 ? (
+              <div style={{ width: `${(planned.length / units.length) * 100}%`, backgroundColor: "var(--color-signal-dark)" }} />
+            ) : null}
+            {sold.length > 0 ? (
+              <div style={{ width: `${(sold.length / units.length) * 100}%`, backgroundColor: "var(--color-steel)" }} />
+            ) : null}
+            {otherCount > 0 ? (
+              <div style={{ width: `${(otherCount / units.length) * 100}%`, backgroundColor: "var(--color-ink-500)" }} />
+            ) : null}
+          </div>
+
+          {/* Row 3: inline financial stats — 3 key numbers only */}
+          <div className="flex items-center justify-between gap-2">
+            <Stat label="Stock" value={formatCurrency(inventoryValue)} />
+            <Divider />
+            <Stat label="₹/sqft" value={avgPricePerSqft > 0 ? formatNumber(avgPricePerSqft, 0) : "—"} />
+            <Divider />
+            <Stat
+              label="Unpriced"
+              value={String(unpricedCount)}
+              tone={unpricedCount > 0 ? "signal" : "go"}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Searchable/filterable list ── */}
+      <MobileUnitsList items={serialized} projectFiltered={!!project} />
+
+      {/* ── Empty state ── */}
+      {units.length === 0 ? (
+        <MobileEmptyState
+          icon={Home}
+          title="No units yet"
+          hint={project ? "Units show here once a project creates them." : "Units show here once a project creates them."}
+          action={
+            <MobileCta href="/m/projects" icon={Home} variant="primary">
+              View Projects
+            </MobileCta>
+          }
+        />
+      ) : null}
     </div>
   );
+}
+
+/* ─── Inline stat ─── */
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "go" | "signal";
+}) {
+  const color =
+    tone === "go" ? "var(--color-go)" :
+    tone === "signal" ? "var(--color-signal-dark)" :
+    "var(--color-ink-950)";
+  return (
+    <div className="flex flex-col items-center min-w-0">
+      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        {label}
+      </span>
+      <span className="text-[0.625rem] font-bold tabular-nums truncate" style={{ color }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="w-px h-6 shrink-0" style={{ backgroundColor: "var(--color-line)" }} />;
 }

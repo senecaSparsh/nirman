@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Truck, AlertTriangle } from "lucide-react";
+import { Truck, AlertTriangle, Search, X } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileSearchBar,
-  MobileFilterChips,
   MobileStatusBadge,
   MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 
 type ReceiveFilter = "ALL" | "ORDERED" | "PARTIAL";
 
@@ -64,17 +62,44 @@ export function MobileReceiveList({ items }: { items: ReceiveListItem[] }) {
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search by PO no, supplier…"
-      />
+      <div className="mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: "var(--color-ink-300)" }} />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by PO no, supplier…"
+            className="w-full h-11 rounded-[0.625rem] border pl-9 pr-9 text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-7"
+              aria-label="Clear search"
+            >
+              <X className="size-4" style={{ color: "var(--color-ink-300)" }} />
+            </button>
+          )}
+        </div>
+      </div>
 
-      <MobileFilterChips
-        chips={FILTER_CHIPS}
-        active={statusFilter}
-        onChange={setStatusFilter}
-      />
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {FILTER_CHIPS.map((chip) => (
+          <button
+            key={chip.value}
+            onClick={() => setStatusFilter(chip.value)}
+            className="shrink-0 h-9 px-3 rounded-[0.5rem] border text-[0.75rem] font-semibold transition-colors"
+            style={statusFilter === chip.value
+              ? { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" }
+              : { backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)", borderColor: "var(--color-concrete)" }
+            }
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
 
       {isFiltering ? (
         <FlatList items={filtered} />
@@ -101,7 +126,7 @@ function FlatList({ items }: { items: ReceiveListItem[] }) {
   return (
     <div>
       <MobileSectionTitle>Results ({items.length})</MobileSectionTitle>
-      <div>
+      <div className="flex flex-col gap-2.5">
         {items.map((po) => (
           <MobileRow
             key={po.id}
@@ -130,7 +155,7 @@ function GroupedList({ items }: { items: ReceiveListItem[] }) {
       {overdue.length > 0 && (
         <>
           <MobileSectionTitle>Overdue</MobileSectionTitle>
-          <div>
+          <div className="flex flex-col gap-2.5">
             {overdue.map((po) => (
               <MobileRow
                 key={po.id}
@@ -149,7 +174,7 @@ function GroupedList({ items }: { items: ReceiveListItem[] }) {
       {onTime.length === 0 ? (
         <MobileEmptyState icon={Truck} title="Nothing in transit" hint="Ordered POs appear here" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {onTime.map((po) => (
             <MobileRow
               key={po.id}

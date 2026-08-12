@@ -1,23 +1,21 @@
 import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { KeyRound } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileRentalsList, type RentalListItem } from "./MobileRentalsList";
 
 /**
- * /m/rentals — mobile rental/tenancy tracking. Sales users need to see
- * active tenancies, monthly rent, and upcoming lease expirations on the go.
- * Tenancy has builtUnitId/landParcelId but no relation — we fetch the
- * names separately and build a lookup map.
+ * /m/rentals — mobile rental/lease management.
+ *
+ * Purpose: a property manager opens this to see:
+ *   1. How much monthly rent is coming in (the income pulse)
+ *   2. Which tenants haven't paid (overdue — needs chasing)
+ *   3. Which leases are expiring soon (renewal planning)
+ *   4. Contact a tenant to follow up on rent
+ *
+ * Rentals are recurring revenue — the page is organized around
+ * payment collection and lease lifecycle, not just a flat list.
  */
 export default function MobileRentalsPage() {
   return (
@@ -31,17 +29,14 @@ async function MobileRentalsContent() {
   await connection();
   const company = await getCompany();
 
-  const [tenancies, units, parcels, overduePayments] = await Promise.all([
+  const [tenancies, units, parcels] = await Promise.all([
     prisma.tenancy.findMany({
       where: { companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
-      orderBy: { startDate: "desc" },
-      take: 50,
+      orderBy: [{ status: "asc" }, { endDate: "asc" }],
       include: {
         payments: {
-          where: { status: { in: ["PENDING", "OVERDUE"] } },
-          select: { amount: true, dueDate: true, status: true },
-          orderBy: { dueDate: "asc" },
-          take: 1,
+          orderBy: { dueDate: "desc" },
+          select: { amount: true, dueDate: true, status: true, paymentDate: true },
         },
       },
     }),
@@ -51,85 +46,80 @@ async function MobileRentalsContent() {
     }),
     prisma.landParcel.findMany({
       where: { deletedAt: null, landPurchase: { companyId: company.id } },
-      select: { id: true, number: true, landPurchase: { select: { sellerName: true } } },
-    }),
-    prisma.rentalPayment.findMany({
-      where: { status: "OVERDUE", tenancy: { companyId: company.id } },
-      select: { tenancyId: true },
+      select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } },
     }),
   ]);
 
-  const unitMap = new Map(units.map((u) => [u.id, `${u.unitNumber} · ${u.project.name}`]));
-  const parcelMap = new Map(parcels.map((p) => [p.id, `Parcel ${p.number} · ${p.landPurchase.sellerName}`]));
-  const overdueSet = new Set(overduePayments.map((p) => p.tenancyId));
+  const unitMap = new Map(units.map((u) => [u.id, { label: u.unitNumber, project: u.project.name }]));
+  const parcelMap = new Map(parcels.map((p) => [p.id, { label: `Parcel ${p.number}`, project: p.landPurchase.location ?? p.landPurchase.sellerName }]));
+
+  const now = new Date();
 
   const rows: RentalListItem[] = tenancies.map((t) => {
-    const assetLabel = t.builtUnitId
-      ? unitMap.get(t.builtUnitId) ?? "Unit"
-      : t.landParcelId
-        ? parcelMap.get(t.landParcelId) ?? "Parcel"
-        : "—";
+    const unit = t.builtUnitId ? unitMap.get(t.builtUnitId) : null;
+    const parcel = t.landParcelId ? parcelMap.get(t.landParcelId) : null;
+    const assetLabel = unit?.label ?? parcel?.label ?? "—";
+    const projectName = unit?.project ?? parcel?.project ?? null;
+
+    const totalReceived = t.payments
+      .filter((p) => p.status === "RECEIVED")
+      .reduce((s, p) => s + toNum(p.amount), 0);
+
+    const overduePayments = t.payments.filter((p) => p.status === "OVERDUE");
+    const overdueAmount = overduePayments.reduce((s, p) => s + toNum(p.amount), 0);
+
+    const pendingPayments = t.payments.filter((p) => p.status === "PENDING");
+    const nextDuePayment = pendingPayments
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+
+    const endDate = new Date(t.endDate);
+    const daysToExpiry = Math.floor((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    const expiringSoon = t.status === "ACTIVE" && daysToExpiry <= 30 && daysToExpiry >= 0;
+    const expired = daysToExpiry < 0;
+
     return {
       id: t.id,
       tenantName: t.tenantName,
+      tenantPhone: t.tenantPhone ?? null,
+      tenantEmail: t.tenantEmail ?? null,
       status: t.status,
       assetLabel,
+      projectName,
       startDate: t.startDate.toISOString(),
       endDate: t.endDate.toISOString(),
       monthlyRent: toNum(t.monthlyRent),
-      hasOverdue: overdueSet.has(t.id),
+      securityDeposit: toNum(t.securityDeposit),
+      rentAgreementNo: t.rentAgreementNo ?? null,
+      totalReceived,
+      overdueAmount,
+      overdueCount: overduePayments.length,
+      nextDueDate: nextDuePayment ? nextDuePayment.dueDate.toISOString() : null,
+      nextDueAmount: nextDuePayment ? toNum(nextDuePayment.amount) : null,
+      daysToExpiry,
+      expiringSoon,
+      expired,
+      paymentCount: t.payments.length,
     };
   });
 
   const active = rows.filter((t) => t.status === "ACTIVE");
   const pending = rows.filter((t) => t.status === "PENDING");
   const totalMonthlyRent = active.reduce((s, t) => s + t.monthlyRent, 0);
-  const overdueCount = rows.filter((t) => t.hasOverdue).length;
+  const totalReceived = rows.reduce((s, t) => s + t.totalReceived, 0);
+  const totalOverdue = rows.reduce((s, t) => s + t.overdueAmount, 0);
+  const expiringCount = rows.filter((t) => t.expiringSoon).length;
 
   return (
-    <div>
-      <MobilePageHeader
-        title="Rentals"
-        subtitle={`${active.length} active · ${pending.length} pending`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Monthly Rent"
-          value={formatCurrency(totalMonthlyRent)}
-          icon={KeyRound}
-          tone="success"
-        />
-        <MobileStatCard
-          label="Overdue"
-          value={String(overdueCount)}
-          icon={KeyRound}
-          tone={overdueCount > 0 ? "danger" : "default"}
-        />
-        <MobileStatCard
-          label="Active"
-          value={String(active.length)}
-          icon={KeyRound}
-          tone="success"
-        />
-        <MobileStatCard
-          label="Pending"
-          value={String(pending.length)}
-          icon={KeyRound}
-          tone={pending.length > 0 ? "warning" : "default"}
-        />
-      </div>
-
-      {rows.length === 0 ? (
-        <MobileEmptyState
-          icon={KeyRound}
-          title="No rentals"
-          hint="Create tenancies from the desktop Sell → Rentals section"
-        />
-      ) : (
-        <MobileRentalsList items={rows} />
-      )}
-    </div>
+    <MobileRentalsList
+      items={rows}
+      stats={{
+        totalMonthlyRent,
+        totalReceived,
+        totalOverdue,
+        activeCount: active.length,
+        pendingCount: pending.length,
+        expiringCount,
+      }}
+    />
   );
 }

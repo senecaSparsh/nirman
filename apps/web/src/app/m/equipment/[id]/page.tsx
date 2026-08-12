@@ -2,21 +2,15 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Wrench, Calendar, IndianRupee, MapPin, Settings } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileDetailHeader,
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileRow,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileStatusBadge,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileEquipmentDetailClient } from "./MobileEquipmentDetailClient";
 
+/**
+ * /m/equipment/[id] — equipment detail. Shows asset info, valuation,
+ * active assignment, maintenance history, and action buttons
+ * (assign, return, maintenance, retire) RBAC-gated by `assets.manage`.
+ */
 export default function MobileEquipmentDetailPage({
   params,
 }: {
@@ -43,77 +37,96 @@ async function MobileEquipmentDetailContent({
     where: { id, companyId: company.id, deletedAt: null },
     include: {
       assignments: {
-        where: { status: "ACTIVE" },
-        include: { project: { select: { id: true, name: true } } },
-        take: 1,
+        orderBy: { assignedAt: "desc" },
+        take: 10,
+        include: {
+          location: { select: { id: true, name: true } },
+          project: { select: { id: true, name: true } },
+        },
       },
-      maintenance: { orderBy: { startDate: "desc" }, take: 10 },
+      maintenance: {
+        orderBy: { startDate: "desc" },
+        take: 10,
+      },
     },
   });
 
+  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+
   if (!equipment) {
     return (
-      <div>
-        <MobileDetailHeader title="Equipment" backHref="/m/equipment" />
-        <MobileEmptyState icon={Wrench} title="Equipment not found" />
-      </div>
+      <MobileEquipmentDetailClient
+        notFound
+        canManage={false}
+        locations={[]}
+        projects={[]}
+      />
     );
   }
 
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
-  const activeAssignment = equipment.assignments[0];
+  // Fetch locations and projects for assignment modal
+  const [locations, projects] = await Promise.all([
+    prisma.stockLocation.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const activeAssignment = equipment.assignments.find((a) => a.status === "ACTIVE");
+
+  const serialized = {
+    id: equipment.id,
+    assetTag: equipment.assetTag,
+    name: equipment.name,
+    model: equipment.model,
+    serialNumber: equipment.serialNumber,
+    category: equipment.category,
+    status: equipment.status,
+    acquisitionCost: toNum(equipment.acquisitionCost),
+    currentValue: toNum(equipment.currentValue),
+    purchaseDate: equipment.purchaseDate?.toISOString() ?? null,
+    notes: equipment.notes,
+    activeAssignment: activeAssignment
+      ? {
+          id: activeAssignment.id,
+          locationId: activeAssignment.locationId,
+          locationName: activeAssignment.location.name,
+          projectId: activeAssignment.projectId,
+          projectName: activeAssignment.project?.name ?? null,
+          assignedAt: activeAssignment.assignedAt.toISOString(),
+        }
+      : null,
+    assignments: equipment.assignments.map((a) => ({
+      id: a.id,
+      locationName: a.location.name,
+      projectName: a.project?.name ?? null,
+      assignedAt: a.assignedAt.toISOString(),
+      returnedAt: a.returnedAt?.toISOString() ?? null,
+      status: a.status,
+    })),
+    maintenance: equipment.maintenance.map((m) => ({
+      id: m.id,
+      type: m.type,
+      startDate: m.startDate.toISOString(),
+      endDate: m.endDate?.toISOString() ?? null,
+      cost: toNum(m.cost),
+      vendor: m.vendor,
+      notes: m.notes,
+    })),
+  };
 
   return (
-    <div>
-      <MobileDetailHeader
-        title={equipment.name}
-        subtitle={equipment.assetTag}
-        backHref="/m/equipment"
-        right={<MobileRefreshButton />}
-      />
-
-      <MobileSectionTitle>Details</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={Wrench} title="Category" value={equipment.category ?? "—"} />
-        <MobileInfoRow icon={Settings} title="Status" value={<MobileStatusBadge status={equipment.status} />} />
-        {activeAssignment?.project && (
-          <MobileInfoRow icon={MapPin} title="Project" value={activeAssignment.project.name} />
-        )}
-        {equipment.purchaseDate && (
-          <MobileInfoRow icon={Calendar} title="Purchase Date" value={formatDate(equipment.purchaseDate)} />
-        )}
-      </div>
-
-      <MobileSectionTitle>Valuation</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Acquisition Cost"
-          value={formatCurrency(toNum(equipment.acquisitionCost))}
-          icon={IndianRupee}
-        />
-        <MobileStatCard
-          label="Current Value"
-          value={formatCurrency(toNum(equipment.currentValue))}
-          icon={IndianRupee}
-          tone="brand"
-        />
-      </div>
-
-      {equipment.maintenance.length > 0 && (
-        <>
-          <MobileSectionTitle>Recent Maintenance</MobileSectionTitle>
-          <div>
-            {equipment.maintenance.map((m) => (
-              <MobileRow
-                key={m.id}
-                icon={Settings}
-                title={m.type}
-                subtitle={`${formatDate(m.startDate)}${toNum(m.cost) > 0 ? " · " + formatCurrency(toNum(m.cost)) : ""}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <MobileEquipmentDetailClient
+      equipment={serialized}
+      canManage={canManage}
+      locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+    />
   );
 }

@@ -22,15 +22,13 @@ import {
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileStatCard,
   MobileRow,
   MobileEmptyState,
   MobileCta,
-  MobileRefreshButton,
   MobileStatusBadge,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 
 /**
@@ -42,9 +40,9 @@ import { TallySyncButton } from "@/components/mobile/tally-sync-button";
  * Heavy data (per-project P&L, full alert lists, cash flow) lives on
  * dedicated drill-down pages:
  *   /m/pulse/attention  — all alerts in one place
- *   /m/pulse/projects   — per-project health cards
+ *   /m/pulse/projects   — redirects to /m/projects
  *   /m/pulse/approvals  — approve/reject queue
- *   /m/pulse/inventory  — inventory at a glance
+ *   /m/pulse/inventory  — redirects to /m/materials
  */
 export default function PulsePage() {
   return (
@@ -108,27 +106,21 @@ async function PulseContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Pulse"
-        subtitle={company.name}
-        right={<MobileRefreshButton />}
-      />
-
       {/* ── KPI strip — 4 tiles ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard
           label="Portfolio"
           value={formatCurrency(toNum(portfolio.totalPortfolioValue))}
           hint={`${portfolio.activeProjectCount} active projects`}
           icon={Building2}
-          tone="brand"
+          tone="signal"
         />
         <MobileStatCard
           label="Revenue"
           value={formatCurrency(toNum(portfolio.totalRevenue))}
           hint={`${formatNumber(portfolio.soldUnits, 0)} units sold`}
           icon={TrendingUp}
-          tone="success"
+          tone="go"
         />
         <MobileStatCard
           label="Avg Margin"
@@ -145,8 +137,8 @@ async function PulseContent() {
       </div>
 
       {/* ── Attention queue — one card, drills down ─────────────── */}
-      <div className="px-4 pt-1">
-        <MobileCta href="/m/pulse/attention" icon={AlertTriangle}>
+      <div className="mb-4">
+        <MobileCta href="/m/pulse/attention" icon={AlertTriangle} variant="primary">
           {attentionCount > 0
             ? `${attentionCount} things need you`
             : "Nothing needs you"}
@@ -154,11 +146,11 @@ async function PulseContent() {
       </div>
 
       {/* ── Approvals — count + link ─────────────────────────────── */}
-      <div className="px-4 pt-2">
+      <div className="mb-4">
         <MobileCta
           href="/m/pulse/approvals"
           icon={ClipboardCheck}
-          variant={approvalCount > 0 ? "primary" : "outline"}
+          variant={approvalCount > 0 ? "primary" : "secondary"}
         >
           {approvalCount > 0
             ? `Approvals · ${approvalCount}`
@@ -167,15 +159,15 @@ async function PulseContent() {
       </div>
 
       {/* ── Inventory — count + link ─────────────────────────────── */}
-      <div className="px-4 pt-2">
-        <MobileCta href="/m/pulse/inventory" icon={Boxes} variant="outline">
+      <div className="mb-4">
+        <MobileCta href="/m/materials" icon={Boxes} variant="secondary">
           Inventory at a glance
         </MobileCta>
       </div>
 
       {/* ── Quick actions ────────────────────────────────────────── */}
       <MobileSectionTitle>Quick actions</MobileSectionTitle>
-      <div className="flex gap-2 px-4 pb-1">
+      <div className="flex gap-2 mb-4">
         <Link
           href="/m/sales/new"
           className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border border-border bg-card px-3 py-2.5 text-[0.8125rem] font-semibold text-foreground transition-colors active:scale-[0.99] active:bg-accent"
@@ -198,7 +190,7 @@ async function PulseContent() {
         <div className="flex items-center justify-between">
           <span>Project health</span>
           <Link
-            href="/m/pulse/projects"
+            href="/m/projects"
             className="text-caption font-medium text-brand active:opacity-70"
           >
             View all
@@ -212,7 +204,7 @@ async function PulseContent() {
           hint="Projects show here once created"
         />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {topProjects.map((p) => {
             const budget = toNum(p.totalBudget);
             const cost = toNum(p.totalCost);
@@ -249,7 +241,7 @@ async function PulseContent() {
       {recentSales.length === 0 ? (
         <MobileEmptyState icon={TrendingUp} title="No active sales" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {recentSales.map((s) => (
             <MobileRow
               key={s.id}
@@ -266,8 +258,8 @@ async function PulseContent() {
 
       {/* ── Reports shortcut ─────────────────────────────────────── */}
       <MobileSectionTitle>Reports</MobileSectionTitle>
-      <div className="px-4 pb-4">
-        <MobileCta href="/m/pulse/reports" icon={TrendingUp} variant="outline">
+      <div className="mb-4">
+        <MobileCta href="/m/books/reports" icon={TrendingUp} variant="secondary">
           View analytics
         </MobileCta>
       </div>

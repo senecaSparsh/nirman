@@ -5,7 +5,7 @@ import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
-import { MobileDetailHeader } from "@/components/mobile/mobile-primitives";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/customers/new — mobile customer creation. Minimal fields for
@@ -36,7 +36,10 @@ async function MobileNewCustomerContent({
   if (!hasPermission(role, PERM.SALES_MANAGE)) {
     return (
       <div>
-        <MobileDetailHeader title="New Customer" backHref="/m/book" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/customers" className="text-muted-foreground hover:text-foreground" />
+          <h1 className="text-h3 font-semibold text-foreground">New Customer</h1>
+        </div>
         <div className="p-4 text-meta text-muted-foreground">
           You don&apos;t have permission to create customers.
         </div>

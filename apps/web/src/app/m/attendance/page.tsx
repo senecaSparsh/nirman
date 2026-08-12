@@ -5,12 +5,10 @@ import { prisma } from "@nirman/db";
 import { CalendarCheck } from "lucide-react";
 import { getCompany } from "@/lib/server";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileEmptyState,
   MobileCta,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileAttendanceList } from "./MobileAttendanceList";
 
 /**
@@ -50,14 +48,8 @@ async function MobileAttendanceContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Attendance"
-        subtitle={`${records.length} recent records`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="px-4 pb-2">
-        <MobileCta href="/m/site/attendance" icon={CalendarCheck}>
+      <div className="mb-4">
+        <MobileCta href="/m/site/attendance" icon={CalendarCheck} variant="primary">
           Check in now
         </MobileCta>
       </div>

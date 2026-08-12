@@ -2,20 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Recycle, Plus } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import { hasPermission, PERM } from "@/lib/roles";
-import {
-  MobilePageHeader,
-  MobileSectionTitle,
-  MobileRow,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileSearchBar,
-  MobileRefreshButton,
-  MobileFab,
-} from "@/components/mobile/mobile-primitives";
 import { MobileScrapGenerationsList } from "./MobileScrapGenerationsList";
 
 /**
@@ -48,6 +36,7 @@ async function MobileScrapGenerationsContent() {
       notes: true,
       toLocation: { select: { name: true } },
       project: { select: { name: true } },
+      dprAutoScrap: { select: { id: true } },
       lines: {
         select: {
           qty: true,
@@ -58,13 +47,11 @@ async function MobileScrapGenerationsContent() {
     },
   });
 
-  const totalLines = scraps.reduce((s, sc) => s + sc.lines.length, 0);
   const totalValue = scraps.reduce(
     (s, sc) => s + sc.lines.reduce((ls, l) => ls + toNum(l.qty) * toNum(l.unitCost), 0),
     0,
   );
 
-  // Serialize for the client component — Decimal → number
   const serialized = scraps.map((sc) => ({
     id: sc.id,
     scrapNumber: sc.scrapNumber,
@@ -72,40 +59,17 @@ async function MobileScrapGenerationsContent() {
     notes: sc.notes,
     toLocationName: sc.toLocation.name,
     projectName: sc.project?.name ?? null,
+    isAuto: !!sc.dprAutoScrap,
     lineCount: sc.lines.length,
     totalValue: sc.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
     materials: sc.lines.map((l) => l.material.name).slice(0, 2),
-    moreCount: Math.max(0, sc.lines.length - 2),
   }));
 
   return (
-    <div>
-      <MobilePageHeader
-        title="Scrap Generations"
-        subtitle={`${scraps.length} slips · ${totalLines} line items`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
-        <MobileStatCard label="Total Slips" value={String(scraps.length)} icon={Recycle} />
-        <MobileStatCard label="Line Items" value={String(totalLines)} icon={Recycle} />
-        <MobileStatCard label="Scrap Value" value={formatCurrency(totalValue)} icon={Recycle} tone="success" />
-      </div>
-
-      <MobileScrapGenerationsList items={serialized} />
-
-      {scraps.length === 0 && (
-        <>
-          <MobileSectionTitle>Recent Scrap</MobileSectionTitle>
-          <MobileEmptyState
-            icon={Recycle}
-            title="No scrap generated"
-            hint="Scrap is auto-detected from DPR variance analysis, or add it manually from the desktop Stock section"
-          />
-        </>
-      )}
-
-      {canCreate && <MobileFab href="/scrap-generations" icon={Plus} label="New Scrap" />}
-    </div>
+    <MobileScrapGenerationsList
+      items={serialized}
+      totalValue={totalValue}
+      canCreate={canCreate}
+    />
   );
 }

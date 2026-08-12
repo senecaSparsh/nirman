@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { activateTenancy, terminateTenancy, updateTenancy } from "@nirman/services";
 import { apiHandler, getCompany, json, editTenancySchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -13,9 +14,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   try {
     if (action === "activate") {
       const t = await activateTenancy(id, company.id, user.id);
+      revalidatePath("/m/rentals");
       return json({ ok: true, id: t.id, status: t.status });
     } else if (action === "terminate") {
       const t = await terminateTenancy(id, company.id, user.id);
+      revalidatePath("/m/rentals");
       return json({ ok: true, id: t.id, status: t.status });
     }
     return json({ error: "Unknown action. Use 'activate' or 'terminate'." }, { status: 400 });
@@ -49,6 +52,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       customerId: parsed.data.customerId ?? null,
       userId: user.id,
     });
+    revalidatePath("/m/rentals");
     return json({ ok: true, id: t.id, status: t.status });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to edit tenancy") }, { status: 400 });

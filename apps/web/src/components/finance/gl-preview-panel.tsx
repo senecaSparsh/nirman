@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyDetailed, formatCurrencyCompact } from "@/lib/utils";
-import type { GlPreviewLine } from "@nirman/services";
+import type { GlPreviewLine } from "@nirman/services/gl-preview";
 
 /**
  * GL Impact Preview Panel — a collapsible inline panel (not a modal)

@@ -5,7 +5,7 @@ import { BookOpen } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrencyDetailed, formatCurrencyCompact } from "@/lib/utils";
-import type { GlPreviewLine } from "@nirman/services";
+import type { GlPreviewLine } from "@nirman/services/gl-preview";
 
 /**
  * GL Impact Preview Dialog — shows which accounts will be debited

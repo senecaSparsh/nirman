@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createMaterialSalePayment, getMaterialSalePayments } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
@@ -73,6 +74,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
 
+    revalidatePath("/m/material-sales");
+    revalidatePath("/m/sales");
     return json(
       {
         id: payment.id,

@@ -4,13 +4,10 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Globe } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency } from "@/lib/utils";
 import {
-  MobilePageHeader,
   MobileEmptyState,
   MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobilePortalListingsList, type PortalListingItem } from "./MobilePortalListingsList";
 
 /**
@@ -67,17 +64,11 @@ async function MobilePortalListingsContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Portal Listings"
-        subtitle={`${listed.length} listed · ${draft.length} draft · ${failed.length} failed`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard label="Listed" value={String(listed.length)} icon={Globe} tone="success" />
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
+        <MobileStatCard label="Listed" value={String(listed.length)} icon={Globe} tone="go" />
         <MobileStatCard label="Draft" value={String(draft.length)} icon={Globe} />
         {failed.length > 0 && (
-          <MobileStatCard label="Failed" value={String(failed.length)} icon={Globe} tone="danger" />
+          <MobileStatCard label="Failed" value={String(failed.length)} icon={Globe} tone="stop" />
         )}
         <MobileStatCard label="Delisted" value={String(delisted.length)} icon={Globe} />
       </div>

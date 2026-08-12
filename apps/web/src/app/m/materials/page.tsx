@@ -2,22 +2,21 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Package, AlertTriangle } from "lucide-react";
+import { Package } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatNumber } from "@/lib/utils";
 import {
-  MobilePageHeader,
-  MobileSectionTitle,
   MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
   MobileCta,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileMaterialsList } from "./MobileMaterialsList";
 
 /**
- * /m/materials — mobile material catalogue with live stock + low-stock flags.
- * Replaces every desktop `/materials` link from the mobile surface.
+ * /m/materials — mobile material catalogue.
+ *
+ * Visual architecture matches nirman-os catalog page:
+ *   - KPI strip at top
+ *   - Sticky search header with category chips
+ *   - 2-column card grid (MaterialCard)
  */
 export default function MobileMaterialsPage() {
   return (
@@ -43,7 +42,7 @@ async function MobileMaterialsContent() {
       minStock: true,
       reorderPoint: true,
       category: { select: { name: true } },
-      stockItems: { where: { location: { companyId: company.id } }, select: { qty: true } },
+      stockItems: { where: { location: { companyId: company.id } }, select: { qty: true, movingAvgCost: true } },
     },
     orderBy: { name: "asc" },
     take: 200,
@@ -52,8 +51,15 @@ async function MobileMaterialsContent() {
   const rows = materials
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
+      const stockValue = m.stockItems.reduce(
+        (s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost),
+        0,
+      );
+      const unitCost = toNum(m.currentCost ?? m.standardCost);
       const minStock = m.minStock ? toNum(m.minStock) : null;
-      const isLow = minStock != null && totalQty < minStock;
+      const reorderPoint = m.reorderPoint ? toNum(m.reorderPoint) : null;
+      const isLow = reorderPoint != null && totalQty <= reorderPoint;
+      const isOut = totalQty <= 0;
       return {
         id: m.id,
         code: m.code,
@@ -61,43 +67,27 @@ async function MobileMaterialsContent() {
         unit: m.unit,
         categoryName: m.category.name,
         totalQty,
+        stockValue,
+        unitCost,
         minStock,
-        reorderPoint: m.reorderPoint ? toNum(m.reorderPoint) : null,
+        reorderPoint,
         isLow,
+        isOut,
       };
     })
-    .sort((a, b) => Number(b.isLow) - Number(a.isLow) || a.name.localeCompare(b.name));
-
-  const lowStock = rows.filter((r) => r.isLow);
+    .sort((a, b) => Number(b.isLow || b.isOut) - Number(a.isLow || a.isOut) || a.name.localeCompare(b.name));
 
   return (
     <div>
-      <MobilePageHeader
-        title="Materials"
-        subtitle={`${rows.length} items · ${lowStock.length} low`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard label="Total Items" value={formatNumber(rows.length, 0)} icon={Package} />
-        <MobileStatCard
-          label="Low Stock"
-          value={formatNumber(lowStock.length, 0)}
-          icon={AlertTriangle}
-          tone={lowStock.length > 0 ? "danger" : "default"}
-        />
-      </div>
-
       <MobileMaterialsList items={rows} />
 
       {rows.length === 0 && (
         <>
-          <MobileSectionTitle>All Materials</MobileSectionTitle>
           <MobileEmptyState
             icon={Package}
             title="No materials"
-            hint="Add materials from the desktop Setup page to start tracking stock."
-            action={<MobileCta href="/materials" icon={Package}>Go to Materials Setup</MobileCta>}
+            hint="Materials will appear here once they're added to the system and stock is received."
+            action={<MobileCta href="/m/stock" icon={Package}>View Stock Ledger</MobileCta>}
           />
         </>
       )}

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GlPreviewPanel } from "./gl-preview-panel";
-import type { GlPreviewLine } from "@nirman/services";
+import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption } from "@/lib/types";
 
 const COMMON_CATEGORIES = [

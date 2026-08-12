@@ -6,12 +6,10 @@ import { Package, Truck, ShoppingCart, Building2, Wallet, ClipboardCheck, Trendi
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileStatCard,
-  MobileInfoRow,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+  MobileRow,
+} from "@/components/mobile/v2/primitives";
 
 /**
  * /m/books/reports — mobile analytics hub with key metrics inline.
@@ -69,11 +67,9 @@ async function MobileReportsContent() {
 
   return (
     <div>
-      <MobilePageHeader title="Analytics" subtitle="Key metrics at a glance" right={<MobileRefreshButton />} />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard label="Inventory Value" value={formatCurrency(inventoryValue)} icon={Package} />
-        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="success" />
+        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="go" />
         <MobileStatCard label="Sales Booked" value={formatCurrency(salesBooked)} icon={ShoppingCart} />
         <MobileStatCard label="Purchase Spend" value={formatCurrency(purchaseSpend)} icon={Truck} />
         <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} />
@@ -81,17 +77,17 @@ async function MobileReportsContent() {
       </div>
 
       <MobileSectionTitle>Revenue</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={ShoppingCart} title="Total received" value={formatCurrency(totalReceived)} tone="success" />
-        <MobileInfoRow icon={ClipboardCheck} title="Booked (active sales)" value={formatCurrency(salesBooked)} />
-        <MobileInfoRow icon={TrendingUp} title="Outstanding" value={formatCurrency(salesBooked - totalReceived)} tone="warning" />
+      <div className="flex flex-col gap-2.5">
+        <MobileRow icon={ShoppingCart} title="Total received" meta={formatCurrency(totalReceived)} tone="success" />
+        <MobileRow icon={ClipboardCheck} title="Booked (active sales)" meta={formatCurrency(salesBooked)} />
+        <MobileRow icon={TrendingUp} title="Outstanding" meta={formatCurrency(salesBooked - totalReceived)} tone="warning" />
       </div>
 
       <MobileSectionTitle>Costs</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={Building2} title="Project costs" value={formatCurrency(totalProjectCosts)} />
-        <MobileInfoRow icon={Wallet} title="Operating expenses" value={formatCurrency(totalExpenses)} />
-        <MobileInfoRow icon={Truck} title="Purchases" value={formatCurrency(purchaseSpend)} />
+      <div className="flex flex-col gap-2.5">
+        <MobileRow icon={Building2} title="Project costs" meta={formatCurrency(totalProjectCosts)} />
+        <MobileRow icon={Wallet} title="Operating expenses" meta={formatCurrency(totalExpenses)} />
+        <MobileRow icon={Truck} title="Purchases" meta={formatCurrency(purchaseSpend)} />
       </div>
     </div>
   );

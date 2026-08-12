@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Wallet } from "lucide-react";
+import { Wallet, Search, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileSearchBar,
-  MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
+import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type ReceiptListItem = {
   id: string;
@@ -38,24 +33,30 @@ export function MobileReceiptsList({ items }: { items: ReceiptListItem[] }) {
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search customer, payment mode…"
-      />
+      <div className="mb-4">
+        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
+          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+            style={{ color: "var(--color-ink-900)" }} />
+          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
+        </div>
+      </div>
 
       <MobileSectionTitle>Recent Payments ({filtered.length})</MobileSectionTitle>
       {filtered.length === 0 ? (
         <MobileEmptyState icon={Wallet} title="No matching receipts" hint="Try a different search" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {filtered.map((r) => (
-            <MobileInfoRow
+            <MobileRow
               key={r.id}
               icon={Wallet}
               title={r.customerName}
               subtitle={`${formatDate(r.paymentDate)} · ${r.mode} · ${r.saleNumber}`}
-              value={formatCurrency(r.amount)}
+              meta={formatCurrency(r.amount)}
               tone="success"
             />
           ))}

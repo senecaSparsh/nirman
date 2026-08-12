@@ -13,7 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import type { GlPreviewLine } from "@nirman/services";
+import type { GlPreviewLine } from "@nirman/services/gl-preview";
 
 type PayrollStatus = "DRAFT" | "PROCESSED" | "PAID";
 

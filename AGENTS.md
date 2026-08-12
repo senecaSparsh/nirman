@@ -410,20 +410,20 @@ thing probably belongs here rather than in the page.
 3. **Colour is wayfinding, not decoration.** Each of the six worlds owns a hue, used only
    as a 2px rule, a 6px dot or an icon tint — **never** a filled panel.
 
-## Information architecture — six worlds
+## Information architecture — four worlds + settings
 
 The nav is **not** a flat list of modules. `src/lib/nav.ts` is the single source of truth
-and mirrors the owner's map one-to-one:
+and mirrors the owner's map. The original six worlds (Today, Materials, Property, People,
+Money, Insights) were consolidated into four for clarity — Materials+Property became "Build",
+Money+Insights became "Finance". Settings is a gear at the bottom, not a world.
 
 | World | Owner's term | Route root |
 | --- | --- | --- |
 | **Today** | — (cross-cutting) | `/`, `/my-tasks`, `/approvals`, `/tasks` |
-| **Materials** | Raw Material | `/materials`, `/procurement`, `/requisitions`, `/vendors`, `/field`, `/stock-*`, `/equipment` |
-| **Property** | Real Estate Inventory | `/projects`, `/land`, `/units`, `/renovations`, `/sales`, `/rentals`, `/customers` |
-| **People** | HR | `/hr/*` |
-| **Money** | Accounts (Tally) | `/finance`, `/gl`, `/reports/{gst,expenses,pending-payments}` |
-| **Insights** | Analysis | `/reports/*` |
-| **Setup** | — | `/settings`, `/workflows`, `/playground` |
+| **Build** | Raw Material + Real Estate | `/materials`, `/procurement`, `/requisitions`, `/vendors`, `/field`, `/stock-*`, `/equipment`, `/projects`, `/land`, `/units`, `/renovations`, `/sales`, `/rentals`, `/customers` |
+| **HR** | People | `/hr/*` |
+| **Finance** | Accounts (Tally) + Analysis | `/finance`, `/gl`, `/reports/*` |
+| ⚙ Settings | — | `/settings`, `/workflows`, `/playground` |
 
 Rules:
 - **Never add a top-level nav item.** Add a `NavLink` to the right `section` of the right
@@ -449,6 +449,7 @@ script in `layout.tsx` before paint) — **never** React state restored in an ef
 ## Layout vocabulary — `@/components/page`
 
 Build pages from these; a page needing a seventh primitive means the primitive belongs here.
+`<EmptyState>` is in `@/components/empty-state` and `<NoAccess>` is in `@/components/no-access`.
 
 - `<Page>` — the page's vertical rhythm. Use instead of ad-hoc `space-y-*`.
 - `<Section title description action bare>` — a titled block. `bare` drops card chrome.
@@ -513,7 +514,8 @@ tracked (field labels, table heads).
 that the desktop is crammed onto a phone. So:
 
 - **What's on the tab bar** → the persona decides (`src/lib/mobile-nav.ts`). Curation by
-  role is correct: five tabs, the five things that role does on a phone.
+  role is correct: 4–5 tabs, the things that role does on a phone. Executive and Sales
+  personas use 4 tabs + a "More" link; Ops, Field, and Finance use 5 tabs.
 - **What it's called** → the *world* decides. Labels, icons and colours come from `nav.ts`
   via `tabColor()`. A tab and its desktop sidebar entry must be visibly the same thing.
 - A tab may promote one deep action (a supervisor's commonest act is "Receive", not
@@ -536,7 +538,7 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
 - **H1: BOQ + WBS + Measurement Book**: Schema models `BoqItem`
   (hierarchical: SECTION→SUBSECTION→LINE_ITEM with qty/rate/amount),
   `WbsNode` (PROJECT_NODE→PHASE_NODE→ACTIVITY→SUB_ACTIVITY→MILESTONE with
-  schedule dates, progress%, critical path), `MbEntry` (site engineer's
+  schedule dates, progress%, critical path), `MeasurementBookEntry` (site engineer's
   verified actual quantities per BOQ item, DRAFT→VERIFIED→APPROVED→REJECTED
   workflow), `WbsDependency` (FS/FF/SS/SF dependency types). Service:
   `@nirman/services`/`boq.ts` (CRUD + tree building + MTO generation).

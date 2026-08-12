@@ -1,17 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Globe, ExternalLink } from "lucide-react";
+import { Globe, ExternalLink, Search, X } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileInfoRow,
-  MobileSearchBar,
-  MobileFilterChips,
+  MobileRow,
   MobileStatusBadge,
   MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 
 type ListingFilter = "ALL" | "LISTED" | "DRAFT" | "SYNC_FAILED" | "DELISTED";
 
@@ -43,7 +41,7 @@ const FILTER_CHIPS: { label: string; value: ListingFilter }[] = [
  * (Sync Failed → Listed → Draft → Delisted), surfacing failures first.
  * When a filter or search is active, a flat result list is shown.
  *
- * Rows use MobileInfoRow (not tappable to a detail page) because there
+ * Rows use MobileRow (not tappable to a detail page) because there
  * is no mobile portal-listing detail page — but listed rows with a
  * listingUrl render an external-link affordance.
  */
@@ -77,17 +75,28 @@ export function MobilePortalListingsList({
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search title, portal, unit…"
-      />
+      <div className="mb-4">
+        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
+          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+            style={{ color: "var(--color-ink-900)" }} />
+          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
+        </div>
+      </div>
 
-      <MobileFilterChips
-        chips={FILTER_CHIPS}
-        active={statusFilter}
-        onChange={setStatusFilter}
-      />
+      <div className="flex gap-1.5 mb-4 overflow-x-auto">
+        {FILTER_CHIPS.map((chip) => {
+          const active = statusFilter === chip.value;
+          return <button key={chip.value} onClick={() => setStatusFilter(chip.value)}
+          className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold whitespace-nowrap transition-colors"
+          style={{ backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)", color: active ? "#fff" : "var(--color-ink-500)" }}>
+          {chip.label}
+        </button>;
+        })}
+      </div>
 
       {isFiltering ? (
         <FlatList items={filtered} />
@@ -114,7 +123,7 @@ function FlatList({ items }: { items: PortalListingItem[] }) {
   return (
     <div>
       <MobileSectionTitle>Results ({items.length})</MobileSectionTitle>
-      <div>
+      <div className="flex flex-col gap-2.5">
         {items.map((l) => (
           <ListingRow key={l.id} l={l} />
         ))}
@@ -137,7 +146,7 @@ function GroupedList({ items }: { items: PortalListingItem[] }) {
       {failed.length > 0 && (
         <>
           <MobileSectionTitle>Sync Failed ({failed.length})</MobileSectionTitle>
-          <div>
+          <div className="flex flex-col gap-2.5">
             {failed.map((l) => (
               <ListingRow key={l.id} l={l} />
             ))}
@@ -153,7 +162,7 @@ function GroupedList({ items }: { items: PortalListingItem[] }) {
           hint="Draft listings appear here once synced to a portal"
         />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {listed.map((l) => (
             <ListingRow key={l.id} l={l} />
           ))}
@@ -163,7 +172,7 @@ function GroupedList({ items }: { items: PortalListingItem[] }) {
       {draft.length > 0 && (
         <>
           <MobileSectionTitle>Draft ({draft.length})</MobileSectionTitle>
-          <div>
+          <div className="flex flex-col gap-2.5">
             {draft.map((l) => (
               <ListingRow key={l.id} l={l} />
             ))}
@@ -174,7 +183,7 @@ function GroupedList({ items }: { items: PortalListingItem[] }) {
       {delisted.length > 0 && (
         <>
           <MobileSectionTitle>Delisted ({delisted.length})</MobileSectionTitle>
-          <div>
+          <div className="flex flex-col gap-2.5">
             {delisted.map((l) => (
               <ListingRow key={l.id} l={l} />
             ))}
@@ -195,11 +204,11 @@ function ListingRow({ l }: { l: PortalListingItem }) {
         : ""
   }`;
   return (
-    <MobileInfoRow
+    <MobileRow
       icon={Globe}
       title={l.title}
       subtitle={subtitle}
-      value={formatCurrency(l.askingPrice)}
+      meta={formatCurrency(l.askingPrice)}
       tone={
         l.status === "SYNC_FAILED"
           ? "danger"

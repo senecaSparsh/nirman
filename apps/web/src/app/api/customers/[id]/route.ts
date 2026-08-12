@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
 import { apiHandler, getCompany, json, customerSchema, requirePermission } from "@/lib/server";
@@ -35,6 +36,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       return cust;
     });
+    revalidatePath("/m/customers");
     return json(updated);
   } catch (err) {
     if (err instanceof ConcurrentEditError) {
@@ -51,5 +53,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const existing = await prisma.customer.findFirst({ where: { id, companyId: company.id } });
   if (!existing) return json({ error: "Customer not found" }, { status: 404 });
   await softDelete("Customer", id);
+  revalidatePath("/m/customers");
   return json({ ok: true });
 });

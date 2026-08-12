@@ -124,7 +124,7 @@ export function MobileNewSaleForm({
       if (!res.ok) throw new Error(data.error ?? "Failed to create sale");
       haptic(30);
       toast.success(`Booking ${data.saleNumber} created`);
-      router.push("/m/book/sales");
+      router.push("/m/sales");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");

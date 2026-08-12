@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelSale, completeSale, recordDeposit, recordPayment, sendNotification } from "@nirman/services";
 import { apiHandler, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
@@ -88,6 +89,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "cancel") {
     try {
       await cancelSale(id);
+      revalidatePath("/m/sales");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Cancel failed") }, { status: 400 });

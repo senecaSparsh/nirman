@@ -2,15 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Landmark } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
 import { MobileSuppliersList, type SupplierListItem } from "./MobileSuppliersList";
 
 /**
@@ -56,47 +48,10 @@ async function MobileSuppliersContent() {
   const withDues = rows.filter((s) => s.balanceOwed > 0);
 
   return (
-    <div>
-      <MobilePageHeader
-        title="Suppliers"
-        subtitle={`${rows.length} active · ${withDues.length} with dues`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Total Owed"
-          value={formatCurrency(totalOwed)}
-          icon={Landmark}
-          tone={totalOwed > 0 ? "warning" : "default"}
-        />
-        <MobileStatCard
-          label="Suppliers"
-          value={String(rows.length)}
-          icon={Landmark}
-        />
-        <MobileStatCard
-          label="With Dues"
-          value={String(withDues.length)}
-          icon={Landmark}
-          tone={withDues.length > 0 ? "warning" : "default"}
-        />
-        <MobileStatCard
-          label="Total POs"
-          value={String(rows.reduce((s, r) => s + r.poCount, 0))}
-          icon={Landmark}
-        />
-      </div>
-
-      {rows.length === 0 ? (
-        <MobileEmptyState
-          icon={Landmark}
-          title="No suppliers"
-          hint="Add suppliers from the desktop Build → Acquire section"
-        />
-      ) : (
-        <MobileSuppliersList items={rows} />
-      )}
-    </div>
+    <MobileSuppliersList
+      items={rows}
+      totalOwed={totalOwed}
+      withDuesCount={withDues.length}
+    />
   );
 }

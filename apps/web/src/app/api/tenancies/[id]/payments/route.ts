@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { recordRentPayment } from "@nirman/services";
 import { apiHandler, getCompany, json, rentPaymentSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -23,6 +24,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       reference: parsed.data.reference ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/m/rentals");
     return json({ ok: true, id: payment.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to record rent payment") }, { status: 400 });

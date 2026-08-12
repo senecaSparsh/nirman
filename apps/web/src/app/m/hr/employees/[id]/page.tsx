@@ -3,18 +3,15 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
+import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
-  MobileDetailHeader,
   MobileSectionTitle,
-  MobileInfoRow,
   MobileRow,
   MobileEmptyState,
   MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 
 export default function MobileEmployeeDetailPage({
   params,
@@ -35,7 +32,6 @@ async function MobileEmployeeDetailContent({
 }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
@@ -50,48 +46,46 @@ async function MobileEmployeeDetailContent({
   if (!employee) {
     return (
       <div>
-        <MobileDetailHeader title="Employee" backHref="/m/hr/employees" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/hr/employees" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+        </div>
         <MobileEmptyState icon={User} title="Employee not found" />
       </div>
     );
   }
 
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
   const presentDays = employee.attendances.filter((a) => a.status === "PRESENT").length;
   const totalDays = employee.attendances.length;
 
   return (
     <div>
-      <MobileDetailHeader
-        title={employee.name}
-        subtitle={employee.designation ?? employee.trade ?? "no designation"}
-        backHref="/m/hr/employees"
-        right={<MobileRefreshButton />}
-      />
+      <div className="mb-4">
+        <MobileBackButton fallback="/m/hr/employees" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+      </div>
 
       <MobileSectionTitle>Contact</MobileSectionTitle>
-      <div>
-        {employee.phone && <MobileInfoRow icon={Phone} title="Phone" value={employee.phone} />}
-        {employee.email && <MobileInfoRow icon={Mail} title="Email" value={employee.email} />}
-        {employee.trade && <MobileInfoRow icon={Briefcase} title="Trade" value={employee.trade} />}
+      <div className="flex flex-col gap-2.5">
+        {employee.phone && <MobileRow icon={Phone} title="Phone" meta={employee.phone} />}
+        {employee.email && <MobileRow icon={Mail} title="Email" meta={employee.email} />}
+        {employee.trade && <MobileRow icon={Briefcase} title="Trade" meta={employee.trade} />}
         {employee.crew && (
-          <MobileInfoRow icon={Briefcase} title="Crew" value={employee.crew.name} />
+          <MobileRow icon={Briefcase} title="Crew" meta={employee.crew.name} />
         )}
         {employee.activeProject && (
-          <MobileInfoRow icon={Briefcase} title="Project" value={employee.activeProject.name} />
+          <MobileRow icon={Briefcase} title="Project" meta={employee.activeProject.name} />
         )}
         {employee.joinDate && (
-          <MobileInfoRow icon={Calendar} title="Join Date" value={formatDate(employee.joinDate)} />
+          <MobileRow icon={Calendar} title="Join Date" meta={formatDate(employee.joinDate)} />
         )}
       </div>
 
       <MobileSectionTitle>Salary</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard
           label={employee.wageType === "DAILY" ? "Daily Rate" : "Monthly Salary"}
           value={formatCurrency(toNum(employee.wageType === "DAILY" ? employee.dailyRate : employee.monthlySalary))}
           icon={IndianRupee}
-          tone="brand"
+          tone="signal"
         />
         <MobileStatCard
           label="Attendance"
@@ -103,7 +97,7 @@ async function MobileEmployeeDetailContent({
       {employee.attendances.length > 0 && (
         <>
           <MobileSectionTitle>Recent Attendance</MobileSectionTitle>
-          <div>
+          <div className="flex flex-col gap-2.5">
             {employee.attendances.map((a) => (
               <MobileRow
                 key={a.id}

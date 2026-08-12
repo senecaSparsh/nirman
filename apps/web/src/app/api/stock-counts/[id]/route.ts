@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { confirmStockCount, reconcileStockCount, deleteStockCount } from "@nirman/services";
 import { apiHandler, json, toNum, getCompany } from "@/lib/server";
@@ -60,10 +61,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   try {
     if (action === "confirm") {
       const c = await confirmStockCount(id, user.id);
+      revalidatePath("/m/stock-counts");
       return json({ ok: true, status: c.status });
     }
     if (action === "reconcile") {
       const c = await reconcileStockCount(id, user.id);
+      revalidatePath("/m/stock-counts");
       return json({ ok: true, status: c.status });
     }
     return json({ error: "Unknown action" }, { status: 400 });

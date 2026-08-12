@@ -514,6 +514,7 @@ export {
   rejectDpr,
   resubmitDpr,
   generateMaterialIssueFromDPR,
+  combineTimeWithDate,
 } from "./hr";
 
 // Leave Management — requests with approval workflow

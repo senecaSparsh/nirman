@@ -11,17 +11,37 @@ function isMobileUA(ua: string | null | undefined): boolean {
 }
 
 /**
+ * Routes that are exempt from the mobile gate — they exist only on the
+ * desktop surface and have no mobile equivalent (print views, auth
+ * callbacks, static assets, API endpoints).
+ */
+function isExemptFromMobileGate(pathname: string): boolean {
+  // Mobile surface — already on /m
+  if (pathname === "/m" || pathname.startsWith("/m/")) return true;
+  // Auth pages
+  if (pathname === "/sign-in" || pathname.startsWith("/sign-in/")) return true;
+  // Print views (desktop-only by design)
+  if (pathname === "/print" || pathname.startsWith("/print/")) return true;
+  // API routes (return JSON, not HTML surfaces)
+  if (pathname.startsWith("/api/")) return true;
+  // Next.js internals
+  if (pathname.startsWith("/_next/")) return true;
+  // Static files
+  if (pathname.startsWith("/favicon")) return true;
+  if (/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)) return true;
+  return false;
+}
+
+/**
  * Auth + mobile-gate middleware.
  *
  * Mobile gate (runs in ALL environments, including dev, so mobile can be
- * tested locally): when a mobile UA hits the exact root "/", redirect to
- * the persona-scoped mobile surface at /m. A `nirman-desktop=1` cookie
- * (set by the "View desktop site" link, which hits "/?desktop=1") opts
- * the user out so they can reach the full desktop ERP on a phone if they
- * really want to. Desktop UAs are never redirected — desktop is 100%
- * unchanged. Only the exact "/" path is affected; every other desktop
- * route (/projects, /gl, ...) is left alone even on mobile UA, so mobile
- * users who drill into a desktop link from the "More" tab aren't bounced.
+ * tested locally): when a mobile UA hits ANY desktop route, redirect to
+ * /m. This prevents mobile users from landing on desktop pages via
+ * direct URLs, bookmarks, or shared links. A `nirman-desktop=1` cookie
+ * (set by "/?desktop=1") opts the user out — but it's session-only now,
+ * so closing the browser resets the preference. Desktop UAs are never
+ * redirected.
  *
  * Auth (all environments): checks for the better-auth session cookie. If
  * missing, redirects to /sign-in. Set AUTH_BYPASS=true to skip the cookie
@@ -37,21 +57,25 @@ export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
   // ── "View desktop" escape hatch ────────────────────────────
-  // The mobile "More" tab links to /?desktop=1. Set a cookie so the
-  // mobile gate stops redirecting, then drop the query and serve desktop.
+  // Sets a session-only cookie (no maxAge → expires when browser closes)
+  // so the mobile gate stops redirecting. This lets a phone user reach
+  // the full desktop ERP if they really need to, but the preference
+  // doesn't persist across browser sessions.
   if (searchParams.get("desktop") === "1") {
     const res = NextResponse.redirect(new URL("/", req.url));
     res.cookies.set("nirman-desktop", "1", {
       path: "/",
-      maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
     });
     return res;
   }
 
-  // ── Mobile gate: only the exact root, only mobile UA ───────
+  // ── Mobile gate: ALL desktop routes, mobile UA ─────────────
+  // Redirect any desktop route to /m when the user is on a mobile UA
+  // and hasn't set the nirman-desktop override cookie. This catches
+  // direct navigation, bookmarks, and shared links — not just the root.
   if (
-    pathname === "/" &&
+    !isExemptFromMobileGate(pathname) &&
     !req.cookies.get("nirman-desktop")?.value &&
     isMobileUA(req.headers.get("user-agent"))
   ) {

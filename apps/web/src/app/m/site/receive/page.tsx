@@ -6,13 +6,11 @@ import { ScanLine, Truck, AlertTriangle } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatNumber } from "@/lib/utils";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileEmptyState,
   MobileCta,
   MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileReceiveList } from "./MobileReceiveList";
 
 /** Field → Receive tab: in-transit POs + jump into barcode receiving. */
@@ -61,23 +59,17 @@ async function SiteReceiveContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Receive"
-        subtitle={`${inTransit.length} in transit`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
         <MobileStatCard label="In Transit" value={formatNumber(inTransit.length, 0)} icon={Truck} />
-        <MobileStatCard label="Partial" value={formatNumber(partial, 0)} icon={Truck} tone={partial > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Overdue" value={formatNumber(overdue, 0)} icon={AlertTriangle} tone={overdue > 0 ? "danger" : "default"} />
+        <MobileStatCard label="Partial" value={formatNumber(partial, 0)} icon={Truck} tone={partial > 0 ? "signal" : "neutral"} />
+        <MobileStatCard label="Overdue" value={formatNumber(overdue, 0)} icon={AlertTriangle} tone={overdue > 0 ? "stop" : "neutral"} />
       </div>
 
-      <div className="px-4 pb-2">
-        <MobileCta href="/m/site/field" icon={ScanLine}>
+      <div className="mb-4">
+        <MobileCta href="/m/site/field" icon={ScanLine} variant="primary">
           Open barcode scanner
         </MobileCta>
-        <p className="mt-2 px-2 text-caption text-muted-foreground">
+        <p className="mt-2 px-2 text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
           Scan or manually receive materials against a purchase order. Works offline.
         </p>
       </div>

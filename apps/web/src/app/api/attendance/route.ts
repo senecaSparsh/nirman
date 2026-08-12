@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
-import { recordAttendance, bulkRecordAttendance } from "@nirman/services";
+import { recordAttendance, bulkRecordAttendance, combineTimeWithDate } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -17,7 +17,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const where: Record<string, unknown> = { companyId: company.id };
   if (date) {
-    where.date = new Date(date);
+    // Use UTC date range to match @db.Date storage (stored as UTC midnight)
+    const dayStart = new Date(date + "T00:00:00.000Z");
+    const dayEnd = new Date(date + "T23:59:59.999Z");
+    where.date = { gte: dayStart, lte: dayEnd };
   } else if (startDate && endDate) {
     where.date = { gte: new Date(startDate), lte: new Date(endDate) };
   }
@@ -97,13 +100,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  const attendanceDate = new Date(parsed.data.date);
   const attendance = await recordAttendance({
     companyId: company.id,
     employeeId: parsed.data.employeeId,
-    date: new Date(parsed.data.date),
+    date: attendanceDate,
     projectId: parsed.data.projectId ?? undefined,
-    checkIn: parsed.data.checkIn ? new Date(parsed.data.checkIn) : undefined,
-    checkOut: parsed.data.checkOut ? new Date(parsed.data.checkOut) : undefined,
+    checkIn: parsed.data.checkIn ? combineTimeWithDate(attendanceDate, parsed.data.checkIn) : undefined,
+    checkOut: parsed.data.checkOut ? combineTimeWithDate(attendanceDate, parsed.data.checkOut) : undefined,
     hoursWorked: parsed.data.hoursWorked ?? undefined,
     status: parsed.data.status,
     notes: parsed.data.notes ?? undefined,

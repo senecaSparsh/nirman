@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CheckSquare } from "lucide-react";
 import { getCurrentUser } from "@/lib/server";
-import { MobilePageHeader, MobileRefreshButton, MobileStatCard } from "@/components/mobile/mobile-primitives";
+import { MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
 
 /** Field → Tasks tab: my assigned tasks with inline status update. */
@@ -49,16 +49,10 @@ async function SiteTasksContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="My Tasks"
-        subtitle={`${tasks.length} open`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
-        <MobileStatCard label="Pending" value={String(pending)} icon={CheckSquare} tone={pending > 0 ? "warning" : "default"} />
-        <MobileStatCard label="In Progress" value={String(inProgress)} icon={CheckSquare} tone={inProgress > 0 ? "success" : "default"} />
-        <MobileStatCard label="Blocked" value={String(blocked)} icon={CheckSquare} tone={blocked > 0 ? "danger" : "default"} />
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
+        <MobileStatCard label="Pending" value={String(pending)} icon={CheckSquare} tone={pending > 0 ? "signal" : "neutral"} />
+        <MobileStatCard label="In Progress" value={String(inProgress)} icon={CheckSquare} tone={inProgress > 0 ? "go" : "neutral"} />
+        <MobileStatCard label="Blocked" value={String(blocked)} icon={CheckSquare} tone={blocked > 0 ? "stop" : "neutral"} />
       </div>
 
       <MobileTaskList tasks={taskItems} />

@@ -9,7 +9,7 @@ import {
   type Polygon,
   type Point,
   type Segment,
-} from "@nirman/services";
+} from "@nirman/services/geometry";
 
 /**
  * CAD/GIS Partition Canvas — the visual land partitioning tool.

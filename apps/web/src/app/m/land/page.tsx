@@ -1,28 +1,21 @@
 import { Suspense } from "react";
+import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { PageHeader } from "@/components/page-header";
-import { LandView } from "@/components/land/land-view";
-import { PageLoading } from "@/components/page-loading";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import type {
-  LandPurchaseRow, LandParcelRow, LandParcelSummary, LandPortfolio, ProjectOption,
-} from "@/lib/types";
+import { MobileLandList } from "./MobileLandList";
 
 /**
- * /m/land — mobile land page. Uses the EXACT same desktop components
- * (PageHeader + LandView with DataTable) wrapped in .mobile-scale to
- * shrink all text to 9-11px. Layout is identical to desktop.
+ * /m/land — mobile land portfolio. Shows land purchases with parcel
+ * breakdown, valuation, and sale status. Supervisors/owners need to
+ * see what land they own, what's available to sell, and what's held.
  */
 export default function MobileLandPage() {
   return (
-    <div className="mobile-scale px-3 py-4">
-      <Suspense fallback={<PageLoading label="Loading land…" variant="cards" />}>
-        <MobileLandContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+      <MobileLandContent />
+    </Suspense>
   );
 }
 
@@ -32,94 +25,54 @@ async function MobileLandContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
-    return <div className="p-4 text-caption text-muted-foreground">No access to land parcels.</div>;
+    return (
+      <div className="p-4 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
+        No access to land parcels.
+      </div>
+    );
   }
 
-  const perms = {
-    canCreate: hasPermission(role, PERM.ASSETS_MANAGE),
-    canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
-    canPartition: hasPermission(role, PERM.LAND_PARTITION),
-    canSell: hasPermission(role, PERM.SALE_CREATE),
-  };
+  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
 
-  const [purchases, parcels, projects, landSales, customers] = await Promise.all([
-    prisma.landPurchase.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      include: {
-        project: { select: { name: true } },
-        parcels: {
-          where: { deletedAt: null },
-          select: {
-            id: true, number: true, status: true, area: true,
-            acquisitionCost: true, currentValuation: true, geometry: true,
-            parentParcelId: true, _count: { select: { children: true } },
-          },
+  const purchases = await prisma.landPurchase.findMany({
+    where: { companyId: company.id, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    include: {
+      project: { select: { id: true, name: true } },
+      parcels: {
+        where: { deletedAt: null },
+        select: {
+          id: true, number: true, status: true, area: true,
+          acquisitionCost: true, currentValuation: true,
+          askingPrice: true, parentParcelId: true,
+          _count: { select: { children: true } },
         },
       },
-    }),
-    prisma.landParcel.findMany({
-      where: { deletedAt: null, landPurchase: { companyId: company.id } },
-      orderBy: [{ landPurchaseId: "asc" }, { number: "asc" }],
-      include: {
-        project: { select: { name: true } },
-        parentParcel: { select: { number: true } },
-        _count: { select: { children: true } },
-      },
-    }),
-    prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true, status: true },
-    }),
-    prisma.assetSale.findMany({
-      where: { companyId: company.id, assetType: "LAND", status: "ACTIVE" },
-      select: {
-        id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
-        landParcelId: true, customer: { select: { name: true } },
-      },
-    }),
-    prisma.customer.findMany({
-      where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+    },
+  });
 
-  const saleByParcel = new Map(
-    landSales.map((s) => [s.landParcelId!, {
-      salePrice: toNum(s.salePrice),
-      saleProfit: toNum(s.profit),
-      saleNumber: s.saleNumber,
-      saleDate: s.saleDate.toISOString(),
-      customerName: s.customer.name,
-    }]),
-  );
+  // Build portfolio stats
+  const allParcels = purchases.flatMap((p) => p.parcels);
+  const sellable = allParcels.filter((p) => p.status !== "PARTITIONED");
+  const available = sellable.filter((p) => p.status === "AVAILABLE");
+  const hold = sellable.filter((p) => p.status === "HOLD");
+  const partitioned = allParcels.filter((p) => p.status === "PARTITIONED");
+  const totalArea = purchases.reduce((s, p) => s + toNum(p.totalArea), 0);
+  const unsoldValue = sellable.reduce((s, p) => s + toNum(p.currentValuation), 0);
+  const costBasis = sellable.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
+  const availableArea = available.reduce((s, p) => s + toNum(p.area), 0);
 
-  const purchaseRows: LandPurchaseRow[] = purchases.map((lp) => {
-    const allParcels: LandParcelSummary[] = lp.parcels.map((p) => ({
-      id: p.id,
-      number: p.number,
-      status: p.status,
-      area: toNum(p.area),
-      acquisitionCost: toNum(p.acquisitionCost),
-      currentValuation: toNum(p.currentValuation),
-      parentParcelId: p.parentParcelId,
-      childCount: p._count.children,
-      geometry: p.geometry,
-    }));
-    const parcelSummaries = allParcels.filter((p) => p.status !== "PARTITIONED");
-    const sold = parcelSummaries.filter((p) => saleByParcel.has(p.id));
-    const unsold = parcelSummaries.filter((p) => !saleByParcel.has(p.id));
-    const soldRevenue = sold.reduce((s, p) => s + (saleByParcel.get(p.id)?.salePrice ?? p.currentValuation), 0);
-    const soldProfit = sold.reduce((s, p) => s + (saleByParcel.get(p.id)?.saleProfit ?? 0), 0);
-    const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
-    const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
+  const serialized = purchases.map((lp) => {
+    const parcels = lp.parcels;
+    const sellableP = parcels.filter((p) => p.status !== "PARTITIONED");
+    const availP = sellableP.filter((p) => p.status === "AVAILABLE");
+    const holdP = sellableP.filter((p) => p.status === "HOLD");
+    const partP = parcels.filter((p) => p.status === "PARTITIONED");
+    const unsoldVal = sellableP.reduce((s, p) => s + toNum(p.currentValuation), 0);
+    const costBasis = sellableP.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
 
     return {
       id: lp.id,
-      projectId: lp.projectId,
-      projectName: lp.project?.name ?? null,
       sellerName: lp.sellerName,
       sellerContact: lp.sellerContact,
       purchaseDate: lp.purchaseDate.toISOString(),
@@ -128,105 +81,45 @@ async function MobileLandContent() {
       totalCost: toNum(lp.totalCost),
       registryNo: lp.registryNo,
       location: lp.location,
-      documentUrl: lp.documentUrl,
-      parcelCount: parcelSummaries.length,
-      availableArea: unsold
-        .filter((p) => p.status === "AVAILABLE")
-        .reduce((s, p) => s + p.area, 0),
-      parcels: parcelSummaries,
-      soldCount: sold.length,
-      soldRevenue,
-      soldProfit,
-      availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
-      holdCount: unsold.filter((p) => p.status === "HOLD").length,
-      partitionedCount: allParcels.filter((p) => p.status === "PARTITIONED").length,
-      unsoldValue,
+      projectId: lp.projectId,
+      projectName: lp.project?.name ?? null,
+      parcelCount: sellableP.length,
+      availableCount: availP.length,
+      holdCount: holdP.length,
+      partitionedCount: partP.length,
+      availableArea: availP.reduce((s, p) => s + toNum(p.area), 0),
+      unsoldValue: unsoldVal,
       costBasis,
-      valuationGain: unsoldValue - costBasis,
-      hasChildren: allParcels.some((p) => p.parentParcelId !== null),
+      valuationGain: unsoldVal - costBasis,
+      parcels: parcels.map((p) => ({
+        id: p.id,
+        number: p.number,
+        status: p.status,
+        area: toNum(p.area),
+        currentValuation: toNum(p.currentValuation),
+        askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
+        parentParcelId: p.parentParcelId,
+        childCount: p._count.children,
+      })),
     };
   });
-
-  const parcelRows: LandParcelRow[] = parcels.map((p) => {
-    const sale = saleByParcel.get(p.id);
-    return {
-      id: p.id,
-      landPurchaseId: p.landPurchaseId,
-      parentParcelId: p.parentParcelId,
-      parentParcelNumber: p.parentParcel?.number ?? null,
-      number: p.number,
-      area: toNum(p.area),
-      areaUnit: p.areaUnit,
-      status: p.status,
-      acquisitionCost: toNum(p.acquisitionCost),
-      askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
-      currentValuation: toNum(p.currentValuation),
-      isInfrastructure: p.isInfrastructure,
-      marketValue: p.marketValue ? toNum(p.marketValue) : null,
-      weightFactor: p.weightFactor ? toNum(p.weightFactor) : null,
-      projectId: p.projectId,
-      projectName: p.project?.name ?? null,
-      geometry: p.geometry,
-      childCount: p._count.children,
-      salePrice: sale?.salePrice ?? null,
-      saleProfit: sale?.saleProfit ?? null,
-      saleNumber: sale?.saleNumber ?? null,
-      saleDate: sale?.saleDate ?? null,
-      customerName: sale?.customerName ?? null,
-    };
-  });
-
-  const projectOptions: ProjectOption[] = projects.map((p) => ({
-    id: p.id, name: p.name, type: p.type, status: p.status,
-  }));
-
-  const sellableParcels = parcelRows.filter((p) => p.status !== "PARTITIONED");
-  const soldParcels = sellableParcels.filter((p) => p.salePrice != null);
-  const unsoldParcels = sellableParcels.filter((p) => p.salePrice == null);
-  const portfolio: LandPortfolio = {
-    purchaseCount: purchaseRows.length,
-    totalArea: purchaseRows.reduce((s, p) => s + p.totalArea, 0),
-    parcelCount: sellableParcels.length,
-    availableCount: unsoldParcels.filter((p) => p.status === "AVAILABLE").length,
-    holdCount: unsoldParcels.filter((p) => p.status === "HOLD").length,
-    soldCount: soldParcels.length,
-    partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
-    availableArea: unsoldParcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
-    costBasis: unsoldParcels.reduce((s, p) => s + p.acquisitionCost, 0),
-    unsoldValue: unsoldParcels.reduce((s, p) => s + p.currentValuation, 0),
-    unrealizedGain: 0,
-    soldRevenue: soldParcels.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0),
-    soldProfit: soldParcels.reduce((s, p) => s + (p.saleProfit ?? 0), 0),
-    totalValue: 0,
-  };
-  portfolio.unrealizedGain = portfolio.unsoldValue - portfolio.costBasis;
-  portfolio.totalValue = portfolio.unsoldValue + portfolio.soldRevenue;
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Land"
-        description="Land acquisitions, parcel subdivision, valuation, and sales."
-        stats={[
-          { label: "Area", value: `${formatNumber(portfolio.totalArea, 0)} ${parcelRows[0]?.areaUnit ?? "sqft"}`, hint: "Total area across all land purchases." },
-          { label: "Parcels", value: sellableParcels.length, hint: "Sellable parcels only — partitioned parents are excluded." },
-          { label: "Available", value: portfolio.availableCount, tone: portfolio.availableCount > 0 ? "success" as const : "muted" as const, hint: "Parcels ready to sell." },
-          { label: "Held", value: formatCurrency(portfolio.unsoldValue), hint: "Current valuation of all unsold parcels." },
-          ...(portfolio.soldRevenue > 0 ? [
-            { label: "Sold", value: formatCurrency(portfolio.soldRevenue), hint: "Total revenue from parcels already sold." },
-          ] : []),
-        ]}
-      />
-      <LandView
-        purchases={purchaseRows}
-        parcels={parcelRows}
-        projects={projectOptions}
-        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
-        permissions={perms}
-        hidePlanColumn
-        compactActions
-        mobileToggle
-      />
-    </div>
+    <MobileLandList
+      items={serialized}
+      portfolio={{
+        purchaseCount: purchases.length,
+        totalArea,
+        areaUnit: purchases[0]?.areaUnit ?? "SQFT",
+        parcelCount: sellable.length,
+        availableCount: available.length,
+        holdCount: hold.length,
+        partitionedCount: partitioned.length,
+        availableArea,
+        unsoldValue,
+        costBasis,
+      }}
+      canManage={canManage}
+    />
   );
 }

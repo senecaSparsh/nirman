@@ -1,5 +1,2 @@
-import { MobileMore } from "@/components/mobile/mobile-more";
-
-export default function BooksMorePage() {
-  return <MobileMore personaKey="finance" />;
-}
+import { redirect } from "next/navigation";
+export default function BooksMoreRedirect() { redirect("/m/settings"); }

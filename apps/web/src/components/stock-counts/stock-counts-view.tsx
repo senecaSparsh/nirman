@@ -15,7 +15,7 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { StatusPill } from "@/components/page";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import { formatNumber, formatDate } from "@/lib/utils";
-import type { GlPreviewLine } from "@nirman/services";
+import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { StockCountRow } from "@/lib/types";
 
 type LocationWithStock = {

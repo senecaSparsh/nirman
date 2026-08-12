@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   approvePurchaseOrder,
@@ -112,5 +113,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);
   }
+  revalidatePath("/m/procurement");
+  revalidatePath("/m/requisitions");
   return json({ ok: true });
 });

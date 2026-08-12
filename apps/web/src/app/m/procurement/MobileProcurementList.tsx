@@ -1,16 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Truck, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Search, X, AlertTriangle, Plus } from "lucide-react";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
-import {
-  MobileSectionTitle,
-  MobileRow,
-  MobileSearchBar,
-  MobileFilterChips,
-  MobileStatusBadge,
-  MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
 
 type PoStatus =
   | "ALL"
@@ -44,18 +37,22 @@ const FILTER_CHIPS: { label: string; value: PoStatus }[] = [
   { label: "Cancelled", value: "CANCELLED" },
 ];
 
-/**
- * Client component for the mobile purchase-order list. Handles
- * client-side search (PO number / supplier name) + status filter
- * chips. When no filter/search is active, POs are shown grouped by
- * status section (Overdue → In Transit → Draft → Approved → Received
- * → Cancelled), matching the original layout. When a filter or search
- * is active, a flat result list is shown instead.
- */
+/* ── Status → accent color + label ── */
+const STATUS_STYLE: Record<string, { color: string; label: string }> = {
+  DRAFT:     { color: "var(--color-ink-500)",   label: "Draft" },
+  APPROVED:  { color: "var(--color-signal)",    label: "Approved" },
+  ORDERED:   { color: "var(--color-steel)",     label: "Ordered" },
+  PARTIAL:   { color: "var(--color-signal)",    label: "Partial" },
+  RECEIVED:  { color: "var(--color-go)",        label: "Received" },
+  CANCELLED: { color: "var(--color-stop)",      label: "Cancelled" },
+};
+
 export function MobileProcurementList({
   items,
+  canCreate,
 }: {
   items: ProcurementListItem[];
+  canCreate?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PoStatus>("ALL");
@@ -76,189 +73,253 @@ export function MobileProcurementList({
     return result;
   }, [items, query, statusFilter]);
 
-  const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
-
   if (items.length === 0) return null;
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search by PO no, supplier…"
-      />
+      {/* ── Sticky search header ── */}
+      <div
+        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        {/* Search + New PO row */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+              style={{ color: "var(--color-ink-500)" }}
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search PO no, supplier…"
+              className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
+              style={{
+                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
+          {canCreate ? (
+            <Link
+              href="/m/procurement/new"
+              className="flex items-center gap-1 h-9 px-3 rounded-[0.625rem] text-[0.75rem] font-bold whitespace-nowrap press active:scale-95 shrink-0"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "#fff",
+              }}
+            >
+              <Plus className="size-3.5" />
+              New PO
+            </Link>
+          ) : null}
+        </div>
 
-      <MobileFilterChips
-        chips={FILTER_CHIPS}
-        active={statusFilter}
-        onChange={setStatusFilter}
-      />
+        {/* Filter chips */}
+        <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1.5 w-max items-center">
+            {FILTER_CHIPS.map((chip) => {
+              const active = statusFilter === chip.value;
+              return (
+                <button
+                  key={chip.value}
+                  onClick={() => setStatusFilter(chip.value)}
+                  className="press rounded-full px-2.5 py-1 shrink-0 text-[0.6875rem] font-semibold border transition-colors"
+                  style={
+                    active
+                      ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
+                      : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
+                  }
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-      {isFiltering ? (
-        <FlatList items={filtered} />
-      ) : (
-        <GroupedList items={items} />
-      )}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------
- * Flat list — shown when a search or filter is active.
- * ---------------------------------------------------------------- */
-function FlatList({ items }: { items: ProcurementListItem[] }) {
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={Truck}
-        title="No matching POs"
-        hint="Try a different search or filter"
-      />
-    );
-  }
-  return (
-    <div>
-      <MobileSectionTitle>Results ({items.length})</MobileSectionTitle>
-      <div>
-        {items.map((po) => (
-          <MobileRow
-            key={po.id}
-            href={`/m/procurement/${po.id}`}
-            icon={po.isOverdue ? AlertTriangle : Truck}
-            title={po.supplierName}
-            subtitle={`PO ${po.poNumber} · ${formatCurrency(po.total)}`}
-            meta={po.expectedDate ? formatDate(po.expectedDate) : undefined}
-            badge={<MobileStatusBadge status={po.status} />}
-          />
-        ))}
+        {/* Result count + clear */}
+        <div className="flex items-center justify-between mt-2">
+          <span
+            className="text-[0.6875rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {filtered.length} PO{filtered.length !== 1 ? "s" : ""}
+          </span>
+          {(statusFilter !== "ALL" || query) && filtered.length > 0 ? (
+            <button
+              onClick={() => {
+                setQuery("");
+                setStatusFilter("ALL");
+              }}
+              className="text-[0.6875rem] font-semibold flex items-center gap-1"
+              style={{ color: "var(--color-steel)" }}
+            >
+              <X className="size-3" /> Clear
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {/* ── Results ── */}
+      {filtered.length === 0 ? (
+        <div
+          className="rounded-[0.875rem] border p-5 text-center"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          <p
+            className="font-semibold text-[0.875rem]"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            No POs found
+          </p>
+          <p
+            className="text-[0.6875rem] mt-1"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {query
+              ? `Nothing matches "${query}"`
+              : "No POs match the selected filter."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {filtered.map((po) => (
+            <PoCard key={po.id} po={po} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ----------------------------------------------------------------
- * Grouped list — the default status-sectioned view.
- * ---------------------------------------------------------------- */
-function GroupedList({ items }: { items: ProcurementListItem[] }) {
-  const byStatus = (s: string) => items.filter((p) => p.status === s);
-  const drafts = byStatus("DRAFT");
-  const approved = byStatus("APPROVED");
-  const ordered = byStatus("ORDERED");
-  const partial = byStatus("PARTIAL");
-  const received = byStatus("RECEIVED");
-  const cancelled = byStatus("CANCELLED");
-  const inTransit = [...ordered, ...partial];
-  const overdue = inTransit.filter((p) => p.isOverdue);
+/* ═══════════════════════════════════════════════════════════════════════════
+   PO CARD — compact 2-col grid card with status accent + context info.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function PoCard({ po }: { po: ProcurementListItem }) {
+  const style = STATUS_STYLE[po.status] ?? STATUS_STYLE.DRAFT!;
+  const isOverdue = po.isOverdue;
+  const accentColor = isOverdue ? "var(--color-stop)" : style.color;
+
+  // Receiving progress for ordered/partial
+  const showProgress = po.status === "ORDERED" || po.status === "PARTIAL";
+  const recvPct = po.qtyOrdered > 0 ? (po.qtyReceived / po.qtyOrdered) * 100 : 0;
+
+  // Days until/overdue delivery
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let deliveryText = "";
+  let deliveryColor = "var(--color-ink-500)";
+  if (po.expectedDate) {
+    const expected = new Date(po.expectedDate);
+    expected.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((expected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (isOverdue) {
+      deliveryText = `${Math.abs(diffDays)}d late`;
+      deliveryColor = "var(--color-stop)";
+    } else if (diffDays === 0) {
+      deliveryText = "today";
+      deliveryColor = "var(--color-signal)";
+    } else if (diffDays === 1) {
+      deliveryText = "tomorrow";
+      deliveryColor = "var(--color-signal)";
+    } else if (diffDays > 0) {
+      deliveryText = `${diffDays}d`;
+    } else {
+      deliveryText = formatDate(po.expectedDate);
+    }
+  }
 
   return (
-    <div>
-      {overdue.length > 0 && (
-        <>
-          <MobileSectionTitle>Overdue</MobileSectionTitle>
-          <div>
-            {overdue.map((po) => (
-              <MobileRow
-                key={po.id}
-                href={`/m/procurement/${po.id}`}
-                icon={AlertTriangle}
-                title={po.supplierName}
-                subtitle={`PO ${po.poNumber} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}`}
-                badge={<MobileStatusBadge status={po.status} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
+    <Link
+      href={`/m/procurement/${po.id}`}
+      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      style={{
+        borderColor: "var(--color-line)",
+        backgroundColor: "var(--color-paper)",
+      }}
+    >
+      {/* Top accent strip */}
+      <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
 
-      <MobileSectionTitle>In Transit</MobileSectionTitle>
-      {inTransit.length === 0 ? (
-        <MobileEmptyState icon={Truck} title="Nothing in transit" hint="Approved POs appear here once ordered" />
-      ) : (
-        <div>
-          {inTransit.map((po) => (
-            <MobileRow
-              key={po.id}
-              href={`/m/procurement/${po.id}`}
-              icon={Truck}
-              title={po.supplierName}
-              subtitle={`PO ${po.poNumber} · ${formatNumber(po.qtyReceived, 0)}/${formatNumber(po.qtyOrdered, 0)} received`}
-              badge={<MobileStatusBadge status={po.status} />}
-            />
-          ))}
+      <div className="p-2 flex flex-col gap-1 flex-1">
+        {/* Row 1: PO number + status label */}
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-[0.5625rem] font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            {po.poNumber}
+          </span>
+          <span
+            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            style={{ color: accentColor }}
+          >
+            {isOverdue ? "Overdue" : style.label}
+          </span>
         </div>
-      )}
 
-      <MobileSectionTitle>Draft ({drafts.length})</MobileSectionTitle>
-      {drafts.length === 0 ? (
-        <MobileEmptyState icon={Truck} title="No draft POs" />
-      ) : (
-        <div>
-          {drafts.map((po) => (
-            <MobileRow
-              key={po.id}
-              href={`/m/procurement/${po.id}`}
-              icon={Truck}
-              title={po.supplierName}
-              subtitle={`PO ${po.poNumber} · ${formatDate(po.createdAt)}`}
-              badge={<MobileStatusBadge status={po.status} />}
-            />
-          ))}
+        {/* Row 2: Supplier name */}
+        <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          {po.supplierName}
+        </p>
+
+        {/* Row 3: Total + delivery */}
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            {formatCurrency(po.total)}
+          </span>
+          {deliveryText ? (
+            <span className="text-[0.4375rem] font-bold tabular-nums" style={{ color: deliveryColor }}>
+              {deliveryText}
+            </span>
+          ) : po.status === "DRAFT" ? (
+            <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+              {formatDate(po.createdAt)}
+            </span>
+          ) : null}
         </div>
-      )}
 
-      {approved.length > 0 && (
-        <>
-          <MobileSectionTitle>Approved — not yet ordered ({approved.length})</MobileSectionTitle>
-          <div>
-            {approved.map((po) => (
-              <MobileRow
-                key={po.id}
-                href={`/m/procurement/${po.id}`}
-                icon={Truck}
-                title={po.supplierName}
-                subtitle={`PO ${po.poNumber}`}
-                badge={<MobileStatusBadge status={po.status} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {received.length > 0 && (
-        <>
-          <MobileSectionTitle>Received ({received.length})</MobileSectionTitle>
-          <div>
-            {received.slice(0, 10).map((po) => (
-              <MobileRow
-                key={po.id}
-                href={`/m/procurement/${po.id}`}
-                icon={Truck}
-                title={po.supplierName}
-                subtitle={`PO ${po.poNumber}`}
-                badge={<MobileStatusBadge status={po.status} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {cancelled.length > 0 && (
-        <>
-          <MobileSectionTitle>Cancelled ({cancelled.length})</MobileSectionTitle>
-          <div>
-            {cancelled.slice(0, 10).map((po) => (
-              <MobileRow
-                key={po.id}
-                href={`/m/procurement/${po.id}`}
-                icon={Truck}
-                title={po.supplierName}
-                subtitle={`PO ${po.poNumber}`}
-                badge={<MobileStatusBadge status={po.status} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+        {/* Row 4: Bottom area — fixed height for equal card sizes */}
+        <div className="mt-auto pt-1 h-[1.5rem] flex items-center">
+          {showProgress ? (
+            <div className="w-full">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[0.375rem]" style={{ color: "var(--color-ink-500)" }}>
+                  Received
+                </span>
+                <span className="text-[0.375rem] font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                  {formatNumber(po.qtyReceived, 0)}/{formatNumber(po.qtyOrdered, 0)}
+                </span>
+              </div>
+              <div
+                className="h-1 rounded-full overflow-hidden"
+                style={{ backgroundColor: "var(--color-concrete)" }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(recvPct, 100)}%`,
+                    backgroundColor: po.status === "PARTIAL" ? "var(--color-signal)" : "var(--color-steel)",
+                  }}
+                />
+              </div>
+            </div>
+          ) : isOverdue ? (
+            <div className="flex items-center gap-1">
+              <AlertTriangle className="size-2.5" style={{ color: "var(--color-stop)" }} />
+              <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+                Awaiting receipt
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Link>
   );
 }

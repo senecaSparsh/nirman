@@ -3,17 +3,16 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Globe, IndianRupee, Home, Calendar, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
-  MobileDetailHeader,
   MobileSectionTitle,
-  MobileInfoRow,
+  MobileRow,
   MobileEmptyState,
   MobileStatCard,
-  MobileStatusBadge,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
+import { MobilePortalListingActions } from "./MobilePortalListingActions";
 
 export default function MobilePortalListingDetailPage({
   params,
@@ -46,7 +45,9 @@ async function MobilePortalListingDetailContent({
   if (!listing) {
     return (
       <div>
-        <MobileDetailHeader title="Listing" backHref="/m/portal-listings" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/portal-listings" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+        </div>
         <MobileEmptyState icon={Globe} title="Listing not found" />
       </div>
     );
@@ -54,33 +55,30 @@ async function MobilePortalListingDetailContent({
 
   return (
     <div>
-      <MobileDetailHeader
-        title={listing.title}
-        subtitle={listing.portalName}
-        backHref="/m/portal-listings"
-        right={<MobileRefreshButton />}
-      />
+      <div className="mb-4">
+        <MobileBackButton fallback="/m/portal-listings" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+      </div>
 
       <MobileSectionTitle>Details</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={Globe} title="Portal" value={listing.portalName} />
-        <MobileInfoRow icon={CheckCircle2} title="Status" value={listing.status} />
-        <MobileInfoRow icon={Calendar} title="Created" value={formatDate(listing.createdAt)} />
+      <div className="flex flex-col gap-2.5">
+        <MobileRow icon={Globe} title="Portal" meta={listing.portalName} />
+        <MobileRow icon={CheckCircle2} title="Status" meta={listing.status} />
+        <MobileRow icon={Calendar} title="Created" meta={formatDate(listing.createdAt)} />
         {listing.listingUrl && (
-          <MobileInfoRow icon={ExternalLink} title="Listing URL" value={listing.listingUrl} />
+          <MobileRow icon={ExternalLink} title="Listing URL" meta={listing.listingUrl} />
         )}
         {listing.syncError && (
-          <MobileInfoRow icon={AlertTriangle} title="Sync Error" value={listing.syncError} />
+          <MobileRow icon={AlertTriangle} title="Sync Error" meta={listing.syncError} />
         )}
       </div>
 
       <MobileSectionTitle>Pricing</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard
           label="Asking Price"
           value={formatCurrency(toNum(listing.askingPrice))}
           icon={IndianRupee}
-          tone="brand"
+          tone="signal"
         />
         {listing.builtUnit && (
           <MobileStatCard
@@ -94,12 +92,14 @@ async function MobilePortalListingDetailContent({
       {listing.builtUnit && (
         <>
           <MobileSectionTitle>Unit Details</MobileSectionTitle>
-          <div>
-            <MobileInfoRow icon={Home} title="Unit Number" value={listing.builtUnit.unitNumber} />
-            <MobileInfoRow icon={Home} title="Type" value={listing.builtUnit.unitType} />
+          <div className="flex flex-col gap-2.5">
+            <MobileRow icon={Home} title="Unit Number" meta={listing.builtUnit.unitNumber} />
+            <MobileRow icon={Home} title="Type" meta={listing.builtUnit.unitType} />
           </div>
         </>
       )}
+
+      <MobilePortalListingActions listingId={listing.id} status={listing.status} />
     </div>
   );
 }

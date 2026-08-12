@@ -1,26 +1,20 @@
 import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Users, ShoppingCart, Phone, Mail, BadgeCheck, MapPin, IndianRupee, Wallet } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileDetailHeader,
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileRow,
-  MobileEmptyState,
-  MobileCta,
-  MobileStatCard,
-  MobileStatusBadge,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { PageLoading } from "@/components/page-loading";
+import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
 
 /**
- * /m/customers/[id] — customer detail with contact info, active sales,
- * and a "New sale" CTA pre-seeded with this customer.
+ * /m/customers/[id] — customer detail.
+ *
+ * Purpose: a salesperson/manager opens this to see who the customer is,
+ * what they've bought (land, units, materials), what they owe, and to
+ * take action — call them, start a new sale, or record a payment.
+ *
+ * This is a CRM record + financial summary combined. The customer is
+ * the anchor; their sales and payments radiate from here.
  */
 export default function MobileCustomerDetailPage({
   params,
@@ -28,7 +22,7 @@ export default function MobileCustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<PageLoading label="Loading customer…" />}>
       <MobileCustomerDetailContent params={params} />
     </Suspense>
   );
@@ -44,15 +38,26 @@ async function MobileCustomerDetailContent({
   const role = await getUserRole();
   const { id } = await params;
 
+  const canSell = hasPermission(role, PERM.SALE_CREATE);
+  const canManage = hasPermission(role, PERM.SALES_MANAGE);
+
   const customer = await prisma.customer.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       assetSales: {
-        where: { companyId: company.id },
+        where: { companyId: company.id, status: "ACTIVE" },
         orderBy: { createdAt: "desc" },
         include: {
-          project: { select: { name: true } },
-          payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+          project: { select: { id: true, name: true } },
+          payments: { orderBy: { paymentDate: "asc" } },
+        },
+      },
+      materialSales: {
+        where: { companyId: company.id, status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+        include: {
+          project: { select: { id: true, name: true } },
+          payments: { orderBy: { paymentDate: "asc" } },
         },
       },
     },
@@ -60,95 +65,83 @@ async function MobileCustomerDetailContent({
 
   if (!customer) {
     return (
-      <div>
-        <MobileDetailHeader title="Customer" backHref="/m/customers" />
-        <MobileEmptyState icon={Users} title="Customer not found" />
-      </div>
+      <MobileCustomerDetailClient notFound canSell={canSell} canManage={canManage} />
     );
   }
 
-  const canSell = hasPermission(role, PERM.SALE_CREATE);
-  const activeSales = customer.assetSales.filter((s) => s.status === "ACTIVE");
-  const totalPaid = customer.assetSales.reduce(
-    (s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0),
-    0,
+  // ── Asset sales (land + built units) ──
+  const assetSales = customer.assetSales.map((s) => {
+    const paid = s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+    const totalWithGst = toNum(s.salePrice) + toNum(s.gstAmount);
+    return {
+      id: s.id,
+      saleNumber: s.saleNumber,
+      type: "ASSET" as const,
+      assetType: s.assetType,
+      salePrice: toNum(s.salePrice),
+      gstAmount: toNum(s.gstAmount),
+      totalWithGst,
+      paid,
+      balance: totalWithGst - paid,
+      saleDate: s.saleDate.toISOString(),
+      saleStage: s.saleStage,
+      paymentStatus: s.paymentStatus,
+      projectName: s.project.name,
+    };
+  });
+
+  // ── Material sales (raw materials / scrap) ──
+  const materialSales = customer.materialSales.map((s) => {
+    const paid = s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+    const totalWithGst = toNum(s.totalAmount);
+    return {
+      id: s.id,
+      saleNumber: s.saleNumber,
+      type: "MATERIAL" as const,
+      salePrice: toNum(s.subtotal),
+      gstAmount: toNum(s.gstTotal),
+      totalWithGst,
+      paid,
+      balance: totalWithGst - paid,
+      saleDate: s.saleDate.toISOString(),
+      saleStage: s.status, // ACTIVE/CANCELLED
+      paymentStatus: s.paymentStatus,
+      projectName: s.project?.name ?? null,
+    };
+  });
+
+  const allSales = [...assetSales, ...materialSales].sort(
+    (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
   );
-  const totalSaleValue = customer.assetSales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
-  const outstanding = totalSaleValue - totalPaid;
+
+  const totalValue = allSales.reduce((s, sale) => s + sale.totalWithGst, 0);
+  const totalPaid = allSales.reduce((s, sale) => s + sale.paid, 0);
+  const totalOutstanding = allSales.reduce((s, sale) => s + sale.balance, 0);
+  const activeDeals = allSales.filter((s) => s.saleStage !== "COMPLETED" && s.saleStage !== "CANCELLED").length;
+
+  const data = {
+    id: customer.id,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    gstin: customer.gstin,
+    address: customer.address,
+    createdAt: customer.createdAt.toISOString(),
+    sales: allSales,
+    totals: {
+      totalValue,
+      totalPaid,
+      totalOutstanding,
+      activeDeals,
+      saleCount: allSales.length,
+    },
+  };
 
   return (
-    <div>
-      <MobileDetailHeader
-        title={customer.name}
-        subtitle={customer.phone ?? "no phone"}
-        backHref="/m/customers"
-        right={<MobileRefreshButton />}
-      />
-
-      <MobileSectionTitle>Contact</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={Phone} title="Phone" value={customer.phone ?? "—"} />
-        <MobileInfoRow icon={Mail} title="Email" value={customer.email ?? "—"} />
-        <MobileInfoRow icon={BadgeCheck} title="GSTIN" value={customer.gstin ?? "—"} />
-        {customer.address && <MobileInfoRow icon={MapPin} title="Address" value={customer.address} />}
-      </div>
-
-      <MobileSectionTitle>Sales Summary</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Total Sales"
-          value={formatCurrency(totalSaleValue)}
-          icon={IndianRupee}
-        />
-        <MobileStatCard
-          label="Received"
-          value={formatCurrency(totalPaid)}
-          icon={Wallet}
-          tone="success"
-        />
-        <MobileStatCard
-          label="Outstanding"
-          value={formatCurrency(outstanding)}
-          icon={Wallet}
-          tone={outstanding > 0 ? "warning" : "default"}
-        />
-        <MobileStatCard
-          label="Active Deals"
-          value={String(activeSales.length)}
-          icon={ShoppingCart}
-        />
-      </div>
-
-      {canSell && (
-        <div className="px-4 pt-3">
-          <MobileCta href={`/m/sales/new?customerId=${customer.id}`} icon={ShoppingCart}>
-            New sale for this customer
-          </MobileCta>
-        </div>
-      )}
-
-      <MobileSectionTitle>Active Sales</MobileSectionTitle>
-      {activeSales.length === 0 ? (
-        <MobileEmptyState icon={ShoppingCart} title="No active sales" />
-      ) : (
-        <div>
-          {activeSales.map((s) => {
-            const paid = s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
-            const balance = toNum(s.salePrice) - paid;
-            return (
-              <MobileRow
-                key={s.id}
-                href={`/m/book/sales`}
-                icon={ShoppingCart}
-                title={`${s.saleNumber} · ${s.project.name}`}
-                subtitle={`${formatDate(s.saleDate)} · ${formatCurrency(toNum(s.salePrice))}`}
-                meta={balance > 0 ? formatCurrency(balance) : undefined}
-                badge={<MobileStatusBadge status={s.paymentStatus} />}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <MobileCustomerDetailClient
+      data={data}
+      canSell={canSell}
+      canManage={canManage}
+    />
   );
 }

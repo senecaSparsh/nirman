@@ -4,38 +4,16 @@ import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
-  Home,
-  Package,
-  ScanLine,
-  CheckSquare,
-  CalendarCheck,
-  ClipboardList,
-  ArrowRight,
-  Truck,
-  Recycle,
-  ListTodo,
-  Boxes,
-  ArrowUpRight,
+  Package, CalendarCheck,
+  ClipboardList, Truck, Recycle, ListTodo, ChevronLeft,
 } from "lucide-react";
 import { getCompany, getCurrentUser } from "@/lib/server";
-import { formatNumber, formatDate } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileSectionTitle,
-  MobileStatCard,
-  MobileRow,
-  MobileInfoRow,
-  MobileEmptyState,
-  MobileCta,
-  MobileRefreshButton,
-  MobileStatusBadge,
-} from "@/components/mobile/mobile-primitives";
-import { MobileAttentionBanner, type AttentionItem } from "@/components/mobile/mobile-attention-banner";
+import { formatDate } from "@/lib/utils";
+import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 
 /**
  * Field persona home — "Site".
  * SUPERVISOR. On-site, phone-in-hand: DPR, attendance, stock, receive, tasks.
- * Refined layout matching IMG_0871, IMG_0872, IMG_0873 architecture.
  */
 export default function SitePage() {
   return (
@@ -69,7 +47,11 @@ async function SiteContent() {
       where: { project: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { project: { select: { name: true } }, fromLocation: { select: { name: true } } },
+      include: {
+        project: { select: { name: true } },
+        fromLocation: { select: { name: true } },
+        lines: { select: { id: true, qty: true } },
+      },
     }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
@@ -82,240 +64,336 @@ async function SiteContent() {
     }),
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, status: true },
       take: 5,
     }),
   ]);
 
-  // ── Smart attention items: what needs acting on TODAY ──────
-  const attentionItems: AttentionItem[] = [];
+  // ── Attention banners ──
+  const attentionBanners: AttentionBanner[] = [];
 
-  // 1. Missing DPR (highest priority — daily compliance)
   if (!myDprToday) {
-    attentionItems.push({
+    attentionBanners.push({
+      id: "dpr",
       title: "Today's DPR not submitted",
-      subtitle: "Tap to fill in your daily progress report",
-      meta: "due now",
+      subtitle: "Fill in your daily progress report",
       href: "/m/site/dpr",
+      severity: "low",
+      qtyText: "Due",
+      category: "DPR",
     });
   }
 
-  // 2. Overdue tasks
   const overdueTasks = myTasks.filter((t) => t.dueDate && new Date(t.dueDate) < startOfToday);
   if (overdueTasks.length > 0) {
-    attentionItems.push({
+    attentionBanners.push({
+      id: "overdue-tasks",
       title: `${overdueTasks.length} overdue task${overdueTasks.length > 1 ? "s" : ""}`,
-      subtitle: overdueTasks[0]!.title,
-      meta: "overdue",
+      subtitle: overdueTasks[0]?.title ?? "View tasks",
       href: "/m/site/tasks",
+      severity: "out",
+      qtyText: String(overdueTasks.length),
+      category: "Tasks",
     });
   }
 
-  // 3. Overdue POs
   const overduePOs = inTransitPOs.filter((p) => p.expectedDate && new Date(p.expectedDate) < startOfToday);
   if (overduePOs.length > 0) {
-    attentionItems.push({
+    attentionBanners.push({
+      id: "overdue-pos",
       title: `${overduePOs.length} PO${overduePOs.length > 1 ? "s" : ""} overdue for receipt`,
-      subtitle: `${overduePOs[0]!.supplier.name} · PO ${overduePOs[0]!.poNumber}`,
-      meta: "overdue",
+      subtitle: `${overduePOs[0]!.supplier.name} · ${overduePOs[0]!.poNumber}`,
       href: `/m/site/receive?po=${overduePOs[0]!.id}`,
+      severity: "out",
+      qtyText: String(overduePOs.length),
+      category: "Receipts",
     });
   }
 
+  if (attentionBanners.length === 0) {
+    attentionBanners.push({
+      id: "clear",
+      title: "All caught up!",
+      subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit · DPR ${myDprToday ? "submitted" : "pending"}`,
+      href: "/m/site",
+      severity: "clear",
+      qtyText: "✓",
+      category: "Today",
+    });
+  }
+
+  const dprDone = !!myDprToday;
+
   return (
-    <div className="space-y-4 pb-6">
-      <MobilePageHeader title="Site Command" subtitle={formatDate(today)} right={<MobileRefreshButton />} />
+    <div className="space-y-3">
+      {/* ── Back ── */}
+      <div>
+        <Link href="/m/home" className="flex items-center" style={{ color: "var(--color-ink-700)" }}>
+          <ChevronLeft className="size-5" />
+        </Link>
+      </div>
 
-      {/* ── Smart attention banner ─────────────────────────── */}
-      <MobileAttentionBanner items={attentionItems} />
+      {/* ── Attention banner ── */}
+      <AttentionBannerCarousel banners={attentionBanners} />
 
-      {/* ── Action Grid (IMG_0871 & IMG_0873 Architecture) ───── */}
-      <div className="px-3">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Quick Field Actions
-          </span>
+      {/* ── Quick actions — 6-col single row with live context badges ── */}
+      <div className="grid grid-cols-6 gap-1.5">
+        <ActionCard href="/m/site/issue" icon={Package} label="Quick Issue" sub="Material challan" />
+        <ActionCard href="/m/site/receive" icon={Truck} label="Receive Stock" sub="Scan PO / gate entry" badge={inTransitPOs.length > 0 ? String(inTransitPOs.length) : undefined} badgeTone={overduePOs.length > 0 ? "stop" : "steel"} />
+        <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit DPR" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
+        <ActionCard href="/m/site/attendance" icon={CalendarCheck} label="Attendance" sub="GPS tagged" badge={attendanceToday > 0 ? String(attendanceToday) : undefined} badgeTone="steel" />
+        <ActionCard href="/m/scrap-generations" icon={Recycle} label="Scrap Log" sub="Log scrap generation" />
+        <ActionCard href="/m/site/tasks" icon={ListTodo} label="Open Tasks" sub="Site punch list" badge={myTasks.length > 0 ? String(myTasks.length) : undefined} badgeTone={overdueTasks.length > 0 ? "stop" : "steel"} />
+      </div>
+
+      {/* ── Open Tasks + Awaiting Receipt — 2-col side by side ── */}
+      <div className="grid grid-cols-2 gap-2 items-start">
+        {/* Tasks column — shows due date + overdue days */}
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+            Tasks ({myTasks.length})
+          </h3>
+          {myTasks.length === 0 ? (
+            <EmptyCol text="No open tasks" />
+          ) : (
+            myTasks.slice(0, 5).map((t) => {
+              const taskTone =
+                t.status === "BLOCKED" ? "var(--color-stop)" :
+                t.status === "IN_PROGRESS" ? "var(--color-signal)" :
+                "var(--color-ink-500)";
+              const isOverdue = t.dueDate && new Date(t.dueDate) < startOfToday;
+              const overdueDays = isOverdue && t.dueDate
+                ? Math.floor((startOfToday.getTime() - new Date(t.dueDate).getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+              return (
+                <Link
+                  key={t.id}
+                  href="/m/site/tasks"
+                  className="flex flex-col rounded-[0.5rem] border p-2 press overflow-hidden"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: isOverdue ? "var(--color-stop)" : taskTone }} />
+                  <p className="text-[0.5625rem] font-bold leading-tight truncate mb-1" style={{ color: "var(--color-ink-950)" }}>
+                    {t.title}
+                  </p>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[0.4375rem] uppercase font-semibold" style={{ color: taskTone }}>
+                      {t.status.replace(/_/g, " ").toLowerCase()}
+                    </span>
+                    {isOverdue ? (
+                      <span className="text-[0.4375rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+                        {overdueDays}d overdue
+                      </span>
+                    ) : t.dueDate ? (
+                      <span className="text-[0.4375rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                        due {formatDate(t.dueDate)}
+                      </span>
+                    ) : (
+                      <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                        {t.priority}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              );
+            })
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Quick Issue */}
-          <Link
-            href="/m/site/issue"
-            className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 transition-all active:scale-95 hover:bg-amber-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                <Package className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Quick Issue</span>
-              <span className="block text-[11px] text-muted-foreground">Material Issue Challan</span>
-            </div>
-          </Link>
-
-          {/* Receive Stock */}
-          <Link
-            href="/m/site/receive"
-            className="flex flex-col justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 transition-all active:scale-95 hover:bg-blue-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                <Truck className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Receive Stock</span>
-              <span className="block text-[11px] text-muted-foreground">Scan PO / Gate Entry</span>
-            </div>
-          </Link>
-
-          {/* DPR Submission */}
-          <Link
-            href="/m/site/dpr"
-            className="flex flex-col justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 transition-all active:scale-95 hover:bg-emerald-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                <ClipboardList className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Submit DPR</span>
-              <span className="block text-[11px] text-muted-foreground">Progress &amp; Variance</span>
-            </div>
-          </Link>
-
-          {/* Site Attendance */}
-          <Link
-            href="/m/site/attendance"
-            className="flex flex-col justify-between rounded-xl border border-purple-500/20 bg-purple-500/5 p-3.5 transition-all active:scale-95 hover:bg-purple-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400">
-                <CalendarCheck className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Site Attendance</span>
-              <span className="block text-[11px] text-muted-foreground">GPS Tagged Attendance</span>
-            </div>
-          </Link>
-
-          {/* Scrap Log */}
-          <Link
-            href="/m/scrap-generations"
-            className="flex flex-col justify-between rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5 transition-all active:scale-95 hover:bg-orange-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-orange-500/20 text-orange-600 dark:text-orange-400">
-                <Recycle className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Scrap Log</span>
-              <span className="block text-[11px] text-muted-foreground">Log Scrap Generation</span>
-            </div>
-          </Link>
-
-          {/* Open Tasks */}
-          <Link
-            href="/m/site/tasks"
-            className="flex flex-col justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5 transition-all active:scale-95 hover:bg-cyan-500/10 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-600 dark:text-cyan-400">
-                <ListTodo className="size-5" />
-              </span>
-              <ArrowUpRight className="size-4 text-muted-foreground" />
-            </div>
-            <div className="mt-3">
-              <span className="block text-sm font-bold text-foreground">Open Tasks</span>
-              <span className="block text-[11px] text-muted-foreground">Site Punch List</span>
-            </div>
-          </Link>
+        {/* Awaiting receipt column — shows days until/overdue delivery */}
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+            In Transit ({inTransitPOs.length})
+          </h3>
+          {inTransitPOs.length === 0 ? (
+            <EmptyCol text="Nothing in transit" />
+          ) : (
+            inTransitPOs.slice(0, 5).map((po) => {
+              const isOverdue = po.expectedDate && new Date(po.expectedDate) < startOfToday;
+              const overdueDays = isOverdue && po.expectedDate
+                ? Math.floor((startOfToday.getTime() - new Date(po.expectedDate).getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+              const daysUntil = !isOverdue && po.expectedDate
+                ? Math.ceil((new Date(po.expectedDate).getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+              const poTone = isOverdue ? "var(--color-stop)" : po.status === "PARTIAL" ? "var(--color-signal)" : "var(--color-steel)";
+              return (
+                <Link
+                  key={po.id}
+                  href={`/m/site/receive?po=${po.id}`}
+                  className="flex flex-col rounded-[0.5rem] border p-2 press overflow-hidden"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: poTone }} />
+                  <p className="text-[0.5625rem] font-bold leading-tight truncate mb-1" style={{ color: "var(--color-ink-950)" }}>
+                    {po.supplier.name}
+                  </p>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[0.4375rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                      {po.poNumber}
+                    </span>
+                    {isOverdue ? (
+                      <span className="text-[0.4375rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+                        {overdueDays}d late
+                      </span>
+                    ) : daysUntil === 0 ? (
+                      <span className="text-[0.4375rem] font-bold" style={{ color: "var(--color-signal)" }}>
+                        today
+                      </span>
+                    ) : daysUntil === 1 ? (
+                      <span className="text-[0.4375rem] font-bold" style={{ color: "var(--color-signal)" }}>
+                        tomorrow
+                      </span>
+                    ) : (
+                      <span className="text-[0.4375rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                        {daysUntil}d
+                      </span>
+                    )}
+                  </div>
+                  {po.status === "PARTIAL" ? (
+                    <span className="text-[0.375rem] mt-0.5 uppercase font-semibold" style={{ color: "var(--color-signal)" }}>
+                      Partially received
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* ── Today's KPI Stats ───────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 px-3">
-        <MobileStatCard label="My Tasks" value={formatNumber(myTasks.length, 0)} hint="open" icon={CheckSquare} tone={myTasks.length > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Checked In" value={formatNumber(attendanceToday, 0)} hint="workers today" icon={CalendarCheck} />
-        <MobileStatCard label="In Transit" value={formatNumber(inTransitPOs.length, 0)} hint="POs to receive" icon={Truck} />
-        <MobileStatCard label="Today's DPR" value={myDprToday ? "Submitted" : "Pending"} icon={ClipboardList} tone={myDprToday ? "success" : "warning"} />
-      </div>
+      {/* ── Recent Issues + My Projects — 2-col side by side ── */}
+      <div className="grid grid-cols-2 gap-2 items-start">
+        {/* Recent issues column — shows issue number + line count + total */}
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+            Recent Issues ({recentIssues.length})
+          </h3>
+          {recentIssues.length === 0 ? (
+            <EmptyCol text="No recent issues" />
+          ) : (
+            recentIssues.slice(0, 5).map((i) => (
+              <div
+                key={i.id}
+                className="flex flex-col rounded-[0.5rem] border p-2 overflow-hidden"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: "var(--color-steel)" }} />
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[0.4375rem] font-mono font-bold" style={{ color: "var(--color-steel)" }}>
+                    {i.issueNumber ?? "—"}
+                  </span>
+                  <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                    {formatDate(i.issueDate)}
+                  </span>
+                </div>
+                <p className="text-[0.5625rem] font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                  {i.project?.name ?? "—"}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    {i.lines.length} line{i.lines.length !== 1 ? "s" : ""} · {i.fromLocation?.name ?? "—"}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
-      {/* ── Today's DPR Card ───────────────────────────────── */}
-      <div>
-        <MobileSectionTitle>Daily Progress Report</MobileSectionTitle>
-        {myDprToday ? (
-          <MobileRow href="/m/site/dpr" icon={ClipboardList} title="DPR submitted" subtitle={formatDate(myDprToday.date)} meta="edit" tone="success" />
-        ) : (
-          <MobileRow href="/m/site/dpr" icon={ClipboardList} title="Today's DPR pending" subtitle="Tap to submit your daily progress report" meta="due" tone="warning" />
-        )}
-      </div>
-
-      {/* ── My Open Tasks ──────────────────────────────────── */}
-      <div>
-        <MobileSectionTitle>Open Site Tasks</MobileSectionTitle>
-        {myTasks.length === 0 ? (
-          <MobileEmptyState icon={CheckSquare} title="No open tasks" hint="New assignments appear here" />
-        ) : (
-          <div>
-            {myTasks.map((t) => (
-              <MobileInfoRow key={t.id} icon={CheckSquare} title={t.title} subtitle={t.priority} value="" badge={<MobileStatusBadge status={t.status} />} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── In-transit POs to receive ─────────────────────── */}
-      <div>
-        <MobileSectionTitle>Awaiting Receipt</MobileSectionTitle>
-        {inTransitPOs.length === 0 ? (
-          <MobileEmptyState icon={Truck} title="Nothing in transit" />
-        ) : (
-          <div>
-            {inTransitPOs.map((po) => (
-              <MobileRow key={po.id} href={`/m/site/receive?po=${po.id}`} icon={Truck} title={po.supplier.name} subtitle={`PO ${po.poNumber} · ${formatDate(po.expectedDate)}`} badge={<MobileStatusBadge status={po.status} />} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Recent Material Issues ────────────────────────── */}
-      <div>
-        <MobileSectionTitle>Recent Material Issues</MobileSectionTitle>
-        {recentIssues.length === 0 ? (
-          <MobileEmptyState icon={Package} title="No recent material issues" />
-        ) : (
-          <div>
-            {recentIssues.map((i) => (
-              <MobileInfoRow key={i.id} icon={ArrowRight} title={i.project?.name ?? "—"} subtitle={`From ${i.fromLocation?.name ?? "—"}`} value={formatDate(i.createdAt)} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── My Active Projects ───────────────────────────── */}
-      <div>
-        <MobileSectionTitle>My Projects</MobileSectionTitle>
-        {projects.length === 0 ? (
-          <MobileEmptyState icon={Home} title="No active projects" />
-        ) : (
-          <div>
-            {projects.map((p) => (
-              <MobileRow key={p.id} href={`/m/projects/${p.id}`} icon={Home} title={p.name} />
-            ))}
-          </div>
-        )}
+        {/* My projects column — shows status badge */}
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+            My Projects ({projects.length})
+          </h3>
+          {projects.length === 0 ? (
+            <EmptyCol text="No active projects" />
+          ) : (
+            projects.map((p) => {
+              const projTone = p.status === "ACTIVE" ? "var(--color-go)" : "var(--color-signal)";
+              return (
+                <Link
+                  key={p.id}
+                  href={`/m/projects/${p.id}`}
+                  className="flex flex-col rounded-[0.5rem] border p-2 press overflow-hidden"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: projTone }} />
+                  <p className="text-[0.5625rem] font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                    {p.name}
+                  </p>
+                  <span className="text-[0.375rem] uppercase font-semibold" style={{ color: projTone }}>
+                    {p.status === "ACTIVE" ? "Active" : "Planned"}
+                  </span>
+                </Link>
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+/* ─── Action card — compact for 6-col row ─── */
+function ActionCard({
+  href,
+  icon: Icon,
+  label,
+  sub: _sub,
+  badge,
+  badgeTone,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string;
+  sub: string;
+  badge?: string;
+  badgeTone?: "go" | "signal" | "stop" | "steel";
+}) {
+  const badgeColor =
+    badgeTone === "go" ? "var(--color-go)" :
+    badgeTone === "signal" ? "var(--color-signal)" :
+    badgeTone === "stop" ? "var(--color-stop)" :
+    "var(--color-steel)";
+  return (
+    <Link
+      href={href}
+      className="flex flex-col items-center rounded-[0.5rem] border p-1.5 press overflow-hidden"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
+      <div className="relative mb-1">
+        <span
+          className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0"
+          style={{ backgroundColor: "var(--color-concrete)" }}
+        >
+          <Icon className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
+        </span>
+        {badge ? (
+          <span
+            className="absolute -top-1 -right-1.5 text-[0.4375rem] font-bold tabular-nums px-1 py-0 rounded-full leading-none min-w-[1rem] text-center"
+            style={{ backgroundColor: badgeColor, color: "#fff" }}
+          >
+            {badge}
+          </span>
+        ) : null}
+      </div>
+      <p className="text-[0.4375rem] font-bold leading-tight text-center" style={{ color: "var(--color-ink-950)" }}>
+        {label}
+      </p>
+    </Link>
+  );
+}
+
+/* ─── Empty column placeholder ─── */
+function EmptyCol({ text }: { text: string }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
+    >
+      <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+        {text}
+      </p>
+    </div>
+  );
+}

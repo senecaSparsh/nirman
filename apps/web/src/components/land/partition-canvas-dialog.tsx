@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { formatNumber, formatCurrency } from "@/lib/utils";
-import { rectangle, type Polygon } from "@nirman/services";
+import { rectangle, type Polygon } from "@nirman/services/geometry";
 import { PartitionCanvas, type PlotResult } from "./partition-canvas";
 import type { LandParcelRow } from "@/lib/types";
 

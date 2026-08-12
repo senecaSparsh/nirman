@@ -4,10 +4,9 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileDetailHeader, MobileEmptyState } from "@/components/mobile/mobile-primitives";
 import { MobileNewSaleForm } from "@/components/mobile/mobile-new-sale-form";
-import { MobileCreateCustomerButton } from "@/components/mobile/mobile-customer-form";
-import { UserPlus } from "lucide-react";
+import { MobileNoCustomersState } from "./MobileNoCustomersState";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/sales/new — mobile new-sale form. Replaces every desktop `/sales`
@@ -39,7 +38,10 @@ async function MobileNewSaleContent({
   if (!hasPermission(role, PERM.SALE_CREATE)) {
     return (
       <div>
-        <MobileDetailHeader title="New Sale" backHref="/m/book" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/sales" className="text-muted-foreground hover:text-foreground" />
+          <h1 className="text-h3 font-semibold text-foreground">New Sale</h1>
+        </div>
         <div className="p-4 text-meta text-muted-foreground">
           You don&apos;t have permission to create sales.
         </div>
@@ -99,22 +101,12 @@ async function MobileNewSaleContent({
 
   return (
     <div>
-      <MobileDetailHeader title="New Sale" backHref="/m/book" />
+      <div className="mb-4">
+        <MobileBackButton fallback="/m/sales" className="text-muted-foreground hover:text-foreground" />
+        <h1 className="text-h3 font-semibold text-foreground">New Sale</h1>
+      </div>
       {customers.length === 0 ? (
-        <MobileEmptyState
-          icon={UserPlus}
-          title="No customers yet"
-          hint="Sales require a customer. Create one now to get started."
-          action={
-            <MobileCreateCustomerButton
-              existingPhones={existingPhones}
-              onCreated={() => {
-                // Refresh the page to load the new customer into the list
-                window.location.reload();
-              }}
-            />
-          }
-        />
+        <MobileNoCustomersState existingPhones={existingPhones} />
       ) : (
         <MobileNewSaleForm
           units={unitItems}

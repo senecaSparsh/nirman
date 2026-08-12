@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum, landPurchaseSchema } from "@/lib/server";
@@ -81,6 +82,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     });
     return lp;
   });
+  revalidatePath("/m/land");
   return json({ ok: true, id: updated.id });
 });
 
@@ -89,6 +91,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const { id } = await ctx.params;
   try {
     await softDelete("LandPurchase", id);
+    revalidatePath("/m/land");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete") }, { status: 400 });

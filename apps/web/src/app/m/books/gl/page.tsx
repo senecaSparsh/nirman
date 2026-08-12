@@ -5,12 +5,7 @@ import { prisma } from "@nirman/db";
 import { BookOpen } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
 
 /**
@@ -65,19 +60,13 @@ async function MobileGlContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Trial Balance"
-        subtitle={`${rows.length} accounts`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard label="Total Debit" value={formatCurrency(totalDebit)} icon={BookOpen} />
-        <MobileStatCard label="Total Credit" value={formatCurrency(totalCredit)} icon={BookOpen} tone="success" />
+        <MobileStatCard label="Total Credit" value={formatCurrency(totalCredit)} icon={BookOpen} tone="go" />
       </div>
 
       {totalDebit !== totalCredit && (
-        <div className="mx-3 mb-2 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-meta text-danger">
+        <div className="mb-4 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-meta text-danger">
           Out of balance by {formatCurrency(Math.abs(totalDebit - totalCredit))}
         </div>
       )}

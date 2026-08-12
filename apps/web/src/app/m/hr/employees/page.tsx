@@ -6,12 +6,10 @@ import { Users } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileEmployeesList } from "./MobileEmployeesList";
 
 /**
@@ -70,20 +68,14 @@ async function MobileEmployeesContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Employees"
-        subtitle={`${employees.length} active · ${trades.length} trades`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard label="Daily Workers" value={String(dailyWorkers.length)} icon={Users} />
         <MobileStatCard label="Monthly Staff" value={String(monthlyStaff.length)} icon={Users} />
         <MobileStatCard
           label="Monthly Cost"
           value={formatCurrency(totalMonthlyCost)}
           icon={Users}
-          tone="default"
+          tone="neutral"
         />
         <MobileStatCard label="Trades" value={String(trades.length)} icon={Users} />
       </div>

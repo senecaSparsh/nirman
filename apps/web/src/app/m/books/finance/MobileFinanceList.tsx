@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Wallet, Building2 } from "lucide-react";
+import { Wallet, Building2, Search, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileSearchBar,
-  MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
+import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type ExpenseListItem = {
   id: string;
@@ -65,24 +60,30 @@ export function MobileFinanceList({
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search category, vendor, project…"
-      />
+      <div className="mb-4">
+        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
+          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+            style={{ color: "var(--color-ink-900)" }} />
+          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
+        </div>
+      </div>
 
       <MobileSectionTitle>Recent Expenses ({filteredExpenses.length})</MobileSectionTitle>
       {filteredExpenses.length === 0 ? (
         <MobileEmptyState icon={Wallet} title="No matching expenses" hint="Try a different search" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {filteredExpenses.slice(0, 15).map((e) => (
-            <MobileInfoRow
+            <MobileRow
               key={e.id}
               icon={Wallet}
               title={e.category}
               subtitle={`${e.projectName ?? "Company"} · ${formatDate(e.date)}`}
-              value={formatCurrency(e.amount)}
+              meta={formatCurrency(e.amount)}
             />
           ))}
         </div>
@@ -92,14 +93,14 @@ export function MobileFinanceList({
       {filteredProjectCosts.length === 0 ? (
         <MobileEmptyState icon={Building2} title="No matching project costs" hint="Try a different search" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {filteredProjectCosts.slice(0, 15).map((c) => (
-            <MobileInfoRow
+            <MobileRow
               key={c.id}
               icon={Building2}
               title={`${c.costType} · ${c.projectName}`}
               subtitle={`${c.vendor ?? "—"} · ${formatDate(c.date)}`}
-              value={formatCurrency(c.amount)}
+              meta={formatCurrency(c.amount)}
             />
           ))}
         </div>

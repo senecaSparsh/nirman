@@ -4,17 +4,17 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Undo2, FileText, Building2, MapPin } from "lucide-react";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import {
-  MobileDetailHeader,
   MobileSectionTitle,
-  MobileInfoRow,
+  MobileRow,
   MobileEmptyState,
   MobileStatCard,
   MobileStatusBadge,
-} from "@/components/mobile/mobile-primitives";
+} from "@/components/mobile/v2/primitives";
 import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
 
 /**
@@ -59,7 +59,9 @@ async function MobileSupplierReturnDetailContent({
   if (!ret) {
     return (
       <div>
-        <MobileDetailHeader title="Purchase Return" backHref="/m/supplier-returns" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/supplier-returns" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+        </div>
         <MobileEmptyState icon={Undo2} title="Return not found" />
       </div>
     );
@@ -119,37 +121,36 @@ async function MobileSupplierReturnDetailContent({
 
   return (
     <div>
-      <MobileDetailHeader
-        title={ret.returnNumber}
-        subtitle={`${ret.supplier.name} · ${formatDate(ret.returnDate)}`}
-        backHref="/m/supplier-returns"
-        right={<MobileStatusBadge status={ret.status} />}
-      />
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <MobileBackButton fallback="/m/supplier-returns" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
+        <MobileStatusBadge status={ret.status} />
+      </div>
 
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard label="Credit Value" value={formatCurrency(totalValue)} icon={Undo2} tone="warning" />
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
+        <MobileStatCard label="Credit Value" value={formatCurrency(totalValue)} icon={Undo2} tone="signal" />
         <MobileStatCard label="Line Items" value={String(ret.lines.length)} icon={Undo2} />
       </div>
 
       <MobileSectionTitle>Details</MobileSectionTitle>
-      <div>
-        <MobileInfoRow icon={Building2} title="Supplier" value={ret.supplier.name} />
-        <MobileInfoRow icon={MapPin} title="From Location" value={ret.location.name} />
-        <MobileInfoRow icon={FileText} title="Return Date" value={formatDate(ret.returnDate)} />
-        {ret.creditNoteNo && <MobileInfoRow icon={FileText} title="Credit Note No" value={ret.creditNoteNo} />}
-        {ret.notes && <MobileInfoRow icon={FileText} title="Notes" value={ret.notes} />}
+      <div className="flex flex-col gap-2.5">
+        <MobileRow icon={Building2} title="Supplier" meta={ret.supplier.name} />
+        <MobileRow icon={MapPin} title="From Location" meta={ret.location.name} />
+        <MobileRow icon={FileText} title="Return Date" meta={formatDate(ret.returnDate)} />
+        {ret.creditNoteNo && <MobileRow icon={FileText} title="Credit Note No" meta={ret.creditNoteNo} />}
+        {ret.notes && <MobileRow icon={FileText} title="Notes" meta={ret.notes} />}
       </div>
 
       <MobileSectionTitle>Line Items ({ret.lines.length})</MobileSectionTitle>
       {ret.lines.length === 0 ? (
         <MobileEmptyState icon={Undo2} title="No line items" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {ret.lines.map((l) => (
             <Link
               key={l.id}
               href={`/m/materials/${l.material.id}`}
-              className="flex min-h-11 items-center gap-2.5 border-b border-border/70 bg-card px-4 py-2 transition-colors active:bg-accent"
+              className="flex min-h-11 items-center gap-2.5 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                 <Undo2 className="h-3.5 w-3.5" />

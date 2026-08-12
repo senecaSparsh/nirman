@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { issueMaterialsToProject, issueMaterialsToDepartment } from "@nirman/services";
 import { apiHandler, json, issueMaterialsSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -34,6 +35,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const result = parsed.data.departmentId
       ? await issueMaterialsToDepartment({ ...common, departmentId: parsed.data.departmentId })
       : await issueMaterialsToProject({ ...common, projectId: parsed.data.projectId!, builtUnitId: parsed.data.builtUnitId ?? undefined });
+    revalidatePath("/m/stock");
+    revalidatePath("/m/materials");
     return json(
       { ok: true, materialIssueId: result.materialIssue.id, issueNumber: result.materialIssue.issueNumber, totalCost: toNum(result.totalCost), totalAmount: toNum(result.totalCost) },
       { status: 201 },

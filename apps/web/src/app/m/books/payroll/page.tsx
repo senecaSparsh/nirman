@@ -4,13 +4,8 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CalendarCheck } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { formatNumber } from "@/lib/utils";
+import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobilePayrollList } from "./MobilePayrollList";
 
 /** Finance → Payroll tab: payroll periods. */
@@ -50,16 +45,9 @@ async function BooksPayrollContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Payroll"
-        subtitle={`${periods.length} periods`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
-        <MobileStatCard label="Total Periods" value={formatNumber(periods.length, 0)} icon={CalendarCheck} />
-        <MobileStatCard label="Draft" value={formatNumber(draftCount, 0)} icon={CalendarCheck} tone={draftCount > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Paid" value={formatNumber(paidCount, 0)} icon={CalendarCheck} tone={paidCount > 0 ? "success" : "default"} />
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <MobileStatCard label="Draft" value={formatNumber(draftCount, 0)} icon={CalendarCheck} tone={draftCount > 0 ? "signal" : "neutral"} />
+        <MobileStatCard label="Paid" value={formatNumber(paidCount, 0)} icon={CalendarCheck} tone={paidCount > 0 ? "go" : "neutral"} />
       </div>
 
       {periods.length === 0 ? (

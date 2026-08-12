@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { completeMaintenance, retireEquipment, unretireEquipment, softDelete, logAction } from "@nirman/services";
 import { z } from "zod";
@@ -80,6 +81,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "retire") {
     try {
       await retireEquipment(id, user.id);
+      revalidatePath("/m/equipment");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Retire failed") }, { status: 400 });
@@ -89,6 +91,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "unretire") {
     try {
       await unretireEquipment(id, user.id);
+      revalidatePath("/m/equipment");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Un-retire failed") }, { status: 400 });
@@ -98,6 +101,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "complete-maintenance") {
     try {
       await completeMaintenance(id, user.id);
+      revalidatePath("/m/equipment");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Complete maintenance failed") }, { status: 400 });
@@ -136,6 +140,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       return eq;
     });
+    revalidatePath("/m/equipment");
     return json({ ok: true, id: updated.id });
   }
 

@@ -2,18 +2,10 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Truck, Phone, Mail, BadgeCheck, MapPin, IndianRupee, Wallet, FileText, Banknote } from "lucide-react";
+import { Truck } from "lucide-react";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileDetailHeader,
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileRow,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
 
 export default function MobileSupplierDetailPage({
   params,
@@ -42,14 +34,20 @@ async function MobileSupplierDetailContent({
       purchaseOrders: {
         where: { companyId: company.id },
         orderBy: { createdAt: "desc" },
-        take: 10,
-        select: { id: true, poNumber: true, status: true, total: true, createdAt: true },
+        take: 20,
+        select: {
+          id: true, poNumber: true, status: true, total: true,
+          createdAt: true, expectedDate: true,
+        },
       },
       supplierPayments: {
         where: { companyId: company.id },
         orderBy: { paymentDate: "desc" },
-        take: 10,
-        select: { id: true, paymentNumber: true, amount: true, netPaidAmount: true, paymentDate: true, paymentMode: true },
+        take: 20,
+        select: {
+          id: true, paymentNumber: true, amount: true,
+          paymentDate: true, paymentMode: true,
+        },
       },
     },
   });
@@ -57,92 +55,58 @@ async function MobileSupplierDetailContent({
   if (!supplier) {
     return (
       <div>
-        <MobileDetailHeader title="Supplier" backHref="/m/suppliers" />
-        <MobileEmptyState icon={Truck} title="Supplier not found" />
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/suppliers" className="" style={{ color: "var(--color-ink-700)" }} />
+        </div>
+        <div
+          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+        >
+          <Truck className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
+          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            Supplier not found
+          </p>
+        </div>
       </div>
     );
   }
 
+  const balanceOwed = toNum(supplier.balanceOwed);
   const totalPoValue = supplier.purchaseOrders.reduce((s, po) => s + toNum(po.total), 0);
   const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
 
+  const pos = supplier.purchaseOrders.map((po) => ({
+    id: po.id,
+    poNumber: po.poNumber,
+    status: po.status,
+    total: toNum(po.total),
+    createdAt: po.createdAt.toISOString(),
+    expectedDate: po.expectedDate?.toISOString() ?? null,
+  }));
+
+  const payments = supplier.supplierPayments.map((p) => ({
+    id: p.id,
+    paymentNumber: p.paymentNumber,
+    amount: toNum(p.amount),
+    paymentDate: p.paymentDate.toISOString(),
+    paymentMode: p.paymentMode,
+  }));
+
   return (
-    <div>
-      <MobileDetailHeader
-        title={supplier.name}
-        subtitle={supplier.phone ?? "no phone"}
-        backHref="/m/suppliers"
-        right={<MobileRefreshButton />}
-      />
-
-      <MobileSectionTitle>Contact</MobileSectionTitle>
-      <div>
-        {supplier.phone && <MobileInfoRow icon={Phone} title="Phone" value={supplier.phone} />}
-        {supplier.email && <MobileInfoRow icon={Mail} title="Email" value={supplier.email} />}
-        {supplier.gstin && <MobileInfoRow icon={BadgeCheck} title="GSTIN" value={supplier.gstin} />}
-        {supplier.address && <MobileInfoRow icon={MapPin} title="Address" value={supplier.address} />}
-      </div>
-
-      <MobileSectionTitle>Financials</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Balance Owed"
-          value={formatCurrency(toNum(supplier.balanceOwed))}
-          icon={Wallet}
-          tone={toNum(supplier.balanceOwed) > 0 ? "warning" : "default"}
-        />
-        <MobileStatCard
-          label="Total POs"
-          value={String(supplier.purchaseOrders.length)}
-          icon={FileText}
-        />
-        <MobileStatCard
-          label="PO Value"
-          value={formatCurrency(totalPoValue)}
-          icon={IndianRupee}
-        />
-        <MobileStatCard
-          label="Total Paid"
-          value={formatCurrency(totalPaid)}
-          icon={Banknote}
-          tone="success"
-        />
-      </div>
-
-      {supplier.purchaseOrders.length > 0 && (
-        <>
-          <MobileSectionTitle>Recent POs</MobileSectionTitle>
-          <div>
-            {supplier.purchaseOrders.map((po) => (
-              <MobileRow
-                key={po.id}
-                href={`/m/procurement/${po.id}`}
-                icon={FileText}
-                title={po.poNumber}
-                subtitle={`${formatDate(po.createdAt)} · ${formatCurrency(toNum(po.total))}`}
-                meta={po.status}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {supplier.supplierPayments.length > 0 && (
-        <>
-          <MobileSectionTitle>Recent Payments</MobileSectionTitle>
-          <div>
-            {supplier.supplierPayments.map((p) => (
-              <MobileRow
-                key={p.id}
-                icon={Banknote}
-                title={p.paymentNumber}
-                subtitle={`${formatDate(p.paymentDate)} · ${p.paymentMode}`}
-                meta={formatCurrency(toNum(p.amount))}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <MobileSupplierDetailClient
+      supplierId={supplier.id}
+      name={supplier.name}
+      gstin={supplier.gstin}
+      phone={supplier.phone}
+      email={supplier.email}
+      address={supplier.address}
+      balanceOwed={balanceOwed}
+      totalPoValue={totalPoValue}
+      totalPaid={totalPaid}
+      poCount={supplier.purchaseOrders.length}
+      paymentCount={supplier.supplierPayments.length}
+      pos={pos}
+      payments={payments}
+    />
   );
 }

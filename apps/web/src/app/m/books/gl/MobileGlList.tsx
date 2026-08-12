@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Search, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import {
-  MobileSectionTitle,
-  MobileInfoRow,
-  MobileSearchBar,
-  MobileEmptyState,
-} from "@/components/mobile/mobile-primitives";
+import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type GlListItem = {
   code: string;
@@ -38,24 +33,30 @@ export function MobileGlList({ items }: { items: GlListItem[] }) {
 
   return (
     <div>
-      <MobileSearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Search account code or name…"
-      />
+      <div className="mb-4">
+        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
+          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+            style={{ color: "var(--color-ink-900)" }} />
+          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
+        </div>
+      </div>
 
       <MobileSectionTitle>Accounts ({filtered.length})</MobileSectionTitle>
       {filtered.length === 0 ? (
         <MobileEmptyState icon={BookOpen} title="No matching accounts" hint="Try a different search" />
       ) : (
-        <div>
+        <div className="flex flex-col gap-2.5">
           {filtered.map((r) => (
-            <MobileInfoRow
+            <MobileRow
               key={r.code}
               icon={BookOpen}
               title={`${r.code} · ${r.name}`}
               subtitle={r.type}
-              value={r.balance >= 0 ? `Dr ${formatCurrency(r.balance)}` : `Cr ${formatCurrency(-r.balance)}`}
+              meta={r.balance >= 0 ? `Dr ${formatCurrency(r.balance)}` : `Cr ${formatCurrency(-r.balance)}`}
             />
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR } from "@nirman/services";
 import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum } from "@/lib/server";
@@ -110,6 +111,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
           });
         }
       } catch { /* notification failure should not block approval */ }
+      revalidatePath("/m/dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -145,12 +147,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       try {
         const result = await generateMaterialIssueFromDPR(id, user.id);
         if (result && result.materialIssueId) {
+          revalidatePath("/m/dprs");
           return json({ ok: true, materialIssueGenerated: true, linesCreated: result.linesCreated, skipped: result.skipped });
         }
       } catch (err) {
         console.error(`[dpr-finance-bridge] Failed to generate MaterialIssue from DPR ${id}:`, err);
       }
 
+      revalidatePath("/m/dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -161,9 +165,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requireUser();
     const canReject = hasPermission(user.role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(user.role, PERM.DPR_APPROVE_ADMIN);
     if (!canReject) return json({ error: "Forbidden — DPR rejection requires approval permission" }, { status: 403 });
-    if (!body.reason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
+    if (!body.reason?.trim() && !body.rejectReason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
     try {
-      await rejectDpr(id, user.id, body.reason.trim());
+      await rejectDpr(id, user.id, (body.reason ?? body.rejectReason).trim());
+      revalidatePath("/m/dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -173,6 +178,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.DPR_SUBMIT);
     try {
       await resubmitDpr(id, user.id);
+      revalidatePath("/m/dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -182,6 +188,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.FINANCE_VIEW);
     try {
       await markDprCostPosted(id, user.id);
+      revalidatePath("/m/dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -222,6 +229,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       })),
       userId: user.id,
     });
+    revalidatePath("/m/dprs");
     return json({ ok: true, id: dpr.id });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update DPR") }, { status: 400 });

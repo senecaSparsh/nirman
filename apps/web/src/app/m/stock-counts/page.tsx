@@ -2,17 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { ScanLine, Plus } from "lucide-react";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import {
-  MobilePageHeader,
-  MobileSectionTitle,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-  MobileFab,
-} from "@/components/mobile/mobile-primitives";
 import { MobileStockCountsList } from "./MobileStockCountsList";
 
 /**
@@ -34,12 +25,12 @@ async function MobileStockCountsContent() {
   const canCreate = hasPermission(role, PERM.INVENTORY_MANAGE);
 
   const counts = await prisma.stockCount.findMany({
-    where: { location: { companyId: company.id } },
-    orderBy: { countDate: "desc" },
+    where: { location: { companyId: company.id, deletedAt: null } },
+    orderBy: { createdAt: "desc" },
     take: 80,
     include: {
-      location: { select: { name: true } },
-      _count: { select: { lines: true } },
+      location: { select: { id: true, name: true, type: true } },
+      lines: { select: { variance: true, materialId: true } },
     },
   });
 
@@ -48,42 +39,36 @@ async function MobileStockCountsContent() {
   const reconciled = counts.filter((c) => c.status === "RECONCILED");
 
   // Serialize for client component
-  const serialized = counts.map((c) => ({
-    id: c.id,
-    status: c.status,
-    countDate: c.countDate.toISOString(),
-    locationName: c.location.name,
-    lineCount: c._count.lines,
-  }));
+  const serialized = counts.map((c) => {
+    const totalVariance = c.lines.reduce((s, l) => s + toNum(l.variance), 0);
+    const itemsWithVariance = c.lines.filter((l) => {
+      const v = toNum(l.variance);
+      return v > 0.001 || v < -0.001;
+    }).length;
+    return {
+      id: c.id,
+      status: c.status,
+      countDate: c.countDate.toISOString(),
+      createdAt: c.createdAt.toISOString(),
+      locationId: c.location.id,
+      locationName: c.location.name,
+      locationType: c.location.type,
+      lineCount: c.lines.length,
+      totalVariance,
+      itemsWithVariance,
+    };
+  });
 
   return (
-    <div>
-      <MobilePageHeader
-        title="Stock Counts"
-        subtitle={`${counts.length} total · ${draft.length} pending`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
-        <MobileStatCard label="Draft" value={String(draft.length)} icon={ScanLine} tone={draft.length > 0 ? "warning" : "default"} />
-        <MobileStatCard label="Counted" value={String(counted.length)} icon={ScanLine} />
-        <MobileStatCard label="Reconciled" value={String(reconciled.length)} icon={ScanLine} tone="success" />
-      </div>
-
-      <MobileStockCountsList items={serialized} />
-
-      {counts.length === 0 && (
-        <>
-          <MobileSectionTitle>Recent</MobileSectionTitle>
-          <MobileEmptyState
-            icon={ScanLine}
-            title="No stock counts"
-            hint="Start a physical verification from the desktop Stock section"
-          />
-        </>
-      )}
-
-      {canCreate && <MobileFab href="/stock-counts" icon={Plus} label="New Count" />}
-    </div>
+    <MobileStockCountsList
+      items={serialized}
+      counts={{
+        total: counts.length,
+        draft: draft.length,
+        counted: counted.length,
+        reconciled: reconciled.length,
+      }}
+      canCreate={canCreate}
+    />
   );
 }

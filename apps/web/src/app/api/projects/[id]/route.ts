@@ -13,6 +13,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     include: {
       phases: { orderBy: { sortOrder: "asc" } },
       stockLocations: { where: { deletedAt: null }, orderBy: { name: "asc" } },
+      builtUnits: {
+        where: { deletedAt: null },
+        select: { id: true, unitNumber: true, area: true },
+        orderBy: { unitNumber: "asc" },
+      },
       _count: {
         select: {
           builtUnits: { where: { deletedAt: null } },
@@ -30,6 +35,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     costPerSqft: toNum(project.costPerSqft),
     totalProjectCost: toNum(project.totalProjectCost),
     totalSellableArea: toNum(project.totalSellableArea),
+    units: project.builtUnits.map((u) => ({
+      id: u.id,
+      unitNumber: u.unitNumber,
+      builtAreaSqft: u.area ? Number(u.area) : null,
+    })),
   });
 });
 

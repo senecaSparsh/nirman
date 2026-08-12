@@ -477,7 +477,7 @@ export async function recordAttendance(input: LogAttendanceInput) {
       if (!proj) throw new HrError("Project not found in this company", 404);
     }
 
-    const dateOnly = startOfDay(input.date);
+    const dateOnly = dateOnlyUTC(input.date);
 
     // Upsert on [employeeId, date]
     const existing = await tx.workerAttendance.findUnique({
@@ -550,7 +550,7 @@ export interface BulkAttendanceInput {
 
 /** Log attendance for many workers on one day in a single transaction. */
 export async function bulkRecordAttendance(input: BulkAttendanceInput) {
-  const dateOnly = startOfDay(input.date);
+  const dateOnly = dateOnlyUTC(input.date);
   return prisma.$transaction(async (tx) => {
     const results: { employeeId: string; status: string }[] = [];
     for (const r of input.records) {
@@ -562,8 +562,8 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
       const data = {
         companyId: input.companyId,
         projectId: input.projectId ?? null,
-        checkIn: r.checkIn ? new Date(r.checkIn) : null,
-        checkOut: r.checkOut ? new Date(r.checkOut) : null,
+        checkIn: r.checkIn ? combineTimeWithDate(dateOnly, r.checkIn) : null,
+        checkOut: r.checkOut ? combineTimeWithDate(dateOnly, r.checkOut) : null,
         hoursWorked: r.hoursWorked != null ? new Decimal(r.hoursWorked) : null,
         status: r.status,
         notes: r.notes ?? null,
@@ -1008,7 +1008,7 @@ export async function submitDPR(input: SubmitDprInput) {
     });
     if (!project) throw new HrError("Project not found in this company", 404);
 
-    const dateOnly = startOfDay(input.date);
+    const dateOnly = dateOnlyUTC(input.date);
     const progressPct = input.progressPct != null ? new Decimal(input.progressPct) : new Decimal(0);
 
     const headerData = {
@@ -1032,12 +1032,12 @@ export async function submitDPR(input: SubmitDprInput) {
 
     let dpr;
     if (existing) {
-      // Replace child lines.
+      // Replace child lines and reset approval status to SUBMITTED on re-submission
       await tx.dPRMaterialLine.deleteMany({ where: { dprId: existing.id } });
       await tx.dPRLaborLine.deleteMany({ where: { dprId: existing.id } });
       dpr = await tx.dailyProgressReport.update({
         where: { id: existing.id },
-        data: headerData,
+        data: { ...headerData, approvalStatus: "SUBMITTED", adminApprovedById: null, adminApprovedAt: null, subAdminApprovedById: null, subAdminApprovedAt: null, approvalNotes: null },
       });
     } else {
       dpr = await tx.dailyProgressReport.create({
@@ -1458,6 +1458,33 @@ function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
+}
+
+/**
+ * Create a UTC-midnight Date from a date string or Date.
+ * Use this for @db.Date columns to avoid timezone shifts where
+ * startOfDay() (local midnight) shifts back a day in non-UTC timezones.
+ */
+function dateOnlyUTC(d: Date | string): Date {
+  const s = typeof d === "string" ? d : d.toISOString().slice(0, 10);
+  return new Date(s + "T00:00:00.000Z");
+}
+
+/**
+ * Combine a date-only Date with a time string (e.g. "09:00" or "09:00:00")
+ * into a full datetime. If the time string is already a full ISO datetime,
+ * parse it directly. This prevents `new Date("09:00")` → Invalid Date.
+ */
+export function combineTimeWithDate(baseDate: Date, time: string): Date {
+  // If it's already a full datetime (contains 'T' or is ISO format), parse directly
+  if (time.includes("T") || /^\d{4}-\d{2}-\d{2}/.test(time)) {
+    return new Date(time);
+  }
+  // Time-only string like "09:00" or "09:00:00" — combine with base date
+  const result = new Date(baseDate);
+  const parts = time.split(":");
+  result.setHours(Number(parts[0]) || 0, Number(parts[1]) || 0, Number(parts[2]) || 0, 0);
+  return result;
 }
 
 function endOfDay(d: Date): Date {

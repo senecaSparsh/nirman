@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { sellAsset } from "@nirman/services";
@@ -106,6 +107,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       initialPaymentMode: parsed.data.initialPaymentMode,
     });
 
+    revalidatePath("/m/sales");
     return json({ ok: true, saleId: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create sale") }, { status: 400 });

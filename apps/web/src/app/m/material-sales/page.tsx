@@ -2,17 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Recycle } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileSectionTitle,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-  MobileFab,
-} from "@/components/mobile/mobile-primitives";
+import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
 
 /**
@@ -31,6 +22,8 @@ export default function MobileMaterialSalesPage() {
 async function MobileMaterialSalesContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canCreate = hasPermission(role, PERM.SALE_CREATE);
 
   const sales = await prisma.materialSale.findMany({
     where: { companyId: company.id },
@@ -49,6 +42,7 @@ async function MobileMaterialSalesContent() {
       paymentStatus: true,
       customer: { select: { name: true } },
       project: { select: { name: true } },
+      lines: { select: { id: true } },
     },
   });
 
@@ -56,9 +50,7 @@ async function MobileMaterialSalesContent() {
   const pendingPayment = active.filter((s) => s.paymentStatus === "PENDING");
   const totalRevenue = active.reduce((s, sale) => s + toNum(sale.subtotal), 0);
   const totalProfit = active.reduce((s, sale) => s + toNum(sale.grossProfit), 0);
-  const scrapRecovery = active.reduce((s, sale) => s + toNum(sale.scrapSubtotal), 0);
 
-  // Serialize for client component
   const serialized = sales.map((s) => ({
     id: s.id,
     saleNumber: s.saleNumber,
@@ -67,61 +59,19 @@ async function MobileMaterialSalesContent() {
     saleDate: s.saleDate.toISOString(),
     totalAmount: toNum(s.totalAmount),
     grossProfit: toNum(s.grossProfit),
+    scrapSubtotal: toNum(s.scrapSubtotal),
     customerName: s.customer?.name ?? null,
     projectName: s.project?.name ?? null,
+    lineCount: s.lines.length,
   }));
 
   return (
-    <div>
-      <MobilePageHeader
-        title="Material Sales"
-        subtitle={`${active.length} active · ${pendingPayment.length} pending payment`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
-        <MobileStatCard
-          label="Revenue"
-          value={formatCurrency(totalRevenue)}
-          icon={Recycle}
-          tone="success"
-        />
-        <MobileStatCard
-          label="Profit"
-          value={formatCurrency(totalProfit)}
-          icon={Recycle}
-          tone="success"
-        />
-        {scrapRecovery > 0 && (
-          <MobileStatCard
-            label="Scrap Recovery"
-            value={formatCurrency(scrapRecovery)}
-            icon={Recycle}
-            hint="Cost recovered from scrap sales"
-          />
-        )}
-        <MobileStatCard
-          label="Unpaid"
-          value={String(pendingPayment.length)}
-          icon={Recycle}
-          tone={pendingPayment.length > 0 ? "warning" : "default"}
-        />
-      </div>
-
-      <MobileMaterialSalesList items={serialized} />
-
-      {sales.length === 0 && (
-        <>
-          <MobileSectionTitle>Recent Sales</MobileSectionTitle>
-          <MobileEmptyState
-            icon={Recycle}
-            title="No material sales"
-            hint="Sell surplus or scrap material from the desktop Sell section"
-          />
-        </>
-      )}
-
-      <MobileFab href="/material-sales" label="New material sale" />
-    </div>
+    <MobileMaterialSalesList
+      items={serialized}
+      totalRevenue={totalRevenue}
+      totalProfit={totalProfit}
+      pendingCount={pendingPayment.length}
+      canCreate={canCreate}
+    />
   );
 }

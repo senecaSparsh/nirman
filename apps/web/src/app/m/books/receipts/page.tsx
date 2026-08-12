@@ -5,12 +5,7 @@ import { prisma } from "@nirman/db";
 import { Wallet } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import {
-  MobilePageHeader,
-  MobileEmptyState,
-  MobileStatCard,
-  MobileRefreshButton,
-} from "@/components/mobile/mobile-primitives";
+import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileReceiptsList } from "./MobileReceiptsList";
 
 /** Finance → Receipts tab: recent payments received. */
@@ -48,14 +43,8 @@ async function BooksReceiptsContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Receipts"
-        subtitle={`${formatCurrency(total)} received`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-3 gap-2 p-3">
-        <MobileStatCard label="Total Received" value={formatCurrency(total)} icon={Wallet} tone="success" />
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
+        <MobileStatCard label="Total Received" value={formatCurrency(total)} icon={Wallet} tone="go" />
         <MobileStatCard label="Count" value={formatNumber(receipts.length, 0)} icon={Wallet} />
         <MobileStatCard label="Average" value={formatCurrency(avg)} icon={Wallet} />
       </div>

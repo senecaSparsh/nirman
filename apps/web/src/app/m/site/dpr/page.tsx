@@ -5,21 +5,14 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { MobileRefreshButton } from "@/components/mobile/mobile-primitives";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileDprPage() {
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-3">
-        <Link href="/m/site" className="text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
+      <div className="mb-4">
+        <MobileBackButton fallback="/m/site" className="text-muted-foreground hover:text-foreground" />
         <h1 className="text-h3 font-semibold text-foreground">Submit DPR</h1>
-        <div className="ml-auto">
-          <MobileRefreshButton />
-        </div>
       </div>
       <Suspense fallback={<MobileSkeletonForm />}>
         <MobileDprContent />

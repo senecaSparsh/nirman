@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setParcelStatus, updateParcelValuation } from "@nirman/services";
 import { apiHandler, getCompany, json, parcelValuationSchema, requirePermission } from "@/lib/server";
@@ -13,10 +14,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   try {
     if (action === "hold") {
       const p = await setParcelStatus(id, "HOLD", user.id);
+      revalidatePath("/m/land");
       return json({ ok: true, status: p.status });
     }
     if (action === "release") {
       const p = await setParcelStatus(id, "AVAILABLE", user.id);
+      revalidatePath("/m/land");
       return json({ ok: true, status: p.status });
     }
     if (action === "valuate") {
@@ -32,6 +35,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         },
         user.id,
       );
+      revalidatePath("/m/land");
       return json({ ok: true });
     }
     return json({ error: "Unknown action" }, { status: 400 });

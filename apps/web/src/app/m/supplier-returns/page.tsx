@@ -7,13 +7,11 @@ import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { hasPermission, PERM } from "@/lib/roles";
 import {
-  MobilePageHeader,
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  MobileRefreshButton,
-  MobileFab,
-} from "@/components/mobile/mobile-primitives";
+  MobileCta,
+} from "@/components/mobile/v2/primitives";
 import { MobileSupplierReturnsList } from "./MobileSupplierReturnsList";
 
 /**
@@ -47,7 +45,6 @@ async function MobileSupplierReturnsContent() {
 
   const draft = returns.filter((r) => r.status === "DRAFT");
   const submitted = returns.filter((r) => r.status === "SUBMITTED");
-  const completed = returns.filter((r) => r.status === "COMPLETED");
 
   const totalValue = returns
     .filter((r) => r.status !== "CANCELLED")
@@ -66,24 +63,18 @@ async function MobileSupplierReturnsContent() {
 
   return (
     <div>
-      <MobilePageHeader
-        title="Purchase Returns"
-        subtitle={`${returns.length} total · ${completed.length} completed`}
-        right={<MobileRefreshButton />}
-      />
-
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard
           label="Return Value"
           value={formatCurrency(totalValue)}
           icon={Undo2}
-          tone="warning"
+          tone="signal"
         />
         <MobileStatCard
           label="Pending"
           value={String(draft.length + submitted.length)}
           icon={Undo2}
-          tone={draft.length + submitted.length > 0 ? "warning" : "default"}
+          tone={draft.length + submitted.length > 0 ? "signal" : "neutral"}
         />
       </div>
 
@@ -100,7 +91,13 @@ async function MobileSupplierReturnsContent() {
         </>
       )}
 
-      {canCreate && <MobileFab href="/supplier-returns" icon={Plus} label="New Return" />}
+      {canCreate && (
+        <div className="mb-4">
+          <MobileCta href="/m/supplier-returns/new" icon={Plus} variant="secondary">
+            New Return
+          </MobileCta>
+        </div>
+      )}
     </div>
   );
 }
