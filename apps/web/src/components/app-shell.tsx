@@ -28,6 +28,7 @@ import {
 } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/command-palette";
+import { AssistantChat } from "@/components/mobile/assistant/assistant-chat";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { AlertBell } from "@/components/alert-bell";
 import { NotificationBell } from "@/components/notification-bell";
@@ -447,6 +448,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <CommandPalette userRole={userRole} />
+
+      {/* ── Owner Assistant — floating chat with voice (Hindi/English) ── */}
+      <AssistantChat />
     </div>
   );
 }

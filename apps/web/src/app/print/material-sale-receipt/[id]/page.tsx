@@ -8,23 +8,15 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 /**
- * Print-friendly Payment Receipt — for individual payments received against an
- * asset sale (property / land). Industry-grade layout matching Indian
- * construction / real-estate receipt vouchers:
- *  - Company letterhead (name, address, GSTIN, PAN)
- *  - Sequential receipt no + date/time
- *  - Received-from party block (name, address, phone, GSTIN)
- *  - Property particulars (project, unit/plot, type, area, floor, wing)
- *  - Amount received box + amount in words
- *  - Payment mode + instrument reference (cheque / UTR / UPI)
- *  - Account summary (sale value, GST, total, received till date, balance, % paid)
- *  - Full payment history table for the sale
- *  - Terms & conditions + signature blocks
+ * Print-friendly Money Receipt — for a payment received against a material
+ * sale (sale of construction material / scrap to a customer). Mirrors the
+ * asset-sale receipt layout but includes the material line-items table so the
+ * customer can see exactly what the payment is against.
  *
- * Opened in a new tab from the Sale detail dialog (desktop) or the mobile
- * receipt detail page (/m/books/receipts/[id]).
+ * Opened from the mobile receipt detail page (/m/books/receipts/[id]) or the
+ * desktop material-sale detail.
  */
-export default async function PaymentReceiptPage({
+export default async function MaterialSaleReceiptPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -38,70 +30,44 @@ export default async function PaymentReceiptPage({
   }
   const company = await getCompany();
 
-  const payment = await prisma.assetSalePayment.findFirst({
+  const payment = await prisma.materialSalePayment.findFirst({
     where: { id },
     include: {
-      assetSale: {
+      sale: {
         include: {
           customer: { select: { name: true, phone: true, address: true, gstin: true } },
           project: { select: { name: true } },
-          builtUnit: { select: { unitNumber: true, unitType: true, floor: true, wing: true, area: true, areaUnit: true } },
-          landParcel: { select: { number: true, area: true, areaUnit: true } },
+          lines: {
+            include: { material: { select: { name: true, code: true, unit: true } } },
+            orderBy: { material: { name: "asc" } },
+          },
           payments: { orderBy: { paymentDate: "asc" } },
         },
       },
     },
   });
 
-  if (!payment || !payment.assetSale) notFound();
+  if (!payment || !payment.sale) notFound();
+  if (payment.sale.companyId !== company.id) notFound();
 
-  // Guard against cross-company access
-  if (payment.assetSale.companyId !== company.id) notFound();
-
-  const sale = payment.assetSale;
+  const sale = payment.sale;
   const amount = toNum(payment.amount);
   const words = amountInWords(amount);
-  const salePrice = toNum(sale.salePrice);
-  const gstRate = toNum(sale.gstRate);
-  const gstAmount = toNum(sale.gstAmount);
-  const total = salePrice + gstAmount;
+
+  const subtotal = toNum(sale.subtotal);
+  const gstTotal = toNum(sale.gstTotal);
+  const roundOff = toNum(sale.roundOff);
+  const total = toNum(sale.totalAmount);
   const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
-  // Stable, human-readable receipt number derived from payment date + id tail.
+  const partyName = sale.partyName ?? sale.customer.name;
+
   const d = new Date(payment.paymentDate);
   const yymmdd = `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const receiptNo = `RCP-${yymmdd}-${payment.id.slice(-4).toUpperCase()}`;
-
-  const assetLabel = sale.assetType === "LAND" ? "Land Plot" : "Built Unit";
-
-  // Property particulars
-  let propertyLines: string[] = [];
-  if (sale.assetType === "BUILT_UNIT" && sale.builtUnit) {
-    const u = sale.builtUnit;
-    propertyLines = [
-      `${assetLabel} · ${u.unitNumber}`,
-      `Type: ${u.unitType.replace(/_/g, " ")}`,
-      u.floor != null ? `Floor: ${u.floor}` : "",
-      u.wing ? `Wing: ${u.wing}` : "",
-      `Area: ${toNum(u.area)} ${u.areaUnit}`,
-    ].filter(Boolean);
-  } else if (sale.assetType === "LAND" && sale.landParcel) {
-    const p = sale.landParcel;
-    propertyLines = [
-      `${assetLabel} · Plot ${p.number}`,
-      `Area: ${toNum(p.area)} ${p.areaUnit}`,
-    ];
-  } else {
-    propertyLines = [assetLabel];
-  }
-
-  const timeStr = d.toLocaleString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const receiptNo = `MSR-${yymmdd}-${payment.id.slice(-4).toUpperCase()}`;
+  const timeStr = d.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
   return (
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
@@ -126,24 +92,73 @@ export default async function PaymentReceiptPage({
         Money Receipt
       </h2>
 
-      {/* ── Party + property blocks ── */}
+      {/* ── Party + sale blocks ── */}
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="border border-gray-300 p-2.5">
           <div className="text-xs font-semibold uppercase text-gray-500">Received From</div>
-          <div className="font-medium">{sale.customer.name}</div>
-          {sale.customer.address && <div className="text-gray-600">{sale.customer.address}</div>}
-          {sale.customer.phone && <div className="text-gray-600">Ph: {sale.customer.phone}</div>}
-          {sale.customer.gstin && <div className="text-gray-600">GSTIN: {sale.customer.gstin}</div>}
+          <div className="font-medium">{partyName}</div>
+          {!sale.partyName && sale.customer.address && <div className="text-gray-600">{sale.customer.address}</div>}
+          {!sale.partyName && sale.customer.phone && <div className="text-gray-600">Ph: {sale.customer.phone}</div>}
+          {!sale.partyName && sale.customer.gstin && <div className="text-gray-600">GSTIN: {sale.customer.gstin}</div>}
         </div>
         <div className="border border-gray-300 p-2.5">
           <div className="text-xs font-semibold uppercase text-gray-500">Against Sale</div>
           <div className="font-mono font-medium">{sale.saleNumber}</div>
-          <div className="text-gray-600">Project: {sale.project.name}</div>
-          {propertyLines.map((l, i) => (
-            <div key={i} className="text-gray-600">{l}</div>
-          ))}
+          <div className="text-gray-600">Sale Date: {formatDate(sale.saleDate)}</div>
+          {sale.project && <div className="text-gray-600">Project: {sale.project.name}</div>}
         </div>
       </div>
+
+      {/* ── Line items ── */}
+      <table className="mt-4 w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-black">
+            <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">#</th>
+            <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">Particulars</th>
+            <th className="border-r border-gray-300 px-2 py-1 text-right font-semibold">Qty</th>
+            <th className="border-r border-gray-300 px-2 py-1 text-right font-semibold">Rate</th>
+            <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">Per</th>
+            <th className="px-2 py-1 text-right font-semibold">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sale.lines.map((l, i) => (
+            <tr key={l.id} className="border-b border-gray-200">
+              <td className="border-r border-gray-300 px-2 py-1 text-center">{i + 1}</td>
+              <td className="border-r border-gray-300 px-2 py-1">
+                {l.material.name}
+                <span className="ml-1 text-xs text-gray-500">({l.material.code})</span>
+              </td>
+              <td className="border-r border-gray-300 px-2 py-1 text-right tnum">{toNum(l.qty)}</td>
+              <td className="border-r border-gray-300 px-2 py-1 text-right tnum">{formatCurrency(toNum(l.unitPrice))}</td>
+              <td className="border-r border-gray-300 px-2 py-1 text-center text-gray-600">{l.material.unit}</td>
+              <td className="px-2 py-1 text-right tnum">{formatCurrency(toNum(l.qty) * toNum(l.unitPrice))}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-black">
+            <td colSpan={5} className="px-2 py-1 text-right font-semibold">Subtotal:</td>
+            <td className="px-2 py-1 text-right tnum">{formatCurrency(subtotal)}</td>
+          </tr>
+          {gstTotal > 0 && (
+            <tr>
+              <td colSpan={5} className="px-2 py-1 text-right font-semibold">GST:</td>
+              <td className="px-2 py-1 text-right tnum">{formatCurrency(gstTotal)}</td>
+            </tr>
+          )}
+          {roundOff !== 0 && (
+            <tr>
+              <td colSpan={5} className="px-2 py-1 text-right font-semibold">Round Off:</td>
+              <td className="px-2 py-1 text-right tnum">{formatCurrency(roundOff)}</td>
+            </tr>
+          )}
+          <tr>
+            <td colSpan={5} className="px-2 py-1.5 text-right font-bold">Sale Total:</td>
+            <td className="px-2 py-1.5 text-right font-bold tnum">{formatCurrency(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
 
       {/* ── Amount received box ── */}
       <div className="mt-4 rounded-md border-2 border-black p-4">
@@ -158,11 +173,11 @@ export default async function PaymentReceiptPage({
       <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
         <div>
           <div className="text-xs font-semibold uppercase text-gray-500">Payment Mode</div>
-          <div className="font-medium">{payment.mode.replace(/_/g, " ")}</div>
+          <div className="font-medium">{payment.paymentMode.replace(/_/g, " ")}</div>
         </div>
         <div>
           <div className="text-xs font-semibold uppercase text-gray-500">Instrument / Reference</div>
-          <div className="font-medium font-mono">{payment.reference ?? "—"}</div>
+          <div className="font-medium font-mono">{payment.referenceNo ?? "—"}</div>
         </div>
       </div>
 
@@ -171,18 +186,8 @@ export default async function PaymentReceiptPage({
         <div className="mb-2 text-xs font-semibold uppercase text-gray-500">Account Summary</div>
         <table className="w-full text-sm">
           <tbody>
-            <tr>
-              <td className="py-0.5 text-gray-600">Sale Value</td>
-              <td className="py-0.5 text-right tnum">{formatCurrency(salePrice)}</td>
-            </tr>
-            {gstAmount > 0 && (
-              <tr>
-                <td className="py-0.5 text-gray-600">GST @ {gstRate}%</td>
-                <td className="py-0.5 text-right tnum">{formatCurrency(gstAmount)}</td>
-              </tr>
-            )}
             <tr className="border-t border-gray-300">
-              <td className="py-0.5 font-semibold">Total Payable (incl. GST)</td>
+              <td className="py-0.5 font-semibold">Total Sale Value (incl. GST)</td>
               <td className="py-0.5 text-right font-semibold tnum">{formatCurrency(total)}</td>
             </tr>
             <tr>
@@ -199,7 +204,6 @@ export default async function PaymentReceiptPage({
             </tr>
           </tbody>
         </table>
-        {/* Progress bar */}
         <div className="mt-2 h-1.5 w-full rounded-full bg-gray-200">
           <div className="h-1.5 rounded-full bg-black" style={{ width: `${pctPaid}%` }} />
         </div>
@@ -223,8 +227,8 @@ export default async function PaymentReceiptPage({
               <tr key={p.id} className={`border-b border-gray-200 ${p.id === payment.id ? "bg-gray-100 font-semibold" : ""}`}>
                 <td className="px-2 py-1 text-center">{i + 1}</td>
                 <td className="px-2 py-1">{formatDate(p.paymentDate)}</td>
-                <td className="px-2 py-1">{p.mode.replace(/_/g, " ")}</td>
-                <td className="px-2 py-1 font-mono">{p.reference ?? "—"}</td>
+                <td className="px-2 py-1">{p.paymentMode.replace(/_/g, " ")}</td>
+                <td className="px-2 py-1 font-mono">{p.referenceNo ?? "—"}</td>
                 <td className="px-2 py-1 text-right tnum">{formatCurrency(toNum(p.amount))}</td>
               </tr>
             ))}
@@ -242,10 +246,10 @@ export default async function PaymentReceiptPage({
       <div className="mt-4 border-t border-gray-300 pt-2 text-xs text-gray-600">
         <div className="font-semibold text-gray-700">Terms &amp; Conditions:</div>
         <ol className="ml-4 list-decimal space-y-0.5">
+          <li>Goods once sold will not be taken back; exchange subject to management approval.</li>
           <li>This receipt acknowledges receipt of payment towards the sale mentioned above.</li>
-          <li>Final sale deed / title transfer is subject to full payment as per the agreed schedule.</li>
           <li>Any discrepancy must be reported within 7 days of receipt date.</li>
-          <li>Subject to local jurisdiction; this is a computer-generated receipt and does not require a physical signature.</li>
+          <li>This is a computer-generated receipt and does not require a physical signature.</li>
         </ol>
       </div>
 
@@ -255,7 +259,6 @@ export default async function PaymentReceiptPage({
         <div className="border-t border-black pt-1">For {company.name}</div>
       </div>
 
-      {/* Print button (hidden when printing) */}
       <div className="mt-8 text-center print:hidden">
         <PrintButton label="Print Receipt" />
       </div>

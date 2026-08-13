@@ -17,6 +17,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
+import { AssistantChat } from "@/components/mobile/assistant/assistant-chat";
 import {
   MOBILE_TABS,
   isModuleActive,
@@ -441,6 +442,9 @@ function MobileShellInner({
         onClose={() => setNavSheetOpen(false)}
         moduleId={activeTab?.id ?? "inventory"}
       />
+
+      {/* ══ OWNER ASSISTANT — floating chat with voice (Hindi/English) ══ */}
+      <AssistantChat />
     </div>
   );
 }

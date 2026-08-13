@@ -189,10 +189,11 @@ async function AccountsContent() {
             {recentReceipts.map((r) => (
               <MobileRow
                 key={r.id}
-                href="/m/books/receipts"
+                href={`/m/books/receipts/${r.id}?kind=ASSET`}
                 title={r.assetSale?.customer?.name ?? "—"}
                 subtitle={`${formatDate(r.paymentDate)} · ${r.mode}`}
                 meta={formatCurrency(toNum(r.amount))}
+                metaSub="Property Sale"
                 tone="success"
               />
             ))}
