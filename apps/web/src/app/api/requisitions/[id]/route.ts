@@ -9,7 +9,7 @@ import {
   logAction,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, json, requirePermission, toNum, UnauthorizedError } from "@/lib/server";
 import { z } from "zod";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -149,6 +149,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     return json({ error: "Invalid action. Use submit, approve, reject, waiveQuotes, or convert." }, { status: 400 });
   } catch (err: unknown) {
+    if (err instanceof ForbiddenError) return json({ error: err.message }, { status: 403 });
+    if (err instanceof UnauthorizedError) return json({ error: err.message }, { status: 401 });
     return json({ error: (err instanceof Error ? err.message : "Action failed") }, { status: 400 });
   }
 });

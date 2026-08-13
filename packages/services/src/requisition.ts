@@ -339,16 +339,15 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     where: { requisitionId: input.requisitionId },
     _count: true,
   });
-  const nonRejectedCount = quoteSummary
-    .filter((q) => q.status !== "REJECTED")
+  const totalQuoteCount = quoteSummary
     .reduce((s, q) => s + q._count, 0);
   const reqForGate = await prisma.materialRequisition.findUnique({
     where: { id: input.requisitionId },
     select: { minQuotesRequired: true, quotesWaived: true },
   });
-  if (reqForGate && !isQuoteGateSatisfied(nonRejectedCount, reqForGate.minQuotesRequired, reqForGate.quotesWaived)) {
+  if (reqForGate && !isQuoteGateSatisfied(totalQuoteCount, reqForGate.minQuotesRequired, reqForGate.quotesWaived)) {
     throw new ServiceError(
-      `Quote gate not satisfied: ${nonRejectedCount}/${reqForGate.minQuotesRequired} quotes uploaded. ` +
+      `Quote gate not satisfied: ${totalQuoteCount}/${reqForGate.minQuotesRequired} quotes uploaded. ` +
       `Upload more quotes or waive the requirement (requires approver).`,
     );
   }

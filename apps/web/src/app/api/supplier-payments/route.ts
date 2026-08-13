@@ -50,7 +50,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
 
   if (!body?.supplierId) return json({ error: "supplierId is required" }, { status: 400 });
-  if (!body?.amount || Number(body.amount) <= 0) return json({ error: "amount must be > 0" }, { status: 400 });
+  const amt = Number(body?.amount);
+  if (!body?.amount || !Number.isFinite(amt) || amt <= 0) return json({ error: "amount must be a finite number > 0" }, { status: 400 });
   if (!body?.paymentMode) return json({ error: "paymentMode is required" }, { status: 400 });
 
   try {

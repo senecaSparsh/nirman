@@ -99,23 +99,31 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (existing) {
     return json({ error: "A material with this code already exists" }, { status: 409 });
   }
-  const created = await prisma.$transaction(async (tx) => {
-    const mat = await tx.material.create({
-      data: {
-        ...parsed.data,
-        currentCost: parsed.data.standardCost,
-      },
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      // Validate category exists
+      const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+      if (!category) throw new Error("Category not found");
+
+      const mat = await tx.material.create({
+        data: {
+          ...parsed.data,
+          currentCost: parsed.data.standardCost,
+        },
+      });
+      await logAction(tx, {
+        userId: user.id,
+        action: "MATERIAL_CREATE",
+        entityType: "Material",
+        entityId: mat.id,
+        after: { code: mat.code, name: mat.name, unit: mat.unit, standardCost: mat.standardCost.toString() },
+      });
+      return mat;
     });
-    await logAction(tx, {
-      userId: user.id,
-      action: "MATERIAL_CREATE",
-      entityType: "Material",
-      entityId: mat.id,
-      after: { code: mat.code, name: mat.name, unit: mat.unit, standardCost: mat.standardCost.toString() },
-    });
-    return mat;
-  });
-  return json(created, { status: 201 });
+    return json(created, { status: 201 });
+  } catch (err: unknown) {
+    return json({ error: (err instanceof Error ? err.message : "Failed to create material") }, { status: 400 });
+  }
 });
 
 // ── Bulk CSV import ─────────────────────────────────────────────

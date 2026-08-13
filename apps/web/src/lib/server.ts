@@ -207,8 +207,8 @@ export const supplierSchema = z.object({
 
 export const purchaseOrderLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qtyOrdered: z.coerce.number().min(0.001, "Quantity must be > 0"),
-  unitCost: z.coerce.number().min(0, "Unit cost must be >= 0"),
+  qtyOrdered: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
   gstRate: z.coerce.number().min(0).max(100).default(0),
 });
 
@@ -225,8 +225,8 @@ export const purchaseOrderSchema = z.object({
 export const receiveGoodsLineSchema = z.object({
   purchaseOrderLineId: z.string().min(1),
   materialId: z.string().min(1),
-  qtyReceived: z.coerce.number().min(0.001, "Received quantity must be > 0"),
-  unitCost: z.coerce.number().min(0, "Unit cost must be >= 0"),
+  qtyReceived: z.coerce.number().finite().min(0.001, "Received quantity must be > 0"),
+  unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
   lotNumber: z.string().max(80).optional().nullable(),
 });
 
@@ -237,7 +237,7 @@ export const receiveGoodsSchema = z.object({
 
 export const transferLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().min(0.001, "Quantity must be > 0"),
+  qty: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
   lotNumber: z.string().max(80).optional().nullable(),
 });
 
@@ -277,9 +277,9 @@ export const landPurchaseSchema = z.object({
   sellerName: z.string().min(1, "Seller name is required"),
   sellerContact: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
-  totalArea: z.coerce.number().positive("Total area must be > 0"),
+  totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
-  totalCost: z.coerce.number().positive("Total cost must be > 0"),
+  totalCost: z.coerce.number().finite().positive("Total cost must be > 0"),
   registryNo: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   documentUrl: z.string().optional().nullable(),
@@ -290,21 +290,21 @@ export const partitionSchema = z.object({
   parentParcelId: z.string().min(1),
   children: z.array(z.object({
     number: z.string().min(1, "Parcel number is required"),
-    area: z.coerce.number().positive("Area must be > 0"),
-    askingPrice: z.coerce.number().positive().optional(),
+    area: z.coerce.number().finite().positive("Area must be > 0"),
+    askingPrice: z.coerce.number().finite().positive().optional(),
     isInfrastructure: z.boolean().optional(),
-    marketValue: z.coerce.number().nonnegative().optional(),
-    weightFactor: z.coerce.number().positive().optional(),
+    marketValue: z.coerce.number().finite().nonnegative().optional(),
+    weightFactor: z.coerce.number().finite().positive().optional(),
     geometry: z.any().optional(),
   })).min(2, "At least 2 children required"),
   notes: z.string().optional(),
   allocationModel: z.enum(["PRO_RATA", "MARKET_VALUE"]).default("PRO_RATA"),
-  developmentCost: z.coerce.number().nonnegative().optional(),
+  developmentCost: z.coerce.number().finite().nonnegative().optional(),
 });
 
 export const parcelValuationSchema = z.object({
-  currentValuation: z.coerce.number().nonnegative().optional(),
-  askingPrice: z.coerce.number().positive().optional().nullable(),
+  currentValuation: z.coerce.number().finite().nonnegative().optional(),
+  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
 });
 
 // ── Built Units ──
@@ -315,21 +315,21 @@ export const builtUnitSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.coerce.number().int().optional().nullable(),
   wing: z.string().optional().nullable(),
-  area: z.coerce.number().positive("Area must be > 0"),
+  area: z.coerce.number().finite().positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
-  askingPrice: z.coerce.number().positive().optional().nullable(),
+  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
   // RERA fields
-  carpetArea: z.coerce.number().nonnegative().optional().nullable(),
-  superBuiltUpArea: z.coerce.number().nonnegative().optional().nullable(),
-  balconyArea: z.coerce.number().nonnegative().optional().nullable(),
-  clearHeight: z.coerce.number().nonnegative().optional().nullable(),
+  carpetArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().finite().nonnegative().optional().nullable(),
   hasLoadingDock: z.coerce.boolean().optional(),
 });
 
 export const builtUnitStatusSchema = z.enum(["PLANNED", "UNDER_CONSTRUCTION", "AVAILABLE", "HOLD", "SOLD"]);
 export const builtUnitValuationSchema = z.object({
-  askingPrice: z.coerce.number().positive().optional().nullable(),
-  currentValuation: z.coerce.number().nonnegative().optional(),
+  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
+  currentValuation: z.coerce.number().finite().nonnegative().optional(),
 });
 
 // Edit an existing built unit's core attributes (no project/phase change).
@@ -338,14 +338,14 @@ export const builtUnitEditSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.coerce.number().int().optional().nullable(),
   wing: z.string().optional().nullable(),
-  area: z.coerce.number().positive("Area must be > 0"),
+  area: z.coerce.number().finite().positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]),
-  askingPrice: z.coerce.number().positive().optional().nullable(),
+  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
   // RERA fields
-  carpetArea: z.coerce.number().nonnegative().optional().nullable(),
-  superBuiltUpArea: z.coerce.number().nonnegative().optional().nullable(),
-  balconyArea: z.coerce.number().nonnegative().optional().nullable(),
-  clearHeight: z.coerce.number().nonnegative().optional().nullable(),
+  carpetArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().finite().nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().finite().nonnegative().optional().nullable(),
   hasLoadingDock: z.coerce.boolean().optional(),
 });
 
@@ -365,28 +365,28 @@ export const sellAssetSchema = z.object({
   builtUnitId: z.string().optional().nullable(),
   customerId: z.string().min(1, "Customer is required"),
   projectId: z.string().min(1, "Project is required"),
-  salePrice: z.coerce.number().positive("Sale price must be > 0"),
-  gstRate: z.coerce.number().nonnegative().max(28).optional(),
+  salePrice: z.coerce.number().finite().positive("Sale price must be > 0"),
+  gstRate: z.coerce.number().finite().nonnegative().max(28).optional(),
   paymentMode: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  initialPayment: z.coerce.number().nonnegative().optional(),
+  initialPayment: z.coerce.number().finite().nonnegative().optional(),
   initialPaymentMode: z.string().optional(),
 });
 
 export const paymentSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
 });
 
 export const depositSchema = z.object({
-  depositAmount: z.coerce.number().positive("Deposit amount must be > 0"),
+  depositAmount: z.coerce.number().finite().positive("Deposit amount must be > 0"),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
 });
 
 export const completeSaleSchema = z.object({
-  finalPaymentAmount: z.coerce.number().nonnegative().optional(),
+  finalPaymentAmount: z.coerce.number().finite().nonnegative().optional(),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
 });
@@ -395,9 +395,9 @@ export const completeSaleSchema = z.object({
 export const materialSaleLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
   locationId: z.string().min(1, "Stock location is required"),
-  qty: z.coerce.number().positive("Quantity must be > 0"),
-  unitPrice: z.coerce.number().positive("Unit price must be > 0"),
-  gstRate: z.coerce.number().nonnegative().max(28).optional(),
+  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
+  unitPrice: z.coerce.number().finite().positive("Unit price must be > 0"),
+  gstRate: z.coerce.number().finite().nonnegative().max(28).optional(),
 });
 
 export const materialSaleSchema = z.object({
@@ -416,14 +416,14 @@ export const renovationSchema = z.object({
   description: z.string().optional().nullable(),
   builtUnitId: z.string().optional().nullable(),
   landParcelId: z.string().optional().nullable(),
-  budget: z.coerce.number().nonnegative().optional(),
+  budget: z.coerce.number().finite().nonnegative().optional(),
   startDate: z.string().optional().nullable(),
 });
 
 export const renovationCostSchema = z.object({
   renovationProjectId: z.string().min(1, "Renovation project is required"),
   costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"]),
-  amount: z.coerce.number().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
   vendor: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   receiptUrl: z.string().optional().nullable(),
@@ -455,8 +455,8 @@ export const tenancySchema = z.object({
   tenantEmail: z.string().email("Invalid email").optional().nullable(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  monthlyRent: z.coerce.number().positive("Monthly rent must be > 0"),
-  securityDeposit: z.coerce.number().nonnegative().optional(),
+  monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
+  securityDeposit: z.coerce.number().finite().nonnegative().optional(),
   rentAgreementNo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
@@ -467,15 +467,15 @@ export const editTenancySchema = z.object({
   tenantEmail: z.string().email("Invalid email").optional().nullable(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  monthlyRent: z.coerce.number().positive("Monthly rent must be > 0"),
-  securityDeposit: z.coerce.number().nonnegative().optional(),
+  monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
+  securityDeposit: z.coerce.number().finite().nonnegative().optional(),
   rentAgreementNo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
 });
 
 export const rentPaymentSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
   paymentDate: z.string().optional(),
   dueDate: z.string().optional(),
   mode: z.string().min(1, "Payment mode is required"),
@@ -498,7 +498,7 @@ export const dailyReportSchema = z.object({
 export const projectCostSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"]),
-  amount: z.coerce.number().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
   date: z.string().optional().nullable(),
   vendor: z.string().optional().nullable(),
   subcontractorId: z.string().optional().nullable(),
@@ -513,7 +513,7 @@ export const equipmentSchema = z.object({
   model: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
-  acquisitionCost: z.coerce.number().nonnegative("Cost must be >= 0"),
+  acquisitionCost: z.coerce.number().finite().nonnegative("Cost must be >= 0").default(0),
   purchaseDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
@@ -528,7 +528,7 @@ export const equipmentAssignSchema = z.object({
 export const equipmentMaintenanceSchema = z.object({
   equipmentId: z.string().min(1),
   type: z.enum(["SCHEDULED", "REPAIR", "INSPECTION"]),
-  cost: z.coerce.number().nonnegative().optional(),
+  cost: z.coerce.number().finite().nonnegative().optional(),
   vendor: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
@@ -537,7 +537,7 @@ export const equipmentMaintenanceSchema = z.object({
 // ── Requisitions ──
 export const requisitionLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qtyRequested: z.coerce.number().positive("Quantity must be > 0"),
+  qtyRequested: z.coerce.number().finite().positive("Quantity must be > 0"),
   notes: z.string().optional().nullable(),
   preferredSupplierId: z.string().optional().nullable(),
 });
@@ -566,9 +566,9 @@ export const employeeSchema = z.object({
   trade: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email("Invalid email").optional().nullable(),
-  dailyRate: z.coerce.number().nonnegative("Daily rate must be >= 0").optional().nullable(),
+  dailyRate: z.coerce.number().finite().nonnegative("Daily rate must be >= 0").optional().nullable(),
   wageType: z.enum(["DAILY", "MONTHLY", "FIXED"]).optional(),
-  monthlySalary: z.coerce.number().nonnegative().optional().nullable(),
+  monthlySalary: z.coerce.number().finite().nonnegative().optional().nullable(),
   designation: z.string().optional().nullable(),
   joinDate: z.string().optional().nullable(),
   crewId: z.string().optional().nullable(),
@@ -623,28 +623,28 @@ export const generatePayrollSchema = z.object({
 });
 
 export const payrollLineUpdateSchema = z.object({
-  overtimeAmount: z.coerce.number().nonnegative().optional(),
-  allowance: z.coerce.number().nonnegative().optional(),
-  bonus: z.coerce.number().nonnegative().optional(),
-  pf: z.coerce.number().nonnegative().optional(),
-  employerPf: z.coerce.number().nonnegative().optional(),
-  esi: z.coerce.number().nonnegative().optional(),
-  professionTax: z.coerce.number().nonnegative().optional(),
-  tax: z.coerce.number().nonnegative().optional(),
-  deductions: z.coerce.number().nonnegative().optional(),
+  overtimeAmount: z.coerce.number().finite().nonnegative().optional(),
+  allowance: z.coerce.number().finite().nonnegative().optional(),
+  bonus: z.coerce.number().finite().nonnegative().optional(),
+  pf: z.coerce.number().finite().nonnegative().optional(),
+  employerPf: z.coerce.number().finite().nonnegative().optional(),
+  esi: z.coerce.number().finite().nonnegative().optional(),
+  professionTax: z.coerce.number().finite().nonnegative().optional(),
+  tax: z.coerce.number().finite().nonnegative().optional(),
+  deductions: z.coerce.number().finite().nonnegative().optional(),
 });
 
 // ── DPR (Daily Progress Report) ──
 export const dprMaterialLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().positive("Quantity must be > 0"),
-  unitCost: z.coerce.number().nonnegative("Unit cost must be >= 0"),
+  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().nonnegative("Unit cost must be >= 0"),
 });
 
 export const dprLaborLineSchema = z.object({
   employeeId: z.string().optional().nullable(),
   crewId: z.string().optional().nullable(),
-  hoursWorked: z.coerce.number().positive("Hours must be > 0"),
+  hoursWorked: z.coerce.number().finite().positive("Hours must be > 0"),
   taskDescription: z.string().min(1, "Task description is required").max(300),
 }).refine(
   (data) => data.employeeId || data.crewId,
@@ -657,7 +657,7 @@ export const dprSchema = z.object({
   weather: z.string().max(200).optional().nullable(),
   workSummary: z.string().min(1, "Work summary is required").max(2000),
   workType: z.string().max(200).optional().nullable(),
-  workQty: z.coerce.number().positive("Work qty must be > 0").optional().nullable(),
+  workQty: z.coerce.number().finite().positive("Work qty must be > 0").optional().nullable(),
   workUnit: z.string().max(50).optional().nullable(),
   progressPct: z.coerce.number().min(0).max(100).optional().nullable(),
   blockers: z.string().max(1000).optional().nullable(),
@@ -679,8 +679,8 @@ export const departmentSchema = z.object({
 // ── Supplier Return ──
 export const supplierReturnLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().positive("Quantity must be > 0"),
-  unitCost: z.coerce.number().nonnegative("Unit cost must be >= 0"),
+  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().nonnegative("Unit cost must be >= 0"),
   reason: z.string().optional().nullable(),
 });
 
@@ -749,6 +749,19 @@ export function json(body: unknown, init?: ResponseInit) {
 let _devUser: { id: string; email: string; name: string; role: string; companyId: string | null } | null = null;
 
 async function getDevBypassUser() {
+  // Test-only: allow switching roles via x-test-role header (dev bypass mode only).
+  // This enables RBAC testing without spinning up real auth sessions per role.
+  const testRole = (await headers()).get("x-test-role");
+  if (testRole) {
+    const u = await prisma.user.findFirst({
+      where: { role: testRole as any },
+      select: { id: true, email: true, name: true, role: true, companyId: true },
+    });
+    if (u) {
+      return { id: u.id, email: u.email, name: u.name, role: u.role ?? "ADMIN", companyId: u.companyId };
+    }
+  }
+
   if (_devUser) return _devUser;
   // Prefer the first OWNER (full permissions); fall back to ADMIN, then any
   // user; fall back to synthetic "dev" only if the DB has no users at all.
@@ -1067,6 +1080,15 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
     } catch (err: unknown) {
       if (err instanceof ServiceError) {
         return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      if (err instanceof SyntaxError && err.message.includes("JSON")) {
+        return json({ error: "Malformed JSON in request body" }, { status: 400 });
+      }
+      if (err instanceof ForbiddenError) {
+        return json({ error: err.message }, { status: 403 });
+      }
+      if (err instanceof UnauthorizedError) {
+        return json({ error: err.message }, { status: 401 });
       }
       // Log the full error server-side but don't leak internal details to the client
       console.error("[apiHandler] Unhandled error:", err);

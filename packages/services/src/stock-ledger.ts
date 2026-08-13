@@ -324,7 +324,7 @@ export async function recordTransfer(
 export async function withStockTransaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
@@ -337,8 +337,10 @@ export async function withStockTransaction<T>(
       const msg = err instanceof Error ? err.message : String(err);
       // Retry on write conflict / deadlock (Serializable isolation can cause these)
       if (msg.includes("write conflict") || msg.includes("deadlock") || msg.includes("could not serialize")) {
-        // Brief exponential backoff: 50ms, 100ms, 200ms
-        await new Promise((r) => setTimeout(r, 50 * Math.pow(2, attempt)));
+        // Exponential backoff with jitter: 100ms, 200ms, 400ms, 800ms, 1600ms
+        const baseDelay = 100 * Math.pow(2, attempt);
+        const jitter = Math.random() * 50;
+        await new Promise((r) => setTimeout(r, baseDelay + jitter));
         continue;
       }
       throw err;

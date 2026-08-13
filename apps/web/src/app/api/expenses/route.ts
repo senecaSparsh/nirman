@@ -8,7 +8,7 @@ import { z } from "zod";
 const expenseSchema = z.object({
   projectId: z.string().optional().nullable(),
   category: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
   date: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
