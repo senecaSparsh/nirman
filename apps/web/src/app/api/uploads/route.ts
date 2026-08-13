@@ -48,7 +48,12 @@ function sanitize(name: string): string {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   await requireUser();
-  const formData = await req.formData();
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return json({ error: "Invalid form data. Expected multipart/form-data with a 'file' field." }, { status: 400 });
+  }
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return json({ error: "No file provided (field name must be 'file')." }, { status: 400 });
