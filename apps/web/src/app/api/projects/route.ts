@@ -3,12 +3,23 @@ import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-export const GET = apiHandler(async () => {
+export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROJECTS_VIEW);
   const company = await getCompany();
+  const { searchParams } = new URL(req.url);
+  const type = searchParams.get("type");
+  const status = searchParams.get("status");
+  const q = searchParams.get("q")?.trim() ?? "";
+
   const projects = await prisma.project.findMany({
     take: 100,
-    where: { companyId: company.id, deletedAt: null },
+    where: {
+      companyId: company.id,
+      deletedAt: null,
+      ...(type ? { type: type as any } : {}),
+      ...(status ? { status: status as any } : {}),
+      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: {
       _count: {

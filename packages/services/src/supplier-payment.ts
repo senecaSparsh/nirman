@@ -65,6 +65,18 @@ export async function createSupplierPayment(input: {
       if (po.companyId !== input.companyId) {
         throw new ServiceError("Purchase order does not belong to this company");
       }
+      // Check for overpayment: sum existing payments + new amount should not exceed PO total
+      const existingPayments = await tx.supplierPayment.aggregate({
+        where: { purchaseOrderId: input.purchaseOrderId },
+        _sum: { amount: true },
+      });
+      const alreadyPaid = new Decimal(existingPayments._sum.amount ?? 0);
+      const poTotal = new Decimal(po.total);
+      if (alreadyPaid.plus(amount).gt(poTotal)) {
+        throw new ServiceError(
+          `Payment exceeds PO total. PO total: ${poTotal}, already paid: ${alreadyPaid}, attempting to pay: ${amount}`,
+        );
+      }
     }
 
     // 2b. Validate invoice exists and belongs to the supplier if invoiceId is provided

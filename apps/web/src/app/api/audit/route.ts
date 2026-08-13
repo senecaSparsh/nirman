@@ -42,7 +42,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
     if (startDate || endDate) {
       where.timestamp = {};
       if (startDate) where.timestamp.gte = new Date(startDate);
-      if (endDate) where.timestamp.lte = new Date(endDate);
+      if (endDate) {
+        // Include the full end day (23:59:59.999) — new Date("2026-08-13") is midnight
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        where.timestamp.lte = end;
+      }
     }
 
     if (user.companyId) {

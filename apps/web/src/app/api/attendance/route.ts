@@ -72,9 +72,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (!parsed.success) {
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
+    const parsedDate = new Date(parsed.data.date);
+    if (isNaN(parsedDate.getTime())) {
+      return json({ error: "Invalid date format" }, { status: 400 });
+    }
     const results = await bulkRecordAttendance({
       companyId: company.id,
-      date: new Date(parsed.data.date),
+      date: parsedDate,
       projectId: parsed.data.projectId ?? undefined,
       records: parsed.data.records.map((r) => ({
         employeeId: r.employeeId,
@@ -101,6 +105,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const attendanceDate = new Date(parsed.data.date);
+  if (isNaN(attendanceDate.getTime())) {
+    return json({ error: "Invalid date format" }, { status: 400 });
+  }
   const attendance = await recordAttendance({
     companyId: company.id,
     employeeId: parsed.data.employeeId,
