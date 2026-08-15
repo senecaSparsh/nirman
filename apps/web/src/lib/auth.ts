@@ -32,8 +32,18 @@ export const auth = betterAuth({
     },
   },
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    // 1 year — users stay signed in like Google/Microsoft. The session
+    // auto-renews every 7 days when the user is active, so a regularly
+    // active user never has to sign in again.
+    expiresIn: 60 * 60 * 24 * 365, // 365 days
+    updateAge: 60 * 60 * 24 * 7, // renew every 7 days of activity
+    // Cookie cache — avoids a DB lookup on every request by caching the
+    // session in a signed cookie for 5 minutes. If the session is revoked
+    // or expires, the cookie is invalidated automatically.
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes
+    },
   },
 });
 
