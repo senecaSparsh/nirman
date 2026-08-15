@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Shield, Phone, ChevronDown, Check, Loader2,
-  UserCog, Crown, CircleDot, UserPlus, X,
+  UserCog, Crown, CircleDot, UserPlus, X, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, type Role } from "@/lib/roles";
@@ -173,6 +173,7 @@ export function MobileTeamList({
             key={member.id}
             member={member}
             canManage={canManage && !member.isSelf}
+            canEditProfile={member.isSelf || (canManage && !member.isSelf)}
             expanded={expandedId === member.id}
             onToggle={() => setExpandedId(expandedId === member.id ? null : member.id)}
             assignableRoles={assignableRoles}
@@ -246,6 +247,7 @@ export function MobileTeamList({
 function MemberCard({
   member,
   canManage,
+  canEditProfile,
   expanded,
   onToggle,
   assignableRoles,
@@ -253,12 +255,14 @@ function MemberCard({
 }: {
   member: TeamMember;
   canManage: boolean;
+  canEditProfile: boolean;
   expanded: boolean;
   onToggle: () => void;
   assignableRoles: AssignableRole[];
   onChanged: () => void;
 }) {
   const [changing, setChanging] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const meta = ROLE_META[member.role];
   const Icon = meta.icon;
 
@@ -369,10 +373,10 @@ function MemberCard({
           )}
         </div>
 
-        {canManage && (
+        {(canManage || canEditProfile) && (
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-400)" }}>
-              {expanded ? "Tap to close" : "Tap to manage"}
+              {expanded ? "Tap to close" : canManage ? "Tap to manage" : "Tap to edit"}
             </span>
             <ChevronDown
               className="size-3 transition-transform"
@@ -386,56 +390,87 @@ function MemberCard({
       </button>
 
       {/* Expanded management panel */}
-      {expanded && canManage && (
+      {expanded && (canManage || canEditProfile) && (
         <div
           className="p-2.5 border-t"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
-          {/* Role change */}
-          <p
-            className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1.5"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            Change Role
-          </p>
-          <div className="flex flex-wrap gap-1 mb-3">
-            {assignableRoles.map((r) => {
-              const rMeta = ROLE_META[r.key];
-              const isCurrent = r.key === member.role;
-              return (
-                <button
-                  key={r.key}
-                  onClick={() => changeRole(r.key)}
-                  disabled={changing || isCurrent}
-                  className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-[0.4375rem] font-semibold press disabled:opacity-40"
-                  style={{
-                    color: isCurrent ? "var(--color-paper)" : rMeta.color,
-                    backgroundColor: isCurrent ? rMeta.color : `color-mix(in srgb, ${rMeta.color} 8%, transparent)`,
-                  }}
-                >
-                  {isCurrent && <Check className="size-2.5" />}
-                  {r.label}
-                </button>
-              );
-            })}
-          </div>
+          {/* Edit profile button */}
+          {canEditProfile && (
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press mb-2"
+              style={{
+                color: "var(--color-ink-950)",
+                backgroundColor: "var(--color-concrete)",
+              }}
+            >
+              <Pencil className="size-3" />
+              Edit Profile
+            </button>
+          )}
 
-          {/* Active toggle */}
-          <button
-            onClick={toggleActive}
-            disabled={changing}
-            className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press disabled:opacity-50"
-            style={{
-              color: member.active ? "var(--color-stop)" : "var(--color-go)",
-              backgroundColor: `color-mix(in srgb, ${member.active ? "var(--color-stop)" : "var(--color-go)"} 8%, transparent)`,
-            }}
-          >
-            {changing ? (
-              <Loader2 className="size-3 animate-spin" />
-            ) : null}
-            {member.active ? "Deactivate Member" : "Activate Member"}
-          </button>
+          {/* Role change */}
+          {canManage && (
+            <>
+              <p
+                className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1.5"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Change Role
+              </p>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {assignableRoles.map((r) => {
+                  const rMeta = ROLE_META[r.key];
+                  const isCurrent = r.key === member.role;
+                  return (
+                    <button
+                      key={r.key}
+                      onClick={() => changeRole(r.key)}
+                      disabled={changing || isCurrent}
+                      className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-[0.4375rem] font-semibold press disabled:opacity-40"
+                      style={{
+                        color: isCurrent ? "var(--color-paper)" : rMeta.color,
+                        backgroundColor: isCurrent ? rMeta.color : `color-mix(in srgb, ${rMeta.color} 8%, transparent)`,
+                      }}
+                    >
+                      {isCurrent && <Check className="size-2.5" />}
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active toggle */}
+              <button
+                onClick={toggleActive}
+                disabled={changing}
+                className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press disabled:opacity-50"
+                style={{
+                  color: member.active ? "var(--color-stop)" : "var(--color-go)",
+                  backgroundColor: `color-mix(in srgb, ${member.active ? "var(--color-stop)" : "var(--color-go)"} 8%, transparent)`,
+                }}
+              >
+                {changing ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : null}
+                {member.active ? "Deactivate Member" : "Activate Member"}
+              </button>
+            </>
+          )}
         </div>
+      )}
+
+      {/* Edit profile dialog */}
+      {showEdit && (
+        <EditMemberDialog
+          member={member}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => {
+            setShowEdit(false);
+            onChanged();
+          }}
+        />
       )}
     </div>
   );
@@ -636,6 +671,170 @@ function AddMemberDialog({
               </>
             )}
           </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Edit Member Dialog ─── */
+function EditMemberDialog({
+  member,
+  onClose,
+  onSaved,
+}: {
+  member: TeamMember;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(member.name);
+  const [phone, setPhone] = useState(member.phone ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setSaving(true);
+    haptic(10);
+    try {
+      const res = await fetch(`/api/users/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update profile");
+      haptic([10, 40, 80]);
+      toast.success("Profile updated");
+      onSaved();
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="grid place-items-center size-7 rounded-[0.375rem]"
+              style={{ backgroundColor: "var(--color-concrete)" }}
+            >
+              <Pencil className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+            </span>
+            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              Edit Profile
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Email (read-only) */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={member.email}
+              disabled
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none opacity-60"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
+            />
+            <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              Email cannot be changed.
+            </p>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Rajesh Sharma"
+              autoComplete="name"
+              enterKeyHint="next"
+              autoFocus
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Phone (optional)
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="98765 43210"
+              autoComplete="tel"
+              enterKeyHint="done"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+
+          {/* Submit */}
+          <div className="flex gap-2 mt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press"
+              style={{
+                borderColor: "var(--color-line)",
+                color: "var(--color-ink-500)",
+                backgroundColor: "transparent",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

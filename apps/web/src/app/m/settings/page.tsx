@@ -31,6 +31,7 @@ import {
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { InstallAppRow } from "@/components/mobile/install-prompt";
 import { ThemeToggleRow } from "@/components/mobile/theme-toggle-row";
+import { CurrencyToggleRow } from "@/components/mobile/currency-toggle-row";
 import { CompanySwitcher } from "./company-switcher";
 
 /**
@@ -374,6 +375,7 @@ async function SettingsContent() {
       <SectionHead title="App" />
       <div className="flex flex-col gap-2 mb-3">
         <ThemeToggleRow />
+        <CurrencyToggleRow />
         <InstallAppRow />
       </div>
 

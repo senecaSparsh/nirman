@@ -86,7 +86,7 @@ async function MobileSupplierReturnsContent() {
           <MobileEmptyState
             icon={Undo2}
             title="No purchase returns"
-            hint="Send defective or excess stock back from the desktop Procure section"
+            hint="Tap 'New Return' to send defective or excess stock back to a supplier"
           />
         </>
       )}

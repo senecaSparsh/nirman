@@ -727,8 +727,10 @@ export const workflowScheduleSchema = z.object({
 
 // ── User role management ──
 export const userRoleSchema = z.object({
-  role: z.enum(["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"]),
+  role: z.enum(["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"]).optional(),
   active: z.boolean().optional(),
+  name: z.string().min(1).max(100).optional(),
+  phone: z.string().max(20).nullable().optional(),
 });
 
 /** Standard JSON API response helper. */

@@ -3,10 +3,11 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
-  Search, X, MapPin, TrendingUp,
+  Search, X, MapPin, TrendingUp, Plus,
   CheckCircle2, PauseCircle, Split, Maximize,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { MobileNewLandDialog } from "./MobileNewLandDialog";
 
 interface ParcelItem {
   id: string;
@@ -74,13 +75,16 @@ const AREA_UNIT_SHORT: Record<string, string> = {
 export function MobileLandList({
   items,
   portfolio,
-  canManage: _canManage,
+  canManage,
+  projects,
 }: {
   items: LandPurchaseItem[];
   portfolio: Portfolio;
   canManage: boolean;
+  projects: { id: string; name: string }[];
 }) {
   const [query, setQuery] = useState("");
+  const [showNew, setShowNew] = useState(false);
 
   // A purchase is "sub-divided" if it has been partitioned (root split into
   // sub-parcels) OR has more than 1 sellable parcel. "Whole" = single parcel
@@ -221,7 +225,7 @@ export function MobileLandList({
             {query ? "No matching land" : "No land purchases"}
           </p>
           <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : "Land acquisitions will appear here"}
+            {query ? "Try a different search" : canManage ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
           </p>
         </div>
       ) : (
@@ -282,6 +286,32 @@ export function MobileLandList({
             )}
           </div>
         </div>
+      )}
+
+      {/* ── FAB: New Land Purchase ── */}
+      {canManage && (
+        <button
+          onClick={() => setShowNew(true)}
+          className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+          style={{
+            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+            backgroundColor: "var(--color-ink-950)",
+            color: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+          aria-label="Add new land purchase"
+        >
+          <Plus className="size-5" />
+        </button>
+      )}
+
+      {/* ── New Land Purchase Dialog ── */}
+      {showNew && (
+        <MobileNewLandDialog
+          open={showNew}
+          onClose={() => setShowNew(false)}
+          projects={projects}
+        />
       )}
     </div>
   );

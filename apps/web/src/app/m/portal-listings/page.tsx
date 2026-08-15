@@ -2,11 +2,13 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Globe } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { Globe, Plus } from "lucide-react";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import {
   MobileEmptyState,
   MobileStatCard,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobilePortalListingsList, type PortalListingItem } from "./MobilePortalListingsList";
 
@@ -26,6 +28,8 @@ export default function MobilePortalListingsPage() {
 async function MobilePortalListingsContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.SALES_MANAGE);
 
   const listings = await prisma.portalListing.findMany({
     where: { companyId: company.id },
@@ -77,10 +81,26 @@ async function MobilePortalListingsContent() {
         <MobileEmptyState
           icon={Globe}
           title="No portal listings"
-          hint="Create portal listings from the desktop Sell → Portal Listings section"
+          hint={canManage ? "Tap 'New Listing' to list a unit on 99acres, MagicBricks, etc." : "Portal listings will appear here once created"}
+          action={
+            canManage ? (
+              <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
+                New Listing
+              </MobileCta>
+            ) : undefined
+          }
         />
       ) : (
-        <MobilePortalListingsList items={rows} />
+        <>
+          <MobilePortalListingsList items={rows} />
+          {canManage && (
+            <div className="mt-4">
+              <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
+                New Listing
+              </MobileCta>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

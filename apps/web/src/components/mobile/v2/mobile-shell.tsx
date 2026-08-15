@@ -318,33 +318,36 @@ function MobileShellInner({
     .toUpperCase();
 
   const activeTab = MOBILE_TABS.find((t) => isModuleActive(pathname, t.href));
-  const isDrillDown = Boolean(
-    activeTab && pathname !== activeTab.href && !isModuleHome(pathname),
-  );
+
+  // A "drill-down" is any /m/* page that is NOT one of the 5 module homes.
+  // This includes pages that don't fall under any tab prefix (e.g. /m/boq,
+  // /m/projects, /m/reports) — those still need a back button.
+  const isDrillDown = !isModuleHome(pathname) && pathname !== "/m";
 
   // ── Edge-swipe to go back (iOS-style) ──
-  // Tracks a touch that starts within 24px of the left edge. If the user
+  // Tracks a touch that starts within 28px of the left edge. If the user
   // swipes right by >80px without lifting, we call router.back().
+  // Handlers are MERGED with pull-to-refresh below — both gestures coexist.
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    // Only track touches that start near the left edge
+  const onSwipeTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     if (!t) return;
-    if (t.clientX < 24) {
+    // Track touches that start near the left edge (wider zone for reliability)
+    if (t.clientX < 28) {
       touchStart.current = { x: t.clientX, y: t.clientY, time: Date.now() };
     }
   };
 
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onSwipeTouchMove = (e: React.TouchEvent) => {
     if (!touchStart.current) return;
     const t = e.touches[0];
     if (!t) return;
     const dx = t.clientX - touchStart.current.x;
     const dy = Math.abs(t.clientY - touchStart.current.y);
-    // Only follow horizontal swipes (not vertical scrolls)
-    if (dy > 40 && dx < 30) {
+    // Cancel if this is a vertical scroll, not a horizontal swipe
+    if (dy > 50 && dx < 40) {
       touchStart.current = null;
       setSwipeOffset(0);
       return;
@@ -354,17 +357,47 @@ function MobileShellInner({
     }
   };
 
-  const onTouchEnd = () => {
+  const onSwipeTouchEnd = () => {
     if (!touchStart.current) {
       setSwipeOffset(0);
       return;
     }
     const elapsed = Date.now() - touchStart.current.time;
     if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
-      router.back();
+      goBack();
     }
     touchStart.current = null;
     setSwipeOffset(0);
+  };
+
+  // ── Unified back navigation with fallback ──
+  // If there's browser history, go back. If not (deep-link), fall back
+  // to the active module home or /m/home as a last resort.
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      const fallback = activeTab?.href ?? "/m/home";
+      router.push(fallback);
+    }
+  }
+
+  // ── Merge pull-to-refresh + edge-swipe touch handlers ──
+  // Both gestures share the same <main> element. Without merging, the
+  // later prop overrides the earlier one — breaking one of the two.
+  const mergedTouchHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      bind.onTouchStart(e);
+      onSwipeTouchStart(e);
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      bind.onTouchMove(e);
+      onSwipeTouchMove(e);
+    },
+    onTouchEnd: () => {
+      bind.onTouchEnd();
+      onSwipeTouchEnd();
+    },
   };
 
   return (
@@ -415,7 +448,7 @@ function MobileShellInner({
           <div className="flex items-center gap-2 min-w-0">
             {isDrillDown ? (
               <button
-                onClick={() => router.back()}
+                onClick={goBack}
                 aria-label="Back"
                 className="press grid place-items-center size-9 rounded-[0.375rem]"
                 style={{ color: "var(--color-ink-700)" }}
@@ -437,7 +470,7 @@ function MobileShellInner({
                 className="text-[0.6875rem] font-bold truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
-                {activeTab?.label ?? companyInfo.name}
+                {activeTab?.label ?? pageTitleFromPath(pathname)}
               </span>
             ) : (
               <div ref={companySwitcherRef} className="relative min-w-0">
@@ -542,10 +575,7 @@ function MobileShellInner({
       {/* ══ CONTENT — scrollable, clears bottom nav ══ */}
       <main
         className="relative flex-1 overflow-y-auto pb-nav"
-        {...bind}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        {...mergedTouchHandlers}
       >
         {/* Pull-to-refresh indicator */}
         {showIndicator && (
@@ -688,6 +718,82 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
 /** Check if pathname is exactly a module home (not a drill-down). */
 function isModuleHome(pathname: string): boolean {
   return MOBILE_TABS.some((t) => t.href === pathname);
+}
+
+/**
+ * Derive a human-readable page title from a /m/* pathname.
+ * Used in the drill-down header when no active tab matches.
+ * e.g. /m/boq → "BOQ", /m/projects/[id] → "Project Detail",
+ *      /m/hr/leaves → "Leaves", /m/portal-listings/new → "New Listing"
+ */
+function pageTitleFromPath(pathname: string): string {
+  // Strip /m/ prefix and split into segments
+  const segments = pathname.replace(/^\/m\//, "").split("/").filter(Boolean);
+  if (segments.length === 0) return "Home";
+
+  const TITLE_MAP: Record<string, string> = {
+    boq: "BOQ",
+    wbs: "WBS",
+    "budget-variance": "Budget Variance",
+    "measurement-book": "Measurement Book",
+    "project-control": "Project Control",
+    "standard-consumptions": "Std Consumptions",
+    "material-reconciliation": "Material Recon",
+    "work-orders": "Work Orders",
+    "rate-contracts": "Rate Contracts",
+    projects: "Projects",
+    units: "Built Units",
+    land: "Land & Parcels",
+    customers: "Customers",
+    sales: "Sales",
+    rentals: "Rentals",
+    "portal-listings": "Portal Listings",
+    reports: "Reports",
+    procurement: "Purchase Orders",
+    requisitions: "Material Indents",
+    suppliers: "Suppliers",
+    "supplier-returns": "Supplier Returns",
+    materials: "Materials",
+    stock: "Stock Ledger",
+    "stock-counts": "Stock Counts",
+    transfers: "Transfers",
+    equipment: "Equipment",
+    "material-sales": "Material Sales",
+    "scrap-generations": "Scrap",
+    attendance: "Attendance",
+    dprs: "DPRs",
+    employees: "Employees",
+    leaves: "Leaves",
+    tasks: "Tasks",
+    books: "Books",
+    finance: "Finance",
+    payroll: "Payroll",
+    receipts: "Receipts",
+    gl: "Trial Balance",
+    settings: "Settings",
+    team: "Team",
+    me: "My Profile",
+    home: "Home",
+    inventory: "Inventory",
+    hr: "HR",
+    accounts: "Accounts",
+    queue: "Offline Queue",
+    pulse: "Pulse",
+    approvals: "Approvals",
+    attention: "Attention",
+    new: "New",
+  };
+
+  // For [id] segments (dynamic routes), use the parent segment's title
+  const lastSegment = segments[segments.length - 1] ?? "";
+  if (lastSegment === "new") return "New";
+  // If the last segment looks like a cuid (starts with a letter, 20+ chars), use parent
+  if (lastSegment.length > 20 && /^[a-z0-9]+$/i.test(lastSegment)) {
+    const parent = segments[segments.length - 2] ?? "";
+    return TITLE_MAP[parent] ?? parent.charAt(0).toUpperCase() + parent.slice(1);
+  }
+
+  return TITLE_MAP[lastSegment] ?? lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
 }
 
 /** Minimal cn helper (avoids importing from @/lib/utils which uses cool tokens). */

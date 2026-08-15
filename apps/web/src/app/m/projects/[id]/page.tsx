@@ -19,6 +19,7 @@ import {
   SectionHead,
 } from "@/components/mobile/v2/primitives";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
+import { MobileEditProjectButton } from "./MobileEditProjectButton";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -217,6 +218,22 @@ async function MobileProjectDetailContent({
               {typeLabel} · {project.status}
             </p>
           </div>
+          {canManage && (
+            <MobileEditProjectButton
+              project={{
+                id: project.id,
+                name: project.name,
+                type: project.type as "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER",
+                status: project.status as "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD",
+                address: project.address,
+                startDate: project.startDate?.toISOString() ?? null,
+                endDate: project.endDate?.toISOString() ?? null,
+                totalBudget: project.totalBudget ? toNum(project.totalBudget) : null,
+                totalSellableArea: project.totalSellableArea ? toNum(project.totalSellableArea) : null,
+                description: project.description,
+              }}
+            />
+          )}
         </div>
 
         {/* Address + dates */}

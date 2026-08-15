@@ -54,6 +54,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     );
   }
 
+  // Name/phone editing requires the actor to be above the target's tier
+  // (or editing their own profile — self-edit is always allowed)
+  if ((body.name !== undefined || body.phone !== undefined) && actorId !== userId) {
+    if (!canAssignRole(actorRole, existing.role)) {
+      return json(
+        { error: `You cannot edit a ${existing.role}'s profile — they are at or above your tier.` },
+        { status: 403 },
+      );
+    }
+  }
+
   // Prevent the last OWNER from demoting themselves
   if (existing.role === "OWNER" && parsed.data.role !== "OWNER") {
     const ownerCount = await prisma.user.count({ where: { role: "OWNER", active: true } });
@@ -70,11 +81,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const update: Record<string, unknown> = {};
   if (body.role !== undefined) update.role = body.role;
   if (body.active !== undefined) update.active = body.active;
+  if (body.name !== undefined) update.name = body.name;
+  if (body.phone !== undefined) update.phone = body.phone;
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data: update,
-    select: { id: true, email: true, name: true, role: true, active: true },
+    select: { id: true, email: true, name: true, role: true, active: true, phone: true },
   });
 
   return json({ ok: true, user: updated });

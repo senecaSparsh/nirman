@@ -22,6 +22,11 @@ import {
   Wallet,
   BookOpen as BookIcon,
   Settings,
+  CalendarDays,
+  ListTree,
+  Gauge,
+  Beaker,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -92,6 +97,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, received" },
         { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site requests → PO" },
         { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, ratings, balances" },
+        { href: "/m/rate-contracts", icon: FileText, label: "Rate Contracts", subtitle: "Fixed-rate supplier agreements" },
         { href: "/m/supplier-returns", icon: AlertTriangle, label: "Supplier Returns", subtitle: "Return to vendor" },
       ],
     },
@@ -118,7 +124,20 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/customers", icon: Users, label: "Customers", subtitle: "Buyers, contacts, payments" },
         { href: "/m/sales", icon: ShoppingCart, label: "Sales", subtitle: "Active sales, payments" },
         { href: "/m/rentals", icon: Building2, label: "Rentals", subtitle: "Rented units, agreements" },
+        { href: "/m/work-orders", icon: Wrench, label: "Work Orders", subtitle: "Subcontractor scope & RA bills" },
         { href: "/m/portal-listings", icon: TrendingUp, label: "Portal Listings", subtitle: "99acres, MagicBricks sync" },
+      ],
+    },
+    {
+      title: "Construction",
+      links: [
+        { href: "/m/boq", icon: FileText, label: "Bill of Quantities", subtitle: "BOQ items, rates, amounts" },
+        { href: "/m/wbs", icon: ListTree, label: "WBS", subtitle: "Work breakdown structure" },
+        { href: "/m/measurement-book", icon: BookOpen, label: "Measurement Book", subtitle: "Measured work entries" },
+        { href: "/m/budget-variance", icon: TrendingUp, label: "Budget Variance", subtitle: "Budget vs actual analysis" },
+        { href: "/m/project-control", icon: Gauge, label: "Project Control", subtitle: "EVM: CPI, SPI, EAC" },
+        { href: "/m/standard-consumptions", icon: Beaker, label: "Std Consumptions", subtitle: "Material consumption benchmarks" },
+        { href: "/m/material-reconciliation", icon: Package, label: "Material Reconciliation", subtitle: "Required vs issued vs consumed" },
       ],
     },
     {
@@ -148,6 +167,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       title: "People",
       links: [
         { href: "/m/hr/employees", icon: User, label: "Employees", subtitle: "All workers, trades, wages" },
+        { href: "/m/hr/leaves", icon: CalendarDays, label: "Leaves", subtitle: "Leave records & approvals" },
         { href: "/m/site/me", icon: User, label: "My Profile", subtitle: "Supervisor profile" },
         { href: "/m/site/tasks", icon: ClipboardCheck, label: "My Tasks", subtitle: "Assigned tasks" },
       ],
@@ -168,6 +188,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       links: [
         { href: "/m/books/gl", icon: BookIcon, label: "Trial Balance", subtitle: "All accounts" },
         { href: "/m/books/reports", icon: TrendingUp, label: "Analytics", subtitle: "Key metrics at a glance" },
+        { href: "/m/reports", icon: BarChart3, label: "Reports Hub", subtitle: "All report links in one place" },
       ],
     },
   ],

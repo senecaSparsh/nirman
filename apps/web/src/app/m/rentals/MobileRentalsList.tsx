@@ -4,10 +4,10 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, X, KeyRound, Phone, AlertCircle, Calendar,
-  Clock,
-  ChevronRight,
+  Clock, ChevronRight, Plus,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { MobileNewTenancyDialog } from "./MobileNewTenancyDialog";
 
 /* ─── Types ─── */
 
@@ -61,12 +61,21 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
 export function MobileRentalsList({
   items,
   stats,
+  canManage = false,
+  unitAssets = [],
+  parcelAssets = [],
+  customers = [],
 }: {
   items: RentalListItem[];
   stats: Stats;
+  canManage?: boolean;
+  unitAssets?: { id: string; label: string }[];
+  parcelAssets?: { id: string; label: string }[];
+  customers?: { id: string; name: string }[];
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [showNew, setShowNew] = useState(false);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -209,7 +218,7 @@ export function MobileRentalsList({
             {query ? "No matching rentals" : filter === "overdue" ? "No overdue rentals" : filter === "expiring" ? "No expiring leases" : "No rentals"}
           </p>
           <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : "Create tenancies from the desktop Rentals section"}
+            {query ? "Try a different search" : canManage ? "Tap + to create your first tenancy" : "Tenancies will appear here once created"}
           </p>
         </div>
       ) : (
@@ -218,6 +227,35 @@ export function MobileRentalsList({
             <TenancyCard key={t.id} tenancy={t} />
           ))}
         </div>
+      )}
+
+      {/* ── FAB: New Tenancy ── */}
+      {canManage && (unitAssets.length > 0 || parcelAssets.length > 0) && (
+        <button
+          onClick={() => setShowNew(true)}
+          className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+          style={{
+            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+            backgroundColor: "var(--color-ink-950)",
+            color: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+          aria-label="Add new tenancy"
+        >
+          <Plus className="size-5" />
+        </button>
+      )}
+
+      {/* ── New Tenancy Dialog ── */}
+      {showNew && (
+        <MobileNewTenancyDialog
+          open={showNew}
+          onClose={() => setShowNew(false)}
+          units={unitAssets}
+          parcels={parcelAssets}
+          projects={[]}
+          customers={customers}
+        />
       )}
     </div>
   );

@@ -4,13 +4,15 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Home, ChevronLeft } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileUnitsList } from "./MobileUnitsList";
+import { MobileUnitsFab } from "./MobileUnitsFab";
 
 /**
  * /m/units — mobile built-unit inventory.
@@ -38,6 +40,8 @@ async function MobileUnitsContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
   const { project: projectId } = await searchParams;
 
   const project = projectId
@@ -94,6 +98,15 @@ async function MobileUnitsContent({
     projectId: u.project.id,
     projectName: u.project.name,
   }));
+
+  // Fetch active projects for the create-unit dialog dropdown
+  const projects = canManage
+    ? await prisma.project.findMany({
+        where: { companyId: company.id, deletedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
 
   return (
     <div>
@@ -171,16 +184,23 @@ async function MobileUnitsContent({
       {/* ── Searchable/filterable list ── */}
       <MobileUnitsList items={serialized} projectFiltered={!!project} />
 
+      {/* ── FAB: New Unit ── */}
+      {canManage && projects.length > 0 && (
+        <MobileUnitsFab projects={projects} defaultProjectId={projectId} />
+      )}
+
       {/* ── Empty state ── */}
       {units.length === 0 ? (
         <MobileEmptyState
           icon={Home}
           title="No units yet"
-          hint={project ? "Units show here once a project creates them." : "Units show here once a project creates them."}
+          hint={canManage && projects.length > 0 ? "Tap + to create your first built unit." : "Units show here once a project creates them."}
           action={
-            <MobileCta href="/m/projects" icon={Home} variant="primary">
-              View Projects
-            </MobileCta>
+            !canManage || projects.length === 0 ? (
+              <MobileCta href="/m/projects" icon={Home} variant="primary">
+                View Projects
+              </MobileCta>
+            ) : undefined
           }
         />
       ) : null}

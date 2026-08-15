@@ -3,12 +3,13 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { Wallet, Building2 } from "lucide-react";
+import { Wallet, Building2, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
-import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, MobileStatCard, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileFinanceList } from "./MobileFinanceList";
+import { MobileFinanceFab } from "./MobileNewFinanceDialog";
 
 /**
  * /m/books/finance — mobile expenses & project costs list.
@@ -27,8 +28,10 @@ async function MobileFinanceContent() {
   const role = await getUserRole();
   if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
+  const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
+  const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
 
-  const [expenses, projectCosts] = await Promise.all([
+  const [expenses, projectCosts, projects] = await Promise.all([
     prisma.expense.findMany({
       where: { companyId: company.id },
       orderBy: { date: "desc" },
@@ -41,6 +44,13 @@ async function MobileFinanceContent() {
       take: 30,
       include: { project: { select: { name: true } } },
     }),
+    (canCreateExpense || canCreateProjectCost)
+      ? prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        })
+      : [],
   ]);
 
   const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
@@ -71,11 +81,21 @@ async function MobileFinanceContent() {
       </div>
 
       {expenses.length === 0 && projectCosts.length === 0 ? (
-        <>
-          <MobileEmptyState icon={Wallet} title="No expenses or project costs" hint="Record expenses and project costs from the desktop Finance section" />
-        </>
+        <MobileEmptyState
+          icon={Wallet}
+          title="No expenses or project costs"
+          hint={canCreateExpense || canCreateProjectCost ? "Tap + to record your first expense or project cost" : "Expenses and project costs will appear here"}
+        />
       ) : (
         <MobileFinanceList expenses={expenseItems} projectCosts={projectCostItems} />
+      )}
+
+      {(canCreateExpense || canCreateProjectCost) && (
+        <MobileFinanceFab
+          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          canCreateExpense={canCreateExpense}
+          canCreateProjectCost={canCreateProjectCost}
+        />
       )}
     </div>
   );

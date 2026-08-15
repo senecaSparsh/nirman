@@ -9,6 +9,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobilePayrollList } from "./MobilePayrollList";
+import { MobilePayrollFab } from "./MobileGeneratePayrollDialog";
 
 /** Finance → Payroll tab: payroll periods. */
 export default function BooksPayrollPage() {
@@ -24,6 +25,7 @@ async function BooksPayrollContent() {
   const role = await getUserRole();
   if (!hasPermission(role, PERM.PAYROLL_VIEW)) notFound();
   const company = await getCompany();
+  const canManage = hasPermission(role, PERM.PAYROLL_MANAGE);
 
   const periods = await prisma.payrollPeriod.findMany({
     where: { companyId: company.id },
@@ -55,10 +57,16 @@ async function BooksPayrollContent() {
       </div>
 
       {periods.length === 0 ? (
-        <MobileEmptyState icon={CalendarCheck} title="No payroll periods" hint="Generate payroll from the desktop HR section" />
+        <MobileEmptyState
+          icon={CalendarCheck}
+          title="No payroll periods"
+          hint={canManage ? "Tap + to generate payroll for a month" : "Payroll periods will appear here once generated"}
+        />
       ) : (
         <MobilePayrollList items={serialized} />
       )}
+
+      {canManage && <MobilePayrollFab />}
     </div>
   );
 }

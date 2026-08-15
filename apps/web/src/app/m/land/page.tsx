@@ -51,6 +51,15 @@ async function MobileLandContent() {
     },
   });
 
+  // Fetch active projects for the project dropdown in the create dialog
+  const projects = canManage
+    ? await prisma.project.findMany({
+        where: { companyId: company.id, deletedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
+
   // Build portfolio stats
   const allParcels = purchases.flatMap((p) => p.parcels);
   const sellable = allParcels.filter((p) => p.status !== "PARTITIONED");
@@ -120,6 +129,7 @@ async function MobileLandContent() {
         costBasis,
       }}
       canManage={canManage}
+      projects={projects}
     />
   );
 }

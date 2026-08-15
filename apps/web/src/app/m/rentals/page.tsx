@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileRentalsList, type RentalListItem } from "./MobileRentalsList";
 
@@ -28,8 +29,10 @@ export default function MobileRentalsPage() {
 async function MobileRentalsContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.SALE_CREATE);
 
-  const [tenancies, units, parcels] = await Promise.all([
+  const [tenancies, units, parcels, customers] = await Promise.all([
     prisma.tenancy.findMany({
       where: { companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
       orderBy: [{ status: "asc" }, { endDate: "asc" }],
@@ -41,12 +44,17 @@ async function MobileRentalsContent() {
       },
     }),
     prisma.builtUnit.findMany({
-      where: { project: { companyId: company.id }, deletedAt: null },
+      where: { project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
       select: { id: true, unitNumber: true, project: { select: { name: true } } },
     }),
     prisma.landParcel.findMany({
-      where: { deletedAt: null, landPurchase: { companyId: company.id } },
+      where: { deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
       select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } },
+    }),
+    prisma.customer.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -120,6 +128,10 @@ async function MobileRentalsContent() {
         pendingCount: pending.length,
         expiringCount,
       }}
+      canManage={canManage}
+      unitAssets={units.map((u) => ({ id: u.id, label: `${u.unitNumber} · ${u.project.name}` }))}
+      parcelAssets={parcels.map((p) => ({ id: p.id, label: `Parcel ${p.number} · ${p.landPurchase.location ?? p.landPurchase.sellerName}` }))}
+      customers={customers.map((c) => ({ id: c.id, name: c.name }))}
     />
   );
 }

@@ -3,7 +3,8 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Users } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -11,6 +12,7 @@ import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileEmployeesList } from "./MobileEmployeesList";
+import { MobileEmployeesFab } from "./MobileEmployeesFab";
 
 /**
  * /m/hr/employees — mobile workforce roster. Managers need to see who's
@@ -27,23 +29,34 @@ export default function MobileEmployeesPage() {
 async function MobileEmployeesContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.HR_MANAGE);
 
-  const employees = await prisma.employee.findMany({
-    where: { companyId: company.id, active: true },
-    orderBy: { name: "asc" },
-    take: 100,
-    select: {
-      id: true,
-      name: true,
-      trade: true,
-      phone: true,
-      dailyRate: true,
-      wageType: true,
-      monthlySalary: true,
-      designation: true,
-      activeProject: { select: { name: true } },
-    },
-  });
+  const [employees, projects] = await Promise.all([
+    prisma.employee.findMany({
+      where: { companyId: company.id, active: true },
+      orderBy: { name: "asc" },
+      take: 100,
+      select: {
+        id: true,
+        name: true,
+        trade: true,
+        phone: true,
+        dailyRate: true,
+        wageType: true,
+        monthlySalary: true,
+        designation: true,
+        activeProject: { select: { name: true } },
+      },
+    }),
+    canManage
+      ? prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        })
+      : [],
+  ]);
 
   const trades = [...new Set(employees.map((e) => e.trade).filter(Boolean))];
   const dailyWorkers = employees.filter((e) => e.wageType === "DAILY");
@@ -82,13 +95,18 @@ async function MobileEmployeesContent() {
 
       <MobileEmployeesList items={serialized} />
 
+      {/* FAB: New Employee */}
+      {canManage && (
+        <MobileEmployeesFab projects={projects} />
+      )}
+
       {employees.length === 0 && (
         <>
           <MobileSectionTitle>By Trade</MobileSectionTitle>
           <MobileEmptyState
             icon={Users}
             title="No employees"
-            hint="Add employees from the desktop People section"
+            hint={canManage ? "Tap + to add your first employee" : "Employees will appear here once added"}
           />
         </>
       )}
