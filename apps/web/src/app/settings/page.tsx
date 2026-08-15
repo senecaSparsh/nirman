@@ -130,6 +130,8 @@ async function SettingsContent() {
         gstin: company.gstin,
         pan: company.pan,
         address: company.address,
+        phone: company.phone,
+        email: company.email,
         currency: company.currency,
       }}
       users={users.map((u) => ({

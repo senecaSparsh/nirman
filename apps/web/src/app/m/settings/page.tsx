@@ -13,6 +13,7 @@ import {
   LogOut,
   Download,
   Calendar,
+  Building2,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import {
@@ -298,6 +299,13 @@ async function SettingsContent() {
         <>
           <SectionHead title="Administration" />
           <div className="flex flex-col gap-2 mb-3">
+            <MobileRow
+              href="/m/settings/company"
+              icon={Building2}
+              title="Company details"
+              subtitle="Name, GSTIN, PAN, address, phone"
+              meta="Edit"
+            />
             <MobileRow
               href="/m/settings/team"
               icon={Users}

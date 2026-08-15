@@ -22,6 +22,9 @@ model Company {
   gstin     String?
   pan       String?
   address   String?
+  // Contact details — shown on printed bills, invoices, and receipts.
+  phone     String?
+  email     String?
   currency  String   @default("INR")
   // Free-text business line, e.g. "Rice Milling & Export", "Real Estate" —
   // purely descriptive, shown in the company switcher to disambiguate.

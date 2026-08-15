@@ -55,6 +55,11 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
       <div className="flex items-center justify-between border-b-2 border-black pb-3">
         <div>
           <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
+          {company.address && <div className="text-xs text-gray-600">{company.address}</div>}
+          <div className="text-xs text-gray-600">
+            {company.gstin && <span className="mr-3">GSTIN: {company.gstin}</span>}
+            {company.phone && <span>Ph: {company.phone}</span>}
+          </div>
           <h2 className="text-lg font-bold uppercase tracking-wide text-gray-700">Demand Slip</h2>
           <p className="text-sm text-gray-600">Material Requisition</p>
         </div>

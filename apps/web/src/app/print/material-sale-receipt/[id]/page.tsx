@@ -78,6 +78,8 @@ export default async function MaterialSaleReceiptPage({
         <div>
           <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
           {company.address && <div className="text-xs text-gray-600">{company.address}</div>}
+          {company.phone && <div className="text-xs text-gray-600">Ph: {company.phone}</div>}
+          {company.email && <div className="text-xs text-gray-600">{company.email}</div>}
           <div className="mt-0.5 text-xs text-gray-700">
             {company.gstin && <span className="mr-3">GSTIN: {company.gstin}</span>}
             {company.pan && <span>PAN: {company.pan}</span>}

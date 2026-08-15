@@ -179,6 +179,8 @@ export default async function UnitSpecSheetPage({
         <div className="font-semibold text-gray-700">For more information:</div>
         <div>{company.name}</div>
         {company.address && <div>{company.address}</div>}
+        {company.phone && <div>Ph: {company.phone}</div>}
+        {company.email && <div>{company.email}</div>}
         {company.gstin && <div>GSTIN: {company.gstin}</div>}
       </div>
 

@@ -9,6 +9,8 @@ const companyUpdateSchema = z.object({
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email("Invalid email").optional().nullable(),
   currency: z.string().optional(),
   businessType: z.string().optional().nullable(),
   parentCompanyId: z.string().optional().nullable(),

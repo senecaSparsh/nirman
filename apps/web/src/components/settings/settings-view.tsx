@@ -37,6 +37,8 @@ type CompanyInfo = {
   gstin: string | null;
   pan: string | null;
   address: string | null;
+  phone: string | null;
+  email: string | null;
   currency: string;
 };
 
@@ -177,6 +179,8 @@ export function SettingsView({
           gstin: companyForm.gstin?.trim() || null,
           pan: companyForm.pan?.trim() || null,
           address: companyForm.address?.trim() || null,
+          phone: companyForm.phone?.trim() || null,
+          email: companyForm.email?.trim() || null,
           currency: companyForm.currency,
         }),
       });
@@ -269,6 +273,16 @@ export function SettingsView({
                 <div className="space-y-1.5">
                   <Label>Address</Label>
                   <Input value={companyForm.address ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, address: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Phone</Label>
+                    <Input value={companyForm.phone ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Email</Label>
+                    <Input type="email" value={companyForm.email ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} placeholder="accounts@company.com" />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Currency</Label>

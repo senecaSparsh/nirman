@@ -81,6 +81,8 @@ export default async function SaleInvoicePage({
         <div>
           <div className="font-semibold">{company.name}</div>
           {company.address && <div className="text-gray-600">{company.address}</div>}
+          {company.phone && <div className="text-gray-600">Ph: {company.phone}</div>}
+          {company.email && <div className="text-gray-600">{company.email}</div>}
           {company.gstin && <div className="text-gray-600">GSTIN: {company.gstin}</div>}
           {company.pan && <div className="text-gray-600">PAN: {company.pan}</div>}
         </div>

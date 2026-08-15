@@ -37,6 +37,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     gstin: company.gstin,
     pan: company.pan,
     address: company.address,
+    phone: company.phone,
+    email: company.email,
     businessType: company.businessType,
     parentCompanyId: company.parentCompanyId,
     companies: visible.map((c) => ({
