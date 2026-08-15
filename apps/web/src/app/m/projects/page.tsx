@@ -145,7 +145,7 @@ async function MobileProjectsContent() {
           <MobileEmptyState
             icon={Building2}
             title="No projects yet"
-            hint="Create projects from the desktop Setup"
+            hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
           />
         </>
       )}

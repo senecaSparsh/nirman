@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building2, Search, X } from "lucide-react";
+import { Building2, Search, X, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -9,6 +9,7 @@ import {
   MobileStatusBadge,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import { MobileNewProjectDialog } from "./MobileNewProjectDialog";
 
 type ProjectStatusFilter =
   | "ALL"
@@ -52,6 +53,7 @@ export function MobileProjectsList({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("ALL");
+  const [showNewProject, setShowNewProject] = useState(false);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -71,6 +73,24 @@ export function MobileProjectsList({
 
   return (
     <div>
+      {/* ── New project button (managers only) ─────────────────── */}
+      {canManage && (
+        <button
+          onClick={() => setShowNewProject(true)}
+          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press mb-3"
+          style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+        >
+          <Plus className="size-3.5" />
+          New Project
+        </button>
+      )}
+      {showNewProject && (
+        <MobileNewProjectDialog
+          open={showNewProject}
+          onClose={() => setShowNewProject(false)}
+        />
+      )}
+
       {/* ── Warm search bar ───────────────────────────────────── */}
       <div className="mb-4">
         <div
@@ -117,7 +137,7 @@ export function MobileProjectsList({
       {isFiltering ? (
         <FlatList items={filtered} />
       ) : (
-        <GroupedList items={items} />
+        <GroupedList items={items} canManage={canManage} />
       )}
     </div>
   );
@@ -159,7 +179,7 @@ function FlatList({ items }: { items: ProjectListItem[] }) {
 /* ----------------------------------------------------------------
  * Grouped list — the default status-sectioned view.
  * ---------------------------------------------------------------- */
-function GroupedList({ items }: { items: ProjectListItem[] }) {
+function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; canManage?: boolean }) {
   const active = items.filter(
     (p) => p.status === "PLANNED" || p.status === "ACTIVE",
   );
@@ -173,7 +193,7 @@ function GroupedList({ items }: { items: ProjectListItem[] }) {
         <MobileEmptyState
           icon={Building2}
           title="No active projects"
-          hint="Create projects from the desktop Setup"
+          hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
         />
       ) : (
         <div className="flex flex-col gap-2.5">
