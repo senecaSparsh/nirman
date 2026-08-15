@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
+import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Wallet, Building2 } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileFinanceList } from "./MobileFinanceList";
@@ -22,6 +24,8 @@ export default function MobileFinancePage() {
 
 async function MobileFinanceContent() {
   await connection();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const [expenses, projectCosts] = await Promise.all([

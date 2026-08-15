@@ -27,24 +27,34 @@ async function MobileAttendanceContent() {
   await connection();
   const company = await getCompany();
 
-  const records = await prisma.workerAttendance.findMany({
-    where: { companyId: company.id },
-    orderBy: { date: "desc" },
-    take: 40,
-    include: {
-      project: { select: { name: true } },
-      employee: { select: { name: true } },
-    },
-  });
+  const [records, projects] = await Promise.all([
+    prisma.workerAttendance.findMany({
+      where: { companyId: company.id },
+      orderBy: { date: "desc" },
+      take: 200,
+      include: {
+        project: { select: { name: true } },
+        employee: { select: { name: true } },
+      },
+    }),
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  // Serialize for the client component (search + filter chips + badges)
+  // Serialize for the client component (search + filter chips + date/project filters + badges)
   const serialized = records.map((r) => ({
     id: r.id,
     employeeName: r.employee?.name ?? null,
     projectName: r.project?.name ?? null,
+    projectId: r.projectId ?? null,
     date: r.date.toISOString(),
     status: r.status,
   }));
+
+  const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <div>
@@ -54,7 +64,7 @@ async function MobileAttendanceContent() {
         </MobileCta>
       </div>
 
-      <MobileAttendanceList items={serialized} />
+      <MobileAttendanceList items={serialized} projects={projectOptions} />
 
       {records.length === 0 && (
         <>

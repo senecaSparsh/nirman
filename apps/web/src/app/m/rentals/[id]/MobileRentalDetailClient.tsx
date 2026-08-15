@@ -555,7 +555,7 @@ function PaymentSheet({
               Amount (₹)
             </label>
             <input
-              type="number"
+              type="text" inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] font-bold tabular-nums outline-none"

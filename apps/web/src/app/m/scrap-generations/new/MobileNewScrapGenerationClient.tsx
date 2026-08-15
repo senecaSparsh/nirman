@@ -309,7 +309,7 @@ export default function MobileNewScrapGenerationClient() {
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.qty}
@@ -324,7 +324,7 @@ export default function MobileNewScrapGenerationClient() {
                         Unit Cost
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.unitCost}

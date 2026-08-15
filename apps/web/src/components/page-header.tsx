@@ -80,9 +80,9 @@ export function PageHeader({
         <div className="min-w-0 flex-1">
           <h1 className="text-title text-foreground">{title}</h1>
           {description && (
-            <p className="mt-1.5 max-w-prose text-meta leading-relaxed text-muted-foreground">
+            <div className="mt-1.5 max-w-prose text-meta leading-relaxed text-muted-foreground">
               {description}
-            </p>
+            </div>
           )}
         </div>
 

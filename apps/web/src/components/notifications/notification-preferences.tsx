@@ -63,10 +63,6 @@ export function NotificationPreferences() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPrefs();
-  }, []);
-
   async function fetchPrefs() {
     setLoading(true);
     try {
@@ -80,6 +76,10 @@ export function NotificationPreferences() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    fetchPrefs();
+  }, []);
 
   function isEnabled(eventType: string, channel: string): boolean {
     const pref = prefs.find((p) => p.eventType === eventType && p.channel === channel);

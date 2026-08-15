@@ -42,9 +42,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.SALES_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const assetSaleId = searchParams.get("assetSaleId");
   if (!assetSaleId) return json({ error: "assetSaleId is required" }, { status: 400 });
+
+  // Verify the sale belongs to the user's company before returning schedule
+  const sale = await prisma.assetSale.findFirst({
+    where: { id: assetSaleId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!sale) return json({ error: "No payment schedule found" }, { status: 404 });
 
   const schedule = await prisma.paymentSchedule.findUnique({
     where: { assetSaleId },

@@ -4,7 +4,8 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Truck } from "lucide-react";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
 
 export default function MobileSupplierDetailPage({
@@ -26,10 +27,12 @@ async function MobileSupplierDetailContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
   const { id } = await params;
 
   const supplier = await prisma.supplier.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       purchaseOrders: {
         where: { companyId: company.id },
@@ -107,6 +110,7 @@ async function MobileSupplierDetailContent({
       paymentCount={supplier.supplierPayments.length}
       pos={pos}
       payments={payments}
+      canManage={canManage}
     />
   );
 }

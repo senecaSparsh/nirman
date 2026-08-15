@@ -210,7 +210,7 @@ export function MobileStockCountDetailClient({
 
       {/* ── Info row ── */}
       <div className="flex flex-col gap-1.5 mb-3">
-        <InfoRow icon={MapPin} label="Location" value={count.location.name} href={`/m/stock/${count.location.id}`} />
+        <InfoRow icon={MapPin} label="Location" value={count.location.name} href={`/m/stock?locationId=${count.location.id}`} />
         <InfoRow icon={Calendar} label="Date" value={formatDate(count.countDate)} />
         {count.notes ? (
           <InfoRow icon={FileText} label="Notes" value={count.notes} />

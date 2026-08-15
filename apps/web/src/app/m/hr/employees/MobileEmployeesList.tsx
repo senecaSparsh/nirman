@@ -145,7 +145,10 @@ function GroupedList({ items }: { items: EmployeeListItem[] }) {
         const tradeWorkers = items.filter((e) => e.trade === trade);
         return (
           <div key={trade}>
-            <div className="pb-1 pt-2 text-caption font-medium text-muted-foreground">
+            <div
+              className="pb-1 pt-2 text-[0.5625rem] font-bold uppercase tracking-wide"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               {trade} ({tradeWorkers.length})
             </div>
             <div className="flex flex-col gap-2.5">

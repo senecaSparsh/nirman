@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
+import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { BookOpen } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
@@ -24,6 +26,8 @@ export default function MobileGlPage() {
 
 async function MobileGlContent() {
   await connection();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const accounts = await prisma.glAccount.findMany({
@@ -66,7 +70,14 @@ async function MobileGlContent() {
       </div>
 
       {totalDebit !== totalCredit && (
-        <div className="mb-4 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-meta text-danger">
+        <div
+          className="mb-4 rounded-[0.5rem] border-2 px-3 py-2 text-[0.5625rem] font-semibold"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)",
+            color: "var(--color-stop)",
+          }}
+        >
           Out of balance by {formatCurrency(Math.abs(totalDebit - totalCredit))}
         </div>
       )}

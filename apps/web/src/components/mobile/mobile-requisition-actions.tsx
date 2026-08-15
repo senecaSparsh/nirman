@@ -12,8 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
-import { Input, Select, Label, Textarea } from "@/components/ui/input";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 
 interface ReqPayload {
@@ -211,21 +210,33 @@ function ConvertForm({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-3">
+    <div
+      className="flex flex-col gap-3 rounded-[0.625rem] border p-3"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
       <div>
-        <Label>Supplier</Label>
-        <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Supplier
+        </label>
+        <select
+          value={supplierId}
+          onChange={(e) => setSupplierId(e.target.value)}
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+        >
           {suppliers.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
-        </Select>
+        </select>
       </div>
 
       <div>
-        <Label>Procurement scope</Label>
-        <Select
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Procurement scope
+        </label>
+        <select
           value={scope}
           onChange={(e) => {
             const next = e.target.value as "COMPANY" | "PROJECT";
@@ -236,15 +247,24 @@ function ConvertForm({
             );
             if (!valid.some((l) => l.id === locationId) && valid[0]) setLocationId(valid[0].id);
           }}
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         >
           <option value="COMPANY">Company warehouse</option>
           <option value="PROJECT">Project site</option>
-        </Select>
+        </select>
       </div>
 
       <div>
-        <Label>Receive at</Label>
-        <Select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Receive at
+        </label>
+        <select
+          value={locationId}
+          onChange={(e) => setLocationId(e.target.value)}
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+        >
           {scopedLocations.length === 0 ? (
             <option value="">No locations for this scope</option>
           ) : (
@@ -254,28 +274,38 @@ function ConvertForm({
               </option>
             ))
           )}
-        </Select>
+        </select>
       </div>
 
       <div>
-        <Label>Expected date (optional)</Label>
-        <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Expected date (optional)
+        </label>
+        <input
+          type="date"
+          value={expectedDate}
+          onChange={(e) => setExpectedDate(e.target.value)}
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+        />
       </div>
 
       <div>
-        <Label>Line costs</Label>
-        <div className="space-y-2">
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Line costs
+        </label>
+        <div className="flex flex-col gap-2">
           {lines.map((l) => (
             <div key={l.materialId} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-meta font-medium text-foreground">{l.materialName}</div>
-                <div className="text-caption text-muted-foreground">
+                <div className="truncate text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</div>
+                <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
                   {formatNumber(l.qtyRequested, 0)} {l.unit}
                 </div>
               </div>
               <div className="relative w-28 shrink-0">
-                <Input
-                  type="number"
+                <input
+                  type="text"
                   inputMode="decimal"
                   min="0"
                   step="0.01"
@@ -283,15 +313,19 @@ function ConvertForm({
                   onChange={(e) =>
                     setLineCosts((c) => ({ ...c, [l.materialId]: Number(e.target.value) }))
                   }
-                  className="pr-1 text-right"
+                  className="w-full h-9 rounded-[0.375rem] border px-2 text-right text-[0.6875rem] tabular-nums outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
           ))}
         </div>
-        <div className="mt-2 flex justify-between border-t border-border pt-2 text-meta font-semibold">
+        <div
+          className="mt-2 flex justify-between border-t pt-2 text-[0.5625rem] font-bold"
+          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+        >
           <span>Estimated total</span>
-          <span className="tnum">
+          <span className="tabular-nums" style={{ color: "var(--color-go)" }}>
             {formatCurrency(
               lines.reduce((s, l) => s + (lineCosts[l.materialId] ?? 0) * l.qtyRequested, 0),
             )}
@@ -300,12 +334,16 @@ function ConvertForm({
       </div>
 
       <div>
-        <Label>Notes (optional)</Label>
-        <Textarea
+        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Notes (optional)
+        </label>
+        <textarea
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="PO notes"
+          className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] resize-none outline-none"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
 
@@ -313,9 +351,10 @@ function ConvertForm({
         type="button"
         onClick={convert}
         disabled={submitting}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-raised transition-colors active:scale-[0.99] disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
       >
-        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+        {submitting ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-3.5" />}
         Create Purchase Order
       </button>
     </div>
@@ -340,14 +379,14 @@ function BarButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className={cn(
-        "flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.99] disabled:opacity-60",
+      className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+      style={
         variant === "primary"
-          ? "bg-primary text-primary-foreground shadow-raised"
-          : "border border-border bg-card text-foreground",
-      )}
+          ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+          : { border: "2px solid var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
+      }
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Icon className="size-3.5" />}
       {label}
     </button>
   );

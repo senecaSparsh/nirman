@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, MicOff, Send, X, Sparkles, Loader2, MessageCircle } from "lucide-react";
+import { Mic, MicOff, Send, X, Sparkles, Loader2, MessageCircle, Volume2, VolumeX, CheckCircle2 } from "lucide-react";
 import { SUGGESTION_CHIPS } from "@/lib/assistant/nlu";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -65,25 +65,60 @@ interface SpeechRecognitionInstance {
 // ASSISTANT CHAT COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function AssistantChat() {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      text: "Namaste! 👋 Main Sahayak hoon — aapka assistant. Bataiye kya help karu? Type karo ya bol lo 🎤",
-      timestamp: Date.now(),
-    },
-  ]);
+export function AssistantChat({
+  open: externalOpen,
+  onClose: externalOnClose,
+  autoListen = false,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+  autoListen?: boolean;
+} = {}) {
+  const isControlled = externalOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? (externalOpen as boolean) : internalOpen;
+  const close = useCallback(() => {
+    if (isControlled) {
+      externalOnClose?.();
+    } else {
+      setInternalOpen(false);
+    }
+  }, [isControlled, externalOnClose]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    // Restore conversation from sessionStorage
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("sahayak-messages");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [
+      {
+        id: "welcome",
+        role: "assistant",
+        text: "Namaste! 👋 Main Sahayak hoon — aapka assistant. Bataiye kya help karu? Type karo ya bol lo 🎤",
+        timestamp: Date.now(),
+      },
+    ];
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceLang, setVoiceLang] = useState<"hi-IN" | "en-IN">("hi-IN");
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const router = useRouter();
+
+  // ── Persist messages to sessionStorage ──
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("sahayak-messages", JSON.stringify(messages.slice(-20)));
+    } catch {}
+  }, [messages]);
 
   // ── Auto-scroll to bottom on new message ──
   useEffect(() => {
@@ -137,9 +172,68 @@ export function AssistantChat() {
     return recognition;
   }, [voiceLang]);
 
+  // ── Auto-start voice listening when opened (voice-first mode) ──
+  // Used by the header mic button: opening the assistant from there
+  // immediately starts the microphone so the user can just speak.
+  const autoListenedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoListenedRef.current = false;
+      return;
+    }
+    if (autoListen && !autoListenedRef.current && !listening) {
+      autoListenedRef.current = true;
+      const recognition = initRecognition();
+      if (recognition) {
+        recognitionRef.current = recognition;
+        setInput("");
+        setListening(true);
+        recognition.start();
+      }
+    }
+  }, [open, autoListen, listening, initRecognition]);
+
+  // ── Text-to-Speech: speak the assistant response ──
+  const speakResponse = useCallback((text: string) => {
+    if (!ttsEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
+
+    // Strip markdown formatting for speech
+    const cleanText = text
+      .replace(/\*\*/g, "")
+      .replace(/[📦✅⚠️📋💰💵💸👷🔧📊🚚📝✅❌⏳🎉🔔📍🔄➕🎤]/g, "")
+      .replace(/[•↳]/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = voiceLang;
+    utterance.rate = 1.1;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  }, [ttsEnabled, voiceLang]);
+
+  // ── Stop speaking ──
+  const stopSpeaking = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+    }
+  }, []);
+
   // ── Send message to assistant API ──
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
+
+    // Stop any ongoing speech when user sends a new message
+    stopSpeaking();
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -159,14 +253,18 @@ export function AssistantChat() {
       });
       const data = await res.json();
 
+      const responseText = data.text || "Sorry, samajh nahi aaya.";
       const assistantMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         role: "assistant",
-        text: data.text || "Sorry, samajh nahi aaya.",
+        text: responseText,
         cards: data.cards,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Speak the response if TTS is enabled
+      speakResponse(responseText);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -185,7 +283,7 @@ export function AssistantChat() {
   // ── Execute action card (button/confirm) ──
   const executeCard = useCallback(async (card: ActionCard) => {
     if (card.type === "link" && card.href) {
-      setOpen(false);
+      close();
       router.push(card.href);
       return;
     }
@@ -244,7 +342,7 @@ export function AssistantChat() {
         setLoading(false);
       }
     }
-  }, [router, sendMessage]);
+  }, [router, sendMessage, close]);
 
   // ── Voice input toggle ──
   const toggleVoice = useCallback(() => {
@@ -289,10 +387,10 @@ export function AssistantChat() {
 
   return (
     <>
-      {/* ── Floating button ── */}
-      {!open && (
+      {/* ── Floating button (only in uncontrolled / desktop mode) ── */}
+      {!open && !isControlled && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setInternalOpen(true)}
           className="fixed right-4 bottom-20 z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
           style={{
             backgroundColor: "var(--color-signal)",
@@ -333,7 +431,7 @@ export function AssistantChat() {
                 Sahayak
               </p>
               <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-                Owner Assistant · Hindi/English
+                {speaking ? "🔊 Bol raha hoon..." : ttsEnabled ? "Owner Assistant · Voice ON" : "Owner Assistant · Hindi/English"}
               </p>
             </div>
             {/* Voice language toggle */}
@@ -347,8 +445,33 @@ export function AssistantChat() {
             >
               {voiceLang === "hi-IN" ? "हिं" : "EN"}
             </button>
+            {/* TTS toggle — speak responses */}
             <button
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                if (ttsEnabled) stopSpeaking();
+                setTtsEnabled(!ttsEnabled);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+              style={{
+                color: ttsEnabled ? "var(--color-signal-dark)" : "var(--color-ink-500)",
+                backgroundColor: ttsEnabled ? "var(--color-signal)" : "transparent",
+              }}
+              aria-label={ttsEnabled ? "Disable voice output" : "Enable voice output"}
+              title={ttsEnabled ? "Voice output ON" : "Voice output OFF"}
+            >
+              {speaking ? (
+                <Volume2 className="h-4 w-4 animate-pulse" />
+              ) : ttsEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={() => {
+                stopSpeaking();
+                close();
+              }}
               className="flex h-8 w-8 items-center justify-center rounded-full"
               style={{ color: "var(--color-ink-600)" }}
               aria-label="Close"
@@ -477,6 +600,10 @@ function MessageBubble({
   onCardClick: (card: ActionCard) => void;
 }) {
   const isUser = message.role === "user";
+  const time = new Date(message.timestamp).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -494,9 +621,17 @@ function MessageBubble({
           {message.text}
         </div>
 
+        {/* Timestamp */}
+        <p
+          className="mt-0.5 text-[0.5rem]"
+          style={{ color: "var(--color-ink-400)", textAlign: isUser ? "right" : "left" }}
+        >
+          {time}
+        </p>
+
         {/* Action cards */}
         {message.cards && message.cards.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {message.cards.map((card, i) => (
               <button
                 key={i}

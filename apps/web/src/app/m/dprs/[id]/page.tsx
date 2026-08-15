@@ -10,6 +10,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDprActions } from "./MobileDprActions";
+import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
 
 export default function MobileDprDetailPage({
   params,
@@ -329,6 +330,14 @@ async function MobileDprDetailContent({
           )}
         </div>
       </div>
+
+      {/* ── Variance analysis trigger ── */}
+      <MobileDprVarianceButton
+        dprId={dpr.id}
+        hasWorkType={!!dpr.workType}
+        hasVariance={!!dpr.varianceAnalysis}
+        canRun={canResubmit || canApproveSubAdmin || canApproveAdmin}
+      />
 
       {/* ── Variance analysis (if present) ── */}
       {dpr.varianceAnalysis ? (

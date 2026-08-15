@@ -354,6 +354,15 @@ function OutstandingCard({
               </a>
             ) : null}
             <Link
+              href={`/m/sales/${sale.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+              style={{ color: "var(--color-ink-600)" }}
+            >
+              Details
+              <ArrowRight className="size-2.5" />
+            </Link>
+            <Link
               href={`/m/customers/${sale.customerId}`}
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
@@ -402,7 +411,7 @@ function OutstandingCard({
                 style={{ color: "var(--color-ink-400)" }}
               />
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
                 min="0"
                 max={sale.balance}
@@ -485,7 +494,7 @@ function OutstandingCard({
 function SettledRow({ sale }: { sale: SaleItem }) {
   return (
     <Link
-      href={`/m/customers/${sale.customerId}`}
+      href={`/m/sales/${sale.id}`}
       className="flex items-center gap-2 px-2 py-1.5 rounded-[0.375rem] press"
       style={{ backgroundColor: "transparent" }}
     >

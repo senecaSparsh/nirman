@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, workflowScheduleSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, workflowScheduleSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -8,7 +8,16 @@ import { PERM } from "@/lib/roles";
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.CANVAS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the workflow belongs to the user's company
+  const workflow = await prisma.workflow.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!workflow) {
+    return json({ error: "Workflow not found" }, { status: 404 });
+  }
   const schedules = await prisma.scheduledWorkflow.findMany({
     where: { workflowId: id },
     orderBy: { createdAt: "desc" },
@@ -21,10 +30,13 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const company = await getCompany();
 
   const { id: workflowId } = await params;
-  const workflow = await prisma.workflow.findUnique({ where: { id: workflowId } });
-  if (!workflow || workflow.deletedAt) {
+  const workflow = await prisma.workflow.findFirst({
+    where: { id: workflowId, companyId: company.id, deletedAt: null },
+  });
+  if (!workflow) {
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 
@@ -70,8 +82,17 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.WORKFLOWS_MANAGE);
+  const company = await getCompany();
 
   const { id } = await params;
+  // Verify the workflow belongs to the user's company before deleting schedule
+  const workflow = await prisma.workflow.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!workflow) {
+    return json({ error: "Workflow not found" }, { status: 404 });
+  }
   await prisma.scheduledWorkflow.deleteMany({ where: { workflowId: id } });
   return json({ ok: true });
 });

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -18,10 +18,26 @@ const companyUpdateSchema = z.object({
  * PATCH /api/companies/[id] — update a company's profile or hierarchy.
  * Setting parentCompanyId to null detaches it from its parent. A company
  * cannot be its own parent (cycle guard).
+ *
+ * Security: the user must be a member of the company being modified (or
+ * of its parent company, for group-level management).
  */
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.COMPANY_MANAGE);
+  const currentCompany = await getCompany();
   const { id } = await ctx.params;
+
+  // Verify the user has access to this company (member or parent company)
+  if (id !== currentCompany.id) {
+    const isChild = await prisma.company.findFirst({
+      where: { id, parentCompanyId: currentCompany.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!isChild) {
+      return json({ error: "Company not found" }, { status: 404 });
+    }
+  }
+
   const body = await req.json();
   const parsed = companyUpdateSchema.safeParse(body);
   if (!parsed.success) {
@@ -54,10 +70,24 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
  * DELETE /api/companies/[id] — soft-delete a company. OWNER/ADMIN only.
  * Refuses if the company still has children (must re-parent or delete
  * children first) so the hierarchy never has dangling references.
+ *
+ * Security: the user must be a member of the company (or its parent).
  */
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.COMPANY_MANAGE);
+  const currentCompany = await getCompany();
   const { id } = await ctx.params;
+
+  // Verify the user has access to this company
+  if (id !== currentCompany.id) {
+    const isChild = await prisma.company.findFirst({
+      where: { id, parentCompanyId: currentCompany.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!isChild) {
+      return json({ error: "Company not found" }, { status: 404 });
+    }
+  }
 
   const existing = await prisma.company.findUnique({
     where: { id },

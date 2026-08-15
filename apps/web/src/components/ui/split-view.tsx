@@ -42,14 +42,18 @@ export function SplitView({
 }: SplitViewProps) {
   const hasDetail = detail != null;
 
-  // Persist the list size to localStorage when a storageKey is provided
+  // Persist the list size to localStorage when a storageKey is provided.
+  // Use state so the saved value triggers a re-render (mutating the prop
+  // variable inside an effect is a no-op for the current render).
+  const [listSize, setListSize] = React.useState(defaultListSize);
+
   React.useEffect(() => {
     if (!storageKey) return;
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = parseFloat(saved);
       if (!isNaN(parsed) && parsed >= minListSize && parsed <= 75) {
-        defaultListSize = parsed;
+        setListSize(parsed);
       }
     }
   }, [storageKey, minListSize]);
@@ -60,7 +64,7 @@ export function SplitView({
       className={cn("h-full min-h-0", className)}
     >
       <ResizablePanel
-        defaultSize={`${hasDetail ? defaultListSize : 100}%`}
+        defaultSize={`${hasDetail ? listSize : 100}%`}
         minSize={`${hasDetail ? minListSize : 100}%`}
         maxSize={`${hasDetail ? 75 : 100}%`}
         className="min-h-0"
@@ -72,7 +76,7 @@ export function SplitView({
         <>
           <ResizableHandle />
           <ResizablePanel
-            defaultSize={`${100 - defaultListSize}%`}
+            defaultSize={`${100 - listSize}%`}
             minSize="25%"
             className="min-h-0"
           >

@@ -2,11 +2,44 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { UserPlus, Loader2, Check, AlertCircle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import { MobileDetailHeader } from "@/components/mobile/mobile-primitives";
+import {
+  UserPlus, Loader2, Check, AlertCircle, ChevronLeft, Send, Users,
+} from "lucide-react";
+import { haptic } from "@/lib/haptic";
+import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
+
+const inputClass =
+  "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-medium outline-none";
+const inputStyle = {
+  borderColor: "var(--color-line)",
+  backgroundColor: "var(--color-paper)",
+  color: "var(--color-ink-950)",
+} as React.CSSProperties;
+
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        className="block text-[0.5625rem] font-semibold mb-1"
+        style={{ color: "var(--color-ink-500)" }}
+      >
+        {label}
+        {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 /**
  * Mobile customer creation form — minimal fields (name, phone, email, GSTIN)
@@ -42,14 +75,17 @@ export function MobileCustomerForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
+      haptic([50, 20, 50]);
       toast.error("Customer name is required");
       return;
     }
     if (!form.phone.trim()) {
+      haptic([50, 20, 50]);
       toast.error("Phone number is required");
       return;
     }
     setSaving(true);
+    haptic(10);
     try {
       const payload = {
         name: form.name.trim(),
@@ -65,6 +101,7 @@ export function MobileCustomerForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create customer");
+      haptic([10, 40, 80]);
       toast.success("Customer created", {
         description: form.phone ? `${form.name} · ${form.phone}` : form.name,
       });
@@ -75,6 +112,7 @@ export function MobileCustomerForm({
       router.push(dest);
       router.refresh();
     } catch (err: unknown) {
+      haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
@@ -82,77 +120,124 @@ export function MobileCustomerForm({
   }
 
   return (
-    <div>
-      <MobileDetailHeader title="New Customer" backHref="/m/sales/new" />
-      <form onSubmit={onSubmit} className="space-y-4 p-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="mc-name">Customer Name *</Label>
-          <Input
-            id="mc-name"
+    <div className="pb-32">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <Link href="/m/sales/new" className="shrink-0">
+          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            New Customer
+          </p>
+        </div>
+        <span
+          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+        >
+          <Users className="size-2.5" />
+          Customer
+        </span>
+      </div>
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        {/* ── Name ── */}
+        <FormField label="Customer name" required>
+          <input
+            type="text"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. Rajesh Sharma"
             required
             autoFocus
+            autoComplete="name"
+            enterKeyHint="next"
+            className={inputClass}
+            style={inputStyle}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="mc-phone">Phone *</Label>
-          <Input
-            id="mc-phone"
+        </FormField>
+
+        {/* ── Phone ── */}
+        <FormField label="Phone" required>
+          <input
             type="tel"
             value={form.phone}
             onChange={(e) => set("phone", e.target.value)}
             placeholder="98765 43210"
             required
+            autoComplete="tel"
+            enterKeyHint="next"
+            className={`${inputClass} tabular-nums`}
+            style={inputStyle}
           />
           {duplicatePhone && (
-            <p className="flex items-center gap-1.5 text-caption text-warning">
-              <AlertCircle className="h-3.5 w-3.5" />
+            <p
+              className="flex items-center gap-1.5 text-[0.5625rem] mt-1.5"
+              style={{ color: "var(--color-signal-dark)" }}
+            >
+              <AlertCircle className="size-3" />
               A customer with this phone already exists
             </p>
           )}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="mc-email">Email</Label>
-          <Input
-            id="mc-email"
+        </FormField>
+
+        {/* ── Email ── */}
+        <FormField label="Email">
+          <input
             type="email"
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
             placeholder="customer@example.com"
+            autoComplete="email"
+            enterKeyHint="next"
+            className={inputClass}
+            style={inputStyle}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="mc-gstin">GSTIN</Label>
-          <Input
-            id="mc-gstin"
+        </FormField>
+
+        {/* ── GSTIN ── */}
+        <FormField label="GSTIN">
+          <input
+            type="text"
             value={form.gstin}
             onChange={(e) => set("gstin", e.target.value.toUpperCase())}
             placeholder="27ABCDE1234F1Z5"
             maxLength={15}
+            enterKeyHint="done"
+            className={`${inputClass} font-mono uppercase`}
+            style={inputStyle}
           />
-        </div>
+        </FormField>
+      </form>
 
-        <div className="flex gap-2 pt-2">
-          <Button
-            type="submit"
-            size="touch"
+      {/* ── Sticky bottom bar ── */}
+      <div
+        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        style={{
+          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="max-w-md mx-auto px-3.5 py-2">
+          <button
+            type="button"
+            onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={saving || !form.name.trim() || !form.phone.trim()}
-            className="flex-1"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
           >
             {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…
-              </>
+              <Loader2 className="size-4 animate-spin" />
             ) : (
               <>
-                <Check className="mr-2 h-4 w-4" /> Save &amp; Continue
+                <Send className="size-3.5" />
+                Save &amp; Continue
               </>
             )}
-          </Button>
+          </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
@@ -194,9 +279,16 @@ export function MobileCreateCustomerButton({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return toast.error("Customer name is required");
-    if (!form.phone.trim()) return toast.error("Phone number is required");
+    if (!form.name.trim()) {
+      haptic([50, 20, 50]);
+      return toast.error("Customer name is required");
+    }
+    if (!form.phone.trim()) {
+      haptic([50, 20, 50]);
+      return toast.error("Phone number is required");
+    }
     setSaving(true);
+    haptic(10);
     try {
       const res = await fetch("/api/customers", {
         method: "POST",
@@ -211,10 +303,12 @@ export function MobileCreateCustomerButton({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create customer");
+      haptic([10, 40, 80]);
       toast.success("Customer created", { description: `${form.name} · ${form.phone}` });
       onCreated?.({ id: data.id, name: data.name, phone: data.phone ?? null });
       close();
     } catch (err: unknown) {
+      haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
@@ -223,101 +317,104 @@ export function MobileCreateCustomerButton({
 
   return (
     <>
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
-        className="text-brand"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); haptic(10); }}
+        className="flex items-center gap-1 text-[0.5625rem] font-bold press"
+        style={{ color: "var(--color-signal-dark)" }}
       >
-        <UserPlus className="mr-1 h-4 w-4" /> New
-      </Button>
+        <UserPlus className="size-3" /> New
+      </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={close}>
-          <div
-            className="w-full max-w-md rounded-t-2xl border border-border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-body font-semibold">New Customer</h3>
-              <button onClick={close} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
+        <BottomSheet title="New Customer" onClose={close}>
+          <form onSubmit={onSubmit} className="flex flex-col gap-3">
+            <FormField label="Name" required>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Rajesh Sharma"
+                required
+                autoFocus
+                autoComplete="name"
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </FormField>
+            <FormField label="Phone" required>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="98765 43210"
+                required
+                autoComplete="tel"
+                enterKeyHint="next"
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
+              {duplicatePhone && (
+                <p
+                  className="flex items-center gap-1.5 text-[0.5625rem] mt-1.5"
+                  style={{ color: "var(--color-signal-dark)" }}
+                >
+                  <AlertCircle className="size-3" />
+                  A customer with this phone already exists
+                </p>
+              )}
+            </FormField>
+            <FormField label="Email">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="customer@example.com"
+                autoComplete="email"
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </FormField>
+            <FormField label="GSTIN">
+              <input
+                type="text"
+                value={form.gstin}
+                onChange={(e) => set("gstin", e.target.value.toUpperCase())}
+                placeholder="27ABCDE1234F1Z5"
+                maxLength={15}
+                enterKeyHint="done"
+                className={`${inputClass} font-mono uppercase`}
+                style={inputStyle}
+              />
+            </FormField>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={close}
+                className="flex-1 rounded-[0.5rem] border py-2.5 text-[0.6875rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !form.name.trim() || !form.phone.trim()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              >
+                {saving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="size-3.5" /> Create
+                  </>
+                )}
               </button>
             </div>
-            <form onSubmit={onSubmit} className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="ic-name">Name *</Label>
-                <Input
-                  id="ic-name"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  placeholder="e.g. Rajesh Sharma"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ic-phone">Phone *</Label>
-                <Input
-                  id="ic-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  placeholder="98765 43210"
-                  required
-                />
-                {duplicatePhone && (
-                  <p className="flex items-center gap-1.5 text-caption text-warning">
-                    <AlertCircle className="h-3.5 w-3.5" />
-                    A customer with this phone already exists
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ic-email">Email</Label>
-                <Input
-                  id="ic-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  placeholder="customer@example.com"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ic-gstin">GSTIN</Label>
-                <Input
-                  id="ic-gstin"
-                  value={form.gstin}
-                  onChange={(e) => set("gstin", e.target.value.toUpperCase())}
-                  placeholder="27ABCDE1234F1Z5"
-                  maxLength={15}
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button type="button" variant="outline" size="touch" onClick={close} className="flex-1">
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="touch"
-                  disabled={saving || !form.name.trim() || !form.phone.trim()}
-                  className="flex-1"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-4 w-4" /> Create
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </BottomSheet>
       )}
     </>
   );

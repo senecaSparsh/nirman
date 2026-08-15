@@ -45,6 +45,12 @@ export type Intent =
   | "ISSUE_MATERIAL"
   | "TASK_LIST"
   | "WORKER_LIST"
+  | "ATTENTION"
+  | "MONTHLY_SUMMARY"
+  | "PROFIT_LOSS"
+  | "SPEND_ANALYSIS"
+  | "APPROVE_ALL"
+  | "SUPPLIER_PAYMENT"
   | "UNKNOWN";
 
 export interface ParsedIntent {
@@ -58,7 +64,12 @@ export interface ParsedIntent {
     projectName?: string;
     amount?: number;
     supplierName?: string;
+    customerName?: string;
+    quantity?: number;
+    unit?: string;
+    unitPrice?: number;
     action?: "approve" | "reject" | "order" | "cancel";
+    ordinal?: number; // "first", "second", "pehla", "doosra" → 1, 2
   };
   rawText: string;
 }
@@ -429,11 +440,163 @@ const INTENTS: IntentDef[] = [
     ],
     weight: 2,
   },
+
+  // ── Attention / what needs me ─────────────────────────────────────────
+  {
+    intent: "ATTENTION",
+    keywords: [
+      "attention", "kya karna hai", "kya important hai",
+      "what needs me", "kya mere liye hai",
+      "kya pending hai", "sab pending", "kya karu",
+      "kya handle karna hai", "kya focus karna",
+      "priority", "urgent kya hai", "kya urgent",
+    ],
+    weight: 3,
+  },
+
+  // ── Monthly summary ───────────────────────────────────────────────────
+  {
+    intent: "MONTHLY_SUMMARY",
+    keywords: [
+      "monthly summary", "mahine ka summary", "mahine ka hisab",
+      "this month", "is mahine", "month summary",
+      "mahine ka report", "monthly report",
+      "is mahine kitni", "is mahine kya hua",
+      "month ka status", "mahine ka status",
+    ],
+    weight: 4,
+  },
+
+  // ── Profit & Loss ─────────────────────────────────────────────────────
+  {
+    intent: "PROFIT_LOSS",
+    keywords: [
+      "profit loss", "p&l", "pnl", "profit and loss",
+      "labh hani", "labh", "profit kitna",
+      "loss kitna", "net profit", "gross profit",
+      "margin kitna", "profitability",
+      "kamaai kitni", "nuksan kitna",
+    ],
+    weight: 4,
+  },
+
+  // ── Spend analysis ────────────────────────────────────────────────────
+  {
+    intent: "SPEND_ANALYSIS",
+    keywords: [
+      "spend", "spending", "kharcha kitna hua",
+      "kitna kharcha", "expense analysis",
+      "kis par kharcha", "kya kharcha hua",
+      "spend analysis", "cost analysis",
+      "kharcha breakdown", "kahan kharcha hua",
+      "cement par kitna", "steel par kitna",
+      "material par kitna", "labour par kitna",
+    ],
+    weight: 3,
+  },
+
+  // ── Approve all ───────────────────────────────────────────────────────
+  {
+    intent: "APPROVE_ALL",
+    keywords: [
+      "approve all", "sab approve kar", "sab manzoor kar",
+      "approve kar do sab", "sab pass kar do",
+      "all pending approve", "sab approve",
+      "sab approve kar do", "approve everything",
+    ],
+    weight: 5,
+  },
+
+  // ── Supplier payment ──────────────────────────────────────────────────
+  {
+    intent: "SUPPLIER_PAYMENT",
+    keywords: [
+      "supplier ko pay karo", "supplier payment karo",
+      "pay supplier", "supplier ko paisa do",
+      "payment bhejo supplier", "supplier ko dena",
+      "make payment", "pay karna", "pay kar",
+      "supplier ko pay kar", "pay kar do",
+    ],
+    weight: 4,
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENTITY EXTRACTION
 // ═══════════════════════════════════════════════════════════════════════════
+
+const HINDI_NUMBERS: Record<string, number> = {
+  // ones
+  ek: 1, do: 2, teen: 3, char: 4, chaar: 4, paanch: 5, panch: 5, chhah: 6, chhe: 6, saat: 7, aath: 8, nau: 9, no: 9,
+  // tens
+  das: 10, gyaarah: 11, gyarah: 11, baarah: 12, terah: 13, chaudah: 14, pandrah: 15, solah: 16, satrah: 17, athaarah: 18, unnees: 19, unnis: 19,
+  bees: 20, tees: 30, chaalis: 40, chalis: 40, pachaas: 50, pachas: 50, saath: 60, sattar: 70, assi: 80, asi: 80, nabbe: 90,
+  // scale words (multipliers)
+  sau: 100, hazaar: 1000, hazar: 1000, lakh: 100000, lac: 100000, crore: 10000000,
+  // English number words
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, thousand: 1000,
+};
+
+const SCALE_WORDS = new Set(["sau", "hazaar", "hazar", "lakh", "lac", "crore", "hundred", "thousand"]);
+
+/**
+ * Parse Hindi/Hinglish number words to digits.
+ * Handles compound expressions: "pachaas hazaar" → 50000, "do lakh" → 200000,
+ * "sau" → 100, "pachaas" → 50.
+ */
+function parseHindiNumber(text: string): number | null {
+  const words = text.split(/\s+/);
+  let total = 0;
+  let current = 0;
+  let found = false;
+
+  for (const word of words) {
+    const clean = word.replace(/[^a-z]/g, "");
+    const val = HINDI_NUMBERS[clean];
+    if (val == null) {
+      // Flush current into total if we were building a number
+      total += current;
+      current = 0;
+      continue;
+    }
+
+    found = true;
+    if (SCALE_WORDS.has(clean)) {
+      // Multiply current by scale, or add scale directly if no current
+      if (current > 0) {
+        total += current * val;
+        current = 0;
+      } else {
+        total += val;
+      }
+    } else {
+      current += val;
+    }
+  }
+  // Flush remaining
+  total += current;
+
+  return found ? total : null;
+}
+
+// ── Ordinal extraction ("first one", "pehla", "doosra") ───────────────────
+const ORDINALS: Record<string, number> = {
+  pehla: 1, pehli: 1, pehle: 1, first: 1,
+  doosra: 2, doosri: 2, second: 2,
+  teesra: 3, teesri: 3, third: 3,
+  chautha: 4, chauthi: 4, fourth: 4,
+  panchwa: 5, panchwi: 5, fifth: 5,
+};
+
+function extractOrdinal(text: string): number | undefined {
+  const lower = text.toLowerCase();
+  for (const [word, num] of Object.entries(ORDINALS)) {
+    if (lower.includes(word)) return num;
+  }
+  return undefined;
+}
 
 function extractEntities(text: string): ParsedIntent["entities"] {
   const entities: ParsedIntent["entities"] = {};
@@ -451,11 +614,20 @@ function extractEntities(text: string): ParsedIntent["entities"] {
     entities.reqNumber = reqMatch[0].replace(/\s+/g, "").toUpperCase();
   }
 
+  // ── Hindi number words → digits ──
+  const hindiNumber = parseHindiNumber(lower);
+  if (hindiNumber != null) {
+    entities.amount = hindiNumber;
+    entities.number = hindiNumber;
+  }
+
   // ── Amount (e.g., 5000, 5000 ka, 5000 rupaye, ₹5000) ──
-  const amountMatch = text.match(/(?:₹|rs\.?|rupaye|rupees)?\s*(\d[\d,]+)\s*(?:ka|ki|ke|rupaye|rupees|rs\.?|ki?m?li?ne?|ka?i?se?|me|ka|ki?)/i);
-  if (amountMatch && amountMatch[1]) {
-    const amt = parseInt(amountMatch[1].replace(/,/g, ""), 10);
-    if (amt > 0) entities.amount = amt;
+  if (!entities.amount) {
+    const amountMatch = text.match(/(?:₹|rs\.?|rupaye|rupees)?\s*(\d[\d,]+)\s*(?:ka|ki|ke|rupaye|rupees|rs\.?|ki?m?li?ne?|ka?i?se?|me|ka|ki?)/i);
+    if (amountMatch && amountMatch[1]) {
+      const amt = parseInt(amountMatch[1].replace(/,/g, ""), 10);
+      if (amt > 0) entities.amount = amt;
+    }
   }
   // Fallback: just find a standalone number
   if (!entities.amount) {
@@ -480,16 +652,36 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   }
 
   // ── Material name (common construction materials) ──
-  const materials = [
-    "cement", "steel", "sand", "brick", "aggregate", "stone",
-    "wood", "timber", "plywood", "paint", "pipe", "wire",
-    "cable", "glass", "tile", "marble", "granite",
-    "sariya", "cement", "reti", "eent", "pathar",
-    "lakdi", "paint", "nali", "taar",
-  ];
-  for (const m of materials) {
-    if (lower.includes(m)) {
-      entities.materialName = m;
+  // Hindi aliases map to English search terms that match DB names
+  const materialAliases: Record<string, string> = {
+    cement: "cement",
+    steel: "steel",
+    sariya: "steel", // Hindi: sariya = steel rebar
+    sand: "sand",
+    reti: "sand", // Hindi: reti = sand
+    brick: "brick",
+    eent: "brick", // Hindi: eent = brick
+    aggregate: "aggregate",
+    stone: "stone",
+    pathar: "stone", // Hindi: pathar = stone
+    wood: "wood",
+    timber: "timber",
+    lakdi: "timber", // Hindi: lakdi = wood
+    plywood: "plywood",
+    paint: "paint",
+    pipe: "pipe",
+    nali: "pipe", // Hindi: nali = pipe/drain
+    wire: "wire",
+    taar: "wire", // Hindi: taar = wire
+    cable: "cable",
+    glass: "glass",
+    tile: "tile",
+    marble: "marble",
+    granite: "granite",
+  };
+  for (const [alias, dbTerm] of Object.entries(materialAliases)) {
+    if (lower.includes(alias)) {
+      entities.materialName = dbTerm;
       break;
     }
   }
@@ -498,6 +690,34 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   const projMatch = text.match(/project\s+["']?([a-zA-Z\s]{3,30})["']?/i);
   if (projMatch && projMatch[1]) {
     entities.projectName = projMatch[1].trim();
+  }
+
+  // ── Ordinal ("first one", "pehla", "doosra") ──
+  entities.ordinal = extractOrdinal(text);
+
+  // ── Quantity + unit ("5 bag", "10 kg", "pachaas cft") ──
+  const qtyMatch = text.match(/(\d+)\s*(bag|bags|kg|kgs|nos|cft|mtr|ton|tonnes|litre|litres|lt|box|boxes|piece|pieces|pcs|set|sets|roll|rolls|feet|ft)/i);
+  if (qtyMatch && qtyMatch[1]) {
+    entities.quantity = parseInt(qtyMatch[1], 10);
+    entities.unit = qtyMatch[2]?.toUpperCase().replace(/S$/, "");
+  }
+
+  // ── Unit price ("@ 500", "rate 500", "500 per", "500 ka") ──
+  const priceMatch = text.match(/(?:@|rate|per|ka|ki)\s*(\d[\d,]+)/i);
+  if (priceMatch && priceMatch[1]) {
+    entities.unitPrice = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+  }
+
+  // ── Customer name (after "customer" or "party") ──
+  const custMatch = text.match(/(?:customer|party|grahak)\s+["']?([a-zA-Z\s]{3,30})["']?/i);
+  if (custMatch && custMatch[1]) {
+    entities.customerName = custMatch[1].trim();
+  }
+
+  // ── Supplier name (after "supplier" or "vendor") ──
+  const supMatch = text.match(/(?:supplier|vendor)\s+["']?([a-zA-Z\s]{3,30})["']?/i);
+  if (supMatch && supMatch[1]) {
+    entities.supplierName = supMatch[1].trim();
   }
 
   return entities;
@@ -547,6 +767,18 @@ export function parseIntent(rawText: string): ParsedIntent {
     bestScore = Math.max(bestScore, 10);
   }
 
+  // ── "approve" with ordinal ("pehla wala approve kar") → APPROVE_PO ──
+  if (entities.action === "approve" && entities.ordinal && bestIntent === "UNKNOWN") {
+    bestIntent = "APPROVE_PO";
+    bestScore = 8;
+  }
+
+  // ── Fallback: if a material name is found but no intent matched, treat as stock query ──
+  if (bestIntent === "UNKNOWN" && entities.materialName) {
+    bestIntent = "STOCK_QUERY";
+    bestScore = 5;
+  }
+
   // ── Confidence: normalize score ──
   const confidence = bestScore === 0 ? 0 : Math.min(bestScore / 10, 1);
 
@@ -563,16 +795,18 @@ export function parseIntent(rawText: string): ParsedIntent {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const SUGGESTION_CHIPS = [
+  { label: "Kya karu?", text: "kya karna hai" },
   { label: "Stock kya hai?", text: "stock kya hai" },
   { label: "Approvals pending?", text: "approvals pending kya hai" },
   { label: "Aaj ki sales", text: "aaj ki sales dikhao" },
   { label: "Cash position", text: "cash position kya hai" },
   { label: "Supplier ko kitna dena?", text: "supplier ko kitna dena hai" },
   { label: "Low stock kya hai?", text: "low stock kya hai" },
-  { label: "Project status", text: "project status dikhao" },
+  { label: "Profit kitna?", text: "profit kitna hua" },
+  { label: "Is mahine ka summary", text: "is mahine ka summary" },
+  { label: "Cement par kitna kharcha?", text: "cement par kitna kharcha hua" },
   { label: "Aaj attendance", text: "aaj kitne worker aaye" },
   { label: "Trial balance", text: "trial balance dikhao" },
-  { label: "DPR pending", text: "dpr pending kitne hai" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -582,31 +816,38 @@ export const SUGGESTION_CHIPS = [
 export const HELP_TEXT = `Main ye sab kar sakta hoon:
 
 📊 **Stock & Inventory**
-• "Stock kya hai?" — current stock dekho
-• "Low stock kya hai?" — kya khatam ho raha hai
-• "Cement kitna hai?" — specific material check
+• "Stock kya hai?" — current stock
+• "Low stock kya hai?" — kya khatam ho raha
+• "Cement kitna hai?" — specific material
+• "Pachaas hazaar ka cement" — Hindi numbers!
 
 ✅ **Approvals**
 • "Approvals pending?" — pending list
-• "PO-0011 approve kar" — specific PO approve
-• "REQ-0007 approve kar" — requisition approve
+• "PO-0011 approve kar" — specific PO
+• "Sab approve kar" — approve all
+• "Pehla wala approve kar" — by position
 
 💰 **Sales & Payment**
 • "Aaj ki sales" — recent sales
-• "Payment kitni aayi?" — payment status
+• "Payment kitni baki?" — pending payments
 • "Naya sale banao" — create sale
 
-🏗️ **Projects**
+🏗️ **Projects & Reports**
 • "Project status" — all projects
 • "DPR pending" — daily reports
+• "Is mahine ka summary" — monthly summary
+• "Profit kitna hua?" — P&L
+• "Cement par kitna kharcha?" — spend analysis
 
 💵 **Finance**
-• "Cash position" — cash & bank balance
+• "Cash position" — cash & bank
 • "Trial balance" — GL summary
 • "Supplier ko kitna dena?" — payables
+• "Supplier ko pay karo" — make payment
 
 👷 **Site & Workers**
 • "Aaj kitne worker aaye?" — attendance
-• "Auto requisition chala" — auto-generate req
+• "Auto requisition chala" — auto-generate
+• "Kya karna hai?" — what needs attention
 
-Bolo ya type karo — Hindi, English, ya dono mila ke! 🎤`;
+Bolo ya type karo — Hindi, English, ya dono! 🎤`;

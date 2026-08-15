@@ -152,17 +152,20 @@ async function MobileSupplierReturnDetailContent({
               className="flex min-h-11 items-center gap-2.5 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Undo2 className="h-3.5 w-3.5" />
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
+                style={{ backgroundColor: "var(--color-concrete)" }}
+              >
+                <Undo2 className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-body">{l.material.name}</div>
-                <div className="truncate text-caption text-muted-foreground">
+                <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.material.name}</div>
+                <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
                   {l.material.code}
                   {l.reason ? ` · ${l.reason}` : ""} · {formatCurrency(toNum(l.unitCost))}/{l.material.unit}
                 </div>
               </div>
-              <span className="shrink-0 text-body font-semibold tnum text-foreground">
+              <span className="shrink-0 text-[0.75rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatNumber(toNum(l.qty), 0)} {l.material.unit}
               </span>
             </Link>

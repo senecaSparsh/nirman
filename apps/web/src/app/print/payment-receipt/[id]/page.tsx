@@ -7,6 +7,8 @@ import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
+type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
+
 /**
  * Print-friendly Payment Receipt — for individual payments received against an
  * asset sale (property / land). Industry-grade layout matching Indian
@@ -46,7 +48,6 @@ export default async function PaymentReceiptPage({
           customer: { select: { name: true, phone: true, address: true, gstin: true } },
           project: { select: { name: true } },
           builtUnit: { select: { unitNumber: true, unitType: true, floor: true, wing: true, area: true, areaUnit: true } },
-          landParcel: { select: { number: true, area: true, areaUnit: true } },
           payments: { orderBy: { paymentDate: "asc" } },
         },
       },
@@ -65,7 +66,7 @@ export default async function PaymentReceiptPage({
   const gstRate = toNum(sale.gstRate);
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
-  const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + toNum(p.amount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
@@ -75,6 +76,15 @@ export default async function PaymentReceiptPage({
   const receiptNo = `RCP-${yymmdd}-${payment.id.slice(-4).toUpperCase()}`;
 
   const assetLabel = sale.assetType === "LAND" ? "Land Plot" : "Built Unit";
+
+  // Fetch land parcel separately because the Prisma relation is not declared.
+  const landParcel =
+    sale.assetType === "LAND" && sale.landParcelId
+      ? await prisma.landParcel.findUnique({
+          where: { id: sale.landParcelId },
+          select: { number: true, area: true, areaUnit: true },
+        })
+      : null;
 
   // Property particulars
   let propertyLines: string[] = [];
@@ -87,8 +97,8 @@ export default async function PaymentReceiptPage({
       u.wing ? `Wing: ${u.wing}` : "",
       `Area: ${toNum(u.area)} ${u.areaUnit}`,
     ].filter(Boolean);
-  } else if (sale.assetType === "LAND" && sale.landParcel) {
-    const p = sale.landParcel;
+  } else if (sale.assetType === "LAND" && landParcel) {
+    const p = landParcel;
     propertyLines = [
       `${assetLabel} · Plot ${p.number}`,
       `Area: ${toNum(p.area)} ${p.areaUnit}`,
@@ -219,7 +229,7 @@ export default async function PaymentReceiptPage({
             </tr>
           </thead>
           <tbody>
-            {sale.payments.map((p, i) => (
+            {(sale.payments ?? []).map((p: AssetPaymentSummary, i: number) => (
               <tr key={p.id} className={`border-b border-gray-200 ${p.id === payment.id ? "bg-gray-100 font-semibold" : ""}`}>
                 <td className="px-2 py-1 text-center">{i + 1}</td>
                 <td className="px-2 py-1">{formatDate(p.paymentDate)}</td>

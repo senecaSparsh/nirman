@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSuppliersList, type SupplierListItem } from "./MobileSuppliersList";
 
 /**
@@ -21,9 +22,11 @@ export default function MobileSuppliersPage() {
 async function MobileSuppliersContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
 
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } },
+    where: { companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
     take: 80,
     include: {
@@ -52,6 +55,7 @@ async function MobileSuppliersContent() {
       items={rows}
       totalOwed={totalOwed}
       withDuesCount={withDues.length}
+      canCreate={canCreate}
     />
   );
 }

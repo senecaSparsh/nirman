@@ -45,8 +45,10 @@ const FILTER_CHIPS: { label: string; value: ProjectStatusFilter }[] = [
  */
 export function MobileProjectsList({
   items,
+  canManage = false,
 }: {
   items: ProjectListItem[];
+  canManage?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("ALL");

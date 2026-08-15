@@ -1,6 +1,7 @@
+import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { apiHandler, getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 
 /**
@@ -55,7 +56,7 @@ interface ChildEntity {
 
 // ─── Main handler ───────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
+export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("mode") ?? "node";
   const company = await getCompany();
@@ -64,16 +65,16 @@ export async function GET(req: Request) {
     if (mode === "children") {
       return await getChildren(searchParams, company.id);
     }
-    return await getNode(searchParams, company.id);
+    return await getNode(searchParams, company.id, company.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
 
 // ─── Node mode: center card + orbit chips ───────────────────────────────────
 
-async function getNode(searchParams: URLSearchParams, companyId: string): Promise<Response> {
+async function getNode(searchParams: URLSearchParams, companyId: string, currentCompanyId: string): Promise<Response> {
   const type = searchParams.get("type");
   const id = searchParams.get("id") ?? companyId;
 
@@ -81,7 +82,7 @@ async function getNode(searchParams: URLSearchParams, companyId: string): Promis
 
   let node: OrbitNode;
   switch (type) {
-    case "company": node = await getCompanyNode(id); break;
+    case "company": node = await getCompanyNode(id, currentCompanyId); break;
     case "project": node = await getProjectNode(id, companyId); break;
     case "builtUnit": node = await getBuiltUnitNode(id, companyId); break;
     case "landParcel": node = await getLandParcelNode(id, companyId); break;
@@ -129,7 +130,16 @@ async function getChildren(searchParams: URLSearchParams, companyId: string): Pr
 //  NODE RESOLVERS — center card + orbit chips
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function getCompanyNode(id: string): Promise<OrbitNode> {
+async function getCompanyNode(id: string, currentCompanyId: string): Promise<OrbitNode> {
+  // Enforce company membership — users can only view their own company node
+  if (id !== currentCompanyId) {
+    // Check if the requested company is a child of the current company (group access)
+    const isChild = await prisma.company.findFirst({
+      where: { id, parentCompanyId: currentCompanyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!isChild) throw new Error("Company not found");
+  }
   const c = await prisma.company.findFirst({
     where: { id, deletedAt: null },
     select: {

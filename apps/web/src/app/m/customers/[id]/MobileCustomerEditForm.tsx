@@ -89,6 +89,8 @@ export function MobileCustomerEditForm({
             className={inputClass}
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             placeholder="Customer name"
+            autoComplete="name"
+            enterKeyHint="next"
           />
         </div>
 
@@ -104,6 +106,8 @@ export function MobileCustomerEditForm({
             className={`${inputClass} font-mono`}
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             placeholder="9876543210"
+            autoComplete="tel"
+            enterKeyHint="next"
           />
         </div>
 
@@ -119,6 +123,8 @@ export function MobileCustomerEditForm({
             className={inputClass}
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             placeholder="customer@example.com"
+            autoComplete="email"
+            enterKeyHint="next"
           />
         </div>
 

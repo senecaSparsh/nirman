@@ -12,6 +12,8 @@ import {
   TrendingUp,
   AlertTriangle,
   ClipboardCheck,
+  ArrowLeftRight,
+  Warehouse,
   Home,
   Calendar,
   ClipboardList,
@@ -98,7 +100,9 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       links: [
         { href: "/m/materials", icon: Boxes, label: "Materials Catalogue", subtitle: "All materials, categories, units" },
         { href: "/m/stock", icon: Package, label: "Stock Ledger", subtitle: "Current stock by location" },
+        { href: "/m/stock-locations/new", icon: Warehouse, label: "Add Stock Location", subtitle: "New warehouse or project site" },
         { href: "/m/site/stock", icon: Package, label: "Site Stock", subtitle: "Stock by site + movements" },
+        { href: "/m/transfers", icon: ArrowLeftRight, label: "Stock Transfers", subtitle: "Move stock between locations" },
         { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Counts", subtitle: "Cycle counts, reconciliation" },
         { href: "/m/scrap-generations", icon: Wrench, label: "Scrap / Create", subtitle: "Internally generated material" },
         { href: "/m/material-sales", icon: TrendingUp, label: "Material Sales", subtitle: "Sell raw material directly" },

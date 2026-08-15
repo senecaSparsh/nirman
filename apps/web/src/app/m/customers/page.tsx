@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 
@@ -25,6 +26,8 @@ export default function MobileCustomersPage() {
 async function MobileCustomersContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canCreate = hasPermission(role, PERM.SALES_MANAGE);
 
   // Fetch ALL customers for this company (not just those with asset sales)
   const customers = await prisma.customer.findMany({
@@ -99,6 +102,7 @@ async function MobileCustomersContent() {
   return (
     <MobileCustomersList
       items={rows}
+      canCreate={canCreate}
       stats={{
         customerCount: rows.length,
         withDues: withDues.length,

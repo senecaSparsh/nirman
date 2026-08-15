@@ -8,7 +8,8 @@ import {
   IndianRupee, ClipboardList,
 } from "lucide-react";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -44,6 +45,17 @@ async function MobileMaterialDetailContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+    return (
+      <div>
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/materials" style={{ color: "var(--color-ink-700)" }} />
+        </div>
+        <MobileEmptyState icon={Package} title="Access denied" hint="You don't have permission to view material details" />
+      </div>
+    );
+  }
   const { id } = await params;
 
   const [material, stockItems, movements] = await Promise.all([

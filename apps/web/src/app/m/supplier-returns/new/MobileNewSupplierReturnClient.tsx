@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Trash2, Loader2, ChevronLeft, CheckCircle2,
-  Search, X, ChevronRight, Truck, Package, MapPin, FileText, Send,
+  Search, X, ChevronRight, Truck, Package, MapPin, FileText, Send, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 
 interface SupplierItem { id: string; name: string; }
 interface LocationItem { id: string; name: string; type: string; }
@@ -36,6 +37,7 @@ export default function MobileNewSupplierReturnClient({
   purchaseOrders: PurchaseOrderItem[];
 }) {
   const router = useRouter();
+  const { online, enqueue } = useOfflineQueue();
   const [submitting, setSubmitting] = useState(false);
 
   const [supplierId, setSupplierId] = useState("");
@@ -84,21 +86,36 @@ export default function MobileNewSupplierReturnClient({
 
     setSubmitting(true);
     try {
+      const payload = {
+        supplierId,
+        purchaseOrderId: purchaseOrderId || null,
+        locationId,
+        notes: notes || null,
+        lines: validLines.map((l) => ({
+          materialId: l.materialId,
+          qty: Number(l.qty),
+          unitCost: Number(l.unitCost),
+          reason: l.reason || null,
+        })),
+      };
+
+      // Offline: queue for later sync
+      if (!online) {
+        await enqueue("supplier-return", payload);
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(10);
+        }
+        toast.success("Supplier return queued offline", {
+          description: "Will sync when back online",
+        });
+        setSuccess({ returnNumber: "QUEUED", total });
+        return;
+      }
+
       const res = await fetch("/api/supplier-returns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          supplierId,
-          purchaseOrderId: purchaseOrderId || null,
-          locationId,
-          notes: notes || null,
-          lines: validLines.map((l) => ({
-            materialId: l.materialId,
-            qty: Number(l.qty),
-            unitCost: Number(l.unitCost),
-            reason: l.reason || null,
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -115,33 +132,54 @@ export default function MobileNewSupplierReturnClient({
 
   /* ── Success state ── */
   if (success) {
+    const isQueued = success.returnNumber === "QUEUED";
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
           className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+          style={{
+            backgroundColor: isQueued
+              ? "color-mix(in srgb, var(--color-signal) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+          }}
         >
-          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          {isQueued ? (
+            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+          ) : (
+            <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Return Created</p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>{success.returnNumber}</p>
-        <p className="text-[1rem] font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
-          {formatCurrency(success.total)}
+        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          {isQueued ? "Return Queued" : "Return Created"}
         </p>
-        <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
-          Return is in <span className="font-bold" style={{ color: "var(--color-ink-700)" }}>DRAFT</span>. Submit for processing from the detail page.
-        </p>
+        {isQueued ? (
+          <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+            Will sync when back online
+          </p>
+        ) : (
+          <>
+            <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>{success.returnNumber}</p>
+            <p className="text-[1rem] font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
+              {formatCurrency(success.total)}
+            </p>
+            <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+              Return is in <span className="font-bold" style={{ color: "var(--color-ink-700)" }}>DRAFT</span>. Submit for processing from the detail page.
+            </p>
+          </>
+        )}
         <div className="flex gap-2">
-          <button
-            onClick={() => {
-              router.refresh();
-              router.push("/m/supplier-returns");
-            }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-          >
-            View All Returns
-          </button>
+          {!isQueued && (
+            <button
+              onClick={() => {
+                router.refresh();
+                router.push("/m/supplier-returns");
+              }}
+              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            >
+              View All Returns
+            </button>
+          )}
           <button
             onClick={() => {
               setSuccess(null);
@@ -200,6 +238,7 @@ export default function MobileNewSupplierReturnClient({
       onLineChange={handleLineChange}
       onSubmit={handleSubmit}
       submitting={submitting}
+      online={online}
       total={total}
       selectedSupplier={selectedSupplier}
       selectedLocation={selectedLocation}
@@ -220,6 +259,7 @@ function ReturnForm({
   lines,
   onAddLine, onRemoveLine, onLineChange,
   onSubmit, submitting,
+  online,
   total,
   selectedSupplier, selectedLocation, selectedPO,
 }: {
@@ -241,6 +281,7 @@ function ReturnForm({
   onLineChange: (i: number, field: keyof ReturnLine, val: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
+  online: boolean;
   total: number;
   selectedSupplier?: SupplierItem;
   selectedLocation?: LocationItem;
@@ -373,7 +414,7 @@ function ReturnForm({
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.qty}
@@ -388,7 +429,7 @@ function ReturnForm({
                         Unit Cost
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.unitCost}
@@ -499,8 +540,8 @@ function ReturnForm({
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <>
-                <Send className="size-3.5" />
-                <span>Create Return (Draft)</span>
+                {online ? <Send className="size-3.5" /> : <WifiOff className="size-3.5" />}
+                <span>{online ? "Create Return (Draft)" : "Queue Return (Offline)"}</span>
               </>
             )}
           </button>

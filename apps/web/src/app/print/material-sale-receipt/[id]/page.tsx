@@ -7,6 +7,8 @@ import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
+type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
+
 /**
  * Print-friendly Money Receipt — for a payment received against a material
  * sale (sale of construction material / scrap to a customer). Mirrors the
@@ -58,7 +60,7 @@ export default async function MaterialSaleReceiptPage({
   const gstTotal = toNum(sale.gstTotal);
   const roundOff = toNum(sale.roundOff);
   const total = toNum(sale.totalAmount);
-  const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + toNum(p.amount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
@@ -223,7 +225,7 @@ export default async function MaterialSaleReceiptPage({
             </tr>
           </thead>
           <tbody>
-            {sale.payments.map((p, i) => (
+            {sale.payments.map((p: MaterialPaymentSummary, i: number) => (
               <tr key={p.id} className={`border-b border-gray-200 ${p.id === payment.id ? "bg-gray-100 font-semibold" : ""}`}>
                 <td className="px-2 py-1 text-center">{i + 1}</td>
                 <td className="px-2 py-1">{formatDate(p.paymentDate)}</td>

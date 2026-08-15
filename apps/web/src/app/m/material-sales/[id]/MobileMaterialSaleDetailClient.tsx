@@ -559,7 +559,7 @@ export function MobileMaterialSaleDetailClient({
             ) : null}
             <FormField label="Amount" required>
               <input
-                type="number"
+                type="text" inputMode="decimal"
                 step="any"
                 min="0"
                 value={payAmount}

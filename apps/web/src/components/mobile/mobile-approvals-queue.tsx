@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Loader2,
   ClipboardCheck,
+  CalendarCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -47,8 +48,20 @@ interface ReqRow {
   createdAt: string;
   lines: ReqLine[];
 }
+interface DprRow {
+  id: string;
+  projectName: string | null;
+  submittedByName: string | null;
+  createdAt: string;
+  date: string;
+  approvalStatus: string;
+  workSummary: string;
+  progressPct: number;
+  canApproveSubAdmin: boolean;
+  canApproveAdmin: boolean;
+}
 
-type ItemKind = "po" | "req";
+type ItemKind = "po" | "req" | "dpr";
 type ItemState = "pending" | "approving" | "approved" | "rejecting" | "rejected";
 
 // ── Component ───────────────────────────────────────────────────
@@ -56,15 +69,16 @@ type ItemState = "pending" | "approving" | "approved" | "rejecting" | "rejected"
 export function MobileApprovalsQueue({
   purchaseOrders,
   requisitions,
+  dprs = [],
 }: {
   purchaseOrders: PoRow[];
   requisitions: ReqRow[];
+  dprs?: DprRow[];
 }) {
   const router = useRouter();
-  // Track per-item state so approved/rejected items collapse out of the queue
-  // without waiting for a full server re-render.
   const [poStates, setPoStates] = useState<Record<string, ItemState>>({});
   const [reqStates, setReqStates] = useState<Record<string, ItemState>>({});
+  const [dprStates, setDprStates] = useState<Record<string, ItemState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const visiblePOs = purchaseOrders.filter((po) => {
@@ -73,6 +87,10 @@ export function MobileApprovalsQueue({
   });
   const visibleReqs = requisitions.filter((r) => {
     const s = reqStates[r.id];
+    return !s || s === "pending" || s === "approving" || s === "rejecting";
+  });
+  const visibleDprs = dprs.filter((d) => {
+    const s = dprStates[d.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
 
@@ -89,6 +107,26 @@ export function MobileApprovalsQueue({
       if (!res.ok) throw new Error(data.error ?? "Failed to approve PO");
       toast.success(`PO ${po.poNumber} approved`);
       setPoStates((s) => ({ ...s, [po.id]: "approved" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+      setPoStates((s) => ({ ...s, [po.id]: "pending" }));
+    }
+  }
+
+  async function rejectPo(po: PoRow) {
+    haptic([10, 30]);
+    setPoStates((s) => ({ ...s, [po.id]: "rejecting" }));
+    try {
+      const res = await fetch(`/api/purchase-orders/${po.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to reject PO");
+      toast.success(`PO ${po.poNumber} rejected`);
+      setPoStates((s) => ({ ...s, [po.id]: "rejected" }));
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -136,6 +174,48 @@ export function MobileApprovalsQueue({
     }
   }
 
+  async function approveDpr(dpr: DprRow) {
+    haptic(10);
+    setDprStates((s) => ({ ...s, [dpr.id]: "approving" }));
+    const action = dpr.approvalStatus === "SUBMITTED" ? "subAdminApprove" : "adminApprove";
+    const label = dpr.approvalStatus === "SUBMITTED" ? "Sub-admin approved" : "Admin approved";
+    try {
+      const res = await fetch(`/api/dprs/${dpr.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to approve DPR");
+      toast.success(label);
+      setDprStates((s) => ({ ...s, [dpr.id]: "approved" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+      setDprStates((s) => ({ ...s, [dpr.id]: "pending" }));
+    }
+  }
+
+  async function rejectDpr(dpr: DprRow) {
+    haptic([10, 30]);
+    setDprStates((s) => ({ ...s, [dpr.id]: "rejecting" }));
+    try {
+      const res = await fetch(`/api/dprs/${dpr.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to reject DPR");
+      toast.success("DPR rejected");
+      setDprStates((s) => ({ ...s, [dpr.id]: "rejected" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+      setDprStates((s) => ({ ...s, [dpr.id]: "pending" }));
+    }
+  }
+
   return (
     <div>
       {/* ── Purchase Orders ──────────────────────────────────── */}
@@ -159,7 +239,7 @@ export function MobileApprovalsQueue({
             meta={formatCurrency(po.total)}
             state={state}
             onApprove={() => approvePo(po)}
-            onReject={undefined}
+            onReject={() => rejectPo(po)}
           >
             <div className="space-y-1.5">
               {po.lines.map((l, i) => (
@@ -235,12 +315,63 @@ export function MobileApprovalsQueue({
         </div>
       )}
 
-      {purchaseOrders.length === 0 && requisitions.length === 0 && (
+      {/* ── DPRs ─────────────────────────────────────────────── */}
+      {dprs.length > 0 && (
+        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
+          DPRs ({visibleDprs.length})
+        </h2>
+      )}
+      {visibleDprs.map((dpr) => {
+        const state = dprStates[dpr.id] ?? "pending";
+        const isOpen = expanded === `dpr:${dpr.id}`;
+        const approvalLabel = dpr.approvalStatus === "SUBMITTED" ? "Sub-Admin" : "Admin";
+        return (
+          <ApprovalCard
+            key={dpr.id}
+            kind="dpr"
+            isOpen={isOpen}
+            onToggle={() => setExpanded(isOpen ? null : `dpr:${dpr.id}`)}
+            icon={CalendarCheck}
+            title={dpr.projectName ?? "N/A"}
+            subtitle={`DPR · ${formatDate(dpr.date)} · ${approvalLabel} approval`}
+            meta={`${dpr.progressPct}%`}
+            state={state}
+            onApprove={() => approveDpr(dpr)}
+            onReject={() => rejectDpr(dpr)}
+          >
+            <div className="space-y-2">
+              {dpr.submittedByName ? (
+                <div className="text-meta text-muted-foreground">
+                  Submitted by {dpr.submittedByName}
+                </div>
+              ) : null}
+              <div className="text-body text-foreground">{dpr.workSummary}</div>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-muted">
+                  <div
+                    className="h-1.5 rounded-full bg-success"
+                    style={{ width: `${dpr.progressPct}%` }}
+                  />
+                </div>
+                <span className="text-meta tnum text-muted-foreground">{dpr.progressPct}%</span>
+              </div>
+            </div>
+          </ApprovalCard>
+        );
+      })}
+      {dprs.length > 0 && visibleDprs.length === 0 && (
+        <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+          <CheckCircle2 className="mb-2 h-8 w-8 text-success/60" />
+          <p className="text-body font-semibold text-foreground">All DPRs reviewed</p>
+        </div>
+      )}
+
+      {purchaseOrders.length === 0 && requisitions.length === 0 && dprs.length === 0 && (
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
           <ClipboardCheck className="mb-3 h-10 w-10 text-muted-foreground/55" />
           <p className="text-body font-semibold text-foreground">Nothing to approve</p>
           <p className="mt-1 max-w-xs text-meta leading-relaxed text-muted-foreground">
-            Draft purchase orders and submitted requisitions appear here.
+            Draft purchase orders, submitted requisitions, and pending DPRs appear here.
           </p>
         </div>
       )}

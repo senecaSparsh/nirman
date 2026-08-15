@@ -6,10 +6,11 @@ import { prisma } from "@nirman/db";
 import {
   Building2, Home, ClipboardList,
   MapPin, Calendar, TrendingUp, PackageCheck,
-  FileText,
+  FileText, CalendarCheck,
 } from "lucide-react";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -50,6 +51,8 @@ async function MobileProjectDetailContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.PROJECTS_MANAGE);
   const { id } = await params;
 
   const project = await prisma.project.findFirst({
@@ -67,7 +70,7 @@ async function MobileProjectDetailContent({
     );
   }
 
-  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels] =
+  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance] =
     await Promise.all([
       prisma.builtUnit.findMany({
         where: { projectId: id, deletedAt: null },
@@ -107,6 +110,12 @@ async function MobileProjectDetailContent({
       }),
       prisma.landParcel.count({
         where: { projectId: id, deletedAt: null, status: "AVAILABLE" },
+      }),
+      prisma.workerAttendance.findMany({
+        where: { projectId: id },
+        orderBy: { date: "desc" },
+        take: 5,
+        include: { employee: { select: { name: true } } },
       }),
     ]);
 
@@ -518,6 +527,46 @@ async function MobileProjectDetailContent({
                 <p className="text-[0.4375rem] mt-auto truncate" style={{ color: "var(--color-ink-500)" }}>
                   {c.vendor ?? "—"}
                 </p>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {/* ── Recent Attendance ── */}
+      {recentAttendance.length > 0 ? (
+        <>
+          <MobileSectionTitle>Recent Attendance</MobileSectionTitle>
+          <div className="grid grid-cols-3 gap-1.5 mb-3">
+            {recentAttendance.map((a) => (
+              <Link
+                key={a.id}
+                href={`/m/attendance?project=${id}`}
+                className="flex flex-col gap-1 rounded-[0.625rem] border p-2 press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="grid place-items-center size-6 rounded-full shrink-0"
+                    style={{ backgroundColor: "var(--color-paper-2)" }}
+                  >
+                    <CalendarCheck className="size-3" style={{ color: "var(--color-ink-700)" }} />
+                  </div>
+                  <span className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    {a.employee?.name ?? "Worker"}
+                  </span>
+                </div>
+                <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                  {formatDate(a.date)}
+                </span>
+                <span
+                  className="text-[0.5rem] font-bold uppercase"
+                  style={{
+                    color: a.status === "PRESENT" ? "var(--color-go)" : a.status === "ABSENT" ? "var(--color-stop)" : "var(--color-signal-dark)",
+                  }}
+                >
+                  {a.status}
+                </span>
               </Link>
             ))}
           </div>

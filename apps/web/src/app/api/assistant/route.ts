@@ -140,6 +140,18 @@ async function executeIntent(
       return taskResponse(companyId);
     case "WORKER_LIST":
       return workerListResponse(companyId);
+    case "ATTENTION":
+      return attentionResponse(companyId);
+    case "MONTHLY_SUMMARY":
+      return monthlySummaryResponse(companyId);
+    case "PROFIT_LOSS":
+      return profitLossResponse(companyId);
+    case "SPEND_ANALYSIS":
+      return spendAnalysisResponse(companyId, entities);
+    case "APPROVE_ALL":
+      return approveAllResponse(companyId);
+    case "SUPPLIER_PAYMENT":
+      return supplierPaymentResponse(companyId);
     default:
       return unknownResponse(rawText);
   }
@@ -170,33 +182,40 @@ function helpResponse(): AssistantResponse {
   return {
     text: `Main ye sab kar sakta hoon:
 
-📦 **Stock & Inventory**
+� **Stock & Inventory**
 • "Stock kya hai?" — current stock
-• "Low stock kya hai?" — kya khatam ho raha hai
+• "Low stock kya hai?" — kya khatam ho raha
 • "Cement kitna hai?" — specific material
+• "Pachaas hazaar ka cement" — Hindi numbers!
 
 ✅ **Approvals**
 • "Approvals pending?" — pending list
-• "PO-0011 approve kar" — PO approve
-• "REQ-0007 approve kar" — requisition approve
+• "PO-0011 approve kar" — specific PO
+• "Sab approve kar" — approve all
+• "Pehla wala approve kar" — by position
 
 💰 **Sales & Payment**
 • "Aaj ki sales" — recent sales
-• "Payment kitni aayi?" — payment status
+• "Payment kitni baki?" — pending payments
 • "Naya sale banao" — create sale
 
-🏗️ **Projects**
+🏗️ **Projects & Reports**
 • "Project status" — all projects
 • "DPR pending" — daily reports
+• "Is mahine ka summary" — monthly summary
+• "Profit kitna hua?" — P&L
+• "Cement par kitna kharcha?" — spend analysis
 
 💵 **Finance**
 • "Cash position" — cash & bank
 • "Trial balance" — GL summary
 • "Supplier ko kitna dena?" — payables
+• "Supplier ko pay karo" — make payment
 
 👷 **Site & Workers**
 • "Aaj kitne worker aaye?" — attendance
 • "Auto requisition chala" — auto-generate
+• "Kya karna hai?" — what needs attention
 
 Bolo ya type karo — Hindi, English, ya dono! 🎤`,
     intent: "HELP",
@@ -994,4 +1013,290 @@ function unknownResponse(rawText: string): AssistantResponse {
     confidence: 0,
     cards: [{ type: "button", label: "Help", endpoint: "/api/assistant", method: "POST", body: { text: "help" } }],
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEW INTENT HANDLERS — Attention, Monthly Summary, P&L, Spend, Approve All
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function attentionResponse(companyId: string): Promise<AssistantResponse> {
+  const [draftPOs, pendingReqs, overduePOs, lowStock, pendingDPRs] = await Promise.all([
+    prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
+    prisma.materialRequisition.count({ where: { project: { companyId }, status: "SUBMITTED" } }),
+    prisma.purchaseOrder.count({
+      where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
+    }),
+    lowStockAlerts(companyId).catch(() => []),
+    prisma.dailyProgressReport.count({ where: { companyId, approvalStatus: "SUBMITTED" } }),
+  ]);
+
+  const items: string[] = [];
+  if (draftPOs > 0) items.push(`📋 ${draftPOs} PO approve karne pending`);
+  if (pendingReqs > 0) items.push(`📋 ${pendingReqs} requisition approve pending`);
+  if (overduePOs > 0) items.push(`⚠️ ${overduePOs} PO overdue (delivery late)`);
+  if (lowStock.length > 0) items.push(`📦 ${lowStock.length} material low stock par`);
+  if (pendingDPRs > 0) items.push(`📝 ${pendingDPRs} DPR pending approval`);
+
+  if (items.length === 0) {
+    return {
+      text: "✅ Sab smooth hai! Koi urgent attention nahi chahiye. 🎉",
+      intent: "ATTENTION",
+      confidence: 0.9,
+    };
+  }
+
+  let text = `🔔 **Aapka attention chahiye:**\n\n`;
+  for (const item of items) text += `${item}\n`;
+  text += `\nKya karna hai? Bataiye aur main kar deta hoon!`;
+
+  const cards: ActionCard[] = [];
+  if (draftPOs > 0 || pendingReqs > 0) {
+    cards.push({ type: "link", label: "Go to approvals", href: "/m/pulse/approvals", variant: "primary" });
+  }
+  if (lowStock.length > 0) {
+    cards.push({ type: "button", label: "Auto-generate requisition", endpoint: "/api/requisitions/auto", method: "POST" });
+  }
+
+  return { text, cards, intent: "ATTENTION", confidence: 0.9 };
+}
+
+async function monthlySummaryResponse(companyId: string): Promise<AssistantResponse> {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [sales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
+    prisma.materialSale.findMany({
+      where: { companyId, createdAt: { gte: monthStart } },
+      include: { payments: { select: { amount: true } } },
+    }),
+    prisma.expense.findMany({
+      where: { companyId, createdAt: { gte: monthStart } },
+    }),
+    prisma.purchaseOrder.count({
+      where: { companyId, createdAt: { gte: monthStart } },
+    }),
+    prisma.purchaseOrder.aggregate({
+      where: { companyId, createdAt: { gte: monthStart } },
+      _sum: { total: true },
+    }),
+    prisma.materialRequisition.count({
+      where: { project: { companyId }, createdAt: { gte: monthStart } },
+    }),
+    prisma.workerAttendance.count({
+      where: { companyId, date: { gte: monthStart } },
+    }),
+  ]);
+
+  const totalSales = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
+  const totalCollected = sales.reduce(
+    (s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0),
+    0,
+  );
+  const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
+  const poSum = toNum(poTotal._sum.total ?? 0);
+  const monthName = now.toLocaleString("en-IN", { month: "long" });
+
+  let text = `📅 **${monthName} ${now.getFullYear()} Summary:**\n\n`;
+  text += `💰 **Sales:**\n`;
+  text += `• Total sales: ${sales.length} | Value: ${formatCurrency(totalSales)}\n`;
+  text += `• Collected: ${formatCurrency(totalCollected)} | Pending: ${formatCurrency(totalSales - totalCollected)}\n\n`;
+  text += `📦 **Procurement:**\n`;
+  text += `• Purchase orders: ${poCount} | Value: ${formatCurrency(poSum)}\n`;
+  text += `• Requisitions raised: ${newReqs}\n\n`;
+  text += `💸 **Expenses:** ${formatCurrency(totalExpenses)}\n\n`;
+  text += `👷 **Attendance records:** ${attendanceDays}\n`;
+  text += `📊 **Net cash flow:** ${formatCurrency(totalCollected - totalExpenses - poSum)}`;
+
+  return {
+    text,
+    intent: "MONTHLY_SUMMARY",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "Sales detail", href: "/m/material-sales" },
+      { type: "link", label: "GL / P&L", href: "/m/gl" },
+    ],
+  };
+}
+
+async function profitLossResponse(companyId: string): Promise<AssistantResponse> {
+  const tb = await trialBalance(companyId).catch(() => null);
+
+  if (!tb) {
+    return { text: "P&L nahi mila. GL setup check karein.", intent: "PROFIT_LOSS", confidence: 0.7 };
+  }
+
+  // Revenue accounts (4000-4999) and Expense accounts (5000-5999)
+  let totalRevenue = 0;
+  let totalExpenses = 0;
+  let revenueText = "";
+  let expenseText = "";
+
+  for (const a of tb.accounts) {
+    const balance = toNum(a.balance);
+    if (a.code.startsWith("4") && balance !== 0) {
+      totalRevenue += Math.abs(balance);
+      revenueText += `• ${a.name}: ${formatCurrency(Math.abs(balance))}\n`;
+    } else if (a.code.startsWith("5") && balance !== 0) {
+      totalExpenses += Math.abs(balance);
+      expenseText += `• ${a.name}: ${formatCurrency(Math.abs(balance))}\n`;
+    }
+  }
+
+  const netProfit = totalRevenue - totalExpenses;
+
+  let text = `📊 **Profit & Loss:**\n\n`;
+  text += `💰 **Revenue:**\n${revenueText || "• (no revenue entries)\n"}`;
+  text += `Total Revenue: ${formatCurrency(totalRevenue)}\n\n`;
+  text += `💸 **Expenses:**\n${expenseText || "• (no expense entries)\n"}`;
+  text += `Total Expenses: ${formatCurrency(totalExpenses)}\n\n`;
+  text += `${netProfit >= 0 ? "✅" : "⚠️"} **Net ${netProfit >= 0 ? "Profit" : "Loss"}: ${formatCurrency(Math.abs(netProfit))}**`;
+
+  return {
+    text,
+    intent: "PROFIT_LOSS",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "Full GL", href: "/m/gl" }],
+  };
+}
+
+async function spendAnalysisResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  // If a specific material is mentioned, analyze spend on that material
+  if (entities.materialName) {
+    const receipts = await prisma.goodsReceipt.findMany({
+      where: {
+        purchaseOrder: { companyId },
+        lines: { some: { material: { name: { contains: entities.materialName, mode: "insensitive" } } } },
+      },
+      include: {
+        lines: { include: { material: true } },
+        purchaseOrder: { include: { supplier: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    let totalSpend = 0;
+    let text = `💸 **${entities.materialName.toUpperCase()} spend analysis:**\n\n`;
+
+    for (const gr of receipts.slice(0, 6)) {
+      for (const line of gr.lines) {
+        if (line.material.name.toLowerCase().includes(entities.materialName.toLowerCase())) {
+          const lineCost = toNum(line.qtyReceived) * toNum(line.unitCost);
+          totalSpend += lineCost;
+          text += `• ${formatNumber(toNum(line.qtyReceived), 2)} ${line.material.unit} @ ${formatCurrency(toNum(line.unitCost))} = ${formatCurrency(lineCost)}\n`;
+          text += `   📦 ${gr.purchaseOrder?.supplier?.name ?? "Unknown"} | ${gr.createdAt.toISOString().split("T")[0]}\n`;
+        }
+      }
+    }
+
+    if (receipts.length === 0) {
+      return { text: `${entities.materialName} par abhi tak kharcha nahi hua.`, intent: "SPEND_ANALYSIS", confidence: 0.8 };
+    }
+
+    text += `\n💰 Total ${entities.materialName} spend: ${formatCurrency(totalSpend)}`;
+    return { text, intent: "SPEND_ANALYSIS", confidence: 0.9 };
+  }
+
+  // General spend analysis — by category
+  const expenses = await prisma.expense.findMany({
+    where: { companyId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  const byCategory = new Map<string, number>();
+  for (const e of expenses) {
+    const cat = e.category;
+    byCategory.set(cat, (byCategory.get(cat) ?? 0) + toNum(e.amount));
+  }
+
+  const sorted = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
+  const total = sorted.reduce((s, [, v]) => s + v, 0);
+
+  let text = `💸 **Spend Analysis (by category):**\n\n`;
+  for (const [cat, amt] of sorted.slice(0, 8)) {
+    const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : "0";
+    text += `• ${cat}: ${formatCurrency(amt)} (${pct}%)\n`;
+  }
+  text += `\n💰 Total: ${formatCurrency(total)}`;
+
+  return {
+    text,
+    intent: "SPEND_ANALYSIS",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "All expenses", href: "/m/expenses" }],
+  };
+}
+
+async function approveAllResponse(companyId: string): Promise<AssistantResponse> {
+  const draftPOs = await prisma.purchaseOrder.findMany({
+    where: { companyId, status: "DRAFT" },
+    include: { supplier: true },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const pendingReqs = await prisma.materialRequisition.findMany({
+    where: { project: { companyId }, status: "SUBMITTED" },
+    include: { project: true },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  if (draftPOs.length === 0 && pendingReqs.length === 0) {
+    return { text: "✅ Koi pending approval nahi hai!", intent: "APPROVE_ALL", confidence: 0.9 };
+  }
+
+  let text = `⚠️ **Sab approve karna hai?**\n\n`;
+  text += `📋 ${draftPOs.length} Purchase Orders\n`;
+  text += `📋 ${pendingReqs.length} Requisitions\n\n`;
+  text += `Total: ${draftPOs.length + pendingReqs.length} items\n\n`;
+  text += `Confirm karein — ye sab ek saath approve ho jayenge:`;
+
+  // Build confirm cards for each PO and requisition
+  const cards: ActionCard[] = [];
+  for (const po of draftPOs.slice(0, 10)) {
+    cards.push({
+      type: "confirm",
+      label: `✅ ${po.poNumber} — ${po.supplier.name}`,
+      endpoint: `/api/purchase-orders/${po.id}`,
+      method: "PATCH",
+      body: { action: "approve" },
+      variant: "primary",
+    });
+  }
+  for (const req of pendingReqs.slice(0, 10)) {
+    cards.push({
+      type: "confirm",
+      label: `✅ ${req.reqNumber} — ${req.project?.name ?? "Unknown"}`,
+      endpoint: `/api/requisitions/${req.id}`,
+      method: "PATCH",
+      body: { action: "approve" },
+      variant: "primary",
+    });
+  }
+
+  return { text, cards, intent: "APPROVE_ALL", confidence: 0.9 };
+}
+
+async function supplierPaymentResponse(companyId: string): Promise<AssistantResponse> {
+  const suppliers = await prisma.supplier.findMany({
+    where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
+    orderBy: { balanceOwed: "desc" },
+    take: 10,
+  });
+
+  if (suppliers.length === 0) {
+    return { text: "✅ Kisi supplier ko kuch nahi dena!", intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
+  }
+
+  let text = `💸 **Supplier Payment:**\n\nKaunse supplier ko pay karna hai?\n\n`;
+  const cards: ActionCard[] = suppliers.slice(0, 5).map((s) => ({
+    type: "link" as const,
+    label: `Pay ${s.name} (${formatCurrency(toNum(s.balanceOwed))})`,
+    href: `/m/supplier-payments?supplierId=${s.id}`,
+    variant: "primary" as const,
+  }));
+
+  return { text, cards, intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
 }

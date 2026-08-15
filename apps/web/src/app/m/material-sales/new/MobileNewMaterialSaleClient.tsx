@@ -6,10 +6,15 @@ import Link from "next/link";
 import {
   Plus, Trash2, Loader2, ChevronLeft, CheckCircle2, IndianRupee,
   Search, X, ChevronRight, User, MapPin, Package, Building2,
-  Wallet, Send,
+  Wallet, Send, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { DraftBanner } from "@/components/mobile/draft-banner";
+import { haptic } from "@/lib/haptic";
+import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 
 interface CustomerItem { id: string; name: string; phone?: string | null; }
 interface LocationItem { id: string; name: string; type: string; }
@@ -33,8 +38,18 @@ interface PaymentSplit {
   mode: PaymentMode;
 }
 
+interface SaleDraft {
+  customerId: string;
+  projectId: string;
+  paymentType: PaymentType;
+  paymentSplits: PaymentSplit[];
+  notes: string;
+  lines: SaleLine[];
+}
+
 export default function MobileNewMaterialSaleClient() {
   const router = useRouter();
+  const { online, enqueue } = useOfflineQueue();
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -42,6 +57,9 @@ export default function MobileNewMaterialSaleClient() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Smart defaults: last-known prices + last-used payment mode ──
+  const [lastPrices, setLastPrices] = useState<Record<string, number>>({});
 
   const [customerId, setCustomerId] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -54,15 +72,23 @@ export default function MobileNewMaterialSaleClient() {
 
   const [success, setSuccess] = useState<{ saleNumber: string; totalAmount: number; amountPaid?: number } | null>(null);
 
+  // ── Draft auto-save (IndexedDB) — survives interruptions / offline ──
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<SaleDraft>(
+    "material-sale",
+    "material-sale-new",
+  );
+  const [draftRestored, setDraftRestored] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     async function loadData() {
       try {
-        const [custRes, locRes, matRes, projRes] = await Promise.all([
+        const [custRes, locRes, matRes, projRes, salesRes] = await Promise.all([
           fetch("/api/customers").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/materials").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/material-sales?limit=20").then((r) => (r.ok ? r.json() : [])),
         ]);
         if (cancelled) return;
         if (Array.isArray(custRes)) {
@@ -77,6 +103,23 @@ export default function MobileNewMaterialSaleClient() {
         }
         if (Array.isArray(matRes)) setMaterials(matRes);
         if (Array.isArray(projRes)) setProjects(projRes);
+
+        // ── Build last-known price map from recent sales ──
+        if (Array.isArray(salesRes)) {
+          const priceMap: Record<string, number> = {};
+          // Sales are newest-first; iterate to keep the most recent price per material
+          for (const sale of salesRes) {
+            const lines = sale.lines ?? sale.items ?? [];
+            for (const line of lines) {
+              if (line.materialId && line.unitPrice && !priceMap[line.materialId]) {
+                priceMap[line.materialId] = Number(line.unitPrice);
+              }
+            }
+          }
+          if (!cancelled && Object.keys(priceMap).length > 0) {
+            setLastPrices(priceMap);
+          }
+        }
       } catch (err) {
         console.error("Failed to load form options:", err);
       } finally {
@@ -84,8 +127,30 @@ export default function MobileNewMaterialSaleClient() {
       }
     }
     loadData();
+
+    // ── Read last-used payment mode from localStorage ──
+    try {
+      const savedMode = localStorage.getItem("nirman.last-payment-mode") as PaymentMode | null;
+      if (savedMode && PAYMENT_MODES.includes(savedMode)) {
+        setPaymentSplits((prev) =>
+          prev.map((s, i) => i === 0 ? { ...s, mode: savedMode } : s),
+        );
+      }
+    } catch {
+      // localStorage may be blocked — ignore
+    }
+
     return () => { cancelled = true; };
   }, []);
+
+  // ── Auto-save draft whenever form state changes (debounced 2s) ──
+  useEffect(() => {
+    // Don't save until options are loaded (avoid overwriting draft with empty defaults)
+    if (loading) return;
+    // Don't save after successful submit
+    if (success) return;
+    saveDraft({ customerId, projectId, paymentType, paymentSplits, notes, lines });
+  }, [customerId, projectId, paymentType, paymentSplits, notes, lines, loading, success, saveDraft]);
 
   const handleAddLine = () => {
     const defaultMatId = materials.length > 0 ? materials[0]!.id : "";
@@ -101,6 +166,13 @@ export default function MobileNewMaterialSaleClient() {
   const handleLineChange = (index: number, field: keyof SaleLine, val: string) => {
     const updated = [...lines];
     updated[index] = { ...updated[index]!, [field]: val };
+    // ── Smart default: auto-fill unit price from last sale when material changes ──
+    if (field === "materialId" && val && !updated[index]!.unitPrice) {
+      const lastPrice = lastPrices[val];
+      if (lastPrice) {
+        updated[index] = { ...updated[index]!, unitPrice: String(lastPrice) };
+      }
+    }
     setLines(updated);
   };
 
@@ -114,6 +186,14 @@ export default function MobileNewMaterialSaleClient() {
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const selectedProject = projects.find((p) => p.id === projectId);
+
+  // ── Unsaved-changes guard — warns on accidental back/navigation ──
+  const isDirty = !success && (
+    lines.some((l) => Number(l.qty) > 0 || Number(l.unitPrice) > 0) ||
+    paymentSplits.some((s) => Number(s.amount) > 0) ||
+    notes.trim().length > 0
+  );
+  useUnsavedGuard(isDirty);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,24 +220,42 @@ export default function MobileNewMaterialSaleClient() {
 
     setSubmitting(true);
     try {
+      const salePayload = {
+        customerId,
+        projectId: projectId || null,
+        paymentMode: paymentType === "credit" ? null : validSplits[0]?.mode ?? null,
+        notes: notes || null,
+        lines: validLines.map((l) => {
+          const mat = materials.find((m) => m.id === l.materialId);
+          return {
+            materialId: l.materialId, locationId: l.locationId,
+            qty: Number(l.qty), unitPrice: Number(l.unitPrice),
+            gstRate: mat?.gstRate ?? 0,
+          };
+        }),
+      };
+
+      // Offline: queue the sale creation (payments recorded after sync)
+      if (!online) {
+        await enqueue("material-sale", salePayload);
+        haptic([10, 40, 80]);
+        clearDraft();
+        setSuccess({
+          saleNumber: "QUEUED",
+          totalAmount: total,
+          amountPaid: undefined,
+        });
+        toast.success("Sale queued offline", {
+          description: "Record payments after sync completes",
+        });
+        return;
+      }
+
       // 1. Create the sale
       const res = await fetch("/api/material-sales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId,
-          projectId: projectId || null,
-          paymentMode: paymentType === "credit" ? null : validSplits[0]?.mode ?? null,
-          notes: notes || null,
-          lines: validLines.map((l) => {
-            const mat = materials.find((m) => m.id === l.materialId);
-            return {
-              materialId: l.materialId, locationId: l.locationId,
-              qty: Number(l.qty), unitPrice: Number(l.unitPrice),
-              gstRate: mat?.gstRate ?? 0,
-            };
-          }),
-        }),
+        body: JSON.stringify(salePayload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -191,7 +289,19 @@ export default function MobileNewMaterialSaleClient() {
         totalAmount: total,
         amountPaid: paymentFailed ? undefined : totalPaid,
       });
+      // Haptic + clear draft on success
+      haptic(paymentFailed ? [10, 40, 10] : [10, 40, 80]);
+      clearDraft();
+      // ── Persist last-used payment mode for next sale ──
+      if (validSplits.length > 0) {
+        try {
+          localStorage.setItem("nirman.last-payment-mode", validSplits[0]!.mode);
+        } catch {
+          // ignore
+        }
+      }
     } catch (err) {
+      haptic([50, 20, 50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Failed to create sale");
     } finally {
       setSubmitting(false);
@@ -200,23 +310,36 @@ export default function MobileNewMaterialSaleClient() {
 
   /* ── Success state ── */
   if (success) {
-    const isPaid = success.amountPaid !== undefined && success.amountPaid >= success.totalAmount - 0.01;
-    const isPartial = success.amountPaid !== undefined && success.amountPaid < success.totalAmount - 0.01;
+    const isQueued = success.saleNumber === "QUEUED";
+    const isPaid = !isQueued && success.amountPaid !== undefined && success.amountPaid >= success.totalAmount - 0.01;
+    const isPartial = !isQueued && success.amountPaid !== undefined && success.amountPaid < success.totalAmount - 0.01;
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
           className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+          style={{ backgroundColor: isQueued ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
         >
-          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          {isQueued ? (
+            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+          ) : (
+            <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Sale Created</p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>{success.saleNumber}</p>
+        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          {isQueued ? "Sale Queued Offline" : "Sale Created"}
+        </p>
+        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+          {isQueued ? "Pending sync" : success.saleNumber}
+        </p>
         <p className="text-[1rem] font-bold tabular-nums mb-1" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.totalAmount)}
         </p>
         {/* Payment status badge */}
-        {isPaid ? (
+        {isQueued ? (
+          <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-signal)" }}>
+            Record Payments After Sync
+          </p>
+        ) : isPaid ? (
           <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-go)" }}>
             Fully Paid
           </p>
@@ -267,35 +390,58 @@ export default function MobileNewMaterialSaleClient() {
     );
   }
 
+  // ── Restore draft handler ──
+  function handleRestoreDraft() {
+    if (!draft) return;
+    setCustomerId(draft.customerId);
+    setProjectId(draft.projectId);
+    setPaymentType(draft.paymentType);
+    setPaymentSplits(draft.paymentSplits);
+    setNotes(draft.notes);
+    setLines(draft.lines);
+    setDraftRestored(true);
+    haptic(10);
+  }
+
   return (
-    <SaleForm
-      customers={customers}
-      locations={locations}
-      materials={materials}
-      projects={projects}
-      customerId={customerId}
-      setCustomerId={setCustomerId}
-      projectId={projectId}
-      setProjectId={setProjectId}
-      paymentType={paymentType}
-      setPaymentType={setPaymentType}
-      paymentSplits={paymentSplits}
-      setPaymentSplits={setPaymentSplits}
-      notes={notes}
-      setNotes={setNotes}
-      lines={lines}
-      setLines={setLines}
-      onAddLine={handleAddLine}
-      onRemoveLine={handleRemoveLine}
-      onLineChange={handleLineChange}
-      onSubmit={handleSubmit}
-      submitting={submitting}
-      subtotal={subtotal}
-      gstTotal={gstTotal}
-      total={total}
-      selectedCustomer={selectedCustomer}
-      selectedProject={selectedProject}
+    <>
+      {hasDraft && !draftRestored && !success && (
+        <DraftBanner
+          formName="Material Sale"
+          updatedAt={draftUpdatedAt}
+          onRestore={handleRestoreDraft}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      )}
+      <SaleForm
+        customers={customers}
+        locations={locations}
+        materials={materials}
+        projects={projects}
+        customerId={customerId}
+        setCustomerId={setCustomerId}
+        projectId={projectId}
+        setProjectId={setProjectId}
+        paymentType={paymentType}
+        setPaymentType={setPaymentType}
+        paymentSplits={paymentSplits}
+        setPaymentSplits={setPaymentSplits}
+        notes={notes}
+        setNotes={setNotes}
+        lines={lines}
+        setLines={setLines}
+        onAddLine={handleAddLine}
+        onRemoveLine={handleRemoveLine}
+        onLineChange={handleLineChange}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        subtotal={subtotal}
+        gstTotal={gstTotal}
+        total={total}
+        selectedCustomer={selectedCustomer}
+        selectedProject={selectedProject}
     />
+    </>
   );
 }
 
@@ -468,7 +614,8 @@ function SaleForm({
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
+                        enterKeyHint="next"
                         step="any"
                         min="0"
                         value={line.qty}
@@ -483,7 +630,8 @@ function SaleForm({
                         Price
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
+                        enterKeyHint="next"
                         step="any"
                         min="0"
                         value={line.unitPrice}
@@ -595,7 +743,8 @@ function SaleForm({
                         style={{ color: "var(--color-ink-500)" }}
                       />
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
+                        enterKeyHint="done"
                         step="any"
                         min="0"
                         value={split.amount}

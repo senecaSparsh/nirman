@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Plus, Trash2, Send, Loader2,
-  MapPin, User, CheckCircle2, ChevronLeft,
+  MapPin, User, CheckCircle2, ChevronLeft, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 interface LocationItem {
   id: string;
@@ -25,7 +28,7 @@ interface MaterialItem {
   id: string;
   name: string;
   code: string;
-  unitOfMeasure: string;
+  unit: string;
 }
 
 interface UnitItem {
@@ -39,8 +42,20 @@ interface IssueLine {
   qty: string;
 }
 
+interface IssueDraft {
+  fromLocationId: string;
+  projectId: string;
+  builtUnitId: string;
+  receiverName: string;
+  receiverMobile: string;
+  notes: string;
+  lines: IssueLine[];
+}
+
 export default function MobileIssueForm() {
   const router = useRouter();
+  const { online, enqueue } = useOfflineQueue();
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<IssueDraft>("material-issue", "material-issue-new");
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -105,6 +120,24 @@ export default function MobileIssueForm() {
       cancelled = true;
     };
   }, []);
+
+  // Auto-save draft (debounced via useDrafts)
+  useEffect(() => {
+    if (loadingOptions) return;
+    saveDraft({ fromLocationId, projectId, builtUnitId, receiverName, receiverMobile, notes, lines });
+  }, [fromLocationId, projectId, builtUnitId, receiverName, receiverMobile, notes, lines, loadingOptions, saveDraft]);
+
+  // Restore draft
+  function restoreDraftState() {
+    if (!draft) return;
+    setFromLocationId(draft.fromLocationId);
+    setProjectId(draft.projectId);
+    setBuiltUnitId(draft.builtUnitId);
+    setReceiverName(draft.receiverName);
+    setReceiverMobile(draft.receiverMobile);
+    setNotes(draft.notes);
+    setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "" }]);
+  }
 
   // Fetch built units when project changes
   useEffect(() => {
@@ -175,6 +208,23 @@ export default function MobileIssueForm() {
         })),
       };
 
+      // Offline: queue the issue for later sync
+      if (!online) {
+        await enqueue("material-issue", payload);
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+        toast.success("Queued offline", {
+          description: "Material issue will sync when back online",
+        });
+        clearDraft();
+        setIssueSuccess({
+          issueNumber: "QUEUED",
+          totalAmount: 0,
+        });
+        return;
+      }
+
       const res = await fetch("/api/issue-materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,6 +239,7 @@ export default function MobileIssueForm() {
       }
 
       toast.success(`Challan ${data.issueNumber} generated successfully!`);
+      clearDraft();
       router.refresh();
       setIssueSuccess({
         issueNumber: data.issueNumber,
@@ -213,6 +264,7 @@ export default function MobileIssueForm() {
   }
 
   if (issueSuccess) {
+    const isQueued = issueSuccess.issueNumber === "QUEUED";
     return (
       <div className="p-1">
         {/* Back arrow */}
@@ -225,18 +277,24 @@ export default function MobileIssueForm() {
         <div
           className="rounded-[0.875rem] border p-5 text-center space-y-3"
           style={{
-            borderColor: "var(--color-go)",
-            backgroundColor: "var(--color-go-wash)",
+            borderColor: isQueued ? "var(--color-signal)" : "var(--color-go)",
+            backgroundColor: isQueued
+              ? "color-mix(in srgb, var(--color-signal) 8%, transparent)"
+              : "var(--color-go-wash)",
           }}
         >
           <div
             className="mx-auto flex size-12 items-center justify-center rounded-full"
-            style={{ backgroundColor: "var(--color-go)" }}
+            style={{ backgroundColor: isQueued ? "var(--color-signal)" : "var(--color-go)" }}
           >
-            <CheckCircle2 className="size-7" style={{ color: "#fff" }} />
+            {isQueued ? (
+              <WifiOff className="size-7" style={{ color: "#fff" }} />
+            ) : (
+              <CheckCircle2 className="size-7" style={{ color: "#fff" }} />
+            )}
           </div>
           <h2 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Materials Issued
+            {isQueued ? "Queued Offline" : "Materials Issued"}
           </h2>
 
           <div
@@ -246,15 +304,17 @@ export default function MobileIssueForm() {
             <div className="flex justify-between">
               <span style={{ color: "var(--color-ink-500)" }}>Challan No:</span>
               <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>
-                {issueSuccess.issueNumber}
+                {isQueued ? "Pending sync" : issueSuccess.issueNumber}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span style={{ color: "var(--color-ink-500)" }}>Total Value:</span>
-              <span className="font-bold" style={{ color: "var(--color-go)" }}>
-                {formatCurrency(issueSuccess.totalAmount)}
-              </span>
-            </div>
+            {!isQueued && (
+              <div className="flex justify-between">
+                <span style={{ color: "var(--color-ink-500)" }}>Total Value:</span>
+                <span className="font-bold" style={{ color: "var(--color-go)" }}>
+                  {formatCurrency(issueSuccess.totalAmount)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="pt-1 flex flex-col gap-2">
@@ -289,6 +349,15 @@ export default function MobileIssueForm() {
           <ChevronLeft className="size-5" />
         </button>
       </div>
+
+      {hasDraft && (
+        <DraftBanner
+          formName="Material Issue"
+          updatedAt={draftUpdatedAt}
+          onRestore={restoreDraftState}
+          onDiscard={clearDraft}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* ── Source & Destination ── */}
@@ -425,14 +494,14 @@ export default function MobileIssueForm() {
                     >
                       {materials.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} ({m.unitOfMeasure})
+                          {m.name} ({m.unit})
                         </option>
                       ))}
                     </select>
 
                     <div className="flex items-center gap-2">
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         value={line.qty}
                         onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
@@ -445,7 +514,7 @@ export default function MobileIssueForm() {
                         }}
                       />
                       <span className="text-[0.5625rem] font-medium truncate" style={{ color: "var(--color-ink-500)" }}>
-                        {selectedMat?.unitOfMeasure || "units"}
+                        {selectedMat?.unit || "units"}
                       </span>
                     </div>
                   </div>
@@ -493,8 +562,8 @@ export default function MobileIssueForm() {
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <>
-              <Send className="size-4" />
-              <span>Generate Issue Challan</span>
+              {online ? <Send className="size-4" /> : <WifiOff className="size-4" />}
+              <span>{online ? "Generate Issue Challan" : "Queue Issue (Offline)"}</span>
             </>
           )}
         </button>

@@ -194,11 +194,13 @@ function MobileShellInner({
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(false);
   const { pending: offlineQueueCount, syncing: offlineSyncing, sync: syncOfflineQueue } = useOfflineQueue();
 
   // ── Network offline listener ──
   useEffect(() => {
+    // Sync the real browser online status now that we're on the client.
+    setIsOffline(!navigator.onLine);
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
     window.addEventListener("online", handleOnline);

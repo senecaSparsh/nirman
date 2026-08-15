@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
+  ChevronDown,
+  Check,
   Loader2,
   RefreshCw,
   WifiOff,
@@ -17,7 +19,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
-import { AssistantChat } from "@/components/mobile/assistant/assistant-chat";
+import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import {
   MOBILE_TABS,
   isModuleActive,
@@ -49,6 +51,14 @@ interface CompanyInfo {
   role: string;
 }
 
+type CompanyOption = {
+  id: string;
+  name: string;
+  businessType: string | null;
+  parentName: string | null;
+  isCurrent: boolean;
+};
+
 export function MobileShellV2({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,6 +67,9 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     name: "Nirman",
     role: "MANAGER",
   });
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
+  const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
   // ── Auth guard (all envs; skip only with NEXT_PUBLIC_AUTH_BYPASS) ──
@@ -108,9 +121,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     fetch("/api/company")
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
-        if (!cancelled && c?.name) {
+        if (cancelled) return;
+        if (c?.name) {
           setCompanyInfo((prev) => ({ ...prev, name: c.name }));
         }
+        if (Array.isArray(c?.companies)) setCompanies(c.companies);
       })
       .catch(() => {});
     return () => {
@@ -118,7 +133,75 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ── Tab badge counts ─────────────────────────────────
+  // ── Update document title to the current company name ──────
+  // Once we know the active company, the tab title becomes
+  // "{companyName} · Nirman OS" so a user with multiple companies can
+  // tell which books they're looking at from the browser tab.
+  useEffect(() => {
+    if (companyInfo.name && companyInfo.name !== "Nirman") {
+      document.title = `${companyInfo.name} · Nirman OS`;
+    } else {
+      document.title = "Nirman Inventory OS";
+    }
+  }, [companyInfo.name]);
+
+  // ── Re-fetch company info when the user switches company ──
+  // The mobile company switcher (in /m/settings) dispatches a
+  // "nirman-company-switched" event after a successful switch.
+  useEffect(() => {
+    function onCompanySwitched() {
+      fetch("/api/company")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((c) => {
+          if (c?.name) setCompanyInfo((prev) => ({ ...prev, name: c.name }));
+          if (Array.isArray(c?.companies)) setCompanies(c.companies);
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("nirman-company-switched", onCompanySwitched);
+    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched);
+  }, []);
+
+  // ── Switch company ───────────────────────────────────────
+  async function switchCompany(id: string) {
+    if (id === companies.find((c) => c.isCurrent)?.id) {
+      setCompanySwitcherOpen(false);
+      return;
+    }
+    setSwitchingCompanyId(id);
+    try {
+      const res = await fetch("/api/company/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: id }),
+      });
+      if (res.ok) {
+        setCompanySwitcherOpen(false);
+        // Fetch the new company name and update state + title BEFORE
+        // router.refresh(), which re-applies Next.js static metadata
+        // and would overwrite document.title.
+        const c = await fetch("/api/company").then((r) => r.json()).catch(() => null);
+        if (c?.name) {
+          setCompanyInfo((prev) => ({ ...prev, name: c.name }));
+          if (Array.isArray(c?.companies)) setCompanies(c.companies);
+          // Set the title now — router.refresh() may override it, so
+          // we re-apply it after the refresh too.
+          const newTitle = c.name !== "Nirman" ? `${c.name} · Nirman OS` : "Nirman Inventory OS";
+          document.title = newTitle;
+        }
+        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
+        router.refresh();
+        // Re-apply title after router.refresh() re-applies metadata.
+        setTimeout(() => {
+          if (c?.name && c.name !== "Nirman") {
+            document.title = `${c.name} · Nirman OS`;
+          }
+        }, 300);
+      }
+    } finally {
+      setSwitchingCompanyId(null);
+    }
+  }
   useEffect(() => {
     let cancelled = false;
     const badgeTabs = MOBILE_TABS.filter((t) => t.badge);
@@ -154,6 +237,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   return (
     <MobileShellInner
       companyInfo={companyInfo}
+      companies={companies}
+      companySwitcherOpen={companySwitcherOpen}
+      switchingCompanyId={switchingCompanyId}
+      onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
+      onSwitchCompany={switchCompany}
       badgeCounts={badgeCounts}
       pathname={pathname}
       router={router}
@@ -166,23 +254,48 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
 /** Pure presentational shell */
 function MobileShellInner({
   companyInfo,
+  companies,
+  companySwitcherOpen,
+  switchingCompanyId,
+  onToggleCompanySwitcher,
+  onSwitchCompany,
   badgeCounts,
   pathname,
   router,
   children,
 }: {
   companyInfo: CompanyInfo;
+  companies: CompanyOption[];
+  companySwitcherOpen: boolean;
+  switchingCompanyId: string | null;
+  onToggleCompanySwitcher: () => void;
+  onSwitchCompany: (id: string) => void;
   badgeCounts: Record<string, number>;
   pathname: string;
   router: ReturnType<typeof useRouter>;
   children: React.ReactNode;
 }) {
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(false);
   const [navSheetOpen, setNavSheetOpen] = useState(false);
+  const companySwitcherRef = useRef<HTMLDivElement>(null);
   const { pending: offlineQueueCount, syncing: offlineSyncing, sync: syncOfflineQueue } = useOfflineQueue();
+
+  // ── Close company switcher on outside click ──────────────
+  useEffect(() => {
+    if (!companySwitcherOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (companySwitcherRef.current && !companySwitcherRef.current.contains(e.target as Node)) {
+        onToggleCompanySwitcher();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [companySwitcherOpen, onToggleCompanySwitcher]);
 
   // ── Network offline listener ──
   useEffect(() => {
+    // Sync the real browser online status now that we're on the client.
+    setIsOffline(!navigator.onLine);
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
     window.addEventListener("online", handleOnline);
@@ -272,9 +385,8 @@ function MobileShellInner({
             </span>
           </div>
           {offlineQueueCount > 0 && (
-            <button
-              onClick={() => void syncOfflineQueue()}
-              disabled={offlineSyncing}
+            <Link
+              href="/m/queue"
               className="flex items-center gap-1 rounded px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide active:opacity-80"
               style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff" }}
             >
@@ -283,8 +395,8 @@ function MobileShellInner({
               ) : (
                 <RefreshCw className="size-3" />
               )}
-              {offlineSyncing ? "Syncing…" : "Sync"}
-            </button>
+              {offlineSyncing ? "Syncing…" : `${offlineQueueCount} Queued`}
+            </Link>
           )}
         </div>
       )}
@@ -320,16 +432,90 @@ function MobileShellInner({
                 <MoreVertical className="size-4" />
               </button>
             )}
-            <span
-              className="text-[0.6875rem] font-bold truncate"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {isDrillDown ? (activeTab?.label ?? companyInfo.name) : companyInfo.name}
-            </span>
+            {isDrillDown ? (
+              <span
+                className="text-[0.6875rem] font-bold truncate"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                {activeTab?.label ?? companyInfo.name}
+              </span>
+            ) : (
+              <div ref={companySwitcherRef} className="relative min-w-0">
+                <button
+                  onClick={() => companies.length > 1 && onToggleCompanySwitcher()}
+                  className="flex items-center gap-1 text-[0.6875rem] font-bold truncate press rounded-[0.25rem] px-0.5 py-0.5"
+                  style={{ color: "var(--color-ink-950)" }}
+                  aria-label="Switch company"
+                >
+                  <span className="truncate">{companyInfo.name}</span>
+                  {companies.length > 1 && (
+                    <ChevronDown
+                      className="size-3 shrink-0 transition-transform"
+                      style={{
+                        color: "var(--color-ink-500)",
+                        transform: companySwitcherOpen ? "rotate(180deg)" : "none",
+                      }}
+                    />
+                  )}
+                </button>
+                {companySwitcherOpen && companies.length > 1 && (
+                  <div
+                    className="absolute top-full left-0 z-50 mt-1 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[180px]"
+                    style={{
+                      borderColor: "var(--color-line)",
+                      backgroundColor: "var(--color-paper)",
+                    }}
+                  >
+                    <div className="max-h-60 overflow-y-auto">
+                      {companies.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => onSwitchCompany(c.id)}
+                          disabled={switchingCompanyId !== null}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left press disabled:opacity-50"
+                          style={{
+                            backgroundColor: c.isCurrent ? "var(--color-concrete)" : "transparent",
+                          }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-[0.6875rem] font-semibold truncate"
+                              style={{ color: "var(--color-ink-950)" }}
+                            >
+                              {c.name}
+                            </p>
+                            {c.businessType && (
+                              <p
+                                className="text-[0.5rem] truncate"
+                                style={{ color: "var(--color-ink-500)" }}
+                              >
+                                {c.businessType}
+                              </p>
+                            )}
+                          </div>
+                          {c.isCurrent && (
+                            <Check
+                              className="size-3.5 shrink-0"
+                              style={{ color: "var(--color-go)" }}
+                            />
+                          )}
+                          {switchingCompanyId === c.id && (
+                            <Loader2 className="size-3.5 shrink-0 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Right: online status + sync badge */}
+          {/* Right: voice assistant + online status + sync badge */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Voice agent — tap to speak, no popup */}
+            <VoiceAgentButton />
+
             {/* Online/offline indicator */}
             {isOffline ? (
               <WifiOff className="size-3.5" style={{ color: "var(--color-stop)" }} />
@@ -442,9 +628,6 @@ function MobileShellInner({
         onClose={() => setNavSheetOpen(false)}
         moduleId={activeTab?.id ?? "inventory"}
       />
-
-      {/* ══ OWNER ASSISTANT — floating chat with voice (Hindi/English) ══ */}
-      <AssistantChat />
     </div>
   );
 }

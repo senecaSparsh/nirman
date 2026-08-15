@@ -26,7 +26,15 @@ export interface QueuedOperation {
   /** Client-generated UUID — stable across retries. */
   id: string;
   /** Operation kind, maps to an API endpoint. */
-  kind: "goods-receipt" | "material-issue" | "stock-transfer";
+  kind:
+    | "goods-receipt"
+    | "material-issue"
+    | "stock-transfer"
+    | "material-sale"
+    | "requisition"
+    | "stock-count"
+    | "supplier-return"
+    | "purchase-order";
   /** Serialized JSON body to POST. */
   payload: unknown;
   status: QueueStatus;
@@ -170,6 +178,11 @@ const ENDPOINTS: Record<QueuedOperation["kind"], string> = {
   "goods-receipt": "/api/goods-receipts",
   "material-issue": "/api/issue-materials",
   "stock-transfer": "/api/transfers",
+  "material-sale": "/api/material-sales",
+  "requisition": "/api/requisitions",
+  "stock-count": "/api/stock-counts",
+  "supplier-return": "/api/supplier-returns",
+  "purchase-order": "/api/purchase-orders",
 };
 
 /**

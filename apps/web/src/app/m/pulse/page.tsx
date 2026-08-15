@@ -170,16 +170,18 @@ async function PulseContent() {
       <div className="flex gap-2 mb-4">
         <Link
           href="/m/sales/new"
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border border-border bg-card px-3 py-2.5 text-[0.8125rem] font-semibold text-foreground transition-colors active:scale-[0.99] active:bg-accent"
+          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-[0.75rem] font-bold press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="size-3.5" />
           New Sale
         </Link>
         <Link
           href="/m/requisitions"
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border border-border bg-card px-3 py-2.5 text-[0.8125rem] font-semibold text-foreground transition-colors active:scale-[0.99] active:bg-accent"
+          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-[0.75rem] font-bold press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >
-          <ShoppingCart className="h-3.5 w-3.5" />
+          <ShoppingCart className="size-3.5" />
           New Req
         </Link>
         <TallySyncButton pendingCount={tallyStats.pending} />
@@ -191,7 +193,8 @@ async function PulseContent() {
           <span>Project health</span>
           <Link
             href="/m/projects"
-            className="text-caption font-medium text-brand active:opacity-70"
+            className="text-[0.5625rem] font-bold press"
+            style={{ color: "var(--color-signal-dark)" }}
           >
             View all
           </Link>

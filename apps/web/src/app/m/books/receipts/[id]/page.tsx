@@ -12,6 +12,9 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { ReceiptActions } from "./ReceiptActions";
 
+type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
+type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
+
 /**
  * /m/books/receipts/[id]?kind=ASSET|MATERIAL — mobile receipt detail.
  * Shows the full breakdown of a payment received (party, property/sale,
@@ -107,11 +110,9 @@ function ProgressBar({ pct }: { pct: number }) {
 function HistoryTable({
   payments,
   currentId,
-  refKey,
 }: {
   payments: { id: string; date: string; mode: string; ref: string | null; amount: number }[];
   currentId: string;
-  refKey: "reference" | "referenceNo";
 }) {
   return (
     <div className="overflow-hidden rounded-[0.5rem] border" style={{ borderColor: "var(--color-line)" }}>
@@ -150,7 +151,6 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
           customer: { select: { name: true, phone: true, address: true, gstin: true } },
           project: { select: { name: true } },
           builtUnit: { select: { unitNumber: true, unitType: true, floor: true, wing: true, area: true, areaUnit: true } },
-          landParcel: { select: { number: true, area: true, areaUnit: true } },
           payments: { orderBy: { paymentDate: "asc" } },
         },
       },
@@ -172,7 +172,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   const gstRate = toNum(sale.gstRate);
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
-  const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + toNum(p.amount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
@@ -182,14 +182,23 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   const timeStr = d.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
   const assetLabel = sale.assetType === "LAND" ? "Land Plot" : "Built Unit";
+
+  const landParcel =
+    sale.assetType === "LAND" && sale.landParcelId
+      ? await prisma.landParcel.findUnique({
+          where: { id: sale.landParcelId },
+          select: { number: true, area: true, areaUnit: true },
+        })
+      : null;
+
   const propertyDesc =
     sale.assetType === "BUILT_UNIT" && sale.builtUnit
       ? `${sale.builtUnit.unitNumber} · ${toNum(sale.builtUnit.area)} ${sale.builtUnit.areaUnit}${sale.builtUnit.floor != null ? ` · Fl ${sale.builtUnit.floor}` : ""}${sale.builtUnit.wing ? ` · ${sale.builtUnit.wing}` : ""}`
-      : sale.assetType === "LAND" && sale.landParcel
-        ? `Plot ${sale.landParcel.number} · ${toNum(sale.landParcel.area)} ${sale.landParcel.areaUnit}`
+      : sale.assetType === "LAND" && landParcel
+        ? `Plot ${landParcel.number} · ${toNum(landParcel.area)} ${landParcel.areaUnit}`
         : assetLabel;
 
-  const history = sale.payments.map((p) => ({
+  const history = (sale.payments ?? []).map((p: AssetPaymentSummary) => ({
     id: p.id,
     date: p.paymentDate.toISOString(),
     mode: p.mode,
@@ -237,7 +246,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
       </SectionCard>
 
       <SectionCard title={`Payment History (${sale.payments.length})`}>
-        <HistoryTable payments={history} currentId={payment.id} refKey="reference" />
+        <HistoryTable payments={history} currentId={payment.id} />
       </SectionCard>
     </DetailShell>
   );
@@ -274,7 +283,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
   const subtotal = toNum(sale.subtotal);
   const gstTotal = toNum(sale.gstTotal);
   const total = toNum(sale.totalAmount);
-  const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + toNum(p.amount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
   const partyName = sale.partyName ?? sale.customer.name;
@@ -284,7 +293,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
   const receiptNo = `MSR-${yymmdd}-${payment.id.slice(-4).toUpperCase()}`;
   const timeStr = d.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-  const history = sale.payments.map((p) => ({
+  const history = sale.payments.map((p: MaterialPaymentSummary) => ({
     id: p.id,
     date: p.paymentDate.toISOString(),
     mode: p.paymentMode,
@@ -354,7 +363,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
       </SectionCard>
 
       <SectionCard title={`Payment History (${sale.payments.length})`}>
-        <HistoryTable payments={history} currentId={payment.id} refKey="referenceNo" />
+        <HistoryTable payments={history} currentId={payment.id} />
       </SectionCard>
     </DetailShell>
   );

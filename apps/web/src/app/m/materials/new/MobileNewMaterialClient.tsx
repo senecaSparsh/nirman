@@ -1,0 +1,373 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Package, Send, Loader2,
+  ChevronLeft, CheckCircle2,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import { haptic } from "@/lib/haptic";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
+
+interface Category {
+  id: string;
+  name: string;
+  unit: string;
+}
+
+const COMMON_UNITS = ["NOS", "BAG", "KG", "TON", "MTR", "FEET", "SQFT", "CUM", "LTR", "BOX", "ROLL", "SET"];
+
+export default function MobileNewMaterialClient({
+  categories,
+}: {
+  categories: Category[];
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ name: string; code: string; id: string } | null>(null);
+
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [unit, setUnit] = useState(categories[0]?.unit ?? "NOS");
+  const [hsnCode, setHsnCode] = useState("");
+  const [gstRate, setGstRate] = useState("0");
+  const [standardCost, setStandardCost] = useState("");
+  const [reorderPoint, setReorderPoint] = useState("");
+  const [description, setDescription] = useState("");
+
+  function handleCategoryChange(newCatId: string) {
+    setCategoryId(newCatId);
+    const cat = categories.find((c) => c.id === newCatId);
+    if (cat) setUnit(cat.unit);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) { toast.error("Material code is required"); return; }
+    if (!name.trim()) { toast.error("Material name is required"); return; }
+    if (!categoryId) { toast.error("Please select a category"); return; }
+    if (!unit.trim()) { toast.error("Unit is required"); return; }
+
+    setSaving(true);
+    haptic(10);
+    try {
+      const res = await fetch("/api/materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code.trim().toUpperCase(),
+          name: name.trim(),
+          categoryId,
+          unit: unit.trim().toUpperCase(),
+          hsnCode: hsnCode.trim() || null,
+          gstRate: Number(gstRate) || 0,
+          standardCost: Number(standardCost) || 0,
+          reorderPoint: reorderPoint.trim() === "" ? null : Number(reorderPoint),
+          description: description.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create material");
+
+      haptic([10, 40, 80]);
+      setSuccess({ name: data.name, code: data.code, id: data.id });
+      toast.success(`${data.name} created successfully`);
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* ── Success state ── */
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div
+          className="grid place-items-center size-14 rounded-full mb-3"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+        >
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          Material Created
+        </p>
+        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+          {success.code}
+        </p>
+        <p className="text-[0.75rem] font-semibold mb-4" style={{ color: "var(--color-ink-700)" }}>
+          {success.name}
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/m/materials/${success.id}`)}
+            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          >
+            View Material
+          </button>
+          <button
+            onClick={() => {
+              setSuccess(null);
+              setCode("");
+              setName("");
+              setStandardCost("");
+              setReorderPoint("");
+              setDescription("");
+            }}
+            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            Add Another
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Empty categories guard ── */
+  if (categories.length === 0) {
+    return (
+      <div className="p-4">
+        <div className="mb-4">
+          <MobileBackButton fallback="/m/materials" />
+        </div>
+        <div
+          className="rounded-[0.625rem] border p-4 text-center"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <Package className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
+          <p className="text-[0.75rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+            No material categories
+          </p>
+          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+            You need at least one category before adding materials.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" } as React.CSSProperties;
+  const costValue = Number(standardCost) || 0;
+  const totalWithGst = costValue * (1 + (Number(gstRate) || 0) / 100);
+
+  return (
+    <div>
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <Link href="/m/materials" className="shrink-0">
+          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            New Material
+          </p>
+        </div>
+        <span
+          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+        >
+          <Package className="size-2.5" />
+          Catalogue
+        </span>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* ── Code ── */}
+        <FormField label="Material code" required>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="CEM-OPC53"
+            autoComplete="off"
+            enterKeyHint="next"
+            className={`${inputClass} font-mono uppercase`}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Name ── */}
+        <FormField label="Material name" required>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Cement OPC 53 Grade"
+            autoComplete="off"
+            enterKeyHint="next"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Category ── */}
+        <FormField label="Category" required>
+          <select
+            value={categoryId}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </FormField>
+
+        {/* ── Unit ── */}
+        <div>
+          <label className="block text-[0.5625rem] font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            Unit of measure <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <div className="flex flex-wrap gap-1">
+            {COMMON_UNITS.map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => { setUnit(u); haptic(10); }}
+                className="h-7 px-2 rounded-[0.25rem] text-[0.5625rem] font-semibold press"
+                style={{
+                  color: unit === u ? "#fff" : "var(--color-ink-700)",
+                  backgroundColor: unit === u ? "var(--color-ink-950)" : "var(--color-concrete)",
+                }}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── HSN + GST ── */}
+        <div className="grid grid-cols-2 gap-2">
+          <FormField label="HSN code">
+            <input
+              type="text"
+              value={hsnCode}
+              onChange={(e) => setHsnCode(e.target.value)}
+              placeholder="25232900"
+              enterKeyHint="next"
+              className={`${inputClass} font-mono`}
+              style={inputStyle}
+            />
+          </FormField>
+          <FormField label="GST rate (%)">
+            <input
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="next"
+              value={gstRate}
+              onChange={(e) => setGstRate(e.target.value)}
+              placeholder="0"
+              className={`${inputClass} tabular-nums`}
+              style={inputStyle}
+            />
+          </FormField>
+        </div>
+
+        {/* ── Standard cost ── */}
+        <FormField label="Standard cost (₹)">
+          <input
+            type="text"
+            inputMode="decimal"
+            enterKeyHint="next"
+            value={standardCost}
+            onChange={(e) => setStandardCost(e.target.value)}
+            placeholder="0"
+            className={`${inputClass} tabular-nums`}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Reorder point ── */}
+        <FormField label="Reorder point (optional)">
+          <input
+            type="text"
+            inputMode="decimal"
+            enterKeyHint="next"
+            value={reorderPoint}
+            onChange={(e) => setReorderPoint(e.target.value)}
+            placeholder={`e.g. 50 ${unit}`}
+            className={`${inputClass} tabular-nums`}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Description ── */}
+        <FormField label="Description (optional)">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Grade, brand, specs…"
+            rows={2}
+            className={`${inputClass} resize-none`}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Cost summary ── */}
+        {costValue > 0 && (
+          <div
+            className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
+            style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
+          >
+            <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Cost incl. GST
+            </span>
+            <span className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+              {formatCurrency(totalWithGst)}
+            </span>
+          </div>
+        )}
+
+        {/* ── Submit ── */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        >
+          {saving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <>
+              <Send className="size-4" />
+              <span>Create Material</span>
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* ─── Form field wrapper — matches scrap generation form ─── */
+function FormField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        className="block text-[0.5625rem] font-semibold mb-1"
+        style={{ color: "var(--color-ink-500)" }}
+      >
+        {label}
+        {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+      </label>
+      {children}
+    </div>
+  );
+}

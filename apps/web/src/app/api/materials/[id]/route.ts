@@ -13,6 +13,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Material is a global catalog entity (no companyId) — verify it exists and isn't deleted.
+  // Access is gated by requirePermission(PERM.INVENTORY_MANAGE).
+  const existing = await prisma.material.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) {
+    return json({ error: "Material not found" }, { status: 404 });
+  }
   // If code is changing, ensure uniqueness among non-deleted materials
   if (parsed.data.code) {
     const clash = await prisma.material.findFirst({
@@ -59,6 +68,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
+  // Material is a global catalog entity — verify it exists and isn't deleted.
+  const existing = await prisma.material.findFirst({
+    where: { id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) {
+    return json({ error: "Material not found" }, { status: 404 });
+  }
   await softDelete("Material", id);
   await prisma.$transaction(async (tx) => {
     await logAction(tx, {

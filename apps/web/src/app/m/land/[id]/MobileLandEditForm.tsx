@@ -146,7 +146,7 @@ export function MobileLandEditForm({
               Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
-              type="number"
+              type="text" inputMode="decimal"
               step="any"
               value={totalArea}
               onChange={(e) => setTotalArea(e.target.value)}
@@ -178,7 +178,7 @@ export function MobileLandEditForm({
             Total Cost <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <input
-            type="number"
+            type="text" inputMode="decimal"
             step="any"
             value={totalCost}
             onChange={(e) => setTotalCost(e.target.value)}

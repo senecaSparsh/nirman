@@ -26,6 +26,128 @@
 
 ---
 
+## Functional Verification (E2E + API + Build) — 2026-08-15
+
+> Live run of the platform against a seeded Postgres DB
+> (`AUTH_BYPASS=true`, 1 company / 9 projects / 20 materials / 26 POs /
+> 19 units). Performed after the spec audit, to verify the running
+> system — not just the spec claims.
+
+### Build / Test Suite
+- `pnpm --filter @nirman/services test` → **194/194 pass** (16 files).
+- `pnpm typecheck` → **clean** (3/3 packages).
+- `pnpm build` → **success** (Next 16 / Turbopack, 200+ routes compiled, 0 errors).
+- `pnpm lint` → 35 errors / 212 warnings (all code-quality:
+  `no-explicit-any`, `prefer-const`, `react-hooks/set-state-in-effect`,
+  react-unescape). **Non-blocking** — no functional impact; deferred.
+
+### API Smoke Test (196 route handlers)
+- **0 server errors (5xx)** across all 196 routes.
+- 81 routes return 2xx on a bare GET.
+- All 4xx are semantically correct:
+  - 405 = route has no GET handler (POST/PATCH/DELETE only) — correct.
+  - 400 = missing required query param (`projectId`, `requisitionId`,
+    `accountId`, etc.) — correct validation.
+  - 404 = dynamic `[id]` with non-existent id — correct.
+- Re-tested all dynamic `[id]` GET routes with real DB ids → **all 200**
+  (except 2 correct 405s: `/api/materials/[id]`, `/api/tasks/[id]/comments`
+  have no GET handler).
+- Re-tested 400 routes with proper query params → **all 200**.
+- **Verdict: API layer functionally healthy.**
+
+### Page Render Smoke Test (184 page routes)
+- **0 server errors (5xx)**, **0 render-error markers** in HTML
+  (`Application error` / `Something went wrong` / `Internal Server
+  Error` / `TypeError`).
+- 183/184 pages return 200 with clean HTML; the 1 `000` was a transient
+  curl timeout (`/land/[id]` returns 200 with the real land id).
+- **Verdict: page layer renders cleanly server-side.**
+
+### Playwright E2E (client-side console + interactivity)
+- Desktop dashboard, Build, project detail, procurement, stock, GL,
+  sales, requisitions, reports, materials, scrap, land, HR, finance →
+  **0 console errors** (after fixes below).
+- Mobile `/m/*` flows (home, inventory, site attendance, new material
+  sale) → **0 console errors** (after fixes below).
+- End-to-end create flow verified: `POST /api/material-sales` (TMT
+  Steel 12mm, 10 units @ ₹500) →
+  - Sale `MS-20260815-0001` created (₹5000, PENDING, ACTIVE).
+  - Stock reduced 9200 → 9190 via `SALE` `StockMovement` linked to the
+    sale (`refType=MaterialSale`).
+  - Balanced GL posting: Dr AR (1200) ₹5000 / Cr Revenue (4000) ₹5000;
+    Dr COGS (5000) ₹780 / Cr Inventory (1300) ₹780 (MAC ₹78/unit).
+  - **Verdict: core write path (service → stock ledger → GL) is healthy.**
+
+### Bugs Found & Fixed During E2E
+
+1. **[MAJOR] PageHeader `<p>` wrapping a `<div>` → hydration error.**
+   - `components/page-header.tsx:83` rendered `description` inside a
+     `<p>`, but `project-hub.tsx:193` (and other callers) pass a
+     `<div>` → invalid HTML nesting (`<p>` cannot contain `<div>`) →
+     React hydration mismatch on every project detail page.
+   - **Fix:** changed the `<p>` wrapper to `<div>` (className
+     preserved). `description` is typed `React.ReactNode` and may
+     legitimately contain block elements. Verified: project detail
+     page now 0 console errors.
+
+2. **[MAJOR] Mobile `/m/*` routes redirected to `/sign-in` in dev-bypass
+   mode.**
+   - `MobileShellV2` (and v1 `mobile-shell.tsx`) auth guard checks
+     `process.env.NEXT_PUBLIC_AUTH_BYPASS` (client-exposed), but
+     `apps/web/.env` only set `AUTH_BYPASS` (server-only). On the
+     client the bypass check evaluated `undefined !== "true"` → the
+     `useSession()` guard fired → redirect to `/sign-in`, because
+     AUTH_BYPASS synthesizes the *server* session only (no real
+     session cookie). Desktop worked because `AppShell` relies on the
+     401 interceptor (which never fires when API calls succeed with
+     the synthetic user).
+   - **Fix:** added `NEXT_PUBLIC_AUTH_BYPASS=true` to `apps/web/.env`
+     and documented both flags in `.env.example`. Verified: `/m/*`
+     routes no longer redirect.
+
+3. **[MAJOR] `navigator.onLine` accessed during render → hydration
+   error on every `/m/*` page.**
+   - `mobile-shell.tsx:197` and `v2/mobile-shell.tsx:180` initialized
+     `useState(!navigator.onLine)`. On the server `navigator.onLine`
+     is `false` (polyfill) → `isOffline=true` → the offline banner
+     `<div>` rendered first; on the client `navigator.onLine=true` →
+     banner omitted → `<header>` first. Server/client tree mismatch.
+   - **Fix:** initialize `isOffline=false` (SSR-safe) and sync the
+     real value via `setIsOffline(!navigator.onLine)` in the existing
+     `useEffect`. Verified: `/m/material-sales/new`, `/m/home`,
+     `/m/inventory`, `/m/site/attendance` all 0 console errors.
+
+### Core Write Flows Verified End-to-End (via API + DB state checks)
+
+| Flow | Action | Result |
+|------|--------|--------|
+| Material sale | `POST /api/material-sales` (10 units TMT12 @ ₹500) | Sale `MS-20260815-0001` created; stock 9200→9190 via `SALE` movement; balanced GL (Dr AR ₹5000/Cr Rev ₹5000; Dr COGS ₹780/Cr Inv ₹780 at MAC ₹78) |
+| PO approval | `PATCH /api/purchase-orders/[id]` action=approve | PO `PO-20260812-0009` DRAFT→APPROVED; `approvedById`/`approvedAt` set |
+| Requisition approval | `PATCH /api/requisitions/[id]` action=approve | Req `REQ-2024-0002` SUBMITTED→APPROVED; `approvedById`/`approvedAt` set |
+| Stock transfer | `POST /api/transfers` + `PATCH action=complete` | 100 units Central Warehouse→Tower A Laydown; from 9190→9090, to 9700→9800; status COMPLETED |
+| UI button | Click "Approve" on `/approvals` page | 0 console errors; API call succeeded |
+
+### Audit Discrepancies Re-Verified (resolved since original audit)
+
+- **§1.12 [MAJOR] WIP → Finished Inventory GL capitalization — RESOLVED.**
+  `postWipCapitalization()` now exists (`gl-posting.ts:334`) and is
+  called inside `updateUnitStatus()` (`built-unit.ts:269`) on the
+  UNDER_CONSTRUCTION→AVAILABLE transition for CREATED units. Idempotent
+  (posts only the `productionCost - capitalizedAmount` delta; Dr
+  UNIT_ASSET 1800 / Cr WIP 1500). Covered by `wip-capitalization.test.ts`
+  (5 tests, passing) + `backfill-wip` script.
+- **§2.8 [MAJOR] Residential spatial metrics — RESOLVED.** `BuiltUnit`
+  now has `carpetArea`, `superBuiltUpArea`, `balconyArea`
+  (`Decimal? @db.Decimal(14,3)`, schema:1602-1605).
+- **§2.9 [MAJOR] Commercial spatial metrics — PARTIALLY RESOLVED.**
+  `clearHeight` and `hasLoadingDock` added (schema:1605-1606).
+  `shellCoreCondition` still missing (minor — no existing UI/data uses it).
+- **§2.10 [MAJOR] Subdivided plot setback/utility fields — STILL OPEN.**
+  No `setback`/`utilityConnection` fields on `LandParcel`. Low impact
+  (no existing UI consumes them).
+
+---
+
 ## Severity Legend
 
 | Severity | Meaning |

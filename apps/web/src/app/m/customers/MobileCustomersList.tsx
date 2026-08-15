@@ -49,9 +49,11 @@ const PAYMENT_BADGE: Record<string, { color: string; label: string }> = {
 export function MobileCustomersList({
   items,
   stats,
+  canCreate = false,
 }: {
   items: CustomerListItem[];
   stats: Stats;
+  canCreate?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");

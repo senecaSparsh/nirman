@@ -12,17 +12,13 @@ import {
   ChevronRight,
   Clock,
   AlertTriangle,
+  Search,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
-import {
-  MobileSearchBar,
-  MobileFilterChips,
-  MobileStatusBadge,
-  MobileEmptyState,
-  MobileCta,
-} from "@/components/mobile/mobile-primitives";
+import { MobileEmptyState, MobileCta, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface TaskItem {
   id: string;
@@ -89,32 +85,84 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
       setTaskStates((s) => ({ ...s, [task.id]: "done" }));
       router.refresh();
     } catch (err) {
+      haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
       setTaskStates((s) => ({ ...s, [task.id]: "idle" }));
     }
   }
 
   const sections = [
-    { status: "IN_PROGRESS", label: "In Progress", icon: Play, tone: "text-info" },
-    { status: "PENDING", label: "Pending", icon: Clock, tone: "text-muted-foreground" },
-    { status: "BLOCKED", label: "Blocked", icon: AlertTriangle, tone: "text-danger" },
+    { status: "IN_PROGRESS", label: "In Progress", icon: Play, tone: "var(--color-signal-dark)" },
+    { status: "PENDING", label: "Pending", icon: Clock, tone: "var(--color-ink-500)" },
+    { status: "BLOCKED", label: "Blocked", icon: AlertTriangle, tone: "var(--color-stop)" },
   ];
 
   return (
     <div>
       {tasks.length > 0 && (
         <>
-          <MobileSearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Search by title…"
-          />
+          {/* ── Sticky search header ── */}
+          <div
+            className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            {/* Search row */}
+            <div className="relative mb-2">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                style={{ color: "var(--color-ink-500)" }}
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by title…"
+                className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-9 text-[0.8125rem] focus:outline-none"
+                style={{
+                  borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: "var(--color-paper)",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 press"
+                  aria-label="Clear"
+                >
+                  <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                </button>
+              )}
+            </div>
 
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+            {/* Filter chips */}
+            <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1.5 w-max items-center">
+                {FILTER_CHIPS.map((chip) => {
+                  const isActive = chip.value === statusFilter;
+                  return (
+                    <button
+                      key={chip.value}
+                      type="button"
+                      onClick={() => { setStatusFilter(chip.value); haptic(10); }}
+                      className="h-7 shrink-0 rounded-full border px-3 text-[0.5625rem] font-bold press"
+                      style={{
+                        borderColor: isActive ? "var(--color-ink-950)" : "var(--color-line)",
+                        backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
+                        color: isActive ? "#fff" : "var(--color-ink-500)",
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </>
       )}
 
@@ -131,16 +179,21 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           const items = byStatus(status);
           return (
             <div key={status}>
-              <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
+              <h2
+                className="text-[0.5625rem] font-bold uppercase tracking-wide pb-1.5 pt-4"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 {label} ({items.length})
               </h2>
               {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-                  <CheckSquare className="mb-2 h-7 w-7 text-muted-foreground/40" />
-                  <p className="text-meta text-muted-foreground">No {label.toLowerCase()} tasks</p>
+                <div className="flex flex-col items-center justify-center px-6 py-8 text-center">
+                  <CheckSquare className="mb-2 size-6" style={{ color: "var(--color-ink-300)" }} />
+                  <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                    No {label.toLowerCase()} tasks
+                  </p>
                 </div>
               ) : (
-                <div>
+                <div className="flex flex-col gap-2">
                   {items.map((task) => (
                     <TaskRow
                       key={task.id}
@@ -166,7 +219,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           title="No open tasks"
           hint="New assignments from your admin appear here. Pull to refresh or tap below to check for updates."
           action={
-            <MobileCta href="/m/tasks" icon={CheckSquare} variant="outline">
+            <MobileCta href="/m/tasks" icon={CheckSquare} variant="secondary">
               Refresh Tasks
             </MobileCta>
           }
@@ -208,35 +261,40 @@ function FilteredView({
 
   return (
     <div>
-      <h2 className="px-4 pb-1.5 pt-3 text-label text-muted-foreground/75">
+      <h2
+        className="text-[0.5625rem] font-bold uppercase tracking-wide pb-1.5 pt-3"
+        style={{ color: "var(--color-ink-500)" }}
+      >
         Results ({visible.length})
       </h2>
-      {visible.map((task) => {
-        const sectionIcon =
-          task.status === "IN_PROGRESS"
-            ? Play
-            : task.status === "BLOCKED"
-              ? AlertTriangle
-              : Clock;
-        const sectionTone =
-          task.status === "IN_PROGRESS"
-            ? "text-info"
-            : task.status === "BLOCKED"
-              ? "text-danger"
-              : "text-muted-foreground";
-        return (
-          <TaskRow
-            key={task.id}
-            task={task}
-            icon={sectionIcon}
-            tone={sectionTone}
-            isOpen={expanded === task.id}
-            state={taskStates[task.id] ?? "idle"}
-            onToggle={() => setExpanded(expanded === task.id ? null : task.id)}
-            updateStatus={updateStatus}
-          />
-        );
-      })}
+      <div className="flex flex-col gap-2">
+        {visible.map((task) => {
+          const sectionIcon =
+            task.status === "IN_PROGRESS"
+              ? Play
+              : task.status === "BLOCKED"
+                ? AlertTriangle
+                : Clock;
+          const sectionTone =
+            task.status === "IN_PROGRESS"
+              ? "var(--color-signal-dark)"
+              : task.status === "BLOCKED"
+                ? "var(--color-stop)"
+                : "var(--color-ink-500)";
+          return (
+            <TaskRow
+              key={task.id}
+              task={task}
+              icon={sectionIcon}
+              tone={sectionTone}
+              isOpen={expanded === task.id}
+              state={taskStates[task.id] ?? "idle"}
+              onToggle={() => setExpanded(expanded === task.id ? null : task.id)}
+              updateStatus={updateStatus}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -263,40 +321,51 @@ function TaskRow({
 }) {
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
   return (
-    <div className="border-b border-border/70 bg-card">
+    <div
+      className="rounded-[0.625rem] border overflow-hidden"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
       {/* Header row — tap to expand */}
       <button
         onClick={onToggle}
         disabled={state === "updating"}
-        className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left transition-colors active:bg-accent"
+        className="flex w-full items-center gap-2.5 p-2.5 text-left press"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Icon className={cn("h-4 w-4", tone)} />
+        <span
+          className="flex size-8 shrink-0 items-center justify-center rounded-[0.375rem]"
+          style={{ backgroundColor: "var(--color-concrete)" }}
+        >
+          <Icon className="size-4" style={{ color: tone }} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-body font-semibold text-foreground">{task.title}</div>
-          <div className="truncate text-caption text-muted-foreground">
+          <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            {task.title}
+          </div>
+          <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
             {task.priority}
             {task.dueDate && (
-              <span className={cn("ml-1", isOverdue && "text-danger")}>
-                · due {formatDate(task.dueDate)}
+              <span style={{ color: isOverdue ? "var(--color-stop)" : undefined }}>
+                {" · due "}{formatDate(task.dueDate)}
               </span>
             )}
           </div>
         </div>
         <MobileStatusBadge status={task.status} />
         {isOpen ? (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+          <ChevronDown className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+          <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
         )}
       </button>
 
       {/* Expanded detail + actions */}
       {isOpen && (
-        <div className="px-4 pb-4">
+        <div className="px-2.5 pb-2.5">
           {task.description && (
-            <div className="mb-3 rounded-md border border-border bg-background p-3 text-meta text-foreground">
+            <div
+              className="mb-2.5 rounded-[0.375rem] border p-2.5 text-[0.5625rem]"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
+            >
               {task.description}
             </div>
           )}
@@ -362,18 +431,25 @@ function ActionButton({
   label: string;
   variant: "primary" | "success" | "outline";
 }) {
-  const cls = cn(
-    "flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-body font-semibold transition-colors active:scale-[0.99] disabled:opacity-50",
-    variant === "success" && "bg-success text-white shadow-raised",
-    variant === "primary" && "bg-primary text-primary-foreground shadow-raised",
-    variant === "outline" && "border border-border bg-card text-foreground",
-  );
+  const baseCls = "flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50";
+  const variantStyle: React.CSSProperties =
+    variant === "success"
+      ? { backgroundColor: "var(--color-go)", color: "#fff", borderColor: "var(--color-go)" }
+      : variant === "primary"
+        ? { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" }
+        : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" };
+
   return (
-    <button onClick={onClick} disabled={state === "updating"} className={cls}>
+    <button
+      onClick={onClick}
+      disabled={state === "updating"}
+      className={`${baseCls} border-2`}
+      style={variantStyle}
+    >
       {state === "updating" ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="size-3.5 animate-spin" />
       ) : (
-        <Icon className="h-4 w-4" />
+        <Icon className="size-3.5" />
       )}
       {label}
     </button>

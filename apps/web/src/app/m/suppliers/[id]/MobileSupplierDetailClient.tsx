@@ -63,6 +63,7 @@ export function MobileSupplierDetailClient({
   paymentCount,
   pos,
   payments,
+  canManage = false,
 }: {
   supplierId: string;
   name: string;
@@ -77,6 +78,7 @@ export function MobileSupplierDetailClient({
   paymentCount: number;
   pos: PoItem[];
   payments: PaymentItem[];
+  canManage?: boolean;
 }) {
   const [tab, setTab] = useState<"pos" | "payments">("pos");
   const hasDues = balanceOwed > 0;

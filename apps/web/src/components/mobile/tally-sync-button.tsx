@@ -55,12 +55,19 @@ export function TallySyncButton({
     <button
       onClick={sync}
       disabled={syncing}
-      className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border border-border bg-card px-3 py-2.5 text-[0.8125rem] font-semibold text-foreground transition-colors active:scale-[0.99] active:bg-accent disabled:opacity-50"
+      className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
     >
-      <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+      <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
       {syncing ? "Syncing…" : "Sync Tally"}
       {pendingCount > 0 && !syncing && (
-        <span className="ml-0.5 rounded bg-warning-soft px-1.5 py-0.5 text-[0.5625rem] font-bold text-warning tnum">
+        <span
+          className="ml-0.5 rounded px-1.5 py-0.5 text-[0.5625rem] font-bold tabular-nums"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--color-signal) 15%, transparent)",
+            color: "var(--color-signal-dark)",
+          }}
+        >
           {pendingCount}
         </span>
       )}

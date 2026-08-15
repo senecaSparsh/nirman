@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin } from "lucide-react";
+import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatCurrencyCompact } from "@/lib/utils";
-import { Input, Select, Label } from "@/components/ui/input";
+import { formatCurrencyCompact } from "@/lib/utils";
+import { haptic } from "@/lib/haptic";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 
@@ -27,21 +27,22 @@ type ExistingAttendance = Record<string, {
   notes: string | null;
 }>;
 
-const STATUS_CONFIG: Record<AttendanceStatus, { label: string; cls: string; dot: string }> = {
-  PRESENT: { label: "Present", cls: "bg-success/10 text-success border-success/30", dot: "bg-success" },
-  ABSENT: { label: "Absent", cls: "bg-danger/10 text-danger border-danger/30", dot: "bg-danger" },
-  HALF_DAY: { label: "Half", cls: "bg-warning/10 text-warning border-warning/30", dot: "bg-warning" },
-  OVERTIME: { label: "OT", cls: "bg-info/10 text-info border-info/30", dot: "bg-info" },
-  LEAVE: { label: "Leave", cls: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" },
+const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg: string; border: string }> = {
+  PRESENT: { label: "Present", color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)", border: "color-mix(in srgb, var(--color-go) 30%, transparent)" },
+  ABSENT: { label: "Absent", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 10%, transparent)", border: "color-mix(in srgb, var(--color-stop) 30%, transparent)" },
+  HALF_DAY: { label: "Half", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
+  OVERTIME: { label: "OT", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
+  LEAVE: { label: "Leave", color: "var(--color-ink-500)", bg: "var(--color-concrete)", border: "var(--color-line)" },
 };
 
 const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE"];
 
-function haptic(ms: number = 10) {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try { navigator.vibrate(ms); } catch { /* ignore */ }
-  }
-}
+const inputClass = "w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] font-medium outline-none";
+const inputStyle = {
+  borderColor: "var(--color-line)",
+  backgroundColor: "var(--color-paper)",
+  color: "var(--color-ink-950)",
+} as React.CSSProperties;
 
 export function MobileAttendanceForm({
   projects,
@@ -170,10 +171,12 @@ export function MobileAttendanceForm({
           label: `Site check-in (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`,
         });
         setGpsLoading(false);
+        haptic(20);
         toast.success("GPS location captured");
       },
       (err) => {
         setGpsLoading(false);
+        haptic([50, 20, 50]);
         toast.error(`GPS error: ${err.message}`);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -197,6 +200,7 @@ export function MobileAttendanceForm({
     });
 
     setSubmitting(true);
+    haptic(10);
     try {
       const res = await fetch("/api/attendance", {
         method: "POST",
@@ -205,11 +209,12 @@ export function MobileAttendanceForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save attendance");
-      haptic(30);
+      haptic([10, 40, 80]);
       toast.success(`Attendance saved for ${employees.length} workers`);
       clearDraft();
       router.push("/m/site");
     } catch (err) {
+      haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSubmitting(false);
@@ -217,10 +222,10 @@ export function MobileAttendanceForm({
   }
 
   return (
-    <div className="pb-24">
+    <div className="pb-32">
       {/* ── Draft restoration banner ─────────────────────────── */}
       {hasDraft && (
-        <div className="px-3 pt-3">
+        <div className="pt-3">
           <DraftBanner
             formName="Attendance"
             updatedAt={draftUpdatedAt}
@@ -231,56 +236,97 @@ export function MobileAttendanceForm({
       )}
 
       {/* ── Summary band ────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/70 bg-card">
-        <div className="flex items-center gap-3 text-caption">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{stats.present}</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-danger" />{stats.absent}</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warning" />{stats.halfDay}</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-info" />{stats.overtime}</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground" />{stats.leave}</span>
+      <div
+        className="flex items-center justify-between rounded-[0.625rem] border p-2.5 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <div className="flex items-center gap-2.5 text-[0.5625rem] font-semibold">
+          <span className="flex items-center gap-1" style={{ color: "var(--color-go)" }}>
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
+            {stats.present}
+          </span>
+          <span className="flex items-center gap-1" style={{ color: "var(--color-stop)" }}>
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-stop)" }} />
+            {stats.absent}
+          </span>
+          <span className="flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
+            {stats.halfDay}
+          </span>
+          <span className="flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
+            {stats.overtime}
+          </span>
+          <span className="flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-ink-400)" }} />
+            {stats.leave}
+          </span>
         </div>
-        <span className="text-caption text-muted-foreground">{stats.total} total</span>
+        <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          {stats.total} total
+        </span>
       </div>
 
       {/* ── Project + Search ────────────────────────────────── */}
-      <div className="space-y-2 px-3 py-2.5">
+      <div className="flex flex-col gap-2 mb-3">
         <div>
-          <Label>Project (optional)</Label>
-          <Select value={fProject} onChange={(e) => setFProject(e.target.value)}>
+          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            Project (optional)
+          </label>
+          <select
+            value={fProject}
+            onChange={(e) => setFProject(e.target.value)}
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+            style={inputStyle}
+          >
             <option value="">All workers</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
+          </select>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
+          <input
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search workers…"
-            className="pl-9"
-            inputMode="search"
-            enterKeyHint="search"
+            className="w-full h-10 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
+            style={{
+              borderColor: search ? "var(--color-ink-950)" : "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 press"
+              aria-label="Clear"
+            >
+              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+            </button>
+          )}
         </div>
         {/* GPS capture for site check-in */}
         <button
           type="button"
           onClick={captureGps}
           disabled={gpsLoading}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-body font-medium transition-colors",
+          className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+          style={
             gps
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-border bg-card text-foreground",
-          )}
+              ? { borderColor: "color-mix(in srgb, var(--color-go) 40%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)", color: "var(--color-go)" }
+              : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
+          }
         >
           {gpsLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="size-3.5 animate-spin" />
           ) : (
-            <MapPin className={cn("h-4 w-4", gps && "text-success")} />
+            <MapPin className="size-3.5" style={{ color: gps ? "var(--color-go)" : "var(--color-ink-500)" }} />
           )}
           {gps ? (
-            <span>GPS captured: {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}</span>
+            <span className="tabular-nums">GPS: {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}</span>
           ) : (
             <span>Capture GPS location</span>
           )}
@@ -289,90 +335,112 @@ export function MobileAttendanceForm({
         {stats.present < stats.total && (
           <button
             onClick={markAllPresent}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-2.5 text-body font-medium text-success transition-colors active:scale-[0.99]"
+            className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-[0.6875rem] font-bold press"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)",
+              color: "var(--color-go)",
+            }}
           >
-            <CheckCheck className="h-4 w-4" />
+            <CheckCheck className="size-3.5" />
             Mark all present
           </button>
         )}
       </div>
 
       {/* ── Worker list ─────────────────────────────────────── */}
-      <div className="divide-y divide-border/30">
+      <div className="flex flex-col gap-2">
         {filteredEmployees.map((emp) => {
           const r = records[emp.id] ?? { status: "PRESENT" as AttendanceStatus, checkIn: "", checkOut: "", hoursWorked: "" };
           const cfg = STATUS_CONFIG[r.status];
           const isOpen = expandedId === emp.id;
           return (
-            <div key={emp.id} className="bg-card">
-              {/* Worker row — name + status chips */}
-              <div className="px-4 py-2.5">
+            <div
+              key={emp.id}
+              className="rounded-[0.625rem] border p-2.5"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              {/* Worker row — name + status badge */}
+              <div>
                 <div className="flex items-center justify-between gap-2">
                   <button
-                    onClick={() => setExpandedId(isOpen ? null : emp.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    onClick={() => { setExpandedId(isOpen ? null : emp.id); haptic(10); }}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left press"
                   >
-                    {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground/40" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />}
+                    {isOpen ? <ChevronDown className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} /> : <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />}
                     <div className="min-w-0">
-                      <div className="truncate text-body font-medium text-foreground">{emp.name}</div>
-                      <div className="truncate text-caption text-muted-foreground">
+                      <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{emp.name}</div>
+                      <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
                         {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? `${formatCurrencyCompact(emp.dailyRate)}/day` : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
                       </div>
                     </div>
                   </button>
-                  <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium", cfg.cls)}>
+                  <span
+                    className="shrink-0 rounded-full border px-2 py-0.5 text-[0.5rem] font-bold"
+                    style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
+                  >
                     {cfg.label}
                   </span>
                 </div>
 
                 {/* Status chips — always visible, one tap to change */}
-                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {ALL_STATUSES.map((s) => {
-                    const sCfg = STATUS_CONFIG[s];
-                    const active = r.status === s;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => setStatus(emp.id, s)}
-                        className={cn(
-                          "shrink-0 rounded-full border px-3 py-1.5 text-caption font-medium transition-all active:scale-95",
-                          active ? sCfg.cls : "border-border bg-background text-muted-foreground",
-                        )}
-                      >
-                        {sCfg.label}
-                      </button>
-                    );
-                  })}
+                <div className="mt-2 flex gap-1.5 overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-1.5 w-max items-center">
+                    {ALL_STATUSES.map((s) => {
+                      const sCfg = STATUS_CONFIG[s];
+                      const active = r.status === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => setStatus(emp.id, s)}
+                          className="shrink-0 rounded-full border px-2.5 py-1 text-[0.5rem] font-bold press"
+                          style={
+                            active
+                              ? { color: sCfg.color, backgroundColor: sCfg.bg, borderColor: sCfg.border }
+                              : { color: "var(--color-ink-500)", backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }
+                          }
+                        >
+                          {sCfg.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Expanded detail — check in/out, hours */}
                 {isOpen && (
                   <div className="mt-2.5 grid grid-cols-3 gap-2">
                     <div>
-                      <Label className="text-caption">In</Label>
-                      <Input
+                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
+                      <input
                         type="time"
                         value={r.checkIn}
                         onChange={(e) => updateRecord(emp.id, "checkIn", e.target.value)}
+                        className={inputClass}
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <Label className="text-caption">Out</Label>
-                      <Input
+                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Out</label>
+                      <input
                         type="time"
                         value={r.checkOut}
                         onChange={(e) => updateRecord(emp.id, "checkOut", e.target.value)}
+                        className={inputClass}
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <Label className="text-caption">Hrs</Label>
-                      <Input
-                        type="number"
+                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Hrs</label>
+                      <input
+                        type="text"
                         inputMode="decimal"
                         enterKeyHint="done"
                         placeholder="8"
                         value={r.hoursWorked}
                         onChange={(e) => updateRecord(emp.id, "hoursWorked", e.target.value)}
+                        className={`${inputClass} tabular-nums`}
+                        style={inputStyle}
                       />
                     </div>
                   </div>
@@ -382,25 +450,33 @@ export function MobileAttendanceForm({
           );
         })}
         {filteredEmployees.length === 0 && (
-          <div className="py-8 text-center text-meta text-muted-foreground">
-            <Users className="mx-auto mb-2 h-7 w-7 opacity-50" />
-            No workers found
+          <div className="flex flex-col items-center py-8 text-center">
+            <Users className="mb-2 size-7" style={{ color: "var(--color-ink-300)" }} />
+            <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>No workers found</p>
           </div>
         )}
       </div>
 
-      {/* ── Sticky save bar — thumb zone ────────────────────── */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 py-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md">
-        <div className="mx-auto max-w-md">
+      {/* ── Sticky save bar ─────────────────────────────────── */}
+      <div
+        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        style={{
+          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="max-w-md mx-auto px-3.5 py-2">
           <button
             onClick={submit}
             disabled={submitting}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-3 text-body font-semibold text-background transition-colors active:scale-[0.99] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
           >
             {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="size-3.5" />
             )}
             {submitting ? "Saving…" : `Save Attendance (${employees.length})`}
           </button>

@@ -6,10 +6,13 @@ import Link from "next/link";
 import {
   Plus, Trash2, Loader2, ChevronLeft, CheckCircle2,
   Search, X, ChevronRight, Truck, Building2, Package, MapPin,
-  Send, Calendar,
+  Send, Calendar, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 interface SupplierItem { id: string; name: string; phone?: string | null; }
 interface ProjectItem { id: string; name: string; }
@@ -27,12 +30,24 @@ interface PoLine {
   materialId: string;
   qty: string;
   unitCost: string;
+  gstRate: string;
 }
 
 type Scope = "COMPANY" | "PROJECT";
 
+interface PoDraft {
+  supplierId: string;
+  scope: Scope;
+  projectId: string;
+  destinationLocationId: string;
+  expectedDate: string;
+  notes: string;
+  lines: PoLine[];
+}
+
 export default function MobileNewProcurementClient({ data }: { data: FormData }) {
   const router = useRouter();
+  const { online, enqueue } = useOfflineQueue();
   const { suppliers, projects, materials, locations } = data;
 
   const [submitting, setSubmitting] = useState(false);
@@ -44,15 +59,22 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<PoLine[]>(
-    [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "" }],
+    [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }],
   );
 
   const [success, setSuccess] = useState<{ poNumber: string; total: number } | null>(null);
 
+  // Draft auto-save
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<PoDraft>(
+    "purchase-order",
+    "purchase-order-new",
+  );
+  const [draftRestored, setDraftRestored] = useState(false);
+
   // Locations available for the selected scope
   const availableLocations = useMemo(() => {
     if (scope === "COMPANY") {
-      return locations.filter((l) => l.type === "COMPANY_WAREHOUSE" || l.type === "DEPARTMENT");
+      return locations.filter((l) => l.type === "COMPANY_WAREHOUSE");
     }
     return locations.filter((l) => l.type === "PROJECT_SITE" && (!projectId || l.projectId === projectId));
   }, [locations, scope, projectId]);
@@ -64,8 +86,26 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     }
   }, [availableLocations]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-save draft
+  useEffect(() => {
+    if (success) return;
+    saveDraft({ supplierId, scope, projectId, destinationLocationId: locationId, expectedDate, notes, lines });
+  }, [supplierId, scope, projectId, locationId, expectedDate, notes, lines, success, saveDraft]);
+
+  function restoreDraftState() {
+    if (!draft) return;
+    setSupplierId(draft.supplierId);
+    setScope(draft.scope);
+    setProjectId(draft.projectId);
+    setLocationId(draft.destinationLocationId);
+    setExpectedDate(draft.expectedDate);
+    setNotes(draft.notes);
+    setLines(draft.lines);
+    setDraftRestored(true);
+  }
+
   const handleAddLine = () => {
-    setLines([...lines, { materialId: materials[0]?.id ?? "", qty: "", unitCost: "" }]);
+    setLines([...lines, { materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -81,8 +121,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
 
   const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0), 0);
   const gstTotal = lines.reduce((s, l) => {
-    const mat = materials.find((m) => m.id === l.materialId);
-    const rate = mat?.gstRate ?? 0;
+    const rate = Number(l.gstRate) || 0;
     return s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0) * rate / 100;
   }, 0);
   const total = subtotal + gstTotal;
@@ -101,32 +140,43 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
 
     setSubmitting(true);
     try {
+      const payload = {
+        supplierId,
+        procurementScope: scope,
+        projectId: scope === "PROJECT" ? projectId : null,
+        destinationLocationId: locationId,
+        expectedDate: expectedDate || null,
+        notes: notes || null,
+        lines: validLines.map((l) => ({
+          materialId: l.materialId,
+          qtyOrdered: Number(l.qty),
+          unitCost: Number(l.unitCost),
+          gstRate: Number(l.gstRate) || 0,
+        })),
+      };
+
+      // Offline: queue for later sync
+      if (!online) {
+        await enqueue("purchase-order", payload);
+        clearDraft();
+        setSuccess({ poNumber: "QUEUED", total });
+        toast.success("Purchase order queued offline", {
+          description: "Will sync when back online",
+        });
+        return;
+      }
+
       const res = await fetch("/api/purchase-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          supplierId,
-          procurementScope: scope,
-          projectId: scope === "PROJECT" ? projectId : null,
-          destinationLocationId: locationId,
-          expectedDate: expectedDate || null,
-          notes: notes || null,
-          lines: validLines.map((l) => {
-            const mat = materials.find((m) => m.id === l.materialId);
-            return {
-              materialId: l.materialId,
-              qtyOrdered: Number(l.qty),
-              unitCost: Number(l.unitCost),
-              gstRate: mat?.gstRate ?? 0,
-            };
-          }),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to create purchase order");
       }
       const data = await res.json();
+      clearDraft();
       setSuccess({ poNumber: data.poNumber, total });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create purchase order");
@@ -137,21 +187,32 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
 
   /* ── Success state ── */
   if (success) {
+    const isQueued = success.poNumber === "QUEUED";
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
           className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+          style={{ backgroundColor: isQueued ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
         >
-          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          {isQueued ? (
+            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+          ) : (
+            <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Purchase Order Created</p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>{success.poNumber}</p>
+        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          {isQueued ? "Purchase Order Queued" : "Purchase Order Created"}
+        </p>
+        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+          {isQueued ? "Pending sync" : success.poNumber}
+        </p>
         <p className="text-[1rem] font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.total)}
         </p>
         <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
-          PO is in <span className="font-bold" style={{ color: "var(--color-ink-700)" }}>DRAFT</span>. Submit for approval from the PO detail page.
+          {isQueued
+            ? "Will be submitted as DRAFT when back online."
+            : "PO is in DRAFT. Submit for approval from the PO detail page."}
         </p>
         <div className="flex gap-2">
           <button
@@ -167,7 +228,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "" }]);
+              setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
               setNotes("");
               setExpectedDate("");
             }}
@@ -203,7 +264,16 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   }
 
   return (
-    <PoForm
+    <>
+      {hasDraft && !draftRestored && !success && (
+        <DraftBanner
+          formName="Purchase Order"
+          updatedAt={draftUpdatedAt}
+          onRestore={restoreDraftState}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      )}
+      <PoForm
       suppliers={suppliers}
       projects={projects}
       materials={materials}
@@ -226,6 +296,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       onLineChange={handleLineChange}
       onSubmit={handleSubmit}
       submitting={submitting}
+      online={online}
       subtotal={subtotal}
       gstTotal={gstTotal}
       total={total}
@@ -233,6 +304,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       selectedProject={selectedProject}
       selectedLocation={selectedLocation}
     />
+    </>
   );
 }
 
@@ -249,7 +321,7 @@ function PoForm({
   notes, setNotes,
   lines,
   onAddLine, onRemoveLine, onLineChange,
-  onSubmit, submitting,
+  onSubmit, submitting, online,
   subtotal, gstTotal, total,
   selectedSupplier, selectedProject, selectedLocation,
 }: {
@@ -275,6 +347,7 @@ function PoForm({
   onLineChange: (i: number, field: keyof PoLine, val: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
+  online: boolean;
   subtotal: number;
   gstTotal: number;
   total: number;
@@ -295,7 +368,9 @@ function PoForm({
     else if (modal.type === "project") setProjectId(id);
     else if (modal.type === "location") setLocationId(id);
     else if (modal.type === "material" && modal.lineIndex !== undefined) {
+      const mat = materials.find((m) => m.id === id);
       onLineChange(modal.lineIndex, "materialId", id);
+      if (mat) onLineChange(modal.lineIndex, "gstRate", String(mat.gstRate));
     }
     closeModal();
   };
@@ -378,7 +453,8 @@ function PoForm({
           {lines.map((line, idx) => {
             const mat = materials.find((m) => m.id === line.materialId);
             const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
-            const lineGst = lineTotal * (mat?.gstRate ?? 0) / 100;
+            const lineGstRate = Number(line.gstRate) || 0;
+            const lineGst = lineTotal * lineGstRate / 100;
             return (
               <div
                 key={idx}
@@ -421,7 +497,7 @@ function PoForm({
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.qty}
@@ -436,7 +512,7 @@ function PoForm({
                         Unit Cost
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.unitCost}
@@ -446,6 +522,22 @@ function PoForm({
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                       />
                     </div>
+                  </div>
+
+                  <div className="mt-1.5">
+                    <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      GST Rate %
+                    </label>
+                    <input
+                      type="text" inputMode="decimal"
+                      step="any"
+                      min="0"
+                      value={line.gstRate}
+                      onChange={(e) => onLineChange(idx, "gstRate", e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    />
                   </div>
 
                   <div
@@ -459,9 +551,9 @@ function PoForm({
                       <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                         {formatCurrency(lineTotal + lineGst)}
                       </span>
-                      {mat && mat.gstRate > 0 ? (
+                      {lineGstRate > 0 ? (
                         <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
-                          +{mat.gstRate}%
+                          +{lineGstRate}%
                         </span>
                       ) : null}
                     </div>
@@ -543,8 +635,8 @@ function PoForm({
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <>
-                <Send className="size-3.5" />
-                <span>Create PO (Draft)</span>
+                {online ? <Send className="size-3.5" /> : <WifiOff className="size-3.5" />}
+                <span>{online ? "Create PO (Draft)" : "Queue PO (Offline)"}</span>
               </>
             )}
           </button>

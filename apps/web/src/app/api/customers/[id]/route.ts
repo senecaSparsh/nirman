@@ -2,8 +2,22 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
-import { apiHandler, getCompany, json, customerSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, customerSchema, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
+  const company = await getCompany();
+  const { id } = await params;
+  const customer = await prisma.customer.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: {
+      _count: { select: { assetSales: true, materialSales: true } },
+    },
+  });
+  if (!customer) return json({ error: "Customer not found" }, { status: 404 });
+  return json(customer);
+});
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.SALES_MANAGE);

@@ -54,10 +54,6 @@ const ICONS: Record<string, LucideIcon> = {
   building: Building2,
 };
 
-function getIcon(key: string): LucideIcon {
-  return ICONS[key] ?? Activity;
-}
-
 /**
  * ═══════════════════════════════════════════════════════════════════
  * PROFILE TABS — the profile page divided into three focused views.
@@ -247,13 +243,13 @@ export function ProfileTabs(props: ProfileTabsProps) {
             {props.capabilities.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {props.capabilities.map((c) => {
-                  const Icon = getIcon(c.icon);
+                  const CapIcon = ICONS[c.icon] ?? Activity;
                   return (
                   <span
                     key={c.label}
                     className="flex items-center gap-1 rounded-md bg-subtle px-2 py-1 text-caption font-medium text-foreground"
                   >
-                    <Icon className="h-3 w-3 text-muted-foreground/60" />
+                    <CapIcon className="h-3 w-3 text-muted-foreground/60" />
                     {c.label}
                   </span>
                   );
@@ -692,8 +688,8 @@ function PermissionMatrix({ modules }: { modules: PermModule[] }) {
 // ── Queue card ─────────────────────────────────────────────────────
 
 export function QueueCard({ queue }: { queue: QueueData }) {
-  const Icon = getIcon(queue.icon);
   const blocking = queue.urgency === "blocking";
+  const QueueIcon = ICONS[queue.icon] ?? Activity;
   return (
     <Link
       href={queue.href}
@@ -706,7 +702,7 @@ export function QueueCard({ queue }: { queue: QueueData }) {
             blocking ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning",
           )}
         >
-          <Icon className="h-3.5 w-3.5" />
+          <QueueIcon className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
@@ -755,10 +751,10 @@ export function QueueCard({ queue }: { queue: QueueData }) {
 export function formatActionLabel(action: string): string {
   const parts = action.split(".");
   if (parts.length < 2) return action;
-  const module = (parts[0] ?? action).toUpperCase();
+  const moduleName = (parts[0] ?? action).toUpperCase();
   const verb = (parts[1] ?? "").replace(/_/g, " ");
   const verbLabel = verb.charAt(0).toUpperCase() + verb.slice(1);
-  return `${module} ${verbLabel}`;
+  return `${moduleName} ${verbLabel}`;
 }
 
 function timeAgo(date: Date): string {

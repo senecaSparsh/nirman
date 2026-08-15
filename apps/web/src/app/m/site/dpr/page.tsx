@@ -4,15 +4,25 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileDprPage() {
   return (
     <div>
-      <div className="mb-4">
-        <MobileBackButton fallback="/m/site" className="text-muted-foreground hover:text-foreground" />
-        <h1 className="text-h3 font-semibold text-foreground">Submit DPR</h1>
+      <div className="flex items-center gap-2 mb-3">
+        <MobileBackButton fallback="/m/site" style={{ color: "var(--color-ink-700)" }} />
+        <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
+          Submit DPR
+        </p>
+        <span
+          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+        >
+          <ClipboardList className="size-2.5" />
+          Site
+        </span>
       </div>
       <Suspense fallback={<MobileSkeletonForm />}>
         <MobileDprContent />
@@ -28,8 +38,14 @@ async function MobileDprContent() {
 
   if (!hasPermission(role, PERM.DPR_SUBMIT)) {
     return (
-      <div className="p-4 text-meta text-muted-foreground">
-        You don&apos;t have permission to submit DPRs.
+      <div className="flex flex-col items-center text-center px-4 py-7">
+        <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
+          <ClipboardList className="size-5" style={{ color: "var(--color-ink-300)" }} />
+        </div>
+        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
+        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+          You don&apos;t have permission to submit DPRs.
+        </p>
       </div>
     );
   }
@@ -75,6 +91,7 @@ async function MobileDprContent() {
     date: string;
     weather: string | null;
     workSummary: string;
+    workType: string | null;
     progressPct: number;
     blockers: string | null;
     tomorrowPlan: string | null;
@@ -89,6 +106,7 @@ async function MobileDprContent() {
       date: d.date.toISOString().slice(0, 10),
       weather: d.weather,
       workSummary: d.workSummary,
+      workType: d.workType,
       progressPct: toNum(d.progressPct),
       blockers: d.blockers,
       tomorrowPlan: d.tomorrowPlan,
@@ -150,7 +168,7 @@ async function MobileDprContent() {
     }),
     prisma.material.findMany({
       where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
-      select: { id: true, name: true, unit: true },
+      select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 100,
     }),
@@ -161,7 +179,7 @@ async function MobileDprContent() {
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
       crews={crews.map((c) => ({ id: c.id, name: c.name }))}
-      materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
+      materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, standardCost: toNum(m.standardCost) }))}
       existingDprsByProject={existingDprsByProject}
       yesterdayDprsByProject={yesterdayDprsByProject}
     />

@@ -195,6 +195,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, userRole]);
 
+  // ── Update document title to the current company name ──────
+  // The layout's static metadata says "Nirman Inventory OS" (the product
+  // name). Once we know the active company, the tab title becomes
+  // "{companyName} · Nirman OS" so a user with multiple companies can
+  // tell which books they're looking at from the browser tab.
+  useEffect(() => {
+    if (companyName && companyName !== "Nirman") {
+      document.title = `${companyName} · Nirman OS`;
+    } else {
+      document.title = "Nirman Inventory OS";
+    }
+  }, [companyName]);
+
+  // ── Re-fetch company info when the user switches company ──
+  // The CompanySwitcher dispatches a "nirman-company-switched" event
+  // after a successful switch. We listen for it and re-fetch /api/company
+  // to update the brand mark, document title, and switcher list.
+  useEffect(() => {
+    if (isMobileRoute(pathname) || isAuthRoute(pathname)) return;
+    function onCompanySwitched() {
+      fetch("/api/company")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((c) => {
+          if (c?.name) {
+            setCompanyName(c.name);
+            // Set the title immediately — router.refresh() in the
+            // switcher may re-apply Next.js metadata and overwrite it.
+            const newTitle = c.name !== "Nirman" ? `${c.name} · Nirman OS` : "Nirman Inventory OS";
+            document.title = newTitle;
+            setTimeout(() => { document.title = newTitle; }, 300);
+          }
+          if (Array.isArray(c?.companies)) setCompanies(c.companies);
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("nirman-company-switched", onCompanySwitched);
+    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched);
+  }, [pathname]);
+
   // Mobile routes render their own shell.
   if (isMobileRoute(pathname)) return <>{children}</>;
 
@@ -486,6 +525,12 @@ function WorldRail({
       .join("")
       .toUpperCase() || "N";
 
+  // The brand mark shows the first letter of the current company name,
+  // so a user with multiple companies can tell at a glance which books
+  // they're looking at. Falls back to "N" (for Nirman OS) before the
+  // company name is fetched or if it's empty.
+  const brandMark = (companyName || "Nirman").charAt(0).toUpperCase();
+
   /**
    * The rail is the only piece of chrome present on literally every
    * screen, so it earns two changes over v1:
@@ -514,7 +559,7 @@ function WorldRail({
         )}
         title={companyName}
       >
-        N
+        {brandMark}
       </Link>
 
       <nav className="flex w-full flex-1 flex-col items-center gap-0.5 px-1.5">

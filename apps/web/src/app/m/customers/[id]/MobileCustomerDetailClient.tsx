@@ -369,7 +369,7 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
 
   return (
     <Link
-      href={isMaterial ? `/m/material-sales/${s.id}` : `/m/sales`}
+      href={isMaterial ? `/m/material-sales/${s.id}` : `/m/sales/${s.id}`}
       className="block rounded-[0.5rem] border overflow-hidden active:scale-[0.99] transition-transform"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >

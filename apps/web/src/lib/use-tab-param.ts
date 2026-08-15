@@ -52,11 +52,12 @@ export function useTabParam<T extends string>(
   const searchParams = useSearchParams();
 
   const raw = searchParams.get(param);
+  // `allowed` is typically an inline literal, so compare by content, not identity.
+  const allowedKey = allowed.join(",");
   const value = useMemo<T>(
     () => (raw && (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback),
-    // `allowed` is typically an inline literal, so compare by content, not identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [raw, fallback, allowed.join(",")],
+    [raw, fallback, allowedKey],
   );
 
   const setValue = useCallback(

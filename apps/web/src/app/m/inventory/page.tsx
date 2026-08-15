@@ -2,11 +2,14 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import {
-  ShoppingCart,
-  Wrench,
-  Plus,
   ScanLine,
   PackageCheck,
+  PackagePlus,
+  ArrowLeftRight,
+  ClipboardCheck,
+  TrendingUp,
+  Truck,
+  Send,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum } from "@/lib/server";
@@ -210,15 +213,19 @@ async function InventoryContent() {
       {/* ── Category cards (Raw Material / Real Estate) ── */}
       <InventoryInteractive />
 
-      {/* ── Quick actions — 3-col compact grid ── */}
+      {/* ── Quick actions — 4-col grid, owner's daily workflow ── */}
       <SectionHead title="Quick actions" />
-      <div className="grid grid-cols-3 gap-1.5 mb-3">
-        <QuickActionTile href="/m/requisitions" icon={ShoppingCart} label="Requisition" />
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
+        {/* Row 1: daily operational actions */}
+        <QuickActionTile href="/m/procurement/new" icon={Truck} label="New PO" />
+        <QuickActionTile href="/m/pulse/approvals" icon={ClipboardCheck} label="Approvals" />
         <QuickActionTile href="/m/site/receive" icon={ScanLine} label="Receive" />
-        <QuickActionTile href="/m/site/issue" icon={PackageCheck} label="Issue" />
-        <QuickActionTile href="/m/sales/new" icon={Plus} label="New Sale" />
-        <QuickActionTile href="/m/scrap-generations" icon={Wrench} label="Scrap" />
-        <QuickActionTile href="/m/site/field" icon={ScanLine} label="Barcode" />
+        <QuickActionTile href="/m/site/issue" icon={Send} label="Issue" />
+        {/* Row 2: periodic / inventory management */}
+        <QuickActionTile href="/m/transfers/new" icon={ArrowLeftRight} label="Transfer" />
+        <QuickActionTile href="/m/material-sales/new" icon={TrendingUp} label="Sell" />
+        <QuickActionTile href="/m/stock-counts/new" icon={PackageCheck} label="Stock Count" />
+        <QuickActionTile href="/m/materials/new" icon={PackagePlus} label="New Material" />
       </div>
 
       {/* ── Top categories — horizontal scroll of circular chips ── */}

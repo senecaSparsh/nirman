@@ -1,47 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Mobile detection — a simple UA substring check. Good enough for an
- * ERP internal tool; we don't need a full device database. Tablets
- * count as mobile (they want the touch-optimized surface too).
- */
-function isMobileUA(ua: string | null | undefined): boolean {
-  if (!ua) return false;
-  return /android|iphone|ipad|ipod|opera mini|mobile|pda|windows phone|symbian/i.test(ua);
-}
-
-/**
- * Routes that are exempt from the mobile gate — they exist only on the
- * desktop surface and have no mobile equivalent (print views, auth
- * callbacks, static assets, API endpoints).
- */
-function isExemptFromMobileGate(pathname: string): boolean {
-  // Mobile surface — already on /m
-  if (pathname === "/m" || pathname.startsWith("/m/")) return true;
-  // Auth pages
-  if (pathname === "/sign-in" || pathname.startsWith("/sign-in/")) return true;
-  // Print views (desktop-only by design)
-  if (pathname === "/print" || pathname.startsWith("/print/")) return true;
-  // API routes (return JSON, not HTML surfaces)
-  if (pathname.startsWith("/api/")) return true;
-  // Next.js internals
-  if (pathname.startsWith("/_next/")) return true;
-  // Static files
-  if (pathname.startsWith("/favicon")) return true;
-  if (/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)) return true;
-  return false;
-}
-
-/**
- * Auth + mobile-gate middleware.
+ * Auth middleware.
  *
- * Mobile gate (runs in ALL environments, including dev, so mobile can be
- * tested locally): when a mobile UA hits ANY desktop route, redirect to
- * /m. This prevents mobile users from landing on desktop pages via
- * direct URLs, bookmarks, or shared links. A `nirman-desktop=1` cookie
- * (set by "/?desktop=1") opts the user out — but it's session-only now,
- * so closing the browser resets the preference. Desktop UAs are never
- * redirected.
+ * Surface selection (desktop vs mobile) is NOT done here. It is handled
+ * entirely client-side by `ResponsiveSurfaceRedirector`, which watches
+ * `matchMedia("(max-width: 1023px)")` and auto-redirects at home routes
+ * (`/` ↔ `/m`). Deep routes are never redirected — if you're on
+ * `/m/material-sales/new` and resize wide, you stay there. This keeps
+ * the surface choice tied to the actual viewport, not a UA string that
+ * can be wrong (tablets in landscape, narrow desktop windows, etc.).
  *
  * Auth (all environments): checks for the better-auth session cookie. If
  * missing, redirects to /sign-in. Set AUTH_BYPASS=true to skip the cookie
@@ -58,9 +26,9 @@ export function middleware(req: NextRequest) {
 
   // ── "View desktop" escape hatch ────────────────────────────
   // Sets a session-only cookie (no maxAge → expires when browser closes)
-  // so the mobile gate stops redirecting. This lets a phone user reach
-  // the full desktop ERP if they really need to, but the preference
-  // doesn't persist across browser sessions.
+  // so the ResponsiveSurfaceRedirector stops forcing mobile. This lets a
+  // phone user reach the full desktop ERP if they really need to, but the
+  // preference doesn't persist across browser sessions.
   if (searchParams.get("desktop") === "1") {
     const res = NextResponse.redirect(new URL("/", req.url));
     res.cookies.set("nirman-desktop", "1", {
@@ -68,18 +36,6 @@ export function middleware(req: NextRequest) {
       sameSite: "lax",
     });
     return res;
-  }
-
-  // ── Mobile gate: ALL desktop routes, mobile UA ─────────────
-  // Redirect any desktop route to /m when the user is on a mobile UA
-  // and hasn't set the nirman-desktop override cookie. This catches
-  // direct navigation, bookmarks, and shared links — not just the root.
-  if (
-    !isExemptFromMobileGate(pathname) &&
-    !req.cookies.get("nirman-desktop")?.value &&
-    isMobileUA(req.headers.get("user-agent"))
-  ) {
-    return NextResponse.redirect(new URL("/m", req.url));
   }
 
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
@@ -92,6 +48,7 @@ export function middleware(req: NextRequest) {
   // Public routes — always accessible
   if (
     pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||

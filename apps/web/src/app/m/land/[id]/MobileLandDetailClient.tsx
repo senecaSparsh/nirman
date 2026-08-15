@@ -1089,7 +1089,7 @@ function PartitionSheet({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
               <input
-                type="number"
+                type="text" inputMode="decimal"
                 placeholder={`Area (${unitShort})`}
                 value={c.area}
                 onChange={(e) => updateChild(i, "area", e.target.value)}
@@ -1097,7 +1097,7 @@ function PartitionSheet({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
               <input
-                type="number"
+                type="text" inputMode="decimal"
                 placeholder="Asking ₹"
                 value={c.askingPrice}
                 onChange={(e) => updateChild(i, "askingPrice", e.target.value)}
@@ -1290,7 +1290,7 @@ function SellSheet({
           Sale Price (₹)
         </p>
         <input
-          type="number"
+          type="text" inputMode="decimal"
           value={salePrice}
           onChange={(e) => setSalePrice(e.target.value)}
           placeholder="Enter sale price"
@@ -1311,7 +1311,7 @@ function SellSheet({
           Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
         </p>
         <input
-          type="number"
+          type="text" inputMode="decimal"
           value={initialPayment}
           onChange={(e) => setInitialPayment(e.target.value)}
           placeholder="Token / deposit amount"
@@ -1393,7 +1393,7 @@ function ValuationSheet({
           Current Valuation (₹)
         </p>
         <input
-          type="number"
+          type="text" inputMode="decimal"
           value={valuation}
           onChange={(e) => setValuation(e.target.value)}
           className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums outline-none"
@@ -1411,7 +1411,7 @@ function ValuationSheet({
           Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
         </p>
         <input
-          type="number"
+          type="text" inputMode="decimal"
           value={askingPrice}
           onChange={(e) => setAskingPrice(e.target.value)}
           placeholder="List price for sale"

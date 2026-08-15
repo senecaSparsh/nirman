@@ -3,7 +3,8 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Building2, Home } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -30,6 +31,8 @@ export default function MobileProjectsPage() {
 async function MobileProjectsContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -134,7 +137,7 @@ async function MobileProjectsContent() {
         <MobileStatCard label="On Hold" value={formatNumber(hold.length, 0)} icon={Building2} tone="stop" />
       </div>
 
-      <MobileProjectsList items={serialized} />
+      <MobileProjectsList items={serialized} canManage={canManage} />
 
       {projects.length === 0 && (
         <>

@@ -46,6 +46,10 @@ export function CompanySwitcher({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyId: id }),
     }).catch(() => {});
+    // Notify all client-side components (AppShell, MobileShell) that
+    // the active company changed so they can re-fetch the company
+    // name and update the document title + brand mark.
+    window.dispatchEvent(new CustomEvent("nirman-company-switched"));
     router.refresh();
     setSwitching(false);
     setOpen(false);

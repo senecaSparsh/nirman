@@ -609,15 +609,8 @@ export function DataTable<T>({
     return () => document.removeEventListener("keydown", onKey);
   }, [paged, activeRow, onRowClick, selectable, toggleRow]);
 
-  // ── Render ───────────────────────────────────────────────────
-  if (data.length === 0 && emptyState) return <>{emptyState}</>;
-
-  const colCount = visibleColumns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0);
-  const showToolbar =
-    !hideToolbar && (searchable || hideable || toolbar || toolbarLeading || toolbarTrailing || exportFileName || groupBy || storageKey);
-  const selectedRows = selectedIds ? sorted.filter((r, i) => selectedIds.has(getRowId(r, i))) : [];
-
   // Unique values per filterable column (computed once, outside headerCell)
+  // MUST be called before any early return — Rules of Hooks.
   const colFilterOptions = useMemo(() => {
     const map: Record<string, [string, number][]> = {};
     for (const col of filterableColumns) {
@@ -632,6 +625,14 @@ export function DataTable<T>({
     }
     return map;
   }, [filterableColumns, data, colFilterValue]);
+
+  // ── Render ───────────────────────────────────────────────────
+  if (data.length === 0 && emptyState) return <>{emptyState}</>;
+
+  const colCount = visibleColumns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0);
+  const showToolbar =
+    !hideToolbar && (searchable || hideable || toolbar || toolbarLeading || toolbarTrailing || exportFileName || groupBy || storageKey);
+  const selectedRows = selectedIds ? sorted.filter((r, i) => selectedIds.has(getRowId(r, i))) : [];
 
   function toggleFilterValue(colKey: string, v: string) {
     setColFilters((prev) => {

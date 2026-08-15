@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Trash2, Loader2, ChevronLeft, CheckCircle2, ScanLine,
   Search, X, ChevronRight, MapPin, Package, Send, TrendingUp, TrendingDown,
+  WifiOff,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 interface LocationItem { id: string; name: string; type: string; }
 interface StockItem {
@@ -28,8 +32,20 @@ interface CountLine {
   countedQty: string;
 }
 
+interface StockCountDraftLine {
+  materialId: string;
+  countedQty: string;
+}
+
+interface StockCountDraft {
+  locationId: string;
+  notes: string;
+  lines: StockCountDraftLine[];
+}
+
 export default function MobileNewStockCountClient() {
   const router = useRouter();
+  const { online, enqueue } = useOfflineQueue();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +59,14 @@ export default function MobileNewStockCountClient() {
   const [stockLoading, setStockLoading] = useState(false);
 
   const [success, setSuccess] = useState<{ id: string } | null>(null);
+
+  // Draft auto-save
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<StockCountDraft>(
+    "stock-count",
+    "stock-count-new",
+  );
+  const [draftRestored, setDraftRestored] = useState(false);
+  const pendingDraftLinesRef = useRef<StockCountDraftLine[] | null>(null);
 
   // Load locations
   useEffect(() => {
@@ -79,16 +103,24 @@ export default function MobileNewStockCountClient() {
         if (Array.isArray(data)) {
           setStock(data);
           // Pre-fill lines with all materials at this location, counted qty empty
-          setLines(
-            data.map((item: StockItem) => ({
-              materialId: item.materialId,
-              materialName: item.materialName,
-              materialCode: item.materialCode,
-              unit: item.unit,
-              systemQty: item.qty,
-              countedQty: "",
-            })),
-          );
+          const newLines = data.map((item: StockItem) => ({
+            materialId: item.materialId,
+            materialName: item.materialName,
+            materialCode: item.materialCode,
+            unit: item.unit,
+            systemQty: item.qty,
+            countedQty: "",
+          }));
+          // If restoring a draft, merge saved counted quantities after stock reload
+          const pending = pendingDraftLinesRef.current;
+          if (pending) {
+            for (const line of newLines) {
+              const dl = pending.find((d) => d.materialId === line.materialId);
+              if (dl) line.countedQty = dl.countedQty;
+            }
+            pendingDraftLinesRef.current = null;
+          }
+          setLines(newLines);
         }
       } catch (err) {
         console.error("Failed to load stock:", err);
@@ -99,6 +131,36 @@ export default function MobileNewStockCountClient() {
     loadStock();
     return () => { cancelled = true; };
   }, [locationId]);
+
+  // Auto-save draft
+  useEffect(() => {
+    if (loading || stockLoading || success) return;
+    saveDraft({
+      locationId,
+      notes,
+      lines: lines.map((l) => ({ materialId: l.materialId, countedQty: l.countedQty })),
+    });
+  }, [locationId, notes, lines, loading, stockLoading, success, saveDraft]);
+
+  function restoreDraftState() {
+    if (!draft) return;
+    pendingDraftLinesRef.current = draft.lines;
+    if (draft.locationId !== locationId) {
+      // Changing location triggers stock reload; pending lines merged after load
+      setLocationId(draft.locationId);
+    } else {
+      // Same location — apply counted quantities immediately
+      setLines((prev) =>
+        prev.map((l) => {
+          const dl = draft.lines.find((d) => d.materialId === l.materialId);
+          return dl ? { ...l, countedQty: dl.countedQty } : l;
+        }),
+      );
+      pendingDraftLinesRef.current = null;
+    }
+    setNotes(draft.notes);
+    setDraftRestored(true);
+  }
 
   const selectedLocation = locations.find((l) => l.id === locationId);
 
@@ -162,17 +224,33 @@ export default function MobileNewStockCountClient() {
 
     setSubmitting(true);
     try {
+      const payload = {
+        locationId,
+        notes: notes || null,
+        lines: validLines.map((l) => ({
+          materialId: l.materialId,
+          countedQty: Number(l.countedQty),
+        })),
+      };
+
+      // Offline: queue for later sync
+      if (!online) {
+        await enqueue("stock-count", payload);
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(10);
+        }
+        toast.success("Stock count queued offline", {
+          description: "Will sync when back online",
+        });
+        clearDraft();
+        setSuccess({ id: "QUEUED" });
+        return;
+      }
+
       const res = await fetch("/api/stock-counts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          locationId,
-          notes: notes || null,
-          lines: validLines.map((l) => ({
-            materialId: l.materialId,
-            countedQty: Number(l.countedQty),
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -181,6 +259,7 @@ export default function MobileNewStockCountClient() {
       }
 
       const data = await res.json();
+      clearDraft();
       setSuccess({ id: data.id });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create stock count");
@@ -191,31 +270,48 @@ export default function MobileNewStockCountClient() {
 
   /* ── Success state ── */
   if (success) {
+    const isQueued = success.id === "QUEUED";
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
           className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+          style={{
+            backgroundColor: isQueued
+              ? "color-mix(in srgb, var(--color-signal) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+          }}
         >
-          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          {isQueued ? (
+            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+          ) : (
+            <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+          )}
         </div>
         <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-          Stock Count Created
+          {isQueued ? "Stock Count Queued" : "Stock Count Created"}
         </p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
-          {varianceSummary.counted} items counted · {varianceSummary.mismatches} mismatches
-        </p>
+        {isQueued ? (
+          <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+            Will sync when back online
+          </p>
+        ) : (
+          <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+            {varianceSummary.counted} items counted · {varianceSummary.mismatches} mismatches
+          </p>
+        )}
         <div className="flex gap-2">
-          <button
-            onClick={() => {
-              router.refresh();
-              router.push(`/m/stock-counts/${success.id}`);
-            }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-          >
-            View Count
-          </button>
+          {!isQueued && (
+            <button
+              onClick={() => {
+                router.refresh();
+                router.push(`/m/stock-counts/${success.id}`);
+              }}
+              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            >
+              View Count
+            </button>
+          )}
           <button
             onClick={() => {
               setSuccess(null);
@@ -250,7 +346,16 @@ export default function MobileNewStockCountClient() {
   }
 
   return (
-    <div className="pb-32">
+    <>
+      {hasDraft && !draftRestored && !success && (
+        <DraftBanner
+          formName="Stock Count"
+          updatedAt={draftUpdatedAt}
+          onRestore={restoreDraftState}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      )}
+      <div className="pb-32">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <Link href="/m/stock-counts" className="shrink-0">
@@ -392,7 +497,7 @@ export default function MobileNewStockCountClient() {
                         Counted ({line.unit})
                       </label>
                       <input
-                        type="number"
+                        type="text" inputMode="decimal"
                         step="any"
                         min="0"
                         value={line.countedQty}
@@ -496,8 +601,8 @@ export default function MobileNewStockCountClient() {
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <>
-                <Send className="size-3.5" />
-                <span>Create Count</span>
+                {online ? <Send className="size-3.5" /> : <WifiOff className="size-3.5" />}
+                <span>{online ? "Create Count" : "Queue Count (Offline)"}</span>
               </>
             )}
           </button>
@@ -543,6 +648,7 @@ export default function MobileNewStockCountClient() {
         />
       ) : null}
     </div>
+    </>
   );
 }
 

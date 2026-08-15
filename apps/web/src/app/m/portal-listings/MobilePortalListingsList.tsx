@@ -226,10 +226,11 @@ function ListingRow({ l }: { l: PortalListingItem }) {
               href={l.listingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground active:bg-accent"
+              className="flex h-6 w-6 items-center justify-center rounded-[0.375rem] press"
+              style={{ color: "var(--color-ink-500)" }}
               aria-label="Open listing"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink className="size-3.5" />
             </Link>
           )}
         </div>

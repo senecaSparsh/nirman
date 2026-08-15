@@ -1,12 +1,21 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.USERS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the assignment belongs to a project in the user's company
+  const existing = await prisma.projectAssignment.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true },
+  });
+  if (!existing) {
+    return json({ error: "Assignment not found" }, { status: 404 });
+  }
   const body = await req.json();
   const { scopedRole } = body;
   if (!scopedRole) return json({ error: "scopedRole is required" }, { status: 400 });
@@ -33,17 +42,25 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.USERS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the assignment belongs to a project in the user's company
+  const existing = await prisma.projectAssignment.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true, scopedRole: true, projectId: true, userId: true },
+  });
+  if (!existing) {
+    return json({ error: "Assignment not found" }, { status: 404 });
+  }
   try {
     await prisma.$transaction(async (tx) => {
-      const pa = await tx.projectAssignment.findUnique({ where: { id } });
       await tx.projectAssignment.delete({ where: { id } });
       await logAction(tx, {
         userId: user.id,
         action: "PROJECT_ASSIGNMENT_DELETE",
         entityType: "ProjectAssignment",
         entityId: id,
-        before: pa ? { scopedRole: pa.scopedRole, projectId: pa.projectId, userId: pa.userId } : undefined,
+        before: { scopedRole: existing.scopedRole, projectId: existing.projectId, userId: existing.userId },
       });
     });
     return json({ ok: true });

@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Shield, Phone, ChevronDown, Check, Loader2,
-  UserCog, Crown, CircleDot,
+  UserCog, Crown, CircleDot, UserPlus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, type Role } from "@/lib/roles";
+import { haptic } from "@/lib/haptic";
 
 interface TeamMember {
   id: string;
@@ -53,6 +54,7 @@ export function MobileTeamList({
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const filtered = search.trim()
     ? team.filter((m) => {
@@ -124,6 +126,30 @@ export function MobileTeamList({
         >
           You have read-only access. Only owners and admins can change roles or deactivate members.
         </div>
+      )}
+
+      {/* ── Add member button (managers only) ── */}
+      {canManage && (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press mb-3"
+          style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+        >
+          <UserPlus className="size-3.5" />
+          Add Team Member
+        </button>
+      )}
+
+      {/* ── Add member form dialog ── */}
+      {showAddForm && (
+        <AddMemberDialog
+          assignableRoles={assignableRoles}
+          onClose={() => setShowAddForm(false)}
+          onAdded={() => {
+            setShowAddForm(false);
+            router.refresh();
+          }}
+        />
       )}
 
       {/* ── Search ── */}
@@ -411,6 +437,207 @@ function MemberCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─── Add Member Dialog ─── */
+function AddMemberDialog({
+  assignableRoles,
+  onClose,
+  onAdded,
+}: {
+  assignableRoles: AssignableRole[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<Role>(assignableRoles[0]?.key ?? "MANAGER");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { toast.error("Name is required"); return; }
+    if (!email.trim()) { toast.error("Email is required"); return; }
+
+    setSubmitting(true);
+    haptic(10);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          role,
+          phone: phone.trim() || undefined,
+          password: password.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to add member");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? `${name.trim()} added successfully`);
+      onAdded();
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            Add Team Member
+          </p>
+          <button
+            onClick={onClose}
+            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Name */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Rajesh Sharma"
+              autoComplete="name"
+              enterKeyHint="next"
+              autoFocus
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Email <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="member@company.com"
+              autoComplete="email"
+              enterKeyHint="next"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Phone (optional)
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="98765 43210"
+              autoComplete="tel"
+              enterKeyHint="next"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Role <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {assignableRoles.map((r) => {
+                const meta = ROLE_META[r.key];
+                const isCurrent = r.key === role;
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => { setRole(r.key); haptic(10); }}
+                    className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-[0.5625rem] font-semibold press"
+                    style={{
+                      color: isCurrent ? "#fff" : meta.color,
+                      backgroundColor: isCurrent ? meta.color : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
+                      border: isCurrent ? "none" : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
+                    }}
+                  >
+                    {isCurrent && <Check className="size-3" />}
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Password (optional)
+            </label>
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Default: nirman123"
+              enterKeyHint="done"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+            <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              Leave blank to use the default password. The member can change it after signing in.
+            </p>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 mt-1"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <UserPlus className="size-4" />
+                Add Member
+              </>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -12,7 +12,6 @@ import {
   ChevronRight,
   LogOut,
   Download,
-  Shield,
   Calendar,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
@@ -30,6 +29,7 @@ import {
   Badge,
 } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { InstallAppRow } from "@/components/mobile/install-prompt";
 import { CompanySwitcher } from "./company-switcher";
 
 /**
@@ -283,9 +283,10 @@ async function SettingsContent() {
           badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
         />
         <MobileRow
+          href="/m/queue"
           icon={Calendar}
           title="My activity"
-          subtitle="Your recent actions"
+          subtitle="Offline queue & recent actions"
           meta={formatDate(now)}
         />
       </div>
@@ -308,12 +309,6 @@ async function SettingsContent() {
               title="Bulk export"
               subtitle="CSV / PDF data export"
               meta="Export"
-            />
-            <MobileRow
-              icon={Shield}
-              title="Security & access"
-              subtitle="Roles, permissions matrix"
-              meta="View"
             />
           </div>
         </>
@@ -372,6 +367,12 @@ async function SettingsContent() {
       {/* ── Sign out ── */}
       <div className="mt-4 mb-4">
         <SignOutButton />
+      </div>
+
+      {/* ── App ── */}
+      <SectionHead title="App" />
+      <div className="flex flex-col gap-2 mb-3">
+        <InstallAppRow />
       </div>
 
       {/* ── App info ── */}

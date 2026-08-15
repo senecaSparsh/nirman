@@ -21,6 +21,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useConfirm } from "@/lib/use-confirm";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Calculator,
@@ -53,6 +54,7 @@ interface Integration {
 }
 
 export function IntegrationsTab() {
+  const [confirm, confirmDialog] = useConfirm();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -148,7 +150,13 @@ export function IntegrationsTab() {
   }
 
   async function remove(key: string) {
-    if (!confirm(`Remove ${key} configuration? This will delete all stored credentials.`)) return;
+    const ok = await confirm({
+      title: `Remove ${key} configuration?`,
+      description: "This will delete all stored credentials.",
+      confirmLabel: "Remove",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeleting(key);
     try {
       const res = await fetch("/api/integrations", {
@@ -356,6 +364,7 @@ export function IntegrationsTab() {
           );
         })}
       </div>
+      {confirmDialog}
     </div>
   );
 }

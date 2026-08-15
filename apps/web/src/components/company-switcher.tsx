@@ -50,6 +50,12 @@ export function CompanySwitcher({
       });
       if (res.ok) {
         setOpen(false);
+        // Notify all client-side components (AppShell, MobileShell) that
+        // the active company changed so they can re-fetch the company
+        // name and update the document title + brand mark. router.refresh()
+        // alone only re-renders server components — client-side state like
+        // companyName in AppShell wouldn't update without this event.
+        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
         router.refresh();
       }
     } finally {

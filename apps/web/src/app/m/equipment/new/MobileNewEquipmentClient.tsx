@@ -217,7 +217,7 @@ export default function MobileNewEquipmentClient() {
               style={{ color: "var(--color-ink-500)" }}
             />
             <input
-              type="number"
+              type="text" inputMode="decimal"
               step="any"
               min="0"
               value={acquisitionCost}

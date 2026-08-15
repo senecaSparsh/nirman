@@ -31,9 +31,17 @@ type SortMode = "default" | "stock-low" | "stock-high" | "name";
  *   - Sort dropdown
  *   - Grouped by category in default sort
  */
-export function MobileMaterialsList({ items }: { items: MaterialItem[] }) {
+export function MobileMaterialsList({
+  items,
+  initialCategory,
+}: {
+  items: MaterialItem[];
+  initialCategory?: string;
+}) {
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(
+    initialCategory ?? null,
+  );
   const [sort, setSort] = useState<SortMode>("default");
 
   // Extract unique categories

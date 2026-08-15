@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Search, X, ChevronDown, Truck, Phone } from "lucide-react";
+import { Search, X, ChevronDown, Truck, Phone, Plus } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 
 type DuesFilter = "ALL" | "DUE" | "CLEAR";
@@ -30,10 +30,12 @@ export function MobileSuppliersList({
   items,
   totalOwed,
   withDuesCount,
+  canCreate,
 }: {
   items: SupplierListItem[];
   totalOwed: number;
   withDuesCount: number;
+  canCreate?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [duesFilter, setDuesFilter] = useState<DuesFilter>("ALL");
@@ -208,7 +210,7 @@ export function MobileSuppliersList({
             {query || duesFilter !== "ALL" ? "No matching suppliers" : "No suppliers"}
           </p>
           <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query || duesFilter !== "ALL" ? "Try a different search or filter" : "Add suppliers from Build → Acquire"}
+            {query || duesFilter !== "ALL" ? "Try a different search or filter" : "Tap + to add your first supplier"}
           </p>
         </div>
       ) : (
@@ -218,6 +220,17 @@ export function MobileSuppliersList({
           ))}
         </div>
       )}
+
+      {/* ── New supplier FAB ── */}
+      {canCreate ? (
+        <Link
+          href="/m/suppliers/new"
+          className="fixed bottom-20 right-4 z-30 flex items-center justify-center size-12 rounded-full shadow-lg press"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        >
+          <Plus className="size-5" />
+        </Link>
+      ) : null}
     </div>
   );
 }

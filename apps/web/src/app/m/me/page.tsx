@@ -14,6 +14,10 @@ import {
   RefreshCw,
   MoreHorizontal,
   ClipboardCheck,
+  Pencil,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
@@ -25,6 +29,7 @@ import {
   Button,
   Badge,
 } from "@/components/mobile/v2/primitives";
+import { toast } from "sonner";
 
 /**
  * Me page — profile, settings, and rehomed header features.
@@ -40,8 +45,14 @@ export default function MePage() {
   const { pending: offlineQueueCount, online, syncing, sync: syncOfflineQueue } = useOfflineQueue();
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPhone, setUserPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [isDark, setIsDark] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     fetch("/api/me")
@@ -49,6 +60,8 @@ export default function MePage() {
       .then((d) => {
         if (d?.name) setUserName(d.name);
         if (d?.role) setUserRole(d.role);
+        if (d?.email) setUserEmail(d.email);
+        if (d?.phone) setUserPhone(d.phone);
       })
       .catch(() => {});
     fetch("/api/company")
@@ -78,6 +91,39 @@ export default function MePage() {
     router.replace("/sign-in");
   };
 
+  function startEditProfile() {
+    setEditName(userName);
+    setEditPhone(userPhone);
+    setEditingProfile(true);
+  }
+
+  async function saveProfile() {
+    if (!editName.trim()) {
+      toast.error("Name cannot be empty");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await fetch("/api/me/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim(), phone: editPhone.trim() || null }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to update profile");
+      }
+      setUserName(editName.trim());
+      setUserPhone(editPhone.trim());
+      setEditingProfile(false);
+      toast.success("Profile updated");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
   return (
     <div>
       {/* ── Profile card ──────────────────────────────────────────── */}
@@ -100,6 +146,70 @@ export default function MePage() {
             </div>
             <Badge tone="signal">{userRole}</Badge>
           </div>
+
+          {/* Profile details / edit form */}
+          {editingProfile ? (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="text-[0.5625rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.875rem] font-medium outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.5625rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="—"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.875rem] font-medium outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button variant="secondary" size="md" onClick={() => setEditingProfile(false)} disabled={savingProfile}>
+                  <X className="size-3.5" />
+                  Cancel
+                </Button>
+                <Button variant="primary" size="md" onClick={saveProfile} disabled={savingProfile}>
+                  {savingProfile ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+                    {userEmail || "—"}
+                  </p>
+                  <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+                    {userPhone || "No phone"}
+                  </p>
+                </div>
+                <button
+                  onClick={startEditProfile}
+                  className="flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1.5 text-[0.625rem] font-bold press active:scale-95"
+                  style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+                >
+                  <Pencil className="size-3" />
+                  Edit
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -118,10 +228,15 @@ export default function MePage() {
               </span>
             </div>
             {offlineQueueCount > 0 ? (
-              <Button variant="secondary" size="md" onClick={() => void syncOfflineQueue()} disabled={syncing}>
-                <RefreshCw className={syncing ? "size-3.5 animate-spin" : "size-3.5"} />
-                {syncing ? "Syncing…" : `Sync (${offlineQueueCount})`}
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="md" onClick={() => router.push("/m/queue")}>
+                  View Queue ({offlineQueueCount})
+                </Button>
+                <Button variant="secondary" size="md" onClick={() => void syncOfflineQueue()} disabled={syncing}>
+                  <RefreshCw className={syncing ? "size-3.5 animate-spin" : "size-3.5"} />
+                  {syncing ? "Syncing…" : "Sync"}
+                </Button>
+              </div>
             ) : null}
           </div>
           {offlineQueueCount > 0 ? (

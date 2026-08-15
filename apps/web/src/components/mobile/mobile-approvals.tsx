@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePageHeader, MobileRefreshButton } from "@/components/mobile/mobile-primitives";
@@ -19,20 +19,27 @@ export async function MobileApprovals({ title }: { title: string }) {
 
   const canApprovePo = hasPermission(role, PERM.PO_APPROVE);
   const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE);
+  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
 
   // If the user can't approve anything, don't surface the queue.
-  if (!canApprovePo && !canApproveReq) {
+  if (!canApprovePo && !canApproveReq && !canApproveDprSubAdmin && !canApproveDprAdmin) {
     return (
       <div>
         <MobilePageHeader title={title} subtitle="No access" right={<MobileRefreshButton />} />
         <div className="px-4 py-10 text-center text-body text-muted-foreground">
-          You don&apos;t have permission to approve purchase orders or requisitions.
+          You don&apos;t have permission to approve purchase orders, requisitions, or DPRs.
         </div>
       </div>
     );
   }
 
-  const [draftPOs, pendingReqs] = await Promise.all([
+  // DPRs pending sub-admin approval (SUBMITTED) or admin approval (SUB_ADMIN_APPROVED)
+  const dprApprovalStatuses: DprApprovalStatus[] = [];
+  if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
+  if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
+
+  const [draftPOs, pendingReqs, pendingDprs] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           where: { companyId: company.id, status: "DRAFT" },
@@ -69,6 +76,17 @@ export async function MobileApprovals({ title }: { title: string }) {
           },
         })
       : [],
+    dprApprovalStatuses.length > 0
+      ? prisma.dailyProgressReport.findMany({
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses } },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: {
+            project: { select: { name: true } },
+            submittedBy: { select: { name: true } },
+          },
+        })
+      : [],
   ]);
 
   const poRows = draftPOs.map((po) => ({
@@ -100,10 +118,23 @@ export async function MobileApprovals({ title }: { title: string }) {
     })),
   }));
 
+  const dprRows = pendingDprs.map((d) => ({
+    id: d.id,
+    projectName: d.project?.name ?? null,
+    submittedByName: d.submittedBy?.name ?? null,
+    createdAt: d.createdAt.toISOString(),
+    date: d.date.toISOString(),
+    approvalStatus: String(d.approvalStatus),
+    workSummary: d.workSummary,
+    progressPct: toNum(d.progressPct),
+    canApproveSubAdmin: canApproveDprSubAdmin,
+    canApproveAdmin: canApproveDprAdmin,
+  }));
+
   return (
     <div>
-      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length} awaiting approval`} right={<MobileRefreshButton />} />
-      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} />
+      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + dprRows.length} awaiting approval`} right={<MobileRefreshButton />} />
+      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} dprs={dprRows} />
     </div>
   );
 }

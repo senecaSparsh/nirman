@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { Users } from "lucide-react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
@@ -35,13 +36,21 @@ async function MobileNewCustomerContent({
 
   if (!hasPermission(role, PERM.SALES_MANAGE)) {
     return (
-      <div>
-        <div className="mb-4">
-          <MobileBackButton fallback="/m/customers" className="text-muted-foreground hover:text-foreground" />
-          <h1 className="text-h3 font-semibold text-foreground">New Customer</h1>
+      <div className="pb-32">
+        <div className="flex items-center gap-2 mb-3">
+          <MobileBackButton fallback="/m/customers" style={{ color: "var(--color-ink-700)" }} />
+          <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
+            New Customer
+          </p>
         </div>
-        <div className="p-4 text-meta text-muted-foreground">
-          You don&apos;t have permission to create customers.
+        <div className="flex flex-col items-center text-center px-4 py-7">
+          <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
+            <Users className="size-5" style={{ color: "var(--color-ink-300)" }} />
+          </div>
+          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
+          <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+            You don&apos;t have permission to create customers.
+          </p>
         </div>
       </div>
     );

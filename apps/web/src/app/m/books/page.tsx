@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
+import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Receipt, Wallet, CalendarCheck, BookOpen, TrendingUp, AlertTriangle, Building2, IndianRupee } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -29,6 +31,8 @@ export default function BooksPage() {
 
 async function BooksContent() {
   await connection();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const [payableSuppliers, recentReceipts, payrollPeriods, recentExpenses, draftPayroll] = await Promise.all([

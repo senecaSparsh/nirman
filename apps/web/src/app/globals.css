@@ -176,7 +176,9 @@
   --color-ink-950: #12110d;   /* headings, primary button fill        */
   --color-ink-900: #1c1a15;   /* body text                             */
   --color-ink-700: #3d3930;   /* secondary text                        */
+  --color-ink-600: #544f44;   /* secondary text — unselected chips     */
   --color-ink-500: #6b6558;   /* tertiary / captions                   */
+  --color-ink-400: #898376;   /* subtle text — meta, placeholders      */
   --color-ink-300: #a8a294;   /* disabled                              */
 
   /* ── Surfaces ──────────────────────────────────────────────────── */
