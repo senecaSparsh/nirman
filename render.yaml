@@ -34,13 +34,14 @@ services:
     branch: main
     healthCheckPath: /sign-in
 
-    # Node + pnpm setup
+    # Node + pnpm setup, then build (turbo build auto-runs prisma generate)
     buildCommand: |
       corepack enable &&
       corepack prepare pnpm@latest --activate &&
-      pnpm install --frozen-lockfile
+      pnpm install --frozen-lockfile &&
+      pnpm build
 
-    # Build: generate Prisma client, run migrations, seed, build Next.js
+    # Pre-deploy: run migrations + seed (needs DB to be up)
     preDeployCommand: |
       pnpm --filter @nirman/db generate &&
       pnpm --filter @nirman/db migrate:deploy &&
@@ -58,6 +59,8 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 23.11.0
       # Generate a secret: openssl rand -hex 32
       # Set these in the Render dashboard (don't commit real secrets):
       # - key: BETTER_AUTH_SECRET
