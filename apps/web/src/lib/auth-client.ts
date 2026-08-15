@@ -1,7 +1,8 @@
 import { createAuthClient } from "better-auth/react";
 
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-});
+// Don't hardcode a baseURL — let Better-Auth auto-detect from the browser's
+// current origin. This works correctly on any deploy URL (Render, Vercel, etc.)
+// without needing NEXT_PUBLIC_APP_URL to be set at build time.
+export const authClient = createAuthClient();
 
 export const { signIn, signOut, signUp, useSession } = authClient;

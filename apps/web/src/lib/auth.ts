@@ -4,7 +4,13 @@ import { prisma } from "@nirman/db";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+  // Let Better-Auth auto-detect baseURL from request headers (Host / X-Forwarded-Host).
+  // This works on any deploy URL without needing BETTER_AUTH_URL or NEXT_PUBLIC_APP_URL.
+  // Only fall back to env vars if explicitly set.
+  baseURL: process.env.BETTER_AUTH_URL ?? undefined,
+  trustedOrigins: [
+    "https://nirman-inventory.onrender.com",
+  ],
   secret: process.env.BETTER_AUTH_SECRET ?? "build-time-fallback-not-used-at-runtime",
   emailAndPassword: {
     enabled: true,
