@@ -107,27 +107,24 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  // ── Resolve company name + role via /api/me ──────────
+  // ── Resolve company name + role via /api/me + /api/company ──
+  // Both fetches run in parallel (Promise.all) to halve the waterfall.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d?.role) {
-          setCompanyInfo((prev) => ({ ...prev, role: d.role }));
-        }
-      })
-      .catch(() => {});
-    fetch("/api/company")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => {
-        if (cancelled) return;
-        if (c?.name) {
-          setCompanyInfo((prev) => ({ ...prev, name: c.name }));
-        }
-        if (Array.isArray(c?.companies)) setCompanies(c.companies);
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/company").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([me, company]) => {
+      if (cancelled) return;
+      if (me?.role || company?.name) {
+        setCompanyInfo((prev) => ({
+          ...prev,
+          role: me?.role ?? prev.role,
+          name: company?.name ?? prev.name,
+        }));
+      }
+      if (Array.isArray(company?.companies)) setCompanies(company.companies);
+    });
     return () => {
       cancelled = true;
     };

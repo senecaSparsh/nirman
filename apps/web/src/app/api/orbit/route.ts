@@ -89,11 +89,13 @@ async function getNode(searchParams: URLSearchParams, companyId: string, current
     case "assetSale": node = await getAssetSaleNode(id, companyId); break;
     default: return NextResponse.json({ error: `Unknown type: ${type}` }, { status: 400 });
   }
-  return NextResponse.json(node);
+  const res = NextResponse.json(node);
+  // Orbit data is aggregate-heavy and changes infrequently — cache 30s.
+  res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
+  return res;
 }
 
 // ─── Children mode: list entities for a category ────────────────────────────
-
 async function getChildren(searchParams: URLSearchParams, companyId: string): Promise<Response> {
   const parentType = searchParams.get("parentType");
   const parentId = searchParams.get("parentId");
@@ -123,7 +125,9 @@ async function getChildren(searchParams: URLSearchParams, companyId: string): Pr
     case "partitions": children = await getPartitionChildren(parentId, companyId); break;
     default: return NextResponse.json({ error: `Unknown category: ${category}` }, { status: 400 });
   }
-  return NextResponse.json({ children });
+  const res = NextResponse.json({ children });
+  res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
+  return res;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,31 +163,28 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
   });
   if (!c) throw new Error("Company not found");
 
-  // Aggregate financial data — total project cost + total stock value
-  const totalProjectCost = await prisma.project.aggregate({
-    where: { companyId: c.id, deletedAt: null, totalProjectCost: { not: null } },
-    _sum: { totalProjectCost: true },
-  }).catch(() => ({ _sum: { totalProjectCost: null } }));
-
-  const stockValue = await prisma.stockLocationItem.aggregate({
-    where: { location: { companyId: c.id } },
-    _sum: { qty: true },
-  }).catch(() => ({ _sum: { qty: null } }));
-
-  // Total asset valuation (land + built units)
-  const landValue = await prisma.landParcel.aggregate({
-    where: { landPurchase: { companyId: c.id }, deletedAt: null },
-    _sum: { currentValuation: true },
-  }).catch(() => ({ _sum: { currentValuation: null } }));
-
-  const unitValue = await prisma.builtUnit.aggregate({
-    where: { project: { companyId: c.id }, deletedAt: null },
-    _sum: { currentValuation: true },
-  }).catch(() => ({ _sum: { currentValuation: null } }));
-
-  const parentCompany = c.parentCompanyId
-    ? await prisma.company.findUnique({ where: { id: c.parentCompanyId }, select: { name: true } }).catch(() => null)
-    : null;
+  // Aggregate financial data — all 4 queries run in parallel (was sequential).
+  const [totalProjectCost, stockValue, landValue, unitValue, parentCompany] = await Promise.all([
+    prisma.project.aggregate({
+      where: { companyId: c.id, deletedAt: null, totalProjectCost: { not: null } },
+      _sum: { totalProjectCost: true },
+    }).catch(() => ({ _sum: { totalProjectCost: null } })),
+    prisma.stockLocationItem.aggregate({
+      where: { location: { companyId: c.id } },
+      _sum: { qty: true },
+    }).catch(() => ({ _sum: { qty: null } })),
+    prisma.landParcel.aggregate({
+      where: { landPurchase: { companyId: c.id }, deletedAt: null },
+      _sum: { currentValuation: true },
+    }).catch(() => ({ _sum: { currentValuation: null } })),
+    prisma.builtUnit.aggregate({
+      where: { project: { companyId: c.id }, deletedAt: null },
+      _sum: { currentValuation: true },
+    }).catch(() => ({ _sum: { currentValuation: null } })),
+    c.parentCompanyId
+      ? prisma.company.findUnique({ where: { id: c.parentCompanyId }, select: { name: true } }).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   // Details = company attributes, NOT child counts (those are on orbit chips)
   const details: DetailField[] = [];

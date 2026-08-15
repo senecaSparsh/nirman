@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const pos = await prisma.purchaseOrder.findMany({
     where: { companyId: company.id, ...statusFilter },
     orderBy: { createdAt: "desc" },
+    take: 200,
     include: {
       supplier: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },

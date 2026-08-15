@@ -24,8 +24,9 @@ export default function MobileHomePage() {
 
 async function HomeContent() {
   await connection();
-  const company = await getCompany();
-  const user = await getCurrentUser();
+  // Parallelize company + user fetches (each calls getSession internally,
+  // but the DB queries after session resolution run concurrently).
+  const [company, user] = await Promise.all([getCompany(), getCurrentUser()]);
 
   // Fetch all companies the user has membership in
   const isDevBypass = process.env.AUTH_BYPASS === "true";

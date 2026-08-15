@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const reqs = await prisma.materialRequisition.findMany({
     where: { project: { companyId: company.id }, ...statusFilter },
     orderBy: { createdAt: "desc" },
+    take: 200,
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },

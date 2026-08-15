@@ -17,11 +17,14 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     where: { id: sessionUser.id },
     select: { phone: true },
   });
-  return json({
+  const res = json({
     id: sessionUser.id,
     name: sessionUser.name ?? null,
     email: sessionUser.email ?? null,
     role: sessionUser.role ?? null,
     phone: dbUser?.phone ?? null,
   });
+  // User role/name changes rarely — cache for 60s, revalidate in background.
+  res.headers.set("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
+  return res;
 });

@@ -30,7 +30,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     },
   });
 
-  return json({
+  const res = json({
     id: company.id,
     name: company.name,
     currency: company.currency,
@@ -49,4 +49,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       isCurrent: c.id === company.id,
     })),
   });
+  // Company info changes rarely — let the browser cache it for 60s and
+  // serve stale while revalidating in the background. This eliminates a
+  // network round-trip on every mobile shell mount.
+  res.headers.set("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
+  return res;
 });
