@@ -6,23 +6,21 @@ import { PERSONAS } from "@/lib/mobile-nav";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
- * RESPONSIVE SURFACE REDIRECTOR
+ * RESPONSIVE SURFACE REDIRECTOR (client-side complement to middleware)
  *
  * The app has two distinct UI surfaces on two route trees:
  *   · desktop  →  /, /materials, /gl, …           (AppShell, rail+panel)
  *   · mobile   →  /m, /m/site, /m/books, …        (MobileShell, tab bar)
  *
- * Surface selection is purely viewport-based — NOT User-Agent. A narrow
- * desktop window gets the mobile surface; a tablet in landscape gets the
- * desktop surface. The middleware does NOT do UA-based redirects.
+ * Surface selection is HYBRID:
+ *   1. Server-side (middleware): mobile UA hitting "/" → 302 to "/m"
+ *      before any HTML is sent. This eliminates the flash-of-desktop.
+ *   2. Client-side (this component): handles the reverse case ("/m" on
+ *      a wide screen → "/") and the resize case (narrow desktop window
+ *      → "/m"). These are edge cases where the UA heuristic was wrong
+ *      or the viewport changed after load.
  *
- * This component watches `matchMedia("(max-width: 1023px)")` and
- * auto-redirects ONLY at home routes:
- *
- *   · `/`  on a narrow screen  →  instant redirect to `/m`
- *   · `/m` on a wide screen     →  instant redirect to `/`
- *
- * Deep routes (e.g. `/materials`, `/m/material-sales/new`) are NEVER
+ * Deep routes (e.g. /materials, /m/material-sales/new) are NEVER
  * redirected. If you're on a mobile form and resize wide, you stay on
  * the mobile form. If you're on a desktop detail page and resize narrow,
  * you stay on the desktop page (which is responsive via the drawer).

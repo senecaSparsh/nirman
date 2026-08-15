@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Auth middleware.
+ * Auth + surface-selection middleware.
  *
- * Surface selection (desktop vs mobile) is NOT done here. It is handled
- * entirely client-side by `ResponsiveSurfaceRedirector`, which watches
- * `matchMedia("(max-width: 1023px)")` and auto-redirects at home routes
- * (`/` ↔ `/m`). Deep routes are never redirected — if you're on
- * `/m/material-sales/new` and resize wide, you stay there. This keeps
- * the surface choice tied to the actual viewport, not a UA string that
- * can be wrong (tablets in landscape, narrow desktop windows, etc.).
+ * SURFACE SELECTION (mobile vs desktop):
+ * The primary redirect is done HERE (server-side, UA-based) for the home
+ * route "/" only — this eliminates the flash-of-desktop-content that a
+ * purely client-side redirect causes on mobile devices. The
+ * ResponsiveSurfaceRedirector component still handles the reverse case
+ * (desktop user resizing narrow) and the `/m` → `/` case client-side via
+ * matchMedia.
+ *
+ * Rules:
+ *   · "/" + mobile UA + no desktop cookie  →  302 to "/m"  (server-side)
+ *   · "/m" + desktop UA                     →  handled client-side (resize)
+ *   · Deep routes are never redirected — explicit navigation is respected.
+ *   · "nirman-desktop=1" cookie overrides mobile detection (escape hatch).
  *
  * Auth (all environments): checks for the better-auth session cookie. If
  * missing, redirects to /sign-in. Set AUTH_BYPASS=true to skip the cookie
@@ -21,6 +27,23 @@ import { NextRequest, NextResponse } from "next/server";
  *   - /api/auth/*  (better-auth's own endpoints, incl. /api/auth/demo-login)
  *   - Static assets (_next/*, favicon, images)
  */
+
+// ── Mobile UA detection ─────────────────────────────────────
+// Matches phones (iPhone, Android phones, small Windows phones). Tablets
+// in landscape are intentionally NOT matched — they get the desktop surface
+// since they have enough width. This is a heuristic; the client-side
+// ResponsiveSurfaceRedirector corrects edge cases via matchMedia.
+const MOBILE_UA = /Android(?:(?=.*Mobile)|(?=.*\bSilk\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\b/i;
+
+function isMobileRequest(req: NextRequest): boolean {
+  const ua = req.headers.get("user-agent") ?? "";
+  return MOBILE_UA.test(ua);
+}
+
+function hasDesktopCookie(req: NextRequest): boolean {
+  return req.cookies.get("nirman-desktop")?.value === "1";
+}
+
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
@@ -36,6 +59,18 @@ export function middleware(req: NextRequest) {
       sameSite: "lax",
     });
     return res;
+  }
+
+  // ── Server-side mobile redirect (eliminates flash) ─────────
+  // Only redirect the bare home route "/" — deep desktop routes are
+  // responsive and never auto-redirected. The client-side redirector
+  // handles the reverse case and resize scenarios.
+  if (
+    pathname === "/" &&
+    !hasDesktopCookie(req) &&
+    isMobileRequest(req)
+  ) {
+    return NextResponse.redirect(new URL("/m", req.url));
   }
 
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
@@ -81,8 +116,14 @@ export function middleware(req: NextRequest) {
 
   if (!sessionCookie) {
     const signInUrl = new URL("/sign-in", req.url);
-    // Preserve the intended destination so we can redirect after sign-in
-    signInUrl.searchParams.set("redirect", pathname);
+    // Preserve the intended destination so we can redirect after sign-in.
+    // For mobile users hitting "/", redirect to "/m" after sign-in (not "/")
+    // so they land on the mobile surface, not the desktop home.
+    const redirectTarget =
+      pathname === "/" && isMobileRequest(req) && !hasDesktopCookie(req)
+        ? "/m"
+        : pathname;
+    signInUrl.searchParams.set("redirect", redirectTarget);
     return NextResponse.redirect(signInUrl);
   }
 
