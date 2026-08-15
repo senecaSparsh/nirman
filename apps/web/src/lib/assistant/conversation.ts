@@ -140,6 +140,24 @@ const SLOTS: Partial<Record<Intent, SlotDef[]>> = {
   PAYMENT_SCHEDULE: [
     { name: "projectName", prompt: "Kaunse project ke installments dekhna hai? Ya 'sab' bolo.", required: false },
   ],
+  // ── Composite "add to project" workflows ──
+  ADD_TO_PROJECT: [
+    { name: "projectName", prompt: "Kaunse project me add karna hai? Project ka naam bataiye.", required: true },
+    { name: "addType", prompt: "Kya add karna hai?\n• Material issue (saman site bhejna)\n• Cost/kharcha (labour, contractor, overhead)\n• Unit/flat (naya flat ya shop banana)\n• Purchase order (saman kharidna)\nBolo: 'material', 'cost', 'unit', ya 'PO'", required: true },
+  ],
+  ADD_PROJECT_COST: [
+    { name: "projectName", prompt: "Kaunse project me cost add karna hai?", required: true },
+    { name: "costType", prompt: "Kis type ka kharcha hai?\n• Labour (mazdoori)\n• Overhead (overhead)\n• Contractor (thekedaar)\n• Equipment (machine)\n• Permit (permit/approval)\n• Other (anya)\nBolo: 'labour', 'overhead', 'contractor', 'equipment', 'permit', ya 'other'", required: true },
+    { name: "amount", prompt: "Kitna amount hai? (jaise '50000' ya 'pachaas hazaar')", required: true },
+    { name: "vendor", prompt: "Vendor/contractor ka naam? (ya 'skip' bolo)", required: false },
+  ],
+  ADD_UNIT: [
+    { name: "projectName", prompt: "Kaunse project me unit add karna hai?", required: true },
+    { name: "unitType", prompt: "Kis type ka unit?\n• 1BHK, 2BHK, 3BHK, 4BHK\n• Shop, Office, Villa, Warehouse\nBolo type:", required: true },
+    { name: "unitNumber", prompt: "Unit number kya hai? (jaise 'A-101', '201')", required: true },
+    { name: "area", prompt: "Area kitni hai sqft me? (jaise '850' ya 'athaath sau')", required: true },
+    { name: "askingPrice", prompt: "Asking price kitni hai? (ya 'skip' bolo)", required: false },
+  ],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

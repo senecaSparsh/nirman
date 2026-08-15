@@ -53,6 +53,17 @@ interface ParsedEntities {
   projectName?: string;
   amount?: number;
   action?: string;
+  // Composite add-to-project entities
+  addType?: string;
+  costType?: string;
+  unitType?: string;
+  unitNumber?: string;
+  area?: number;
+  askingPrice?: number;
+  vendor?: string;
+  quantity?: number;
+  supplierName?: string;
+  customerName?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -256,6 +267,13 @@ async function executeIntent(
       return availableInventoryResponse(companyId);
     case "CONSTRUCTION_PROGRESS":
       return constructionProgressResponse(companyId);
+    // ── Composite "add to project" workflows ──
+    case "ADD_TO_PROJECT":
+      return addToProjectResponse(companyId, entities);
+    case "ADD_PROJECT_COST":
+      return addProjectCostResponse(companyId, entities);
+    case "ADD_UNIT":
+      return addUnitResponse(companyId, entities);
     default:
       return unknownResponse(rawText);
   }
@@ -311,6 +329,10 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     PROFIT_MARGIN: PERM.FINANCE_VIEW,
     AVAILABLE_INVENTORY: PERM.ASSETS_VIEW,
     CONSTRUCTION_PROGRESS: PERM.PROJECTS_VIEW,
+    // Composite add workflows
+    ADD_TO_PROJECT: PERM.PROJECTS_VIEW,
+    ADD_PROJECT_COST: PERM.PROJECTS_VIEW,
+    ADD_UNIT: PERM.ASSETS_VIEW,
   };
 
   // Write/action intents — require the specific action permission
@@ -327,6 +349,8 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     SUPPLIER_PAYMENT: PERM.FINANCE_MANAGE,
     TRANSFER_STOCK: PERM.STOCK_TRANSFER,
     ISSUE_MATERIAL: PERM.STOCK_ISSUE,
+    ADD_PROJECT_COST: PERM.EXPENSE_CREATE,
+    ADD_UNIT: PERM.ASSETS_MANAGE,
   };
 
   const readPerm = READ_PERMS[intent];
@@ -482,6 +506,24 @@ function helpResponse(role: Role): AssistantResponse {
 • "Cost per sqft" — project cost analysis
 • "Budget variance" — budget vs actual
 • "Project profit margin" — profitability per project`);
+  }
+  if (hasPermission(role, PERM.EXPENSE_CREATE)) {
+    sections.push(`**Add Cost to Project**
+• "Green Valley project me 50000 ka labour cost add kar"
+• "Project me contractor bill 2 lakh add kar"
+• "Project me overhead 25000 add kar"`);
+  }
+  if (hasPermission(role, PERM.ASSETS_MANAGE)) {
+    sections.push(`**Add Unit to Project**
+• "Green Valley project me 2BHK flat add kar A-101 850 sqft"
+• "Project me shop add kar G-1 500 sqft"
+• "Project me 3BHK add kar B-201 1200 sqft 50 lakh"`);
+  }
+  if (hasPermission(role, PERM.STOCK_ISSUE) || hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
+    sections.push(`**Add Material/PO to Project**
+• "Project me material add kar" — issue saman to site
+• "Project me PO banao" — purchase order
+• "Project me cement 50 bag issue kar"`);
   }
   sections.push(`**General**
 • "Dashboard" — role-based overview
@@ -2420,6 +2462,302 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     cards: [
       { type: "link", label: "WBS", href: "/m/wbs" },
       { type: "link", label: "DPR", href: "/m/dprs" },
+    ],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPOSITE "ADD TO PROJECT" HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Helper: find project by name (fuzzy) ──────────────────────────────────
+async function findProjectByName(companyId: string, name: string) {
+  if (!name) return null;
+  // Try exact match first, then contains
+  const exact = await prisma.project.findFirst({
+    where: { companyId, deletedAt: null, name: { equals: name, mode: "insensitive" } },
+    select: { id: true, name: true, type: true, status: true },
+  });
+  if (exact) return exact;
+  return prisma.project.findFirst({
+    where: { companyId, deletedAt: null, name: { contains: name, mode: "insensitive" } },
+    select: { id: true, name: true, type: true, status: true },
+  });
+}
+
+// ── Helper: find material by name (fuzzy) ─────────────────────────────────
+async function findMaterialByName(_companyId: string, name: string) {
+  if (!name) return null;
+  // Materials are global (not company-scoped)
+  const exact = await prisma.material.findFirst({
+    where: { deletedAt: null, name: { equals: name, mode: "insensitive" } },
+    select: { id: true, name: true, code: true, unit: true },
+  });
+  if (exact) return exact;
+  return prisma.material.findFirst({
+    where: { deletedAt: null, name: { contains: name, mode: "insensitive" } },
+    select: { id: true, name: true, code: true, unit: true },
+  });
+}
+
+// ── ADD_TO_PROJECT — ambiguous, needs disambiguation ──────────────────────
+async function addToProjectResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  const projectName = entities.projectName;
+  const addType = entities.addType;
+
+  // If we don't have the project name yet, the conversation layer will ask
+  if (!projectName) {
+    return {
+      text: "Kaunse project me add karna hai? Project ka naam bataiye.",
+      intent: "ADD_TO_PROJECT",
+      confidence: 0.8,
+    };
+  }
+
+  const project = await findProjectByName(companyId, projectName);
+  if (!project) {
+    const projects = await prisma.project.findMany({
+      where: { companyId, deletedAt: null },
+      select: { name: true },
+      take: 5,
+    });
+    return {
+      text: `Project "${projectName}" nahi mila.\n\nAvailable projects:\n${projects.map(p => `• ${p.name}`).join("\n")}\n\nSahi naam bataiye.`,
+      intent: "ADD_TO_PROJECT",
+      confidence: 0.7,
+    };
+  }
+
+  // If we don't know what to add, ask
+  if (!addType) {
+    return {
+      text: `${project.name} project me kya add karna hai?\n\n• **Material** — saman site bhejna (issue)\n• **Cost** — kharcha (labour, contractor, overhead)\n• **Unit** — naya flat/shop banana\n• **PO** — saman kharidna (purchase order)\n\nBolo: "material", "cost", "unit", ya "PO"`,
+      intent: "ADD_TO_PROJECT",
+      confidence: 0.8,
+      cards: [
+        { type: "link", label: "Issue material", href: `/m/site/issue?project=${project.id}` },
+        { type: "link", label: "Add cost", href: `/m/books/finance?project=${project.id}` },
+        { type: "link", label: "Add unit", href: `/m/units?project=${project.id}` },
+      ],
+    };
+  }
+
+  // Route to the specific add intent based on addType
+  const lower = addType.toLowerCase();
+  if (lower.includes("material") || lower.includes("saman") || lower.includes("item") || lower.includes("stock")) {
+    // Material issue
+    return {
+      text: `${project.name} me material issue karna hai.\n\nKaunsa material aur kitni quantity? Ya form kholein:`,
+      intent: "ADD_TO_PROJECT",
+      confidence: 0.85,
+      cards: [{ type: "link", label: "Issue Material Form", href: `/m/site/issue?project=${project.id}`, variant: "primary" }],
+    };
+  }
+  if (lower.includes("cost") || lower.includes("kharcha") || lower.includes("labour") || lower.includes("mazdoori") || lower.includes("overhead") || lower.includes("contractor") || lower.includes("thekedaar")) {
+    return addProjectCostResponse(companyId, { ...entities, projectName: project.name });
+  }
+  if (lower.includes("unit") || lower.includes("flat") || lower.includes("shop") || lower.includes("apartment") || lower.includes("ghar")) {
+    return addUnitResponse(companyId, { ...entities, projectName: project.name });
+  }
+  if (lower.includes("po") || lower.includes("purchase") || lower.includes("kharid") || lower.includes("order")) {
+    return {
+      text: `${project.name} ke liye Purchase Order banani hai.\n\nSupplier, material, quantity, aur cost bataiye. Ya form kholein:`,
+      intent: "ADD_TO_PROJECT",
+      confidence: 0.85,
+      cards: [{ type: "link", label: "New PO Form", href: `/m/procurement/new?project=${project.id}`, variant: "primary" }],
+    };
+  }
+
+  return {
+    text: `Samajh nahi aaya ki kya add karna hai.\n\n"material", "cost", "unit", ya "PO" bolo.`,
+    intent: "ADD_TO_PROJECT",
+    confidence: 0.6,
+  };
+}
+
+// ── ADD_PROJECT_COST — add labour/overhead/contractor cost to project ─────
+async function addProjectCostResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  const projectName = entities.projectName;
+  const costType = entities.costType;
+  const amount = entities.amount;
+  const vendor = entities.vendor;
+
+  // Need project name
+  if (!projectName) {
+    return {
+      text: "Kaunse project me cost add karna hai? Project ka naam bataiye.",
+      intent: "ADD_PROJECT_COST",
+      confidence: 0.8,
+    };
+  }
+
+  const project = await findProjectByName(companyId, projectName);
+  if (!project) {
+    return {
+      text: `Project "${projectName}" nahi mila. Sahi naam bataiye.`,
+      intent: "ADD_PROJECT_COST",
+      confidence: 0.7,
+    };
+  }
+
+  // Need cost type
+  if (!costType) {
+    return {
+      text: `${project.name} me kis type ka kharcha add karna hai?\n\n• **Labour** (mazdoori)\n• **Overhead** (overhead)\n• **Contractor** (thekedaar bill)\n• **Equipment** (machine rent)\n• **Permit** (permit/approval fee)\n• **Other** (anya)\n\nType bolo:`,
+      intent: "ADD_PROJECT_COST",
+      confidence: 0.8,
+    };
+  }
+
+  // Normalize cost type
+  const lower = costType.toLowerCase();
+  let normalizedType = "OTHER";
+  let typeLabel = "Other";
+  if (lower.includes("labour") || lower.includes("labor") || lower.includes("mazdoori") || lower.includes("mazdoor")) {
+    normalizedType = "LABOUR"; typeLabel = "Labour";
+  } else if (lower.includes("overhead")) {
+    normalizedType = "OVERHEAD"; typeLabel = "Overhead";
+  } else if (lower.includes("contractor") || lower.includes("thekedar") || lower.includes("thekedaar")) {
+    normalizedType = "CONTRACTOR"; typeLabel = "Contractor";
+  } else if (lower.includes("equipment") || lower.includes("machine") || lower.includes("machinery")) {
+    normalizedType = "EQUIPMENT"; typeLabel = "Equipment";
+  } else if (lower.includes("permit") || lower.includes("approval")) {
+    normalizedType = "PERMIT"; typeLabel = "Permit";
+  }
+
+  // Need amount
+  if (!amount) {
+    return {
+      text: `${project.name} me ${typeLabel} cost add karna hai. Kitna amount hai?\n\n(jaise "50000" ya "pachaas hazaar")`,
+      intent: "ADD_PROJECT_COST",
+      confidence: 0.8,
+    };
+  }
+
+  const amt = toNum(amount);
+  if (amt <= 0) {
+    return {
+      text: "Amount sahi nahi hai. Dobara bataiye (jaise '50000').",
+      intent: "ADD_PROJECT_COST",
+      confidence: 0.7,
+    };
+  }
+
+  // We have all required info — show confirmation with pre-filled form link
+  const vendorLabel = vendor && vendor !== "skip" ? ` | Vendor: ${vendor}` : "";
+  return {
+    text: `${project.name} me ${typeLabel} cost add karna hai:\n\n• Amount: ${formatCurrency(amt)}${vendorLabel}\n\nConfirm karein ya form kholein:`,
+    intent: "ADD_PROJECT_COST",
+    confidence: 0.9,
+    cards: [
+      {
+        type: "link",
+        label: `Add ${typeLabel} Cost`,
+        href: `/m/books/finance?project=${project.id}&type=${normalizedType}&amount=${amt}${vendor && vendor !== "skip" ? `&vendor=${encodeURIComponent(vendor)}` : ""}`,
+        variant: "primary",
+      },
+    ],
+  };
+}
+
+// ── ADD_UNIT — add flat/shop/office to project ────────────────────────────
+async function addUnitResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  const projectName = entities.projectName;
+  const unitType = entities.unitType;
+  const unitNumber = entities.unitNumber;
+  const area = entities.area;
+  const askingPrice = entities.askingPrice;
+
+  // Need project name
+  if (!projectName) {
+    return {
+      text: "Kaunse project me unit add karna hai? Project ka naam bataiye.",
+      intent: "ADD_UNIT",
+      confidence: 0.8,
+    };
+  }
+
+  const project = await findProjectByName(companyId, projectName);
+  if (!project) {
+    return {
+      text: `Project "${projectName}" nahi mila. Sahi naam bataiye.`,
+      intent: "ADD_UNIT",
+      confidence: 0.7,
+    };
+  }
+
+  // Need unit type
+  if (!unitType) {
+    return {
+      text: `${project.name} me kis type ka unit add karna hai?\n\n• 1BHK, 2BHK, 3BHK, 4BHK\n• Shop, Office, Villa, Warehouse\n\nType bolo:`,
+      intent: "ADD_UNIT",
+      confidence: 0.8,
+    };
+  }
+
+  // Normalize unit type
+  const lower = unitType.toLowerCase();
+  let normalizedType = "OTHER";
+  let typeLabel = "Other";
+  if (lower.includes("1bhk") || lower.includes("1 bhk") || lower.includes("one bhk")) {
+    normalizedType = "BHK_1"; typeLabel = "1 BHK";
+  } else if (lower.includes("2bhk") || lower.includes("2 bhk") || lower.includes("two bhk")) {
+    normalizedType = "BHK_2"; typeLabel = "2 BHK";
+  } else if (lower.includes("3bhk") || lower.includes("3 bhk") || lower.includes("three bhk")) {
+    normalizedType = "BHK_3"; typeLabel = "3 BHK";
+  } else if (lower.includes("4bhk") || lower.includes("4 bhk") || lower.includes("four bhk")) {
+    normalizedType = "BHK_4"; typeLabel = "4 BHK";
+  } else if (lower.includes("shop")) {
+    normalizedType = "SHOP"; typeLabel = "Shop";
+  } else if (lower.includes("office")) {
+    normalizedType = "OFFICE"; typeLabel = "Office";
+  } else if (lower.includes("villa")) {
+    normalizedType = "VILLA"; typeLabel = "Villa";
+  } else if (lower.includes("warehouse")) {
+    normalizedType = "WAREHOUSE_UNIT"; typeLabel = "Warehouse";
+  }
+
+  // Need unit number
+  if (!unitNumber) {
+    return {
+      text: `${project.name} me ${typeLabel} unit add karna hai. Unit number kya hai?\n\n(jaise 'A-101', '201', 'G-1')`,
+      intent: "ADD_UNIT",
+      confidence: 0.8,
+    };
+  }
+
+  // Need area
+  if (!area) {
+    return {
+      text: `${typeLabel} ${unitNumber} ki area kitni hai sqft me?\n\n(jaise '850', '1200')`,
+      intent: "ADD_UNIT",
+      confidence: 0.8,
+    };
+  }
+
+  const areaNum = toNum(area);
+  if (areaNum <= 0) {
+    return {
+      text: "Area sahi nahi hai. Dobara bataiye (jaise '850').",
+      intent: "ADD_UNIT",
+      confidence: 0.7,
+    };
+  }
+
+  // We have all required info — show confirmation
+  const hasPrice = askingPrice !== undefined && askingPrice !== null && askingPrice > 0;
+  const priceLabel = hasPrice ? ` | Asking: ${formatCurrency(toNum(askingPrice))}` : "";
+  return {
+    text: `${project.name} me naya unit add karna hai:\n\n• Type: ${typeLabel}\n• Number: ${unitNumber}\n• Area: ${formatNumber(areaNum)} sqft${priceLabel}\n\nConfirm karein ya form kholein:`,
+    intent: "ADD_UNIT",
+    confidence: 0.9,
+    cards: [
+      {
+        type: "link",
+        label: `Add ${typeLabel} Unit`,
+        href: `/m/units?project=${project.id}&type=${normalizedType}&number=${encodeURIComponent(unitNumber)}&area=${areaNum}${hasPrice ? `&price=${toNum(askingPrice)}` : ""}`,
+        variant: "primary",
+      },
     ],
   };
 }

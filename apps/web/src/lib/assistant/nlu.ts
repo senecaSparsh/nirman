@@ -72,6 +72,10 @@ export type Intent =
   | "PROFIT_MARGIN"
   | "AVAILABLE_INVENTORY"
   | "CONSTRUCTION_PROGRESS"
+  // ── Composite "add to project" workflows ──
+  | "ADD_TO_PROJECT"
+  | "ADD_PROJECT_COST"
+  | "ADD_UNIT"
   | "UNKNOWN";
 
 export interface ParsedIntent {
@@ -91,6 +95,14 @@ export interface ParsedIntent {
     unitPrice?: number;
     action?: "approve" | "reject" | "order" | "cancel";
     ordinal?: number; // "first", "second", "pehla", "doosra" → 1, 2
+    // Composite add-to-project entities
+    addType?: string;
+    costType?: string;
+    unitType?: string;
+    unitNumber?: string;
+    area?: number;
+    askingPrice?: number;
+    vendor?: string;
   };
   rawText: string;
 }
@@ -921,6 +933,77 @@ const INTENTS: IntentDef[] = [
     ],
     weight: 4,
   },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // COMPOSITE "ADD TO PROJECT" WORKFLOWS
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ── Add project cost (labour, overhead, contractor, equipment) ──────────
+  {
+    intent: "ADD_PROJECT_COST",
+    keywords: [
+      "project me cost add", "project mein cost add",
+      "project me kharcha add", "project mein kharcha add",
+      "project me labour add", "project mein labour add",
+      "project me mazdoori add", "project mein mazdoori add",
+      "project me overhead add", "project mein overhead add",
+      "project me contractor add", "project mein contractor add",
+      "project me equipment add", "project mein equipment add",
+      "project me permit add", "project mein permit add",
+      "cost add kar", "kharcha add kar",
+      "labour cost add", "labour add kar",
+      "overhead add", "contractor bill add",
+      "project cost daal", "kharcha daal",
+      "project me expense add", "kharcha laga",
+      "mazdoori add", "thekedaar bill add",
+      "equipment rent add", "machinery cost add",
+      "permit fee add", "approval fee add",
+      "project me labour daal", "project me mazdoori daal",
+    ],
+    weight: 6,
+  },
+
+  // ── Add unit (flat, shop, office) to project ────────────────────────────
+  {
+    intent: "ADD_UNIT",
+    keywords: [
+      "project me flat add", "project mein flat add",
+      "project me unit add", "project mein unit add",
+      "project me shop add", "project mein shop add",
+      "project me office add", "project mein office add",
+      "project me villa add", "project mein villa add",
+      "flat add kar", "unit add kar",
+      "naya flat add", "nayi unit add",
+      "flat banao project me", "unit banao project me",
+      "project me flat banao", "project me unit banao",
+      "project me flat daal", "project me unit daal",
+      "naya flat daal", "nayi unit daal",
+      "flat create kar", "unit create kar",
+      "project me apartment add", "apartment add kar",
+      "project me ghar add", "ghar add kar",
+    ],
+    weight: 6,
+  },
+
+  // ── Add to project (ambiguous — needs disambiguation) ───────────────────
+  // This catches generic "add X to project Y" phrases. The conversation
+  // layer will ask what kind of add: material issue, cost, unit, PO, etc.
+  {
+    intent: "ADD_TO_PROJECT",
+    keywords: [
+      "project me add kar", "project mein add kar",
+      "project me daal do", "project mein daal do",
+      "project me laga do", "project mein laga do",
+      "project me banao", "project mein banao",
+      "project me create kar", "project mein create kar",
+      "add to project", "add kar do project",
+      "project me material add", "project mein material add",
+      "project me item add", "project mein item add",
+      "project me saman add", "project mein saman add",
+      "project me stock add", "project mein stock add",
+    ],
+    weight: 3, // lower weight — specific intents (ADD_PROJECT_COST, ADD_UNIT, ISSUE_MATERIAL) should win
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1165,6 +1248,104 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   const projMatch = text.match(/project\s+["']?([a-zA-Z\s]{3,30})["']?/i);
   if (projMatch && projMatch[1]) {
     entities.projectName = projMatch[1].trim();
+  }
+  // Also try "mere ___ project me" pattern
+  const mereProjMatch = text.match(/(?:mere|meri|mere|is|us)\s+([a-zA-Z\s]{3,25})\s+project/i);
+  if (mereProjMatch && mereProjMatch[1] && !entities.projectName) {
+    entities.projectName = mereProjMatch[1].trim();
+  }
+  // Try "___ project me" pattern (without "mere")
+  const projMeMatch = text.match(/([a-zA-Z]{3,25}(?:\s+[a-zA-Z]+)?)\s+project\s+(?:me|mein|ko|ke)/i);
+  if (projMeMatch && projMeMatch[1] && !entities.projectName) {
+    const name = projMeMatch[1].trim();
+    // Filter out common false positives
+    if (!["sab", "all", "the", "a", "an"].includes(name.toLowerCase())) {
+      entities.projectName = name;
+    }
+  }
+
+  // ── Add type (for ADD_TO_PROJECT disambiguation) ──
+  if (lower.includes("material") || lower.includes("saman") || lower.includes("item") || lower.includes("stock")) {
+    entities.addType = "material";
+  }
+  if (lower.includes("cost") || lower.includes("kharcha") || lower.includes("labour") || lower.includes("mazdoori") || lower.includes("overhead") || lower.includes("contractor") || lower.includes("thekedar") || lower.includes("thekedaar") || lower.includes("equipment") || lower.includes("permit")) {
+    entities.addType = "cost";
+  }
+  if (lower.includes("flat") || lower.includes("unit") || lower.includes("shop") || lower.includes("apartment") || lower.includes("ghar") || lower.includes("villa") || lower.includes("office")) {
+    // Only set as addType if not already set to material/cost
+    if (!entities.addType) {
+      entities.addType = "unit";
+    }
+  }
+  if (lower.includes("po") || lower.includes("purchase") || lower.includes("kharid") || lower.includes("order")) {
+    if (!entities.addType) {
+      entities.addType = "po";
+    }
+  }
+
+  // ── Cost type (for ADD_PROJECT_COST) ──
+  if (lower.includes("labour") || lower.includes("labor") || lower.includes("mazdoori") || lower.includes("mazdoor")) {
+    entities.costType = "LABOUR";
+  } else if (lower.includes("overhead")) {
+    entities.costType = "OVERHEAD";
+  } else if (lower.includes("contractor") || lower.includes("thekedar") || lower.includes("thekedaar")) {
+    entities.costType = "CONTRACTOR";
+  } else if (lower.includes("equipment") || lower.includes("machine") || lower.includes("machinery")) {
+    entities.costType = "EQUIPMENT";
+  } else if (lower.includes("permit") || lower.includes("approval")) {
+    entities.costType = "PERMIT";
+  }
+
+  // ── Unit type (for ADD_UNIT) ──
+  if (lower.includes("1bhk") || lower.includes("1 bhk") || lower.includes("one bhk")) {
+    entities.unitType = "BHK_1";
+  } else if (lower.includes("2bhk") || lower.includes("2 bhk") || lower.includes("two bhk")) {
+    entities.unitType = "BHK_2";
+  } else if (lower.includes("3bhk") || lower.includes("3 bhk") || lower.includes("three bhk")) {
+    entities.unitType = "BHK_3";
+  } else if (lower.includes("4bhk") || lower.includes("4 bhk") || lower.includes("four bhk")) {
+    entities.unitType = "BHK_4";
+  } else if (lower.includes("shop")) {
+    entities.unitType = "SHOP";
+  } else if (lower.includes("office")) {
+    entities.unitType = "OFFICE";
+  } else if (lower.includes("villa")) {
+    entities.unitType = "VILLA";
+  } else if (lower.includes("warehouse")) {
+    entities.unitType = "WAREHOUSE_UNIT";
+  }
+
+  // ── Unit number (e.g., "A-101", "201", "G-1") ──
+  const unitNumMatch = text.match(/\b([a-zA-Z]{1,3}-?\d{1,4}[a-zA-Z]?)\b/);
+  if (unitNumMatch && unitNumMatch[1]) {
+    // Only set if it looks like a unit number (has a letter prefix or is 3+ digits)
+    const val = unitNumMatch[1];
+    if (val.match(/[a-zA-Z]/) || val.length >= 3) {
+      entities.unitNumber = val.toUpperCase();
+    }
+  }
+
+  // ── Area (sqft) — "850 sqft", "1200 sq ft", "area 850" ──
+  const areaMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:sqft|sq ft|sq\.?\s*ft|square\s*feet|square\s*ft)/i);
+  if (areaMatch && areaMatch[1]) {
+    entities.area = parseFloat(areaMatch[1]);
+  }
+  // Also try "area 850" or "area kitni 850"
+  const areaNumMatch = text.match(/area\s+(?:kitni\s+)?(\d+(?:\.\d+)?)/i);
+  if (areaNumMatch && areaNumMatch[1] && !entities.area) {
+    entities.area = parseFloat(areaNumMatch[1]);
+  }
+
+  // ── Asking price — "asking 50 lakh", "price 5000000" ──
+  const askingPriceMatch = text.match(/(?:asking|price|rate)\s*:?\s*(\d+(?:\.\d+)?)/i);
+  if (askingPriceMatch && askingPriceMatch[1]) {
+    entities.askingPrice = parseFloat(askingPriceMatch[1]);
+  }
+
+  // ── Vendor/contractor name — "vendor XYZ", "contractor XYZ" ──
+  const vendorMatch = text.match(/(?:vendor|contractor|thekedar|thekedaar)\s+([a-zA-Z\s]{3,30})/i);
+  if (vendorMatch && vendorMatch[1]) {
+    entities.vendor = vendorMatch[1].trim();
   }
 
   // ── Ordinal ("first one", "pehla", "doosra") ──
