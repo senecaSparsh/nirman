@@ -75,7 +75,12 @@ function isMobileRoute(pathname: string): boolean {
 
 /** Auth/public pages that render their own full-screen layout — no shell. */
 function isAuthRoute(pathname: string): boolean {
-  return pathname === "/sign-in" || pathname.startsWith("/sign-in/");
+  return (
+    pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
+    pathname === "/sign-up" ||
+    pathname.startsWith("/sign-up/")
+  );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -94,14 +99,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // ── Auth guard ───────────────────────────────────────────────
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
+    if (isAuthRoute(pathname)) return;
     if (!sessionLoading && !session) {
       authSignOut().catch(() => {});
       router.replace("/sign-in");
     }
-  }, [session, sessionLoading, router]);
+  }, [session, sessionLoading, router, pathname]);
 
   // ── Global 401 interceptor ──────────────────────────────────
   useEffect(() => {
+    if (isAuthRoute(pathname)) return;
     if ((window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled) return;
     (window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled = true;
     const originalFetch = window.fetch;
