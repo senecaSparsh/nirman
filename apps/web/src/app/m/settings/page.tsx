@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   User,
@@ -13,6 +14,8 @@ import {
   LogOut,
   Download,
   Calendar,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import {
@@ -372,6 +375,7 @@ async function SettingsContent() {
       {/* ── App ── */}
       <SectionHead title="App" />
       <div className="flex flex-col gap-2 mb-3">
+        <ThemeToggleRow />
         <InstallAppRow />
       </div>
 
@@ -507,5 +511,60 @@ function SignOutButton() {
         Sign out
       </button>
     </form>
+  );
+}
+
+/* ── Dark mode toggle row (client) ── */
+function ThemeToggleRow() {
+  "use client";
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+  function toggle() {
+    const next = !document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark", next);
+    setDark(next);
+    try {
+      localStorage.setItem("nirman.theme", next ? "dark" : "light");
+    } catch {
+      /* private mode */
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
+      <span
+        className="shrink-0 grid place-items-center w-7 h-7 rounded-[0.375rem]"
+        style={{ backgroundColor: "var(--color-concrete)" }}
+      >
+        {dark ? (
+          <Sun className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+        ) : (
+          <Moon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          {dark ? "Dark mode" : "Light mode"}
+        </p>
+        <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          Tap to switch theme
+        </p>
+      </div>
+      <span
+        className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-1 rounded-[0.375rem]"
+        style={{
+          backgroundColor: dark ? "var(--color-ink-950)" : "var(--color-concrete)",
+          color: dark ? "#fff" : "var(--color-ink-500)",
+        }}
+      >
+        {dark ? "On" : "Off"}
+      </span>
+    </button>
   );
 }
