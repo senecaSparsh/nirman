@@ -665,6 +665,7 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
   return (
     <Link
       href={tab.href}
+      prefetch
       aria-current={active ? "page" : undefined}
       className={[
         "press flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[3rem] relative",

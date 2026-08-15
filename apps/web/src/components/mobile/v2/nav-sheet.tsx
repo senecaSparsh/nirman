@@ -178,6 +178,7 @@ function NavSheetRow({
   return (
     <Link
       href={link.href}
+      prefetch
       onClick={onClick}
       className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 press"
       style={{
