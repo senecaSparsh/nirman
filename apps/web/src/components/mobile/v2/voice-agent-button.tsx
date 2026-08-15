@@ -100,6 +100,19 @@ export function VoiceAgentButton() {
   // ── Whether we should auto-listen after TTS (follow-up question) ──
   const shouldAutoListenRef = useRef(false);
 
+  // ── Silence detection refs ──
+  // Tracks when we last received speech data. If no new speech for
+  // SILENCE_MS after speech has started, we auto-stop and submit.
+  const lastSpeechTimeRef = useRef(0);
+  const hasSpeechStartedRef = useRef(false);
+  const silenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxListenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Tunables
+  const SILENCE_MS = 1800; // 1.8s of silence after speech → auto-submit
+  const MAX_LISTEN_MS = 20000; // 20s hard cap — safety net
+  const MIN_LISTEN_MS = 800; // don't auto-submit in the first 800ms
+
   // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
@@ -107,8 +120,52 @@ export function VoiceAgentButton() {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      if (silenceTimerRef.current) clearInterval(silenceTimerRef.current);
+      if (maxListenTimerRef.current) clearTimeout(maxListenTimerRef.current);
     };
   }, []);
+
+  // ── Deduplicate repeated phrases in a transcript ──
+  // If the user stutters or repeats ("approve approve PO-0011 PO-0011"),
+  // collapse to "approve PO-0011".
+  function deduplicate(text: string): string {
+    const words = text.trim().split(/\s+/);
+    if (words.length < 4) return text.trim(); // too short to bother
+
+    // Remove consecutive duplicate words ("the the" → "the")
+    const deduped: string[] = [];
+    for (const w of words) {
+      const prev = deduped[deduped.length - 1];
+      if (w.toLowerCase() !== prev?.toLowerCase()) {
+        deduped.push(w);
+      }
+    }
+
+    // Remove consecutive duplicate phrases (2-3 word repeats)
+    // "approve po approve po" → "approve po"
+    const result: string[] = [];
+    for (let i = 0; i < deduped.length; i++) {
+      // Try 2-word phrase
+      const phrase2 = deduped.slice(i, i + 2).join(" ").toLowerCase();
+      const next2 = deduped.slice(i + 2, i + 4).join(" ").toLowerCase();
+      if (phrase2 === next2 && phrase2.length > 3) {
+        result.push(deduped[i]!, deduped[i + 1]!);
+        i += 3; // skip the duplicate pair
+        continue;
+      }
+      // Try 3-word phrase
+      const phrase3 = deduped.slice(i, i + 3).join(" ").toLowerCase();
+      const next3 = deduped.slice(i + 3, i + 6).join(" ").toLowerCase();
+      if (phrase3 === next3 && phrase3.length > 5) {
+        result.push(deduped[i]!, deduped[i + 1]!, deduped[i + 2]!);
+        i += 5; // skip the duplicate triplet
+        continue;
+      }
+      result.push(deduped[i]!);
+    }
+
+    return result.join(" ");
+  }
 
   // ── Speak a response via TTS, then return to idle ──
   const speak = useCallback(
@@ -238,6 +295,11 @@ export function VoiceAgentButton() {
   );
 
   // ── Start listening ──
+  // Uses continuous=true with a silence detector:
+  //   - Keeps listening through brief pauses (user thinking mid-sentence)
+  //   - Auto-stops after SILENCE_MS of silence once speech has started
+  //   - Hard cap at MAX_LISTEN_MS as a safety net
+  //   - Deduplicates repeated words/phrases in the final transcript
   const startListening = useCallback(() => {
     if (typeof window === "undefined") return;
     const SR =
@@ -249,12 +311,18 @@ export function VoiceAgentButton() {
       speak("Voice input not supported. Chrome ya Safari try karein.");
       return;
     }
+
+    // Reset state
     const recognition = new SR();
     recognition.lang = voiceLang;
-    recognition.continuous = false;
+    recognition.continuous = true; // keep listening through pauses
     recognition.interimResults = true;
     finalTranscriptRef.current = "";
     autoSubmittedRef.current = false;
+    hasSpeechStartedRef.current = false;
+    lastSpeechTimeRef.current = Date.now();
+
+    const listenStartTime = Date.now();
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
@@ -271,25 +339,86 @@ export function VoiceAgentButton() {
         }
       }
       if (final) finalTranscriptRef.current += final;
-      setTranscript(finalTranscriptRef.current || interim);
+
+      // Track that speech has started (we've received some data)
+      const currentText = finalTranscriptRef.current || interim;
+      if (currentText.trim().length > 0) {
+        hasSpeechStartedRef.current = true;
+        lastSpeechTimeRef.current = Date.now();
+      }
+
+      setTranscript(currentText);
     };
 
     recognition.onerror = () => {
+      clearTimers();
       setPhase("idle");
       setTranscript("");
     };
 
     recognition.onend = () => {
-      const text = finalTranscriptRef.current.trim();
+      clearTimers();
       if (autoSubmittedRef.current) return;
       autoSubmittedRef.current = true;
-      if (text) {
-        sendToAssistant(text);
+
+      // Deduplicate repeated phrases before submitting
+      const rawText = finalTranscriptRef.current.trim();
+      const cleanText = deduplicate(rawText);
+
+      if (cleanText) {
+        sendToAssistant(cleanText);
       } else {
         setPhase("idle");
         setTranscript("");
       }
     };
+
+    // ── Helper: clear all timers ──
+    function clearTimers() {
+      if (silenceTimerRef.current) {
+        clearInterval(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (maxListenTimerRef.current) {
+        clearTimeout(maxListenTimerRef.current);
+        maxListenTimerRef.current = null;
+      }
+    }
+
+    // ── Helper: stop and submit (called by silence detector or timeout) ──
+    function stopAndSubmit() {
+      if (autoSubmittedRef.current) return;
+      autoSubmittedRef.current = true;
+      clearTimers();
+      try {
+        recognition.stop();
+      } catch {
+        // already stopped
+      }
+    }
+
+    // ── Silence detector: check every 300ms if user has gone quiet ──
+    silenceTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - listenStartTime;
+      const silenceDuration = Date.now() - lastSpeechTimeRef.current;
+
+      // Only auto-stop if:
+      // 1. Speech has started (we've received at least some words)
+      // 2. We've been listening for at least MIN_LISTEN_MS (don't cut off too early)
+      // 3. Silence has lasted longer than SILENCE_MS
+      if (
+        hasSpeechStartedRef.current &&
+        elapsed > MIN_LISTEN_MS &&
+        silenceDuration > SILENCE_MS
+      ) {
+        stopAndSubmit();
+      }
+    }, 300);
+
+    // ── Hard cap: stop after MAX_LISTEN_MS regardless ──
+    maxListenTimerRef.current = setTimeout(() => {
+      stopAndSubmit();
+    }, MAX_LISTEN_MS);
 
     recognitionRef.current = recognition;
     setTranscript("");
@@ -297,6 +426,7 @@ export function VoiceAgentButton() {
     try {
       recognition.start();
     } catch {
+      clearTimers();
       setPhase("idle");
     }
   }, [voiceLang, sendToAssistant, speak]);
@@ -307,6 +437,15 @@ export function VoiceAgentButton() {
     shouldAutoListenRef.current = false;
 
     if (phase === "listening") {
+      // Manual stop — clear silence timers and let onend handle submission
+      if (silenceTimerRef.current) {
+        clearInterval(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (maxListenTimerRef.current) {
+        clearTimeout(maxListenTimerRef.current);
+        maxListenTimerRef.current = null;
+      }
       recognitionRef.current?.stop();
       return;
     }
@@ -317,7 +456,7 @@ export function VoiceAgentButton() {
       setPhase("idle");
       return;
     }
-    if (phase === "thinking") return;
+    if (phase === "thinking") return; // don't interrupt mid-request
     startListening();
   }, [phase, startListening]);
 
@@ -363,20 +502,30 @@ export function VoiceAgentButton() {
       {/* ── Inline transcript toast (no chat sheet) ── */}
       {transcript && (phase === "listening" || phase === "thinking") && (
         <div
-          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-full px-3 py-1.5 text-[0.6875rem] font-medium shadow-lg"
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-[0.6875rem] font-medium shadow-lg"
           style={{
             backgroundColor: "var(--color-paper)",
             color: "var(--color-ink-900)",
             border: "1px solid var(--color-line)",
           }}
         >
-          {phase === "listening" && (
-            <span
-              className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full align-middle"
-              style={{ backgroundColor: "var(--color-go)" }}
-            />
+          <div className="flex items-center gap-1.5">
+            {phase === "listening" && (
+              <span
+                className="inline-block size-1.5 animate-pulse rounded-full"
+                style={{ backgroundColor: "var(--color-go)" }}
+              />
+            )}
+            <span className="flex-1">{transcript}</span>
+          </div>
+          {phase === "listening" && hasSpeechStartedRef.current && (
+            <div
+              className="mt-1 text-[0.625rem] font-normal"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Bolte rahiye… ya mic tap karke submit karein
+            </div>
           )}
-          {transcript}
         </div>
       )}
 
