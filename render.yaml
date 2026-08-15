@@ -24,6 +24,7 @@ databases:
     databaseName: nirman_inventory
     user: nirman
     region: oregon
+    plan: free
     ipAllowList: []  # allow connections from Render services only
 
 services:
