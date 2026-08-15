@@ -58,6 +58,10 @@ services:
         value: production
       - key: NODE_VERSION
         value: 23.11.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: TURBO_TELEMETRY_DISABLED
+        value: "1"
       # Generate a secret: openssl rand -hex 32
       # Set these in the Render dashboard (don't commit real secrets):
       # - key: BETTER_AUTH_SECRET
