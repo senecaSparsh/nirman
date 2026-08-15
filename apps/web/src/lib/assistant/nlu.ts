@@ -62,6 +62,16 @@ export type Intent =
   | "PORTAL_LISTING"
   | "SCRAP_STATUS"
   | "TALLY_STATUS"
+  // ── Real estate owner workflows ──
+  | "PORTFOLIO_OVERVIEW"
+  | "UNIT_STATUS"
+  | "UNIT_VALUATION"
+  | "COST_PER_SQFT"
+  | "SALES_PIPELINE"
+  | "PAYMENT_SCHEDULE"
+  | "PROFIT_MARGIN"
+  | "AVAILABLE_INVENTORY"
+  | "CONSTRUCTION_PROGRESS"
   | "UNKNOWN";
 
 export interface ParsedIntent {
@@ -731,6 +741,186 @@ const INTENTS: IntentDef[] = [
     ],
     weight: 5,
   },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // REAL ESTATE OWNER WORKFLOWS
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ── Portfolio overview (company-wide cockpit) ───────────────────────────
+  {
+    intent: "PORTFOLIO_OVERVIEW",
+    keywords: [
+      "portfolio", "poora business", "business kaisa",
+      "company overview", "portfolio summary",
+      "mera business", "business status",
+      "total portfolio", "portfolio value",
+      "sab ka summary", "business overview",
+      "cockpit", "cockpit dikhao",
+      "company kaisa chal raha", "business kya haal",
+      "total value", "total assets",
+      "net worth", "company ka worth",
+      "sab kuch summary", "poora khata",
+    ],
+    weight: 6,
+  },
+
+  // ── Unit status (flat/shop counts by status) ────────────────────────────
+  {
+    intent: "UNIT_STATUS",
+    keywords: [
+      "kitne flat", "kitna flat", "flat kitne",
+      "kitne shop", "kitni unit", "unit kitne",
+      "kitne available", "kitne beche",
+      "kitne sold", "kitne reserved",
+      "kitne vacant", "kitne khali",
+      "flat status", "unit status",
+      "flat dikhao", "unit dikhao",
+      "kitne flat bane", "kitne flat ready",
+      "kitne under construction", "kitne ban rahe",
+      "flat kya haal", "unit kya haal",
+      "inventory flat", "flat inventory",
+      "kitne flat bacha", "kitne flat pending",
+      "apartment status", "apartment kitne",
+      "kitne ghar", "ghar kitne",
+      "shop kitne", "office kitne",
+      "villa kitne", "kitne villa",
+    ],
+    weight: 4,
+  },
+
+  // ── Unit valuation (asking price, current valuation) ────────────────────
+  {
+    intent: "UNIT_VALUATION",
+    keywords: [
+      "valuation", "valuation kitna", "flat ka valuation",
+      "unit valuation", "asking price",
+      "asking price kitna", "price kitna",
+      "flat ka price", "unit ka price",
+      "kitne ka hai", "kitne ka bechenge",
+      "market value", "current value",
+      "flat kitne ka", "shop kitne ka",
+      "valuation dikhao", "price dikhao",
+      "rate kitna", "flat ka rate",
+      "per sqft rate", "rate per sqft",
+      "quotation", "quote",
+    ],
+    weight: 4,
+  },
+
+  // ── Cost per sqft ───────────────────────────────────────────────────────
+  {
+    intent: "COST_PER_SQFT",
+    keywords: [
+      "cost per sqft", "cost per square",
+      "per sqft cost", "square foot cost",
+      "sqft cost", "cost kitna per sqft",
+      "construction cost per sqft",
+      "per sqft kharcha", "per sqft rate",
+      "cost per sq feet", "cost per sq.ft",
+      "build cost per sqft", "making cost per sqft",
+      "banai cost", "construction rate",
+      "per square feet", "sq ft cost",
+    ],
+    weight: 5,
+  },
+
+  // ── Sales pipeline (deposit, booking, completion stages) ────────────────
+  {
+    intent: "SALES_PIPELINE",
+    keywords: [
+      "sales pipeline", "pipeline", "booking",
+      "kitne booking", "kitne deposit",
+      "kitne token", "kitne reserved",
+      "deposit aaya", "token aaya",
+      "booking kitni", "pipeline dikhao",
+      "sales stage", "sale stage",
+      "kitne pending sale", "kitne partial",
+      "kitne completed sale", "kitne deal",
+      "deal kitni", "deal pipeline",
+      "booking status", "deposit status",
+      "kitne flat book", "kitne flat sold",
+      "kitne me deposit", "kitne me token",
+      "sales funnel", "conversion",
+    ],
+    weight: 4,
+  },
+
+  // ── Payment schedule / installments ─────────────────────────────────────
+  {
+    intent: "PAYMENT_SCHEDULE",
+    keywords: [
+      "installment", "installment kitna",
+      "payment schedule", "emi",
+      "kitni installment baki", "installment pending",
+      "payment plan", "schedule dikhao",
+      "kitna payment aaya", "kitna baki",
+      "next installment", "agla installment",
+      "due payment", "payment due",
+      "clp", "construction linked",
+      "tlp", "time linked",
+      "dpp", "down payment plan",
+      "milestone payment", "milestone kitna",
+      "installment schedule", "payment plan dikhao",
+      "kitna collect karna", "collection pending",
+    ],
+    weight: 4,
+  },
+
+  // ── Profit margin per project ───────────────────────────────────────────
+  {
+    intent: "PROFIT_MARGIN",
+    keywords: [
+      "profit margin", "margin kitna",
+      "project profit", "profit per project",
+      "margin per project", "project ka profit",
+      "profitability", "profit dikhao",
+      "project ka labh", "labh kitna",
+      "margin percentage", "margin %",
+      "return on cost", "roi project",
+      "profit kitna hua project", "project profit kitna",
+      "kitna kamaai project", "project revenue",
+      "margin project", "project margin",
+    ],
+    weight: 5,
+  },
+
+  // ── Available inventory (what can I sell?) ──────────────────────────────
+  {
+    intent: "AVAILABLE_INVENTORY",
+    keywords: [
+      "kya bechne ke liye", "kya available bechne",
+      "bechne ke liye kya hai",
+      "available inventory", "sellable inventory",
+      "kya stock hai bechne", "kya bech sakte",
+      "kitne bech sakte", "kitna bech sakte",
+      "available flat", "available unit",
+      "available shop", "available land",
+      "kya ready hai bechne", "ready to sell",
+      "saleable", "sellable",
+      "kya available hai", "kya khali hai",
+      "bechne layak", "bechne ke liye ready",
+    ],
+    weight: 4,
+  },
+
+  // ── Construction progress ───────────────────────────────────────────────
+  {
+    intent: "CONSTRUCTION_PROGRESS",
+    keywords: [
+      "construction progress", "kitna complete hua",
+      "kitna ban gaya", "kitna kaam hua",
+      "project progress", "construction status",
+      "kitna bacha", "kitna pending construction",
+      "kitna percent complete", "kitna % hua",
+      "construction kitna", "building kitna ban gaya",
+      "kitna kaam bacha", "kitna kaam complete",
+      "project kitna advance", "construction phase",
+      "kitna tower ready", "kitna wing ready",
+      "construction update", "building status",
+      "kitna kaam ho gaya", "work progress",
+    ],
+    weight: 4,
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1094,20 +1284,20 @@ export function parseIntent(rawText: string): ParsedIntent {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const SUGGESTION_CHIPS = [
+  { label: "Portfolio", text: "portfolio overview dikhao" },
+  { label: "Kitne flat available?", text: "kitne flat available" },
+  { label: "Kya bechne ke liye?", text: "kya bechne ke liye hai" },
+  { label: "Sales pipeline", text: "sales pipeline dikhao" },
+  { label: "Cost per sqft", text: "cost per sqft kitna" },
+  { label: "Construction progress", text: "construction progress dikhao" },
+  { label: "Profit margin", text: "project profit margin dikhao" },
+  { label: "Installment baki?", text: "installment kitna baki" },
   { label: "Dashboard", text: "dashboard dikhao" },
-  { label: "Kya karu?", text: "kya karna hai" },
-  { label: "Stock kya hai?", text: "stock kya hai" },
   { label: "Approvals pending?", text: "approvals pending kya hai" },
-  { label: "Aaj ki sales", text: "aaj ki sales dikhao" },
+  { label: "Stock kya hai?", text: "stock kya hai" },
   { label: "Cash position", text: "cash position kya hai" },
-  { label: "Supplier ko kitna dena?", text: "supplier ko kitna dena hai" },
-  { label: "Low stock kya hai?", text: "low stock kya hai" },
-  { label: "Profit kitna?", text: "profit kitna hua" },
-  { label: "Is mahine ka summary", text: "is mahine ka summary" },
-  { label: "Land dikhao", text: "land dikhao" },
-  { label: "Payroll status", text: "payroll status dikhao" },
   { label: "Budget variance", text: "budget variance dikhao" },
-  { label: "Tally status", text: "tally status dikhao" },
+  { label: "Land dikhao", text: "land dikhao" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

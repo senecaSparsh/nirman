@@ -15,6 +15,7 @@ import { prisma } from "@nirman/db";
 import {
   lowStockAlerts,
   getCompanyPortfolioSummary,
+  projectTotalCost,
   trialBalance,
 } from "@nirman/services";
 import { apiHandler, json, requireUser, getCompany, toNum, getCurrentUser } from "@/lib/server";
@@ -236,6 +237,25 @@ async function executeIntent(
       return scrapResponse(companyId);
     case "TALLY_STATUS":
       return tallyResponse(companyId);
+    // ── Real estate owner workflows ──
+    case "PORTFOLIO_OVERVIEW":
+      return portfolioOverviewResponse(companyId);
+    case "UNIT_STATUS":
+      return unitStatusResponse(companyId, entities);
+    case "UNIT_VALUATION":
+      return unitValuationResponse(companyId, entities);
+    case "COST_PER_SQFT":
+      return costPerSqftResponse(companyId);
+    case "SALES_PIPELINE":
+      return salesPipelineResponse(companyId);
+    case "PAYMENT_SCHEDULE":
+      return paymentScheduleResponse(companyId, entities);
+    case "PROFIT_MARGIN":
+      return profitMarginResponse(companyId);
+    case "AVAILABLE_INVENTORY":
+      return availableInventoryResponse(companyId);
+    case "CONSTRUCTION_PROGRESS":
+      return constructionProgressResponse(companyId);
     default:
       return unknownResponse(rawText);
   }
@@ -281,6 +301,16 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     SCRAP_STATUS: PERM.INVENTORY_VIEW,
     TALLY_STATUS: PERM.FINANCE_VIEW,
     DASHBOARD: PERM.PROJECTS_VIEW,
+    // Real estate owner workflows
+    PORTFOLIO_OVERVIEW: PERM.ASSETS_VIEW,
+    UNIT_STATUS: PERM.ASSETS_VIEW,
+    UNIT_VALUATION: PERM.ASSETS_VIEW,
+    COST_PER_SQFT: PERM.PROJECTS_VIEW,
+    SALES_PIPELINE: PERM.SALES_VIEW,
+    PAYMENT_SCHEDULE: PERM.SALES_VIEW,
+    PROFIT_MARGIN: PERM.FINANCE_VIEW,
+    AVAILABLE_INVENTORY: PERM.ASSETS_VIEW,
+    CONSTRUCTION_PROGRESS: PERM.PROJECTS_VIEW,
   };
 
   // Write/action intents — require the specific action permission
@@ -432,9 +462,26 @@ function helpResponse(role: Role): AssistantResponse {
 • "Workers dikhao" — employee list`);
   }
   if (hasPermission(role, PERM.ASSETS_VIEW)) {
-    sections.push(`**Assets**
+    sections.push(`**Real Estate & Property**
+• "Portfolio overview" — poora business summary
+• "Kitne flat available?" — unit status by type
+• "Flat ka valuation?" — asking price + margin
+• "Kya bechne ke liye hai?" — available inventory
 • "Land dikhao" — land parcels
-• "Portal listings" — online listings`);
+• "Portal listings" — 99acres/MagicBricks status`);
+  }
+  if (hasPermission(role, PERM.SALES_VIEW)) {
+    sections.push(`**Sales Pipeline**
+• "Sales pipeline" — booking/deposit/completion
+• "Installment kitna baki?" — payment schedule
+• "Kitne flat book huye?" — booking status`);
+  }
+  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+    sections.push(`**Construction**
+• "Construction progress" — kitna ban gaya
+• "Cost per sqft" — project cost analysis
+• "Budget variance" — budget vs actual
+• "Project profit margin" — profitability per project`);
   }
   sections.push(`**General**
 • "Dashboard" — role-based overview
@@ -1592,6 +1639,37 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     }
   }
 
+  // ── Real estate owner metrics ──
+  if (hasPermission(role, PERM.ASSETS_VIEW)) {
+    const [availableUnits, reservedUnits, depositSales] = await Promise.all([
+      prisma.builtUnit.count({
+        where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null },
+      }),
+      prisma.builtUnit.count({
+        where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null },
+      }),
+      prisma.assetSale.count({
+        where: { companyId, saleStage: "DEPOSIT_RECEIVED" },
+      }),
+    ]);
+    if (availableUnits > 0) {
+      items.push(`${availableUnits} flats available for sale`);
+      cards.push({ type: "link", label: "Available units", href: "/m/units" });
+    }
+    if (reservedUnits > 0 || depositSales > 0) {
+      items.push(`${reservedUnits} reserved | ${depositSales} deposits pending completion`);
+    }
+  }
+
+  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+    const activeProjects = await prisma.project.count({
+      where: { companyId, deletedAt: null, status: "ACTIVE" },
+    });
+    if (activeProjects > 0) {
+      items.push(`${activeProjects} active projects under construction`);
+    }
+  }
+
   if (items.length === 0) {
     return {
       text: `Sab smooth hai! Koi urgent item nahi hai. Kya specific dekhna hai?`,
@@ -1846,5 +1924,502 @@ function issueMaterialResponse(): AssistantResponse {
     intent: "ISSUE_MATERIAL",
     confidence: 0.8,
     cards: [{ type: "link", label: "Issue Material", href: "/m/site/issue", variant: "primary" }],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REAL ESTATE OWNER WORKFLOW HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Portfolio Overview — company-wide cockpit ─────────────────────────────
+async function portfolioOverviewResponse(companyId: string): Promise<AssistantResponse> {
+  const summary = await getCompanyPortfolioSummary(companyId).catch(() => null);
+
+  if (!summary) {
+    return {
+      text: "Portfolio summary nahi mil paayi. Thodi der baad try karein.",
+      intent: "PORTFOLIO_OVERVIEW",
+      confidence: 0.7,
+      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }],
+    };
+  }
+
+  const text = `**Aapka Portfolio Overview:**\n
+Total Portfolio Value: ${formatCurrency(toNum(summary.totalPortfolioValue))}
+Unsold Asset Value: ${formatCurrency(toNum(summary.unsoldAssetValue))}
+Inventory Value: ${formatCurrency(toNum(summary.inventoryValue))}
+
+Revenue (total): ${formatCurrency(toNum(summary.totalRevenue))}
+Cost (total): ${formatCurrency(toNum(summary.totalCost))}
+Profit: ${formatCurrency(toNum(summary.totalProfit))}
+Average Margin: ${summary.avgMarginPct ? `${toNum(summary.avgMarginPct)}%` : "N/A"}
+
+Units: ${summary.totalUnits} total | ${summary.soldUnits} sold | ${summary.availableUnits} available
+
+Kya detail mein dekhna hai? Project-wise profit ya available units?`;
+
+  return {
+    text,
+    intent: "PORTFOLIO_OVERVIEW",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "Available units", href: "/m/units" },
+      { type: "link", label: "Projects", href: "/m/projects" },
+    ],
+  };
+}
+
+// ── Unit Status — flat/shop counts by status ──────────────────────────────
+async function unitStatusResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  // If a specific project is mentioned, filter by it
+  let projectFilter: { companyId: string; deletedAt: null; id?: string } = {
+    companyId,
+    deletedAt: null,
+  };
+
+  if (entities.projectName) {
+    const proj = await prisma.project.findFirst({
+      where: { companyId, deletedAt: null, name: { contains: entities.projectName, mode: "insensitive" } },
+      select: { id: true, name: true },
+    });
+    if (proj) {
+      projectFilter = { ...projectFilter, id: proj.id };
+    }
+  }
+
+  const units = await prisma.builtUnit.findMany({
+    where: { project: projectFilter, deletedAt: null },
+    select: { status: true, unitType: true, area: true, askingPrice: true },
+  });
+
+  if (units.length === 0) {
+    return {
+      text: "Koi unit registered nahi hai. Pehle project aur units banao.",
+      intent: "UNIT_STATUS",
+      confidence: 0.8,
+      cards: [{ type: "link", label: "Projects", href: "/m/projects" }],
+    };
+  }
+
+  // Count by status
+  const byStatus: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  for (const u of units) {
+    byStatus[u.status] = (byStatus[u.status] ?? 0) + 1;
+    byType[u.unitType] = (byType[u.unitType] ?? 0) + 1;
+  }
+
+  let text = `**Unit Status (${units.length} total):**\n\n`;
+  const statusLabels: Record<string, string> = {
+    PLANNED: "Planned (banane wala)",
+    UNDER_CONSTRUCTION: "Under Construction (ban rahe)",
+    AVAILABLE: "Available (bechne ke liye ready)",
+    RESERVED: "Reserved (deposit aaya)",
+    HOLD: "On Hold",
+    SOLD: "Sold (bech gaye)",
+    RENTED: "Rented (kiraye par)",
+  };
+  for (const [status, count] of Object.entries(byStatus)) {
+    text += `• ${statusLabels[status] ?? status}: ${count}\n`;
+  }
+
+  // Type breakdown
+  const typeLabels: Record<string, string> = {
+    BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
+    SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse",
+    VILLA: "Villa", OTHER: "Other",
+  };
+  text += `\n**Type wise:**\n`;
+  for (const [type, count] of Object.entries(byType)) {
+    text += `• ${typeLabels[type] ?? type}: ${count}\n`;
+  }
+
+  return {
+    text,
+    intent: "UNIT_STATUS",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "All units", href: "/m/units" }],
+  };
+}
+
+// ── Unit Valuation — asking price, current valuation ──────────────────────
+async function unitValuationResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  // If a specific project is mentioned, filter by it
+  const whereClause: { project: { companyId: string; deletedAt: null; name?: { contains: string; mode: "insensitive" } }, deletedAt: null, status?: string } = {
+    project: { companyId, deletedAt: null },
+    deletedAt: null,
+  };
+
+  if (entities.projectName) {
+    whereClause.project.name = { contains: entities.projectName, mode: "insensitive" };
+  }
+
+  // Show available + reserved units with their valuation
+  const units = await prisma.builtUnit.findMany({
+    where: { ...whereClause, status: { in: ["AVAILABLE", "RESERVED"] } },
+    select: {
+      unitNumber: true,
+      unitType: true,
+      area: true,
+      askingPrice: true,
+      currentValuation: true,
+      productionCost: true,
+      project: { select: { name: true } },
+    },
+    orderBy: { askingPrice: "desc" },
+    take: 10,
+  });
+
+  if (units.length === 0) {
+    return {
+      text: "Koi available/reserved unit nahi hai valuation dikhane ke liye.",
+      intent: "UNIT_VALUATION",
+      confidence: 0.8,
+      cards: [{ type: "link", label: "All units", href: "/m/units" }],
+    };
+  }
+
+  const typeLabels: Record<string, string> = {
+    BHK_1: "1BHK", BHK_2: "2BHK", BHK_3: "3BHK", BHK_4: "4BHK",
+    SHOP: "Shop", OFFICE: "Office", VILLA: "Villa",
+  };
+
+  let text = `**Unit Valuation (${units.length} available/reserved):**\n\n`;
+  for (const u of units.slice(0, 8)) {
+    const asking = toNum(u.askingPrice);
+    const cost = toNum(u.productionCost);
+    const margin = asking > 0 && cost > 0 ? (((asking - cost) / cost) * 100).toFixed(0) : "—";
+    text += `• ${u.unitNumber} (${typeLabels[u.unitType] ?? u.unitType}, ${formatNumber(toNum(u.area))} sqft) — ${formatCurrency(asking)} | Cost: ${formatCurrency(cost)} | Margin: ${margin}%\n`;
+  }
+
+  const totalAsking = units.reduce((s, u) => s + toNum(u.askingPrice), 0);
+  const totalCost = units.reduce((s, u) => s + toNum(u.productionCost), 0);
+  text += `\nTotal asking: ${formatCurrency(totalAsking)} | Total cost: ${formatCurrency(totalCost)}`;
+
+  return {
+    text,
+    intent: "UNIT_VALUATION",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "All units", href: "/m/units" }],
+  };
+}
+
+// ── Cost per Sqft — project construction cost per sqft ────────────────────
+async function costPerSqftResponse(companyId: string): Promise<AssistantResponse> {
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    select: {
+      id: true, name: true, type: true,
+      totalBudget: true, totalProjectCost: true,
+      costPerSqft: true, totalSellableArea: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  if (projects.length === 0) {
+    return {
+      text: "Koi active project nahi hai cost per sqft dikhane ke liye.",
+      intent: "COST_PER_SQFT",
+      confidence: 0.8,
+      cards: [{ type: "link", label: "Projects", href: "/m/projects" }],
+    };
+  }
+
+  let text = `**Cost per Sqft (Active Projects):**\n\n`;
+  for (const p of projects) {
+    const cost = toNum(p.totalProjectCost);
+    const area = toNum(p.totalSellableArea);
+    const cps = toNum(p.costPerSqft);
+    const displayCps = cps > 0 ? formatCurrency(cps) : area > 0 ? formatCurrency(cost / area) : "—";
+    text += `• ${p.name} — ${displayCps}/sqft | Total: ${formatCurrency(cost)} | Area: ${formatNumber(area)} sqft\n`;
+  }
+
+  return {
+    text,
+    intent: "COST_PER_SQFT",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "Budget variance", href: "/m/budget-variance" }],
+  };
+}
+
+// ── Sales Pipeline — booking/deposit/completion stages ────────────────────
+async function salesPipelineResponse(companyId: string): Promise<AssistantResponse> {
+  const [pending, deposit, completed, cancelled] = await Promise.all([
+    prisma.assetSale.count({ where: { companyId, saleStage: "PENDING" } }),
+    prisma.assetSale.count({ where: { companyId, saleStage: "DEPOSIT_RECEIVED" } }),
+    prisma.assetSale.count({ where: { companyId, saleStage: "COMPLETED" } }),
+    prisma.assetSale.count({ where: { companyId, saleStage: "CANCELLED" } }),
+  ]);
+
+  // Get deposit amounts with customer names
+  const depositSales = await prisma.assetSale.findMany({
+    where: { companyId, saleStage: "DEPOSIT_RECEIVED" },
+    select: {
+      depositAmount: true,
+      salePrice: true,
+      assetType: true,
+      customer: { select: { name: true } },
+      builtUnit: { select: { unitNumber: true } },
+    },
+    take: 5,
+  });
+
+  const totalDeposit = depositSales.reduce((s, sale) => s + toNum(sale.depositAmount), 0);
+  const totalPendingValue = depositSales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
+
+  let text = `**Sales Pipeline:**\n\n`;
+  text += `• Pending (booking nahi hui): ${pending}\n`;
+  text += `• Deposit Received (token aaya): ${deposit} — Deposit: ${formatCurrency(totalDeposit)}\n`;
+  text += `• Completed (bech gaya): ${completed}\n`;
+  text += `• Cancelled: ${cancelled}\n`;
+
+  if (depositSales.length > 0) {
+    text += `\n**Deposit wale customers:**\n`;
+    for (const s of depositSales.slice(0, 4)) {
+      const unitLabel = s.builtUnit?.unitNumber ? ` (${s.builtUnit.unitNumber})` : "";
+      text += `• ${s.customer?.name ?? "Unknown"}${unitLabel} — ${formatCurrency(toNum(s.salePrice))} (Deposit: ${formatCurrency(toNum(s.depositAmount))})\n`;
+    }
+    if (deposit > 0) {
+      text += `\n${deposit} customer ne deposit diya hai. ${formatCurrency(totalPendingValue - totalDeposit)} bacha collect karna hai.`;
+    }
+  }
+
+  return {
+    text,
+    intent: "SALES_PIPELINE",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }],
+  };
+}
+
+// ── Payment Schedule — installment status ─────────────────────────────────
+async function paymentScheduleResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+  // Get payment schedule items that are due or partial
+  const items = await prisma.paymentScheduleItem.findMany({
+    where: {
+      paymentSchedule: {
+        assetSale: { companyId },
+      },
+      status: { in: ["DUE", "PARTIAL", "PENDING"] },
+    },
+    include: {
+      paymentSchedule: {
+        include: {
+          assetSale: {
+            select: {
+              customer: { select: { name: true } },
+              salePrice: true,
+              builtUnit: { select: { unitNumber: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { dueDate: "asc" },
+    take: 10,
+  });
+
+  if (items.length === 0) {
+    return {
+      text: "Koi pending installment nahi hai. Sab payment collect ho gayi!",
+      intent: "PAYMENT_SCHEDULE",
+      confidence: 0.9,
+    };
+  }
+
+  const totalDue = items.reduce((s, i) => s + toNum(i.amount) - toNum(i.paidAmount), 0);
+
+  let text = `**Payment Schedule — Pending Installments (${items.length}):**\n\n`;
+  for (const i of items.slice(0, 6)) {
+    const due = toNum(i.amount) - toNum(i.paidAmount);
+    const buyer = i.paymentSchedule?.assetSale?.customer?.name ?? "Unknown";
+    const unit = i.paymentSchedule?.assetSale?.builtUnit?.unitNumber;
+    const unitLabel = unit ? ` (${unit})` : "";
+    const dueDate = i.dueDate ? i.dueDate.toISOString().split("T")[0] : "N/A";
+    text += `• ${buyer}${unitLabel} — ${i.description ?? `Installment ${i.installmentNo}`} | Due: ${formatCurrency(due)} | Date: ${dueDate}\n`;
+  }
+  text += `\nTotal pending collection: ${formatCurrency(totalDue)}`;
+
+  return {
+    text,
+    intent: "PAYMENT_SCHEDULE",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }],
+  };
+}
+
+// ── Profit Margin per Project ─────────────────────────────────────────────
+async function profitMarginResponse(companyId: string): Promise<AssistantResponse> {
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true, totalBudget: true, totalProjectCost: true, totalSellableArea: true },
+    orderBy: { name: "asc" },
+  });
+
+  if (projects.length === 0) {
+    return {
+      text: "Koi project nahi hai profit margin dikhane ke liye.",
+      intent: "PROFIT_MARGIN",
+      confidence: 0.8,
+    };
+  }
+
+  let text = `**Project Profitability:**\n\n`;
+
+  for (const p of projects.slice(0, 8)) {
+    // Get total revenue from completed sales for this project
+    const sales = await prisma.assetSale.findMany({
+      where: { companyId, projectId: p.id, saleStage: "COMPLETED" },
+      select: { salePrice: true },
+    });
+    const revenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
+    const cost = toNum(p.totalProjectCost);
+    const profit = revenue - cost;
+    const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : "—";
+
+    text += `• ${p.name} — Revenue: ${formatCurrency(revenue)} | Cost: ${formatCurrency(cost)} | Profit: ${formatCurrency(profit)} | Margin: ${margin}%\n`;
+  }
+
+  return {
+    text,
+    intent: "PROFIT_MARGIN",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "P&L detail", href: "/m/gl" }],
+  };
+}
+
+// ── Available Inventory — what can I sell? ────────────────────────────────
+async function availableInventoryResponse(companyId: string): Promise<AssistantResponse> {
+  const [availableUnits, availableLand, reservedUnits] = await Promise.all([
+    prisma.builtUnit.findMany({
+      where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null },
+      select: { unitType: true, area: true, askingPrice: true },
+    }),
+    prisma.landParcel.findMany({
+      where: { landPurchase: { companyId }, status: "AVAILABLE", deletedAt: null, isInfrastructure: false },
+      select: { area: true, askingPrice: true, currentValuation: true },
+    }),
+    prisma.builtUnit.count({
+      where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null },
+    }),
+  ]);
+
+  if (availableUnits.length === 0 && availableLand.length === 0) {
+    return {
+      text: "Kuch bechne ke liye available nahi hai. Sab sold ya under construction hai.",
+      intent: "AVAILABLE_INVENTORY",
+      confidence: 0.8,
+    };
+  }
+
+  // Aggregate units by type
+  const byType: Record<string, { count: number; totalValue: number; totalArea: number }> = {};
+  for (const u of availableUnits) {
+    const key = u.unitType;
+    if (!byType[key]) byType[key] = { count: 0, totalValue: 0, totalArea: 0 };
+    byType[key].count += 1;
+    byType[key].totalValue += toNum(u.askingPrice);
+    byType[key].totalArea += toNum(u.area);
+  }
+
+  const typeLabels: Record<string, string> = {
+    BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
+    SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse",
+    VILLA: "Villa", OTHER: "Other",
+  };
+
+  let text = `**Available Inventory (bechne ke liye):**\n\n`;
+
+  if (availableUnits.length > 0) {
+    text += `**Units (${availableUnits.length} available${reservedUnits > 0 ? `, ${reservedUnits} reserved` : ""}):**\n`;
+    for (const [type, data] of Object.entries(byType)) {
+      text += `• ${typeLabels[type] ?? type}: ${data.count} units | ${formatNumber(data.totalArea)} sqft | ${formatCurrency(data.totalValue)}\n`;
+    }
+  }
+
+  if (availableLand.length > 0) {
+    const totalLandArea = availableLand.reduce((s, l) => s + toNum(l.area), 0);
+    const totalLandValue = availableLand.reduce((s, l) => s + toNum(l.currentValuation), 0);
+    text += `\n**Land Parcels (${availableLand.length} available):**\n`;
+    text += `• Total: ${formatNumber(totalLandArea)} sqft | Value: ${formatCurrency(totalLandValue)}\n`;
+  }
+
+  const totalValue = availableUnits.reduce((s, u) => s + toNum(u.askingPrice), 0) +
+    availableLand.reduce((s, l) => s + toNum(l.currentValuation), 0);
+  text += `\nTotal available value: ${formatCurrency(totalValue)}`;
+
+  return {
+    text,
+    intent: "AVAILABLE_INVENTORY",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "Units", href: "/m/units" },
+      { type: "link", label: "Land", href: "/m/land" },
+    ],
+  };
+}
+
+// ── Construction Progress ─────────────────────────────────────────────────
+async function constructionProgressResponse(companyId: string): Promise<AssistantResponse> {
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    select: {
+      id: true, name: true, type: true, status: true,
+      startDate: true, endDate: true,
+      totalBudget: true, totalProjectCost: true, totalSellableArea: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  if (projects.length === 0) {
+    return {
+      text: "Koi active project nahi hai progress dikhane ke liye.",
+      intent: "CONSTRUCTION_PROGRESS",
+      confidence: 0.8,
+    };
+  }
+
+  let text = `**Construction Progress:**\n\n`;
+
+  for (const p of projects.slice(0, 6)) {
+    // Count units by status for this project
+    const units = await prisma.builtUnit.groupBy({
+      by: ["status"],
+      where: { projectId: p.id, deletedAt: null },
+      _count: true,
+    });
+
+    const total = units.reduce((s, u) => s + u._count, 0);
+    const completed = units.find((u) => u.status === "AVAILABLE" || u.status === "SOLD")?._count ?? 0;
+    const underConstruction = units.find((u) => u.status === "UNDER_CONSTRUCTION")?._count ?? 0;
+    const planned = units.find((u) => u.status === "PLANNED")?._count ?? 0;
+    const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // WBS progress
+    const wbsNodes = await prisma.wbsNode.findMany({
+      where: { projectId: p.id },
+      select: { progressPct: true },
+    });
+    const avgWbsProgress = wbsNodes.length > 0
+      ? Math.round(wbsNodes.reduce((s, n) => s + toNum(n.progressPct), 0) / wbsNodes.length)
+      : 0;
+
+    const budget = toNum(p.totalBudget);
+    const cost = toNum(p.totalProjectCost);
+    const budgetUsed = budget > 0 ? `${Math.round((cost / budget) * 100)}%` : "—";
+
+    text += `• ${p.name} (${p.status})\n`;
+    text += `  Units: ${completed}/${total} ready (${progressPct}%) | ${underConstruction} ban rahe | ${planned} pending\n`;
+    text += `  WBS Progress: ${avgWbsProgress}% | Budget used: ${budgetUsed}\n`;
+  }
+
+  return {
+    text,
+    intent: "CONSTRUCTION_PROGRESS",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "WBS", href: "/m/wbs" },
+      { type: "link", label: "DPR", href: "/m/dprs" },
+    ],
   };
 }

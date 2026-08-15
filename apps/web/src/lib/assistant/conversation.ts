@@ -130,6 +130,16 @@ const SLOTS: Partial<Record<Intent, SlotDef[]>> = {
   SUPPLIER_PAYMENT: [
     { name: "supplierName", prompt: "Kaunse supplier ko pay karna hai?", required: false },
   ],
+  // Real estate intents with optional project filter
+  UNIT_STATUS: [
+    { name: "projectName", prompt: "Kaunse project ke units dekhna hai? Ya 'sab' bolo saare projects ke liye.", required: false },
+  ],
+  UNIT_VALUATION: [
+    { name: "projectName", prompt: "Kaunse project ki valuation dekhna hai? Ya 'sab' bolo.", required: false },
+  ],
+  PAYMENT_SCHEDULE: [
+    { name: "projectName", prompt: "Kaunse project ke installments dekhna hai? Ya 'sab' bolo.", required: false },
+  ],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
