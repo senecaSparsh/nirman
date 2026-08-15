@@ -41,12 +41,6 @@ function SignInForm() {
   const [oneClickRole, setOneClickRole] = useState<Role | null>(null);
   const [error, setError] = useState("");
 
-  // Clear any stale session on mount (e.g. after a DB re-seed) so the
-  // form starts clean. Fire-and-forget — a no-op if there's no session.
-  useEffect(() => {
-    authClient.signOut().catch(() => {});
-  }, []);
-
   // Check if this is a fresh deploy (no users yet) — if so, redirect
   // to /sign-up so the first owner can set up their company.
   useEffect(() => {

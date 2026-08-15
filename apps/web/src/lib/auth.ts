@@ -7,6 +7,13 @@ export const auth = betterAuth({
   // Static baseURL — simplest and most reliable for single-domain deploys.
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   secret: process.env.BETTER_AUTH_SECRET ?? "dev-only-fallback-secret-not-for-production-use-32chars",
+  // Disable rate limiting — Render's proxy doesn't forward client IP headers,
+  // so Better-Auth falls back to a single shared rate-limit bucket for ALL
+  // users. This causes 429s after just a few requests. With a single-client
+  // app, rate limiting is unnecessary.
+  rateLimit: {
+    enabled: false,
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
