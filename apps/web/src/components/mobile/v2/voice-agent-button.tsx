@@ -71,7 +71,7 @@ interface SpeechRecognitionInstance {
   stop: () => void;
   abort: () => void;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
 }
@@ -96,6 +96,7 @@ export function VoiceAgentButton() {
     responseText: string;
   } | null>(null);
   const [executing, setExecuting] = useState(false);
+  const [hasSpeechStarted, setHasSpeechStarted] = useState(false);
 
   // ── Whether we should auto-listen after TTS (follow-up question) ──
   const shouldAutoListenRef = useRef(false);
@@ -107,11 +108,13 @@ export function VoiceAgentButton() {
   const hasSpeechStartedRef = useRef(false);
   const silenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxListenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recognitionActiveRef = useRef(false); // tracks if recognition is actually running
 
   // Tunables
-  const SILENCE_MS = 1800; // 1.8s of silence after speech → auto-submit
-  const MAX_LISTEN_MS = 20000; // 20s hard cap — safety net
-  const MIN_LISTEN_MS = 800; // don't auto-submit in the first 800ms
+  const SILENCE_MS = 1500; // 1.5s of silence after speech → auto-submit
+  const MAX_LISTEN_MS = 15000; // 15s hard cap — safety net
+  const MIN_LISTEN_MS = 500; // don't auto-submit in the first 500ms
+  const NO_SPEECH_TIMEOUT_MS = 5000; // if no speech at all in 5s, stop
 
   // ── Cleanup on unmount ──
   useEffect(() => {
@@ -295,11 +298,13 @@ export function VoiceAgentButton() {
   );
 
   // ── Start listening ──
-  // Uses continuous=true with a silence detector:
+  // Uses continuous=true with a robust silence detector:
   //   - Keeps listening through brief pauses (user thinking mid-sentence)
   //   - Auto-stops after SILENCE_MS of silence once speech has started
+  //   - If no speech at all in NO_SPEECH_TIMEOUT_MS, stops (mic wasn't picking up)
   //   - Hard cap at MAX_LISTEN_MS as a safety net
   //   - Deduplicates repeated words/phrases in the final transcript
+  //   - Handles browser's own onend (Chrome mobile stops on its own after pauses)
   const startListening = useCallback(() => {
     if (typeof window === "undefined") return;
     const SR =
@@ -312,6 +317,16 @@ export function VoiceAgentButton() {
       return;
     }
 
+    // Clear any leftover timers from previous sessions
+    if (silenceTimerRef.current) {
+      clearInterval(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (maxListenTimerRef.current) {
+      clearTimeout(maxListenTimerRef.current);
+      maxListenTimerRef.current = null;
+    }
+
     // Reset state
     const recognition = new SR();
     recognition.lang = voiceLang;
@@ -320,9 +335,47 @@ export function VoiceAgentButton() {
     finalTranscriptRef.current = "";
     autoSubmittedRef.current = false;
     hasSpeechStartedRef.current = false;
-    lastSpeechTimeRef.current = Date.now();
+    setHasSpeechStarted(false);
+    recognitionActiveRef.current = false;
+    // Don't set lastSpeechTimeRef yet — we'll set it on first result
+    lastSpeechTimeRef.current = 0;
 
     const listenStartTime = Date.now();
+
+    // ── Helper: clear all timers ──
+    function clearTimers() {
+      if (silenceTimerRef.current) {
+        clearInterval(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (maxListenTimerRef.current) {
+        clearTimeout(maxListenTimerRef.current);
+        maxListenTimerRef.current = null;
+      }
+    }
+
+    // ── Helper: stop and submit (called by silence detector, timeout, or manual) ──
+    function stopAndSubmit() {
+      if (autoSubmittedRef.current) return;
+      autoSubmittedRef.current = true;
+      clearTimers();
+      recognitionActiveRef.current = false;
+      try {
+        recognition.stop();
+      } catch {
+        // already stopped
+      }
+      // Don't wait for onend — process immediately
+      // (some browsers don't fire onend reliably after stop())
+      const rawText = finalTranscriptRef.current.trim();
+      const cleanText = deduplicate(rawText);
+      if (cleanText) {
+        sendToAssistant(cleanText);
+      } else {
+        setPhase("idle");
+        setTranscript("");
+      }
+    }
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
@@ -340,31 +393,47 @@ export function VoiceAgentButton() {
       }
       if (final) finalTranscriptRef.current += final;
 
-      // Track that speech has started (we've received some data)
+      // Track speech activity — ANY result (interim or final) counts
+      // This is the key fix: update lastSpeechTimeRef on EVERY result event
+      lastSpeechTimeRef.current = Date.now();
+
+      // Mark that speech has started if we have any meaningful text
       const currentText = finalTranscriptRef.current || interim;
       if (currentText.trim().length > 0) {
         hasSpeechStartedRef.current = true;
-        lastSpeechTimeRef.current = Date.now();
+        setHasSpeechStarted(true);
       }
 
       setTranscript(currentText);
     };
 
-    recognition.onerror = () => {
+    recognition.onstart = () => {
+      recognitionActiveRef.current = true;
+    };
+
+    recognition.onerror = (event: { error?: string } | null) => {
+      // "no-speech" error is common — browser didn't detect any speech
+      // "aborted" means we called stop() — don't treat as error
+      const errType = event?.error ?? "";
+      if (errType === "aborted" || errType === "no-speech") {
+        // For no-speech, let onend handle it (or the silence timer will)
+        return;
+      }
       clearTimers();
+      recognitionActiveRef.current = false;
       setPhase("idle");
       setTranscript("");
     };
 
     recognition.onend = () => {
-      clearTimers();
+      recognitionActiveRef.current = false;
+      // Browser stopped on its own (common with continuous=true on mobile)
+      // If we haven't already submitted, do it now
       if (autoSubmittedRef.current) return;
+      clearTimers();
       autoSubmittedRef.current = true;
-
-      // Deduplicate repeated phrases before submitting
       const rawText = finalTranscriptRef.current.trim();
       const cleanText = deduplicate(rawText);
-
       if (cleanText) {
         sendToAssistant(cleanText);
       } else {
@@ -373,47 +442,41 @@ export function VoiceAgentButton() {
       }
     };
 
-    // ── Helper: clear all timers ──
-    function clearTimers() {
-      if (silenceTimerRef.current) {
-        clearInterval(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-      if (maxListenTimerRef.current) {
-        clearTimeout(maxListenTimerRef.current);
-        maxListenTimerRef.current = null;
-      }
-    }
-
-    // ── Helper: stop and submit (called by silence detector or timeout) ──
-    function stopAndSubmit() {
-      if (autoSubmittedRef.current) return;
-      autoSubmittedRef.current = true;
-      clearTimers();
-      try {
-        recognition.stop();
-      } catch {
-        // already stopped
-      }
-    }
-
-    // ── Silence detector: check every 300ms if user has gone quiet ──
+    // ── Silence detector: check every 200ms if user has gone quiet ──
+    // This is the primary mechanism for auto-stopping.
+    // It runs independently of the browser's own onend.
     silenceTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - listenStartTime;
-      const silenceDuration = Date.now() - lastSpeechTimeRef.current;
+      if (autoSubmittedRef.current) {
+        clearTimers();
+        return;
+      }
+      const now = Date.now();
+      const elapsed = now - listenStartTime;
+
+      // Case 1: No speech detected at all yet
+      if (!hasSpeechStartedRef.current) {
+        // If we've been listening for NO_SPEECH_TIMEOUT_MS with no speech, give up
+        if (elapsed > NO_SPEECH_TIMEOUT_MS) {
+          stopAndSubmit();
+        }
+        return;
+      }
+
+      // Case 2: Speech has started — check for silence
+      // lastSpeechTimeRef is set on every onresult event
+      if (lastSpeechTimeRef.current === 0) {
+        // Should not happen if hasSpeechStarted is true, but safety check
+        return;
+      }
+      const silenceDuration = now - lastSpeechTimeRef.current;
 
       // Only auto-stop if:
-      // 1. Speech has started (we've received at least some words)
-      // 2. We've been listening for at least MIN_LISTEN_MS (don't cut off too early)
-      // 3. Silence has lasted longer than SILENCE_MS
-      if (
-        hasSpeechStartedRef.current &&
-        elapsed > MIN_LISTEN_MS &&
-        silenceDuration > SILENCE_MS
-      ) {
+      // 1. We've been listening for at least MIN_LISTEN_MS (don't cut off too early)
+      // 2. Silence has lasted longer than SILENCE_MS
+      if (elapsed > MIN_LISTEN_MS && silenceDuration > SILENCE_MS) {
         stopAndSubmit();
       }
-    }, 300);
+    }, 200);
 
     // ── Hard cap: stop after MAX_LISTEN_MS regardless ──
     maxListenTimerRef.current = setTimeout(() => {
@@ -427,6 +490,7 @@ export function VoiceAgentButton() {
       recognition.start();
     } catch {
       clearTimers();
+      recognitionActiveRef.current = false;
       setPhase("idle");
     }
   }, [voiceLang, sendToAssistant, speak]);
@@ -437,7 +501,8 @@ export function VoiceAgentButton() {
     shouldAutoListenRef.current = false;
 
     if (phase === "listening") {
-      // Manual stop — clear silence timers and let onend handle submission
+      // Manual stop — immediately submit what we have
+      // Don't rely on onend (unreliable on some browsers)
       if (silenceTimerRef.current) {
         clearInterval(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -446,7 +511,23 @@ export function VoiceAgentButton() {
         clearTimeout(maxListenTimerRef.current);
         maxListenTimerRef.current = null;
       }
-      recognitionRef.current?.stop();
+      if (autoSubmittedRef.current) return; // already submitted
+      autoSubmittedRef.current = true;
+      recognitionActiveRef.current = false;
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // already stopped
+      }
+      // Immediately process the transcript
+      const rawText = finalTranscriptRef.current.trim();
+      const cleanText = deduplicate(rawText);
+      if (cleanText) {
+        sendToAssistant(cleanText);
+      } else {
+        setPhase("idle");
+        setTranscript("");
+      }
       return;
     }
     if (phase === "speaking") {
@@ -458,7 +539,7 @@ export function VoiceAgentButton() {
     }
     if (phase === "thinking") return; // don't interrupt mid-request
     startListening();
-  }, [phase, startListening]);
+  }, [phase, startListening, sendToAssistant]);
 
   // ── Visual state ──
   const isActive = phase === "listening" || phase === "speaking";
@@ -500,7 +581,7 @@ export function VoiceAgentButton() {
       </button>
 
       {/* ── Inline transcript toast (no chat sheet) ── */}
-      {transcript && (phase === "listening" || phase === "thinking") && (
+      {phase === "listening" && (
         <div
           className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-[0.6875rem] font-medium shadow-lg"
           style={{
@@ -510,22 +591,44 @@ export function VoiceAgentButton() {
           }}
         >
           <div className="flex items-center gap-1.5">
-            {phase === "listening" && (
-              <span
-                className="inline-block size-1.5 animate-pulse rounded-full"
-                style={{ backgroundColor: "var(--color-go)" }}
-              />
-            )}
-            <span className="flex-1">{transcript}</span>
+            <span
+              className="inline-block size-1.5 animate-pulse rounded-full"
+              style={{ backgroundColor: "var(--color-go)" }}
+            />
+            <span className="flex-1">{transcript || "…"}</span>
           </div>
-          {phase === "listening" && hasSpeechStartedRef.current && (
+          {hasSpeechStarted ? (
             <div
               className="mt-1 text-[0.625rem] font-normal"
               style={{ color: "var(--color-ink-500)" }}
             >
               Bolte rahiye… ya mic tap karke submit karein
             </div>
+          ) : (
+            <div
+              className="mt-1 text-[0.625rem] font-normal"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Boliye… (bolna shuru karein)
+            </div>
           )}
+        </div>
+      )}
+
+      {/* ── Thinking toast ── */}
+      {phase === "thinking" && transcript && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-[0.6875rem] font-medium shadow-lg"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-900)",
+            border: "1px solid var(--color-line)",
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <Loader2 className="size-3 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+            <span className="flex-1">{transcript}</span>
+          </div>
         </div>
       )}
 
