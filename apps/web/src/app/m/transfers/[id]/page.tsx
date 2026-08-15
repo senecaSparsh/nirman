@@ -7,8 +7,6 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileTransferDetailClient } from "./MobileTransferDetailClient";
 
-export const dynamic = "force-dynamic";
-
 /**
  * /m/transfers/[id] — stock transfer detail.
  * Shows the transfer header (from → to), status, line items, and
