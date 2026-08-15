@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Wrench } from "lucide-react";
+import { Wrench, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileWorkOrdersList } from "./MobileWorkOrdersList";
 import { MobileWorkOrdersFab } from "./MobileWorkOrdersFab";
@@ -100,6 +101,15 @@ async function MobileWorkOrdersContent() {
                   ? "Add subcontractor suppliers first, then issue work orders"
                   : "Tap + to issue a work order to a subcontractor"
               : "Work orders will appear here"
+          }
+          action={
+            canManage ? (
+              projects.length === 0 ? (
+                <MobileCta href="/m/projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
+              ) : subcontractors.length === 0 ? (
+                <MobileCta href="/m/suppliers/new" icon={Plus} variant="primary">Add Subcontractor</MobileCta>
+              ) : undefined
+            ) : undefined
           }
         />
       )}

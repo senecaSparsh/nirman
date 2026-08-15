@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -10,6 +10,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileStatusBadge,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileMbProjectSelector } from "./MobileMbProjectSelector";
 
@@ -112,7 +113,14 @@ async function MobileMbContent({
         <MobileEmptyState
           icon={BookOpen}
           title="No measurement entries"
-          hint="Measurement book entries will appear here as work is measured"
+          hint={boqItems.length === 0
+            ? "Add BOQ line items first, then measure work against them"
+            : "Measurement book entries will appear here as work is measured"}
+          action={boqItems.length === 0 ? (
+            <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
+              Go to BOQ
+            </MobileCta>
+          ) : undefined}
         />
       ) : (
         <div className="flex flex-col gap-2">

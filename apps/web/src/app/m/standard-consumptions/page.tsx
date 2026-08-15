@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Beaker } from "lucide-react";
+import { Beaker, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
@@ -10,6 +10,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileSectionTitle,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileStandardConsumptionsList } from "./MobileStandardConsumptionsList";
 import { MobileStandardConsumptionsFab } from "./MobileStandardConsumptionsFab";
@@ -82,6 +83,11 @@ async function MobileStandardConsumptionsContent() {
               ? "Tap + to define how much material a work type should consume"
               : "Add materials first, then define standard consumption benchmarks"
             : "Standard consumption benchmarks will appear here"}
+          action={
+            canManage && materialOptions.length === 0 ? (
+              <MobileCta href="/m/materials/new" icon={Plus} variant="primary">Add Material</MobileCta>
+            ) : undefined
+          }
         />
       )}
 

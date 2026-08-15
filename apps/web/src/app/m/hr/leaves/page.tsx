@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
@@ -11,6 +11,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileStatusBadge,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileLeavesList } from "./MobileLeavesList";
 import { MobileLeavesFab } from "./MobileLeavesFab";
@@ -94,6 +95,11 @@ async function MobileLeavesContent() {
                 ? "Add employees first, then record their leave entries"
                 : "Tap + to record a leave entry"
               : "Leave records will appear here"
+          }
+          action={
+            canManage && employees.length === 0 ? (
+              <MobileCta href="/m/hr/employees" icon={Plus} variant="primary">Go to Employees</MobileCta>
+            ) : undefined
           }
         />
       )}

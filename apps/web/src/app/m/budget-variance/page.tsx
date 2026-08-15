@@ -5,11 +5,11 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBudgetVariance } from "@nirman/services";
-import { TrendingUp, TrendingDown, AlertTriangle, ChevronLeft } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, ChevronLeft, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileBudgetVarianceProjectSelector } from "./MobileBudgetVarianceProjectSelector";
 
 /**
@@ -123,6 +123,11 @@ async function MobileBudgetVarianceContent({
           icon={AlertTriangle}
           title="No variance data"
           hint="Add BOQ line items, record material issues, or log project costs to see budget variance."
+          action={
+            <MobileCta href={`/m/boq${selectedProject ? `?project=${selectedProject}` : ""}`} icon={Plus} variant="primary">
+              Go to BOQ
+            </MobileCta>
+          }
         />
       ) : (
         <>

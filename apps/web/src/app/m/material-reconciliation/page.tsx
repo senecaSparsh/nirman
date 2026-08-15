@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getProjectMaterialReconciliation } from "@nirman/services";
-import { Package, AlertTriangle, TrendingDown } from "lucide-react";
+import { Package, AlertTriangle, TrendingDown, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
@@ -11,6 +11,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
   MobileSectionTitle,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileMaterialReconProjectSelector } from "./MobileMaterialReconProjectSelector";
 
@@ -146,6 +147,11 @@ async function MobileMaterialReconContent({
           icon={Package}
           title="No reconciliation data"
           hint="This project has no BOQ line items to reconcile yet."
+          action={
+            <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
+              Go to BOQ
+            </MobileCta>
+          }
         />
       ) : (
         <div className="flex flex-col gap-2">

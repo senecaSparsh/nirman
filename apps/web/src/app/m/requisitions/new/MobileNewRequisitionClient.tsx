@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ShoppingCart, Plus, Trash2, Send, Loader2, ChevronLeft, WifiOff,
 } from "lucide-react";
@@ -158,9 +159,17 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No projects available
           </p>
-          <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-[0.6875rem] mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
             Create a project first to raise material indents
           </p>
+          <Link
+            href="/m/projects"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-[0.6875rem] font-bold press"
+            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+          >
+            <Plus className="size-3.5" />
+            Go to Projects
+          </Link>
         </div>
       </div>
     );

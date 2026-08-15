@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, ArrowLeft, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Globe, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
@@ -115,9 +116,17 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No available units
           </p>
-          <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-[0.6875rem] mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
             Units with status "Available" can be listed on portals
           </p>
+          <Link
+            href="/m/units"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-[0.6875rem] font-bold press"
+            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+          >
+            <Plus className="size-3.5" />
+            Go to Built Units
+          </Link>
         </div>
       </div>
     );

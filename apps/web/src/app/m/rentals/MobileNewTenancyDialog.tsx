@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { X, Loader2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -240,7 +241,11 @@ export function MobileNewTenancyDialog({
             </select>
             {assets.length === 0 && (
               <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-                No {form.assetType === "LAND" ? "land parcels" : "built units"} available.
+                No {form.assetType === "LAND" ? "land parcels" : "built units"} available.{" "}
+                <Link href={form.assetType === "LAND" ? "/m/land" : "/m/units"} className="underline font-semibold">
+                  Create one first
+                </Link>
+                .
               </p>
             )}
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { X, Loader2, Wrench, Plus, Trash2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -415,9 +416,19 @@ export function MobileNewWorkOrderDialog({
                   <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-ink-500)" }} />
                 </div>
               ) : boqItems.length === 0 ? (
-                <p className="text-[0.6875rem] text-center py-8" style={{ color: "var(--color-ink-500)" }}>
-                  No BOQ line items found for this project. Create BOQ items first.
-                </p>
+                <div className="text-center py-8">
+                  <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+                    No BOQ line items found for this project.
+                  </p>
+                  <Link
+                    href={`/m/boq?project=${form.projectId}`}
+                    className="inline-flex items-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-4 py-2 text-[0.6875rem] font-bold press"
+                    style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+                  >
+                    <Plus className="size-3.5" />
+                    Create BOQ Items
+                  </Link>
+                </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {boqItems.map((item) => {

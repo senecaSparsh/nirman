@@ -197,21 +197,32 @@ export default function MobileNewSupplierReturnClient({
     );
   }
 
-  /* ── Empty-data guard ── */
+  /* ── Empty-data guard — with action buttons to create prerequisites ── */
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
-        <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
-          {suppliers.length === 0 ? "Add a supplier first. " : ""}
-          {materials.length === 0 ? "Add a material first. " : ""}
-          {locations.length === 0 ? "Add a stock location first. " : ""}
+        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+          You need these before creating a supplier return:
         </p>
-        <Link
-          href="/m/supplier-returns"
-          className="mt-4 rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-        >
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          {suppliers.length === 0 && (
+            <Link href="/m/suppliers/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+              <Plus className="size-3.5" /> Add a Supplier
+            </Link>
+          )}
+          {materials.length === 0 && (
+            <Link href="/m/materials/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+              <Plus className="size-3.5" /> Add a Material
+            </Link>
+          )}
+          {locations.length === 0 && (
+            <Link href="/m/stock-locations/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+              <Plus className="size-3.5" /> Add a Stock Location
+            </Link>
+          )}
+        </div>
+        <Link href="/m/supplier-returns" className="mt-4 text-[0.6875rem] font-semibold press" style={{ color: "var(--color-ink-500)" }}>
           Back to Returns
         </Link>
       </div>

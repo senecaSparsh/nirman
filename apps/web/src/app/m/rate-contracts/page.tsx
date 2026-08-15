@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { FileText } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
+  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileRateContractsList } from "./MobileRateContractsList";
 import { MobileRateContractsFab } from "./MobileRateContractsFab";
@@ -100,6 +101,15 @@ async function MobileRateContractsContent() {
                   ? "Add materials first, then create rate contracts with suppliers"
                   : "Tap + to create a rate contract with a supplier"
               : "Rate contracts will appear here"
+          }
+          action={
+            canManage ? (
+              suppliers.length === 0 ? (
+                <MobileCta href="/m/suppliers/new" icon={Plus} variant="primary">Add Supplier</MobileCta>
+              ) : materials.length === 0 ? (
+                <MobileCta href="/m/materials/new" icon={Plus} variant="primary">Add Material</MobileCta>
+              ) : undefined
+            ) : undefined
           }
         />
       )}

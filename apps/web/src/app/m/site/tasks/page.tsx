@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Plus } from "lucide-react";
 import { getCurrentUser, getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission, ROLES } from "@/lib/roles";
-import { MobileStatCard } from "@/components/mobile/v2/primitives";
+import { MobileStatCard, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
 import { MobileTasksFab } from "./MobileTasksFab";
 
@@ -70,6 +70,15 @@ async function SiteTasksContent() {
       </div>
 
       <MobileTaskList tasks={taskItems} />
+
+      {tasks.length === 0 && canAssign && teamMembers.length === 0 && (
+        <MobileEmptyState
+          icon={CheckSquare}
+          title="No team members"
+          hint="Add team members first, then assign tasks to them"
+          action={<MobileCta href="/m/settings/team" icon={Plus} variant="primary">Go to Team</MobileCta>}
+        />
+      )}
 
       {canAssign && teamMembers.length > 0 && (
         <MobileTasksFab

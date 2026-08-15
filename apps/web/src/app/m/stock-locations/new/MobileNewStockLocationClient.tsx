@@ -206,7 +206,11 @@ export default function MobileNewStockLocationClient({
             </select>
             {projects.length === 0 && (
               <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-stop)" }}>
-                No projects found. Create a project first.
+                No projects found.{" "}
+                <Link href="/m/projects" className="underline font-semibold">
+                  Create a project first
+                </Link>
+                .
               </p>
             )}
           </div>

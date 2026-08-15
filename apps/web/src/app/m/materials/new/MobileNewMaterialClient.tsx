@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Package, Send, Loader2,
+  Package, Send, Loader2, Plus,
   ChevronLeft, CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
+import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
 
 interface Category {
   id: string;
@@ -28,11 +29,13 @@ export default function MobileNewMaterialClient({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<{ name: string; code: string; id: string } | null>(null);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [categoryList, setCategoryList] = useState(categories);
 
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-  const [unit, setUnit] = useState(categories[0]?.unit ?? "NOS");
+  const [categoryId, setCategoryId] = useState(categoryList[0]?.id ?? "");
+  const [unit, setUnit] = useState(categoryList[0]?.unit ?? "NOS");
   const [hsnCode, setHsnCode] = useState("");
   const [gstRate, setGstRate] = useState("0");
   const [standardCost, setStandardCost] = useState("");
@@ -41,7 +44,7 @@ export default function MobileNewMaterialClient({
 
   function handleCategoryChange(newCatId: string) {
     setCategoryId(newCatId);
-    const cat = categories.find((c) => c.id === newCatId);
+    const cat = categoryList.find((c) => c.id === newCatId);
     if (cat) setUnit(cat.unit);
   }
 
@@ -130,8 +133,8 @@ export default function MobileNewMaterialClient({
     );
   }
 
-  /* ── Empty categories guard ── */
-  if (categories.length === 0) {
+  /* ── Empty categories guard — with inline create action ── */
+  if (categoryList.length === 0) {
     return (
       <div className="p-4">
         <div className="mb-4">
@@ -145,10 +148,27 @@ export default function MobileNewMaterialClient({
           <p className="text-[0.75rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
             No material categories
           </p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
             You need at least one category before adding materials.
           </p>
+          <button
+            onClick={() => setShowNewCategory(true)}
+            className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+          >
+            <Plus className="size-3.5" />
+            Create Category
+          </button>
         </div>
+        <MobileNewCategoryDialog
+          open={showNewCategory}
+          onClose={() => setShowNewCategory(false)}
+          onCreated={(cat) => {
+            setCategoryList((prev) => [...prev, cat]);
+            setCategoryId(cat.id);
+            setUnit(cat.unit);
+          }}
+        />
       </div>
     );
   }
@@ -216,7 +236,7 @@ export default function MobileNewMaterialClient({
             className={inputClass}
             style={inputStyle}
           >
-            {categories.map((c) => (
+            {categoryList.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
