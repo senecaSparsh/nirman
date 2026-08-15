@@ -100,9 +100,11 @@ const INTENTS: IntentDef[] = [
   {
     intent: "GREETING",
     keywords: [
-      "hello", "hi", "hey", "namaste", "namaskar", "namastey",
-      "good morning", "good evening", "good afternoon",
-      "suprabhat", "shubh sandhya",
+      "hello", "hi", "hey", "namaste", "namaskar", "namastey", "namasteji",
+      "good morning", "good evening", "good afternoon", "good night",
+      "suprabhat", "shubh sandhya", "shubh ratri",
+      "kaise ho", "kaisa hai", "kya haal", "kya hal",
+      "start", "shuru", "chalu",
     ],
   },
 
@@ -111,9 +113,27 @@ const INTENTS: IntentDef[] = [
     intent: "HELP",
     keywords: [
       "help", "madad", "sahayata", "kya kar sakte", "kya kar sakta",
-      "what can you do", "commands", "options",
-      "kya kya kar sakte ho", "kya hota hai",
+      "what can you do", "commands", "options", "commands list",
+      "kya kya kar sakte ho", "kya hota hai", "kya kar sakte ho aap",
+      "feature", "features", "kaun kaun se", "kya kya hota",
+      "guide", "tutorial", "sikha", "sikhao",
+      "kaise use kare", "how to use",
     ],
+  },
+
+  // ── Dashboard / overview ───────────────────────────────────────────────
+  {
+    intent: "DASHBOARD",
+    keywords: [
+      "dashboard", "overview", "summary dikhao",
+      "haal chaal", "kya chal raha", "status dikhao",
+      "big picture", "mera dashboard", "quick status",
+      "snapshot", "kaisa chal raha", "kya scene",
+      "sab kuch dikhao", "all status", "brief",
+      "update dikhao", "kya update", "kya naya",
+      "flash", "glance", "jaldi se batao",
+    ],
+    weight: 5,
   },
 
   // ── Stock query ───────────────────────────────────────────────────────
@@ -126,6 +146,12 @@ const INTENTS: IntentDef[] = [
       "bhandar", "stock kitna", "material kitna",
       "cement kitna", "steel kitna", "sand kitna", "brick kitna",
       "kitna bacha", "kitna pada hai", "kya pada hai",
+      "stock list", "material list", "maal list",
+      "inventory check", "stock check", "stock dekho",
+      "kya available", "kya hai pas", "kya store mein",
+      "godi mein kya", "godam mein kya", "warehouse mein kya",
+      "kitna mila", "kitna aaya", "stock quantity",
+      "current stock", "present stock", "stock level",
     ],
     weight: 2,
   },
@@ -139,6 +165,9 @@ const INTENTS: IntentDef[] = [
       "min stock", "kam ho raha", "stock neeche", "low inventory",
       "kya khatam ho raha", "kya kam hai", "reorder karna",
       "kam pad gaya", "stock low", "stock kam",
+      "almost over", "barely", "thoda sa bacha",
+      "khatam hone wala", "soon ending", "critical stock",
+      "shortage", "kam pad raha", "neeche aa raha",
     ],
     weight: 6,
   },
@@ -152,6 +181,8 @@ const INTENTS: IntentDef[] = [
       "kitne pending", "approval queue", "waiting for approval",
       "manzoor kya", "manjur list", "pending list",
       "kya pending hai", "kya approve karna hai",
+      "approval status", "kya rukha hai", "kya block hai",
+      "kiska wait", "kispe rukka", "kispe pending",
     ],
     weight: 2,
   },
@@ -164,6 +195,8 @@ const INTENTS: IntentDef[] = [
       "po manjur kar", "approve po", "approve this po",
       "po approve kar", "po approve kar do", "po manzoor kar do",
       "purchase order approve kar", "po pass kar do",
+      "po clear kar", "po ok kar", "po yes kar",
+      "po confirm", "po green signal",
     ],
     weight: 4,
   },
@@ -176,6 +209,7 @@ const INTENTS: IntentDef[] = [
       "requisition manzoor", "req manjur kar", "approve req",
       "approve requisition", "req approve kar", "req approve kar do",
       "requisition approve kar", "req pass kar do",
+      "requisition clear", "requisition ok", "requisition confirm",
     ],
     weight: 4,
   },
@@ -186,6 +220,7 @@ const INTENTS: IntentDef[] = [
     keywords: [
       "po reject", "reject po", "po reject kar", "po reject kar do",
       "purchase order reject", "po mana kar", "po reject kar do",
+      "po cancel", "po decline", "po no",
     ],
     weight: 5,
   },
@@ -194,6 +229,7 @@ const INTENTS: IntentDef[] = [
     keywords: [
       "req reject", "reject req", "requisition reject", "req reject kar",
       "req mana kar", "requisition reject kar", "req reject kar do",
+      "requisition cancel", "requisition decline", "req no",
     ],
     weight: 5,
   },
@@ -207,6 +243,8 @@ const INTENTS: IntentDef[] = [
       "kitni bikri", "kitni sales", "sales list",
       "bikri kitni", "sale kitni hui", "bikri hui",
       "total sales", "today sales", "sales report",
+      "bech kya", "kya becha", "kya bikra",
+      "sales today", "bikri aaj", "aaj ka business",
     ],
     weight: 2,
   },
@@ -219,6 +257,8 @@ const INTENTS: IntentDef[] = [
       "bikri karni hai", "bechna hai", "sell karna",
       "sale banao", "bikri banao", "create sale",
       "new bill", "naya bill", "bill banao", "invoice banao",
+      "naya invoice", "bill create", "invoice create",
+      "bech do", "sell kar", "bikri kar do",
     ],
     weight: 3,
   },
@@ -232,6 +272,8 @@ const INTENTS: IntentDef[] = [
       "kitna paisa aaya", "payment pending", "payment baki",
       "udhar", "bakaya", "outstanding", "receivable",
       "payment kitni baki", "paisa baki",
+      "kitna mila", "kitna collect", "collection status",
+      "payment due", "baki kitna", "udhar kitna",
     ],
     weight: 2,
   },
@@ -245,6 +287,7 @@ const INTENTS: IntentDef[] = [
       "project update", "project condition",
       "project kya haal", "project ka status",
       "kaisa chal raha hai", "project kya hal",
+      "project chal raha", "project going",
     ],
     weight: 3,
   },
@@ -256,6 +299,7 @@ const INTENTS: IntentDef[] = [
       "projects", "project list", "project dikhao",
       "kitne project", "project kitne", "saare project",
       "all projects", "project kya kya", "kaun se project",
+      "project kya", "project names", "project count",
     ],
     weight: 2,
   },
@@ -269,6 +313,8 @@ const INTENTS: IntentDef[] = [
       "cash kitna", "bank kitna", "paisa kitna bacha",
       "cash in hand", "cash in bank", "fund kitna",
       "total cash", "paisa", "balance kitna",
+      "paisa kya", "kitna rupaya", "kitne paise",
+      "account balance", "bank statement",
     ],
     weight: 2,
   },
@@ -282,6 +328,7 @@ const INTENTS: IntentDef[] = [
       "supplier payment", "supplier bakaya",
       "udhaar kitna", "supplier ko kitna",
       "kisko kitna dena hai", "payable kitna",
+      "supplier ka bakaya", "vendor ko dena",
     ],
     weight: 3,
   },
@@ -293,6 +340,7 @@ const INTENTS: IntentDef[] = [
       "suppliers", "supplier list", "supplier dikhao",
       "vendor", "vendor list", "vendor dikhao",
       "kitne supplier", "supplier kaun", "supplier kya kya",
+      "supplier kaun se", "vendor kaun",
     ],
     weight: 2,
   },
@@ -307,6 +355,8 @@ const INTENTS: IntentDef[] = [
       "kamgar kitne", "aaj ka attendance",
       "present kitne", "absent kitne",
       "attendance dikhao", "attendance status",
+      "aaj ka haazri", "haazri", "hazri",
+      "aaj ka kaam", "site par kitne",
     ],
     weight: 2,
   },
@@ -319,6 +369,7 @@ const INTENTS: IntentDef[] = [
       "create po", "po create", "naya purchase order",
       "po banani hai", "order banao", "purchase order create",
       "po karo", "po place karo",
+      "order karo", "order place",
     ],
     weight: 3,
   },
@@ -332,6 +383,7 @@ const INTENTS: IntentDef[] = [
       "maal mangwao", "material mangwao",
       "req banani hai", "requisition create",
       "material chahiye", "maal chahiye",
+      "order material", "material order",
     ],
     weight: 3,
   },
@@ -344,6 +396,7 @@ const INTENTS: IntentDef[] = [
       "requisition auto", "req auto", "automatically req",
       "auto maal mangwao", "auto generate req",
       "reorder auto", "auto create requisition",
+      "automatic req", "khud se req",
     ],
     weight: 4,
   },
@@ -357,6 +410,7 @@ const INTENTS: IntentDef[] = [
       "aaj ka dpr", "daily report dikhao",
       "progress dikhao", "site report",
       "dpr pending", "dpr status",
+      "dpr kitne", "kitne dpr",
     ],
     weight: 2,
   },
@@ -371,6 +425,7 @@ const INTENTS: IntentDef[] = [
       "gl dikhao", "ledger dikhao", "books dikhao",
       "p&l", "profit loss", "profit and loss",
       "income statement", "natija", "labh hani",
+      "accounts check", "books check",
     ],
     weight: 3,
   },
@@ -385,6 +440,7 @@ const INTENTS: IntentDef[] = [
       "equipment dikhao", "machine dikhao",
       "kaun sa equipment", "kitne equipment",
       "yaan", "jantra",
+      "equipment list", "tools list",
     ],
     weight: 2,
   },
@@ -398,6 +454,7 @@ const INTENTS: IntentDef[] = [
       "kitna kharcha", "expenses list",
       "aaj ka kharcha", "recent expenses",
       "kharch hua", "expense hua",
+      "spend kitna", "spending kitna",
     ],
     weight: 2,
   },
@@ -410,6 +467,7 @@ const INTENTS: IntentDef[] = [
       "transfer karo", "stock bhejo",
       "material transfer", "ek jagah se doosri",
       "shift karo", "relocate",
+      "bhejo material", "send stock",
     ],
     weight: 3,
   },
@@ -422,6 +480,7 @@ const INTENTS: IntentDef[] = [
       "maal issue karo", "project ko maal do",
       "site ko material do", "issue karo",
       "material bhejo site", "issue stock",
+      "challan banao", "gate pass",
     ],
     weight: 3,
   },
@@ -435,6 +494,7 @@ const INTENTS: IntentDef[] = [
       "pending task", "pending kaam",
       "kitne kaam", "task pending",
       "my tasks", "mere kaam",
+      "kya kaam", "kya pending",
     ],
     weight: 2,
   },
@@ -448,6 +508,7 @@ const INTENTS: IntentDef[] = [
       "kitne worker", "worker dikhao",
       "employees", "employee list",
       "staff", "staff list",
+      "kya staff", "kaun kaun kaam karta",
     ],
     weight: 2,
   },
@@ -461,6 +522,7 @@ const INTENTS: IntentDef[] = [
       "kya pending hai", "sab pending", "kya karu",
       "kya handle karna hai", "kya focus karna",
       "priority", "urgent kya hai", "kya urgent",
+      "kya zaroori", "kya critical", "kya emergency",
     ],
     weight: 3,
   },
@@ -474,6 +536,7 @@ const INTENTS: IntentDef[] = [
       "mahine ka report", "monthly report",
       "is mahine kitni", "is mahine kya hua",
       "month ka status", "mahine ka status",
+      "pichla mahina", "last month",
     ],
     weight: 4,
   },
@@ -487,6 +550,7 @@ const INTENTS: IntentDef[] = [
       "loss kitna", "net profit", "gross profit",
       "margin kitna", "profitability",
       "kamaai kitni", "nuksan kitna",
+      "profit kya", "kamaai kya",
     ],
     weight: 4,
   },
@@ -514,6 +578,7 @@ const INTENTS: IntentDef[] = [
       "approve kar do sab", "sab pass kar do",
       "all pending approve", "sab approve",
       "sab approve kar do", "approve everything",
+      "sab clear kar", "sab ok kar",
     ],
     weight: 5,
   },
@@ -527,20 +592,9 @@ const INTENTS: IntentDef[] = [
       "payment bhejo supplier", "supplier ko dena",
       "make payment", "pay karna", "pay kar",
       "supplier ko pay kar", "pay kar do",
+      "supplier ko pay", "vendor ko pay",
     ],
     weight: 4,
-  },
-
-  // ── Dashboard / overview ───────────────────────────────────────────────
-  {
-    intent: "DASHBOARD",
-    keywords: [
-      "dashboard", "overview", "summary dikhao",
-      "haal chaal", "kya chal raha", "status dikhao",
-      "big picture", "mine ka status", "mera dashboard",
-      "quick status", "snapshot", "kaisa chal raha",
-    ],
-    weight: 5,
   },
 
   // ── Land / real estate ─────────────────────────────────────────────────
@@ -552,6 +606,7 @@ const INTENTS: IntentDef[] = [
       "kitni zameen", "land kya hai", "land dikhao",
       "real estate", "plots", "parcels",
       "zameen kitni", "land status", "land inventory",
+      "zameen list", "plot list", "property list",
     ],
     weight: 3,
   },
@@ -564,6 +619,7 @@ const INTENTS: IntentDef[] = [
       "grahak", "grahak list", "kitne customer",
       "client", "clients", "client list",
       "party list", "parties", "customer kaun",
+      "customer kya kya", "grahak kaun",
     ],
     weight: 2,
   },
@@ -578,6 +634,7 @@ const INTENTS: IntentDef[] = [
       "payroll list", "salary list",
       "payroll report", "wages",
       "mazdoori", "payment to workers",
+      "salary paid", "salary pending",
     ],
     weight: 3,
   },
@@ -591,6 +648,7 @@ const INTENTS: IntentDef[] = [
       "subcontractor", "thekedaar",
       "work order status", "wo status",
       "kitne work order", "wo kitne",
+      "thekedaar kaam", "contractor work",
     ],
     weight: 3,
   },
@@ -603,6 +661,7 @@ const INTENTS: IntentDef[] = [
       "boq dikhao", "boq status",
       "boq kitna", "boq list",
       "quantity survey", "qs",
+      "boq items", "boq detail",
     ],
     weight: 4,
   },
@@ -614,6 +673,7 @@ const INTENTS: IntentDef[] = [
       "wbs", "work breakdown", "work breakdown structure",
       "wbs dikhao", "wbs tree",
       "task breakdown", "wbs status",
+      "wbs nodes", "wbs detail",
     ],
     weight: 4,
   },
@@ -627,6 +687,7 @@ const INTENTS: IntentDef[] = [
       "budget over", "budget under",
       "budget difference", "budget status",
       "over budget", "under budget",
+      "budget check", "budget exceeded",
     ],
     weight: 4,
   },
@@ -640,6 +701,7 @@ const INTENTS: IntentDef[] = [
       "portal listing", "listing dikhao",
       "online listing", "property listing",
       "kitne listing", "listing status",
+      "listing list", "portal status",
     ],
     weight: 3,
   },
@@ -652,6 +714,7 @@ const INTENTS: IntentDef[] = [
       "scrap dikhao", "scrap status",
       "scrap kitna", "kabad kitna",
       "scrap sale", "scrap value",
+      "kabad list", "waste list",
     ],
     weight: 3,
   },
@@ -664,6 +727,7 @@ const INTENTS: IntentDef[] = [
       "tally export", "tally dikhao",
       "sync status", "tally sync kitna",
       "tally pending", "tally entries",
+      "tally update", "tally log",
     ],
     weight: 5,
   },
@@ -676,18 +740,26 @@ const INTENTS: IntentDef[] = [
 const HINDI_NUMBERS: Record<string, number> = {
   // ones
   ek: 1, do: 2, teen: 3, char: 4, chaar: 4, paanch: 5, panch: 5, chhah: 6, chhe: 6, saat: 7, aath: 8, nau: 9, no: 9,
+  // 11-19
+  gyaarah: 11, gyarah: 11, baarah: 12, terah: 13, chaudah: 14, pandrah: 15, solah: 16, satrah: 17, athaarah: 18, unnees: 19, unnis: 19,
+  // 20-29
+  bees: 20, ikees: 21, ekis: 21, baees: 22, baais: 22, tees: 30,
   // tens
-  das: 10, gyaarah: 11, gyarah: 11, baarah: 12, terah: 13, chaudah: 14, pandrah: 15, solah: 16, satrah: 17, athaarah: 18, unnees: 19, unnis: 19,
-  bees: 20, tees: 30, chaalis: 40, chalis: 40, pachaas: 50, pachas: 50, saath: 60, sattar: 70, assi: 80, asi: 80, nabbe: 90,
+  chaalis: 40, chalis: 40, pachaas: 50, pachas: 50, saath: 60, sattar: 70, assi: 80, asi: 80, nabbe: 90,
+  // 21-99 compound (common ones)
+  ikattis: 31, battis: 32, untis: 29,
   // scale words (multipliers)
-  sau: 100, hazaar: 1000, hazar: 1000, lakh: 100000, lac: 100000, crore: 10000000,
+  sau: 100, hazaar: 1000, hazar: 1000, lakh: 100000, lac: 100000, crore: 10000000, karod: 10000000, arab: 1000000000,
   // English number words
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
   twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
-  hundred: 100, thousand: 1000,
+  hundred: 100, thousand: 1000, million: 1000000, billion: 1000000000,
+  // Hindi fractions/common
+  aadha: 0.5, adha: 0.5, half: 0.5, quarter: 0.25, sawa: 1.25, dedh: 1.5, dhai: 2.5,
 };
 
-const SCALE_WORDS = new Set(["sau", "hazaar", "hazar", "lakh", "lac", "crore", "hundred", "thousand"]);
+const SCALE_WORDS = new Set(["sau", "hazaar", "hazar", "lakh", "lac", "crore", "karod", "arab", "hundred", "thousand", "million", "billion"]);
 
 /**
  * Parse Hindi/Hinglish number words to digits.
@@ -731,11 +803,17 @@ function parseHindiNumber(text: string): number | null {
 
 // ── Ordinal extraction ("first one", "pehla", "doosra") ───────────────────
 const ORDINALS: Record<string, number> = {
-  pehla: 1, pehli: 1, pehle: 1, first: 1,
-  doosra: 2, doosri: 2, second: 2,
-  teesra: 3, teesri: 3, third: 3,
+  pehla: 1, pehli: 1, pehle: 1, first: 1, pahla: 1, pahli: 1, pahle: 1,
+  doosra: 2, doosri: 2, second: 2, dusra: 2, dusri: 2,
+  teesra: 3, teesri: 3, third: 3, tisra: 3, tisri: 3,
   chautha: 4, chauthi: 4, fourth: 4,
-  panchwa: 5, panchwi: 5, fifth: 5,
+  panchwa: 5, panchwi: 5, fifth: 5, paanchwa: 5, paanchwi: 5,
+  chhatha: 6, chhathi: 6, sixth: 6,
+  saatwa: 7, saatwi: 7, seventh: 7,
+  aathwa: 8, aathwi: 8, eighth: 8,
+  nauwa: 9, nauwi: 9, ninth: 9,
+  daswa: 10, daswi: 10, tenth: 10,
+  last: -1, aakhri: -1, aakhari: -1, ant: -1, antim: -1,
 };
 
 function extractOrdinal(text: string): number | undefined {
@@ -803,29 +881,88 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   // Hindi aliases map to English search terms that match DB names
   const materialAliases: Record<string, string> = {
     cement: "cement",
+    "cement ka": "cement",
     steel: "steel",
     sariya: "steel", // Hindi: sariya = steel rebar
+    sariye: "steel",
+    rebar: "steel",
+    tmt: "steel",
     sand: "sand",
     reti: "sand", // Hindi: reti = sand
+    bhusa: "sand",
     brick: "brick",
     eent: "brick", // Hindi: eent = brick
+    int: "brick",
     aggregate: "aggregate",
+    grit: "aggregate",
     stone: "stone",
     pathar: "stone", // Hindi: pathar = stone
+    patthar: "stone",
     wood: "wood",
     timber: "timber",
     lakdi: "timber", // Hindi: lakdi = wood
+    lakadee: "timber",
     plywood: "plywood",
     paint: "paint",
+    rang: "paint", // Hindi: rang = color/paint
     pipe: "pipe",
     nali: "pipe", // Hindi: nali = pipe/drain
+    naali: "pipe",
     wire: "wire",
     taar: "wire", // Hindi: taar = wire
     cable: "cable",
     glass: "glass",
+    kaanch: "glass", // Hindi: kaanch = glass
+    kanch: "glass",
     tile: "tile",
     marble: "marble",
+    sangmarmar: "marble",
     granite: "granite",
+    // Additional materials
+    concrete: "concrete",
+    mortar: "mortar",
+    "cement mortar": "mortar",
+    block: "block",
+    "aac block": "block",
+    paver: "paver",
+    dust: "dust",
+    "fly ash": "fly ash",
+    gypsum: "gypsum",
+    pop: "pop", // Plaster of Paris
+    putty: "putty",
+    primer: "primer",
+    enamel: "enamel",
+    varnish: "varnish",
+    nail: "nail",
+    keel: "nail", // Hindi: keel = nail
+    screw: "screw",
+    bolt: "bolt",
+    nut: "nut",
+    washer: "washer",
+    hinge: "hinge",
+    lock: "lock",
+    tala: "lock", // Hindi: tala = lock
+    door: "door",
+    darwaza: "door", // Hindi: darwaza = door
+    window: "window",
+    khidki: "window", // Hindi: khidki = window
+    roofing: "roofing",
+    sheet: "sheet",
+    tar: "tar",
+    bitumen: "bitumen",
+    diesel: "diesel",
+    petrol: "petrol",
+    oil: "oil",
+    grease: "grease",
+    welding: "welding",
+    electrode: "electrode",
+    mesh: "mesh",
+    "gi mesh": "mesh",
+    reinforcement: "steel",
+    "coarse sand": "sand",
+    "fine sand": "sand",
+    "m sand": "sand",
+    "p sand": "sand",
   };
   for (const [alias, dbTerm] of Object.entries(materialAliases)) {
     if (lower.includes(alias)) {
@@ -843,11 +980,25 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   // ── Ordinal ("first one", "pehla", "doosra") ──
   entities.ordinal = extractOrdinal(text);
 
-  // ── Quantity + unit ("5 bag", "10 kg", "pachaas cft") ──
-  const qtyMatch = text.match(/(\d+)\s*(bag|bags|kg|kgs|nos|cft|mtr|ton|tonnes|litre|litres|lt|box|boxes|piece|pieces|pcs|set|sets|roll|rolls|feet|ft)/i);
+  // ── Quantity + unit ("5 bag", "10 kg", "pachaas cft", "do ton") ──
+  // First try digit-based quantity
+  const qtyMatch = text.match(/(\d+(?:\.\d+)?)\s*(bag|bags|kg|kgs|nos|cft|mtr|ton|tonnes|litre|litres|lt|ltr|box|boxes|piece|pieces|pcs|set|sets|roll|rolls|feet|ft|cum|sqm|sqft|rmt|bundle|bundles|drum|drums|tank|tanks|gal|gallon|gallons|cylinder|cylinders)/i);
   if (qtyMatch && qtyMatch[1]) {
-    entities.quantity = parseInt(qtyMatch[1], 10);
+    entities.quantity = parseFloat(qtyMatch[1]);
     entities.unit = qtyMatch[2]?.toUpperCase().replace(/S$/, "");
+  }
+  // Also try Hindi unit words
+  if (!entities.quantity) {
+    const hindiQtyMatch = text.match(/(\d+(?:\.\d+)?)\s*(bori|boonda|gatha|haath|gaj|meter|metre|kilogram|gram|milli|chhota|bada|theka)/i);
+    if (hindiQtyMatch && hindiQtyMatch[1]) {
+      entities.quantity = parseFloat(hindiQtyMatch[1]);
+      const u = hindiQtyMatch[2]?.toLowerCase();
+      if (u === "bori") entities.unit = "BAG";
+      else if (u === "meter" || u === "metre") entities.unit = "MTR";
+      else if (u === "kilogram") entities.unit = "KG";
+      else if (u === "gram") entities.unit = "GM";
+      else if (u === "gaj") entities.unit = "SQFT";
+    }
   }
 
   // ── Unit price ("@ 500", "rate 500", "500 per", "500 ka") ──

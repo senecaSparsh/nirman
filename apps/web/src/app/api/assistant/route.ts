@@ -19,6 +19,7 @@ import {
 } from "@nirman/services";
 import { apiHandler, json, requireUser, getCompany, toNum, getCurrentUser } from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
+import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
 import { hasPermission, PERM, type Role } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
@@ -68,13 +69,56 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Text is required" }, { status: 400 });
   }
 
+  // ── Conversation context from client (for multi-turn slot-filling) ──
+  const context: ConversationContext = body?.context ?? { history: [] };
+
   const parsed = parseIntent(text);
-  const response = await executeIntent(parsed.intent, parsed.entities, company.id, text, role);
+
+  // ── Process through conversation state machine ──
+  const conv = processConversation(parsed, context);
+
+  // If the assistant needs more info, return the prompt without executing
+  if (conv.needsInput && conv.prompt) {
+    return json({
+      text: conv.prompt,
+      intent: conv.intent,
+      confidence: parsed.confidence,
+      needsInput: true,
+      context: conv.updatedContext,
+    });
+  }
+
+  // If this is a multi-step task, return the step prompt
+  if (conv.hasMoreSteps && conv.prompt && !conv.ready) {
+    return json({
+      text: conv.prompt,
+      intent: conv.intent,
+      confidence: parsed.confidence,
+      hasMoreSteps: true,
+      context: conv.updatedContext,
+    });
+  }
+
+  // ── Execute the intent with resolved entities ──
+  const response = await executeIntent(conv.intent, conv.entities, company.id, text, role);
+
+  // Add conversation context to the response
+  const updatedHistory = [
+    ...context.history,
+    { role: "user" as const, text, intent: parsed.intent, entities: parsed.entities },
+    { role: "assistant" as const, text: response.text, intent: conv.intent },
+  ].slice(-20); // keep last 20 turns
 
   return json({
     ...response,
-    intent: parsed.intent,
+    intent: conv.intent,
     confidence: parsed.confidence,
+    needsInput: false,
+    hasMoreSteps: conv.hasMoreSteps,
+    context: {
+      history: updatedHistory,
+      currentTask: conv.updatedContext.currentTask,
+    },
   });
 });
 

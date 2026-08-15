@@ -8,13 +8,21 @@ import { Mic, Loader2, Volume2, Check, X } from "lucide-react";
    VOICE AGENT BUTTON — header mic that listens + speaks, no chat sheet
 
    Tap → mic turns green + starts listening (Web Speech API).
-   On speech end → transcript sent to /api/assistant.
-   Response is spoken via TTS. If the response includes an action card,
-   a small confirmation popup appears BEFORE anything is executed:
-     - User taps Confirm → action runs (navigate or API call)
-     - User taps Cancel → popup dismissed, nothing happens
-   A tiny inline transcript toast appears under the header while listening
-   so the user sees their words being captured.
+   On speech end → transcript sent to /api/assistant with conversation context.
+   Response is spoken via TTS. Then:
+
+   1. If response has needsInput → assistant asked a follow-up question.
+      Auto-start listening again after TTS ends so user can answer.
+
+   2. If response has an action card → show confirmation popup.
+      User taps Confirm → action runs (navigate or API call).
+      User taps Cancel → popup dismissed.
+
+   3. If response has hasMoreSteps → multi-step task. After confirming
+      step 1, the assistant will guide through step 2, etc.
+
+   Conversation context (history + current task state) is maintained
+   client-side and sent with each request so the API is stateless.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface ActionCard {
@@ -25,6 +33,18 @@ interface ActionCard {
   method?: string;
   body?: Record<string, unknown>;
   variant?: "primary" | "secondary" | "danger";
+}
+
+interface ConversationContext {
+  history: { role: "user" | "assistant"; text: string; intent?: string; entities?: Record<string, unknown> }[];
+  currentTask?: {
+    intent: string;
+    entities: Record<string, unknown>;
+    missingSlots: string[];
+    steps?: { intent: string; label: string; done: boolean }[];
+    currentStep?: number;
+    originalText: string;
+  };
 }
 
 // ── Minimal Web Speech API types ──
@@ -67,15 +87,18 @@ export function VoiceAgentButton() {
   const finalTranscriptRef = useRef("");
   const autoSubmittedRef = useRef(false);
 
+  // ── Conversation context (maintained client-side) ──
+  const contextRef = useRef<ConversationContext>({ history: [] });
+
   // ── Confirmation popup state ──
-  // When the assistant returns an action card, we show a popup with the
-  // card details + the spoken response text. Nothing executes until the
-  // user taps Confirm.
   const [pendingAction, setPendingAction] = useState<{
     card: ActionCard;
     responseText: string;
   } | null>(null);
   const [executing, setExecuting] = useState(false);
+
+  // ── Whether we should auto-listen after TTS (follow-up question) ──
+  const shouldAutoListenRef = useRef(false);
 
   // ── Cleanup on unmount ──
   useEffect(() => {
@@ -124,7 +147,6 @@ export function VoiceAgentButton() {
   );
 
   // ── Execute a confirmed action card ──
-  // Called ONLY after the user taps Confirm in the popup.
   const executeCard = useCallback(
     async (card: ActionCard) => {
       setExecuting(true);
@@ -171,15 +193,40 @@ export function VoiceAgentButton() {
         const res = await fetch("/api/assistant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text.trim() }),
+          body: JSON.stringify({
+            text: text.trim(),
+            context: contextRef.current,
+          }),
         });
         const data = await res.json();
         const responseText = data.text || "Sorry, samajh nahi aaya.";
         const cards: ActionCard[] | undefined = data.cards;
+        const needsInput: boolean = data.needsInput ?? false;
+        const hasMoreSteps: boolean = data.hasMoreSteps ?? false;
 
-        // Speak the response, then show confirmation popup if there's an action
+        // Update conversation context from server
+        if (data.context) {
+          contextRef.current = data.context;
+        }
+
+        // Determine if we should auto-listen after TTS
+        shouldAutoListenRef.current = needsInput;
+
+        // Speak the response, then handle follow-up or action
         speak(responseText, () => {
-          if (cards && cards.length > 0) {
+          if (needsInput) {
+            // Assistant asked a follow-up question — auto-start listening
+            // Small delay to let the user process the question
+            setTimeout(() => {
+              if (shouldAutoListenRef.current) {
+                startListening();
+              }
+            }, 500);
+          } else if (hasMoreSteps && cards && cards.length > 0) {
+            // Multi-step task — show confirmation for current step
+            setPendingAction({ card: cards[0]!, responseText });
+          } else if (cards && cards.length > 0) {
+            // Single action — show confirmation popup
             setPendingAction({ card: cards[0]!, responseText });
           }
         });
@@ -234,7 +281,6 @@ export function VoiceAgentButton() {
 
     recognition.onend = () => {
       const text = finalTranscriptRef.current.trim();
-      // Guard against double-submit (onend can fire twice on some browsers)
       if (autoSubmittedRef.current) return;
       autoSubmittedRef.current = true;
       if (text) {
@@ -257,6 +303,9 @@ export function VoiceAgentButton() {
 
   // ── Tap handler ──
   const onTap = useCallback(() => {
+    // Cancel auto-listen if user taps manually
+    shouldAutoListenRef.current = false;
+
     if (phase === "listening") {
       recognitionRef.current?.stop();
       return;
@@ -268,7 +317,7 @@ export function VoiceAgentButton() {
       setPhase("idle");
       return;
     }
-    if (phase === "thinking") return; // don't interrupt mid-request
+    if (phase === "thinking") return;
     startListening();
   }, [phase, startListening]);
 
@@ -332,8 +381,6 @@ export function VoiceAgentButton() {
       )}
 
       {/* ── Confirmation popup ── */}
-      {/* Shows after the assistant responds with an action card. */}
-      {/* Nothing executes until the user taps Confirm. */}
       {pendingAction && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
@@ -376,7 +423,11 @@ export function VoiceAgentButton() {
             {/* Confirm / Cancel buttons */}
             <div className="flex gap-2">
               <button
-                onClick={() => setPendingAction(null)}
+                onClick={() => {
+                  setPendingAction(null);
+                  // Reset conversation context when user cancels
+                  contextRef.current = { history: [] };
+                }}
                 disabled={executing}
                 className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold disabled:opacity-50"
                 style={{
