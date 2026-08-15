@@ -14,7 +14,7 @@ export default function MobileDprPage() {
       <div className="flex items-center gap-2 mb-3">
         <MobileBackButton fallback="/m/site" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-          Submit DPR
+          Submit Daily Progress Report
         </p>
         <span
           className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"

@@ -146,7 +146,7 @@ export function MobileDprActions({
               </div>
               <div>
                 <h3 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-                  Reject this DPR?
+                  Reject this Daily Progress Report?
                 </h3>
                 <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
                   The submitter will need to revise and resubmit.

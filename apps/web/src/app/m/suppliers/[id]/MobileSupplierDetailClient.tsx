@@ -219,7 +219,7 @@ export function MobileSupplierDetailClient({
       >
         <div>
           <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            PO Value
+            Purchase Order Value
           </p>
           <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(totalPoValue)}

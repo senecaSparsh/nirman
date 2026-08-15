@@ -59,7 +59,7 @@ async function MobileDprDetailContent({
         <div className="mb-4">
           <MobileBackButton fallback="/m/dprs" className="gap-1" style={{ color: "var(--color-ink-700)" }} />
         </div>
-        <MobileEmptyState icon={Hammer} title="DPR not found" />
+        <MobileEmptyState icon={Hammer} title="Daily Progress Report not found" />
       </div>
     );
   }

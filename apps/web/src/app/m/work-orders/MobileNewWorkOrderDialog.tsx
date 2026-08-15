@@ -164,7 +164,7 @@ export function MobileNewWorkOrderDialog({
     if (!form.projectId) { toast.error("Project is required"); return; }
     if (!form.subcontractorId) { toast.error("Subcontractor is required"); return; }
     if (!form.workTitle.trim()) { toast.error("Work title is required"); return; }
-    if (selectedLines.length === 0) { toast.error("Select at least one BOQ line item"); return; }
+    if (selectedLines.length === 0) { toast.error("Select at least one Bill of Quantities line item"); return; }
     for (const l of selectedLines) {
       if (!l.agreedRate || Number(l.agreedRate) < 0) {
         toast.error(`Agreed rate for "${l.description}" must be ≥ 0`);
@@ -296,7 +296,7 @@ export function MobileNewWorkOrderDialog({
                 <input type="number" min={0} max={100} step="any" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} inputMode="decimal" className={inputClass} style={inputStyle} />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>TDS Category</label>
+                <label className={labelClass} style={labelStyle}>Tax Deducted at Source Category</label>
                 <select value={form.tdsCategory} onChange={(e) => set("tdsCategory", e.target.value as TdsCategory)} className={inputClass} style={inputStyle}>
                   <option value="INDIVIDUAL">Individual (1%)</option>
                   <option value="COMPANY">Company (2%)</option>
@@ -332,12 +332,12 @@ export function MobileNewWorkOrderDialog({
             {/* Selected BOQ lines */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                BOQ Line Items ({selectedLines.length}) <span style={{ color: "var(--color-stop)" }}>*</span>
+                Bill of Quantities Line Items ({selectedLines.length}) <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               {selectedLines.length === 0 ? (
                 <div className="rounded-[0.5rem] border border-dashed p-4 text-center" style={{ borderColor: "var(--color-line)" }}>
                   <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-                    {loadingBoq ? "Loading BOQ items…" : "Tap + Add to select scope items"}
+                    {loadingBoq ? "Loading Bill of Quantities items…" : "Tap + Add to select scope items"}
                   </p>
                 </div>
               ) : (
@@ -385,7 +385,7 @@ export function MobileNewWorkOrderDialog({
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
             >
               <Plus className="size-3.5" />
-              {boqItems.length === 0 && !loadingBoq ? "No BOQ items for this project" : "Add BOQ Item"}
+              {boqItems.length === 0 && !loadingBoq ? "No BOQ items for this project" : "Add Bill of Quantities Item"}
             </button>
 
             {/* Actions */}
@@ -406,7 +406,7 @@ export function MobileNewWorkOrderDialog({
           <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setShowBoqPicker(false)}>
             <div className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Select BOQ Items</p>
+                <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
                 <button onClick={() => setShowBoqPicker(false)} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
                   <X className="size-4" />
                 </button>
@@ -418,7 +418,7 @@ export function MobileNewWorkOrderDialog({
               ) : boqItems.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
-                    No BOQ line items found for this project.
+                    No Bill of Quantities line items found for this project.
                   </p>
                   <Link
                     href={`/m/boq?project=${form.projectId}`}
@@ -426,7 +426,7 @@ export function MobileNewWorkOrderDialog({
                     style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
                   >
                     <Plus className="size-3.5" />
-                    Create BOQ Items
+                    Create Bill of Quantities Items
                   </Link>
                 </div>
               ) : (

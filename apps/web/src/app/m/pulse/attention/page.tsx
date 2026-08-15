@@ -200,7 +200,7 @@ async function AttentionContent() {
                     key={po.id}
                     href={`/m/procurement/${po.id}`}
                     title={po.supplier.name}
-                    subtitle={`PO ${po.poNumber}`}
+                    subtitle={`Purchase Order ${po.poNumber}`}
                     meta="Draft"
                     metaColor="var(--color-signal)"
                     icon={<ClipboardCheck className="size-3" />}
@@ -231,7 +231,7 @@ async function AttentionContent() {
                     key={req.id}
                     href={`/m/requisitions/${req.id}`}
                     title={req.project?.name ?? "Requisition"}
-                    subtitle={`Req ${req.reqNumber ?? req.id.slice(-6)}`}
+                    subtitle={`Requisition ${req.reqNumber ?? req.id.slice(-6)}`}
                     meta="Submitted"
                     metaColor="var(--color-signal)"
                     icon={<ClipboardCheck className="size-3" />}
@@ -281,7 +281,7 @@ async function AttentionContent() {
                   key={po.id}
                   href={`/m/procurement/${po.id}`}
                   title={po.supplier.name}
-                  subtitle={`PO ${po.poNumber} · expected ${po.expectedDate ? formatDate(po.expectedDate) : "—"}`}
+                  subtitle={`Purchase Order ${po.poNumber} · expected ${po.expectedDate ? formatDate(po.expectedDate) : "—"}`}
                   meta={`${daysLate}d late`}
                   metaColor="var(--color-stop)"
                   icon={<Truck className="size-3" />}

@@ -176,13 +176,13 @@ async function MobileBoqContent({
 
       {/* ── BOQ tree ── */}
       <MobileSectionTitle right={<Badge tone="steel">{rows.length} nodes</Badge>}>
-        BOQ Tree
+        Bill of Quantities Tree
       </MobileSectionTitle>
 
       {rows.length === 0 ? (
         <MobileEmptyState
           icon={ListTree}
-          title="No BOQ items"
+          title="No Bill of Quantities items"
           hint={canManage ? "Tap + to add the first section or line item" : "This project doesn't have a Bill of Quantities yet"}
         />
       ) : (

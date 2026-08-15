@@ -95,7 +95,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       title: "Procurement",
       links: [
         { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, received" },
-        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site requests → PO" },
+        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site requests to purchase orders" },
         { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, ratings, balances" },
         { href: "/m/rate-contracts", icon: FileText, label: "Rate Contracts", subtitle: "Fixed-rate supplier agreements" },
         { href: "/m/supplier-returns", icon: AlertTriangle, label: "Supplier Returns", subtitle: "Return to vendor" },
@@ -132,11 +132,11 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       title: "Construction",
       links: [
         { href: "/m/boq", icon: FileText, label: "Bill of Quantities", subtitle: "BOQ items, rates, amounts" },
-        { href: "/m/wbs", icon: ListTree, label: "WBS", subtitle: "Work breakdown structure" },
+        { href: "/m/wbs", icon: ListTree, label: "Work Breakdown Structure", subtitle: "Project task hierarchy" },
         { href: "/m/measurement-book", icon: BookOpen, label: "Measurement Book", subtitle: "Measured work entries" },
         { href: "/m/budget-variance", icon: TrendingUp, label: "Budget Variance", subtitle: "Budget vs actual analysis" },
-        { href: "/m/project-control", icon: Gauge, label: "Project Control", subtitle: "EVM: CPI, SPI, EAC" },
-        { href: "/m/standard-consumptions", icon: Beaker, label: "Std Consumptions", subtitle: "Material consumption benchmarks" },
+        { href: "/m/project-control", icon: Gauge, label: "Project Control", subtitle: "Earned value: CPI, SPI, EAC" },
+        { href: "/m/standard-consumptions", icon: Beaker, label: "Standard Consumptions", subtitle: "Material consumption benchmarks" },
         { href: "/m/material-reconciliation", icon: Package, label: "Material Reconciliation", subtitle: "Required vs issued vs consumed" },
       ],
     },
@@ -157,10 +157,10 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       ],
     },
     {
-      title: "DPR",
+      title: "Daily Progress Report",
       links: [
-        { href: "/m/dprs", icon: ClipboardList, label: "Daily Progress Reports", subtitle: "All DPRs, approval status" },
-        { href: "/m/site/dpr", icon: ClipboardList, label: "New DPR", subtitle: "Submit a new report" },
+        { href: "/m/dprs", icon: ClipboardList, label: "Daily Progress Reports", subtitle: "All reports, approval status" },
+        { href: "/m/site/dpr", icon: ClipboardList, label: "New Daily Progress Report", subtitle: "Submit a new report" },
       ],
     },
     {

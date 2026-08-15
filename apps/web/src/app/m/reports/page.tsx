@@ -142,7 +142,7 @@ async function MobileReportsHubContent() {
       {/* Inventory */}
       <MobileSectionTitle>Inventory</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/inventory-value" icon={Package} label="Inventory Value" sublabel="Stock value by location, MAC" />
+        <ReportLink href="/reports/inventory-value" icon={Package} label="Inventory Value" sublabel="Stock value by location, Moving Average Cost" />
         <ReportLink href="/reports/stock-movement-summary" icon={Layers} label="Stock Movement" sublabel="In/out/transfer summary" />
         <ReportLink href="/reports/issue-register" icon={ClipboardCheck} label="Issue Register" sublabel="Material issues to projects" />
         <ReportLink href="/reports/department-consumption" icon={Building2} label="Dept Consumption" sublabel="Material usage by department" />
@@ -160,7 +160,7 @@ async function MobileReportsHubContent() {
       <MobileSectionTitle>Finance & Tax</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
         <ReportLink href="/reports/gst" icon={Percent} label="GST Report" sublabel="Input/output GST summary" />
-        <ReportLink href="/reports/tds-certificates" icon={FileText} label="TDS Certificates" sublabel="TDS deducted by vendor" />
+        <ReportLink href="/reports/tds-certificates" icon={FileText} label="Tax Deducted at Source Certificates" sublabel="TDS deducted by vendor" />
         <ReportLink href="/reports/payroll-expense" icon={Calendar} label="Payroll Expense" sublabel="Salary expense by month" />
         <ReportLink href="/reports/expenses" icon={Wallet} label="Expenses" sublabel="Operating expense breakdown" />
       </div>

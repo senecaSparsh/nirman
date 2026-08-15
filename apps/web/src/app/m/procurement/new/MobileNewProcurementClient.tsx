@@ -133,7 +133,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supplierId) { toast.error("Please select a supplier"); return; }
-    if (scope === "PROJECT" && !projectId) { toast.error("Please select a project for project-scoped PO"); return; }
+    if (scope === "PROJECT" && !projectId) { toast.error("Please select a project for project-scoped Purchase Order"); return; }
     if (!locationId) { toast.error("Please select a destination location"); return; }
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0 && Number(l.unitCost) >= 0);
     if (validLines.length === 0) { toast.error("Add at least one line item with qty and cost"); return; }
@@ -212,7 +212,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
         <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
           {isQueued
             ? "Will be submitted as DRAFT when back online."
-            : "PO is in DRAFT. Submit for approval from the PO detail page."}
+            : "Purchase Order is in DRAFT. Submit for approval from the Purchase Order detail page."}
         </p>
         <div className="flex gap-2">
           <button
@@ -647,7 +647,7 @@ function PoForm({
             ) : (
               <>
                 {online ? <Send className="size-3.5" /> : <WifiOff className="size-3.5" />}
-                <span>{online ? "Create PO (Draft)" : "Queue PO (Offline)"}</span>
+                <span>{online ? "Create Purchase Order (Draft)" : "Queue Purchase Order (Offline)"}</span>
               </>
             )}
           </button>

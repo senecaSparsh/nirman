@@ -146,10 +146,10 @@ async function MobileMaterialReconContent({
         <MobileEmptyState
           icon={Package}
           title="No reconciliation data"
-          hint="This project has no BOQ line items to reconcile yet."
+          hint="This project has no Bill of Quantities line items to reconcile yet."
           action={
             <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
-              Go to BOQ
+              Go to Bill of Quantities
             </MobileCta>
           }
         />

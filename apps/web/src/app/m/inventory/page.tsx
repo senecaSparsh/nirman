@@ -176,7 +176,7 @@ async function InventoryContent() {
     attentionBanners.push({
       id: "approvals",
       title: `${approvalCount} approval${approvalCount !== 1 ? "s" : ""} waiting`,
-      subtitle: `${draftPOs} draft PO${draftPOs !== 1 ? "s" : ""} · ${pendingReqs} pending requisition${pendingReqs !== 1 ? "s" : ""}`,
+      subtitle: `${draftPOs} draft Purchase Order${draftPOs !== 1 ? "s" : ""} · ${pendingReqs} pending requisition${pendingReqs !== 1 ? "s" : ""}`,
       href: "/m/pulse/approvals",
       severity: "low",
       qtyText: String(approvalCount),
@@ -217,7 +217,7 @@ async function InventoryContent() {
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-4 gap-1.5 mb-3">
         {/* Row 1: daily operational actions */}
-        <QuickActionTile href="/m/procurement/new" icon={Truck} label="New PO" />
+        <QuickActionTile href="/m/procurement/new" icon={Truck} label="New Purchase Order" />
         <QuickActionTile href="/m/pulse/approvals" icon={ClipboardCheck} label="Approvals" />
         <QuickActionTile href="/m/site/receive" icon={ScanLine} label="Receive" />
         <QuickActionTile href="/m/site/issue" icon={Send} label="Issue" />

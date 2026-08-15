@@ -75,12 +75,12 @@ async function SiteContent() {
   if (!myDprToday) {
     attentionBanners.push({
       id: "dpr",
-      title: "Today's DPR not submitted",
+      title: "Today's Daily Progress Report not submitted",
       subtitle: "Fill in your daily progress report",
       href: "/m/site/dpr",
       severity: "low",
       qtyText: "Due",
-      category: "DPR",
+      category: "Daily Progress Report",
     });
   }
 
@@ -114,7 +114,7 @@ async function SiteContent() {
     attentionBanners.push({
       id: "clear",
       title: "All caught up!",
-      subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit · DPR ${myDprToday ? "submitted" : "pending"}`,
+      subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit · Daily Progress Report ${myDprToday ? "submitted" : "pending"}`,
       href: "/m/site",
       severity: "clear",
       qtyText: "✓",
@@ -140,7 +140,7 @@ async function SiteContent() {
       <div className="grid grid-cols-6 gap-1.5">
         <ActionCard href="/m/site/issue" icon={Package} label="Quick Issue" sub="Material challan" />
         <ActionCard href="/m/site/receive" icon={Truck} label="Receive Stock" sub="Scan PO / gate entry" badge={inTransitPOs.length > 0 ? String(inTransitPOs.length) : undefined} badgeTone={overduePOs.length > 0 ? "stop" : "steel"} />
-        <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit DPR" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
+        <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit Daily Progress Report" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
         <ActionCard href="/m/site/attendance" icon={CalendarCheck} label="Attendance" sub="GPS tagged" badge={attendanceToday > 0 ? String(attendanceToday) : undefined} badgeTone="steel" />
         <ActionCard href="/m/scrap-generations" icon={Recycle} label="Scrap Log" sub="Log scrap generation" />
         <ActionCard href="/m/site/tasks" icon={ListTodo} label="Open Tasks" sub="Site punch list" badge={myTasks.length > 0 ? String(myTasks.length) : undefined} badgeTone={overdueTasks.length > 0 ? "stop" : "steel"} />

@@ -139,7 +139,7 @@ export function MobileRequisitionsList({
               }}
             >
               <Plus className="size-3.5" />
-              New Req
+              New Requisition
             </Link>
           ) : null}
         </div>
@@ -173,7 +173,7 @@ export function MobileRequisitionsList({
             className="text-[0.6875rem] font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
-            {filtered.length} req{filtered.length !== 1 ? "s" : ""}
+            {filtered.length} requisition{filtered.length !== 1 ? "s" : ""}
           </span>
           {(statusFilter !== "ALL" || query) && filtered.length > 0 ? (
             <button
@@ -323,7 +323,7 @@ function ReqCard({ req }: { req: RequisitionListItem }) {
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
                 <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-go)" }}>
-                  Convert to PO
+                  Convert to Purchase Order
                 </span>
               </div>
             ) : (
@@ -338,7 +338,7 @@ function ReqCard({ req }: { req: RequisitionListItem }) {
             <div className="flex items-center gap-1">
               <CheckCircle2 className="size-2.5" style={{ color: "var(--color-go)" }} />
               <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-go)" }}>
-                PO created
+                Purchase Order created
               </span>
             </div>
           ) : req.status === "REJECTED" ? (

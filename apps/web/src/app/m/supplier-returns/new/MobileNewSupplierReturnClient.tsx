@@ -358,9 +358,9 @@ function ReturnForm({
           <SelectorCard
             onClick={() => setModal({ type: "po" })}
             icon={FileText}
-            label="Original PO (optional)"
+            label="Original Purchase Order (optional)"
             value={purchaseOrderId ? selectedPO?.poNumber : undefined}
-            placeholder="Return without PO linkage"
+            placeholder="Return without Purchase Order linkage"
           />
         ) : null}
 
@@ -572,7 +572,7 @@ function ReturnForm({
           items={
             modal.type === "supplier" ? suppliers.map((s) => ({ id: s.id, label: s.name })) :
             modal.type === "location" ? locations.map((l) => ({ id: l.id, label: l.name, sub: l.type.replace(/_/g, " ").toLowerCase() })) :
-            modal.type === "po" ? [{ id: "", label: "No PO linkage", sub: undefined }, ...availablePOs.map((p) => ({ id: p.id, label: p.poNumber }))] :
+            modal.type === "po" ? [{ id: "", label: "No Purchase Order linkage", sub: undefined }, ...availablePOs.map((p) => ({ id: p.id, label: p.poNumber }))] :
             materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit}` }))
           }
           selectedId={

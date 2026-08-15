@@ -273,7 +273,7 @@ function SupplierCard({ s }: { s: SupplierListItem }) {
         {/* Row 2: PO count + phone */}
         <div className="flex items-center gap-1.5">
           <span className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
-            {s.poCount} PO{s.poCount !== 1 ? "s" : ""}
+            {s.poCount} Purchase Order{s.poCount !== 1 ? "s" : ""}
           </span>
           {s.phone ? (
             <>

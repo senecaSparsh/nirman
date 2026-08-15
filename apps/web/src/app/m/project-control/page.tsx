@@ -54,7 +54,7 @@ async function MobileProjectControlContent({
         <MobileEmptyState
           icon={Gauge}
           title="Select a project"
-          hint="Choose a project to view EVM metrics"
+          hint="Choose a project to view Earned Value Management metrics"
         />
       </div>
     );

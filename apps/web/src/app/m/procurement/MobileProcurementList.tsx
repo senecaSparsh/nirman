@@ -93,7 +93,7 @@ export function MobileProcurementList({
         <MobileEmptyState
           icon={FileText}
           title="No purchase orders"
-          hint={canCreate ? "Tap above to create your first PO" : "Purchase orders will appear here"}
+          hint={canCreate ? "Tap above to create your first Purchase Order" : "Purchase orders will appear here"}
         />
       </div>
     );
@@ -120,7 +120,7 @@ export function MobileProcurementList({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search PO no, supplier…"
+              placeholder="Search Purchase Order no, supplier…"
               className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
               style={{
                 borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
@@ -139,7 +139,7 @@ export function MobileProcurementList({
               }}
             >
               <Plus className="size-3.5" />
-              New PO
+              New Purchase Order
             </Link>
           ) : null}
         </div>
@@ -173,7 +173,7 @@ export function MobileProcurementList({
             className="text-[0.6875rem] font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
-            {filtered.length} PO{filtered.length !== 1 ? "s" : ""}
+            {filtered.length} Purchase Order{filtered.length !== 1 ? "s" : ""}
           </span>
           {(statusFilter !== "ALL" || query) && filtered.length > 0 ? (
             <button
@@ -203,7 +203,7 @@ export function MobileProcurementList({
             className="font-semibold text-[0.875rem]"
             style={{ color: "var(--color-ink-950)" }}
           >
-            No POs found
+            No Purchase Orders found
           </p>
           <p
             className="text-[0.6875rem] mt-1"
@@ -211,7 +211,7 @@ export function MobileProcurementList({
           >
             {query
               ? `Nothing matches "${query}"`
-              : "No POs match the selected filter."}
+              : "No Purchase Orders match the selected filter."}
           </p>
         </div>
       ) : (

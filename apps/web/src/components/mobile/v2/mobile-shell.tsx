@@ -723,7 +723,7 @@ function isModuleHome(pathname: string): boolean {
 /**
  * Derive a human-readable page title from a /m/* pathname.
  * Used in the drill-down header when no active tab matches.
- * e.g. /m/boq → "BOQ", /m/projects/[id] → "Project Detail",
+ * e.g. /m/boq → "Bill of Quantities", /m/projects/[id] → "Project Detail",
  *      /m/hr/leaves → "Leaves", /m/portal-listings/new → "New Listing"
  */
 function pageTitleFromPath(pathname: string): string {
@@ -732,13 +732,13 @@ function pageTitleFromPath(pathname: string): string {
   if (segments.length === 0) return "Home";
 
   const TITLE_MAP: Record<string, string> = {
-    boq: "BOQ",
-    wbs: "WBS",
+    boq: "Bill of Quantities",
+    wbs: "Work Breakdown Structure",
     "budget-variance": "Budget Variance",
     "measurement-book": "Measurement Book",
     "project-control": "Project Control",
-    "standard-consumptions": "Std Consumptions",
-    "material-reconciliation": "Material Recon",
+    "standard-consumptions": "Standard Consumptions",
+    "material-reconciliation": "Material Reconciliation",
     "work-orders": "Work Orders",
     "rate-contracts": "Rate Contracts",
     projects: "Projects",
@@ -761,7 +761,7 @@ function pageTitleFromPath(pathname: string): string {
     "material-sales": "Material Sales",
     "scrap-generations": "Scrap",
     attendance: "Attendance",
-    dprs: "DPRs",
+    dprs: "Daily Progress Reports",
     employees: "Employees",
     leaves: "Leaves",
     tasks: "Tasks",

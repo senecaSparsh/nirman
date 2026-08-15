@@ -276,7 +276,7 @@ export function MobileTransferDetailClient({
         >
           <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
           <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
-            Stock has been moved from source to destination location. Stock ledger and MAC updated.
+            Stock has been moved from source to destination location. Stock ledger and Moving Average Cost updated.
           </span>
         </div>
       ) : null}

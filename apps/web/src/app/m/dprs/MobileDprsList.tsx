@@ -101,14 +101,14 @@ export function MobileDprsList({
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" />
-              Submit Today's DPR
+              Submit Today's Daily Progress Report
             </a>
           </div>
         ) : null}
         <MobileEmptyState
           icon={ClipboardList}
-          title="No DPRs yet"
-          hint={canSubmit ? "Tap above to submit your first DPR" : "Daily progress reports will appear here"}
+          title="No Daily Progress Reports yet"
+          hint={canSubmit ? "Tap above to submit your first Daily Progress Report" : "Daily progress reports will appear here"}
         />
       </div>
     );

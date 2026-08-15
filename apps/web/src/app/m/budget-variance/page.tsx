@@ -122,10 +122,10 @@ async function MobileBudgetVarianceContent({
         <MobileEmptyState
           icon={AlertTriangle}
           title="No variance data"
-          hint="Add BOQ line items, record material issues, or log project costs to see budget variance."
+          hint="Add Bill of Quantities line items, record material issues, or log project costs to see budget variance."
           action={
             <MobileCta href={`/m/boq${selectedProject ? `?project=${selectedProject}` : ""}`} icon={Plus} variant="primary">
-              Go to BOQ
+              Go to Bill of Quantities
             </MobileCta>
           }
         />
@@ -182,7 +182,7 @@ async function MobileBudgetVarianceContent({
               <SummaryStat label="Actual" value={formatCurrency(totalActual)} />
               <Divider />
               <SummaryStat
-                label="BOQ / Other"
+                label="Bill of Quantities / Other"
                 value={`${formatCurrencyCompact(boqBudget)} / ${formatCurrencyCompact(nonBoqBudget)}`}
               />
             </div>

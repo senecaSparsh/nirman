@@ -323,7 +323,7 @@ function InventoryTab({ items }: { items: DetailStockItem[] }) {
               {item.materialName}
             </p>
             <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
-              {item.materialCode} · MAC {formatCurrency(item.mac)}
+              {item.materialCode} · Moving Average Cost {formatCurrency(item.mac)}
             </p>
           </div>
           <div className="text-right shrink-0">

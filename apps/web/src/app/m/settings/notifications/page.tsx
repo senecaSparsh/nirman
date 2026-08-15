@@ -57,7 +57,7 @@ const EVENT_LABELS: Record<string, string> = {
   TASK_ASSIGNMENT: "Task Assignment",
   QUOTE_APPROVAL: "Quote Approval Needed",
   PO_APPROVAL: "PO Approval Needed",
-  DPR_SUBMITTED: "DPR Submitted",
+  DPR_SUBMITTED: "Daily Progress Report Submitted",
   PAYMENT_RECEIVED: "Payment Received",
   SALE_CREATED: "Sale Created",
 };

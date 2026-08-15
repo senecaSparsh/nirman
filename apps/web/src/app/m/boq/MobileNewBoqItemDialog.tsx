@@ -114,9 +114,9 @@ export function MobileNewBoqItemDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create BOQ item");
+      if (!res.ok) throw new Error(data.error ?? "Failed to create Bill of Quantities item");
       haptic([10, 40, 80]);
-      toast.success("BOQ item added");
+      toast.success("Bill of Quantities item added");
       onClose();
       router.refresh();
     } catch (err) {
@@ -144,7 +144,7 @@ export function MobileNewBoqItemDialog({
             <span className="grid place-items-center size-7 rounded-[0.375rem]" style={{ backgroundColor: "var(--color-concrete)" }}>
               <FileText className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Add BOQ Item</p>
+            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Add Bill of Quantities Item</p>
           </div>
           <button onClick={onClose} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }} aria-label="Close">
             <X className="size-4" />
@@ -284,7 +284,7 @@ export function MobileBoqFab({
           color: "#fff",
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         }}
-        aria-label="Add BOQ item"
+        aria-label="Add Bill of Quantities item"
       >
         <Plus className="size-5" />
       </button>

@@ -79,12 +79,12 @@ async function HrContent() {
   if (pendingDprCount > 0) {
     attentionBanners.push({
       id: "dpr-approvals",
-      title: `${pendingDprCount} DPR${pendingDprCount !== 1 ? "s" : ""} pending approval`,
+      title: `${pendingDprCount} Daily Progress Report${pendingDprCount !== 1 ? "s" : ""} pending approval`,
       subtitle: `Daily progress reports awaiting review`,
       href: "/m/dprs",
       severity: "low",
       qtyText: String(pendingDprCount),
-      category: "DPR Approvals",
+      category: "Daily Progress Report Approvals",
     });
   }
 
@@ -108,12 +108,12 @@ async function HrContent() {
   for (const dpr of recentDprs.filter((d) => d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED")) {
     attentionBanners.push({
       id: dpr.id,
-      title: `DPR — ${dpr.project?.name ?? "—"}`,
+      title: `Daily Progress Report — ${dpr.project?.name ?? "—"}`,
       subtitle: `${formatDate(dpr.date)} · ${dpr.approvalStatus}`,
       href: `/m/dprs/${dpr.id}`,
       severity: "low",
       qtyText: dpr.approvalStatus === "SUBMITTED" ? "New" : "Sub",
-      category: "DPR",
+      category: "Daily Progress Report",
     });
   }
 
@@ -147,7 +147,7 @@ async function HrContent() {
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-2 gap-2 mb-3">
         <MobileCta href="/m/site/dpr" icon={FileText} variant="secondary">
-          New DPR
+          New Daily Progress Report
         </MobileCta>
         <MobileCta href="/m/attendance" icon={CalendarCheck} variant="secondary">
           Mark Attendance
@@ -163,7 +163,7 @@ async function HrContent() {
               <MobileRow
                 key={dpr.id}
                 href={`/m/dprs/${dpr.id}`}
-                title={`DPR — ${dpr.project?.name ?? "—"}`}
+                title={`Daily Progress Report — ${dpr.project?.name ?? "—"}`}
                 subtitle={formatDate(dpr.createdAt)}
                 badge={
                   <Badge tone={dpr.approvalStatus === "APPROVED" ? "go" : dpr.approvalStatus === "REJECTED" ? "stop" : "signal"}>

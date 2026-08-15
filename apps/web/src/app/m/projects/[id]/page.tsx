@@ -148,12 +148,12 @@ async function MobileProjectDetailContent({
   for (const dpr of pendingDprs) {
     attentionBanners.push({
       id: dpr.id,
-      title: `DPR ${formatDate(dpr.date)}`,
+      title: `Daily Progress Report ${formatDate(dpr.date)}`,
       subtitle: `${dpr.approvalStatus} · ${dpr.workSummary?.slice(0, 50) ?? "awaiting approval"}`,
       href: `/m/dprs/${dpr.id}`,
       severity: "low",
       qtyText: dpr.approvalStatus === "SUBMITTED" ? "New" : "Sub",
-      category: "DPR",
+      category: "Daily Progress Report",
     });
   }
 
@@ -359,7 +359,7 @@ async function MobileProjectDetailContent({
       {/* ── Quick actions ── */}
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-3 gap-1.5 mb-3">
-        <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New DPR" />
+        <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
         <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Requisition" />
         <QuickActionTile href={`/m/site/issue?project=${id}`} icon={PackageCheck} label="Issue" />
       </div>

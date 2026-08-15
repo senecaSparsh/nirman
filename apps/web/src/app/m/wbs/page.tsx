@@ -75,7 +75,7 @@ async function MobileWbsContent({
           Work Breakdown Structure
         </p>
         <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to view WBS.
+          You don&apos;t have permission to view Work Breakdown Structure.
         </p>
       </div>
     );
@@ -136,8 +136,8 @@ async function MobileWbsContent({
       ) : tree.length === 0 ? (
         <MobileEmptyState
           icon={ListTree}
-          title="No WBS nodes yet"
-          hint={`The WBS tree for ${selectedProject.name} is empty. Nodes show here once they are created.`}
+          title="No Work Breakdown Structure nodes yet"
+          hint={`The Work Breakdown Structure tree for ${selectedProject.name} is empty. Nodes show here once they are created.`}
         />
       ) : (
         <>
@@ -163,7 +163,7 @@ async function MobileWbsContent({
           </div>
 
           {/* ── WBS tree ── */}
-          <MobileSectionTitle>WBS Tree</MobileSectionTitle>
+          <MobileSectionTitle>Work Breakdown Structure Tree</MobileSectionTitle>
           <div className="space-y-1.5">
             {tree.map((node) => (
               <WbsNodeRow key={node.id} node={node} depth={0} />

@@ -172,8 +172,8 @@ async function MobileMaterialDetailContent({
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Stock value" value={formatCurrency(totalValue)} />
-            <KpiRow label="Std cost" value={formatCurrency(toNum(material.standardCost))} />
-            <KpiRow label="MAC" value={formatCurrency(toNum(material.currentCost))} />
+            <KpiRow label="Standard cost" value={formatCurrency(toNum(material.standardCost))} />
+            <KpiRow label="Moving Average Cost" value={formatCurrency(toNum(material.currentCost))} />
             <KpiRow label="Locations" value={String(stockItems.length)} sub="sites" />
             <KpiRow label="Movements" value={String(movements.length)} sub="recent" />
           </div>
@@ -231,7 +231,7 @@ async function MobileMaterialDetailContent({
                     {i.location.name}
                   </p>
                   <p className="text-[0.4375rem] mb-1 truncate" style={{ color: "var(--color-ink-500)" }}>
-                    MAC {formatCurrency(toNum(i.movingAvgCost))}
+                    Moving Average Cost {formatCurrency(toNum(i.movingAvgCost))}
                   </p>
                   <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                     {formatNumber(locQty, 0)} {material.unit}

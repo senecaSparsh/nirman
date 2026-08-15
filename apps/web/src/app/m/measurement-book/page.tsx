@@ -106,7 +106,7 @@ async function MobileMbContent({
         <MobileStatCard label="Entries" value={String(entries.length)} icon={BookOpen} />
         <MobileStatCard label="Total Measured" value={formatNumber(totalMeasured, 2)} icon={BookOpen} tone="neutral" />
         <MobileStatCard label="Earned Value" value={formatCurrency(totalValue)} icon={BookOpen} tone="go" />
-        <MobileStatCard label="BOQ Items" value={String(boqItems.length)} icon={BookOpen} />
+        <MobileStatCard label="Bill of Quantities Items" value={String(boqItems.length)} icon={BookOpen} />
       </div>
 
       {serialized.length === 0 ? (
@@ -114,11 +114,11 @@ async function MobileMbContent({
           icon={BookOpen}
           title="No measurement entries"
           hint={boqItems.length === 0
-            ? "Add BOQ line items first, then measure work against them"
+            ? "Add Bill of Quantities line items first, then measure work against them"
             : "Measurement book entries will appear here as work is measured"}
           action={boqItems.length === 0 ? (
             <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
-              Go to BOQ
+              Go to Bill of Quantities
             </MobileCta>
           ) : undefined}
         />
@@ -148,7 +148,7 @@ function MbEntryCard({ entry: e }: { entry: any }) {
         </p>
       </div>
       <p className="text-[0.4375rem] font-bold tabular-nums mb-0.5" style={{ color: "var(--color-ink-500)" }}>
-        BOQ {e.boqSerialNo}
+        Bill of Quantities {e.boqSerialNo}
       </p>
       <p className="text-[0.75rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         {e.boqDescription}

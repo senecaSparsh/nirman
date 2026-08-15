@@ -182,7 +182,7 @@ async function PulseContent() {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >
           <ShoppingCart className="size-3.5" />
-          New Req
+          New Requisition
         </Link>
         <TallySyncButton pendingCount={tallyStats.pending} />
       </div>

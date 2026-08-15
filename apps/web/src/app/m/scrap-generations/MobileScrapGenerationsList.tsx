@@ -138,7 +138,7 @@ export function MobileScrapGenerationsList({
             {query ? "No matching scrap slips" : "No scrap generated"}
           </p>
           <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : "Auto-detected from DPR variance or added manually"}
+            {query ? "Try a different search" : "Auto-detected from Daily Progress Report variance or added manually"}
           </p>
         </div>
       ) : (
