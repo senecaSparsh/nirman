@@ -19,15 +19,5 @@
   "devDependencies": {
     "turbo": "^2.5.0",
     "typescript": "^5.9.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma",
-      "esbuild",
-      "sharp",
-      "unrs-resolver"
-    ]
   }
 }
