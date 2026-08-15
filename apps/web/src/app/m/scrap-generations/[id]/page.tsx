@@ -6,7 +6,6 @@ import { prisma } from "@nirman/db";
 import {
   Recycle, Zap, Hand, Printer,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { toNum, getCompany } from "@/lib/server";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 
@@ -48,7 +47,6 @@ async function MobileScrapDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/scrap-generations" className="" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
@@ -73,7 +71,6 @@ async function MobileScrapDetailContent({
     <div>
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
-        <MobileBackButton fallback="/m/scrap-generations" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
             {scrap.scrapNumber}

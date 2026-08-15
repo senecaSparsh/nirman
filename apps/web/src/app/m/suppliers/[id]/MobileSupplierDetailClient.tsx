@@ -6,7 +6,6 @@ import {
   Phone, Mail, MapPin, BadgeCheck,
   FileText, Banknote,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 
 type PoStatus = "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
@@ -88,7 +87,6 @@ export function MobileSupplierDetailClient({
     <div>
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
-        <MobileBackButton fallback="/m/suppliers" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {name}

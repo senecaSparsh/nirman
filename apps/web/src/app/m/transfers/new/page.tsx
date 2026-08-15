@@ -1,6 +1,5 @@
 import { getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import MobileNewTransferClient from "./MobileNewTransferClient";
 
 /**
@@ -14,7 +13,6 @@ export default async function NewTransferPage() {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/transfers" />
         </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
           New Stock Transfer

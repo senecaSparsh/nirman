@@ -4,10 +4,9 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
-  Home, ShoppingCart, ChevronLeft, Building2,
+  Home, ShoppingCart, Building2,
   IndianRupee, ClipboardList, TrendingUp,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -66,9 +65,6 @@ async function MobileUnitDetailContent({
   if (!unit) {
     return (
       <div>
-        <div className="mb-4">
-          <MobileBackButton fallback="/m/units" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
-        </div>
         <MobileEmptyState icon={Home} title="Unit not found" />
       </div>
     );
@@ -98,13 +94,6 @@ async function MobileUnitDetailContent({
 
   return (
     <div>
-      {/* ── Back ── */}
-      <div className="mb-3">
-        <Link href={`/m/projects/${unit.project.id}`} className="flex items-center gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          <ChevronLeft className="size-5" />
-        </Link>
-      </div>
-
       {/* ── Hero card ── */}
       <div
         className="rounded-[0.875rem] border p-3.5 mb-3"

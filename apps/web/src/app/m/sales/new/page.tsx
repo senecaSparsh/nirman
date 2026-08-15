@@ -7,7 +7,6 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { ShoppingCart } from "lucide-react";
 import { MobileNewSaleForm } from "@/components/mobile/mobile-new-sale-form";
 import { MobileNoCustomersState } from "./MobileNoCustomersState";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/sales/new — mobile new-sale form. Replaces every desktop `/sales`
@@ -40,7 +39,6 @@ async function MobileNewSaleContent({
     return (
       <div className="pb-32">
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/sales" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
             New Sale
           </p>
@@ -111,7 +109,6 @@ async function MobileNewSaleContent({
   return (
     <div className="pb-32">
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/sales" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             New Sale

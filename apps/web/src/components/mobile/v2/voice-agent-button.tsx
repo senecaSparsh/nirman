@@ -2,18 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, Loader2, Volume2 } from "lucide-react";
+import { Mic, Loader2, Volume2, Check, X } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   VOICE AGENT BUTTON — header mic that listens + speaks, no popup UI
+   VOICE AGENT BUTTON — header mic that listens + speaks, no chat sheet
 
    Tap → mic turns green + starts listening (Web Speech API).
    On speech end → transcript sent to /api/assistant.
-   Response is spoken via TTS. Action cards auto-execute:
-     - link     → router.push(href)
-     - button/confirm → POST to endpoint, speak result
+   Response is spoken via TTS. If the response includes an action card,
+   a small confirmation popup appears BEFORE anything is executed:
+     - User taps Confirm → action runs (navigate or API call)
+     - User taps Cancel → popup dismissed, nothing happens
    A tiny inline transcript toast appears under the header while listening
-   so the user sees their words being captured. That's it — no chat sheet.
+   so the user sees their words being captured.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface ActionCard {
@@ -66,6 +67,16 @@ export function VoiceAgentButton() {
   const finalTranscriptRef = useRef("");
   const autoSubmittedRef = useRef(false);
 
+  // ── Confirmation popup state ──
+  // When the assistant returns an action card, we show a popup with the
+  // card details + the spoken response text. Nothing executes until the
+  // user taps Confirm.
+  const [pendingAction, setPendingAction] = useState<{
+    card: ActionCard;
+    responseText: string;
+  } | null>(null);
+  const [executing, setExecuting] = useState(false);
+
   // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
@@ -85,8 +96,9 @@ export function VoiceAgentButton() {
       }
       const clean = text
         .replace(/\*\*/g, "")
-        .replace(/[📦✅⚠️📋💰💵💸👷🔧📊🚚📝❌⏳🎉🔔📍🔄➕🎤•↳]/g, "")
+        .replace(/[^\w\s.,!?;:'"()-]/g, " ")
         .replace(/\n{3,}/g, "\n\n")
+        .replace(/\s{2,}/g, " ")
         .trim();
       if (!clean) {
         onDone?.();
@@ -111,29 +123,40 @@ export function VoiceAgentButton() {
     [voiceLang],
   );
 
-  // ── Auto-execute action cards from the assistant response ──
-  const runCards = useCallback(
-    (cards?: ActionCard[]) => {
-      if (!cards || cards.length === 0) return;
-      const card = cards[0];
-      if (!card) return;
-      if (card.type === "link" && card.href) {
-        router.push(card.href);
-        return;
-      }
-      if (
-        (card.type === "button" || card.type === "confirm") &&
-        card.endpoint &&
-        card.endpoint !== "/api/assistant"
-      ) {
-        fetch(card.endpoint, {
-          method: card.method || "POST",
-          headers: { "Content-Type": "application/json" },
-          body: card.body ? JSON.stringify(card.body) : undefined,
-        }).catch(() => {});
+  // ── Execute a confirmed action card ──
+  // Called ONLY after the user taps Confirm in the popup.
+  const executeCard = useCallback(
+    async (card: ActionCard) => {
+      setExecuting(true);
+      try {
+        if (card.type === "link" && card.href) {
+          router.push(card.href);
+          return;
+        }
+        if (
+          (card.type === "button" || card.type === "confirm") &&
+          card.endpoint &&
+          card.endpoint !== "/api/assistant"
+        ) {
+          const res = await fetch(card.endpoint, {
+            method: card.method || "POST",
+            headers: { "Content-Type": "application/json" },
+            body: card.body ? JSON.stringify(card.body) : undefined,
+          });
+          if (res.ok) {
+            speak("Ho gaya. Action complete.");
+          } else {
+            speak("Action fail ho gaya. Dobara try karein.");
+          }
+        }
+      } catch {
+        speak("Network error. Dobara try karein.");
+      } finally {
+        setExecuting(false);
+        setPendingAction(null);
       }
     },
-    [router],
+    [router, speak],
   );
 
   // ── Send transcript to assistant API ──
@@ -152,13 +175,19 @@ export function VoiceAgentButton() {
         });
         const data = await res.json();
         const responseText = data.text || "Sorry, samajh nahi aaya.";
-        runCards(data.cards);
-        speak(responseText);
+        const cards: ActionCard[] | undefined = data.cards;
+
+        // Speak the response, then show confirmation popup if there's an action
+        speak(responseText, () => {
+          if (cards && cards.length > 0) {
+            setPendingAction({ card: cards[0]!, responseText });
+          }
+        });
       } catch {
         speak("Network error. Dobara try karein.");
       }
     },
-    [runCards, speak],
+    [speak],
   );
 
   // ── Start listening ──
@@ -299,6 +328,86 @@ export function VoiceAgentButton() {
             />
           )}
           {transcript}
+        </div>
+      )}
+
+      {/* ── Confirmation popup ── */}
+      {/* Shows after the assistant responds with an action card. */}
+      {/* Nothing executes until the user taps Confirm. */}
+      {pendingAction && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          onClick={() => !executing && setPendingAction(null)}
+        >
+          <div
+            className="w-full max-w-[30rem] rounded-t-2xl p-4 pb-safe animate-in slide-in-from-bottom"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              border: "1px solid var(--color-line)",
+              borderBottom: "none",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+
+            {/* Response text (what Sahayak said) */}
+            <p
+              className="mb-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap"
+              style={{ color: "var(--color-ink-800)" }}
+            >
+              {pendingAction.responseText}
+            </p>
+
+            {/* Action label */}
+            <div
+              className="mb-4 rounded-lg p-3"
+              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-line)" }}
+            >
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+                {pendingAction.card.type === "link" ? "Open page" : "Execute action"}
+              </p>
+              <p className="text-[0.875rem] font-medium" style={{ color: "var(--color-ink-950)" }}>
+                {pendingAction.card.label}
+              </p>
+            </div>
+
+            {/* Confirm / Cancel buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPendingAction(null)}
+                disabled={executing}
+                className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-surface)",
+                  color: "var(--color-ink-700)",
+                  border: "1px solid var(--color-line)",
+                }}
+              >
+                <X className="size-4" />
+                Cancel
+              </button>
+              <button
+                onClick={() => executeCard(pendingAction.card)}
+                disabled={executing}
+                className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold text-white disabled:opacity-50"
+                style={{
+                  backgroundColor:
+                    pendingAction.card.variant === "danger"
+                      ? "var(--color-stop)"
+                      : "var(--color-go)",
+                }}
+              >
+                {executing ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Check className="size-4" />
+                )}
+                {executing ? "Executing..." : "Confirm"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

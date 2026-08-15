@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileNewRequisitionClient } from "./MobileNewRequisitionClient";
 
 export default function MobileNewRequisitionPage() {
@@ -23,7 +22,6 @@ async function MobileNewRequisitionContent() {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/requisitions" />
         </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
           New Material Indent

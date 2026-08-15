@@ -6,7 +6,6 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/customers/new — mobile customer creation. Minimal fields for
@@ -38,7 +37,6 @@ async function MobileNewCustomerContent({
     return (
       <div className="pb-32">
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/customers" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
             New Customer
           </p>

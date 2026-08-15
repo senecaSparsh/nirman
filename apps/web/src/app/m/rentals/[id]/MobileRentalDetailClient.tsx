@@ -9,7 +9,6 @@ import {
   CheckCircle2, Plus, Loader2, Banknote, User,
   PlayCircle, XCircle as XIcon,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -100,7 +99,6 @@ export function MobileRentalDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/rentals" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Tenancy not found
           </p>
@@ -179,7 +177,6 @@ export function MobileRentalDetailClient({
     <div className="pb-6">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/rentals" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {data.tenantName}

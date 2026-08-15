@@ -3,7 +3,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Globe, IndianRupee, Home, Calendar, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -46,7 +45,6 @@ async function MobilePortalListingDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/portal-listings" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Globe} title="Listing not found" />
       </div>
@@ -56,7 +54,6 @@ async function MobilePortalListingDetailContent({
   return (
     <div>
       <div className="mb-4">
-        <MobileBackButton fallback="/m/portal-listings" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
       </div>
 
       <MobileSectionTitle>Details</MobileSectionTitle>

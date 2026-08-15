@@ -287,6 +287,42 @@
     0 12px 28px -8px oklch(0 0 0 / 0.35);
   --shadow-overlay: 0 8px 24px -6px oklch(0 0 0 / 0.5),
     0 28px 64px -16px oklch(0 0 0 / 0.55);
+
+  /* ── Mobile warm tokens, inverted for dark ───────────────────────
+     The /m/* surfaces reference --color-paper / --color-ink-* /
+     --color-line / --color-concrete, which the @theme block above
+     only defines at :root. Without these overrides the mobile dark
+     toggle flips the <html> class but no surface changes — the bug
+     where "dark mode toggle on mobile does nothing." Elevation still
+     reads as lighter-in-the-dark, so paper-2 (page) < paper (card)
+     < concrete (well). Text never hits pure white. Semantic hues are
+     lifted in lightness so they stay legible on warm-dark fields. */
+  --color-ink-950: #f5f1e8;   /* headings — warm near-white          */
+  --color-ink-900: #e8e3d8;   /* body text                            */
+  --color-ink-700: #b8b0a0;   /* secondary text                       */
+  --color-ink-600: #9a9285;   /* unselected chips                     */
+  --color-ink-500: #807868;   /* captions                             */
+  --color-ink-400: #645e52;   /* meta / placeholders                  */
+  --color-ink-300: #4a443a;   /* disabled                             */
+
+  --color-paper:    #1f1c16;  /* cards — lighter than page bg         */
+  --color-paper-2:  #16140f;  /* page bg — warm near-black            */
+  --color-concrete: #28241d;  /* wells — lightest surface             */
+  --color-line:     #3a352c;  /* hairlines                            */
+
+  --color-signal:        #ffb020;  /* hi-vis amber, unchanged          */
+  --color-signal-active: #f0a416;
+  --color-signal-dark:   #ffc14d;  /* amber text lifted for dark bg    */
+  --color-signal-wash:   #2a2110;
+
+  --color-steel:      #7a9aab;  /* lifted steel for dark              */
+  --color-steel-wash: #1a2530;
+
+  --color-go:        #4cae7a;  /* lifted green                       */
+  --color-go-wash:   #122018;
+  --color-stop:        #e85a3f;  /* lifted red                         */
+  --color-stop-wash:   #2a1410;
+  --color-stop-active: #c1341a;
 }
 
 @layer base {

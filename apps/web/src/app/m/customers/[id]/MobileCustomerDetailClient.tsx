@@ -8,7 +8,6 @@ import {
   Wallet, Plus, Trash2,
   Pencil, Package, Home, Maximize, AlertCircle, Loader2,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileCustomerEditForm } from "./MobileCustomerEditForm";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -85,7 +84,6 @@ export function MobileCustomerDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/customers" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Customer not found
           </p>
@@ -128,7 +126,6 @@ export function MobileCustomerDetailClient({
     <div className="pb-6">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/customers" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {data.name}

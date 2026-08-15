@@ -7,7 +7,6 @@ import {
   ShoppingCart, Plus, Trash2, Send, Loader2, ChevronLeft, WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
@@ -149,7 +148,6 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/requisitions" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
@@ -178,7 +176,6 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <MobileBackButton fallback="/m/requisitions" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
           New Material Indent
         </p>

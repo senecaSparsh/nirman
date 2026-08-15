@@ -8,7 +8,6 @@ import {
   MapPin, Calendar, TrendingUp, PackageCheck,
   FileText, CalendarCheck,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -64,7 +63,6 @@ async function MobileProjectDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/projects" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Building2} title="Project not found" />
       </div>
@@ -188,7 +186,6 @@ async function MobileProjectDetailContent({
     <div>
       {/* ── Back + status ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <MobileBackButton fallback="/m/projects" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         <MobileStatusBadge status={project.status} />
       </div>
 

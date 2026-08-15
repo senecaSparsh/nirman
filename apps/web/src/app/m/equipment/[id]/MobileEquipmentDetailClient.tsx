@@ -7,7 +7,6 @@ import {
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
   TrendingDown, FileText, Package, Send, Check,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -89,7 +88,6 @@ export function MobileEquipmentDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/equipment" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Equipment not found
           </p>
@@ -180,7 +178,6 @@ export function MobileEquipmentDetailClient({
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/equipment" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {equipment.name}

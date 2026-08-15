@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
   Package, CalendarCheck,
-  ClipboardList, Truck, Recycle, ListTodo, ChevronLeft,
+  ClipboardList, Truck, Recycle, ListTodo,
 } from "lucide-react";
 import { getCompany, getCurrentUser } from "@/lib/server";
 import { formatDate } from "@/lib/utils";
@@ -126,13 +126,6 @@ async function SiteContent() {
 
   return (
     <div className="space-y-3">
-      {/* ── Back ── */}
-      <div>
-        <Link href="/m/home" className="flex items-center" style={{ color: "var(--color-ink-700)" }}>
-          <ChevronLeft className="size-5" />
-        </Link>
-      </div>
-
       {/* ── Attention banner ── */}
       <AttentionBannerCarousel banners={attentionBanners} />
 

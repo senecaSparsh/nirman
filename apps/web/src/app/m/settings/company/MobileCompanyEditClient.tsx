@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Loader2, Save, CheckCircle2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 interface CompanyData {
   id: string;
@@ -98,7 +97,6 @@ export function MobileCompanyEditClient({
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/settings" />
         </div>
         <div
           className="rounded-[0.625rem] border p-4 text-center"
@@ -134,7 +132,6 @@ export function MobileCompanyEditClient({
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <MobileBackButton fallback="/m/settings" className="shrink-0" />
         <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
           Company Details
         </p>

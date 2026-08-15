@@ -3,7 +3,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -47,7 +46,6 @@ async function MobileEmployeeDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/hr/employees" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={User} title="Employee not found" />
       </div>
@@ -60,7 +58,6 @@ async function MobileEmployeeDetailContent({
   return (
     <div>
       <div className="mb-4">
-        <MobileBackButton fallback="/m/hr/employees" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
       </div>
 
       <MobileSectionTitle>Contact</MobileSectionTitle>

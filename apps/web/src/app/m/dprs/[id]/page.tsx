@@ -4,7 +4,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, AlertTriangle, CheckCircle2, XCircle, Printer } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
@@ -57,7 +56,6 @@ async function MobileDprDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/dprs" className="gap-1" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Hammer} title="Daily Progress Report not found" />
       </div>
@@ -114,7 +112,6 @@ async function MobileDprDetailContent({
     <div>
       {/* ── Back + Print ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <MobileBackButton fallback="/m/dprs" className="gap-1" style={{ color: "var(--color-ink-700)" }} />
         <a
           href={`/api/dprs/${dpr.id}/print`}
           className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"

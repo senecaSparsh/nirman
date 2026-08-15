@@ -1,11 +1,10 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBudgetVariance } from "@nirman/services";
-import { TrendingUp, TrendingDown, AlertTriangle, ChevronLeft, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -84,17 +83,6 @@ async function MobileBudgetVarianceContent({
 
   return (
     <div>
-      {/* ── Back ── */}
-      <div className="mb-2">
-        <Link
-          href="/m/home"
-          className="flex items-center gap-1 text-[0.875rem] font-semibold"
-          style={{ color: "var(--color-ink-700)" }}
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
-      </div>
-
       {/* ── Page title ── */}
       <h1
         className="text-[0.875rem] font-bold mb-2"

@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { Wallet, Printer, Building2, User, FileText, IndianRupee, CalendarDays, Hash } from "lucide-react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { prisma } from "@nirman/db";
 import { amountInWords } from "@nirman/services";
@@ -160,7 +159,6 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   if (!payment) {
     return (
       <div>
-        <div className="mb-4"><MobileBackButton fallback="/m/books/receipts" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} /></div>
         <MobileEmptyState icon={Wallet} title="Receipt not found" />
       </div>
     );
@@ -272,7 +270,6 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
   if (!payment) {
     return (
       <div>
-        <div className="mb-4"><MobileBackButton fallback="/m/books/receipts" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} /></div>
         <MobileEmptyState icon={Printer} title="Receipt not found" />
       </div>
     );
@@ -392,7 +389,6 @@ function DetailShell({
   return (
     <div>
       <div className="mb-3">
-        <MobileBackButton fallback="/m/books/receipts" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
       </div>
 
       {/* Hero — receipt no + amount */}

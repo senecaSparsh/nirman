@@ -7,7 +7,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
 
@@ -63,7 +62,6 @@ async function MobileRequisitionDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/requisitions" className="gap-1" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={FileText} title="Requisition not found" />
       </div>
@@ -144,7 +142,6 @@ async function MobileRequisitionDetailContent({
     <div>
       {/* ── Compact header strip ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <MobileBackButton fallback="/m/requisitions" className="gap-1" style={{ color: "var(--color-ink-700)" }} />
         <a
           href={`/print/requisition/${req.id}`}
           className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"

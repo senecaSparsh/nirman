@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
@@ -24,7 +23,6 @@ export default function MobileFieldReceivePage({
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/site" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
           Receive
         </p>

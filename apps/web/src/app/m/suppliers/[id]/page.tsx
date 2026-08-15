@@ -3,7 +3,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Truck } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
@@ -59,7 +58,6 @@ async function MobileSupplierDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/suppliers" className="" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"

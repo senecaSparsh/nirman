@@ -4,7 +4,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Undo2, FileText, Building2, MapPin } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -60,7 +59,6 @@ async function MobileSupplierReturnDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/supplier-returns" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Undo2} title="Return not found" />
       </div>
@@ -122,7 +120,6 @@ async function MobileSupplierReturnDetailContent({
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-4">
-        <MobileBackButton fallback="/m/supplier-returns" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         <MobileStatusBadge status={ret.status} />
       </div>
 

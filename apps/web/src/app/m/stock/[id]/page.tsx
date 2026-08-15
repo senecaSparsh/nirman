@@ -3,7 +3,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Package, MapPin, IndianRupee, AlertTriangle, Layers, TrendingDown } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
@@ -49,7 +48,6 @@ async function MobileStockDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/stock" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Package} title="Material not found" />
       </div>
@@ -62,7 +60,6 @@ async function MobileStockDetailContent({
   return (
     <div>
       <div className="mb-4">
-        <MobileBackButton fallback="/m/stock" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
       </div>
 
       <MobileSectionTitle>Details</MobileSectionTitle>

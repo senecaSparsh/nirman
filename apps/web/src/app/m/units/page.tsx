@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Home, ChevronLeft } from "lucide-react";
+import { Home } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency } from "@/lib/utils";
@@ -110,27 +109,6 @@ async function MobileUnitsContent({
 
   return (
     <div>
-      {/* ── Back + project context ── */}
-      <div className="mb-2">
-        {project ? (
-          <Link
-            href={`/m/projects/${project.id}`}
-            className="flex items-center gap-1 text-[0.875rem] font-semibold"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <ChevronLeft className="size-5" />
-          </Link>
-        ) : (
-          <Link
-            href="/m/home"
-            className="flex items-center gap-1 text-[0.875rem] font-semibold"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <ChevronLeft className="size-5" />
-          </Link>
-        )}
-      </div>
-
       {/* ── Compact summary card — name, breakdown bar, key financials in one ── */}
       {units.length > 0 ? (
         <div

@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
-import { ListTree, ChevronRight, Calendar, ChevronLeft } from "lucide-react";
+import { ListTree, ChevronRight, Calendar } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber } from "@/lib/utils";
@@ -62,15 +61,6 @@ async function MobileWbsContent({
   if (!canView) {
     return (
       <div className="p-4">
-        <div className="mb-4">
-          <Link
-            href="/m/home"
-            className="flex items-center gap-1 text-[0.875rem] font-semibold"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <ChevronLeft className="size-5" />
-          </Link>
-        </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
           Work Breakdown Structure
         </p>
@@ -107,17 +97,6 @@ async function MobileWbsContent({
 
   return (
     <div>
-      {/* ── Back ── */}
-      <div className="mb-2">
-        <Link
-          href="/m/home"
-          className="flex items-center gap-1 text-[0.875rem] font-semibold"
-          style={{ color: "var(--color-ink-700)" }}
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
-      </div>
-
       {/* ── Project selector ── */}
       <Suspense fallback={null}>
         <MobileWbsProjectSelector

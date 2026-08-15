@@ -6,13 +6,11 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileAttendancePage() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/site" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
           Attendance
         </p>

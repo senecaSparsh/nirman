@@ -17,8 +17,9 @@ import {
   getCompanyPortfolioSummary,
   trialBalance,
 } from "@nirman/services";
-import { apiHandler, json, requireUser, getCompany, toNum } from "@/lib/server";
+import { apiHandler, json, requireUser, getCompany, toNum, getCurrentUser } from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
+import { hasPermission, PERM, type Role } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -57,8 +58,9 @@ interface ParsedEntities {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requireUser();
+  const user = await requireUser();
   const company = await getCompany();
+  const role = (user.role ?? "MANAGER") as Role;
 
   const body = await req.json();
   const text: string = (body?.text ?? "").trim();
@@ -67,7 +69,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   const parsed = parseIntent(text);
-  const response = await executeIntent(parsed.intent, parsed.entities, company.id, text);
+  const response = await executeIntent(parsed.intent, parsed.entities, company.id, text, role);
 
   return json({
     ...response,
@@ -85,12 +87,26 @@ async function executeIntent(
   entities: ParsedEntities,
   companyId: string,
   rawText: string,
+  role: Role,
 ): Promise<AssistantResponse> {
+  // ── Permission gate: check if the user's role can access this intent ──
+  const permCheck = checkIntentPermission(intent, role);
+  if (!permCheck.allowed) {
+    return {
+      text: `Aapke role (${roleLabel(role)}) ke liye ye action allowed nahi hai.\n\n${permCheck.reason ?? ""}`,
+      intent,
+      confidence: 0.9,
+      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }],
+    };
+  }
+
   switch (intent) {
     case "GREETING":
-      return greetingResponse();
+      return greetingResponse(role);
     case "HELP":
-      return helpResponse();
+      return helpResponse(role);
+    case "DASHBOARD":
+      return dashboardResponse(companyId, role);
     case "STOCK_QUERY":
       return stockQueryResponse(companyId, entities);
     case "LOW_STOCK":
@@ -136,6 +152,10 @@ async function executeIntent(
       return equipmentResponse(companyId);
     case "EXPENSE_LIST":
       return expenseResponse(companyId);
+    case "TRANSFER_STOCK":
+      return transferStockResponse();
+    case "ISSUE_MATERIAL":
+      return issueMaterialResponse();
     case "TASK_LIST":
       return taskResponse(companyId);
     case "WORKER_LIST":
@@ -152,76 +172,238 @@ async function executeIntent(
       return approveAllResponse(companyId);
     case "SUPPLIER_PAYMENT":
       return supplierPaymentResponse(companyId);
+    case "LAND_QUERY":
+      return landQueryResponse(companyId);
+    case "CUSTOMER_LIST":
+      return customerListResponse(companyId);
+    case "PAYROLL_STATUS":
+      return payrollResponse(companyId);
+    case "WORK_ORDER_LIST":
+      return workOrderResponse(companyId);
+    case "BOQ_QUERY":
+      return boqResponse(companyId);
+    case "WBS_QUERY":
+      return wbsResponse(companyId);
+    case "BUDGET_VARIANCE":
+      return budgetVarianceResponse(companyId);
+    case "PORTAL_LISTING":
+      return portalListingResponse(companyId);
+    case "SCRAP_STATUS":
+      return scrapResponse(companyId);
+    case "TALLY_STATUS":
+      return tallyResponse(companyId);
     default:
       return unknownResponse(rawText);
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RESPONSE BUILDERS
+// PERMISSION GATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-function greetingResponse(): AssistantResponse {
-  const greetings = [
-    "Namaste! 👋 Main Sahayak hoon. Bataiye, kya help karu?",
-    "Hello! Kya jaanna ya karna hai? Type karo ya bol lo 🎤",
-    "Namaste! Aapka assistant ready hai. Stock, sales, approvals — sab kuch poochho.",
-  ];
+/** Map an intent to the permission required to execute it. */
+function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; reason?: string } {
+  // Read-only intents — allowed for any authenticated user with the relevant .view perm
+  const READ_PERMS: Partial<Record<Intent, string>> = {
+    STOCK_QUERY: PERM.INVENTORY_VIEW,
+    LOW_STOCK: PERM.INVENTORY_VIEW,
+    APPROVALS_LIST: PERM.PROCUREMENT_VIEW,
+    SALES_LIST: PERM.SALES_VIEW,
+    PAYMENT_STATUS: PERM.SALES_VIEW,
+    PROJECT_STATUS: PERM.PROJECTS_VIEW,
+    PROJECT_LIST: PERM.PROJECTS_VIEW,
+    CASH_POSITION: PERM.FINANCE_VIEW,
+    SUPPLIER_PAYABLE: PERM.FINANCE_VIEW,
+    SUPPLIER_LIST: PERM.PROCUREMENT_VIEW,
+    ATTENDANCE_TODAY: PERM.HR_VIEW,
+    DPR_LIST: PERM.DPR_VIEW,
+    TRIAL_BALANCE: PERM.FINANCE_VIEW,
+    EQUIPMENT_STATUS: PERM.ASSETS_VIEW,
+    EXPENSE_LIST: PERM.FINANCE_VIEW,
+    TASK_LIST: PERM.TASKS_VIEW,
+    WORKER_LIST: PERM.HR_VIEW,
+    ATTENTION: PERM.PROJECTS_VIEW,
+    MONTHLY_SUMMARY: PERM.FINANCE_VIEW,
+    PROFIT_LOSS: PERM.FINANCE_VIEW,
+    SPEND_ANALYSIS: PERM.FINANCE_VIEW,
+    LAND_QUERY: PERM.ASSETS_VIEW,
+    CUSTOMER_LIST: PERM.SALES_VIEW,
+    PAYROLL_STATUS: PERM.PAYROLL_VIEW,
+    WORK_ORDER_LIST: PERM.WO_MANAGE,
+    BOQ_QUERY: PERM.PROJECTS_VIEW,
+    WBS_QUERY: PERM.PROJECTS_VIEW,
+    BUDGET_VARIANCE: PERM.PROJECTS_VIEW,
+    PORTAL_LISTING: PERM.ASSETS_VIEW,
+    SCRAP_STATUS: PERM.INVENTORY_VIEW,
+    TALLY_STATUS: PERM.FINANCE_VIEW,
+    DASHBOARD: PERM.PROJECTS_VIEW,
+  };
+
+  // Write/action intents — require the specific action permission
+  const WRITE_PERMS: Partial<Record<Intent, string>> = {
+    APPROVE_PO: PERM.PO_APPROVE,
+    APPROVE_REQUISITION: PERM.REQUISITION_APPROVE,
+    REJECT_PO: PERM.PO_APPROVE,
+    REJECT_REQUISITION: PERM.REQUISITION_APPROVE,
+    SALE_CREATE: PERM.SALE_CREATE,
+    CREATE_PO: PERM.PROCUREMENT_MANAGE,
+    CREATE_REQUISITION: PERM.PROCUREMENT_MANAGE,
+    AUTO_REQUISITION: PERM.PROCUREMENT_MANAGE,
+    APPROVE_ALL: PERM.PO_APPROVE,
+    SUPPLIER_PAYMENT: PERM.FINANCE_MANAGE,
+    TRANSFER_STOCK: PERM.STOCK_TRANSFER,
+    ISSUE_MATERIAL: PERM.STOCK_ISSUE,
+  };
+
+  const readPerm = READ_PERMS[intent];
+  const writePerm = WRITE_PERMS[intent];
+  const requiredPerm = writePerm ?? readPerm;
+
+  if (!requiredPerm) {
+    // GREETING, HELP, UNKNOWN — no permission needed
+    return { allowed: true };
+  }
+
+  if (hasPermission(role, requiredPerm)) {
+    return { allowed: true };
+  }
+
   return {
-    text: greetings[Math.floor(Math.random() * greetings.length)] ?? greetings[0]!,
-    intent: "GREETING",
-    confidence: 1,
-    cards: [
-      { type: "link", label: "Stock dekho", href: "/m/materials" },
-      { type: "link", label: "Approvals", href: "/m/pulse/approvals" },
-    ],
+    allowed: false,
+    reason: `Ye feature "${requiredPerm}" permission chahiye. Aapke role (${roleLabel(role)}) mein ye nahi hai.`,
   };
 }
 
-function helpResponse(): AssistantResponse {
-  return {
-    text: `Main ye sab kar sakta hoon:
+function roleLabel(role: Role): string {
+  const labels: Record<Role, string> = {
+    OWNER: "Owner",
+    ADMIN: "Admin",
+    MANAGER: "Manager",
+    SUPERVISOR: "Supervisor",
+    SALES: "Sales",
+    ACCOUNTANT: "Accountant",
+  };
+  return labels[role] ?? role;
+}
 
-� **Stock & Inventory**
+// ═══════════════════════════════════════════════════════════════════════════
+// RESPONSE BUILDERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function greetingResponse(role: Role): AssistantResponse {
+  const greetings: Record<Role, string[]> = {
+    OWNER: [
+      "Namaste! Main Sahayak hoon. Aapka poora business ready hai. Bataiye, kya dekhna hai?",
+      "Hello Owner! Sab kuch ready hai — stock, sales, approvals, finance. Bolo kya chahiye.",
+    ],
+    ADMIN: [
+      "Namaste! Admin mode. Sab modules ready hain. Bataiye kya help karu?",
+      "Hello! Aapka system ready hai. Stock, approvals, finance — sab poochho.",
+    ],
+    MANAGER: [
+      "Namaste! Manager mode. Projects, procurement, inventory — sab manage kar sakte ho. Bolo?",
+      "Hello! Aapke projects aur approvals ready hain. Kya karna hai?",
+    ],
+    SUPERVISOR: [
+      "Namaste! Supervisor mode. Site, stock, attendance, DPR — sab dekh sakte ho. Bolo?",
+      "Hello! Site updates ke liye ready hoon. Attendance, stock, DPR — kya chahiye?",
+    ],
+    SALES: [
+      "Namaste! Sales mode. Customers, sales, payments — sab ready. Bolo kya karna hai?",
+      "Hello! Aapke sales tools ready hain. Naya sale, customer, payment — bolo?",
+    ],
+    ACCOUNTANT: [
+      "Namaste! Accountant mode. Finance, expenses, GL, payroll — sab ready. Bolo?",
+      "Hello! Books ready hain. Trial balance, expenses, payments — kya dekhna hai?",
+    ],
+  };
+  const opts = greetings[role] ?? greetings.MANAGER;
+  return {
+    text: opts[Math.floor(Math.random() * opts.length)] ?? opts[0]!,
+    intent: "GREETING",
+    confidence: 1,
+    cards: roleAwareQuickLinks(role),
+  };
+}
+
+function roleAwareQuickLinks(role: Role): ActionCard[] {
+  const cards: ActionCard[] = [];
+  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+    cards.push({ type: "link", label: "Stock dekho", href: "/m/materials" });
+  }
+  if (hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE)) {
+    cards.push({ type: "link", label: "Approvals", href: "/m/pulse/approvals" });
+  }
+  if (hasPermission(role, PERM.SALES_VIEW)) {
+    cards.push({ type: "link", label: "Sales", href: "/m/material-sales" });
+  }
+  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+    cards.push({ type: "link", label: "Finance", href: "/m/gl" });
+  }
+  return cards.slice(0, 3);
+}
+
+function helpResponse(role: Role): AssistantResponse {
+  // Role-specific help text — only show commands the user can actually use
+  const sections: string[] = [];
+
+  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+    sections.push(`**Stock & Inventory**
 • "Stock kya hai?" — current stock
 • "Low stock kya hai?" — kya khatam ho raha
 • "Cement kitna hai?" — specific material
-• "Pachaas hazaar ka cement" — Hindi numbers!
-
-✅ **Approvals**
+• "Scrap status" — scrap inventory`);
+  }
+  if (hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE)) {
+    sections.push(`**Approvals**
 • "Approvals pending?" — pending list
 • "PO-0011 approve kar" — specific PO
-• "Sab approve kar" — approve all
-• "Pehla wala approve kar" — by position
-
-💰 **Sales & Payment**
+• "Sab approve kar" — approve all`);
+  }
+  if (hasPermission(role, PERM.SALES_VIEW)) {
+    sections.push(`**Sales & Payment**
 • "Aaj ki sales" — recent sales
 • "Payment kitni baki?" — pending payments
-• "Naya sale banao" — create sale
-
-🏗️ **Projects & Reports**
+• "Customers dikhao" — customer list`);
+  }
+  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+    sections.push(`**Projects & Reports**
 • "Project status" — all projects
 • "DPR pending" — daily reports
-• "Is mahine ka summary" — monthly summary
-• "Profit kitna hua?" — P&L
-• "Cement par kitna kharcha?" — spend analysis
-
-💵 **Finance**
+• "Budget variance" — budget vs actual
+• "BOQ dikhao" — bill of quantities`);
+  }
+  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+    sections.push(`**Finance**
 • "Cash position" — cash & bank
 • "Trial balance" — GL summary
+• "Profit kitna?" — P&L
 • "Supplier ko kitna dena?" — payables
-• "Supplier ko pay karo" — make payment
-
-👷 **Site & Workers**
+• "Tally status" — sync status`);
+  }
+  if (hasPermission(role, PERM.HR_VIEW)) {
+    sections.push(`**Site & Workers**
 • "Aaj kitne worker aaye?" — attendance
-• "Auto requisition chala" — auto-generate
-• "Kya karna hai?" — what needs attention
+• "Payroll status" — salary info
+• "Workers dikhao" — employee list`);
+  }
+  if (hasPermission(role, PERM.ASSETS_VIEW)) {
+    sections.push(`**Assets**
+• "Land dikhao" — land parcels
+• "Portal listings" — online listings`);
+  }
+  sections.push(`**General**
+• "Dashboard" — role-based overview
+• "Is mahine ka summary" — monthly summary
+• "Kya karna hai?" — what needs attention`);
 
-Bolo ya type karo — Hindi, English, ya dono! 🎤`,
+  return {
+    text: `Main ye sab kar sakta hoon:\n\n${sections.join("\n\n")}\n\nBolo ya type karo — Hindi, English, ya dono!`,
     intent: "HELP",
     confidence: 1,
   };
 }
+
 
 async function stockQueryResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   // If a specific material is mentioned, query that
@@ -1299,4 +1481,326 @@ async function supplierPaymentResponse(companyId: string): Promise<AssistantResp
   }));
 
   return { text, cards, intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEW INTENT HANDLERS — Dashboard, Land, Customers, Payroll, WO, BOQ, WBS,
+// Budget Variance, Portal, Scrap, Tally, Transfer, Issue
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function dashboardResponse(companyId: string, role: Role): Promise<AssistantResponse> {
+  const items: string[] = [];
+  const cards: ActionCard[] = [];
+
+  // Role-aware dashboard — show what's relevant to the user's permissions
+  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+    const [draftPOs, pendingReqs] = await Promise.all([
+      prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
+      prisma.materialRequisition.count({ where: { project: { companyId }, status: "SUBMITTED" } }),
+    ]);
+    if (draftPOs > 0 || pendingReqs > 0) {
+      items.push(`Approvals: ${draftPOs} POs + ${pendingReqs} requisitions pending`);
+      if (hasPermission(role, PERM.PO_APPROVE)) {
+        cards.push({ type: "link", label: "Approvals kholo", href: "/m/pulse/approvals" });
+      }
+    }
+  }
+
+  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+    const lowStock = await lowStockAlerts(companyId).catch(() => []);
+    if (lowStock.length > 0) {
+      items.push(`Low stock: ${lowStock.length} materials`);
+      cards.push({ type: "link", label: "Stock dekho", href: "/m/materials" });
+    }
+  }
+
+  if (hasPermission(role, PERM.SALES_VIEW)) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todaySales = await prisma.materialSale.count({
+      where: { companyId, createdAt: { gte: todayStart } },
+    });
+    if (todaySales > 0) {
+      items.push(`Aaj ${todaySales} sales hui`);
+      cards.push({ type: "link", label: "Sales dekho", href: "/m/material-sales" });
+    }
+  }
+
+  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+    const suppliers = await prisma.supplier.findMany({
+      where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
+      select: { balanceOwed: true },
+    });
+    const totalPayable = suppliers.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
+    if (totalPayable > 0) {
+      items.push(`Supplier payable: ${formatCurrency(totalPayable)}`);
+    }
+  }
+
+  if (hasPermission(role, PERM.HR_VIEW)) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const attendanceToday = await prisma.workerAttendance.count({
+      where: { companyId, date: { gte: todayStart } },
+    });
+    if (attendanceToday > 0) {
+      items.push(`Aaj ${attendanceToday} attendance records`);
+    }
+  }
+
+  if (items.length === 0) {
+    return {
+      text: `Sab smooth hai! Koi urgent item nahi hai. Kya specific dekhna hai?`,
+      intent: "DASHBOARD",
+      confidence: 0.9,
+      cards: roleAwareQuickLinks(role),
+    };
+  }
+
+  let text = `**Aapka Dashboard:**\n\n`;
+  for (const item of items) text += `• ${item}\n`;
+  text += `\nKya karna hai? Bolo aur main kar deta hoon.`;
+
+  return { text, cards: cards.length > 0 ? cards.slice(0, 3) : undefined, intent: "DASHBOARD", confidence: 0.9 };
+}
+
+async function landQueryResponse(companyId: string): Promise<AssistantResponse> {
+  const parcels = await prisma.landParcel.findMany({
+    where: { landPurchase: { companyId }, deletedAt: null },
+    include: { landPurchase: true },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
+  if (parcels.length === 0) {
+    return { text: "Koi land parcel registered nahi hai.", intent: "LAND_QUERY", confidence: 0.8, cards: [{ type: "link", label: "Land module", href: "/m/land" }] };
+  }
+
+  const totalArea = parcels.reduce((s, p) => s + toNum(p.area), 0);
+  const totalValue = parcels.reduce((s, p) => s + toNum(p.currentValuation), 0);
+
+  let text = `**Land Parcels (${parcels.length}):**\n\n`;
+  for (const p of parcels.slice(0, 6)) {
+    const status = p.status === "PARTITIONED" ? " (partitioned)" : p.status === "SOLD" ? " (sold)" : "";
+    text += `• ${p.number} — ${formatNumber(toNum(p.area), 2)} sqft | ${formatCurrency(toNum(p.currentValuation))}${status}\n`;
+  }
+  text += `\nTotal area: ${formatNumber(totalArea, 2)} sqft | Total value: ${formatCurrency(totalValue)}`;
+
+  return { text, intent: "LAND_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All land", href: "/m/land" }] };
+}
+
+async function customerListResponse(companyId: string): Promise<AssistantResponse> {
+  const customers = await prisma.customer.findMany({
+    where: { companyId, deletedAt: null },
+    orderBy: { name: "asc" },
+    take: 10,
+    select: { id: true, name: true, phone: true, email: true },
+  });
+
+  if (customers.length === 0) {
+    return { text: "Koi customer registered nahi hai.", intent: "CUSTOMER_LIST", confidence: 0.8, cards: [{ type: "link", label: "Add customer", href: "/m/customers/new", variant: "primary" }] };
+  }
+
+  let text = `**Customers (${customers.length}):**\n\n`;
+  for (const c of customers.slice(0, 8)) {
+    text += `• ${c.name}${c.phone ? ` (${c.phone})` : ""}\n`;
+  }
+
+  return { text, intent: "CUSTOMER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All customers", href: "/m/customers" }] };
+}
+
+async function payrollResponse(companyId: string): Promise<AssistantResponse> {
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+  const payrolls = await prisma.payrollPeriod.findMany({
+    where: { companyId, startDate: { gte: monthStart } },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+    include: { _count: { select: { lines: true } } },
+  });
+
+  if (payrolls.length === 0) {
+    return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/books/payroll", variant: "primary" }] };
+  }
+
+  let text = `**Payroll Status (${payrolls.length}):**\n\n`;
+  for (const p of payrolls) {
+    const monthName = new Date(p.year, p.month - 1).toLocaleString("en-IN", { month: "long" });
+    text += `• ${monthName} ${p.year} — ${p._count.lines} employees | ${formatCurrency(toNum(p.totalGross))} gross | ${p.status}\n`;
+  }
+
+  return { text, intent: "PAYROLL_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Payroll detail", href: "/m/books/payroll" }] };
+}
+
+async function workOrderResponse(companyId: string): Promise<AssistantResponse> {
+  const wos = await prisma.subcontractorWorkOrder.findMany({
+    where: { companyId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { subcontractor: { select: { name: true } }, project: { select: { name: true } } },
+  });
+
+  if (wos.length === 0) {
+    return { text: "Koi work order nahi hai.", intent: "WORK_ORDER_LIST", confidence: 0.8 };
+  }
+
+  let text = `**Work Orders (${wos.length}):**\n\n`;
+  for (const w of wos.slice(0, 6)) {
+    text += `• ${w.workOrderNumber} — ${w.subcontractor?.name ?? "Unknown"} | ${w.project?.name ?? "No project"} | ${w.status}\n`;
+  }
+
+  return { text, intent: "WORK_ORDER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All work orders", href: "/m/work-orders" }] };
+}
+
+async function boqResponse(companyId: string): Promise<AssistantResponse> {
+  const items = await prisma.boqItem.findMany({
+    where: { project: { companyId, deletedAt: null }, type: "LINE_ITEM" },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { project: { select: { name: true } } },
+  });
+
+  if (items.length === 0) {
+    return { text: "Koi BOQ item nahi hai.", intent: "BOQ_QUERY", confidence: 0.8, cards: [{ type: "link", label: "BOQ module", href: "/m/boq" }] };
+  }
+
+  const totalValue = items.reduce((s, i) => s + toNum(i.estimatedAmount), 0);
+
+  let text = `**BOQ Items (${items.length}):**\n\n`;
+  for (const i of items.slice(0, 6)) {
+    text += `• ${i.description} — ${i.project?.name ?? "No project"} | ${formatCurrency(toNum(i.estimatedAmount))}\n`;
+  }
+  text += `\nTotal BOQ value: ${formatCurrency(totalValue)}`;
+
+  return { text, intent: "BOQ_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All BOQ", href: "/m/boq" }] };
+}
+
+async function wbsResponse(companyId: string): Promise<AssistantResponse> {
+  const nodes = await prisma.wbsNode.findMany({
+    where: { project: { companyId, deletedAt: null } },
+    orderBy: { createdAt: "asc" },
+    take: 15,
+    include: { project: { select: { name: true } } },
+  });
+
+  if (nodes.length === 0) {
+    return { text: "Koi WBS node nahi hai.", intent: "WBS_QUERY", confidence: 0.8, cards: [{ type: "link", label: "WBS module", href: "/m/wbs" }] };
+  }
+
+  let text = `**WBS Nodes (${nodes.length}):**\n\n`;
+  for (const n of nodes.slice(0, 8)) {
+    text += `• ${n.name} — ${n.project?.name ?? "No project"} | ${n.type}\n`;
+  }
+
+  return { text, intent: "WBS_QUERY", confidence: 0.9, cards: [{ type: "link", label: "WBS tree", href: "/m/wbs" }] };
+}
+
+async function budgetVarianceResponse(companyId: string): Promise<AssistantResponse> {
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null, totalProjectCost: { not: null } },
+    take: 10,
+    select: { id: true, name: true, totalProjectCost: true, totalBudget: true },
+  });
+
+  if (projects.length === 0) {
+    return { text: "Koi budget data nahi hai.", intent: "BUDGET_VARIANCE", confidence: 0.8, cards: [{ type: "link", label: "Budget variance", href: "/m/budget-variance" }] };
+  }
+
+  let text = `**Budget vs Actual:**\n\n`;
+  for (const p of projects.slice(0, 6)) {
+    const budget = toNum(p.totalBudget);
+    const actual = toNum(p.totalProjectCost);
+    const variance = budget - actual;
+    const pct = budget > 0 ? ((variance / budget) * 100).toFixed(1) : "0";
+    const icon = variance >= 0 ? "OK" : "OVER";
+    text += `• ${p.name}: Budget ${formatCurrency(budget)} | Actual ${formatCurrency(actual)} | ${icon} ${pct}%\n`;
+  }
+
+  return { text, intent: "BUDGET_VARIANCE", confidence: 0.9, cards: [{ type: "link", label: "Budget detail", href: "/m/budget-variance" }] };
+}
+
+async function portalListingResponse(companyId: string): Promise<AssistantResponse> {
+  const listings = await prisma.portalListing.findMany({
+    where: { builtUnit: { project: { companyId, deletedAt: null } } },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { builtUnit: { select: { unitNumber: true, project: { select: { name: true } } } } },
+  });
+
+  if (listings.length === 0) {
+    return { text: "Koi portal listing nahi hai.", intent: "PORTAL_LISTING", confidence: 0.8, cards: [{ type: "link", label: "Portal listings", href: "/m/portal-listings" }] };
+  }
+
+  const listed = listings.filter((l) => l.status === "LISTED").length;
+  const draft = listings.filter((l) => l.status === "DRAFT").length;
+
+  let text = `**Portal Listings (${listings.length}):**\n\n`;
+  text += `Listed: ${listed} | Draft: ${draft}\n\n`;
+  for (const l of listings.slice(0, 6)) {
+    text += `• ${l.portalName} — ${l.builtUnit?.unitNumber ?? "Unit"} | ${l.status}\n`;
+  }
+
+  return { text, intent: "PORTAL_LISTING", confidence: 0.9, cards: [{ type: "link", label: "All listings", href: "/m/portal-listings" }] };
+}
+
+async function scrapResponse(companyId: string): Promise<AssistantResponse> {
+  const scraps = await prisma.scrapGeneration.findMany({
+    where: { companyId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { _count: { select: { lines: true } } },
+  });
+
+  if (scraps.length === 0) {
+    return { text: "Koi scrap generation nahi hai.", intent: "SCRAP_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Scrap module", href: "/m/scrap-generations" }] };
+  }
+
+  let text = `**Scrap Generations (${scraps.length}):**\n\n`;
+  for (const s of scraps.slice(0, 6)) {
+    text += `• ${s.scrapNumber} — ${s._count.lines} items | ${s.createdAt.toISOString().split("T")[0]}\n`;
+  }
+
+  return { text, intent: "SCRAP_STATUS", confidence: 0.9, cards: [{ type: "link", label: "All scrap", href: "/m/scrap-generations" }] };
+}
+
+async function tallyResponse(companyId: string): Promise<AssistantResponse> {
+  const [pending, synced, failed] = await Promise.all([
+    prisma.tallySyncLog.count({ where: { companyId, syncStatus: "PENDING" } }),
+    prisma.tallySyncLog.count({ where: { companyId, syncStatus: "SYNCED" } }),
+    prisma.tallySyncLog.count({ where: { companyId, syncStatus: "FAILED" } }),
+  ]);
+
+  if (pending === 0 && synced === 0 && failed === 0) {
+    return { text: "Koi Tally sync data nahi hai. Pehle journal entries banao.", intent: "TALLY_STATUS", confidence: 0.8, cards: [{ type: "link", label: "GL page", href: "/m/gl" }] };
+  }
+
+  let text = `**Tally Sync Status:**\n\n`;
+  text += `Synced: ${synced}\n`;
+  text += `Pending: ${pending}\n`;
+  text += `Failed: ${failed}\n`;
+
+  if (pending > 0) {
+    text += `\n${pending} entries sync karne pending hain.`;
+    return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Sync now", href: "/m/gl", variant: "primary" }] };
+  }
+
+  return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "GL page", href: "/m/gl" }] };
+}
+
+function transferStockResponse(): AssistantResponse {
+  return {
+    text: `Stock transfer karna hai?\n\nKaunsa material, kahan se, kahan tak, aur kitna? Ya direct form kholein:`,
+    intent: "TRANSFER_STOCK",
+    confidence: 0.8,
+    cards: [{ type: "link", label: "New Transfer", href: "/m/transfers/new", variant: "primary" }],
+  };
+}
+
+function issueMaterialResponse(): AssistantResponse {
+  return {
+    text: `Material issue karna hai?\n\nKaunsa material, kaunse project/site ko, aur kitna? Ya form kholein:`,
+    intent: "ISSUE_MATERIAL",
+    confidence: 0.8,
+    cards: [{ type: "link", label: "Issue Material", href: "/m/site/issue", variant: "primary" }],
+  };
 }

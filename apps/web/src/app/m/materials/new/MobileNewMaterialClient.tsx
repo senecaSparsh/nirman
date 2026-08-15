@@ -10,7 +10,6 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
 
 interface Category {
@@ -138,7 +137,6 @@ export default function MobileNewMaterialClient({
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/materials" />
         </div>
         <div
           className="rounded-[0.625rem] border p-4 text-center"

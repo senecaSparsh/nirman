@@ -3,7 +3,6 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import MobileNewMaterialClient from "./MobileNewMaterialClient";
 
@@ -18,7 +17,6 @@ export default async function NewMaterialPage() {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/materials" />
         </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
           New Material

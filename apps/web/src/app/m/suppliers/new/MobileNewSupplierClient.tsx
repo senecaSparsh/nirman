@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, Loader2, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * Mobile supplier creation form — minimal fields for fast on-the-spot
@@ -88,7 +87,6 @@ export function MobileNewSupplierClient({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/suppliers" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
@@ -117,7 +115,6 @@ export function MobileNewSupplierClient({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <MobileBackButton fallback="/m/suppliers" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
           New Supplier
         </p>

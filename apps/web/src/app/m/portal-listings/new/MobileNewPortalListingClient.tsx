@@ -7,7 +7,6 @@ import { Globe, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 interface UnitOption {
   id: string;
@@ -107,7 +106,6 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
   if (units.length === 0) {
     return (
       <div>
-        <MobileBackButton fallback="/m/portal-listings" />
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-16 text-center"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
@@ -134,7 +132,6 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
 
   return (
     <div>
-      <MobileBackButton fallback="/m/portal-listings" />
 
       <div className="flex items-center gap-2 mb-4">
         <span className="grid place-items-center size-8 rounded-[0.5rem]" style={{ backgroundColor: "var(--color-concrete)" }}>

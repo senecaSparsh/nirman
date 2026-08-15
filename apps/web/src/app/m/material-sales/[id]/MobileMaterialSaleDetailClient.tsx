@@ -7,7 +7,6 @@ import {
   Phone, Printer, XCircle, Banknote,
   TrendingUp, Loader2, X, IndianRupee,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -99,7 +98,6 @@ export function MobileMaterialSaleDetailClient({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/material-sales" className="" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <div
           className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
@@ -189,7 +187,6 @@ export function MobileMaterialSaleDetailClient({
     <div>
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
-        <MobileBackButton fallback="/m/material-sales" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
             {saleNumber}

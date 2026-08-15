@@ -6,13 +6,11 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileDprPage() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/site" style={{ color: "var(--color-ink-700)" }} />
         <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
           Submit Daily Progress Report
         </p>

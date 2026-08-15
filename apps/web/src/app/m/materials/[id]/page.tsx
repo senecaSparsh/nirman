@@ -7,7 +7,6 @@ import {
   Package, ArrowLeftRight,
   IndianRupee, ClipboardList,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -50,7 +49,6 @@ async function MobileMaterialDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/materials" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Package} title="Access denied" hint="You don't have permission to view material details" />
       </div>
@@ -83,7 +81,6 @@ async function MobileMaterialDetailContent({
     return (
       <div>
         <div className="mb-4">
-          <MobileBackButton fallback="/m/materials" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
         </div>
         <MobileEmptyState icon={Package} title="Material not found" />
       </div>
@@ -106,7 +103,6 @@ async function MobileMaterialDetailContent({
     <div>
       {/* ── Back ── */}
       <div className="mb-3">
-        <MobileBackButton fallback="/m/materials" className="gap-1 text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }} />
       </div>
 
       {/* ── Hero card ── */}

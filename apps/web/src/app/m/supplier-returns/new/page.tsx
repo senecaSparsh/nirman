@@ -1,7 +1,6 @@
 import { prisma } from "@nirman/db";
 import { getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import MobileNewSupplierReturnClient from "./MobileNewSupplierReturnClient";
 
 /**
@@ -17,7 +16,6 @@ export default async function MobileNewSupplierReturnPage() {
     return (
       <div className="p-4">
         <div className="mb-4">
-          <MobileBackButton fallback="/m/supplier-returns" />
         </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
           New Supplier Return

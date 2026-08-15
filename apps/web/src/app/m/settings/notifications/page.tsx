@@ -6,7 +6,6 @@ import {
   CheckCircle2, XCircle, Clock, Send, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 interface Template {
   id: string;
@@ -175,7 +174,6 @@ export default function MobileNotificationsPage() {
     <div className="space-y-4 pb-6">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <MobileBackButton fallback="/m/settings" />
         <div>
           <h1 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Notifications

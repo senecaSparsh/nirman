@@ -8,7 +8,6 @@ import {
   CheckCircle2, AlertTriangle, Clock, Scale, Loader2, Trash2,
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -61,7 +60,6 @@ export function MobileStockCountDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/stock-counts" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Stock count not found
           </p>
@@ -130,7 +128,6 @@ export function MobileStockCountDetailClient({
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/stock-counts" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Stock Count

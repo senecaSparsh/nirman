@@ -9,7 +9,6 @@ import {
   IndianRupee, Maximize, Trash2, Pencil, X, Search, ChevronRight,
   Plus, Loader2, AlertCircle, Home, DollarSign, Tag,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileLandEditForm } from "./MobileLandEditForm";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
@@ -156,7 +155,6 @@ export function MobileLandDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <MobileBackButton fallback="/m/land" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Land purchase not found
           </p>
@@ -184,7 +182,6 @@ export function MobileLandDetailClient({
     <div className="pb-6">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/land" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {data.location ?? data.sellerName}

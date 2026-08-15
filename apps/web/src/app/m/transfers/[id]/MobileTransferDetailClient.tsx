@@ -8,7 +8,6 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, Loader2, XCircle,
   Building2,
 } from "lucide-react";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
@@ -107,7 +106,6 @@ export function MobileTransferDetailClient({
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <MobileBackButton fallback="/m/transfers" className="shrink-0" style={{ color: "var(--color-ink-700)" }} />
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Stock Transfer

@@ -18,6 +18,7 @@
 export type Intent =
   | "GREETING"
   | "HELP"
+  | "DASHBOARD"
   | "STOCK_QUERY"
   | "LOW_STOCK"
   | "APPROVALS_LIST"
@@ -51,6 +52,16 @@ export type Intent =
   | "SPEND_ANALYSIS"
   | "APPROVE_ALL"
   | "SUPPLIER_PAYMENT"
+  | "LAND_QUERY"
+  | "CUSTOMER_LIST"
+  | "PAYROLL_STATUS"
+  | "WORK_ORDER_LIST"
+  | "BOQ_QUERY"
+  | "WBS_QUERY"
+  | "BUDGET_VARIANCE"
+  | "PORTAL_LISTING"
+  | "SCRAP_STATUS"
+  | "TALLY_STATUS"
   | "UNKNOWN";
 
 export interface ParsedIntent {
@@ -519,6 +530,143 @@ const INTENTS: IntentDef[] = [
     ],
     weight: 4,
   },
+
+  // ── Dashboard / overview ───────────────────────────────────────────────
+  {
+    intent: "DASHBOARD",
+    keywords: [
+      "dashboard", "overview", "summary dikhao",
+      "haal chaal", "kya chal raha", "status dikhao",
+      "big picture", "mine ka status", "mera dashboard",
+      "quick status", "snapshot", "kaisa chal raha",
+    ],
+    weight: 5,
+  },
+
+  // ── Land / real estate ─────────────────────────────────────────────────
+  {
+    intent: "LAND_QUERY",
+    keywords: [
+      "land", "zameen", "zamin", "plot",
+      "land parcel", "property list",
+      "kitni zameen", "land kya hai", "land dikhao",
+      "real estate", "plots", "parcels",
+      "zameen kitni", "land status", "land inventory",
+    ],
+    weight: 3,
+  },
+
+  // ── Customer list ──────────────────────────────────────────────────────
+  {
+    intent: "CUSTOMER_LIST",
+    keywords: [
+      "customers", "customer list", "customer dikhao",
+      "grahak", "grahak list", "kitne customer",
+      "client", "clients", "client list",
+      "party list", "parties", "customer kaun",
+    ],
+    weight: 2,
+  },
+
+  // ── Payroll status ─────────────────────────────────────────────────────
+  {
+    intent: "PAYROLL_STATUS",
+    keywords: [
+      "payroll", "salary", "tankhwa",
+      "payroll status", "salary dikhao",
+      "payroll kitna", "salary kitna",
+      "payroll list", "salary list",
+      "payroll report", "wages",
+      "mazdoori", "payment to workers",
+    ],
+    weight: 3,
+  },
+
+  // ── Work orders ────────────────────────────────────────────────────────
+  {
+    intent: "WORK_ORDER_LIST",
+    keywords: [
+      "work order", "wo", "contractor",
+      "work order list", "wo dikhao",
+      "subcontractor", "thekedaar",
+      "work order status", "wo status",
+      "kitne work order", "wo kitne",
+    ],
+    weight: 3,
+  },
+
+  // ── BOQ (Bill of Quantities) ───────────────────────────────────────────
+  {
+    intent: "BOQ_QUERY",
+    keywords: [
+      "boq", "bill of quantities", "bill of quantity",
+      "boq dikhao", "boq status",
+      "boq kitna", "boq list",
+      "quantity survey", "qs",
+    ],
+    weight: 4,
+  },
+
+  // ── WBS (Work Breakdown Structure) ─────────────────────────────────────
+  {
+    intent: "WBS_QUERY",
+    keywords: [
+      "wbs", "work breakdown", "work breakdown structure",
+      "wbs dikhao", "wbs tree",
+      "task breakdown", "wbs status",
+    ],
+    weight: 4,
+  },
+
+  // ── Budget variance ────────────────────────────────────────────────────
+  {
+    intent: "BUDGET_VARIANCE",
+    keywords: [
+      "budget variance", "budget vs actual",
+      "budget kitna", "variance",
+      "budget over", "budget under",
+      "budget difference", "budget status",
+      "over budget", "under budget",
+    ],
+    weight: 4,
+  },
+
+  // ── Portal listings ────────────────────────────────────────────────────
+  {
+    intent: "PORTAL_LISTING",
+    keywords: [
+      "portal", "listing", "99acres",
+      "magicbricks", "housing",
+      "portal listing", "listing dikhao",
+      "online listing", "property listing",
+      "kitne listing", "listing status",
+    ],
+    weight: 3,
+  },
+
+  // ── Scrap status ───────────────────────────────────────────────────────
+  {
+    intent: "SCRAP_STATUS",
+    keywords: [
+      "scrap", "kabad", "waste material",
+      "scrap dikhao", "scrap status",
+      "scrap kitna", "kabad kitna",
+      "scrap sale", "scrap value",
+    ],
+    weight: 3,
+  },
+
+  // ── Tally sync status ──────────────────────────────────────────────────
+  {
+    intent: "TALLY_STATUS",
+    keywords: [
+      "tally", "tally sync", "tally status",
+      "tally export", "tally dikhao",
+      "sync status", "tally sync kitna",
+      "tally pending", "tally entries",
+    ],
+    weight: 5,
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -795,6 +943,7 @@ export function parseIntent(rawText: string): ParsedIntent {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const SUGGESTION_CHIPS = [
+  { label: "Dashboard", text: "dashboard dikhao" },
   { label: "Kya karu?", text: "kya karna hai" },
   { label: "Stock kya hai?", text: "stock kya hai" },
   { label: "Approvals pending?", text: "approvals pending kya hai" },
@@ -804,9 +953,10 @@ export const SUGGESTION_CHIPS = [
   { label: "Low stock kya hai?", text: "low stock kya hai" },
   { label: "Profit kitna?", text: "profit kitna hua" },
   { label: "Is mahine ka summary", text: "is mahine ka summary" },
-  { label: "Cement par kitna kharcha?", text: "cement par kitna kharcha hua" },
-  { label: "Aaj attendance", text: "aaj kitne worker aaye" },
-  { label: "Trial balance", text: "trial balance dikhao" },
+  { label: "Land dikhao", text: "land dikhao" },
+  { label: "Payroll status", text: "payroll status dikhao" },
+  { label: "Budget variance", text: "budget variance dikhao" },
+  { label: "Tally status", text: "tally status dikhao" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

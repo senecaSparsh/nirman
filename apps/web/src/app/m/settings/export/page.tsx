@@ -7,7 +7,6 @@ import {
   CheckCircle2, FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 interface ReportType {
   id: string;
@@ -108,7 +107,6 @@ export default function MobileExportPage() {
     <div className="space-y-4 pb-6">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <MobileBackButton fallback="/m/settings" />
         <div>
           <h1 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
             Bulk Export
