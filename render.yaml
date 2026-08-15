@@ -66,7 +66,5 @@ services:
         value: https://nirman-inventory.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://nirman-inventory.onrender.com
-      # Generate a secret: openssl rand -hex 32
-      # Set this in the Render dashboard (don't commit real secrets):
-      # - key: BETTER_AUTH_SECRET
-      #   sync: false  # paste the generated secret
+      - key: BETTER_AUTH_SECRET
+        value: ec7e54b42ea884521fc293ab5f5a4bc842e2694c0736626262455f9033894347

@@ -4,19 +4,9 @@ import { prisma } from "@nirman/db";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  // Dynamic baseURL — works on any deploy URL (Render, Vercel, localhost)
-  // without needing BETTER_AUTH_URL env var. Better-Auth extracts the host
-  // from x-forwarded-host / host header and validates against allowedHosts.
-  baseURL: {
-    allowedHosts: [
-      "localhost:3000",
-      "localhost:3001",
-      "nirman-inventory.onrender.com",
-      "*.onrender.com",
-    ],
-    protocol: "auto",
-  },
-  secret: process.env.BETTER_AUTH_SECRET ?? "build-time-fallback-not-used-at-runtime",
+  // Static baseURL — simplest and most reliable for single-domain deploys.
+  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  secret: process.env.BETTER_AUTH_SECRET ?? "dev-only-fallback-secret-not-for-production-use-32chars",
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
