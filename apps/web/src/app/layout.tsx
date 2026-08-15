@@ -32,14 +32,22 @@ export const metadata: Metadata = {
   title: "Nirman Inventory OS",
   description: "Construction + Real Estate inventory management",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "Nirman", statusBarStyle: "default" },
+  appleWebApp: {
+    capable: true,
+    title: "Nirman",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "32x32" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
+      { url: "/icon-192.png", sizes: "192x192" },
+    ],
   },
 };
 
