@@ -7,8 +7,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
-  MobileSectionTitle,
-  MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
@@ -138,17 +136,6 @@ async function MobileProjectsContent() {
       </div>
 
       <MobileProjectsList items={serialized} canManage={canManage} />
-
-      {projects.length === 0 && (
-        <>
-          <MobileSectionTitle>Active &amp; Planned</MobileSectionTitle>
-          <MobileEmptyState
-            icon={Building2}
-            title="No projects yet"
-            hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
-          />
-        </>
-      )}
     </div>
   );
 }

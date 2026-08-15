@@ -69,8 +69,6 @@ export function MobileProjectsList({
 
   const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
 
-  if (items.length === 0) return null;
-
   return (
     <div>
       {/* ── New project button (managers only) ─────────────────── */}
@@ -91,53 +89,64 @@ export function MobileProjectsList({
         />
       )}
 
-      {/* ── Warm search bar ───────────────────────────────────── */}
-      <div className="mb-4">
-        <div
-          className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        >
-          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by project name…"
-            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
-            style={{ color: "var(--color-ink-900)" }}
-          />
-          {query && (
-            <button onClick={() => setQuery("")} className="press">
-              <X className="size-4" style={{ color: "var(--color-ink-300)" }} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Filter chips (warm style) ─────────────────────────── */}
-      <div className="flex gap-1.5 mb-4">
-        {FILTER_CHIPS.map((chip) => {
-          const active = statusFilter === chip.value;
-          return (
-            <button
-              key={chip.value}
-              onClick={() => setStatusFilter(chip.value)}
-              className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold transition-colors"
-              style={{
-                backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
-                color: active ? "#fff" : "var(--color-ink-500)",
-              }}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {isFiltering ? (
-        <FlatList items={filtered} />
+      {/* ── No projects: show empty state (button already rendered above) ── */}
+      {items.length === 0 ? (
+        <MobileEmptyState
+          icon={Building2}
+          title="No projects yet"
+          hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
+        />
       ) : (
-        <GroupedList items={items} canManage={canManage} />
+        <>
+          {/* ── Warm search bar ───────────────────────────────────── */}
+          <div className="mb-4">
+            <div
+              className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
+              style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+            >
+              <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by project name…"
+                className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
+                style={{ color: "var(--color-ink-900)" }}
+              />
+              {query && (
+                <button onClick={() => setQuery("")} className="press">
+                  <X className="size-4" style={{ color: "var(--color-ink-300)" }} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Filter chips (warm style) ─────────────────────────── */}
+          <div className="flex gap-1.5 mb-4">
+            {FILTER_CHIPS.map((chip) => {
+              const active = statusFilter === chip.value;
+              return (
+                <button
+                  key={chip.value}
+                  onClick={() => setStatusFilter(chip.value)}
+                  className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold transition-colors"
+                  style={{
+                    backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
+                    color: active ? "#fff" : "var(--color-ink-500)",
+                  }}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {isFiltering ? (
+            <FlatList items={filtered} />
+          ) : (
+            <GroupedList items={items} canManage={canManage} />
+          )}
+        </>
       )}
     </div>
   );
