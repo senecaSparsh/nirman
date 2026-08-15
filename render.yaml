@@ -35,15 +35,12 @@ services:
     branch: main
     healthCheckPath: /sign-in
 
-    # Node + pnpm setup, then build (turbo build auto-runs prisma generate)
+    # Node + pnpm setup, build, then migrate + seed (free tier has no preDeployCommand)
     buildCommand: |
       corepack enable &&
       corepack prepare pnpm@latest --activate &&
       pnpm install --frozen-lockfile &&
-      pnpm build
-
-    # Pre-deploy: run migrations + seed (needs DB to be up)
-    preDeployCommand: |
+      pnpm build &&
       pnpm --filter @nirman/db generate &&
       pnpm --filter @nirman/db migrate:deploy &&
       pnpm --filter @nirman/services seed &&
