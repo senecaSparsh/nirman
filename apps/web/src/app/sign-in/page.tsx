@@ -47,6 +47,19 @@ function SignInForm() {
     authClient.signOut().catch(() => {});
   }, []);
 
+  // Check if this is a fresh deploy (no users yet) — if so, redirect
+  // to /sign-up so the first owner can set up their company.
+  useEffect(() => {
+    fetch("/api/auth/bootstrap")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.needsBootstrap) {
+          router.replace("/sign-up");
+        }
+      })
+      .catch(() => {});
+  }, [router]);
+
   // Shared post-login routing. Honours an explicit redirect first, then
   // sends phones to /m, otherwise to the role's home world.
   async function routeAfterLogin() {
