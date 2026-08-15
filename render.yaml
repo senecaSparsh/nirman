@@ -30,7 +30,7 @@ services:
   - type: web
     name: nirman-inventory
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     branch: main
     healthCheckPath: /sign-in
