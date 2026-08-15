@@ -19,13 +19,14 @@
 # After first deploy, sign in with:
 #   amit@nirman.in / <SEED_PASSWORD>  (OWNER — full access)
 
-services:
-  - type: postgres
-    name: nirman-db
-    ipAllowList: []  # allow connections from Render services only
-    database: nirman_inventory
+databases:
+  - name: nirman-db
+    databaseName: nirman_inventory
     user: nirman
+    region: oregon
+    ipAllowList: []  # allow connections from Render services only
 
+services:
   - type: web
     name: nirman-inventory
     runtime: node
