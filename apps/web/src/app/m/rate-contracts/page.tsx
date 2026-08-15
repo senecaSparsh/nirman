@@ -92,7 +92,15 @@ async function MobileRateContractsContent() {
         <MobileEmptyState
           icon={FileText}
           title="No rate contracts"
-          hint={canManage ? "Tap + to create a rate contract with a supplier" : "Rate contracts will appear here"}
+          hint={
+            canManage
+              ? suppliers.length === 0
+                ? "Add suppliers first, then create rate contracts for materials"
+                : materials.length === 0
+                  ? "Add materials first, then create rate contracts with suppliers"
+                  : "Tap + to create a rate contract with a supplier"
+              : "Rate contracts will appear here"
+          }
         />
       )}
 

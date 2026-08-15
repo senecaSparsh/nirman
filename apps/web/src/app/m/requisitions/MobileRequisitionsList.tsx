@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, X, Plus, CheckCircle2 } from "lucide-react";
+import { Search, X, Plus, CheckCircle2, ShoppingCart } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type ReqStatus =
   | "ALL"
@@ -73,7 +74,30 @@ export function MobileRequisitionsList({
     return result;
   }, [items, query, statusFilter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    // Still render the New Req button even when there are no requisitions
+    return (
+      <div>
+        {canCreate ? (
+          <div className="mb-3">
+            <Link
+              href="/m/requisitions/new"
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-3.5" />
+              New Material Indent
+            </Link>
+          </div>
+        ) : null}
+        <MobileEmptyState
+          icon={ShoppingCart}
+          title="No material indents"
+          hint={canCreate ? "Tap above to create your first indent" : "Material indents will appear here"}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

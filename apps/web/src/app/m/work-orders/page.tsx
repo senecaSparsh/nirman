@@ -92,7 +92,15 @@ async function MobileWorkOrdersContent() {
         <MobileEmptyState
           icon={Wrench}
           title="No work orders"
-          hint={canManage ? "Tap + to issue a work order to a subcontractor" : "Work orders will appear here"}
+          hint={
+            canManage
+              ? projects.length === 0
+                ? "Create a project first, then issue work orders to subcontractors"
+                : subcontractors.length === 0
+                  ? "Add subcontractor suppliers first, then issue work orders"
+                  : "Tap + to issue a work order to a subcontractor"
+              : "Work orders will appear here"
+          }
         />
       )}
 

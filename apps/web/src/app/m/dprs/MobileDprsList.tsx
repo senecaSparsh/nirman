@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, X, Plus } from "lucide-react";
+import { Search, X, Plus, ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type DprApprovalFilter =
   | "ALL"
@@ -88,7 +89,30 @@ export function MobileDprsList({
     return groups;
   }, [filtered]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    // Still render the "Today" (New DPR) button even when there are no DPRs
+    return (
+      <div>
+        {canSubmit ? (
+          <div className="mb-3">
+            <a
+              href="/m/site/dpr"
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-3.5" />
+              Submit Today's DPR
+            </a>
+          </div>
+        ) : null}
+        <MobileEmptyState
+          icon={ClipboardList}
+          title="No DPRs yet"
+          hint={canSubmit ? "Tap above to submit your first DPR" : "Daily progress reports will appear here"}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -210,7 +210,11 @@ export function MobileSuppliersList({
             {query || duesFilter !== "ALL" ? "No matching suppliers" : "No suppliers"}
           </p>
           <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query || duesFilter !== "ALL" ? "Try a different search or filter" : "Tap + to add your first supplier"}
+            {query || duesFilter !== "ALL"
+              ? "Try a different search or filter"
+              : canCreate
+                ? "Tap + to add your first supplier"
+                : "Suppliers will appear here once added"}
           </p>
         </div>
       ) : (

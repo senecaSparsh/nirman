@@ -77,7 +77,11 @@ async function MobileStandardConsumptionsContent() {
         <MobileEmptyState
           icon={Beaker}
           title="No standard consumptions"
-          hint={canManage ? "Tap + to define how much material a work type should consume" : "Standard consumption benchmarks will appear here"}
+          hint={canManage
+            ? materialOptions.length > 0
+              ? "Tap + to define how much material a work type should consume"
+              : "Add materials first, then define standard consumption benchmarks"
+            : "Standard consumption benchmarks will appear here"}
         />
       )}
 

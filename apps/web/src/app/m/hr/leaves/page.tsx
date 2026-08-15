@@ -88,7 +88,13 @@ async function MobileLeavesContent() {
         <MobileEmptyState
           icon={CalendarDays}
           title="No leave records"
-          hint={canManage ? "Tap + to record a leave entry" : "Leave records will appear here"}
+          hint={
+            canManage
+              ? employees.length === 0
+                ? "Add employees first, then record their leave entries"
+                : "Tap + to record a leave entry"
+              : "Leave records will appear here"
+          }
         />
       )}
 

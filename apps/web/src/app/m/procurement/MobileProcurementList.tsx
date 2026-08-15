@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, X, AlertTriangle, Plus } from "lucide-react";
+import { Search, X, AlertTriangle, Plus, FileText } from "lucide-react";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type PoStatus =
   | "ALL"
@@ -73,7 +74,30 @@ export function MobileProcurementList({
     return result;
   }, [items, query, statusFilter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    // Still render the New PO button even when there are no POs
+    return (
+      <div>
+        {canCreate ? (
+          <div className="mb-3">
+            <Link
+              href="/m/procurement/new"
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-3.5" />
+              New Purchase Order
+            </Link>
+          </div>
+        ) : null}
+        <MobileEmptyState
+          icon={FileText}
+          title="No purchase orders"
+          hint={canCreate ? "Tap above to create your first PO" : "Purchase orders will appear here"}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

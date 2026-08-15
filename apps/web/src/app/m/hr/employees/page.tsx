@@ -106,7 +106,7 @@ async function MobileEmployeesContent() {
           <MobileEmptyState
             icon={Users}
             title="No employees"
-            hint={canManage ? "Tap + to add your first employee" : "Employees will appear here once added"}
+            hint={canManage ? "Tap the + button (bottom-right) to add your first employee" : "Employees will appear here once added"}
           />
         </>
       )}
