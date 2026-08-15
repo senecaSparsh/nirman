@@ -36,8 +36,6 @@ interface TaskRow {
   dueDateRaw: string | null;
   assignedTo: TaskUser | null;
   assignedBy: { id: string; name: string } | null;
-  workspace: { id: string; name: string } | null;
-  nodeLabel: string | null;
   completedAt: string | null;
   createdAt: string;
 }
@@ -257,7 +255,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
           title={tasks.length === 0 ? "No tasks yet" : "No tasks match the filters"}
           description={
             tasks.length === 0
-              ? "Assign tasks to team members from the playground canvas or using the Assign button."
+              ? "Assign tasks to team members using the Assign button."
               : "Try different filters or clear them."
           }
           action={tasks.length === 0 && canAssign ? (

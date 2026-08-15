@@ -2467,36 +2467,10 @@ model InAppNotification {
 }
 
 // ───────────────────────────────────────────────────────────
-//  CUSTOM WORKSPACES: visual playground graphs that the user
-//  composes by dragging modules onto a canvas and connecting
-//  them. Each saved workspace becomes a nav tab that renders a
-//  live drill-down hierarchy following the saved graph.
-// ───────────────────────────────────────────────────────────
-
-model CustomWorkspace {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  icon        String   @default("LayoutDashboard") // lucide icon name
-  rootModel   String   // ModelKey of the root node
-  graphJson   Json     // WorkspaceGraph: { nodes, edges, rootId }
-  companyId   String?
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
-
-  tasks Task[]
-
-  @@index([deletedAt])
-  @@index([companyId])
-}
-
-// ───────────────────────────────────────────────────────────
 //  TASKS — assigned by admin/manager to signed-in users.
-//  The admin creates a task (optionally from a playground node),
-//  adds instructions/guidance, and the assignee sees it on their
-//  dashboard with everything they need to do.
+//  The admin creates a task, adds instructions/guidance, and the
+//  assignee sees it on their dashboard with everything they need
+//  to do.
 // ───────────────────────────────────────────────────────────
 
 model Task {
@@ -2509,8 +2483,6 @@ model Task {
   dueDate      DateTime?
   assignedToId String
   assignedById String?
-  workspaceId  String?
-  nodeLabel    String?   // label of the canvas node this task came from (if any)
   estimateMins Int?      // planned effort in minutes (optional)
   completedAt  DateTime?
   createdAt    DateTime  @default(now())
@@ -2518,7 +2490,6 @@ model Task {
 
   assignedTo User             @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Cascade)
   assignedBy User?            @relation("TaskAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
-  workspace  CustomWorkspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   subtasks      SubTask[]
   comments      TaskComment[]
@@ -2531,7 +2502,6 @@ model Task {
   @@index([assignedToId])
   @@index([assignedById])
   @@index([status])
-  @@index([workspaceId])
 }
 
 // Checkable steps within a task. Completion drives the task's progress %

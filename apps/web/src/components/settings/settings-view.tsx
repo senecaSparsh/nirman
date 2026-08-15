@@ -465,7 +465,7 @@ export function SettingsView({
           onOpenChange={(o) => !o && setDeletingEmp(null)}
           endpoint={`/api/employees/${deletingEmp}`}
           title="Delete employee"
-          description="This will archive the employee record. Assignments on playground nodes will show as unassigned."
+          description="This will archive the employee record. Task assignments will show as unassigned."
           successMessage="Employee deleted"
         />
       )}

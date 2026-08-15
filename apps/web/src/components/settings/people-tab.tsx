@@ -226,7 +226,7 @@ export function PeopleTab({
             <EmptyState
               icon={<UserPlus className="h-5 w-5" />}
               title="No employees yet"
-              description="Add people to assign to playground task nodes and track workforce costs."
+              description="Add people to assign tasks to and track workforce costs."
               action={
                 <Button onClick={onNewEmp} size="sm">
                   <Plus className="size-4" /> New Employee

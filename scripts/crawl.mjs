@@ -39,7 +39,7 @@ const ROUTES = [
   "/reports/inventory-value", "/reports/purchase-trends", "/reports/department-consumption",
   "/reports/stock-movement-summary", "/reports/issue-register", "/reports/purchase-register",
   "/reports/project-progress", "/reports/payroll-expense",
-  "/settings", "/settings/project-assignments", "/workflows", "/playground",
+  "/settings", "/settings/project-assignments", "/workflows",
   "/m", // mobile surface
 ];
 

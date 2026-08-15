@@ -701,8 +701,6 @@ export const taskSchema = z.object({
   assignedToId: z.string().min(1, "Assignee is required"),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   dueDate: z.string().optional().nullable(),
-  workspaceId: z.string().optional().nullable(),
-  nodeLabel: z.string().max(200).optional().nullable(),
   estimateMins: z.coerce.number().int().min(1).max(60000).optional().nullable(),
   subtasks: z.array(z.string().min(1).max(200)).max(100).optional(),
 });

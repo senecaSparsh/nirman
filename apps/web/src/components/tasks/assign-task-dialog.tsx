@@ -11,12 +11,8 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 interface AssignTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Pre-filled title (e.g. from a canvas node label) */
+  /** Pre-filled title */
   defaultTitle?: string;
-  /** Pre-filled node label */
-  nodeLabel?: string;
-  /** Optional workspace ID to link the task to */
-  workspaceId?: string;
   /** Called when a task is successfully created */
   onCreated?: () => void;
 }
@@ -33,8 +29,6 @@ export function AssignTaskDialog({
   open,
   onOpenChange,
   defaultTitle,
-  nodeLabel,
-  workspaceId,
   onCreated,
 }: AssignTaskDialogProps) {
   const router = useRouter();
@@ -105,8 +99,6 @@ export function AssignTaskDialog({
           assignedToId,
           priority,
           dueDate: dueDate || null,
-          workspaceId: workspaceId ?? null,
-          nodeLabel: nodeLabel ?? null,
           estimateMins: estimateMins ? Number(estimateMins) : null,
           subtasks: steps.filter((s) => s.trim().length > 0),
         }),

@@ -112,8 +112,6 @@ export interface CreateTaskInput {
   assignedById?: string;
   priority?: string;
   dueDate?: Date | null;
-  workspaceId?: string | null;
-  nodeLabel?: string | null;
   estimateMins?: number | null;
   subtasks?: string[];
   userId?: string;
@@ -130,8 +128,6 @@ export async function createTask(input: CreateTaskInput) {
         assignedById: input.assignedById ?? null,
         priority: input.priority ?? "medium",
         dueDate: input.dueDate ?? null,
-        workspaceId: input.workspaceId ?? null,
-        nodeLabel: input.nodeLabel ?? null,
         estimateMins: input.estimateMins ?? null,
       },
     });
@@ -504,7 +500,6 @@ export async function getTaskDetail(taskId: string) {
     include: {
       assignedTo: { select: { id: true, name: true, email: true, role: true } },
       assignedBy: { select: { id: true, name: true } },
-      workspace: { select: { id: true, name: true } },
       subtasks: { orderBy: { order: "asc" }, include: { completedBy: { select: { name: true } } } },
       comments: {
         where: { parentId: null },

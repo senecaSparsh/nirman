@@ -24,8 +24,6 @@ interface TaskRow {
   dueDateRaw: string | null;
   assignedTo: TaskUser | null;
   assignedBy: { id: string; name: string } | null;
-  workspace: { id: string; name: string } | null;
-  nodeLabel: string | null;
   completedAt: string | null;
   createdAt: string;
 }

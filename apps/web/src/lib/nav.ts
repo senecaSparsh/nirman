@@ -980,5 +980,3 @@ export const STAGE_COLORS: Record<string, string> = WORLDS.reduce(
   (acc, w) => ({ ...acc, [w.label]: w.color }),
   {} as Record<string, string>,
 );
-
-export type WorkspaceNavItem = { label: string; href: string };

@@ -36,7 +36,6 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       assignedTo: { select: { id: true, name: true, email: true, role: true } },
       assignedBy: { select: { id: true, name: true } },
-      workspace: { select: { id: true, name: true } },
     },
   });
 
@@ -52,8 +51,6 @@ export const GET = apiHandler(async (req: NextRequest) => {
       dueDateRaw: t.dueDate?.toISOString() ?? null,
       assignedTo: t.assignedTo,
       assignedBy: t.assignedBy,
-      workspace: t.workspace,
-      nodeLabel: t.nodeLabel,
       completedAt: t.completedAt ? formatDate(t.completedAt) : null,
       createdAt: formatDate(t.createdAt),
     })),
@@ -92,8 +89,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     assignedById: user.id,
     priority: parsed.data.priority,
     dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-    workspaceId: parsed.data.workspaceId ?? null,
-    nodeLabel: parsed.data.nodeLabel ?? null,
     estimateMins: parsed.data.estimateMins ?? null,
     subtasks: parsed.data.subtasks?.filter((s) => s.trim().length > 0),
     userId: user.id,

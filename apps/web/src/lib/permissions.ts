@@ -43,7 +43,6 @@ export function usePermissions() {
     canManageUsers: () => role === "OWNER" || role === "ADMIN",
     canAssignTasks: () => isManagerOrAbove(role),
     canManageWorkflows: () => isManagerOrAbove(role),
-    canEditCanvas: () => isManagerOrAbove(role),
     canApproveProcurement: () =>
       hasPermission(role, "po.approve") || hasPermission(role, "requisition.approve"),
   };

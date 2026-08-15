@@ -36,7 +36,6 @@ async function MyTasksContent() {
       include: {
         assignedTo: { select: { id: true, name: true, email: true, role: true } },
         assignedBy: { select: { id: true, name: true } },
-        workspace: { select: { id: true, name: true } },
       },
     }),
     prisma.user.findMany({
@@ -59,8 +58,6 @@ async function MyTasksContent() {
         dueDateRaw: t.dueDate?.toISOString() ?? null,
         assignedTo: t.assignedTo,
         assignedBy: t.assignedBy,
-        workspace: t.workspace,
-        nodeLabel: t.nodeLabel,
         completedAt: t.completedAt ? formatDate(t.completedAt) : null,
         createdAt: formatDate(t.createdAt),
       }))}

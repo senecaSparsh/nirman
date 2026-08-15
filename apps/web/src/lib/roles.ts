@@ -94,15 +94,13 @@ export interface RoleDef {
   canAssignTasks: boolean;
   /** Can this role create/edit workflows? */
   canManageWorkflows: boolean;
-  /** Can this role edit the playground canvas in live mode? */
-  canEditCanvas: boolean;
 }
 
 // ── Permission keys ──
 // Each module: <module>.view (read) + <module>.manage (write).
 // Plus approval / high-impact actions.
 export const PERM = {
-  // Canvas / playground
+  // Canvas / workflows
   CANVAS_VIEW: "canvas.view",
   CANVAS_EDIT: "canvas.edit",
   CANVAS_CREATE: "canvas.create",
@@ -174,7 +172,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: true,
     canAssignTasks: true,
     canManageWorkflows: true,
-    canEditCanvas: true,
   },
   ADMIN: {
     key: "ADMIN",
@@ -184,7 +181,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: true,
     canAssignTasks: true,
     canManageWorkflows: true,
-    canEditCanvas: true,
   },
   MANAGER: {
     key: "MANAGER",
@@ -207,7 +203,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: false,
     canAssignTasks: true,
     canManageWorkflows: true,
-    canEditCanvas: true,
   },
   SUPERVISOR: {
     key: "SUPERVISOR",
@@ -225,7 +220,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: false,
     canAssignTasks: false,
     canManageWorkflows: false,
-    canEditCanvas: false,
   },
   SALES: {
     key: "SALES",
@@ -240,7 +234,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: false,
     canAssignTasks: false,
     canManageWorkflows: false,
-    canEditCanvas: false,
   },
   ACCOUNTANT: {
     key: "ACCOUNTANT",
@@ -258,7 +251,6 @@ export const ROLES: Record<Role, RoleDef> = {
     canManageUsers: false,
     canAssignTasks: false,
     canManageWorkflows: false,
-    canEditCanvas: false,
   },
 };
 
@@ -312,11 +304,6 @@ export function canAssignTasks(role: string | undefined | null): boolean {
 /** Check if a role can manage workflows. */
 export function canManageWorkflows(role: string | undefined | null): boolean {
   return ROLES[normalizeRole(role)].canManageWorkflows;
-}
-
-/** Check if a role can edit the canvas in live mode. */
-export function canEditCanvas(role: string | undefined | null): boolean {
-  return ROLES[normalizeRole(role)].canEditCanvas;
 }
 
 /**

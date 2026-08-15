@@ -8,7 +8,6 @@ import {
   Menu,
   PanelLeft,
   X,
-  Workflow,
   Loader2,
   Search,
   LogOut,
@@ -24,7 +23,6 @@ import {
   isSettingsPath,
   type World,
   type NavLink,
-  type WorkspaceNavItem,
 } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { CommandPalette } from "@/components/command-palette";
@@ -89,7 +87,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = useState<
     { id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[]
   >([]);
-  const [workspaceNav, setWorkspaceNav] = useState<WorkspaceNavItem[]>([]);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   const [userRole, setUserRole] = useState<string>("MANAGER");
   const [userName, setUserName] = useState<string>("");
@@ -166,13 +163,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (d?.role) setUserRole(d.role);
         if (d?.name) setUserName(d.name);
-      })
-      .catch(() => {});
-
-    fetch("/api/workspaces")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((ws: { id: string; name: string }[]) => {
-        if (!cancelled) setWorkspaceNav(ws.map((w) => ({ label: w.name, href: `/workspaces/${w.id}` })));
       })
       .catch(() => {});
 
@@ -298,7 +288,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SettingsPanel
           links={settingsLinks}
           pathname={pathname}
-          workspaceNav={workspaceNav}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
@@ -307,7 +296,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           world={activeWorld}
           pathname={pathname}
           badgeCounts={badgeCounts}
-          workspaceNav={workspaceNav}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
@@ -316,7 +304,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           world={activeWorld}
           pathname={pathname}
           badgeCounts={badgeCounts}
-          workspaceNav={workspaceNav}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
@@ -345,7 +332,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <SettingsPanel
                 links={settingsLinks}
                 pathname={pathname}
-                workspaceNav={workspaceNav}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
               />
@@ -354,7 +340,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 world={activeWorld}
                 pathname={pathname}
                 badgeCounts={badgeCounts}
-                workspaceNav={workspaceNav}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
               />
@@ -363,7 +348,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 world={activeWorld}
                 pathname={pathname}
                 badgeCounts={badgeCounts}
-                workspaceNav={workspaceNav}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
               />
@@ -662,7 +646,6 @@ function WorldPanel({
   world,
   pathname,
   badgeCounts,
-  workspaceNav,
   onNavigate,
   onCollapse,
   className,
@@ -670,7 +653,6 @@ function WorldPanel({
   world: World;
   pathname: string;
   badgeCounts: Record<string, number>;
-  workspaceNav: WorkspaceNavItem[];
   onNavigate?: () => void;
   onCollapse?: () => void;
   className?: string;
@@ -720,29 +702,6 @@ function WorldPanel({
             </span>
           )}
         </Link>
-
-        {/* Saved workspaces nest under their parent link */}
-        {item.href === "/playground" && workspaceNav.length > 0 && (
-          <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
-            {workspaceNav.map((w) => (
-              <li key={w.href}>
-                <Link
-                  href={w.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-meta transition-colors",
-                    pathname === w.href
-                      ? "bg-accent font-semibold text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  <Workflow className="size-3 shrink-0 text-faint" />
-                  <span className="truncate">{w.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </li>
     );
   }
@@ -805,14 +764,12 @@ function WorldPanel({
 function SettingsPanel({
   links,
   pathname,
-  workspaceNav,
   onNavigate,
   onCollapse,
   className,
 }: {
   links: NavLink[];
   pathname: string;
-  workspaceNav: WorkspaceNavItem[];
   onNavigate?: () => void;
   onCollapse?: () => void;
   className?: string;
@@ -848,29 +805,6 @@ function SettingsPanel({
           />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </Link>
-
-        {/* Saved workspaces nest under the Workspaces link */}
-        {item.href === "/playground" && workspaceNav.length > 0 && (
-          <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
-            {workspaceNav.map((w) => (
-              <li key={w.href}>
-                <Link
-                  href={w.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-meta transition-colors",
-                    pathname === w.href
-                      ? "bg-accent font-semibold text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  <Workflow className="size-3 shrink-0 text-faint" />
-                  <span className="truncate">{w.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </li>
     );
   }

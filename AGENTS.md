@@ -423,7 +423,7 @@ Money+Insights became "Finance". Settings is a gear at the bottom, not a world.
 | **Build** | Raw Material + Real Estate | `/materials`, `/procurement`, `/requisitions`, `/vendors`, `/field`, `/stock-*`, `/equipment`, `/projects`, `/land`, `/units`, `/renovations`, `/sales`, `/rentals`, `/customers` |
 | **HR** | People | `/hr/*` |
 | **Finance** | Accounts (Tally) + Analysis | `/finance`, `/gl`, `/reports/*` |
-| ⚙ Settings | — | `/settings`, `/workflows`, `/playground` |
+| ⚙ Settings | — | `/settings`, `/workflows` |
 
 Rules:
 - **Never add a top-level nav item.** Add a `NavLink` to the right `section` of the right

@@ -949,7 +949,7 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
 }
 
 async function taskResponse(companyId: string): Promise<AssistantResponse> {
-  // Tasks don't have companyId — they're scoped by workspace. Get all pending.
+  // Tasks don't have companyId — they're scoped by assignee. Get all pending.
   const tasks = await prisma.task.findMany({
     where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
     include: { assignedTo: true },

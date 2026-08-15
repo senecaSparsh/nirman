@@ -22,7 +22,6 @@ export const GET = apiHandler(async (req: NextRequest) => {
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     include: {
       assignedBy: { select: { id: true, name: true } },
-      workspace: { select: { id: true, name: true } },
     },
   });
 
@@ -37,8 +36,6 @@ export const GET = apiHandler(async (req: NextRequest) => {
       dueDate: t.dueDate ? formatDate(t.dueDate) : null,
       dueDateRaw: t.dueDate?.toISOString() ?? null,
       assignedBy: t.assignedBy?.name ?? null,
-      workspace: t.workspace ? { id: t.workspace.id, name: t.workspace.name } : null,
-      nodeLabel: t.nodeLabel,
       completedAt: t.completedAt ? formatDate(t.completedAt) : null,
       createdAt: formatDate(t.createdAt),
     })),

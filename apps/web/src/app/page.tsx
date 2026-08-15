@@ -347,7 +347,6 @@ async function CommandCenterContent() {
     { icon: "users", label: "Manage users", has: roleDef.canManageUsers },
     { icon: "clipboardCheck", label: "Assign tasks", has: roleDef.canAssignTasks },
     { icon: "briefcase", label: "Manage workflows", has: roleDef.canManageWorkflows },
-    { icon: "activity", label: "Edit canvas", has: roleDef.canEditCanvas },
     { icon: "clipboardCheck", label: "Approve POs", has: hasPermission(role, PERM.PO_APPROVE) },
     { icon: "clipboardList", label: "Approve requisitions", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
     { icon: "package", label: "Transfer stock", has: hasPermission(role, PERM.STOCK_TRANSFER) },

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CheckCircle2, Circle, AlertCircle, PlayCircle,
-  Calendar, Flag, MessageSquare, ExternalLink, Loader2,
+  Calendar, Flag, MessageSquare, Loader2,
   ClipboardList,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,8 +25,6 @@ interface MyTask {
   dueDate: string | null;
   dueDateRaw: string | null;
   assignedBy: string | null;
-  workspace: { id: string; name: string } | null;
-  nodeLabel: string | null;
   completedAt: string | null;
   createdAt: string;
 }
@@ -219,15 +217,6 @@ export function MyTasksPanel({ limit }: { limit?: number }) {
                       <span className="flex items-center gap-1" style={{ color: ddStatus.color }}>
                         <Calendar className="h-3 w-3" /> {ddStatus.label}
                       </span>
-                    )}
-                    {task.workspace && (
-                      <span className="flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3" />
-                        <a href={`/playground/${task.workspace.id}`} className="hover:underline">{task.workspace.name}</a>
-                      </span>
-                    )}
-                    {task.nodeLabel && (
-                      <Badge variant="outline" className="text-micro">{task.nodeLabel}</Badge>
                     )}
                   </div>
 

@@ -55,12 +55,10 @@ interface TaskDetail {
   priority: string;
   dueDate: string | null;
   estimateMins: number | null;
-  nodeLabel: string | null;
   completedAt: string | null;
   createdAt: string;
   assignedTo: TaskUser | null;
   assignedBy: { id: string; name: string } | null;
-  workspace: { id: string; name: string } | null;
   subtasks: SubTask[];
   comments: TaskComment[];
   activities: TaskActivity[];
@@ -401,9 +399,6 @@ function DrawerHeader({
             )}
             {blocked && (
               <Badge variant="danger"><AlertCircle className="mr-1 h-3 w-3" />Blocked</Badge>
-            )}
-            {detail.workspace && (
-              <Badge variant="outline">{detail.workspace.name}</Badge>
             )}
           </div>
         </div>

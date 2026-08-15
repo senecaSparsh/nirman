@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronsLeft } from "lucide-react";
-import type { World, NavLink, WorkspaceNavItem } from "@/lib/nav";
+import type { World, NavLink } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,7 +27,6 @@ export function BuildNavPanel({
   world,
   pathname,
   badgeCounts,
-  workspaceNav,
   onNavigate,
   onCollapse,
   className,
@@ -35,7 +34,6 @@ export function BuildNavPanel({
   world: World;
   pathname: string;
   badgeCounts: Record<string, number>;
-  workspaceNav: WorkspaceNavItem[];
   onNavigate?: () => void;
   onCollapse?: () => void;
   className?: string;
@@ -102,28 +100,6 @@ export function BuildNavPanel({
             </span>
           )}
         </Link>
-
-        {/* Saved workspaces nest under the playground link */}
-        {item.href === "/playground" && workspaceNav.length > 0 && (
-          <ul className="ml-4 mt-px space-y-px border-l border-border pl-2">
-            {workspaceNav.map((w) => (
-              <li key={w.href}>
-                <Link
-                  href={w.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-caption transition-colors",
-                    pathname === w.href
-                      ? "bg-accent font-semibold text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  <span className="truncate">{w.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </li>
     );
   }

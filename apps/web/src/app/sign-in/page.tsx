@@ -220,7 +220,10 @@ function SignInForm() {
         )}
 
         <p className="mt-5 text-center text-caption text-muted-foreground">
-          No account? Your owner or administrator can create one for you.
+          No account?{" "}
+          <a href="/sign-up" className="font-medium text-foreground underline">
+            Set up your company
+          </a>
         </p>
       </div>
     </div>
