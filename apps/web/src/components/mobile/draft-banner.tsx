@@ -1,22 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, RotateCcw, X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 
 /**
- * DraftBanner — shows when a saved draft exists for the current form.
- * Offers "Restore" (load draft data) or "Discard" (delete draft).
- *
- * Usage:
- *   {hasDraft && (
- *     <DraftBanner
- *       formName="Attendance"
- *       updatedAt={draftUpdatedAt}
- *       onRestore={() => { setFormData(draft); }}
- *       onDiscard={() => clearDraft()}
- *     />
- *   )}
+ * DraftBanner — compact single-line banner shown when a saved draft exists.
+ * Parent controls visibility (typically `{hasDraft && !draftRestored && ...}`).
+ * Restore loads the draft; Discard deletes it.
  */
 export function DraftBanner({
   formName,
@@ -29,44 +19,43 @@ export function DraftBanner({
   onRestore: () => void;
   onDiscard: () => void;
 }) {
-  const [dismissed, setDismissed] = useState(false);
-
-  if (dismissed) return null;
-
   const relativeTime = updatedAt ? formatRelativeTime(new Date(updatedAt)) : "earlier";
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-brand/30 bg-brand/5 p-3">
-      <FileText className="h-4 w-4 shrink-0 text-brand" />
-      <div className="flex-1 min-w-0">
-        <div className="text-body font-medium text-foreground">
-          Unsaved {formName} draft
-        </div>
-        <div className="text-caption text-muted-foreground">
-          Saved {relativeTime} — restore or discard?
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={() => {
-            onRestore();
-            setDismissed(true);
-          }}
-          className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-caption font-medium text-white active:scale-95 transition-transform"
-        >
-          <RotateCcw className="h-3 w-3" />
-          Restore
-        </button>
-        <button
-          onClick={() => {
-            onDiscard();
-            setDismissed(true);
-          }}
-          className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+    <div
+      className="flex items-center gap-2 rounded-[0.5rem] border px-2.5 py-1.5 mb-2"
+      style={{
+        borderColor: "var(--color-signal)",
+        backgroundColor: "color-mix(in srgb, var(--color-signal) 6%, transparent)",
+      }}
+    >
+      <span
+        className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide"
+        style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
+      >
+        Draft
+      </span>
+      <p className="text-[0.5625rem] flex-1 min-w-0 truncate" style={{ color: "var(--color-ink-700)" }}>
+        {formName} saved {relativeTime}
+      </p>
+      <button
+        type="button"
+        onClick={onRestore}
+        className="shrink-0 flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-[0.5625rem] font-bold press"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+      >
+        <RotateCcw className="size-2.5" />
+        Restore
+      </button>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="shrink-0 grid place-items-center size-5 rounded-[0.25rem] press"
+        style={{ color: "var(--color-ink-400)" }}
+        aria-label="Discard draft"
+      >
+        <X className="size-3" />
+      </button>
     </div>
   );
 }

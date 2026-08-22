@@ -11,7 +11,7 @@ import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib
  * for UI affordance; every API route enforces permissions server-side.
  */
 export function usePermissions() {
-  const [role, setRole] = useState<Role>("MANAGER");
+  const [role, setRole] = useState<Role>("PROJECT_MANAGER");
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 

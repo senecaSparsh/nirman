@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
   TrendingUp, Loader2, IndianRupee, X,
+  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
-type AssetType = "LAND" | "BUILT_UNIT";
-type SaleStatus = "ACTIVE" | "CANCELLED";
+type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
+type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
 
 type AssetInfo =
@@ -60,6 +61,19 @@ export function MobileSaleDetailClient({
   paymentMode,
   notes,
   totalPaid,
+  // Sale deed / ATS
+  saleDeedNo,
+  expectedRegistryDate,
+  // Compliance documents
+  allotmentLetterNo,
+  allotmentDate,
+  bbaNo,
+  bbaDate,
+  tdsAmount,
+  tdsCertificateNo,
+  // Home loan
+  homeLoanBank,
+  homeLoanAmount,
   customer,
   project,
   asset,
@@ -85,6 +99,16 @@ export function MobileSaleDetailClient({
   paymentMode: string | null;
   notes: string | null;
   totalPaid: number;
+  saleDeedNo: string | null;
+  expectedRegistryDate: string | null;
+  allotmentLetterNo: string | null;
+  allotmentDate: string | null;
+  bbaNo: string | null;
+  bbaDate: string | null;
+  tdsAmount: number | null;
+  tdsCertificateNo: string | null;
+  homeLoanBank: string | null;
+  homeLoanAmount: number | null;
   customer: { id: string; name: string; phone: string | null } | null;
   project: { id: string; name: string } | null;
   asset: AssetInfo | null;
@@ -95,11 +119,28 @@ export function MobileSaleDetailClient({
   const router = useRouter();
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState<(typeof PAYMENT_MODES)[number]>("CASH");
   const [payRef, setPayRef] = useState("");
+
+  // Complete sale form state
+  const [compSaleDeedNo, setCompSaleDeedNo] = useState("");
+  const [compPayMode, setCompPayMode] = useState<(typeof PAYMENT_MODES)[number]>("BANK_TRANSFER");
+  const [compRef, setCompRef] = useState("");
+  const [compAllotmentNo, setCompAllotmentNo] = useState("");
+  const [compAllotmentDate, setCompAllotmentDate] = useState("");
+  const [compBbaNo, setCompBbaNo] = useState("");
+  const [compBbaDate, setCompBbaDate] = useState("");
+  const [compTdsAmount, setCompTdsAmount] = useState("");
+  const [compTdsCertNo, setCompTdsCertNo] = useState("");
+  // Home loan fields
+  const [compLoanBank, setCompLoanBank] = useState("");
+  const [compLoanAmount, setCompLoanAmount] = useState("");
+  const [compLoanSanctionNo, setCompLoanSanctionNo] = useState("");
+  const [compLoanSanctionDate, setCompLoanSanctionDate] = useState("");
 
   if (notFound) {
     return (
@@ -187,6 +228,44 @@ export function MobileSaleDetailClient({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleComplete(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/sales/${saleId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete",
+          paymentMode: compPayMode,
+          reference: compRef || undefined,
+          saleDeedNo: compSaleDeedNo || undefined,
+          allotmentLetterNo: compAllotmentNo || undefined,
+          allotmentDate: compAllotmentDate || undefined,
+          bbaNo: compBbaNo || undefined,
+          bbaDate: compBbaDate || undefined,
+          tdsAmount: compTdsAmount ? Number(compTdsAmount) : undefined,
+          tdsCertificateNo: compTdsCertNo || undefined,
+          homeLoanBank: compLoanBank || undefined,
+          homeLoanAmount: compLoanAmount ? Number(compLoanAmount) : undefined,
+          homeLoanSanctionNo: compLoanSanctionNo || undefined,
+          homeLoanSanctionDate: compLoanSanctionDate || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to complete sale");
+      }
+      toast.success(`Sale ${saleNumber} completed`);
+      setShowComplete(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to complete sale");
     } finally {
       setSubmitting(false);
     }
@@ -297,6 +376,14 @@ export function MobileSaleDetailClient({
           </Link>
         )}
         <Link
+          href={`/sales/${saleId}/print`}
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
+          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Form</span>
+        </Link>
+        <Link
           href={`/print/sale-invoice/${saleId}`}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
@@ -399,6 +486,63 @@ export function MobileSaleDetailClient({
           </div>
         ) : null}
 
+        {saleDeedNo ? (
+          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+              Sale Deed
+            </span>
+            <span className="text-[0.625rem] font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
+              {saleDeedNo}
+            </span>
+          </div>
+        ) : null}
+
+        {expectedRegistryDate && !isCompleted ? (
+          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+              Exp. Registry
+            </span>
+            <span className="text-[0.625rem] font-bold ml-auto tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              {formatDate(expectedRegistryDate)}
+            </span>
+          </div>
+        ) : null}
+
+        {homeLoanBank ? (
+          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+              Home Loan
+            </span>
+            <span className="text-[0.625rem] font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
+              {homeLoanBank}{homeLoanAmount ? ` · ${formatCurrencyCompact(homeLoanAmount)}` : ""}
+            </span>
+          </div>
+        ) : null}
+
+        {(allotmentLetterNo || bbaNo || tdsAmount != null) ? (
+          <div className="px-2.5 py-1.5 space-y-1" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Compliance</p>
+            {allotmentLetterNo && (
+              <div className="flex justify-between text-[0.5625rem]">
+                <span style={{ color: "var(--color-ink-500)" }}>Allotment:</span>
+                <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{allotmentLetterNo}{allotmentDate ? ` · ${formatDate(allotmentDate)}` : ""}</span>
+              </div>
+            )}
+            {bbaNo && (
+              <div className="flex justify-between text-[0.5625rem]">
+                <span style={{ color: "var(--color-ink-500)" }}>BBA:</span>
+                <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{bbaNo}{bbaDate ? ` · ${formatDate(bbaDate)}` : ""}</span>
+              </div>
+            )}
+            {tdsAmount != null && (
+              <div className="flex justify-between text-[0.5625rem]">
+                <span style={{ color: "var(--color-ink-500)" }}>TDS:</span>
+                <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(tdsAmount)}{tdsCertificateNo ? ` · ${tdsCertificateNo}` : ""}</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {notes ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <p className="text-[0.5rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
@@ -465,9 +609,12 @@ export function MobileSaleDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {payments.map((p, i) => (
-              <div
+              <a
                 key={p.id}
-                className="flex items-center gap-2 px-2.5 py-2"
+                href={`/print/payment-receipt/${p.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2.5 py-2 press"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <span
@@ -488,10 +635,23 @@ export function MobileSaleDetailClient({
                 <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(p.amount)}
                 </p>
-              </div>
+                <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              </a>
             ))}
           </div>
         </>
+      ) : null}
+
+      {/* ── Complete sale action ── */}
+      {canManage && !isCancelled && !isCompleted ? (
+        <button
+          onClick={() => setShowComplete(true)}
+          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 mb-2 press"
+          style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+        >
+          <CheckCircle2 className="size-3.5" />
+          <span className="text-[0.6875rem] font-bold">Complete Sale</span>
+        </button>
       ) : null}
 
       {/* ── Cancel action ── */}
@@ -608,6 +768,176 @@ export function MobileSaleDetailClient({
                 style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+
+      {/* ── Complete sale modal ── */}
+      {showComplete ? (
+        <Modal onClose={() => setShowComplete(false)} title="Complete Sale">
+          <form onSubmit={handleComplete} className="space-y-3">
+            <p className="text-[0.5625rem] rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
+              Completing the sale registers the sale deed, recognises revenue, and transfers title. Balance due: <strong style={{ color: "var(--color-go)" }}>{formatCurrency(balanceDue)}</strong>
+            </p>
+
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                Sale Deed / Registry No.
+              </label>
+              <input
+                type="text"
+                value={compSaleDeedNo}
+                onChange={(e) => setCompSaleDeedNo(e.target.value)}
+                placeholder="e.g. SR-1234/2025"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none focus:ring-2"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                Payment Mode
+              </label>
+              <select
+                value={compPayMode}
+                onChange={(e) => setCompPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none focus:ring-2"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                {PAYMENT_MODES.map((m) => (
+                  <option key={m} value={m}>{m.replace("_", " ")}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                Reference
+              </label>
+              <input
+                type="text"
+                value={compRef}
+                onChange={(e) => setCompRef(e.target.value)}
+                placeholder="Cheque / UTR no."
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none focus:ring-2"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+
+            {/* Compliance documents */}
+            <div className="rounded-[0.375rem] border p-2.5 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+              <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                Compliance Documents
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Letter No.</label>
+                  <input type="text" value={compAllotmentNo}
+                    onChange={(e) => setCompAllotmentNo(e.target.value)}
+                    placeholder="AL-001"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Date</label>
+                  <input type="date" value={compAllotmentDate}
+                    onChange={(e) => setCompAllotmentDate(e.target.value)}
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA No.</label>
+                  <input type="text" value={compBbaNo}
+                    onChange={(e) => setCompBbaNo(e.target.value)}
+                    placeholder="BBA-001"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA Date</label>
+                  <input type="date" value={compBbaDate}
+                    onChange={(e) => setCompBbaDate(e.target.value)}
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Amount (₹)</label>
+                  <input type="number" min="0" step="0.01" value={compTdsAmount}
+                    onChange={(e) => setCompTdsAmount(e.target.value)}
+                    placeholder="1% if > ₹50L"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] tabular-nums outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Certificate No.</label>
+                  <input type="text" value={compTdsCertNo}
+                    onChange={(e) => setCompTdsCertNo(e.target.value)}
+                    placeholder="Form 16B no."
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+              </div>
+              {/* Home loan details */}
+              <p className="text-[0.4375rem] font-bold uppercase pt-1" style={{ color: "var(--color-ink-500)" }}>Home Loan (if applicable)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Bank / Lender</label>
+                  <input type="text" value={compLoanBank}
+                    onChange={(e) => setCompLoanBank(e.target.value)}
+                    placeholder="HDFC, SBI…"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Loan Amount (₹)</label>
+                  <input type="number" min="0" step="0.01" value={compLoanAmount}
+                    onChange={(e) => setCompLoanAmount(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] tabular-nums outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction No.</label>
+                  <input type="text" value={compLoanSanctionNo}
+                    onChange={(e) => setCompLoanSanctionNo(e.target.value)}
+                    placeholder="Sanction letter no."
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+                <div>
+                  <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction Date</label>
+                  <input type="date" value={compLoanSanctionDate}
+                    onChange={(e) => setCompLoanSanctionDate(e.target.value)}
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowComplete(false)}
+                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+              >
+                {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Complete"}
               </button>
             </div>
           </form>

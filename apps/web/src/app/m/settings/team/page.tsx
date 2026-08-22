@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, getUserRole } from "@/lib/server";
-import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";
+import { hasPermission, PERM, ROLES, assignableRoles as getAssignableRoles, type Role } from "@/lib/roles";
 import { MobileTeamList } from "./MobileTeamList";
 
 /**
@@ -16,7 +16,7 @@ import { MobileTeamList } from "./MobileTeamList";
  *   3. Can I change someone's role?  → Inline role change (hierarchical RBAC)
  *   4. Can I deactivate someone?     → Toggle active/inactive
  *
- * Tier 3 roles (SUPERVISOR/SALES/ACCOUNTANT) get read-only access.
+ * Tier 5 roles (SUPERVISOR/QAQC_ENGINEER) get read-only access.
  */
 export default function TeamPage() {
   return (
@@ -44,7 +44,7 @@ async function TeamContent() {
     where: { companyId: company.id },
     orderBy: { createdAt: "asc" },
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true } },
+      user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true, designation: true, department: true, employeeCode: true, joiningDate: true } },
       reportsTo: { include: { user: { select: { name: true } } } },
     },
   });
@@ -59,6 +59,10 @@ async function TeamContent() {
     active: m.user.active,
     isSelf: m.user.id === currentUser?.id,
     reportsToName: m.reportsTo?.user.name ?? null,
+    designation: m.user.designation,
+    department: m.user.department,
+    employeeCode: m.user.employeeCode,
+    joiningDate: m.user.joiningDate?.toISOString() ?? null,
   }));
 
   // Count by role
@@ -68,7 +72,7 @@ async function TeamContent() {
   }
 
   const assignableRoles = canManage
-    ? Object.values(ROLES).filter((r) => r.key !== role).map((r) => ({ key: r.key, label: r.label }))
+    ? getAssignableRoles(role).map((r) => ({ key: r, label: ROLES[r].label }))
     : [];
 
   return (

@@ -5,6 +5,7 @@ import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { BudgetVarianceView } from "@/components/budget-variance/budget-variance-view";
 
 export default function BudgetVariancePage() {
@@ -39,6 +40,13 @@ async function BvContent() {
   });
 
   return (
-    <BudgetVarianceView projects={projects} />
+    <>
+      <PageHeader
+        title="Budget Variance"
+        description="Compare planned budget against actual spend per project. Track cost overruns and variance percentages in real time."
+        stats={[{ label: "Projects", value: projects.length }]}
+      />
+      <BudgetVarianceView projects={projects} />
+    </>
   );
 }

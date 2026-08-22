@@ -16,6 +16,7 @@ function serializeNode(node: any): any {
     estimatedAmount: node.estimatedAmount != null ? toNum(node.estimatedAmount) : null,
     materialId: node.materialId,
     material: node.material ?? null,
+    rateAnalysis: node.rateAnalysis ? { id: node.rateAnalysis.id, totalRate: toNum(node.rateAnalysis.totalRate) } : null,
     notes: node.notes,
     sortOrder: node.sortOrder,
     children: (node.children ?? []).map(serializeNode),

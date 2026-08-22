@@ -13,10 +13,12 @@ export function CustomerFormDialog({
   open,
   onOpenChange,
   customer,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customer: (Omit<CustomerRow, "activeSales"> & { activeSales?: number }) | null;
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const isEdit = customer != null;
@@ -71,6 +73,8 @@ export function CustomerFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save customer");
       if (isEdit) {
         toast.success("Customer updated");
+      } else if (onCreated) {
+        toast.success("Customer created");
       } else {
         toast.success("Customer created", {
           description: "Ready to sell? Start a new sale with this customer.",
@@ -81,7 +85,11 @@ export function CustomerFormDialog({
         });
       }
       onOpenChange(false);
-      router.refresh();
+      if (!isEdit && onCreated) {
+        onCreated({ id: data.id, label: data.name });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {

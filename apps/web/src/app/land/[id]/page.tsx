@@ -40,7 +40,7 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
 
   // Land sales for this purchase's parcels
   const parcelIds = purchase.parcels.map((p) => p.id);
-  const [landSales, customers, parcelBuiltUnits] = await Promise.all([
+  const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
     prisma.assetSale.findMany({
       where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
       select: {
@@ -66,6 +66,11 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
         project: { select: { id: true, name: true } },
       },
       orderBy: [{ unitNumber: "asc" }],
+    }),
+    // Legal documents for this land purchase
+    prisma.legalDocument.findMany({
+      where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     }),
   ]);
   const saleByParcel = new Map(
@@ -93,6 +98,7 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       area: toNum(p.area),
       areaUnit: p.areaUnit,
       status: p.status,
+      purpose: p.purpose,
       acquisitionCost: toNum(p.acquisitionCost),
       askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
       currentValuation: toNum(p.currentValuation),
@@ -147,6 +153,26 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       documentUrl: purchase.documentUrl,
       projectId: purchase.projectId,
       projectName: purchase.project?.name ?? null,
+      mode: purchase.mode,
+      // Land type & lease
+      landType: purchase.landType,
+      leaseType: purchase.leaseType,
+      leasePeriodYears: purchase.leasePeriodYears,
+      leaseStartDate: purchase.leaseStartDate?.toISOString() ?? null,
+      leaseEndDate: purchase.leaseEndDate?.toISOString() ?? null,
+      // Cost breakup
+      baseCost: toNum(purchase.baseCost),
+      leaseRentPercent: purchase.leaseRentPercent ? toNum(purchase.leaseRentPercent) : null,
+      leaseRentAmount: purchase.leaseRentAmount ? toNum(purchase.leaseRentAmount) : null,
+      gstPercent: purchase.gstPercent ? toNum(purchase.gstPercent) : null,
+      gstAmount: purchase.gstAmount ? toNum(purchase.gstAmount) : null,
+      registrationPercent: purchase.registrationPercent ? toNum(purchase.registrationPercent) : null,
+      registrationAmount: purchase.registrationAmount ? toNum(purchase.registrationAmount) : null,
+      stampDutyPercent: purchase.stampDutyPercent ? toNum(purchase.stampDutyPercent) : null,
+      stampDutyAmount: purchase.stampDutyAmount ? toNum(purchase.stampDutyAmount) : null,
+      brokerageAmount: purchase.brokerageAmount ? toNum(purchase.brokerageAmount) : null,
+      legalFees: purchase.legalFees ? toNum(purchase.legalFees) : null,
+      otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
     },
     parcels: parcelRows,
     parcelSummaries,
@@ -178,9 +204,34 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       canDelete: hasPermission(role, PERM.ASSETS_MANAGE),
       canPartition: hasPermission(role, PERM.LAND_PARTITION),
       canSell: hasPermission(role, PERM.SALE_CREATE),
+      canManageLegal: hasPermission(role, PERM.LEGAL_MANAGE),
     },
     customers: customers.map((c) => ({ id: c.id, name: c.name })),
     projectOptions,
+    legalDocs: legalDocs.map((d) => ({
+      id: d.id,
+      landPurchaseId: d.landPurchaseId,
+      projectId: d.projectId,
+      type: d.type,
+      title: d.title,
+      authority: d.authority,
+      status: d.status,
+      appliesTo: d.appliesTo,
+      docNumber: d.docNumber,
+      sortOrder: d.sortOrder,
+      prerequisiteType: d.prerequisiteType,
+      obtained: d.obtained,
+      applicationDate: d.applicationDate?.toISOString() ?? null,
+      issueDate: d.issueDate?.toISOString() ?? null,
+      validFrom: d.validFrom?.toISOString() ?? null,
+      validTill: d.validTill?.toISOString() ?? null,
+      amount: d.amount ? toNum(d.amount) : null,
+      expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
+      documentUrl: d.documentUrl,
+      documentName: d.documentName,
+      notes: d.notes,
+      createdAt: d.createdAt.toISOString(),
+    })),
     parcelBuiltUnits: parcelBuiltUnits.map((u) => ({
       id: u.id,
       unitNumber: u.unitNumber,

@@ -86,7 +86,7 @@ async function PendingPaymentsContent() {
       id: s.id,
       saleNumber: s.saleNumber,
       customer: s.customer.name,
-      project: s.project.name,
+      project: s.project?.name ?? "Standalone",
       saleDate: s.saleDate.toISOString(),
       salePrice: toNum(s.salePrice),
       collected,

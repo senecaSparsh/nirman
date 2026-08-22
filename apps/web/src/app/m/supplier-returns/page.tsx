@@ -13,6 +13,8 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileSupplierReturnsList } from "./MobileSupplierReturnsList";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/supplier-returns — mobile purchase returns list. Procurement and
@@ -61,6 +63,14 @@ async function MobileSupplierReturnsContent() {
     totalValue: r.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
   }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "returnNumber", label: "Return #" },
+    { key: "supplierName", label: "Supplier" },
+    { key: "returnDate", label: "Return Date", format: "date" },
+    { key: "status", label: "Status" },
+    { key: "totalValue", label: "Total Amount", format: "currency" },
+  ];
+
   return (
     <div>
       <div className="grid grid-cols-2 gap-2.5 mb-4">
@@ -75,6 +85,15 @@ async function MobileSupplierReturnsContent() {
           value={String(draft.length + submitted.length)}
           icon={Undo2}
           tone={draft.length + submitted.length > 0 ? "signal" : "neutral"}
+        />
+      </div>
+
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Supplier Returns"
+          rows={serialized as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${serialized.length} returns · ${formatCurrency(totalValue)}`}
         />
       </div>
 

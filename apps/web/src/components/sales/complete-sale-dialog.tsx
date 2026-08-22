@@ -15,10 +15,12 @@ export function CompleteSaleDialog({
   open,
   onOpenChange,
   sale,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sale: AssetSaleRow | null;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,19 @@ export function CompleteSaleDialog({
     finalPaymentAmount: "",
     paymentMode: "BANK_TRANSFER",
     reference: "",
+    saleDeedNo: "",
+    // Compliance fields
+    allotmentLetterNo: "",
+    allotmentDate: "",
+    bbaNo: "",
+    bbaDate: "",
+    tdsAmount: "",
+    tdsCertificateNo: "",
+    // Home loan fields
+    homeLoanBank: "",
+    homeLoanAmount: "",
+    homeLoanSanctionNo: "",
+    homeLoanSanctionDate: "",
   });
 
   function set(key: keyof typeof form, value: string) {
@@ -50,6 +65,19 @@ export function CompleteSaleDialog({
           finalPaymentAmount: amountNum > 0 ? amountNum : undefined,
           paymentMode: form.paymentMode,
           reference: form.reference.trim() || null,
+          saleDeedNo: form.saleDeedNo.trim() || null,
+          // Compliance fields
+          allotmentLetterNo: form.allotmentLetterNo.trim() || null,
+          allotmentDate: form.allotmentDate || null,
+          bbaNo: form.bbaNo.trim() || null,
+          bbaDate: form.bbaDate || null,
+          tdsAmount: form.tdsAmount ? Number(form.tdsAmount) : undefined,
+          tdsCertificateNo: form.tdsCertificateNo.trim() || null,
+          // Home loan details
+          homeLoanBank: form.homeLoanBank.trim() || null,
+          homeLoanAmount: form.homeLoanAmount ? Number(form.homeLoanAmount) : undefined,
+          homeLoanSanctionNo: form.homeLoanSanctionNo.trim() || null,
+          homeLoanSanctionDate: form.homeLoanSanctionDate || null,
         }),
       });
       const data = await res.json();
@@ -59,6 +87,7 @@ export function CompleteSaleDialog({
         action: { label: "View GL", onClick: () => router.push("/gl") },
       });
       onOpenChange(false);
+      onSuccess?.();
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
@@ -121,6 +150,73 @@ export function CompleteSaleDialog({
         <div className="space-y-1.5">
           <Label htmlFor="c-ref">Reference</Label>
           <Input id="c-ref" value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="Cheque no, UTR, etc." />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="c-deed">Sale Deed / Registry No.</Label>
+          <Input id="c-deed" value={form.saleDeedNo} onChange={(e) => set("saleDeedNo", e.target.value)} placeholder="e.g. SR-1234/2025" />
+          <p className="text-caption text-muted-foreground">
+            The registered sale deed number from the sub-registrar. Captured at completion when the title is transferred.
+          </p>
+        </div>
+
+        {/* ── Compliance documents ── */}
+        <div className="rounded-md border border-border p-3 space-y-3">
+          <div className="text-body font-semibold">Compliance Documents</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-allot-no">Allotment Letter No.</Label>
+              <Input id="c-allot-no" value={form.allotmentLetterNo} onChange={(e) => set("allotmentLetterNo", e.target.value)} placeholder="e.g. AL-001" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-allot-date">Allotment Date</Label>
+              <Input id="c-allot-date" type="date" value={form.allotmentDate} onChange={(e) => set("allotmentDate", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-bba-no">BBA No.</Label>
+              <Input id="c-bba-no" value={form.bbaNo} onChange={(e) => set("bbaNo", e.target.value)} placeholder="Builder-Buyer Agreement no." />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-bba-date">BBA Date</Label>
+              <Input id="c-bba-date" type="date" value={form.bbaDate} onChange={(e) => set("bbaDate", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-tds-amt">TDS Amount (₹)</Label>
+              <Input id="c-tds-amt" type="number" min="0" step="0.01" value={form.tdsAmount} onChange={(e) => set("tdsAmount", e.target.value)} placeholder="1% of sale price (if > ₹50L)" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-tds-cert">TDS Certificate No.</Label>
+              <Input id="c-tds-cert" value={form.tdsCertificateNo} onChange={(e) => set("tdsCertificateNo", e.target.value)} placeholder="Form 16B no." />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Home loan details ── */}
+        <div className="rounded-md border border-border p-3 space-y-3">
+          <div className="text-body font-semibold">Home Loan Details (if applicable)</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-loan-bank">Bank / Lender</Label>
+              <Input id="c-loan-bank" value={form.homeLoanBank} onChange={(e) => set("homeLoanBank", e.target.value)} placeholder="e.g. HDFC, SBI" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-loan-amt">Loan Amount (₹)</Label>
+              <Input id="c-loan-amt" type="number" min="0" step="0.01" value={form.homeLoanAmount} onChange={(e) => set("homeLoanAmount", e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-loan-no">Sanction No.</Label>
+              <Input id="c-loan-no" value={form.homeLoanSanctionNo} onChange={(e) => set("homeLoanSanctionNo", e.target.value)} placeholder="Loan sanction letter no." />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-loan-date">Sanction Date</Label>
+              <Input id="c-loan-date" type="date" value={form.homeLoanSanctionDate} onChange={(e) => set("homeLoanSanctionDate", e.target.value)} />
+            </div>
+          </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

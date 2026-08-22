@@ -344,7 +344,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
-        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project.name, saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice), collected, outstanding: toNum(s.salePrice) - collected, paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
+        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "Standalone", saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice), collected, outstanding: toNum(s.salePrice) - collected, paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
       }).filter((r) => r.outstanding > 0.01);
       const draftPOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: "DRAFT" },

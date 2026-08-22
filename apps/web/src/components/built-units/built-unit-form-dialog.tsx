@@ -7,6 +7,8 @@ import { Plus, Trash2, Copy, AlertCircle, Sparkles, ChevronDown, ChevronUp } fro
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { AreaUnit, BuiltUnitType, PhaseOption, ProjectOption } from "@/lib/types";
 
 const UNIT_TYPES: BuiltUnitType[] = [
@@ -92,6 +94,10 @@ export function BuiltUnitFormDialog({
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [rows, setRows] = useState<UnitRow[]>([emptyRow()]);
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   // ── Sequential unit generator state ──
   const [showGenerator, setShowGenerator] = useState(false);
@@ -264,17 +270,18 @@ export function BuiltUnitFormDialog({
         {/* Project selector */}
         <div className="space-y-1.5">
           <Label htmlFor="bu-project">Project *</Label>
-          <Select
+          <SelectWithCreate
             id="bu-project"
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={setProjectId}
+            placeholder="Select project…"
+            createLabel="project"
             required
-          >
-            <option value="">Select project…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
           {projectId && projectPhases.length > 0 && (
             <p className="text-caption text-muted-foreground">
               {projectPhases.length} phase{projectPhases.length !== 1 ? "s" : ""} available — assign per unit below.
@@ -567,7 +574,7 @@ export function BuiltUnitFormDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving || projects.length === 0 || hasDuplicates}>
+          <Button type="submit" disabled={saving || hasDuplicates}>
             {saving ? "Creating…" : `Create ${rows.length} Unit${rows.length !== 1 ? "s" : ""}`}
           </Button>
         </div>

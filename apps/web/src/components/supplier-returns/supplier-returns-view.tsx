@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Undo2, Check, X, Send } from "lucide-react";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { StatusPill } from "@/components/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
@@ -116,6 +118,10 @@ function SupplierReturnFormDialog({
   const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; unitCost: string; reason: string }[]>(
     [{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", reason: "" }],
   );
+  // Local copy so freshly created suppliers appear in the dropdown without
+  // waiting for router.refresh.
+  const [localSuppliers, setLocalSuppliers] = useState(suppliers);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
 
   const materialOptions = useMemo(
     () => materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` })),
@@ -236,10 +242,16 @@ function SupplierReturnFormDialog({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Supplier *</Label>
-            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-              <option value="">Select…</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={supplierId}
+              onChange={setSupplierId}
+              placeholder="Select…"
+              createLabel="supplier"
+              options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0 }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>From Location *</Label>

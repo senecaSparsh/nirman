@@ -242,7 +242,7 @@ function searchActions(query: string): { action: ActionItem; score: number }[] {
 
 // ── Component ───────────────────────────────────────────────────
 
-export function CommandPalette({ userRole = "MANAGER" }: { userRole?: string }) {
+export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");

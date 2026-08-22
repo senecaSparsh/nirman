@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowRight, Plus, Trash2, Loader2, ChevronLeft,
+  ArrowRight, Plus, Trash2, Loader2,
   Package, MapPin, Send, CheckCircle2, WifiOff,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
@@ -14,8 +13,11 @@ import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
-interface LocationItem { id: string; name: string; type: string; }
+interface LocationItem { id: string; name: string; type: string; companyId?: string; companyName?: string | null; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; }
 
 interface TransferLine {
@@ -43,6 +45,11 @@ export default function MobileNewTransferClient() {
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<TransferLine[]>([{ materialId: "", qty: "" }]);
 
+  // Transfer type: auto-detected from location selection.
+  // "inHouse" = same company (warehouse→site, site→warehouse, etc.)
+  // "C to C" = inter-company (company→company STO with transfer pricing)
+  const [transferType, setTransferType] = useState<"inHouse" | "C to C">("inHouse");
+
   const [success, setSuccess] = useState<{ id: string } | null>(null);
 
   // Draft auto-save
@@ -57,7 +64,7 @@ export default function MobileNewTransferClient() {
     async function loadData() {
       try {
         const [locRes, matRes] = await Promise.all([
-          fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/stock-locations?group=true").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/materials").then((r) => (r.ok ? r.json() : [])),
         ]);
         if (cancelled) return;
@@ -89,6 +96,15 @@ export default function MobileNewTransferClient() {
     if (loading || success) return;
     saveDraft({ fromLocationId, toLocationId, notes, lines });
   }, [fromLocationId, toLocationId, notes, lines, loading, success, saveDraft]);
+
+  // Auto-detect transfer type from selected locations
+  useEffect(() => {
+    const from = locations.find((l) => l.id === fromLocationId);
+    const to = locations.find((l) => l.id === toLocationId);
+    if (from?.companyId && to?.companyId) {
+      setTransferType(from.companyId === to.companyId ? "inHouse" : "C to C");
+    }
+  }, [fromLocationId, toLocationId, locations]);
 
   // Unsaved-changes guard
   const isDirty = !success && lines.some((l) => Number(l.qty) > 0);
@@ -241,15 +257,53 @@ export default function MobileNewTransferClient() {
         />
       )}
       <div className="pb-32">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-3">
-          <Link href="/m/transfers" className="shrink-0">
-            <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-          </Link>
-          <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-            New Stock Transfer
-          </p>
+        {/* Transfer type toggle — descriptive labels */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              setTransferType("inHouse");
+              haptic(5);
+            }}
+            className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 press transition-colors"
+            style={{
+              borderColor: transferType === "inHouse" ? "var(--color-ink-950)" : "var(--color-line)",
+              backgroundColor: transferType === "inHouse" ? "var(--color-ink-950)" : "var(--color-paper)",
+              color: transferType === "inHouse" ? "#fff" : "var(--color-ink-700)",
+            }}
+          >
+            <Package className="size-4" />
+            <span className="text-[0.6875rem] font-bold">Within Company</span>
+            <span className="text-[0.4375rem] font-medium" style={{ opacity: 0.7 }}>
+              Warehouse ↔ Site
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTransferType("C to C");
+              haptic(5);
+            }}
+            className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 press transition-colors"
+            style={{
+              borderColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-line)",
+              backgroundColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-paper)",
+              color: transferType === "C to C" ? "#fff" : "var(--color-ink-700)",
+            }}
+          >
+            <ArrowRight className="size-4" />
+            <span className="text-[0.6875rem] font-bold">Company to Company</span>
+            <span className="text-[0.4375rem] font-medium" style={{ opacity: 0.7 }}>
+              Inter-company STO
+            </span>
+          </button>
         </div>
+        {/* Transfer type description */}
+        <p className="text-[0.4375rem] mb-3 px-1" style={{ color: "var(--color-ink-400)" }}>
+          {transferType === "inHouse"
+            ? "Move stock between your own warehouses and project sites. Cost flows at source MAC — no markup."
+            : "Transfer stock to another company in your group. Includes transfer pricing (freight, handling, markup). The receiver must confirm receipt from their company login."}
+        </p>
 
         {/* Route summary: from → to */}
         <div
@@ -261,6 +315,11 @@ export default function MobileNewTransferClient() {
             <p className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {fromLoc?.name ?? "Select source"}
             </p>
+            {fromLoc?.companyName ? (
+              <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                {fromLoc.companyName}
+              </p>
+            ) : null}
           </div>
           <ArrowRight className="size-4 shrink-0" style={{ color: "var(--color-signal)" }} />
           <div className="flex-1 min-w-0 text-center">
@@ -268,43 +327,58 @@ export default function MobileNewTransferClient() {
             <p className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {toLoc?.name ?? "Select destination"}
             </p>
+            {toLoc?.companyName ? (
+              <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                {toLoc.companyName}
+              </p>
+            ) : null}
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Source location */}
-          <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              From Location <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={fromLocationId}
-              onChange={(e) => setFromLocationId(e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="From Location"
+            required
+            value={fromLocationId}
+            onChange={setFromLocationId}
+            options={locations.map((l) => ({
+              value: l.id,
+              label: l.companyName && transferType === "C to C" ? `${l.name} · ${l.companyName}` : l.name,
+            }))}
+            inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewStockLocationDialog
+                open={open}
+                onClose={onClose}
+                projects={[]}
+                onCreated={(l) => onCreated(l.id, l.name)}
+              />
+            )}
+          />
 
           {/* Destination location */}
-          <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              To Location <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={toLocationId}
-              onChange={(e) => setToLocationId(e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="To Location"
+            required
+            value={toLocationId}
+            onChange={setToLocationId}
+            options={locations.map((l) => ({
+              value: l.id,
+              label: l.companyName && transferType === "C to C" ? `${l.name} · ${l.companyName}` : l.name,
+            }))}
+            inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewStockLocationDialog
+                open={open}
+                onClose={onClose}
+                projects={[]}
+                onCreated={(l) => onCreated(l.id, l.name)}
+              />
+            )}
+          />
 
           {/* Line items */}
           <div className="flex items-center gap-1.5 mt-1">
@@ -344,16 +418,23 @@ export default function MobileNewTransferClient() {
                   </div>
                   <div className="p-2 flex flex-col gap-1.5">
                     {/* Material select */}
-                    <select
+                    <MobileSelectWithCreate
+                      label=""
                       value={line.materialId}
-                      onChange={(e) => handleLineChange(idx, "materialId", e.target.value)}
-                      className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-                    >
-                      {materials.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleLineChange(idx, "materialId", val)}
+                      options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
+                      inputClass="w-full h-9 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none"
+                      inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                      labelClass="hidden"
+                      renderDialog={({ open, onClose, onCreated }) => (
+                        <MobileNewMaterialDialog
+                          open={open}
+                          onClose={onClose}
+                          categories={[]}
+                          onCreated={(m) => onCreated(m.id, m.name)}
+                        />
+                      )}
+                    />
                     {/* Qty */}
                     <div className="flex items-center gap-1.5">
                       <input
@@ -429,14 +510,17 @@ export default function MobileNewTransferClient() {
             onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{
+              backgroundColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-ink-950)",
+              color: "#fff",
+            }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <>
                 <Send className="size-3.5" />
-                <span>Create Transfer</span>
+                <span>Create {transferType} Transfer</span>
               </>
             )}
           </button>

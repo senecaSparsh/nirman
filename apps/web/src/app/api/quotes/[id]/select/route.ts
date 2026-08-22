@@ -22,7 +22,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Verify the quote belongs to the current company
   const existing = await prisma.vendorQuote.findFirst({
-    where: { id, requisition: { project: { companyId: company.id } } },
+    where: {
+      id,
+      OR: [
+        { requisition: { project: { companyId: company.id } } },
+        { quotationRequest: { companyId: company.id } },
+      ],
+    },
     include: {
       supplier: { select: { name: true } },
       requisition: {
@@ -50,8 +56,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Fire WhatsApp notification to the purchaser who submitted the requisition
   try {
-    const purchaser = existing.requisition.requestedBy;
-    if (purchaser?.phone) {
+    const purchaser = existing.requisition?.requestedBy;
+    if (purchaser?.phone && existing.requisitionId) {
       // Get the winning quote's total for the notification
       const winner = await prisma.vendorQuote.findFirst({
         where: { requisitionId: existing.requisitionId, status: "SELECTED" },
@@ -65,7 +71,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
           totalAmount: winner?.landedTotal ? Number(winner.landedTotal) : 0,
           isCheapest: existing.isCheapest,
         },
-        { id: existing.requisitionId, number: existing.requisition.reqNumber },
+        { id: existing.requisitionId, number: existing.requisition?.reqNumber ?? "" },
         [{ phone: purchaser.phone, name: purchaser.name }],
       );
     }

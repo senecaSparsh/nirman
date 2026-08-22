@@ -41,7 +41,13 @@ async function PcContent() {
 
   return (
     <>
-      <PageHeader title="Project Profit Center" stats={[{ label: "Projects", value: projects.length }]} />
+      <PageHeader
+        title="Project Profit Center"
+        description="Per-project revenue, cost, and margin analysis. Compare land + construction + overhead costs against sales revenue to track profitability."
+        stats={[
+          { label: "Projects", value: projects.length },
+        ]}
+      />
       <ProfitCenterView projects={projects} />
     </>
   );

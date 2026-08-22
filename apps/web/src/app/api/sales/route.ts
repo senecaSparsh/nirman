@@ -22,6 +22,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
       payments: { orderBy: { paymentDate: "asc" } },
+      expenses: { orderBy: { sortOrder: "asc" } },
+      terms: { orderBy: { sortOrder: "asc" } },
+      broker: { select: { id: true, name: true, phone: true, agency: true } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
     },
   });
 
@@ -61,7 +65,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         customerName: s.customer.name,
         customerPhone: s.customer.phone,
         projectId: s.projectId,
-        projectName: s.project.name,
+        projectName: s.project?.name ?? null,
         salePrice: toNum(s.salePrice),
         gstRate: toNum(s.gstRate),
         gstAmount: toNum(s.gstAmount),
@@ -73,6 +77,67 @@ export const GET = apiHandler(async (req: NextRequest) => {
         depositAmount: s.depositAmount ? toNum(s.depositAmount) : null,
         depositDate: s.depositDate ? s.depositDate.toISOString() : null,
         finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
+        saleDeedNo: s.saleDeedNo,
+        expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+        // Sale compliance documents
+        allotmentLetterNo: s.allotmentLetterNo,
+        allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
+        bbaNo: s.bbaNo,
+        bbaDate: s.bbaDate ? s.bbaDate.toISOString() : null,
+        // TDS tracking
+        tdsAmount: s.tdsAmount ? toNum(s.tdsAmount) : null,
+        tdsCertificateNo: s.tdsCertificateNo,
+        // Home loan tracking
+        homeLoanBank: s.homeLoanBank,
+        homeLoanAmount: s.homeLoanAmount ? toNum(s.homeLoanAmount) : null,
+        homeLoanSanctionNo: s.homeLoanSanctionNo,
+        homeLoanSanctionDate: s.homeLoanSanctionDate ? s.homeLoanSanctionDate.toISOString() : null,
+        // Deal terms
+        dealMaturityMonths: s.dealMaturityMonths,
+        dealMaturityDate: s.dealMaturityDate ? s.dealMaturityDate.toISOString() : null,
+        paymentCycle: s.paymentCycle,
+        // Broker / deal source
+        dealSource: s.dealSource,
+        brokerId: s.brokerId,
+        brokerName: s.brokerName,
+        brokerPhone: s.brokerPhone,
+        brokerAgency: s.broker?.agency ?? null,
+        commissionAmount: s.commissionAmount ? toNum(s.commissionAmount) : null,
+        commissionIsPartOfDeal: s.commissionIsPartOfDeal,
+        commissionPaid: s.commissionPaid,
+        commissionPaidDate: s.commissionPaidDate ? s.commissionPaidDate.toISOString() : null,
+        // Sale expenses
+        expenses: s.expenses.map((e) => ({
+          id: e.id,
+          head: e.head,
+          label: e.label,
+          amount: toNum(e.amount),
+          borneBy: e.borneBy,
+          isIncluded: e.isIncluded,
+        })),
+        // Sale terms
+        terms: s.terms.map((t) => ({
+          id: t.id,
+          description: t.description,
+          extraAmount: t.extraAmount ? toNum(t.extraAmount) : null,
+          isIncluded: t.isIncluded,
+        })),
+        // Payment schedule
+        paymentSchedule: s.paymentSchedule
+          ? {
+              type: s.paymentSchedule.type,
+              totalAmount: toNum(s.paymentSchedule.totalAmount),
+              items: s.paymentSchedule.items.map((item) => ({
+                installmentNo: item.installmentNo,
+                description: item.description,
+                percentage: toNum(item.percentage),
+                amount: toNum(item.amount),
+                dueDate: item.dueDate ? item.dueDate.toISOString() : null,
+                status: item.status,
+                paidAmount: toNum(item.paidAmount),
+              })),
+            }
+          : null,
         paymentStatus: s.paymentStatus,
         paymentMode: s.paymentMode,
         notes: s.notes,
@@ -85,7 +150,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.SALE_CREATE);
+  const user = await requirePermission(PERM.SALE_CREATE);
   const body = await req.json();
   const parsed = sellAssetSchema.safeParse(body);
   if (!parsed.success) {
@@ -97,6 +162,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       assetType: parsed.data.assetType,
       landParcelId: parsed.data.landParcelId ?? undefined,
       builtUnitId: parsed.data.builtUnitId ?? undefined,
+      projectId: parsed.data.projectId ?? undefined,
       customerId: parsed.data.customerId,
       companyId: company.id,
       salePrice: parsed.data.salePrice,
@@ -105,6 +171,39 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: parsed.data.notes ?? undefined,
       initialPayment: parsed.data.initialPayment,
       initialPaymentMode: parsed.data.initialPaymentMode,
+      saleDeedNo: parsed.data.saleDeedNo ?? undefined,
+      expectedRegistryDate: parsed.data.expectedRegistryDate ?? undefined,
+      // Sale compliance documents
+      allotmentLetterNo: parsed.data.allotmentLetterNo ?? undefined,
+      allotmentDate: parsed.data.allotmentDate ?? undefined,
+      bbaNo: parsed.data.bbaNo ?? undefined,
+      bbaDate: parsed.data.bbaDate ?? undefined,
+      // TDS tracking
+      tdsAmount: parsed.data.tdsAmount ?? undefined,
+      tdsCertificateNo: parsed.data.tdsCertificateNo ?? undefined,
+      // Home loan tracking
+      homeLoanBank: parsed.data.homeLoanBank ?? undefined,
+      homeLoanAmount: parsed.data.homeLoanAmount ?? undefined,
+      homeLoanSanctionNo: parsed.data.homeLoanSanctionNo ?? undefined,
+      homeLoanSanctionDate: parsed.data.homeLoanSanctionDate ?? undefined,
+      // Deal terms
+      dealMaturityMonths: parsed.data.dealMaturityMonths ?? undefined,
+      paymentCycle: parsed.data.paymentCycle ?? undefined,
+      // Sale expenses
+      expenses: parsed.data.expenses ?? undefined,
+      // Sale terms & conditions
+      terms: parsed.data.terms ?? undefined,
+      // Broker / deal source
+      dealSource: parsed.data.dealSource ?? undefined,
+      brokerId: parsed.data.brokerId ?? undefined,
+      brokerName: parsed.data.brokerName ?? undefined,
+      brokerPhone: parsed.data.brokerPhone ?? undefined,
+      commissionAmount: parsed.data.commissionAmount ?? undefined,
+      commissionIsPartOfDeal: parsed.data.commissionIsPartOfDeal ?? undefined,
+      // Payment schedule
+      paymentSchedule: parsed.data.paymentSchedule ?? undefined,
+      // Audit logging
+      userId: user.id,
     });
 
     revalidatePath("/m/sales");

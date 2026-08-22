@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Hammer, Plus, Trash2, Play, CheckCircle2, XCircle, TrendingUp, Pencil, SearchX } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell } from "@/components/ui/cells";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { StatusPill } from "@/components/page";
 
@@ -110,6 +112,10 @@ export function RenovationsView({
   const [eDesc, setEDesc] = useState("");
   const [eBudget, setEBudget] = useState("");
   const [eStartDate, setEStartDate] = useState("");
+
+  // Local copy of projects so freshly created ones appear without a refresh
+  const [localProjects, setLocalProjects] = useState(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   // Filtered units based on selected project
   const filteredUnits = useMemo(() => {
@@ -711,10 +717,16 @@ export function RenovationsView({
           </div>
           <div>
             <Label>Project *</Label>
-            <Select value={fProject} onChange={(e) => { setFProject(e.target.value); setFUnit(""); setFParcel(""); }}>
-              <option value="">Select project…</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={fProject}
+              onChange={(v) => { setFProject(v); setFUnit(""); setFParcel(""); }}
+              placeholder="Select project…"
+              createLabel="project"
+              options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+              )}
+            />
           </div>
           {fProject && (
             <div className="grid grid-cols-2 gap-2">

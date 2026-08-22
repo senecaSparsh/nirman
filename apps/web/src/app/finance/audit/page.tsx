@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { hasPermission } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { AuditTrailView } from "./audit-view";
 
 /**
@@ -31,5 +32,13 @@ async function AuditTrailContent() {
     orderBy: { name: "asc" },
   });
 
-  return <AuditTrailView users={users.map((u) => ({ id: u.id, name: u.name }))} />;
+  return (
+    <>
+      <PageHeader
+        title="Audit Trail"
+        description="System-wide activity log — every create, update, approve, and delete action across all modules, with user and timestamp."
+      />
+      <AuditTrailView users={users.map((u) => ({ id: u.id, name: u.name }))} />
+    </>
+  );
 }

@@ -4,6 +4,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 
 /**
@@ -100,15 +102,30 @@ async function MobileCustomersContent() {
   const pipelineValue = rows.reduce((s, r) => s + r.totalValue, 0);
 
   return (
-    <MobileCustomersList
-      items={rows}
-      canCreate={canCreate}
-      stats={{
-        customerCount: rows.length,
-        withDues: withDues.length,
-        totalOutstanding,
-        pipelineValue,
-      }}
-    />
+    <div>
+      <MobileExportShareBar
+        title="Customers"
+        rows={rows as unknown as Record<string, unknown>[]}
+        columns={[
+          { key: "name", label: "Name" },
+          { key: "phone", label: "Phone" },
+          { key: "email", label: "Email" },
+          { key: "totalValue", label: "Total Purchased", format: "currency" },
+          { key: "totalPaid", label: "Total Paid", format: "currency" },
+          { key: "outstanding", label: "Outstanding", format: "currency" },
+        ] as MobileColumnSpec[]}
+        summary={`${rows.length} customers · ${withDues.length} with dues`}
+      />
+      <MobileCustomersList
+        items={rows}
+        canCreate={canCreate}
+        stats={{
+          customerCount: rows.length,
+          withDues: withDues.length,
+          totalOutstanding,
+          pipelineValue,
+        }}
+      />
+    </div>
   );
 }

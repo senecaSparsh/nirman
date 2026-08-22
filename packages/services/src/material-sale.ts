@@ -6,6 +6,7 @@ import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
+import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
 
 /**
  * Material Sale Service — sell raw materials / stock items to customers.
@@ -43,6 +44,12 @@ export interface CreateMaterialSaleInput {
   projectId?: string;
   lines: MaterialSaleLineInput[];
   paymentMode?: string;
+  // Vehicle — how the goods were dispatched
+  vehicleNumber?: string;
+  vehicleType?: string;
+  vehiclePhotoUrl?: string;
+  driverName?: string;
+  driverPhone?: string;
   notes?: string;
   userId?: string;
   roundOff?: Decimal | number | string; // rounding adjustment
@@ -169,6 +176,11 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
         grossProfit,
         partyName: input.partyName,
         paymentMode: input.paymentMode,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType,
+        vehiclePhotoUrl: input.vehiclePhotoUrl,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
         notes: input.notes,
         createdById: input.userId,
       },
@@ -197,7 +209,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
         fromLocationId: line.locationId,
         qty: line.qty,
         reason: `Material sale ${sale.saleNumber}`,
-        refType: "MaterialSale",
+        refType: "MATERIAL_SALE",
         refId: sale.id,
         userId: input.userId,
       });
@@ -258,6 +270,222 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
   return sale;
 }
 
+/**
+ * Create a material sale REQUEST (PENDING status) with auto-created gate pass(es).
+ * No stock movements are executed. The sale is executed later by
+ * `executeMaterialSale()` after the gate pass is approved.
+ *
+ * Gate passes are created per-location (one gate pass per unique location in the lines).
+ */
+export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) {
+  if (input.lines.length === 0) throw new ServiceError("At least one line item is required");
+
+  // Validate customer
+  const customer = await prisma.customer.findFirst({
+    where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
+  });
+  if (!customer) throw new ServiceError("Customer not found or deleted", 404);
+
+  // Validate lines + compute totals
+  let subtotal = new Decimal(0);
+  let gstTotal = new Decimal(0);
+  let totalCost = new Decimal(0);
+  let scrapSubtotal = new Decimal(0);
+
+  const validatedLines: {
+    materialId: string;
+    locationId: string;
+    qty: Decimal;
+    unitPrice: Decimal;
+    gstRate: Decimal;
+    gstAmount: Decimal;
+    lineTotal: Decimal;
+    unitCost: Decimal;
+    isScrap: boolean;
+  }[] = [];
+
+  for (const line of input.lines) {
+    const qty = new Decimal(line.qty);
+    if (!qty.gt(0)) throw new ServiceError("Quantity must be > 0");
+    const unitPrice = new Decimal(line.unitPrice);
+    if (!unitPrice.gt(0)) throw new ServiceError("Unit price must be > 0");
+    const gstRate = line.gstRate ? new Decimal(line.gstRate) : new Decimal(0);
+
+    const stockItem = await prisma.stockLocationItem.findUnique({
+      where: { locationId_materialId: { locationId: line.locationId, materialId: line.materialId } },
+    });
+    if (!stockItem) throw new ServiceError(`No stock for material ${line.materialId} at location ${line.locationId}`);
+
+    const material = await prisma.material.findFirst({ where: { id: line.materialId, deletedAt: null } });
+    if (!material) throw new ServiceError(`Material ${line.materialId} not found`, 404);
+
+    const unitCost = new Decimal(stockItem.movingAvgCost);
+    const lineSubtotal = unitPrice.mul(qty).toDecimalPlaces(2);
+    const gstAmount = lineSubtotal.mul(gstRate).div(100).toDecimalPlaces(2);
+    const lineTotal = lineSubtotal.plus(gstAmount);
+
+    validatedLines.push({ materialId: line.materialId, locationId: line.locationId, qty, unitPrice, gstRate, gstAmount, lineTotal, unitCost, isScrap: material.isScrap });
+    if (material.isScrap) scrapSubtotal = scrapSubtotal.plus(lineSubtotal);
+    subtotal = subtotal.plus(lineSubtotal);
+    gstTotal = gstTotal.plus(gstAmount);
+    totalCost = totalCost.plus(unitCost.mul(qty));
+  }
+
+  subtotal = subtotal.toDecimalPlaces(2);
+  gstTotal = gstTotal.toDecimalPlaces(2);
+  totalCost = totalCost.toDecimalPlaces(2);
+  const roundOff = new Decimal(input.roundOff ?? 0).toDecimalPlaces(2);
+  const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
+  const grossProfit = subtotal.minus(totalCost);
+
+  const sale = await prisma.$transaction(async (tx) => {
+    const sale = await tx.materialSale.create({
+      data: {
+        saleNumber: await generateMaterialSaleNumber(tx),
+        customerId: input.customerId,
+        companyId: input.companyId,
+        projectId: input.projectId ?? null,
+        status: "PENDING",
+        subtotal, gstTotal, roundOff, totalAmount, totalCost, scrapSubtotal, grossProfit,
+        partyName: input.partyName,
+        paymentMode: input.paymentMode,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType,
+        vehiclePhotoUrl: input.vehiclePhotoUrl,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
+        notes: input.notes,
+        createdById: input.userId,
+      },
+    });
+
+    // Create sale lines (no stock movements yet)
+    for (const line of validatedLines) {
+      await tx.materialSaleLine.create({
+        data: {
+          materialSaleId: sale.id,
+          materialId: line.materialId,
+          locationId: line.locationId,
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+          unitCost: line.unitCost,
+          gstRate: line.gstRate,
+          gstAmount: line.gstAmount,
+          lineTotal: line.lineTotal,
+        },
+      });
+    }
+
+    // Auto-create gate pass(es) — one per unique location
+    const locationGroups = new Map<string, typeof validatedLines>();
+    for (const line of validatedLines) {
+      const group = locationGroups.get(line.locationId) ?? [];
+      group.push(line);
+      locationGroups.set(line.locationId, group);
+    }
+    for (const [locationId, lines] of locationGroups) {
+      await autoCreateGatePassFromRef(tx, {
+        companyId: input.companyId,
+        locationId,
+        projectId: input.projectId,
+        category: "MATERIAL_SALE",
+        refType: "MaterialSale",
+        refId: sale.id,
+        lines: lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
+        destination: customer.name,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
+        createdById: input.userId,
+      });
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "MATERIAL_SALE_CREATE",
+        entityType: "MaterialSale",
+        entityId: sale.id,
+        after: { saleNumber: sale.saleNumber, status: "PENDING", totalAmount: totalAmount.toString() },
+      });
+    }
+
+    return sale;
+  });
+
+  return sale;
+}
+
+/**
+ * Execute a PENDING material sale — runs stock movements and activates the sale.
+ * Requires all linked gate passes to be approved.
+ */
+export async function executeMaterialSale(saleId: string, userId?: string) {
+  // Gate Pass check — all gate passes for this sale must be approved
+  await assertGatePassApproved("MaterialSale", saleId);
+
+  return withStockTransaction(async (tx) => {
+    const sale = await tx.materialSale.findUnique({
+      where: { id: saleId },
+      include: { lines: true },
+    });
+    if (!sale) throw new ServiceError("Material sale not found", 404);
+    if (sale.status !== "PENDING") throw new ServiceError(`Cannot execute sale in status ${sale.status}`);
+
+    // Relieve stock for each line
+    for (const line of sale.lines) {
+      await recordMovement(tx, {
+        materialId: line.materialId,
+        movementType: "SALE",
+        fromLocationId: line.locationId,
+        qty: new Decimal(line.qty),
+        reason: `Material sale ${sale.saleNumber}`,
+        refType: "MATERIAL_SALE",
+        refId: sale.id,
+        userId,
+      });
+    }
+
+    // Post to GL
+    await postMaterialSale(tx, {
+      companyId: sale.companyId,
+      materialSaleId: sale.id,
+      subtotal: new Decimal(sale.subtotal),
+      gstTotal: new Decimal(sale.gstTotal),
+      roundOff: new Decimal(sale.roundOff),
+      totalCost: new Decimal(sale.totalCost),
+      scrapSubtotal: new Decimal(sale.scrapSubtotal),
+      postedById: userId,
+    });
+
+    // Set status to ACTIVE
+    const updated = await tx.materialSale.update({
+      where: { id: saleId },
+      data: { status: "ACTIVE" },
+    });
+
+    if (sale.projectId) {
+      await reallocateProjectCosts(tx, sale.projectId);
+    }
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "MATERIAL_SALE_EXECUTE",
+        entityType: "MaterialSale",
+        entityId: saleId,
+        before: { status: "PENDING" },
+        after: { status: "ACTIVE" },
+      });
+    }
+
+    return updated;
+  });
+}
+
 /** Cancel a material sale — only if no payments have been received. */
 export async function cancelMaterialSale(id: string, companyId: string, userId?: string) {
   return withStockTransaction(async (tx) => {
@@ -279,7 +507,7 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
       // Find the original SALE movement and reverse it
       const movement = await tx.stockMovement.findFirst({
         where: {
-          refType: "MaterialSale",
+          refType: "MATERIAL_SALE",
           refId: sale.id,
           materialId: line.materialId,
           fromLocationId: line.locationId,
@@ -295,7 +523,7 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
           qty: line.qty,
           unitCost: line.unitCost, // restore at original MAC
           reason: `Reversal of material sale ${sale.saleNumber}`,
-          refType: "MaterialSale",
+          refType: "MATERIAL_SALE",
           refId: sale.id,
           userId,
         });

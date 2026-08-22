@@ -11,10 +11,12 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import type { ProjectOption } from "@/lib/types";
 import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 
-type Project = { id: string; name: string };
 type BoqItem = { id: string; serialNo: string; description: string; unit: string | null; rate: number | null; estimatedQty: number | null };
 type WbsNode = { id: string; code: string; name: string; boqItemId: string | null };
 
@@ -136,9 +138,11 @@ export function MeasurementBookView({
   projects,
   canCreate,
 }: {
-  projects: Project[];
+  projects: ProjectOption[];
   canCreate: boolean;
 }) {
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [entries, setEntries] = useState<MbEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -235,7 +239,7 @@ export function MeasurementBookView({
     }
   }
 
-  if (projects.length === 0) {
+  if (localProjects.length === 0) {
     return <EmptyState icon={<Ruler />} title="No projects" description="Create a project to start recording measurements." />;
   }
 
@@ -243,9 +247,17 @@ export function MeasurementBookView({
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
         <Field label="Project">
-          <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="max-w-sm">
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
+          <SelectWithCreate
+            value={projectId}
+            onChange={setProjectId}
+            placeholder="Select…"
+            createLabel="project"
+            className="max-w-sm"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </Field>
       </div>
 

@@ -63,16 +63,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
-  const parsed = createSchema.parse(body);
+  const parsed = createSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
 
   const scrap = await createScrapGeneration({
     companyId: company.id,
-    toLocationId: parsed.toLocationId,
-    sourceMaterialId: parsed.sourceMaterialId ?? undefined,
-    projectId: parsed.projectId ?? undefined,
-    notes: parsed.notes ?? undefined,
+    toLocationId: parsed.data.toLocationId,
+    sourceMaterialId: parsed.data.sourceMaterialId ?? undefined,
+    projectId: parsed.data.projectId ?? undefined,
+    notes: parsed.data.notes ?? undefined,
     createdById: user.id,
-    lines: parsed.lines.map((l) => ({
+    lines: parsed.data.lines.map((l) => ({
       materialId: l.materialId,
       qty: l.qty,
       unitCost: l.unitCost,

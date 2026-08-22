@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Home } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 type UnitType =
   | "BHK_1"
@@ -55,6 +57,12 @@ interface FormState {
   area: string;
   areaUnit: AreaUnit;
   askingPrice: string;
+  // RERA fields (optional)
+  carpetArea: string;
+  superBuiltUpArea: string;
+  balconyArea: string;
+  clearHeight: string;
+  hasLoadingDock: boolean;
 }
 
 /**
@@ -84,6 +92,12 @@ export function MobileNewUnitDialog({
     area: "",
     areaUnit: "SQFT",
     askingPrice: "",
+    // RERA fields
+    carpetArea: "",
+    superBuiltUpArea: "",
+    balconyArea: "",
+    clearHeight: "",
+    hasLoadingDock: false,
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -120,6 +134,12 @@ export function MobileNewUnitDialog({
             area: Number(form.area),
             areaUnit: form.areaUnit,
             askingPrice: form.askingPrice === "" ? null : Number(form.askingPrice),
+            // RERA fields
+            carpetArea: form.carpetArea === "" ? null : Number(form.carpetArea),
+            superBuiltUpArea: form.superBuiltUpArea === "" ? null : Number(form.superBuiltUpArea),
+            balconyArea: form.balconyArea === "" ? null : Number(form.balconyArea),
+            clearHeight: form.clearHeight === "" ? null : Number(form.clearHeight),
+            hasLoadingDock: form.hasLoadingDock,
           },
         ]),
       });
@@ -187,22 +207,19 @@ export function MobileNewUnitDialog({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Project */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Project <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={form.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— Select project —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Project"
+            required
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            placeholder="— Select project —"
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+            )}
+          />
 
           {/* Unit Number + Type */}
           <div className="grid grid-cols-2 gap-3">
@@ -312,6 +329,80 @@ export function MobileNewUnitDialog({
               className={inputClass}
               style={inputStyle}
             />
+          </div>
+
+          {/* RERA areas (optional) */}
+          <div className="rounded-[0.5rem] border p-2.5 space-y-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
+            <p className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>RERA Areas (optional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>Carpet Area</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.carpetArea}
+                  onChange={(e) => set("carpetArea", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Super Built-Up</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.superBuiltUpArea}
+                  onChange={(e) => set("superBuiltUpArea", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>Balcony Area</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.balconyArea}
+                  onChange={(e) => set("balconyArea", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Clear Height</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.clearHeight}
+                  onChange={(e) => set("clearHeight", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              <input
+                type="checkbox"
+                checked={form.hasLoadingDock}
+                onChange={(e) => set("hasLoadingDock", e.target.checked)}
+                className="size-3.5"
+              />
+              Has Loading Dock
+            </label>
           </div>
 
           {/* Actions */}

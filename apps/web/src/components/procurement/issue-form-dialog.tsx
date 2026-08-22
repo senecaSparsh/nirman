@@ -8,9 +8,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { formatNumber } from "@/lib/utils";
 import { required, type ValidationErrors } from "@/lib/validate";
-import type { DepartmentOption, MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
+import type { DepartmentOption, MaterialCategory, MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
 
 type IssueFormValues = {
   targetId: string;
@@ -22,7 +26,7 @@ const errorBorder = "border-danger focus-visible:border-danger focus-visible:rin
 
 type Target = "PROJECT" | "DEPARTMENT";
 
-type IssueLine = { id: string; materialId: string; materialName: string; unit: string; qty: string; lotNumber: string };
+type IssueLine = { id: string; materialId: string; materialName: string; unit: string; qty: string; lotNumber: string; available: number | null };
 
 export function IssueFormDialog({
   open,
@@ -31,6 +35,7 @@ export function IssueFormDialog({
   locations,
   materials,
   departments,
+  categories,
   defaults,
 }: {
   open: boolean;
@@ -39,6 +44,7 @@ export function IssueFormDialog({
   locations: StockLocationOption[];
   materials: MaterialOption[];
   departments: DepartmentOption[];
+  categories: MaterialCategory[];
   /** Pre-fill fields (e.g. { projectId: "abc" } when scoped to a project node). */
   defaults?: { projectId?: string; fromLocationId?: string };
 }) {
@@ -52,8 +58,32 @@ export function IssueFormDialog({
   const [receiverMobile, setReceiverMobile] = useState("");
   const [roundOff, setRoundOff] = useState("");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<IssueLine[]>([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]);
+  const [lines, setLines] = useState<IssueLine[]>([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
+  // Stock available at the from-location: materialId → qty
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+
+  // Fetch stock at from-location when it changes
+  useEffect(() => {
+    if (!fromLocationId) { setStockMap({}); return; }
+    fetch(`/api/stock/available?locationId=${fromLocationId}`)
+      .then((r) => r.json())
+      .then((data: { materialId: string; qty: number }[]) => {
+        const map: Record<string, number> = {};
+        for (const item of data) map[item.materialId] = item.qty;
+        setStockMap(map);
+      })
+      .catch(() => setStockMap({}));
+  }, [fromLocationId]);
   const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  const [localLocations, setLocalLocations] = useState<StockLocationOption[]>(locations);
+  const [localMaterials, setLocalMaterials] = useState<MaterialOption[]>(materials);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
+  const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
 
   function validateField(key: keyof IssueFormValues): string | undefined {
     if (key === "targetId") {
@@ -73,8 +103,8 @@ export function IssueFormDialog({
   }
 
   const materialOptions = useMemo(
-    () => materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` })),
-    [materials],
+    () => localMaterials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` })),
+    [localMaterials],
   );
 
   const issueColumns: EditableColumn<IssueLine>[] = useMemo(() => [
@@ -85,6 +115,7 @@ export function IssueFormDialog({
       options: materialOptions,
       placeholder: "Select…",
       width: "1fr",
+      createLabel: "material",
     },
     {
       key: "unit",
@@ -103,6 +134,14 @@ export function IssueFormDialog({
       width: "100px",
       format: (v) => v ? formatNumber(Number(v), 3) : "",
     },
+    {
+      key: "available",
+      label: "Available",
+      type: "readonly",
+      align: "right",
+      width: "90px",
+      format: (v) => v != null ? formatNumber(v as number, 3) : "—",
+    },
   ], [materialOptions]);
 
   // Apply defaults when the dialog opens
@@ -113,16 +152,16 @@ export function IssueFormDialog({
     }
   }, [open, defaults]);
 
-  function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]); }
+  function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]); }
 
-  // Sync materialName + unit when materialId changes via EditableGrid
+  // Sync materialName + unit + available stock when materialId changes via EditableGrid
   function handleLinesChange(newLines: IssueLine[]) {
     const synced = newLines.map((l) => {
       if (l.materialId) {
-        const mat = materials.find((m) => m.id === l.materialId);
-        if (mat) return { ...l, materialName: mat.name, unit: mat.unit };
+        const mat = localMaterials.find((m) => m.id === l.materialId);
+        if (mat) return { ...l, materialName: mat.name, unit: mat.unit, available: stockMap[l.materialId] ?? null };
       }
-      return l;
+      return { ...l, available: null };
     });
     setLines(synced);
   }
@@ -156,23 +195,34 @@ export function IssueFormDialog({
           receiverMobile: receiverMobile.trim() || null,
           roundOff: roundOff ? Number(roundOff) : null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
+          requireGatePass: target === "PROJECT",
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to issue materials");
       const issuedProjectId = target === "PROJECT" ? projectId : "";
-      toast.success(`Issue slip ${data.issueNumber ?? ""} created`, {
-        action: issuedProjectId
-          ? {
-              label: "View Project Cost",
-              onClick: () => router.push(`/projects/${issuedProjectId}?tab=finance`),
-            }
-          : undefined,
-      });
+      if (data.pending) {
+        toast.success(`Gate pass created — awaiting approval`, {
+          description: data.message ?? "Items cannot leave the gate until the gate pass is approved.",
+          action: {
+            label: "View Gate Passes",
+            onClick: () => router.push("/gate-passes"),
+          },
+        });
+      } else {
+        toast.success(`Issue slip ${data.issueNumber ?? ""} created`, {
+          action: issuedProjectId
+            ? {
+                label: "View Project Cost",
+                onClick: () => router.push(`/projects/${issuedProjectId}?tab=finance`),
+              }
+            : undefined,
+        });
+      }
       onOpenChange(false);
       setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
       setReceiverName(""); setReceiverMobile(""); setRoundOff(""); setErrors({});
-      setLines([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "" }]);
+      setLines([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
@@ -222,10 +272,19 @@ export function IssueFormDialog({
           <div className="space-y-1.5">
             <Label className={errors.targetId ? "text-danger" : undefined}>{targetLabel} *</Label>
             {target === "PROJECT" ? (
-              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined}>
-                <option value="">Select…</option>
-                {projects.filter((p) => p.status !== "ON_HOLD").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </Select>
+              <SelectWithCreate
+                value={projectId}
+                onChange={setProjectId}
+                onBlur={() => onBlur("targetId")}
+                aria-invalid={!!errors.targetId}
+                className={errors.targetId ? errorBorder : undefined}
+                placeholder="Select…"
+                createLabel="project"
+                options={localProjects.filter((p) => p.status !== "ON_HOLD").map((p) => ({ value: p.id, label: p.name }))}
+                renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                  <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+                )}
+              />
             ) : (
               <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined}>
                 <option value="">Select…</option>
@@ -236,10 +295,19 @@ export function IssueFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label className={errors.fromLocationId ? "text-danger" : undefined}>From Location *</Label>
-            <Select value={fromLocationId} onChange={(e) => setFromLocationId(e.target.value)} onBlur={() => onBlur("fromLocationId")} aria-invalid={!!errors.fromLocationId} className={errors.fromLocationId ? errorBorder : undefined}>
-              <option value="">Select…</option>
-              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={fromLocationId}
+              onChange={setFromLocationId}
+              onBlur={() => onBlur("fromLocationId")}
+              aria-invalid={!!errors.fromLocationId}
+              className={errors.fromLocationId ? errorBorder : undefined}
+              placeholder="Select…"
+              createLabel="location"
+              options={localLocations.map((l) => ({ value: l.id, label: l.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, type: "COMPANY_WAREHOUSE", name: e.label ?? "", projectId: null, projectName: null }]); onCreated(e); }} projects={localProjects} location={null} />
+              )}
+            />
             {errors.fromLocationId && <p className="text-caption text-danger" role="alert">{errors.fromLocationId}</p>}
           </div>
         </div>
@@ -282,9 +350,15 @@ export function IssueFormDialog({
               getRowId={(r) => r.id}
               sumColumns={["qty"]}
               className="max-h-[40vh]"
+              onCreateOption={() => setMaterialCreateOpen(true)}
             />
           </div>
           {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
+          {lines.some((l) => l.materialId && l.available !== null && Number(l.qty) > l.available) && (
+            <p className="text-caption text-warning flex items-center gap-1" role="alert">
+              ⚠ Some lines exceed available stock — issuing will create negative stock.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -309,6 +383,18 @@ export function IssueFormDialog({
           <Button type="submit" disabled={saving}>{saving ? "Issuing…" : `Issue to ${targetLabel}`}</Button>
         </div>
       </form>
+
+      {/* Inline material creator — opened from a line item's "+ Create new
+          material…" option. */}
+      <MaterialFormDialog
+        open={materialCreateOpen}
+        onOpenChange={setMaterialCreateOpen}
+        categories={categories}
+        material={null}
+        onCreated={(e) => {
+          setLocalMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "", standardCost: 0, gstRate: 0, isLotTracked: false }]);
+        }}
+      />
     </Dialog>
   );
 }

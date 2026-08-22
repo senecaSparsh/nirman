@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { GeneralLedgerView } from "@/components/finance/general-ledger-view";
 import { TallySyncPanel } from "@/components/finance/tally-sync-panel";
+import { GstReportsPanel } from "@/components/finance/gst-reports-panel";
 
 import { NoAccess } from "@/components/no-access";
 export const metadata = { title: "General Ledger · Nirman" };
@@ -69,6 +70,9 @@ async function GeneralLedgerContent() {
         totalCredit={toNum(tb.totalCredit)}
         isBalanced={tb.isBalanced}
       />
+      {hasPermission(role, PERM.FINANCE_VIEW) && (
+        <GstReportsPanel />
+      )}
       {hasPermission(role, PERM.FINANCE_MANAGE) && (
         <TallySyncPanel stats={{ ...tallyStats, configured: !!tallyConfig?.enabled }} />
       )}

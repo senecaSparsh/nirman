@@ -23,7 +23,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "MANAGER",
+        defaultValue: "PROJECT_MANAGER",
         input: false,
       },
       companyId: {

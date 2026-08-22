@@ -7,7 +7,7 @@ import {
   UserCog, Crown, CircleDot, UserPlus, X, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ROLES, type Role } from "@/lib/roles";
+import { ROLES, roleTier, type Role } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
 
 interface TeamMember {
@@ -20,6 +20,10 @@ interface TeamMember {
   active: boolean;
   isSelf: boolean;
   reportsToName: string | null;
+  designation: string | null;
+  department: string | null;
+  employeeCode: string | null;
+  joiningDate: string | null;
 }
 
 interface AssignableRole {
@@ -30,10 +34,17 @@ interface AssignableRole {
 const ROLE_META: Record<Role, { color: string; label: string; icon: typeof Crown }> = {
   OWNER: { color: "var(--color-ink-950)", label: "Owner", icon: Crown },
   ADMIN: { color: "var(--color-steel)", label: "Admin", icon: Shield },
-  MANAGER: { color: "var(--color-go)", label: "Manager", icon: UserCog },
-  SUPERVISOR: { color: "var(--color-signal)", label: "Supervisor", icon: CircleDot },
-  SALES: { color: "var(--color-signal)", label: "Sales", icon: CircleDot },
+  PROJECT_DIRECTOR: { color: "var(--color-go)", label: "Project Director", icon: UserCog },
+  FINANCE_HEAD: { color: "var(--color-go)", label: "Finance Head", icon: UserCog },
+  PROJECT_MANAGER: { color: "var(--color-go)", label: "Project Manager", icon: UserCog },
+  PROCUREMENT_MANAGER: { color: "var(--color-signal)", label: "Procurement Manager", icon: CircleDot },
+  HR_MANAGER: { color: "var(--color-signal)", label: "HR Manager", icon: CircleDot },
+  SITE_ENGINEER: { color: "var(--color-signal)", label: "Site Engineer", icon: CircleDot },
+  STORE_KEEPER: { color: "var(--color-signal)", label: "Store Keeper", icon: CircleDot },
   ACCOUNTANT: { color: "var(--color-signal)", label: "Accountant", icon: CircleDot },
+  SALES_MANAGER: { color: "var(--color-signal)", label: "Sales Manager", icon: CircleDot },
+  SUPERVISOR: { color: "var(--color-signal)", label: "Supervisor", icon: CircleDot },
+  QAQC_ENGINEER: { color: "var(--color-signal)", label: "QA/QC Engineer", icon: CircleDot },
 };
 
 export function MobileTeamList({
@@ -65,7 +76,7 @@ export function MobileTeamList({
 
   // Sort: by role tier (OWNER first), then by name
   const sorted = [...filtered].sort((a, b) => {
-    const tier = (r: Role) => ROLES[r].key === "OWNER" ? 0 : ROLES[r].key === "ADMIN" ? 1 : ROLES[r].key === "MANAGER" ? 2 : 3;
+    const tier = (r: Role) => roleTier(r);
     return tier(a.role) - tier(b.role) || a.name.localeCompare(b.name);
   });
 
@@ -353,8 +364,27 @@ function MemberCard({
           </span>
         </div>
 
+        {/* Designation + department + employee code */}
+        {(member.designation || member.department || member.employeeCode) && (
+          <div className="flex items-center gap-2 text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+            {member.employeeCode && (
+              <span className="font-mono font-bold" style={{ color: "var(--color-steel)" }}>
+                {member.employeeCode}
+              </span>
+            )}
+            {member.designation && (
+              <span>{member.designation}</span>
+            )}
+            {member.department && (
+              <span className="px-1 rounded" style={{ backgroundColor: "var(--color-concrete)" }}>
+                {member.department}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Contact + reports to */}
-        <div className="flex items-center gap-3 text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center gap-3 text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           {member.phone && (
             <a
               href={`tel:${member.phone}`}
@@ -489,8 +519,12 @@ function AddMemberDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>(assignableRoles[0]?.key ?? "MANAGER");
+  const [role, setRole] = useState<Role>(assignableRoles[0]?.key ?? "PROJECT_MANAGER");
   const [password, setPassword] = useState("");
+  const [employeeCode, setEmployeeCode] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [department, setDepartment] = useState("");
+  const [joiningDate, setJoiningDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -510,6 +544,10 @@ function AddMemberDialog({
           role,
           phone: phone.trim() || undefined,
           password: password.trim() || undefined,
+          employeeCode: employeeCode.trim() || undefined,
+          designation: designation.trim() || undefined,
+          department: department.trim() || undefined,
+          joiningDate: joiningDate || undefined,
         }),
       });
       const data = await res.json();
@@ -607,32 +645,117 @@ function AddMemberDialog({
             />
           </div>
 
-          {/* Role */}
+          {/* Employee Code + Designation */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Employee Code
+              </label>
+              <input
+                type="text"
+                value={employeeCode}
+                onChange={(e) => setEmployeeCode(e.target.value)}
+                placeholder="EMP-001"
+                enterKeyHint="next"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none font-mono"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                placeholder="Site Engineer"
+                enterKeyHint="next"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </div>
+
+          {/* Department + Joining Date */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Department
+              </label>
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                <option value="">Select…</option>
+                <option value="Construction">Construction</option>
+                <option value="Procurement">Procurement</option>
+                <option value="Finance">Finance</option>
+                <option value="HR">HR</option>
+                <option value="Sales">Sales</option>
+                <option value="Administration">Administration</option>
+                <option value="Quality">Quality</option>
+                <option value="Stores">Stores</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Joining Date
+              </label>
+              <input
+                type="date"
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </div>
+
+          {/* Role — grouped by category */}
           <div>
             <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Role <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {assignableRoles.map((r) => {
-                const meta = ROLE_META[r.key];
-                const isCurrent = r.key === role;
-                return (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => { setRole(r.key); haptic(10); }}
-                    className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-[0.5625rem] font-semibold press"
-                    style={{
-                      color: isCurrent ? "#fff" : meta.color,
-                      backgroundColor: isCurrent ? meta.color : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
-                      border: isCurrent ? "none" : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
-                    }}
-                  >
-                    {isCurrent && <Check className="size-3" />}
-                    {r.label}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-2">
+              {Object.entries(
+                assignableRoles.reduce((acc, r) => {
+                  const cat = ROLES[r.key].category;
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(r);
+                  return acc;
+                }, {} as Record<string, AssignableRole[]>),
+              ).map(([category, roles]) => (
+                <div key={category}>
+                  <p className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-400)" }}>
+                    {category}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {roles.map((r) => {
+                      const meta = ROLE_META[r.key];
+                      const isCurrent = r.key === role;
+                      return (
+                        <button
+                          key={r.key}
+                          type="button"
+                          onClick={() => { setRole(r.key); haptic(10); }}
+                          className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-[0.5625rem] font-semibold press"
+                          style={{
+                            color: isCurrent ? "#fff" : meta.color,
+                            backgroundColor: isCurrent ? meta.color : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
+                            border: isCurrent ? "none" : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
+                          }}
+                        >
+                          {isCurrent && <Check className="size-3" />}
+                          {r.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -689,6 +812,10 @@ function EditMemberDialog({
 }) {
   const [name, setName] = useState(member.name);
   const [phone, setPhone] = useState(member.phone ?? "");
+  const [employeeCode, setEmployeeCode] = useState(member.employeeCode ?? "");
+  const [designation, setDesignation] = useState(member.designation ?? "");
+  const [department, setDepartment] = useState(member.department ?? "");
+  const [joiningDate, setJoiningDate] = useState(member.joiningDate ? member.joiningDate.split("T")[0] : "");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -706,6 +833,10 @@ function EditMemberDialog({
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim() || null,
+          employeeCode: employeeCode.trim() || null,
+          designation: designation.trim() || null,
+          department: department.trim() || null,
+          joiningDate: joiningDate || null,
         }),
       });
       const data = await res.json();
@@ -809,6 +940,73 @@ function EditMemberDialog({
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
+          </div>
+
+          {/* Employee Code + Designation */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Employee Code
+              </label>
+              <input
+                type="text"
+                value={employeeCode}
+                onChange={(e) => setEmployeeCode(e.target.value)}
+                placeholder="EMP-001"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none font-mono"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                placeholder="Site Engineer"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </div>
+
+          {/* Department + Joining Date */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Department
+              </label>
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                <option value="">Select…</option>
+                <option value="Construction">Construction</option>
+                <option value="Procurement">Procurement</option>
+                <option value="Finance">Finance</option>
+                <option value="HR">HR</option>
+                <option value="Sales">Sales</option>
+                <option value="Administration">Administration</option>
+                <option value="Quality">Quality</option>
+                <option value="Stores">Stores</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Joining Date
+              </label>
+              <input
+                type="date"
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
           </div>
 
           {/* Submit */}

@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
       turbo:
         specifier: ^2.5.0
         version: 2.10.7
@@ -38,6 +41,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
       html5-qrcode:
         specifier: ^2.3.8
         version: 2.3.8
@@ -2288,6 +2294,9 @@ packages:
 
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
+
+  html-to-image@1.11.13:
+    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
 
   html5-qrcode@2.3.8:
     resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
@@ -5570,6 +5579,8 @@ snapshots:
   hermes-parser@0.25.1:
     dependencies:
       hermes-estree: 0.25.1
+
+  html-to-image@1.11.13: {}
 
   html5-qrcode@2.3.8: {}
 

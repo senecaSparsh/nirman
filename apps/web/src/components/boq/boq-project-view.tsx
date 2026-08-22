@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, ClipboardList } from "lucide-react";
-import { Select } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { BoqView, BoqFormDialog, type BoqNode } from "./boq-view";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
+import type { ProjectOption } from "@/lib/types";
 
-type Project = { id: string; name: string };
+type Project = ProjectOption;
 type Material = { id: string; code: string; name: string; unit: string };
 
 export function BoqProjectView({
@@ -27,6 +29,10 @@ export function BoqProjectView({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [emptyDialogOpen, setEmptyDialogOpen] = useState(false);
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<Project[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   const fetchTree = () => {
     if (!projectId) return;
@@ -58,22 +64,30 @@ export function BoqProjectView({
 
   const projectSelector = (
     <div className="shrink-0">
-      <Select
+      <SelectWithCreate
         value={projectId}
-        onChange={(e) => setProjectId(e.target.value)}
-        className="h-7 w-auto min-w-[180px] text-caption"
-      >
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </Select>
+        onChange={setProjectId}
+        placeholder="Select project…"
+        createLabel="project"
+        className="h-7 min-w-[180px] text-caption"
+        options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+        renderCreateDialog={({ open: o, onCreated, onClose }) => (
+          <ProjectFormDialog
+            open={o}
+            onOpenChange={onClose}
+            onCreated={(e) => {
+              setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]);
+              onCreated(e);
+            }}
+          />
+        )}
+      />
     </div>
   );
 
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-3 min-w-0">
-        <h1 className="text-title text-foreground">Bill of Quantities</h1>
         {projectSelector}
       </header>
 

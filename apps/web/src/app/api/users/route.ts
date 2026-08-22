@@ -6,7 +6,7 @@ import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 
 /**
  * GET /api/users — list users scoped to the active company (for task
- * assignment dropdowns). Returns id, name, email, role, active.
+ * assignment dropdowns). Returns id, name, email, role, active, designation, employeeCode.
  */
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.USERS_VIEW);
@@ -14,7 +14,7 @@ export const GET = apiHandler(async () => {
   const users = await prisma.user.findMany({
     where: { memberships: { some: { companyId: company.id } }, active: true },
     orderBy: { name: "asc" },
-    select: { id: true, email: true, name: true, role: true, active: true },
+    select: { id: true, email: true, name: true, role: true, active: true, designation: true, employeeCode: true, department: true },
   });
   return json(users);
 });
@@ -45,12 +45,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const actorRole = session.role;
 
   const body = await req.json();
-  const { name, email, role, phone, password } = body as {
+  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate } = body as {
     name?: string;
     email?: string;
     role?: string;
     phone?: string;
     password?: string;
+    employeeCode?: string;
+    designation?: string;
+    department?: string;
+    joiningDate?: string;
   };
 
   // ── Validate inputs ──
@@ -120,6 +124,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
         phone: phone?.trim() || null,
         companyId: company.id,
         emailVerified: true,
+        employeeCode: employeeCode?.trim() || null,
+        designation: designation?.trim() || null,
+        department: department?.trim() || null,
+        joiningDate: joiningDate ? new Date(joiningDate) : null,
       },
       select: { id: true, name: true, email: true, role: true },
     });

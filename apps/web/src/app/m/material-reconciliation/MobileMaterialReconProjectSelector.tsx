@@ -2,6 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FolderOpen } from "lucide-react";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 export type MaterialReconProjectOption = { id: string; name: string };
 
@@ -35,18 +37,10 @@ export function MobileMaterialReconProjectSelector({
         <FolderOpen className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
       </span>
       <div className="min-w-0 flex-1">
-        <label
-          htmlFor="material-recon-project-select"
-          className="block text-[0.5rem] uppercase tracking-wide font-semibold mb-0.5"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          Project
-        </label>
-        <select
-          id="material-recon-project-select"
+        <MobileSelectWithCreate
+          label="Project"
           value={current}
-          onChange={(e) => {
-            const id = e.target.value;
+          onChange={(id) => {
             const params = new URLSearchParams(searchParams.toString());
             if (id) {
               params.set("project", id);
@@ -56,16 +50,20 @@ export function MobileMaterialReconProjectSelector({
             const qs = params.toString();
             router.push(`/m/material-reconciliation${qs ? `?${qs}` : ""}`);
           }}
-          className="w-full bg-transparent text-[0.875rem] font-semibold outline-none truncate"
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          <option value="">Select a project…</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Select a project…"
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          inputClass="w-full bg-transparent text-[0.875rem] font-semibold outline-none truncate"
+          inputStyle={{ color: "var(--color-ink-950)" }}
+          labelClass="block text-[0.5rem] uppercase tracking-wide font-semibold mb-0.5"
+          labelStyle={{ color: "var(--color-ink-500)" }}
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewProjectDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(p) => onCreated(p.id, p.name)}
+            />
+          )}
+        />
       </div>
     </div>
   );

@@ -1,17 +1,22 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-export const GET = apiHandler(async () => {
+export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
+  const url = new URL(req.url);
+  const includeGroup = url.searchParams.get("group") === "true";
+
+  const companyIds = includeGroup ? await getCompanyGroupIds() : [company.id];
   const locations = await prisma.stockLocation.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { companyId: { in: companyIds }, deletedAt: null },
     orderBy: [{ type: "asc" }, { name: "asc" }],
     include: {
       project: { select: { id: true, name: true } },
+      company: { select: { id: true, name: true } },
       stockItems: { select: { qty: true, movingAvgCost: true } },
     },
   });
@@ -27,6 +32,8 @@ export const GET = apiHandler(async () => {
       address: l.address,
       projectId: l.projectId,
       projectName: l.project?.name ?? null,
+      companyId: l.companyId,
+      companyName: l.company?.name ?? null,
       stockValue,
       itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
     };

@@ -316,7 +316,9 @@ export function PurchaseOrderDetailPanel({
                   <TBody>
                     {payments.map((p) => (
                       <TR key={p.id}>
-                        <TD className="font-mono text-caption">{p.paymentNumber}</TD>
+                        <TD className="font-mono text-caption">
+                          <a href={`/print/supplier-payment/${p.id}`} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">{p.paymentNumber}</a>
+                        </TD>
                         <TD>{formatDate(p.paymentDate)}</TD>
                         <TD><Badge variant="outline">{p.paymentMode}</Badge></TD>
                         <TD className="text-muted-foreground">{p.referenceNo ?? "—"}</TD>

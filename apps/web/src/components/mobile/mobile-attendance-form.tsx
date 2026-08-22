@@ -85,6 +85,7 @@ export function MobileAttendanceForm({
 
   const draftKey = `attendance:${today}`;
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<AttendanceDraft>("attendance", draftKey);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   // Auto-save form state (debounced via the hook's internal timer)
   useEffect(() => {
@@ -224,13 +225,13 @@ export function MobileAttendanceForm({
   return (
     <div className="pb-32">
       {/* ── Draft restoration banner ─────────────────────────── */}
-      {hasDraft && (
+      {hasDraft && !draftRestored && (
         <div className="pt-3">
           <DraftBanner
             formName="Attendance"
             updatedAt={draftUpdatedAt}
-            onRestore={restoreDraft}
-            onDiscard={clearDraft}
+            onRestore={() => { restoreDraft(); setDraftRestored(true); }}
+            onDiscard={() => { clearDraft(); setDraftRestored(true); }}
           />
         </div>
       )}

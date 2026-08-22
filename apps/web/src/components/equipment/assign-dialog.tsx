@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { StockLocationRow, ProjectOption } from "@/lib/types";
 
 export function AssignDialog({
@@ -29,6 +31,10 @@ export function AssignDialog({
     projectId: "",
     notes: "",
   });
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -93,16 +99,17 @@ export function AssignDialog({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="as-project">Project (optional)</Label>
-          <Select
+          <SelectWithCreate
             id="as-project"
             value={form.projectId}
-            onChange={(e) => set("projectId", e.target.value)}
-          >
-            <option value="">No project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
+            onChange={(v) => set("projectId", v)}
+            placeholder="No project"
+            createLabel="project"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="as-notes">Notes</Label>

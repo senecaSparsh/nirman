@@ -2,6 +2,7 @@ import { prisma, type Prisma, type AssetType, type TenancyStatus } from "@nirman
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postJournalEntry, postSecurityDepositReceived, postSecurityDepositRefunded, ACCT } from "./gl-posting";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 
 /**
@@ -33,12 +34,13 @@ export interface CreateTenancyInput {
   monthlyRent: Decimal | number | string;
   securityDeposit?: Decimal | number | string;
   rentAgreementNo?: string;
+  sacCode?: string; // SAC code for GST on rental income (default 997313)
   notes?: string;
   userId?: string;
 }
 
 export async function createTenancy(input: CreateTenancyInput) {
-  return prisma.$transaction(async (tx) => {
+  const tenancy = await prisma.$transaction(async (tx) => {
     const monthlyRent = new Decimal(input.monthlyRent);
     if (!monthlyRent.gt(0)) throw new ServiceError("Monthly rent must be > 0");
 
@@ -105,6 +107,7 @@ export async function createTenancy(input: CreateTenancyInput) {
         monthlyRent,
         securityDeposit: new Decimal(input.securityDeposit ?? 0),
         rentAgreementNo: input.rentAgreementNo ?? null,
+        sacCode: input.sacCode ?? "997313", // default: construction equipment rental
         status: "PENDING",
         notes: input.notes ?? null,
         createdById: input.userId ?? null,
@@ -122,7 +125,22 @@ export async function createTenancy(input: CreateTenancyInput) {
     }
 
     return tenancy;
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.TENANCY_CREATED,
+    companyId: input.companyId,
+    entityType: "Tenancy",
+    entityId: tenancy.id,
+    variables: {
+      tenantName: input.tenantName,
+      monthlyRent: new Decimal(input.monthlyRent).toString(),
+      assetType: input.assetType,
+    },
+    timestamp: new Date(),
   });
+
+  return tenancy;
 }
 
 export interface UpdateTenancyInput {
@@ -195,6 +213,29 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
     if (data.endDate && !data.startDate && (data.endDate as Date) < t.startDate) {
       throw new ServiceError("End date cannot be before start date");
     }
+
+    // Overlap check: if dates are changing, verify no conflicting tenancy
+    // exists on the same asset for the new date range.
+    if (data.startDate || data.endDate) {
+      const checkStart = (data.startDate as Date | undefined) ?? t.startDate;
+      const checkEnd = (data.endDate as Date | undefined) ?? t.endDate;
+      const overlapping = await tx.tenancy.findFirst({
+        where: {
+          id: { not: tenancyId },
+          status: { in: ["PENDING", "ACTIVE"] },
+          startDate: { lte: checkEnd },
+          endDate: { gte: checkStart },
+          OR: [
+            ...(t.landParcelId ? [{ landParcelId: t.landParcelId }] : []),
+            ...(t.builtUnitId ? [{ builtUnitId: t.builtUnitId }] : []),
+          ],
+        },
+      });
+      if (overlapping) {
+        throw new ServiceError("An overlapping tenancy already exists for this asset and date range", 409);
+      }
+    }
+
     if (input.monthlyRent !== undefined) {
       const monthlyRent = new Decimal(input.monthlyRent);
       if (!monthlyRent.gt(0)) throw new ServiceError("Monthly rent must be > 0");
@@ -252,7 +293,7 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
       });
     }
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function activateTenancy(tenancyId: string, companyId: string, userId?: string) {
@@ -291,11 +332,11 @@ export async function activateTenancy(tenancyId: string, companyId: string, user
       });
     }
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function terminateTenancy(tenancyId: string, companyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: tenancyId, companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE" && t.status !== "PENDING") {
@@ -329,8 +370,21 @@ export async function terminateTenancy(tenancyId: string, companyId: string, use
         after: { status: "TERMINATED" },
       });
     }
-    return updated;
+    return { updated, tenantName: t.tenantName };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.TENANCY_TERMINATED,
+    companyId,
+    entityType: "Tenancy",
+    entityId: tenancyId,
+    variables: {
+      tenantName: result.tenantName,
+    },
+    timestamp: new Date(),
   });
+
+  return result.updated;
 }
 
 export interface RecordRentInput {
@@ -362,6 +416,24 @@ export async function recordRentPayment(input: RecordRentInput) {
       throw new ServiceError("Payment already recorded for this period", 409);
     }
 
+    // ── Compute output GST from the SAC code ──
+    // Renting out equipment/property is a SERVICE supply under GST.
+    // The SAC code on the tenancy determines the GST rate.
+    // Default: 997313 (construction equipment rental, 18%).
+    // Residential property rent (997211) is exempt (0%).
+    let gstRate = new Decimal(18); // default
+    if (t.sacCode) {
+      const sacEntry = await tx.hsnGstRate.findUnique({
+        where: { hsnCode: t.sacCode },
+        select: { gstRate: true },
+      });
+      if (sacEntry) {
+        gstRate = new Decimal(sacEntry.gstRate);
+      }
+    }
+    const gstAmount = amount.mul(gstRate).div(100);
+    const revenueAmount = amount.minus(gstAmount);
+
     const payment = await tx.rentalPayment.create({
       data: {
         tenancyId: t.id,
@@ -374,17 +446,28 @@ export async function recordRentPayment(input: RecordRentInput) {
       },
     });
 
-    // GL: Dr Cash, Cr Sales Revenue (rent income)
+    // GL: Dr Cash, Cr Sales Revenue (rent income), Cr Output GST
+    const glLines: { accountCode: string; debit: Decimal | number; credit: Decimal | number; entityType: string; entityId: string; memo: string }[] = [
+      { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "Tenancy", entityId: t.id, memo: "Rent received" },
+      { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: revenueAmount, entityType: "Tenancy", entityId: t.id, memo: "Rental income" },
+    ];
+    if (gstAmount.gt(0)) {
+      glLines.push({
+        accountCode: ACCT.OUTPUT_GST,
+        debit: 0,
+        credit: gstAmount,
+        entityType: "Tenancy",
+        entityId: t.id,
+        memo: `Output GST @ ${gstRate}% on rent (SAC ${t.sacCode ?? "997313"})`,
+      });
+    }
     await postJournalEntry(tx, {
       companyId: input.companyId,
       sourceType: "RENT_PAYMENT",
       sourceId: payment.id,
       memo: `Rent received from ${t.tenantName}`,
       postedById: input.userId,
-      lines: [
-        { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "Tenancy", entityId: t.id, memo: "Rent received" },
-        { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: amount, entityType: "Tenancy", entityId: t.id, memo: "Rental income" },
-      ],
+      lines: glLines,
     });
 
     if (input.userId) {
@@ -393,10 +476,10 @@ export async function recordRentPayment(input: RecordRentInput) {
         action: "RENT_PAYMENT_RECORD",
         entityType: "RentalPayment",
         entityId: payment.id,
-        after: { tenancyId: t.id, amount: amount.toString(), mode: input.mode },
+        after: { tenancyId: t.id, amount: amount.toString(), mode: input.mode, gstRate: gstRate.toString(), gstAmount: gstAmount.toString() },
       });
     }
 
     return payment;
-  });
+  }, { isolationLevel: "Serializable" });
 }

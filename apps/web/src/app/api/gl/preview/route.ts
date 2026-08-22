@@ -9,7 +9,8 @@ import {
   previewPayrollGl,
   type GlPreviewLine,
 } from "@nirman/services";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { apiHandler, json, requirePermission } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * POST /api/gl/preview
@@ -20,7 +21,7 @@ import { apiHandler, json, requireUser } from "@/lib/server";
  * button on financial forms.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requireUser();
+  await requirePermission(PERM.FINANCE_VIEW);
   const body = await req.json();
   const { type } = body as { type: string };
 

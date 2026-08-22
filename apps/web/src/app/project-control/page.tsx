@@ -43,6 +43,7 @@ async function ProjectControlContent() {
     <>
       <PageHeader
         title="Project Control"
+        description="Earned Value Management metrics — PV, EV, AC, CV, SV, and CPI per project. Track cost and schedule performance against the baseline."
         stats={[
           { label: "Projects", value: projects.length },
         ]}

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import type { ProjectOption } from "@/lib/types";
 
 type PhaseStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
 
@@ -27,12 +30,19 @@ const STATUS_LABELS: Record<PhaseStatus, string> = {
 
 export function PhaseFormDialog({
   projectId,
+  projects,
   open,
   onOpenChange,
   initial,
   phaseId,
 }: {
-  projectId: string;
+  /** Fixed parent project — used when the dialog is scoped to a single project
+   * (e.g. from the project detail page). When `projects` is provided instead,
+   * the user can pick / create the parent project inline. */
+  projectId?: string;
+  /** Optional project list — when provided, a project select with inline
+   * create is rendered at the top of the form. */
+  projects?: ProjectOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial?: Partial<PhaseFormValues>;
@@ -41,6 +51,13 @@ export function PhaseFormDialog({
   const router = useRouter();
   const isEdit = Boolean(phaseId);
   const [saving, setSaving] = useState(false);
+  // Local copies so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects ?? []);
+  useEffect(() => { if (projects) setLocalProjects(projects); }, [projects]);
+  const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? "");
+  useEffect(() => { if (projectId) setSelectedProjectId(projectId); }, [projectId]);
+  const activeProjectId = projects ? selectedProjectId : (projectId ?? "");
   const [form, setForm] = useState<PhaseFormValues>({
     name: initial?.name ?? "",
     status: initial?.status ?? "PLANNED",
@@ -56,6 +73,10 @@ export function PhaseFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!activeProjectId) {
+      toast.error("Select a project");
+      return;
+    }
     if (!form.name.trim()) {
       toast.error("Phase name is required");
       return;
@@ -63,8 +84,8 @@ export function PhaseFormDialog({
     setSaving(true);
     try {
       const url = phaseId
-        ? `/api/projects/${projectId}/phases/${phaseId}`
-        : `/api/projects/${projectId}/phases`;
+        ? `/api/projects/${activeProjectId}/phases/${phaseId}`
+        : `/api/projects/${activeProjectId}/phases`;
       const method = phaseId ? "PATCH" : "POST";
       const res = await fetch(url, {
         method,
@@ -91,6 +112,29 @@ export function PhaseFormDialog({
       description={isEdit ? "Update phase details." : "Add a phase to this project (e.g. Tower A, Phase 1)."}
     >
       <form onSubmit={onSubmit} className="space-y-3">
+        {projects && (
+          <div className="space-y-1.5">
+            <Label>Project *</Label>
+            <SelectWithCreate
+              value={selectedProjectId}
+              onChange={setSelectedProjectId}
+              required
+              placeholder="Select project…"
+              createLabel="project"
+              options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <ProjectFormDialog
+                  open={o}
+                  onOpenChange={onClose}
+                  onCreated={(e) => {
+                    setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]);
+                    onCreated(e);
+                  }}
+                />
+              )}
+            />
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="ph-name">Phase Name *</Label>
           <Input id="ph-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Tower A" required />

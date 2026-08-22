@@ -146,10 +146,10 @@ async function main() {
   const users = [
     { email: "amit@nirman.in", name: "Amit Patil", role: "OWNER" },
     { email: "anita@nirman.in", name: "Anita Rao", role: "ADMIN" },
-    { email: "sneha@nirman.in", name: "Sneha Kulkarni", role: "MANAGER" },
+    { email: "sneha@nirman.in", name: "Sneha Kulkarni", role: "PROJECT_MANAGER" },
     { email: "ravi@nirman.in", name: "Ravi Deshmukh", role: "SUPERVISOR" },
     { email: "priya@nirman.in", name: "Priya Nair", role: "ACCOUNTANT" },
-    { email: "karan@nirman.in", name: "Karan Mehta", role: "SALES" },
+    { email: "karan@nirman.in", name: "Karan Mehta", role: "SALES_MANAGER" },
   ];
   const userMap: Record<string, string> = {};
   for (const u of users) {

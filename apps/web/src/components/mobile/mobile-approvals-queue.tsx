@@ -12,6 +12,7 @@ import {
   Loader2,
   ClipboardCheck,
   CalendarCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -60,8 +61,28 @@ interface DprRow {
   canApproveSubAdmin: boolean;
   canApproveAdmin: boolean;
 }
+interface GpLine {
+  materialName: string | null;
+  materialCode: string | null;
+  unit: string | null;
+  qty: number;
+  description: string | null;
+}
+interface GatePassRow {
+  id: string;
+  gatePassNumber: string;
+  category: string;
+  locationName: string;
+  destination: string | null;
+  vehicleNumber: string | null;
+  driverName: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  lineCount: number;
+  lines: GpLine[];
+}
 
-type ItemKind = "po" | "req" | "dpr";
+type ItemKind = "po" | "req" | "dpr" | "gp";
 type ItemState = "pending" | "approving" | "approved" | "rejecting" | "rejected";
 
 // ── Component ───────────────────────────────────────────────────
@@ -69,17 +90,22 @@ type ItemState = "pending" | "approving" | "approved" | "rejecting" | "rejected"
 export function MobileApprovalsQueue({
   purchaseOrders,
   requisitions,
+  gatePasses = [],
   dprs = [],
 }: {
   purchaseOrders: PoRow[];
   requisitions: ReqRow[];
+  gatePasses?: GatePassRow[];
   dprs?: DprRow[];
 }) {
   const router = useRouter();
   const [poStates, setPoStates] = useState<Record<string, ItemState>>({});
   const [reqStates, setReqStates] = useState<Record<string, ItemState>>({});
+  const [gpStates, setGpStates] = useState<Record<string, ItemState>>({});
   const [dprStates, setDprStates] = useState<Record<string, ItemState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [rejectGp, setRejectGp] = useState<GatePassRow | null>(null);
+  const [gpRejectReason, setGpRejectReason] = useState("");
 
   const visiblePOs = purchaseOrders.filter((po) => {
     const s = poStates[po.id];
@@ -87,6 +113,10 @@ export function MobileApprovalsQueue({
   });
   const visibleReqs = requisitions.filter((r) => {
     const s = reqStates[r.id];
+    return !s || s === "pending" || s === "approving" || s === "rejecting";
+  });
+  const visibleGps = gatePasses.filter((g) => {
+    const s = gpStates[g.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
   const visibleDprs = dprs.filter((d) => {
@@ -216,6 +246,51 @@ export function MobileApprovalsQueue({
     }
   }
 
+  async function approveGp(gp: GatePassRow) {
+    haptic(10);
+    setGpStates((s) => ({ ...s, [gp.id]: "approving" }));
+    try {
+      const res = await fetch(`/api/gate-passes/${gp.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to approve gate pass");
+      toast.success(`Gate pass ${gp.gatePassNumber} approved`);
+      setGpStates((s) => ({ ...s, [gp.id]: "approved" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+      setGpStates((s) => ({ ...s, [gp.id]: "pending" }));
+    }
+  }
+
+  async function confirmRejectGp() {
+    if (!rejectGp || !gpRejectReason.trim()) return;
+    const gp = rejectGp;
+    haptic([10, 30]);
+    setGpStates((s) => ({ ...s, [gp.id]: "rejecting" }));
+    setRejectGp(null);
+    try {
+      const res = await fetch(`/api/gate-passes/${gp.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", reason: gpRejectReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to reject gate pass");
+      toast.success(`Gate pass ${gp.gatePassNumber} rejected`);
+      setGpStates((s) => ({ ...s, [gp.id]: "rejected" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+      setGpStates((s) => ({ ...s, [gp.id]: "pending" }));
+    } finally {
+      setGpRejectReason("");
+    }
+  }
+
   return (
     <div>
       {/* ── Purchase Orders ──────────────────────────────────── */}
@@ -315,6 +390,64 @@ export function MobileApprovalsQueue({
         </div>
       )}
 
+      {/* ── Gate Passes ──────────────────────────────────────── */}
+      {gatePasses.length > 0 && (
+        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
+          Gate Passes ({visibleGps.length})
+        </h2>
+      )}
+      {visibleGps.map((gp) => {
+        const state = gpStates[gp.id] ?? "pending";
+        const isOpen = expanded === `gp:${gp.id}`;
+        const categoryLabel = gp.category === "MATERIAL_ISSUE" ? "Material Issue"
+          : gp.category === "STOCK_TRANSFER" ? "Stock Transfer"
+          : gp.category === "MATERIAL_SALE" ? "Material Sale"
+          : gp.category === "SUPPLIER_RETURN" ? "Supplier Return"
+          : "Manual";
+        return (
+          <ApprovalCard
+            key={gp.id}
+            kind="gp"
+            isOpen={isOpen}
+            onToggle={() => setExpanded(isOpen ? null : `gp:${gp.id}`)}
+            icon={ShieldCheck}
+            title={gp.gatePassNumber}
+            subtitle={`${categoryLabel} · ${gp.locationName}${gp.destination ? ` → ${gp.destination}` : ""}`}
+            meta={`${gp.lineCount} items`}
+            state={state}
+            onApprove={() => approveGp(gp)}
+            onReject={() => { setRejectGp(gp); setGpRejectReason(""); }}
+          >
+            <div className="space-y-1.5">
+              {gp.lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-meta">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">
+                      {l.materialName ?? l.description ?? "—"}
+                    </div>
+                    {l.materialCode && <div className="text-muted-foreground">{l.materialCode}</div>}
+                  </div>
+                  <div className="shrink-0 text-right tnum text-foreground">
+                    {formatNumber(l.qty, 3)} {l.unit ?? ""}
+                  </div>
+                </div>
+              ))}
+              <div className="border-t border-border pt-1.5 text-meta text-muted-foreground">
+                {gp.vehicleNumber && <div>Vehicle: {gp.vehicleNumber}</div>}
+                {gp.driverName && <div>Driver: {gp.driverName}</div>}
+                {gp.createdByName && <div>Created by: {gp.createdByName}</div>}
+              </div>
+            </div>
+          </ApprovalCard>
+        );
+      })}
+      {gatePasses.length > 0 && visibleGps.length === 0 && (
+        <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+          <CheckCircle2 className="mb-2 h-8 w-8 text-success/60" />
+          <p className="text-body font-semibold text-foreground">All gate passes reviewed</p>
+        </div>
+      )}
+
       {/* ── DPRs ─────────────────────────────────────────────── */}
       {dprs.length > 0 && (
         <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
@@ -366,13 +499,48 @@ export function MobileApprovalsQueue({
         </div>
       )}
 
-      {purchaseOrders.length === 0 && requisitions.length === 0 && dprs.length === 0 && (
+      {purchaseOrders.length === 0 && requisitions.length === 0 && gatePasses.length === 0 && dprs.length === 0 && (
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
           <ClipboardCheck className="mb-3 h-10 w-10 text-muted-foreground/55" />
           <p className="text-body font-semibold text-foreground">Nothing to approve</p>
           <p className="mt-1 max-w-xs text-meta leading-relaxed text-muted-foreground">
-            Draft purchase orders, submitted requisitions, and pending DPRs appear here.
+            Draft purchase orders, submitted requisitions, pending gate passes, and pending DPRs appear here.
           </p>
+        </div>
+      )}
+
+      {/* ── Gate pass reject dialog ──────────────────────────── */}
+      {rejectGp && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setRejectGp(null)}>
+          <div className="w-full max-w-md rounded-t-lg bg-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <div className="text-subhead font-semibold">Reject {rejectGp.gatePassNumber}</div>
+              <div className="text-caption text-muted-foreground">Provide a reason for rejection</div>
+            </div>
+            <textarea
+              value={gpRejectReason}
+              onChange={(e) => setGpRejectReason(e.target.value)}
+              rows={3}
+              placeholder="Why is this gate pass being rejected?"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setRejectGp(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!gpRejectReason.trim() || gpStates[rejectGp.id] === "rejecting"}
+                onClick={confirmRejectGp}
+                className="rounded-md bg-danger px-3 py-1.5 text-caption text-white hover:bg-danger/90 disabled:opacity-50"
+              >
+                {gpStates[rejectGp.id] === "rejecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reject Gate Pass"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

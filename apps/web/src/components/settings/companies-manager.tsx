@@ -79,7 +79,7 @@ export function CompaniesManager({
   const [loadingMembers, setLoadingMembers] = useState<string | null>(null);
   const [addMemberEmail, setAddMemberEmail] = useState("");
   // Default to the first role the actor can assign (hierarchy-aware).
-  const [addMemberRole, setAddMemberRole] = useState<Role>(assignable[0] ?? "MANAGER");
+  const [addMemberRole, setAddMemberRole] = useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
   const [addingMember, setAddingMember] = useState(false);
 
   async function createCompany(e: React.FormEvent) {

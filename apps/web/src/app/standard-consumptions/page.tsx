@@ -29,7 +29,7 @@ async function StandardConsumptionsContent() {
 
   const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
 
-  const [benchmarks, materials] = await Promise.all([
+  const [benchmarks, materials, categories] = await Promise.all([
     prisma.standardConsumption.findMany({
       where: { companyId: company.id },
       include: { material: { select: { code: true, name: true, unit: true } } },
@@ -38,6 +38,11 @@ async function StandardConsumptionsContent() {
     prisma.material.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -70,6 +75,7 @@ async function StandardConsumptionsContent() {
       <StandardConsumptionsView
         benchmarks={rows}
         materials={materials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
         permissions={{ canManage }}
       />
     </>

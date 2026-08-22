@@ -197,6 +197,7 @@ export async function getBoqTree(projectId: string) {
     orderBy: [{ sortOrder: "asc" }, { serialNo: "asc" }],
     include: {
       material: { select: { id: true, code: true, name: true, unit: true } },
+      rateAnalysis: { select: { id: true, totalRate: true } },
       _count: { select: { mbEntries: true, wbsNodes: true } },
     },
   });
@@ -343,6 +344,38 @@ export async function updateWbsNode(
     if (patch.boqItemId !== undefined) data.boqItem = patch.boqItemId ? { connect: { id: patch.boqItemId } } : { disconnect: true };
 
     const updated = await tx.wbsNode.update({ where: { id }, data });
+
+    // ── CLP trigger: when actualEnd is set (milestone completed), mark linked
+    // PaymentScheduleItem rows as DUE. This is the demand-generation step for
+    // Construction-Linked Plans — the buyer owes the installment once the
+    // milestone is reached. Only PENDING items are advanced to DUE (PARTIAL /
+    // PAID items already have payments and are left alone).
+    if (patch.actualEnd !== undefined && patch.actualEnd != null) {
+      const clpItems = await tx.paymentScheduleItem.findMany({
+        where: { wbsNodeId: id, status: "PENDING" },
+        include: { paymentSchedule: { select: { assetSaleId: true } } },
+      });
+      if (clpItems.length > 0) {
+        await tx.paymentScheduleItem.updateMany({
+          where: { id: { in: clpItems.map((i) => i.id) } },
+          data: { status: "DUE" },
+        });
+        // Audit-log the CLP demand generation
+        if (patch.userId) {
+          await logAction(tx, {
+            userId: patch.userId,
+            action: "CLP_DEMAND_GENERATED",
+            entityType: "WbsNode",
+            entityId: id,
+            after: {
+              milestone: updated.name,
+              itemsTriggered: clpItems.length,
+              saleIds: [...new Set(clpItems.map((i) => i.paymentSchedule.assetSaleId))],
+            },
+          });
+        }
+      }
+    }
 
     if (patch.userId) {
       await logAction(tx, {

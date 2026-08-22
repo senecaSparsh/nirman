@@ -6,6 +6,9 @@ import Link from "next/link";
 import { X, Loader2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 
 type AssetType = "LAND" | "BUILT_UNIT";
 
@@ -37,6 +40,7 @@ interface FormState {
   monthlyRent: string;
   securityDeposit: string;
   rentAgreementNo: string;
+  sacCode: string;
   notes: string;
 }
 
@@ -75,6 +79,7 @@ export function MobileNewTenancyDialog({
     monthlyRent: "",
     securityDeposit: "",
     rentAgreementNo: "",
+    sacCode: "997313", // default: construction equipment rental, 18%
     notes: "",
   });
 
@@ -126,6 +131,7 @@ export function MobileNewTenancyDialog({
           monthlyRent: Number(form.monthlyRent),
           securityDeposit: form.securityDeposit === "" ? 0 : Number(form.securityDeposit),
           rentAgreementNo: form.rentAgreementNo.trim() || null,
+          sacCode: form.sacCode.trim() || null,
           notes: form.notes.trim() || null,
         }),
       });
@@ -295,22 +301,46 @@ export function MobileNewTenancyDialog({
             </div>
           </div>
 
+          {/* Project (optional, shows for both asset types) */}
+          <MobileSelectWithCreate
+            label="Link to Project (optional)"
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            placeholder="— No specific project —"
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            labelClass={labelClass}
+            labelStyle={labelStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
+              />
+            )}
+          />
+
           {/* Customer (optional) */}
           {customers.length > 0 && (
-            <div>
-              <label className={labelClass} style={labelStyle}>Link to Customer (optional)</label>
-              <select
-                value={form.customerId}
-                onChange={(e) => set("customerId", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— None —</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="Link to Customer (optional)"
+              value={form.customerId}
+              onChange={(v) => set("customerId", v)}
+              options={customers.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="— None —"
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              labelClass={labelClass}
+              labelStyle={labelStyle}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewCustomerDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(c) => onCreated(c.id, c.name)}
+                />
+              )}
+            />
           )}
 
           {/* Dates */}
@@ -387,6 +417,30 @@ export function MobileNewTenancyDialog({
               className={inputClass}
               style={inputStyle}
             />
+          </div>
+
+          {/* SAC Code — determines GST rate on rental income */}
+          <div>
+            <label className={labelClass} style={labelStyle}>SAC Code (GST on rent)</label>
+            <select
+              value={form.sacCode}
+              onChange={(e) => set("sacCode", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="997313">997313 — Construction equipment rental (18%)</option>
+              <option value="997314">997314 — Office machinery rental (18%)</option>
+              <option value="997317">997317 — Other machinery rental (18%)</option>
+              <option value="997319">997319 — Other equipment rental (18%)</option>
+              <option value="997323">997323 — Furniture & fixtures rental (18%)</option>
+              <option value="997329">997329 — General goods rental (18%)</option>
+              <option value="997212">997212 — Non-residential property rent (18%)</option>
+              <option value="997211">997211 — Residential property rent (exempt)</option>
+              <option value="9973">9973 — Leasing/rental (parent heading, 18%)</option>
+            </select>
+            <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              SAC (Service Accounting Code) determines the GST rate on rental income. Renting equipment/property is a service supply under GST.
+            </p>
           </div>
 
           {/* Actions */}

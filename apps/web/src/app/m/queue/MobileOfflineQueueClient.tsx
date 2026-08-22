@@ -56,13 +56,6 @@ export function MobileOfflineQueueClient() {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Back */}
-      <div>
-        <button onClick={() => router.back()} className="flex items-center" style={{ color: "var(--color-ink-700)" }}>
-          <ChevronLeft className="size-5" />
-        </button>
-      </div>
-
       {/* Header */}
       <div>
         <h1 className="text-[1rem] font-bold" style={{ color: "var(--color-ink-950)" }}>

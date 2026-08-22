@@ -72,11 +72,20 @@ async function MobileMaterialSaleDetailContent({
         lines={[]}
         payments={[]}
         canManage={false}
+        gatePass={null}
       />
     );
   }
 
   const canManage = hasPermission(role, PERM.SALES_MANAGE);
+
+  // Fetch linked gate pass for PENDING sales
+  const gatePass = sale.status === "PENDING"
+    ? await prisma.gatePass.findFirst({
+        where: { refType: "MaterialSale", refId: sale.id },
+        select: { id: true, gatePassNumber: true, status: true },
+      })
+    : null;
 
   return (
     <MobileMaterialSaleDetailClient
@@ -95,6 +104,7 @@ async function MobileMaterialSaleDetailContent({
       notes={sale.notes}
       customer={sale.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null}
       project={sale.project ? { id: sale.project.id, name: sale.project.name } : null}
+      gatePass={gatePass ? { id: gatePass.id, gatePassNumber: gatePass.gatePassNumber, status: gatePass.status } : null}
       lines={sale.lines.map((l) => ({
         id: l.id,
         materialId: l.material.id,

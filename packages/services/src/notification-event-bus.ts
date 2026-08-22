@@ -52,6 +52,20 @@ export enum NotificationEventType {
   EXPENSE_CREATED = "EXPENSE_CREATED",
   PROJECT_COST_ADDED = "PROJECT_COST_ADDED",
   GL_ENTRY_POSTED = "GL_ENTRY_POSTED",
+
+  // Gate Pass (4)
+  GATE_PASS_SUBMITTED = "GATE_PASS_SUBMITTED",
+  GATE_PASS_APPROVED = "GATE_PASS_APPROVED",
+  GATE_PASS_REJECTED = "GATE_PASS_REJECTED",
+  GATE_PASS_EXITED = "GATE_PASS_EXITED",
+
+  // Land (6)
+  LAND_PURCHASE_CREATED = "LAND_PURCHASE_CREATED",
+  LAND_PARTITIONED = "LAND_PARTITIONED",
+  TENANCY_CREATED = "TENANCY_CREATED",
+  TENANCY_TERMINATED = "TENANCY_TERMINATED",
+  RENOVATION_COMPLETED = "RENOVATION_COMPLETED",
+  LEASE_EXPIRY_WARNING = "LEASE_EXPIRY_WARNING",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -97,6 +111,20 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
   [NotificationEventType.PROJECT_COST_ADDED]: "DAILY",
   [NotificationEventType.GL_ENTRY_POSTED]: "WEEKLY",
+
+  // Gate Pass — all immediate (approvals + exit confirmation)
+  [NotificationEventType.GATE_PASS_SUBMITTED]: "IMMEDIATE",
+  [NotificationEventType.GATE_PASS_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.GATE_PASS_REJECTED]: "IMMEDIATE",
+  [NotificationEventType.GATE_PASS_EXITED]: "IMMEDIATE",
+
+  // Land
+  [NotificationEventType.LAND_PURCHASE_CREATED]: "DAILY",
+  [NotificationEventType.LAND_PARTITIONED]: "DAILY",
+  [NotificationEventType.TENANCY_CREATED]: "IMMEDIATE",
+  [NotificationEventType.TENANCY_TERMINATED]: "DAILY",
+  [NotificationEventType.RENOVATION_COMPLETED]: "DAILY",
+  [NotificationEventType.LEASE_EXPIRY_WARNING]: "IMMEDIATE",
 };
 
 export interface NotificationEvent {
@@ -275,16 +303,28 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
     NotificationEventType.PAYROLL_PROCESSED,
     NotificationEventType.SUPPLIER_PAYMENT_DUE,
   ]);
+  const LAND_EVENTS = new Set([
+    NotificationEventType.LAND_PURCHASE_CREATED,
+    NotificationEventType.LAND_PARTITIONED,
+    NotificationEventType.TENANCY_CREATED,
+    NotificationEventType.TENANCY_TERMINATED,
+    NotificationEventType.RENOVATION_COMPLETED,
+    NotificationEventType.LEASE_EXPIRY_WARNING,
+  ]);
 
   if (role === "OWNER" || role === "ADMIN") return true;
-  if (role === "MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType);
+  if (role === "PROJECT_DIRECTOR" || role === "FINANCE_HEAD") {
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
   }
-  if (role === "SUPERVISOR") {
+  if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
+  }
+  if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType);
   }
-  if (role === "SALES") return SALES_EVENTS.has(eventType);
-  if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType);
+  if (role === "SALES_MANAGER") return SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
+  if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
+  if (role === "STORE_KEEPER") return PROCUREMENT_EVENTS.has(eventType);
   return false;
 }
 

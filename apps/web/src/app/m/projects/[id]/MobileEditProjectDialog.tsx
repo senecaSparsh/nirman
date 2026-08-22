@@ -36,6 +36,10 @@ export interface ProjectEditData {
   totalBudget: number | null;
   totalSellableArea: number | null;
   description: string | null;
+  reraNumber: string | null;
+  reraRegistrationDate: string | null;
+  reraValidityDate: string | null;
+  reraWebsiteUrl: string | null;
 }
 
 interface FormState {
@@ -48,6 +52,10 @@ interface FormState {
   totalBudget: string;
   totalSellableArea: string;
   description: string;
+  reraNumber: string;
+  reraRegistrationDate: string;
+  reraValidityDate: string;
+  reraWebsiteUrl: string;
 }
 
 /**
@@ -75,6 +83,10 @@ export function MobileEditProjectDialog({
     totalBudget: project.totalBudget?.toString() ?? "",
     totalSellableArea: project.totalSellableArea?.toString() ?? "",
     description: project.description ?? "",
+    reraNumber: project.reraNumber ?? "",
+    reraRegistrationDate: project.reraRegistrationDate ? project.reraRegistrationDate.split("T")[0] ?? "" : "",
+    reraValidityDate: project.reraValidityDate ? project.reraValidityDate.split("T")[0] ?? "" : "",
+    reraWebsiteUrl: project.reraWebsiteUrl ?? "",
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -103,6 +115,10 @@ export function MobileEditProjectDialog({
           totalBudget: form.totalBudget === "" ? null : Number(form.totalBudget),
           totalSellableArea: form.totalSellableArea === "" ? null : Number(form.totalSellableArea),
           description: form.description.trim() || null,
+          reraNumber: form.reraNumber.trim() || null,
+          reraRegistrationDate: form.reraRegistrationDate || null,
+          reraValidityDate: form.reraValidityDate || null,
+          reraWebsiteUrl: form.reraWebsiteUrl.trim() || null,
         }),
       });
       const data = await res.json();
@@ -294,6 +310,46 @@ export function MobileEditProjectDialog({
               className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
               style={inputStyle}
             />
+          </div>
+
+          {/* RERA Registration */}
+          <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>RERA Registration</div>
+              <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                Mandatory for projects &gt; 500 sqm or &gt; 8 units.
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>RERA Number</label>
+                <input type="text" value={form.reraNumber}
+                  onChange={(e) => set("reraNumber", e.target.value)}
+                  placeholder="e.g. P1234567890"
+                  className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Reg. Date</label>
+                <input type="date" value={form.reraRegistrationDate}
+                  onChange={(e) => set("reraRegistrationDate", e.target.value)}
+                  className={inputClass} style={inputStyle} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>Validity Date</label>
+                <input type="date" value={form.reraValidityDate}
+                  onChange={(e) => set("reraValidityDate", e.target.value)}
+                  className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>RERA URL</label>
+                <input type="text" value={form.reraWebsiteUrl}
+                  onChange={(e) => set("reraWebsiteUrl", e.target.value)}
+                  placeholder="https://..."
+                  className={inputClass} style={inputStyle} />
+              </div>
+            </div>
           </div>
 
           {/* Actions */}

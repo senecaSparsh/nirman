@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { softDelete } from "@nirman/services";
+import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, json, stockLocationSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const parsed = stockLocationSchema.partial().safeParse(body);
@@ -27,9 +27,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   try {
-    const updated = await prisma.stockLocation.update({
-      where: { id },
-      data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
+    const updated = await prisma.$transaction(async (tx) => {
+      const loc = await tx.stockLocation.update({
+        where: { id },
+        data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
+      });
+      await logAction(tx, {
+        userId: user.id,
+        action: "STOCK_LOCATION_UPDATE",
+        entityType: "StockLocation",
+        entityId: id,
+        after: parsed.data,
+      });
+      return loc;
     });
     return json(updated);
   } catch {

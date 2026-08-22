@@ -41,10 +41,12 @@ export function MobileNewEmployeeDialog({
   open,
   onClose,
   projects,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   projects: ProjectOption[];
+  onCreated?: (employee: { id: string; name: string }) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -95,8 +97,11 @@ export function MobileNewEmployeeDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to add employee");
       haptic([10, 40, 80]);
       toast.success("Employee added");
+      if (onCreated) {
+        onCreated({ id: data.id, name: data.name });
+      }
       onClose();
-      router.refresh();
+      if (!onCreated) router.refresh();
     } catch (err) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");

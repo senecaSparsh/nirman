@@ -9,7 +9,7 @@ import { ProcurementView } from "@/components/procurement/procurement-view";
 import { PageLoading } from "@/components/page-loading";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
-  ProjectOption, DirectPurchaseRow,
+  ProjectOption, DirectPurchaseRow, MaterialCategory,
 } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
@@ -45,7 +45,7 @@ async function ProcurementContent() {
   // the group, matching the parent/child company hierarchy.
   const groupCompanyIds = await getCompanyGroupIds(company);
 
-  const [pos, suppliers, materials, locations, projects, directPurchases] = await Promise.all([
+  const [pos, suppliers, materials, locations, projects, directPurchases, categories] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -109,6 +109,13 @@ async function ProcurementContent() {
         },
       },
     }),
+    // Global catalog entity (no companyId); needed by the inline material
+    // creator inside the PO form's line items.
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, unit: true },
+    }),
   ]);
 
   const poRows: PurchaseOrderRow[] = pos.map((po) => {
@@ -149,6 +156,12 @@ async function ProcurementContent() {
     balanceOwed: toNum(s.balanceOwed),
     openPOs: s._count.purchaseOrders,
     poCount: s._count.purchaseOrders,
+  }));
+
+  const categoryRows: MaterialCategory[] = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    unit: c.unit,
   }));
 
   const materialRows: MaterialRow[] = materials.map((m) => {
@@ -232,6 +245,7 @@ async function ProcurementContent() {
         locations={locationRows}
         projects={projectRows}
         directPurchases={directPurchaseRows}
+        categories={categoryRows}
         permissions={perms}
       />
     </>

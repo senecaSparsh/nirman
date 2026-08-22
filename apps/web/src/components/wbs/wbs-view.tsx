@@ -452,7 +452,6 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
       {/* ── Header ── */}
       <header className="flex flex-wrap items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-title text-foreground">Work Breakdown Structure</h1>
           <Select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}

@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { PageHeader } from "@/components/page-header";
 import { PayrollView } from "@/components/hr/payroll-view";
 
 import { NoAccess } from "@/components/no-access";
@@ -56,5 +57,16 @@ async function PayrollContent() {
     paidAt: p.paidAt?.toISOString() ?? null,
   }));
 
-  return <PayrollView periods={rows} permissions={perms} />;
+  return (
+    <>
+      <PageHeader
+        title="Payroll"
+        description="Process payroll periods, calculate gross/deductions/net, and track payment status."
+        stats={[
+          { label: "Periods", value: periods.length },
+        ]}
+      />
+      <PayrollView periods={rows} permissions={perms} />
+    </>
+  );
 }

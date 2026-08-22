@@ -1,8 +1,8 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
-import { postDirectPurchase } from "./gl-posting";
+import { postDirectPurchase, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
 
 /**
@@ -40,6 +40,12 @@ interface CreateDirectPurchaseInput {
   billDate?: Date;
   notes?: string;
   createdById?: string;
+  // Vehicle — how the goods were brought from the local market
+  vehicleNumber?: string;
+  vehicleType?: string;
+  vehiclePhotoUrl?: string;
+  driverName?: string;
+  driverPhone?: string;
   lines?: {
     materialId: string;
     qty: Decimal | number | string;
@@ -129,6 +135,11 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
           billDate: input.billDate ?? new Date(),
           notes: input.notes,
           createdById: input.createdById,
+          vehicleNumber: input.vehicleNumber,
+          vehicleType: input.vehicleType,
+          vehiclePhotoUrl: input.vehiclePhotoUrl,
+          driverName: input.driverName,
+          driverPhone: input.driverPhone,
           subtotal,
           gstTotal,
           roundOff,
@@ -181,6 +192,11 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         billDate: input.billDate ?? new Date(),
         notes: input.notes,
         createdById: input.createdById,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType,
+        vehiclePhotoUrl: input.vehiclePhotoUrl,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
         subtotal: new Decimal(0),
         gstTotal: new Decimal(0),
         roundOff: new Decimal(0),
@@ -238,5 +254,70 @@ export async function listDirectPurchases(opts: {
       },
     },
     orderBy: { billDate: "desc" },
+  });
+}
+
+/** Cancel a direct purchase — reverse stock (if lines existed) and GL entries. */
+export async function cancelDirectPurchase(id: string, userId?: string) {
+  return withStockTransaction(async (tx) => {
+    const dp = await tx.directPurchase.findFirst({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!dp) throw new ServiceError("Direct purchase not found", 404);
+    if (dp.status === "CANCELLED") throw new ServiceError("Direct purchase is already cancelled");
+
+    // Reverse stock: remove the received materials (ADJUSTMENT_OUT at original cost)
+    for (const line of dp.lines) {
+      await recordMovement(tx, {
+        materialId: line.materialId,
+        movementType: "ADJUSTMENT_OUT",
+        fromLocationId: dp.locationId,
+        qty: line.qty,
+        unitCost: line.unitCost,
+        reason: `Reversal of direct purchase ${dp.billNumber}`,
+        refType: "DIRECT_PURCHASE",
+        refId: dp.id,
+        userId,
+        companyId: dp.companyId,
+      });
+    }
+
+    // Refresh MAC for affected materials
+    const affectedMaterials = dp.lines.map((l) => l.materialId);
+    if (affectedMaterials.length > 0) {
+      await refreshMaterialCurrentCost(tx, affectedMaterials);
+    }
+
+    // Reverse GL entries
+    const journalEntries = await tx.journalEntry.findMany({
+      where: { sourceId: dp.id, sourceType: "DIRECT_PURCHASE" },
+    });
+    for (const je of journalEntries) {
+      await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
+    }
+
+    const updated = await tx.directPurchase.update({
+      where: { id: dp.id },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+        cancelledById: userId ?? null,
+      },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: dp.companyId,
+        action: "DIRECT_PURCHASE_CANCEL",
+        entityType: "DirectPurchase",
+        entityId: dp.id,
+        before: { status: "COMPLETED" },
+        after: { status: "CANCELLED" },
+      });
+    }
+
+    return updated;
   });
 }

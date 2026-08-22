@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
-import { partitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
+import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -104,6 +104,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
       );
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Partition failed") }, { status: 400 });
+    }
+  }
+
+  if (action === "unpartition") {
+    // Unpartition (undo subdivision) — OWNER/ADMIN only
+    const user = await requirePermission(PERM.LAND_PARTITION);
+    const parentParcelId = body?.parentParcelId as string;
+    if (!parentParcelId) {
+      return json({ error: "parentParcelId is required" }, { status: 400 });
+    }
+    try {
+      const result = await unpartitionLandParcel(parentParcelId, user.id);
+      return json({ ok: true, parentId: result.parent.id, removedChildren: result.removedChildren });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Unpartition failed") }, { status: 400 });
     }
   }
 

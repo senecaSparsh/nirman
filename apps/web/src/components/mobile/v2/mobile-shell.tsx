@@ -65,7 +65,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   const { data: session, isPending: sessionLoading } = useSession();
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
     name: "Nirman",
-    role: "MANAGER",
+    role: "PROJECT_MANAGER",
   });
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
@@ -399,7 +399,7 @@ function MobileShellInner({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper-2)" }}>
-      <CommandPalette userRole={companyInfo.role as "OWNER" | "ADMIN" | "MANAGER" | "SUPERVISOR" | "SALES" | "ACCOUNTANT"} />
+      <CommandPalette userRole={companyInfo.role as string} />
 
       {/* ── Offline banner ── */}
       {isOffline && (
@@ -755,6 +755,7 @@ function pageTitleFromPath(pathname: string): string {
     stock: "Stock Ledger",
     "stock-counts": "Stock Counts",
     transfers: "Transfers",
+    vehicles: "Vehicles",
     equipment: "Equipment",
     "material-sales": "Material Sales",
     "scrap-generations": "Scrap",

@@ -5,6 +5,7 @@ import { listWorkTypes } from "@nirman/services";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { PageHeader } from "@/components/page-header";
 import { DprsView } from "@/components/hr/dprs-view";
 
 import { NoAccess } from "@/components/no-access";
@@ -101,13 +102,23 @@ async function DprsContent() {
   }));
 
   return (
-    <DprsView
-      dprs={dprRows}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, standardCost: toNum(m.standardCost) }))}
-      employees={employees.map((e) => ({ id: e.id, name: e.name }))}
-      workTypes={workTypes}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Daily Progress Reports"
+        description="Site progress reports with multi-tier approval. Over-consumption is auto-flagged against standard benchmarks."
+        stats={[
+          { label: "DPRs", value: dprRows.length },
+          { label: "Pending approval", value: dprRows.filter(d => d.approvalStatus === "SUBMITTED").length },
+        ]}
+      />
+      <DprsView
+        dprs={dprRows}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, standardCost: toNum(m.standardCost) }))}
+        employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+        workTypes={workTypes}
+        permissions={perms}
+      />
+    </>
   );
 }

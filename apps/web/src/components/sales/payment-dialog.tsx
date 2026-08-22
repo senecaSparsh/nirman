@@ -15,10 +15,12 @@ export function PaymentDialog({
   open,
   onOpenChange,
   sale,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sale: AssetSaleRow | null;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -68,6 +70,7 @@ export function PaymentDialog({
         },
       });
       onOpenChange(false);
+      onSuccess?.();
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));

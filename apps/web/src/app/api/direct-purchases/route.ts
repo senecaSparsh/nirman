@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { createDirectPurchase, listDirectPurchases } from "@nirman/services";
+import { createDirectPurchase, listDirectPurchases, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -16,6 +16,12 @@ const directPurchaseSchema = z.object({
   supplierName: z.string().min(1, "Supplier name is required"),
   locationId: z.string().min(1, "Receive location is required"),
   billDate: z.string().optional().nullable(),
+  // Vehicle — how the goods were brought from the local market
+  vehicleNumber: z.string().max(50).optional(),
+  vehicleType: z.string().max(50).optional(),
+  vehiclePhotoUrl: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(directPurchaseLineSchema).optional().nullable(),
 });
@@ -83,6 +89,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
       billDate: parsed.data.billDate ? new Date(parsed.data.billDate) : undefined,
       notes: parsed.data.notes ?? undefined,
       createdById: user.id,
+      vehicleNumber: parsed.data.vehicleNumber ?? undefined,
+      vehicleType: parsed.data.vehicleType ?? undefined,
+      vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
+      driverName: parsed.data.driverName ?? undefined,
+      driverPhone: parsed.data.driverPhone ?? undefined,
       lines: parsed.data.lines
         ? parsed.data.lines.map((l) => ({
             materialId: l.materialId,
@@ -92,6 +103,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
           }))
         : undefined,
     });
+
+    // Log the vehicle trip
+    if (parsed.data.vehicleNumber) {
+      await recordVehicleTrip({
+        vehicleNumber: parsed.data.vehicleNumber,
+        vehicleType: parsed.data.vehicleType ?? "OTHER",
+        photoUrl: parsed.data.vehiclePhotoUrl,
+        driverName: parsed.data.driverName,
+        driverPhone: parsed.data.driverPhone,
+        movementType: "DIRECT_PURCHASE",
+        refType: "DirectPurchase",
+        refId: result.purchase.id,
+        toLocationId: parsed.data.locationId,
+        companyId: company.id,
+      }).catch(() => { /* best-effort */ });
+    }
+
     return json(
       { ok: true, id: result.purchase.id, billNumber: result.billNumber, billAmount: toNum(result.billAmount) },
       { status: 201 },

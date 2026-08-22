@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 import { FileText, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -13,6 +12,8 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileRateContractsList } from "./MobileRateContractsList";
 import { MobileRateContractsFab } from "./MobileRateContractsFab";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/rate-contracts — mobile rate contract management.
@@ -79,12 +80,30 @@ async function MobileRateContractsContent() {
     isActive: new Date(c.validFrom) <= now && new Date(c.validTo) >= now,
   }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "supplierName", label: "Supplier" },
+    { key: "materialName", label: "Material" },
+    { key: "agreedRate", label: "Rate", format: "currency" },
+    { key: "validFrom", label: "Valid From", format: "date" },
+    { key: "validTo", label: "Valid To", format: "date" },
+    { key: "isActive", label: "Status" },
+  ];
+
   return (
     <div>
       <div className="grid grid-cols-3 gap-2.5 mb-4">
         <MobileStatCard label="Active" value={String(active)} icon={FileText} tone="go" />
         <MobileStatCard label="Total" value={String(contracts.length)} icon={FileText} />
         <MobileStatCard label="Expired" value={String(expired)} icon={FileText} tone={expired > 0 ? "stop" : "neutral"} />
+      </div>
+
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Rate Contracts"
+          rows={serialized as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${contracts.length} contracts · ${active} active`}
+        />
       </div>
 
       <MobileRateContractsList items={serialized} />

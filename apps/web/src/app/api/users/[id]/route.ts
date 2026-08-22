@@ -1,21 +1,24 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { logAction } from "@nirman/services";
 import { apiHandler, getSession, json, userRoleSchema } from "@/lib/server";
 import { canAssignRole } from "@/lib/roles";
 
 /**
- * PATCH /api/users/[id] — update a user's role or active status.
+ * PATCH /api/users/[id] — update a user's role, profile, or active status.
  *
  * Hierarchical RBAC: the actor can only change a user's role to a role
  * STRICTLY below their own tier, AND the target's current role must also
- * be below the actor's tier (can't demote a peer or superior). Tier 3
- * roles (SUPERVISOR/SALES/ACCOUNTANT) cannot manage users at all.
+ * be below the actor's tier (can't demote a peer or superior). Tier 5
+ * roles cannot manage users at all.
  *
  * The "last OWNER" guard still applies — can't demote the final owner.
+ *
+ * All role changes are written to the AuditLog for compliance.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const session = await getSession();
-  const actorRole = (session?.user as { role?: string })?.role ?? "MANAGER";
+  const actorRole = (session?.user as { role?: string })?.role ?? "PROJECT_MANAGER";
   const actorId = (session?.user as { id?: string })?.id;
 
   const { id: userId } = await params;
@@ -54,9 +57,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     );
   }
 
-  // Name/phone editing requires the actor to be above the target's tier
+  // Profile editing requires the actor to be above the target's tier
   // (or editing their own profile — self-edit is always allowed)
-  if ((body.name !== undefined || body.phone !== undefined) && actorId !== userId) {
+  const isProfileEdit = body.name !== undefined || body.phone !== undefined ||
+    body.designation !== undefined || body.department !== undefined ||
+    body.employeeCode !== undefined || body.joiningDate !== undefined;
+  if (isProfileEdit && actorId !== userId) {
     if (!canAssignRole(actorRole, existing.role)) {
       return json(
         { error: `You cannot edit a ${existing.role}'s profile — they are at or above your tier.` },
@@ -83,12 +89,42 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.active !== undefined) update.active = body.active;
   if (body.name !== undefined) update.name = body.name;
   if (body.phone !== undefined) update.phone = body.phone;
+  if (body.designation !== undefined) update.designation = body.designation || null;
+  if (body.department !== undefined) update.department = body.department || null;
+  if (body.employeeCode !== undefined) update.employeeCode = body.employeeCode || null;
+  if (body.joiningDate !== undefined) update.joiningDate = body.joiningDate ? new Date(body.joiningDate) : null;
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data: update,
-    select: { id: true, email: true, name: true, role: true, active: true, phone: true },
+    select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, companyId: true },
   });
+
+  // Audit log for role changes
+  if (body.role !== undefined && body.role !== existing.role && actorId) {
+    await logAction(prisma, {
+      userId: actorId,
+      companyId: updated.companyId ?? undefined,
+      action: "USER_ROLE_CHANGE",
+      entityType: "User",
+      entityId: userId,
+      before: { role: existing.role },
+      after: { role: body.role },
+    });
+  }
+
+  // Audit log for activation/deactivation
+  if (body.active !== undefined && body.active !== existing.active && actorId) {
+    await logAction(prisma, {
+      userId: actorId,
+      companyId: updated.companyId ?? undefined,
+      action: body.active ? "USER_ACTIVATE" : "USER_DEACTIVATE",
+      entityType: "User",
+      entityId: userId,
+      before: { active: existing.active },
+      after: { active: body.active },
+    });
+  }
 
   return json({ ok: true, user: updated });
 });

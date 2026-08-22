@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import { prisma } from "@nirman/db";
 import { getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -27,10 +28,16 @@ async function RcContent() {
 
   const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
 
+  const categories = await prisma.materialCategory.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, unit: true },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <>
       <PageHeader title="Rate Contracts" stats={[]} />
-      <RateContractsView canCreate={canCreate} />
+      <RateContractsView canCreate={canCreate} categories={categories} />
     </>
   );
 }

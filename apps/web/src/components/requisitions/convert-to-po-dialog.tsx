@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -39,6 +39,33 @@ export function ConvertToPoDialog({
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lineCosts, setLineCosts] = useState<Record<string, string>>({});
+
+  // Auto-fill line costs from last purchase rate when dialog opens
+  useEffect(() => {
+    if (open && requisition) {
+      const prefilled: Record<string, string> = {};
+      for (const line of requisition.lines) {
+        if (line.lastRate && line.lastRate > 0) {
+          prefilled[line.materialId] = String(line.lastRate);
+        }
+      }
+      setLineCosts(prefilled);
+      // Default expected date to today + 7 days
+      setExpectedDate((cur) => cur || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+    }
+  }, [open, requisition]);
+
+  function fillAllFromLastRate() {
+    if (!requisition) return;
+    const prefilled: Record<string, string> = {};
+    for (const line of requisition.lines) {
+      if (line.lastRate && line.lastRate > 0) {
+        prefilled[line.materialId] = String(line.lastRate);
+      }
+    }
+    setLineCosts(prefilled);
+    toast.success("Filled all line costs from last purchase rate");
+  }
 
   // Filter locations by scope
   const availableLocations = locations.filter((l) =>
@@ -154,7 +181,12 @@ export function ConvertToPoDialog({
 
         {/* Line items with unit cost inputs */}
         <div className="space-y-2">
-          <Label>Line Costs</Label>
+          <div className="flex items-center justify-between">
+            <Label>Line Costs</Label>
+            <Button type="button" variant="outline" size="sm" onClick={fillAllFromLastRate}>
+              Use Last Rate
+            </Button>
+          </div>
           <div className="rounded-md border">
             <Table>
               <THead>
@@ -174,6 +206,11 @@ export function ConvertToPoDialog({
                       <TD>
                         <div className="font-medium">{l.materialName}</div>
                         <div className="font-mono text-caption text-muted-foreground">{l.materialCode}</div>
+                        {l.lastRate && l.lastRate > 0 && (
+                          <div className="text-caption text-muted-foreground">
+                            Last: {formatCurrency(l.lastRate)}{l.lastRateDate ? ` · ${new Date(l.lastRateDate).toLocaleDateString()}` : ""}
+                          </div>
+                        )}
                       </TD>
                       <TD className="text-right tnum">{formatNumber(l.qtyRequested, 3)} {l.unit}</TD>
                       <TD className="text-right">

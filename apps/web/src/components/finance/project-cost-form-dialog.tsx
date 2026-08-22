@@ -6,13 +6,16 @@ import { toast } from "sonner";
 import { BookOpen, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption, ProjectCostRow } from "@/lib/types";
 
-const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"] as const;
+const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"] as const;
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -48,6 +51,11 @@ export function ProjectCostFormDialog({
     subcontractorId: "",
     notes: "",
   });
+
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   // Reset/populate form when dialog opens
   useEffect(() => {
@@ -147,12 +155,17 @@ export function ProjectCostFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="pc-project">Project *</Label>
-          <Select id="pc-project" value={form.projectId} onChange={(e) => set("projectId", e.target.value)} required>
-            <option value="">Select project…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
+          <SelectWithCreate
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            required
+            placeholder="Select project…"
+            createLabel="project"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

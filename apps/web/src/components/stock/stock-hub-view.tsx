@@ -52,6 +52,7 @@ export function StockHubView({
   scrapProjects,
   counts,
   countLocations,
+  categories,
   permissions,
 }: {
   stock: StockRow[];
@@ -71,6 +72,7 @@ export function StockHubView({
   scrapProjects: ScrapProject;
   counts: StockCountRow[];
   countLocations: CountLocation;
+  categories: { id: string; name: string; unit: string }[];
   permissions: {
     canTransfer: boolean;
     canIssue: boolean;
@@ -139,7 +141,7 @@ export function StockHubView({
         />
       </TabsContent>
       <TabsContent value="transfers">
-        <TransfersTab transfers={transfers} locations={transferLocations} canTransfer={permissions.canTransfer} />
+        <TransfersTab transfers={transfers} locations={transferLocations} projects={projects} canTransfer={permissions.canTransfer} />
       </TabsContent>
       <TabsContent value="issues">
         <IssuesTab
@@ -148,6 +150,7 @@ export function StockHubView({
           departments={departments}
           materialOptions={materialOptions}
           locationOptions={locationOptions}
+          categories={categories}
           canIssue={permissions.canIssue}
           autoOpenForm={autoIssue}
         />
@@ -158,6 +161,7 @@ export function StockHubView({
           locations={scrapLocations}
           materials={scrapMaterials}
           projects={scrapProjects}
+          categories={categories}
           permissions={{ canManage: permissions.canManage }}
         />
       </TabsContent>
@@ -165,6 +169,7 @@ export function StockHubView({
         <StockCountsView
           counts={counts}
           locations={countLocations}
+          projects={projects}
           permissions={{ canCreate: permissions.canManage, canManage: permissions.canManage }}
         />
       </TabsContent>

@@ -24,10 +24,11 @@ import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
   ProjectOption, MaterialOption, StockLocationOption, DirectPurchaseRow,
+  MaterialCategory,
 } from "@/lib/types";
 
 export function ProcurementView({
-  suppliers, purchaseOrders, materials, locations, projects, directPurchases, permissions,
+  suppliers, purchaseOrders, materials, locations, projects, directPurchases, categories, permissions,
 }: {
   suppliers: SupplierRow[];
   purchaseOrders: PurchaseOrderRow[];
@@ -35,6 +36,7 @@ export function ProcurementView({
   locations: StockLocationRow[];
   projects: ProjectOption[];
   directPurchases: DirectPurchaseRow[];
+  categories: MaterialCategory[];
   permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean };
 }) {
   const [tab, setTab] = useTabParam(
@@ -71,7 +73,7 @@ export function ProcurementView({
         </TabsList>
 
         <TabsContent value="purchase-orders">
-          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} />
+          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} />
         </TabsContent>
         <TabsContent value="suppliers">
           <SuppliersTab suppliers={suppliers} canManagePayments={canManagePayments} />
@@ -257,13 +259,14 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
 ];
 
 function PurchaseOrdersTab({
-  purchaseOrders, suppliers, materials, locations, projects, canCreate, canApprove, canManagePayments,
+  purchaseOrders, suppliers, materials, locations, projects, categories, canCreate, canApprove, canManagePayments,
 }: {
   purchaseOrders: PurchaseOrderRow[];
   suppliers: SupplierRow[];
   materials: MaterialRow[];
   locations: StockLocationRow[];
   projects: ProjectOption[];
+  categories: MaterialCategory[];
   canCreate: boolean;
   canApprove: boolean;
   canManagePayments: boolean;
@@ -554,6 +557,7 @@ function PurchaseOrdersTab({
         materials={materials}
         locations={locations}
         projects={projects}
+        categories={categories}
       />
     </div>
   );
@@ -678,7 +682,7 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
         </div>
       )}
 
-      <SupplierFormDialog open={formOpen} onOpenChange={setFormOpen} supplier={editing} />
+      <SupplierFormDialog open={formOpen} onOpenChange={setFormOpen} supplier={editing} existingSuppliers={suppliers} />
       <DeleteConfirmDialog
         open={deleting != null}
         onOpenChange={(o) => !o && setDeleting(null)}

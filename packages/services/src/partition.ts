@@ -2,6 +2,8 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
+import { postNrvWriteDown } from "./gl-posting";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 
 /**
@@ -57,7 +59,7 @@ interface PartitionInput {
 }
 
 export async function partitionLandParcel(input: PartitionInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Lock + validate parent
     const parent = await tx.landParcel.findFirst({
       where: { id: input.parentParcelId, deletedAt: null },
@@ -142,6 +144,21 @@ export async function partitionLandParcel(input: PartitionInput) {
       }
     }
 
+    // Rounding remainder adjustment: ensure Σ childCosts (saleable) = totalCostBasis
+    // exactly. Decimal division can produce rounding artifacts; absorb the
+    // difference into the last saleable child to guarantee conservation.
+    {
+      const allocatedSum = saleableIndices.reduce(
+        (sum, i) => sum.plus(childCosts[i]!),
+        new Decimal(0),
+      );
+      const remainder = totalCostBasis.minus(allocatedSum);
+      if (!remainder.isZero() && saleableIndices.length > 0) {
+        const lastIdx = saleableIndices[saleableIndices.length - 1]!;
+        childCosts[lastIdx] = (childCosts[lastIdx] ?? new Decimal(0)).plus(remainder);
+      }
+    }
+
     // 8. Create children + mark parent PARTITIONED + record partition event
     const childParcels = [];
     const infraAreaTotal = isInfraFlags.reduce(
@@ -175,10 +192,11 @@ export async function partitionLandParcel(input: PartitionInput) {
       childParcels.push(parcel);
     }
 
-    // Mark parent as PARTITIONED (inactive — not sellable as a whole)
+    // Mark parent as PARTITIONED (inactive — not sellable as a whole).
+    // Reset currentValuation to 0 since the value has been distributed to children.
     await tx.landParcel.update({
       where: { id: parent.id },
-      data: { status: "PARTITIONED" },
+      data: { status: "PARTITIONED", currentValuation: new Decimal(0) },
     });
 
     // Record partition event for audit
@@ -217,6 +235,149 @@ export async function partitionLandParcel(input: PartitionInput) {
 
     return { parent, children: childParcels };
   }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.LAND_PARTITIONED,
+    companyId: result.parent.landPurchaseId ? (await prisma.landPurchase.findUnique({ where: { id: result.parent.landPurchaseId }, select: { companyId: true } }))?.companyId ?? "" : "",
+    entityType: "LandParcel",
+    entityId: result.parent.id,
+    variables: {
+      parcelNumber: result.parent.number,
+      childCount: String(result.children.length),
+    },
+    timestamp: new Date(),
+  });
+
+  return result;
+}
+
+/**
+ * Unpartition (undo subdivision) — reverses a partitionLandParcel operation.
+ *
+ * The parent parcel (currently PARTITIONED) is restored to AVAILABLE, and all
+ * its children are soft-deleted. The LandPartition record is also deleted.
+ *
+ * Invariants enforced:
+ * - Parent must exist and be PARTITIONED
+ * - No child may be SOLD (sold plots cannot be undone)
+ * - No child may itself be PARTITIONED (must unpartition nested children first)
+ * - No child may have built units (must remove units first)
+ * - No child may have active sales
+ *
+ * Only OWNER/ADMIN should be allowed to call this (enforced at the API layer).
+ */
+export async function unpartitionLandParcel(parentParcelId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    // 1. Lock + validate parent
+    const parent = await tx.landParcel.findFirst({
+      where: { id: parentParcelId, deletedAt: null },
+      include: {
+        children: {
+          where: { deletedAt: null },
+          include: {
+            _count: { select: { builtUnits: true, children: true } },
+          },
+        },
+      },
+    });
+    if (!parent) throw new ServiceError("Parent parcel not found", 404);
+    if (parent.status !== "PARTITIONED") {
+      throw new ServiceError(`Cannot unpartition a parcel in status ${parent.status}. Must be PARTITIONED.`);
+    }
+
+    // 2. Validate children — none can be SOLD, PARTITIONED, have built units, or active sales
+    const childIds = parent.children.map((c) => c.id);
+    const childNumbers = parent.children.map((c) => c.number);
+
+    // Check for non-cancelled sales on any child
+    const activeSales = await tx.assetSale.findMany({
+      where: { landParcelId: { in: childIds }, status: { not: "CANCELLED" } },
+      select: { id: true, landParcelId: true },
+    });
+    const soldParcelIds = new Set(activeSales.map((s) => s.landParcelId));
+
+    // Check for active tenancies on any child
+    const activeTenancies = await tx.tenancy.findMany({
+      where: { landParcelId: { in: childIds }, status: { in: ["PENDING", "ACTIVE"] } },
+      select: { id: true, landParcelId: true },
+    });
+    const rentedParcelIds = new Set(activeTenancies.map((t) => t.landParcelId));
+
+    for (const child of parent.children) {
+      if (child.status === "SOLD") {
+        throw new ServiceError(
+          `Cannot unpartition: child parcel "${child.number}" is SOLD. Sold plots cannot be undone.`,
+        );
+      }
+      if (child.status === "PARTITIONED") {
+        throw new ServiceError(
+          `Cannot unpartition: child parcel "${child.number}" is itself partitioned. Unpartition nested children first.`,
+        );
+      }
+      if (child._count.builtUnits > 0) {
+        throw new ServiceError(
+          `Cannot unpartition: child parcel "${child.number}" has built units. Remove units first.`,
+        );
+      }
+      if (soldParcelIds.has(child.id)) {
+        throw new ServiceError(
+          `Cannot unpartition: child parcel "${child.number}" has an active sale. Cancel the sale first.`,
+        );
+      }
+      if (rentedParcelIds.has(child.id)) {
+        throw new ServiceError(
+          `Cannot unpartition: child parcel "${child.number}" has an active tenancy. Terminate the tenancy first.`,
+        );
+      }
+    }
+
+    // 3. Soft-delete all children
+    if (childIds.length > 0) {
+      await tx.landParcel.updateMany({
+        where: { id: { in: childIds } },
+        data: { deletedAt: new Date() },
+      });
+    }
+
+    // 4. Restore parent to AVAILABLE + restore currentValuation
+    //    (partition set it to 0; restore to acquisitionCost as the baseline)
+    await tx.landParcel.update({
+      where: { id: parent.id },
+      data: {
+        status: "AVAILABLE",
+        currentValuation: new Decimal(parent.acquisitionCost),
+      },
+    });
+
+    // 5. Delete the LandPartition record
+    await tx.landPartition.deleteMany({
+      where: { parentParcelId: parent.id },
+    });
+
+    // 6. Re-run cost allocation
+    if (parent.projectId) {
+      await reallocateProjectCosts(tx, parent.projectId);
+    }
+
+    // 7. Audit log
+    await logAction(tx, {
+      userId,
+      action: "LAND_UNPARTITION",
+      entityType: "LandParcel",
+      entityId: parent.id,
+      before: {
+        status: "PARTITIONED",
+        childCount: parent.children.length,
+        childNumbers,
+      },
+      after: {
+        status: "AVAILABLE",
+        removedChildren: childIds.length,
+      },
+    });
+
+    return { parent, removedChildren: childIds.length };
+  }, { isolationLevel: "Serializable" });
 }
 
 /**
@@ -250,8 +411,45 @@ export async function updateParcelValuation(
       before: { currentValuation: parcel.currentValuation, askingPrice: parcel.askingPrice },
       after: { currentValuation: updated.currentValuation, askingPrice: updated.askingPrice },
     });
+
+    // NRV write-down check: if the new valuation is below acquisitionCost,
+    // compute the write-down, update the field, and post a GL entry.
+    if (data.currentValuation !== undefined) {
+      const newValuation = new Decimal(data.currentValuation);
+      const cost = new Decimal(updated.acquisitionCost);
+      if (newValuation.lt(cost)) {
+        const writeDownAmount = cost.minus(newValuation);
+        const existingWriteDown = new Decimal(updated.nrvWriteDown ?? 0);
+        const glDelta = writeDownAmount.minus(existingWriteDown);
+        await tx.landParcel.update({
+          where: { id: parcelId },
+          data: { nrvWriteDown: writeDownAmount },
+        });
+        if (glDelta.gt(0)) {
+          const landPurchase = await tx.landPurchase.findUnique({
+            where: { id: updated.landPurchaseId },
+            select: { companyId: true },
+          });
+          if (landPurchase) {
+            await postNrvWriteDown(tx, {
+              companyId: landPurchase.companyId,
+              entityType: "LAND",
+              entityId: parcelId,
+              writeDownAmount: glDelta,
+            });
+          }
+        }
+      } else if (newValuation.gte(cost) && new Decimal(updated.nrvWriteDown ?? 0).gt(0)) {
+        // NRV has recovered above cost — clear the write-down
+        await tx.landParcel.update({
+          where: { id: parcelId },
+          data: { nrvWriteDown: new Decimal(0) },
+        });
+      }
+    }
+
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 /**
@@ -334,8 +532,19 @@ export async function updateParcelDetails(
         isInfrastructure: updated.isInfrastructure,
       },
     });
+
+    // Reallocate project costs if acquisitionCost or area changed and the
+    // parcel is linked to a project — keeps costPerSqft + unit.productionCost
+    // in sync with the updated land cost basis.
+    const costOrAreaChanged =
+      (data.acquisitionCost !== undefined && !new Decimal(data.acquisitionCost).equals(parcel.acquisitionCost)) ||
+      (data.area !== undefined && !new Decimal(data.area).equals(parcel.area));
+    if (costOrAreaChanged && updated.projectId) {
+      await reallocateProjectCosts(tx, updated.projectId);
+    }
+
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 /**

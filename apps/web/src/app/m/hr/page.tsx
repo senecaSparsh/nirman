@@ -146,11 +146,11 @@ async function HrContent() {
       {/* ── Quick actions ── */}
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <MobileCta href="/m/site/dpr" icon={FileText} variant="secondary">
-          New Daily Progress Report
+        <MobileCta href="/m/dprs" icon={FileText} variant="secondary">
+          Daily Progress Reports
         </MobileCta>
         <MobileCta href="/m/attendance" icon={CalendarCheck} variant="secondary">
-          Mark Attendance
+          Attendance
         </MobileCta>
       </div>
 

@@ -15,14 +15,23 @@ describe("rbac — pure helpers", () => {
       expect(defaultScopeType("OWNER")).toBe("COMPANY");
       expect(defaultScopeType("ADMIN")).toBe("COMPANY");
     });
-    it("MANAGER → COMPANY (regional heads opt into DEPARTMENT explicitly)", () => {
-      expect(defaultScopeType("MANAGER")).toBe("COMPANY");
+    it("PROJECT_DIRECTOR/FINANCE_HEAD → COMPANY (senior management)", () => {
+      expect(defaultScopeType("PROJECT_DIRECTOR")).toBe("COMPANY");
+      expect(defaultScopeType("FINANCE_HEAD")).toBe("COMPANY");
     });
-    it("SUPERVISOR → PROJECT (site managers / field supervisors)", () => {
+    it("PROJECT_MANAGER/PROCUREMENT_MANAGER/HR_MANAGER → COMPANY (middle management)", () => {
+      expect(defaultScopeType("PROJECT_MANAGER")).toBe("COMPANY");
+      expect(defaultScopeType("PROCUREMENT_MANAGER")).toBe("COMPANY");
+      expect(defaultScopeType("HR_MANAGER")).toBe("COMPANY");
+    });
+    it("SITE_ENGINEER/STORE_KEEPER/SUPERVISOR/QAQC_ENGINEER → PROJECT (field/execution)", () => {
+      expect(defaultScopeType("SITE_ENGINEER")).toBe("PROJECT");
+      expect(defaultScopeType("STORE_KEEPER")).toBe("PROJECT");
       expect(defaultScopeType("SUPERVISOR")).toBe("PROJECT");
+      expect(defaultScopeType("QAQC_ENGINEER")).toBe("PROJECT");
     });
-    it("SALES/ACCOUNTANT → COMPANY (default to company-wide)", () => {
-      expect(defaultScopeType("SALES")).toBe("COMPANY");
+    it("SALES_MANAGER/ACCOUNTANT → COMPANY (default to company-wide)", () => {
+      expect(defaultScopeType("SALES_MANAGER")).toBe("COMPANY");
       expect(defaultScopeType("ACCOUNTANT")).toBe("COMPANY");
     });
     it("unknown role → COMPANY (safe default)", () => {
@@ -37,12 +46,12 @@ describe("rbac — pure helpers", () => {
       expect(resolveScopeType({ scopeType: null, role: "OWNER" })).toBe("COMPANY");
     });
     it("explicit scopeType wins over the role default", () => {
-      expect(resolveScopeType({ scopeType: "DEPARTMENT", role: "MANAGER" })).toBe("DEPARTMENT");
-      expect(resolveScopeType({ scopeType: "PROJECT", role: "MANAGER" })).toBe("PROJECT");
+      expect(resolveScopeType({ scopeType: "DEPARTMENT", role: "PROJECT_MANAGER" })).toBe("DEPARTMENT");
+      expect(resolveScopeType({ scopeType: "PROJECT", role: "PROJECT_MANAGER" })).toBe("PROJECT");
     });
     it("null scopeType falls back to the role default", () => {
       expect(resolveScopeType({ scopeType: null, role: "SUPERVISOR" })).toBe("PROJECT");
-      expect(resolveScopeType({ scopeType: null, role: "MANAGER" })).toBe("COMPANY");
+      expect(resolveScopeType({ scopeType: null, role: "PROJECT_MANAGER" })).toBe("COMPANY");
     });
     it("invalid scopeType string falls back to the role default", () => {
       expect(resolveScopeType({ scopeType: "BOGUS", role: "SUPERVISOR" })).toBe("PROJECT");
@@ -99,38 +108,55 @@ describe("rbac — pure helpers", () => {
     });
   });
 
-  describe("_svcCanAssignRole — delegation hierarchy", () => {
+  describe("_svcCanAssignRole — 5-tier delegation hierarchy", () => {
     it("OWNER (tier 1) can assign all roles below + ADMIN peer", () => {
       expect(_svcCanAssignRole("OWNER", "ADMIN")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "MANAGER")).toBe(true);
+      expect(_svcCanAssignRole("OWNER", "PROJECT_DIRECTOR")).toBe(true);
+      expect(_svcCanAssignRole("OWNER", "PROJECT_MANAGER")).toBe(true);
+      expect(_svcCanAssignRole("OWNER", "SITE_ENGINEER")).toBe(true);
       expect(_svcCanAssignRole("OWNER", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "SALES")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "ACCOUNTANT")).toBe(true);
+      expect(_svcCanAssignRole("OWNER", "QAQC_ENGINEER")).toBe(true);
     });
-    it("OWNER cannot assign OWNER (same tier — no self-peer)", () => {
+    it("OWNER cannot assign OWNER (same role — no self-cloning)", () => {
       expect(_svcCanAssignRole("OWNER", "OWNER")).toBe(false);
     });
-    it("ADMIN can assign OWNER + all below, but not ADMIN (self-peer)", () => {
+    it("ADMIN can assign OWNER + all below, but not ADMIN (self-cloning)", () => {
       expect(_svcCanAssignRole("ADMIN", "OWNER")).toBe(true);
-      expect(_svcCanAssignRole("ADMIN", "MANAGER")).toBe(true);
+      expect(_svcCanAssignRole("ADMIN", "PROJECT_MANAGER")).toBe(true);
       expect(_svcCanAssignRole("ADMIN", "SUPERVISOR")).toBe(true);
       expect(_svcCanAssignRole("ADMIN", "ADMIN")).toBe(false);
     });
-    it("MANAGER (Sub-Admin, tier 2) can only assign tier 3", () => {
-      expect(_svcCanAssignRole("MANAGER", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("MANAGER", "SALES")).toBe(true);
-      expect(_svcCanAssignRole("MANAGER", "ACCOUNTANT")).toBe(true);
-      expect(_svcCanAssignRole("MANAGER", "MANAGER")).toBe(false);
-      expect(_svcCanAssignRole("MANAGER", "ADMIN")).toBe(false);
-      expect(_svcCanAssignRole("MANAGER", "OWNER")).toBe(false);
+    it("PROJECT_DIRECTOR (tier 2) can assign tier 3-5, not tier 1 or peers", () => {
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "PROJECT_MANAGER")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "SITE_ENGINEER")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "SUPERVISOR")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "PROJECT_DIRECTOR")).toBe(false);
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "FINANCE_HEAD")).toBe(false); // peer
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "ADMIN")).toBe(false);
+      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "OWNER")).toBe(false);
     });
-    it("tier 3 roles cannot assign anyone", () => {
+    it("PROJECT_MANAGER (tier 3) can assign tier 4-5, not tier 1-2 or peers", () => {
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "SITE_ENGINEER")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "STORE_KEEPER")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "SUPERVISOR")).toBe(true);
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROJECT_MANAGER")).toBe(false);
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROCUREMENT_MANAGER")).toBe(false); // peer
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROJECT_DIRECTOR")).toBe(false);
+      expect(_svcCanAssignRole("PROJECT_MANAGER", "OWNER")).toBe(false);
+    });
+    it("SITE_ENGINEER (tier 4) can assign tier 5 only", () => {
+      expect(_svcCanAssignRole("SITE_ENGINEER", "SUPERVISOR")).toBe(true);
+      expect(_svcCanAssignRole("SITE_ENGINEER", "QAQC_ENGINEER")).toBe(true);
+      expect(_svcCanAssignRole("SITE_ENGINEER", "SITE_ENGINEER")).toBe(false);
+      expect(_svcCanAssignRole("SITE_ENGINEER", "STORE_KEEPER")).toBe(false); // peer
+      expect(_svcCanAssignRole("SITE_ENGINEER", "PROJECT_MANAGER")).toBe(false);
+    });
+    it("tier 5 roles cannot assign anyone", () => {
       expect(_svcCanAssignRole("SUPERVISOR", "SUPERVISOR")).toBe(false);
-      expect(_svcCanAssignRole("SUPERVISOR", "MANAGER")).toBe(false);
-      expect(_svcCanAssignRole("SALES", "SUPERVISOR")).toBe(false);
-      expect(_svcCanAssignRole("ACCOUNTANT", "SUPERVISOR")).toBe(false);
+      expect(_svcCanAssignRole("SUPERVISOR", "QAQC_ENGINEER")).toBe(false);
+      expect(_svcCanAssignRole("QAQC_ENGINEER", "SUPERVISOR")).toBe(false);
     });
-    it("invalid roles default to tier 3 (can't assign)", () => {
+    it("invalid roles default to tier 5 (can't assign)", () => {
       expect(_svcCanAssignRole("BOGUS", "SUPERVISOR")).toBe(false);
     });
   });

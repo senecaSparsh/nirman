@@ -11,6 +11,7 @@ import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill, statusColor } from "@/components/page";
 import { LandPurchaseFormDialog } from "./land-purchase-form-dialog";
+import { LandPurchaseWizardDialog } from "./land-purchase-wizard-dialog";
 import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
 import { ParcelValuationDialog } from "./parcel-valuation-dialog";
@@ -177,6 +178,7 @@ export function LandView({
   purchases,
   parcels,
   projects,
+  sellers,
   customers,
   permissions,
   hidePlanColumn = false,
@@ -186,6 +188,7 @@ export function LandView({
   purchases: LandPurchaseRowType[];
   parcels: LandParcelRow[];
   projects: ProjectOption[];
+  sellers?: { id: string; name: string; phone?: string | null }[];
   customers?: { id: string; name: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canPartition?: boolean; canSell?: boolean };
   hidePlanColumn?: boolean;
@@ -206,6 +209,7 @@ export function LandView({
   const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<LandPurchaseRowType | null>(null);
   // Track whether the form was opened from the "Add sub-divided purchase" button.
   // If so, after saving we skip the "Subdivide this land?" prompt and go straight
@@ -227,6 +231,7 @@ export function LandView({
       label: `Plot ${p.number} — ${formatNumber(p.area, 0)} ${p.areaUnit}`,
       projectId: p.projectId,
       projectName: p.projectName,
+      projectReraNumber: null,
       costBasis: p.acquisitionCost,
       askingPrice: p.askingPrice,
       currentValuation: p.currentValuation,
@@ -258,9 +263,14 @@ export function LandView({
           title="No land yet"
           description="Record your first land purchase to start tracking land inventory. A purchase creates an initial parcel covering the full area, which you can partition into sellable sub-plots."
           action={canCreate ? (
-            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
-              <Plus className="h-4 w-4" /> New Purchase
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => { setEditing(null); setWizardOpen(true); }}>
+                <Plus className="h-4 w-4" /> Record Land Purchase
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                Quick Add
+              </Button>
+            </div>
           ) : undefined}
         />
       ) : mobileToggle ? (
@@ -304,7 +314,7 @@ export function LandView({
                 onRowClick={setQuickView}
                 hideable
                 pageSize={50}
-                onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); setForceSubdivide(false); } : undefined}
+                onAddRow={canCreate ? () => { setEditing(null); setWizardOpen(true); setForceSubdivide(false); } : undefined}
                 addRowLabel="Add land purchase"
               />
             ) : (
@@ -341,7 +351,7 @@ export function LandView({
                 onRowClick={setQuickView}
                 hideable
                 pageSize={50}
-                onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); setForceSubdivide(false); } : undefined}
+                onAddRow={canCreate ? () => { setEditing(null); setWizardOpen(true); setForceSubdivide(false); } : undefined}
                 addRowLabel="Add land purchase"
               />
             </div>
@@ -429,6 +439,17 @@ export function LandView({
             // new purchase shows up in the list.
             router.refresh();
           }
+        }}
+      />
+      <LandPurchaseWizardDialog
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        projects={projects}
+        sellers={sellers ?? []}
+        onCreated={() => {
+          // The wizard handles everything (parcels + projects + partition) in one
+          // atomic transaction, so we just refresh — no post-creation prompt needed.
+          router.refresh();
         }}
       />
       <PartitionDialog

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
-import { createMaterialSale } from "@nirman/services";
+import { createMaterialSale, createMaterialSaleRequest, executeMaterialSale, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSaleSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -76,8 +77,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+
+  const requireGatePass = body?.requireGatePass === true;
+
   try {
-    const sale = await createMaterialSale({
+    const saleInput = {
       companyId: company.id,
       customerId: parsed.data.customerId,
       projectId: parsed.data.projectId ?? undefined,
@@ -89,11 +93,77 @@ export const POST = apiHandler(async (req: NextRequest) => {
         gstRate: l.gstRate ?? 0,
       })),
       paymentMode: parsed.data.paymentMode ?? undefined,
+      vehicleNumber: parsed.data.vehicleNumber ?? undefined,
+      vehicleType: parsed.data.vehicleType ?? undefined,
+      vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
+      driverName: parsed.data.driverName ?? undefined,
+      driverPhone: parsed.data.driverPhone ?? undefined,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
-    });
+    };
+
+    if (requireGatePass) {
+      // Gate-pass-gated flow: create PENDING sale + gate pass, no stock movements
+      const sale = await createMaterialSaleRequest(saleInput);
+      revalidatePath("/gate-passes");
+      revalidatePath("/material-sales");
+      return json(
+        { ok: true, id: sale.id, saleNumber: sale.saleNumber, pending: true, message: "Gate pass created — awaiting approval before items can leave." },
+        { status: 201 },
+      );
+    }
+
+    // Standard flow: execute immediately
+    const sale = await createMaterialSale(saleInput);
+
+    // Log the vehicle trip
+    if (parsed.data.vehicleNumber) {
+      await recordVehicleTrip({
+        vehicleNumber: parsed.data.vehicleNumber,
+        vehicleType: parsed.data.vehicleType ?? "OTHER",
+        photoUrl: parsed.data.vehiclePhotoUrl,
+        driverName: parsed.data.driverName,
+        driverPhone: parsed.data.driverPhone,
+        movementType: "MATERIAL_SALE",
+        refType: "MaterialSale",
+        refId: sale.id,
+        companyId: company.id,
+      }).catch(() => { /* best-effort */ });
+    }
+
     return json({ ok: true, id: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create material sale") }, { status: 400 });
   }
+});
+
+/**
+ * PATCH /api/material-sales — execute a PENDING material sale after gate pass approval.
+ * Body: { action: "execute", saleId: "xxx" }
+ */
+export const PATCH = apiHandler(async (req: NextRequest) => {
+  const user = await requirePermission(PERM.SALE_CREATE);
+  const company = await getCompany();
+  const body = await req.json();
+
+  if (body?.action === "execute" && body?.saleId) {
+    try {
+      const sale = await prisma.materialSale.findFirst({
+        where: { id: body.saleId, companyId: company.id },
+        select: { id: true, status: true },
+      });
+      if (!sale) return json({ error: "Material sale not found" }, { status: 404 });
+      if (sale.status !== "PENDING") return json({ error: `Cannot execute sale in status ${sale.status}` }, { status: 400 });
+
+      await executeMaterialSale(body.saleId, user.id);
+
+      revalidatePath("/material-sales");
+      revalidatePath("/gate-passes");
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Failed to execute sale") }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Unknown action" }, { status: 400 });
 });

@@ -25,7 +25,7 @@ export interface SaleItem {
   saleStage: string;
 }
 
-interface Stats {
+export interface CollectionStats {
   totalValue: number;
   totalCollected: number;
   totalOutstanding: number;
@@ -42,7 +42,7 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
   PAID: { color: "var(--color-go)", label: "Paid" },
 };
 
-export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; stats: Stats }) {
+export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; stats: CollectionStats }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"OUTSTANDING" | "SETTLED" | "ALL">("OUTSTANDING");

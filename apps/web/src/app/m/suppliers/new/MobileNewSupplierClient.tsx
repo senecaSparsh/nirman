@@ -114,12 +114,6 @@ export function MobileNewSupplierClient({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-          New Supplier
-        </p>
-      </div>
-
       <form onSubmit={onSubmit} className="space-y-3">
         <div
           className="rounded-[0.625rem] border p-3 space-y-2.5"

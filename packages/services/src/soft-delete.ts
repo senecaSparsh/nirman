@@ -18,6 +18,7 @@ type EntityType =
   | "Customer"
   | "LandPurchase"
   | "LandParcel"
+  | "LandSeller"
   | "BuiltUnit"
   | "Employee"
   | "Subcontractor"
@@ -53,6 +54,7 @@ function getModel(entityType: EntityType) {
     Customer: prisma.customer,
     LandPurchase: prisma.landPurchase,
     LandParcel: prisma.landParcel,
+    LandSeller: prisma.landSeller,
     BuiltUnit: prisma.builtUnit,
     Employee: prisma.employee,
     Subcontractor: prisma.subcontractor,
@@ -124,6 +126,22 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       if (parcel.status === "AVAILABLE" || parcel.status === "HOLD") {
         throw new ServiceError("Cannot delete an AVAILABLE or HOLD parcel. Sell or partition first.");
       }
+      if (parcel.status === "RESERVED") {
+        throw new ServiceError("Cannot delete a RESERVED parcel — a sale is in progress. Cancel the sale first.");
+      }
+      if (parcel.status === "RENTED") {
+        throw new ServiceError("Cannot delete a RENTED parcel — terminate the tenancy first.");
+      }
+      // Check for active sales even if status was manually changed
+      const activeSales = await prisma.assetSale.count({
+        where: { landParcelId: entityId, status: { in: ["ACTIVE", "PENDING"] } },
+      });
+      if (activeSales > 0) throw new ServiceError("Cannot delete parcel with active sales. Cancel sales first.");
+      // Check for active tenancies
+      const activeTenancies = await prisma.tenancy.count({
+        where: { landParcelId: entityId, status: { in: ["PENDING", "ACTIVE"] } },
+      });
+      if (activeTenancies > 0) throw new ServiceError("Cannot delete parcel with active tenancies. Terminate tenancies first.");
       break;
     }
 
@@ -138,9 +156,21 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
 
     case "LandPurchase": {
       const parcels = await prisma.landParcel.count({
-        where: { landPurchaseId: entityId, status: { in: ["AVAILABLE", "HOLD"] } },
+        where: {
+          landPurchaseId: entityId,
+          deletedAt: null,
+          status: { in: ["AVAILABLE", "HOLD", "RESERVED", "RENTED"] },
+        },
       });
-      if (parcels > 0) throw new ServiceError("Cannot delete land purchase with unsold parcels.");
+      if (parcels > 0) throw new ServiceError("Cannot delete land purchase with unsold, reserved, or rented parcels. Sell, partition, or terminate tenancies first.");
+      break;
+    }
+
+    case "LandSeller": {
+      const activePurchases = await prisma.landPurchase.count({
+        where: { sellerId: entityId, deletedAt: null },
+      });
+      if (activePurchases > 0) throw new ServiceError("Cannot delete land seller with active land purchases.");
       break;
     }
 

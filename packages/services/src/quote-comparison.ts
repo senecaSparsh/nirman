@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { computeLineLandedCost, computeQuoteTotals } from "./quotation";
 
 /**
  * Comparative Quote Engine — the SRS's mandatory procurement cost-control.
@@ -101,14 +102,24 @@ export interface CreateVendorQuoteInput {
   fileUrl: string;
   fileName: string;
   mimeType: string;
-  landedTotal: Decimal | number | string;
+  landedTotal?: Decimal | number | string; // optional — auto-computed from lines if not provided
   validUntil?: Date;
   notes?: string;
   submittedById?: string;
+  deliveryTermsType?: "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";
+  deliveryTerms?: string; // legacy free-text
   lines: {
     materialId: string;
     qty: Decimal | number | string;
     unitPrice: Decimal | number | string;
+    gstRate?: Decimal | number | string;
+    discountPerUnit?: Decimal | number | string;
+    packingPerUnit?: Decimal | number | string;
+    freightPerUnit?: Decimal | number | string;
+    loadingPerUnit?: Decimal | number | string;
+    insurancePerUnit?: Decimal | number | string;
+    handlingPerUnit?: Decimal | number | string;
+    buyerTransportPerUnit?: Decimal | number | string;
   }[];
 }
 
@@ -157,13 +168,42 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
   }
 
   return prisma.$transaction(async (tx) => {
-    // Compute line totals
-    const lines = input.lines.map((l) => ({
-      materialId: l.materialId,
-      qty: new Decimal(l.qty),
-      unitPrice: new Decimal(l.unitPrice),
-      lineTotal: new Decimal(l.qty).times(new Decimal(l.unitPrice)),
-    }));
+    // Fetch requisition lines + their materials for HSN/GST lookup
+    const reqLines = await tx.materialRequisitionLine.findMany({
+      where: { requisitionId: input.requisitionId },
+      select: {
+        materialId: true,
+        material: { select: { hsnCode: true, gstRate: true } },
+      },
+    });
+    const reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
+
+    // Compute landed cost per line using all components
+    const computedLines = input.lines.map((l) => {
+      const reqLine = reqLineMap.get(l.materialId);
+      const gstRate = l.gstRate ?? reqLine?.material.gstRate ?? 0;
+      const computed = computeLineLandedCost({
+        unitPrice: l.unitPrice,
+        gstRate,
+        qty: l.qty,
+        discountPerUnit: l.discountPerUnit ?? 0,
+        packingPerUnit: l.packingPerUnit ?? 0,
+        freightPerUnit: l.freightPerUnit ?? 0,
+        loadingPerUnit: l.loadingPerUnit ?? 0,
+        insurancePerUnit: l.insurancePerUnit ?? 0,
+        handlingPerUnit: l.handlingPerUnit ?? 0,
+        buyerTransportPerUnit: l.buyerTransportPerUnit ?? 0,
+      });
+      return {
+        materialId: l.materialId,
+        hsnCode: reqLine?.material.hsnCode ?? null,
+        ...computed,
+      };
+    });
+
+    const totals = computeQuoteTotals(computedLines);
+    // Use provided landedTotal or the computed one
+    const landedTotal = input.landedTotal !== undefined ? new Decimal(input.landedTotal) : totals.landedTotal;
 
     const quote = await tx.vendorQuote.create({
       data: {
@@ -172,16 +212,40 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
         fileUrl: input.fileUrl,
         fileName: input.fileName,
         mimeType: input.mimeType,
-        landedTotal: new Decimal(input.landedTotal),
+        landedTotal,
+        subtotal: totals.subtotal,
+        gstTotal: totals.gstTotal,
+        freightTotal: totals.freightTotal,
+        handlingTotal: totals.handlingTotal,
+        discountTotal: totals.discountTotal,
+        packingTotal: totals.packingTotal,
+        loadingTotal: totals.loadingTotal,
+        insuranceTotal: totals.insuranceTotal,
+        buyerTransportTotal: totals.buyerTransportTotal,
+        deliveryTermsType: (input.deliveryTermsType ?? "DELIVERED_SITE") as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM",
+        deliveryTerms: input.deliveryTerms ?? null,
         validUntil: input.validUntil,
         notes: input.notes,
         submittedById: input.submittedById,
         status: "PENDING",
         lines: {
-          create: lines.map((l) => ({
+          create: computedLines.map((l) => ({
             materialId: l.materialId,
             qty: l.qty,
             unitPrice: l.unitPrice,
+            hsnCode: l.hsnCode,
+            gstRate: l.gstRate,
+            gstAmount: l.gstAmount,
+            discountPerUnit: l.discountPerUnit,
+            packingPerUnit: l.packingPerUnit,
+            freightPerUnit: l.freightPerUnit,
+            loadingPerUnit: l.loadingPerUnit,
+            insurancePerUnit: l.insurancePerUnit,
+            handlingPerUnit: l.handlingPerUnit,
+            buyerTransportPerUnit: l.buyerTransportPerUnit,
+            unitLandedCost: l.unitLandedCost,
+            taxableValue: l.taxableValue,
+            lineSubtotal: l.lineSubtotal,
             lineTotal: l.lineTotal,
           })),
         },
@@ -201,7 +265,7 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
         requisitionId: input.requisitionId,
         supplierId: input.supplierId,
         landedTotal: quote.landedTotal.toString(),
-        lineCount: lines.length,
+        lineCount: computedLines.length,
       },
     });
     return quote;
@@ -213,10 +277,23 @@ export interface UpdateVendorQuoteInput {
   landedTotal?: Decimal | number | string;
   validUntil?: Date | null;
   notes?: string | null;
+  deliveryTermsType?: "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";
+  deliveryTerms?: string | null;
+  paymentTerms?: string | null;
+  leadTimeDays?: number | null;
+  warranty?: string | null;
   lines?: {
     materialId: string;
     qty: Decimal | number | string;
     unitPrice: Decimal | number | string;
+    gstRate?: Decimal | number | string;
+    discountPerUnit?: Decimal | number | string;
+    packingPerUnit?: Decimal | number | string;
+    freightPerUnit?: Decimal | number | string;
+    loadingPerUnit?: Decimal | number | string;
+    insurancePerUnit?: Decimal | number | string;
+    handlingPerUnit?: Decimal | number | string;
+    buyerTransportPerUnit?: Decimal | number | string;
   }[];
   userId?: string;
 }
@@ -231,25 +308,97 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
     if (quote.status === "SELECTED") throw new ServiceError("Cannot edit a selected (winning) quote");
 
     const data: Record<string, unknown> = {};
-    if (input.landedTotal !== undefined) data.landedTotal = new Decimal(input.landedTotal);
     if (input.validUntil !== undefined) data.validUntil = input.validUntil;
     if (input.notes !== undefined) data.notes = input.notes;
 
     if (input.lines) {
+      // Fetch requisition/quotation lines + materials for HSN/GST lookup
+      let reqLineMap = new Map<string, { material: { hsnCode: string | null; gstRate: Decimal } }>();
+      if (quote.requisitionId) {
+        const reqLines = await tx.materialRequisitionLine.findMany({
+          where: { requisitionId: quote.requisitionId },
+          select: { materialId: true, material: { select: { hsnCode: true, gstRate: true } } },
+        });
+        reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
+      } else if (quote.quotationRequestId) {
+        const reqLines = await tx.quotationRequestLine.findMany({
+          where: { quotationRequestId: quote.quotationRequestId },
+          select: { materialId: true, material: { select: { hsnCode: true, gstRate: true } } },
+        });
+        reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
+      }
+
+      // Compute landed cost per line
+      const computedLines = input.lines.map((l) => {
+        const reqLine = reqLineMap.get(l.materialId);
+        const gstRate = l.gstRate ?? reqLine?.material.gstRate ?? 0;
+        const computed = computeLineLandedCost({
+          unitPrice: l.unitPrice,
+          gstRate,
+          qty: l.qty,
+          discountPerUnit: l.discountPerUnit ?? 0,
+          packingPerUnit: l.packingPerUnit ?? 0,
+          freightPerUnit: l.freightPerUnit ?? 0,
+          loadingPerUnit: l.loadingPerUnit ?? 0,
+          insurancePerUnit: l.insurancePerUnit ?? 0,
+          handlingPerUnit: l.handlingPerUnit ?? 0,
+          buyerTransportPerUnit: l.buyerTransportPerUnit ?? 0,
+        });
+        return {
+          materialId: l.materialId,
+          hsnCode: reqLine?.material.hsnCode ?? null,
+          ...computed,
+        };
+      });
+
+      const totals = computeQuoteTotals(computedLines);
+
       // Replace all lines
       await tx.vendorQuoteLine.deleteMany({ where: { vendorQuoteId: input.quoteId } });
-      for (const l of input.lines) {
+      for (const l of computedLines) {
         await tx.vendorQuoteLine.create({
           data: {
             vendorQuoteId: input.quoteId,
             materialId: l.materialId,
-            qty: new Decimal(l.qty),
-            unitPrice: new Decimal(l.unitPrice),
-            lineTotal: new Decimal(l.qty).times(new Decimal(l.unitPrice)),
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            hsnCode: l.hsnCode,
+            gstRate: l.gstRate,
+            gstAmount: l.gstAmount,
+            discountPerUnit: l.discountPerUnit,
+            packingPerUnit: l.packingPerUnit,
+            freightPerUnit: l.freightPerUnit,
+            loadingPerUnit: l.loadingPerUnit,
+            insurancePerUnit: l.insurancePerUnit,
+            handlingPerUnit: l.handlingPerUnit,
+            buyerTransportPerUnit: l.buyerTransportPerUnit,
+            unitLandedCost: l.unitLandedCost,
+            taxableValue: l.taxableValue,
+            lineSubtotal: l.lineSubtotal,
+            lineTotal: l.lineTotal,
           },
         });
       }
+
+      // Update header totals from computed lines
+      data.subtotal = totals.subtotal;
+      data.gstTotal = totals.gstTotal;
+      data.freightTotal = totals.freightTotal;
+      data.handlingTotal = totals.handlingTotal;
+      data.discountTotal = totals.discountTotal;
+      data.packingTotal = totals.packingTotal;
+      data.loadingTotal = totals.loadingTotal;
+      data.insuranceTotal = totals.insuranceTotal;
+      data.buyerTransportTotal = totals.buyerTransportTotal;
+      data.landedTotal = input.landedTotal !== undefined ? new Decimal(input.landedTotal) : totals.landedTotal;
+    } else if (input.landedTotal !== undefined) {
+      data.landedTotal = new Decimal(input.landedTotal);
     }
+    if (input.deliveryTermsType !== undefined) data.deliveryTermsType = input.deliveryTermsType;
+    if (input.deliveryTerms !== undefined) data.deliveryTerms = input.deliveryTerms;
+    if (input.paymentTerms !== undefined) data.paymentTerms = input.paymentTerms;
+    if (input.leadTimeDays !== undefined) data.leadTimeDays = input.leadTimeDays;
+    if (input.warranty !== undefined) data.warranty = input.warranty;
 
     const updated = await tx.vendorQuote.update({
       where: { id: input.quoteId },
@@ -257,8 +406,8 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
       include: { lines: true },
     });
 
-    // Recompute cheapest flags
-    await recomputeCheapestFlags(tx, quote.requisitionId);
+    // Recompute cheapest flags (only for requisition-linked quotes)
+    if (quote.requisitionId) await recomputeCheapestFlags(tx, quote.requisitionId);
 
     await logAction(tx, {
       userId: input.userId,
@@ -281,8 +430,8 @@ export async function deleteVendorQuote(quoteId: string, userId?: string) {
     await tx.vendorQuoteLine.deleteMany({ where: { vendorQuoteId: quoteId } });
     await tx.vendorQuote.delete({ where: { id: quoteId } });
 
-    // Recompute cheapest flags for the remaining quotes
-    await recomputeCheapestFlags(tx, quote.requisitionId);
+    // Recompute cheapest flags for the remaining quotes (only for requisition-linked quotes)
+    if (quote.requisitionId) await recomputeCheapestFlags(tx, quote.requisitionId);
 
     await logAction(tx, {
       userId,
@@ -315,6 +464,9 @@ export async function selectWinningQuote(input: SelectWinnerInput) {
     });
     if (!quote) throw new ServiceError("Quote not found", 404);
     if (quote.status === "SELECTED") throw new ServiceError("This quote is already selected");
+    if (!quote.requisitionId || !quote.requisition) {
+      throw new ServiceError("This quote is not linked to a requisition");
+    }
     if (quote.requisition.status === "CONVERTED") {
       throw new ServiceError("Cannot select a quote for an already-converted requisition");
     }
@@ -351,7 +503,7 @@ export async function selectWinningQuote(input: SelectWinnerInput) {
       entityType: "VendorQuote",
       entityId: input.quoteId,
       after: {
-        requisitionId: quote.requisitionId,
+        requisitionId: quote.requisitionId ?? undefined,
         supplierId: quote.supplierId,
         landedTotal: updated.landedTotal.toString(),
         selectionReason: input.selectionReason ?? null,
@@ -574,8 +726,10 @@ export async function getPurchaserPerformance(
   }>();
 
   // Also group quotes by requisition to compute potential savings
+  // (skip standalone quotation-request quotes that have no requisition)
   const quotesByRequisition = new Map<string, typeof quotes>();
   for (const q of quotes) {
+    if (!q.requisitionId) continue;
     const arr = quotesByRequisition.get(q.requisitionId) ?? [];
     arr.push(q);
     quotesByRequisition.set(q.requisitionId, arr);
@@ -623,7 +777,7 @@ export async function getPurchaserPerformance(
       byUser.set(userId, entry);
     }
     entry.quotesUploaded++;
-    entry.requisitionIds.add(q.requisitionId);
+    if (q.requisitionId) entry.requisitionIds.add(q.requisitionId);
 
     // Check if this quote was the cheapest AND was selected
     if (q.status === "SELECTED") {

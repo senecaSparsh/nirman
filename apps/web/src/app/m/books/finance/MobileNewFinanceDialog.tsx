@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Wallet, Building2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 type Tab = "expense" | "projectCost";
 
@@ -23,7 +25,7 @@ interface ExpenseForm {
 
 interface ProjectCostForm {
   projectId: string;
-  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "OTHER";
+  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "TRANSFER_DUTY" | "OTHER";
   amount: string;
   date: string;
   vendor: string;
@@ -36,6 +38,7 @@ const COST_TYPE_LABELS: Record<ProjectCostForm["costType"], string> = {
   EQUIPMENT: "Equipment",
   CONTRACTOR: "Contractor",
   PERMIT: "Permit",
+  TRANSFER_DUTY: "Transfer Duty",
   OTHER: "Other",
 };
 
@@ -49,6 +52,10 @@ const EXPENSE_CATEGORIES = [
   "Marketing",
   "Insurance",
   "Rent",
+  "Transfer Duty",
+  "Stamp Duty",
+  "Registration Fee",
+  "Legal Fees",
   "Miscellaneous",
 ];
 
@@ -223,13 +230,18 @@ export function MobileNewFinanceDialog({
           {tab === "expense" ? (
             <>
               {/* Project (optional for expenses) */}
-              <div>
-                <label className={labelClass} style={labelStyle}>Project (optional)</label>
-                <select value={expenseForm.projectId} onChange={(e) => setExpense("projectId", e.target.value)} className={inputClass} style={inputStyle}>
-                  <option value="">— General (no project) —</option>
-                  {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                </select>
-              </div>
+              <MobileSelectWithCreate
+                label="Project (optional)"
+                value={expenseForm.projectId}
+                onChange={(v) => setExpense("projectId", v)}
+                placeholder="— General (no project) —"
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                renderDialog={({ open, onClose, onCreated }) => (
+                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                )}
+              />
 
               {/* Category */}
               <div>
@@ -261,13 +273,19 @@ export function MobileNewFinanceDialog({
           ) : (
             <>
               {/* Project (required for project costs) */}
-              <div>
-                <label className={labelClass} style={labelStyle}>Project <span style={{ color: "var(--color-stop)" }}>*</span></label>
-                <select value={costForm.projectId} onChange={(e) => setCost("projectId", e.target.value)} className={inputClass} style={inputStyle}>
-                  <option value="">— Select project —</option>
-                  {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                </select>
-              </div>
+              <MobileSelectWithCreate
+                label="Project"
+                required
+                value={costForm.projectId}
+                onChange={(v) => setCost("projectId", v)}
+                placeholder="— Select project —"
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                renderDialog={({ open, onClose, onCreated }) => (
+                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                )}
+              />
 
               {/* Cost Type */}
               <div>

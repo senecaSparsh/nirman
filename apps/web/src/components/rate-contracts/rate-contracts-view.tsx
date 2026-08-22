@@ -10,8 +10,12 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
+import type { MaterialCategory } from "@/lib/types";
 import { FileText, Plus, XCircle } from "lucide-react";
 
 type RateContract = {
@@ -114,7 +118,7 @@ function rcColumnsWithActions(onCancel: (id: string) => void): Column<RateContra
   ];
 }
 
-export function RateContractsView({ canCreate }: { canCreate: boolean }) {
+export function RateContractsView({ canCreate, categories }: { canCreate: boolean; categories: MaterialCategory[] }) {
   const [contracts, setContracts] = useState<RateContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -194,6 +198,7 @@ export function RateContractsView({ canCreate }: { canCreate: boolean }) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreated={loadContracts}
+        categories={categories}
       />
       {confirmDialog}
     </div>
@@ -204,10 +209,12 @@ function RateContractDialog({
   open,
   onOpenChange,
   onCreated,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  categories: MaterialCategory[];
 }) {
   const [form, setForm] = useState({
     supplierId: "",
@@ -277,16 +284,30 @@ function RateContractDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Supplier" required>
-            <Select value={form.supplierId} onChange={(e) => set("supplierId", e.target.value)} required>
-              <option value="">— Select supplier —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={form.supplierId}
+              onChange={(v) => set("supplierId", v)}
+              required
+              placeholder="— Select supplier —"
+              createLabel="supplier"
+              options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { setSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+              )}
+            />
           </Field>
           <Field label="Material" required>
-            <Select value={form.materialId} onChange={(e) => set("materialId", e.target.value)} required>
-              <option value="">— Select material —</option>
-              {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={form.materialId}
+              onChange={(v) => set("materialId", v)}
+              required
+              placeholder="— Select material —"
+              createLabel="material"
+              options={materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { setMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "" }]); onCreated(e); }} />
+              )}
+            />
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">

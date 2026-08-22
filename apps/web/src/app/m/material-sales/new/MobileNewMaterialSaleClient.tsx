@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  Plus, Trash2, Loader2, ChevronLeft, CheckCircle2, IndianRupee,
+  Plus, Trash2, Loader2, CheckCircle2, IndianRupee,
   Search, X, ChevronRight, User, MapPin, Package, Building2,
   Wallet, Send, WifiOff,
 } from "lucide-react";
@@ -15,6 +14,9 @@ import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { haptic } from "@/lib/haptic";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 
 interface CustomerItem { id: string; name: string; phone?: string | null; }
 interface LocationItem { id: string; name: string; type: string; }
@@ -68,6 +70,7 @@ export default function MobileNewMaterialSaleClient() {
     { id: crypto.randomUUID(), amount: "", mode: "CASH" },
   ]);
   const [notes, setNotes] = useState("");
+  const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
   const [lines, setLines] = useState<SaleLine[]>([{ materialId: "", locationId: "", qty: "", unitPrice: "" }]);
 
   const [success, setSuccess] = useState<{ saleNumber: string; totalAmount: number; amountPaid?: number } | null>(null);
@@ -224,6 +227,11 @@ export default function MobileNewMaterialSaleClient() {
         customerId,
         projectId: projectId || null,
         paymentMode: paymentType === "credit" ? null : validSplits[0]?.mode ?? null,
+        vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+        vehicleType: vehicle.vehicleType || undefined,
+        vehiclePhotoUrl: vehicle.photoUrl,
+        driverName: vehicle.driverName,
+        driverPhone: vehicle.driverPhone,
         notes: notes || null,
         lines: validLines.map((l) => {
           const mat = materials.find((m) => m.id === l.materialId);
@@ -427,6 +435,8 @@ export default function MobileNewMaterialSaleClient() {
         paymentSplits={paymentSplits}
         setPaymentSplits={setPaymentSplits}
         notes={notes}
+        vehicle={vehicle}
+        setVehicle={setVehicle}
         setNotes={setNotes}
         lines={lines}
         setLines={setLines}
@@ -455,6 +465,7 @@ function SaleForm({
   paymentType, setPaymentType,
   paymentSplits, setPaymentSplits,
   notes, setNotes,
+  vehicle, setVehicle,
   lines, setLines: _setLines,
   onAddLine, onRemoveLine, onLineChange,
   onSubmit, submitting,
@@ -475,6 +486,8 @@ function SaleForm({
   setPaymentSplits: React.Dispatch<React.SetStateAction<PaymentSplit[]>>;
   notes: string;
   setNotes: (v: string) => void;
+  vehicle: VehicleData;
+  setVehicle: (v: VehicleData) => void;
   lines: SaleLine[];
   setLines: React.Dispatch<React.SetStateAction<SaleLine[]>>;
   onAddLine: () => void;
@@ -493,6 +506,13 @@ function SaleForm({
     type: "customer" | "project" | "material" | "location";
     lineIndex?: number;
   } | null>(null);
+  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
+  const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false);
+  const [extraCustomers, setExtraCustomers] = useState<CustomerItem[]>([]);
+  const [extraMaterials, setExtraMaterials] = useState<MaterialItem[]>([]);
+
+  const allCustomers = useMemo(() => [...customers, ...extraCustomers], [customers, extraCustomers]);
+  const allMaterials = useMemo(() => [...materials, ...extraMaterials], [materials, extraMaterials]);
 
   const closeModal = () => setModal(null);
 
@@ -510,24 +530,6 @@ function SaleForm({
 
   return (
     <div className="pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/material-sales" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Material Sale
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
-        >
-          <IndianRupee className="size-2.5" />
-          Sale
-        </span>
-      </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
@@ -868,6 +870,14 @@ function SaleForm({
           </div>
         )}
 
+        {/* Vehicle / Carrier — how goods are dispatched */}
+        <div>
+          <label className="text-[0.5625rem] font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            Vehicle / Carrier
+          </label>
+          <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+        </div>
+
         {/* Notes */}
         <div>
           <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
@@ -952,9 +962,9 @@ function SaleForm({
             "Select Location"
           }
           items={
-            modal.type === "customer" ? customers.map((c) => ({ id: c.id, label: c.name, sub: c.phone ?? undefined })) :
+            modal.type === "customer" ? allCustomers.map((c) => ({ id: c.id, label: c.name, sub: c.phone ?? undefined })) :
             modal.type === "project" ? [{ id: "", label: "No project linkage", sub: undefined }, ...projects.map((p) => ({ id: p.id, label: p.name }))] :
-            modal.type === "material" ? materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST` })) :
+            modal.type === "material" ? allMaterials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST` })) :
             locations.map((l) => ({ id: l.id, label: l.name, sub: l.type.replace(/_/g, " ").toLowerCase() }))
           }
           selectedId={
@@ -965,8 +975,46 @@ function SaleForm({
           }
           onSelect={handleSelect}
           onClose={closeModal}
+          onCreate={
+            modal.type === "customer" ? () => { setShowNewCustomerDialog(true); } :
+            modal.type === "material" ? () => { setShowNewMaterialDialog(true); } :
+            undefined
+          }
+          createLabel={
+            modal.type === "customer" ? "Create new customer" :
+            modal.type === "material" ? "Create new material" :
+            undefined
+          }
         />
       ) : null}
+
+      {/* Inline customer create dialog */}
+      <MobileNewCustomerDialog
+        open={showNewCustomerDialog}
+        onClose={() => setShowNewCustomerDialog(false)}
+        onCreated={(c) => {
+          setExtraCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: null }]);
+          setCustomerId(c.id);
+          setShowNewCustomerDialog(false);
+          closeModal();
+        }}
+      />
+
+      {/* Inline material create dialog */}
+      <MobileNewMaterialDialog
+        open={showNewMaterialDialog}
+        onClose={() => setShowNewMaterialDialog(false)}
+        categories={[]}
+        onCreated={(m) => {
+          const newMat: MaterialItem = { id: m.id, name: m.name, code: m.code, unit: m.unit, gstRate: m.gstRate };
+          setExtraMaterials((prev) => [...prev, newMat]);
+          if (modal?.lineIndex !== undefined) {
+            onLineChange(modal.lineIndex, "materialId", m.id);
+          }
+          setShowNewMaterialDialog(false);
+          closeModal();
+        }}
+      />
     </div>
   );
 }
@@ -1128,7 +1176,7 @@ function SelectorRow({
  * Selector modal — bottom-sheet with searchable list
  * ═══════════════════════════════════════════════════════════ */
 function SelectorModal({
-  title, items, selectedId, onSelect, onClose,
+  title, items, selectedId, onSelect, onClose, onCreate, createLabel,
 }: {
   type: "customer" | "project" | "material" | "location";
   title: string;
@@ -1136,6 +1184,8 @@ function SelectorModal({
   selectedId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
+  onCreate?: () => void;
+  createLabel?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -1228,6 +1278,21 @@ function SelectorModal({
             })
           )}
         </div>
+
+        {/* Create new button */}
+        {onCreate ? (
+          <div className="border-t p-2" style={{ borderColor: "var(--color-line)" }}>
+            <button
+              type="button"
+              onClick={onCreate}
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-3.5" />
+              {createLabel ?? "Create new"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

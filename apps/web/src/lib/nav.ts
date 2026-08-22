@@ -36,6 +36,7 @@ import {
   Scale,
   History,
   Calculator,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -81,18 +82,24 @@ import {
 export type WorldKey = "today" | "build" | "hr" | "finance";
 
 /** Every role in the system. Shorthand for "everyone sees this". */
-export const EVERYONE = ["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"];
-/** Roles that run the business day-to-day. */
-const OPS = ["OWNER", "ADMIN", "MANAGER", "SUPERVISOR"];
+export const EVERYONE = [
+  "OWNER", "ADMIN",
+  "PROJECT_DIRECTOR", "FINANCE_HEAD",
+  "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "HR_MANAGER",
+  "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTANT", "SALES_MANAGER",
+  "SUPERVISOR", "QAQC_ENGINEER",
+];
+/** Roles that run the business day-to-day (operations). */
+const OPS = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "SUPERVISOR", "QAQC_ENGINEER"];
 /** Roles that touch money. */
-const BOOKS = ["OWNER", "ADMIN", "MANAGER", "ACCOUNTANT"];
+const BOOKS = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJECT_MANAGER", "ACCOUNTANT"];
 /** Roles that touch selling. */
-const SELLING = ["OWNER", "ADMIN", "MANAGER", "SALES", "ACCOUNTANT"];
+const SELLING = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"];
 /** Leadership only. */
-const LEADERSHIP = ["OWNER", "ADMIN", "MANAGER"];
+const LEADERSHIP = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJECT_MANAGER"];
 const OWNERS = ["OWNER", "ADMIN"];
 /** Roles that see reports (finance users plus field/sales who need a few). */
-const REPORTS = [...BOOKS, "SUPERVISOR", "SALES"];
+const REPORTS = [...BOOKS, "SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "PROCUREMENT_MANAGER", "HR_MANAGER"];
 
 export type NavLink = {
   label: string;
@@ -288,6 +295,15 @@ export const WORLDS: World[] = [
             keywords: ["indent", "requisition", "request", "ask", "demand", "material request"],
           },
           {
+            label: "Quotations",
+            href: "/quotations",
+            icon: FileText,
+            hint: "Collect supplier quotes, compare per-piece landed cost (with auto GST), and approve the winner",
+            roles: [...OPS, "ACCOUNTANT", "SALES_MANAGER"],
+            badge: { endpoint: "/api/quotations?scope=pending" },
+            keywords: ["quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "hsn", "gst", "landed cost", "per piece"],
+          },
+          {
             label: "Purchase Orders",
             href: "/procurement",
             icon: Truck,
@@ -374,6 +390,15 @@ export const WORLDS: World[] = [
             keywords: ["machine", "tool", "asset", "plant", "maintenance", "equipment"],
           },
           {
+            label: "Gate Passes",
+            href: "/gate-passes",
+            icon: ShieldCheck,
+            hint: "Outbound gate passes — items cannot leave the gate until an authorized person approves",
+            roles: OPS,
+            badge: { endpoint: "/api/gate-passes?status=PENDING" },
+            keywords: ["gate pass", "gate out", "exit pass", "outward", "security", "approval", "dispatch approval"],
+          },
+          {
             label: "Consumption Benchmarks",
             href: "/standard-consumptions",
             icon: Ruler,
@@ -445,6 +470,15 @@ export const WORLDS: World[] = [
             keywords: ["site", "tower", "phase", "construction", "wip", "project", "rera"],
           },
           {
+            label: "Permissions & Legal",
+            href: "/permissions",
+            icon: Scale,
+            hint: "All permissions, licenses, NOCs, sanctions, and certificates across every project and land parcel — with validity tracking and expiry alerts",
+            roles: [...OPS, "ACCOUNTANT", "SALES_MANAGER"],
+            badge: { endpoint: "/api/legal-documents?all=true&status=PENDING,EXPIRED,RENEWAL_DUE" },
+            keywords: ["permission", "legal", "noc", "sanction", "license", "certificate", "fire", "pollution", "completion", "occupancy", "agreement to sell", "transfer duty", "building permission", "map approval", "cla", "registry"],
+          },
+          {
             label: "BOQ",
             href: "/boq",
             icon: ClipboardList,
@@ -476,13 +510,29 @@ export const WORLDS: World[] = [
             roles: BOOKS,
             keywords: ["subcontractor", "work order", "ra bill", "running account", "tds", "retention", "contractor"],
           },
+          {
+            label: "Change Orders",
+            href: "/change-orders",
+            icon: GitBranch,
+            hint: "Formal modifications to project scope, BOQ, budget, and schedule with approval workflow",
+            roles: BOOKS,
+            keywords: ["change order", "scope change", "variation", "modification", "addition", "deletion", "budget change", "schedule change"],
+          },
+          {
+            label: "Quality Control",
+            href: "/quality-control",
+            icon: ClipboardCheck,
+            hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)",
+            roles: BOOKS,
+            keywords: ["quality", "ncr", "capa", "non-conformance", "corrective", "preventive", "qa", "qc", "defect", "rework"],
+          },
           // ── Construction reports (hidden from sidebar, on /reports) ──
           {
             label: "Project Progress",
             href: "/reports/project-progress",
             icon: Building2,
             hint: "Planned against actual — per site",
-            roles: [...BOOKS, "SUPERVISOR", "SALES"],
+            roles: [...BOOKS, "SUPERVISOR", "SALES_MANAGER"],
             keywords: ["progress", "schedule", "delay", "phase", "completion", "project progress"],
             hidden: true,
             group: RG.CONSTRUCT,
@@ -561,7 +611,7 @@ export const WORLDS: World[] = [
             href: "/reports/real-estate-inventory",
             icon: Building2,
             hint: "Units sold, remaining, monthly additions, construction cost per project — the real estate inventory dashboard",
-            roles: [...BOOKS, "SALES", "SUPERVISOR"],
+            roles: [...BOOKS, "SALES_MANAGER", "SUPERVISOR"],
             keywords: ["real estate", "inventory", "units", "sold", "available", "construction cost", "land cost", "asset value", "monthly additions", "whole", "subdivided", "plots", "flats"],
             hidden: true,
             group: RG.SELL,
@@ -571,7 +621,7 @@ export const WORLDS: World[] = [
             href: "/reports/sales-revenue",
             icon: ShoppingCart,
             hint: "What sold, at what price, and the trend",
-            roles: [...BOOKS, "SALES"],
+            roles: [...BOOKS, "SALES_MANAGER"],
             keywords: ["revenue", "sales", "booking", "trend", "collection"],
             hidden: true,
             group: RG.SELL,
@@ -936,8 +986,13 @@ export function linkForPath(pathname: string): (NavLink & { world: WorldKey }) |
 export function homeWorldFor(role: string): World {
   const map: Record<string, WorldKey> = {
     SUPERVISOR: "hr",
-    SALES: "build",
+    QAQC_ENGINEER: "hr",
+    SITE_ENGINEER: "hr",
+    STORE_KEEPER: "build",
+    SALES_MANAGER: "build",
     ACCOUNTANT: "finance",
+    FINANCE_HEAD: "finance",
+    PROCUREMENT_MANAGER: "build",
   };
   const key = map[role];
   if (key) {

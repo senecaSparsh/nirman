@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import {
   Building2, Home, ClipboardList,
   MapPin, Calendar, TrendingUp, PackageCheck,
-  FileText, CalendarCheck,
+  FileText, CalendarCheck, ShieldCheck,
 } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
@@ -19,6 +19,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
+import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -69,7 +70,7 @@ async function MobileProjectDetailContent({
     );
   }
 
-  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance] =
+  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance, legalDocs] =
     await Promise.all([
       prisma.builtUnit.findMany({
         where: { projectId: id, deletedAt: null },
@@ -115,6 +116,11 @@ async function MobileProjectDetailContent({
         orderBy: { date: "desc" },
         take: 5,
         include: { employee: { select: { name: true } } },
+      }),
+      // Legal documents for this project
+      prisma.legalDocument.findMany({
+        where: { projectId: id, companyId: company.id, deletedAt: null },
+        orderBy: [{ type: "asc" }, { createdAt: "desc" }],
       }),
     ]);
 
@@ -214,6 +220,16 @@ async function MobileProjectDetailContent({
             <p className="text-[0.6875rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {typeLabel} · {project.status}
             </p>
+            {project.reraNumber && (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.5rem] font-bold"
+                style={{
+                  color: "var(--color-go)",
+                  backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
+                }}>
+                <ShieldCheck className="size-2.5" />
+                RERA: {project.reraNumber}
+              </div>
+            )}
           </div>
           {canManage && (
             <MobileEditProjectButton
@@ -228,6 +244,10 @@ async function MobileProjectDetailContent({
                 totalBudget: project.totalBudget ? toNum(project.totalBudget) : null,
                 totalSellableArea: project.totalSellableArea ? toNum(project.totalSellableArea) : null,
                 description: project.description,
+                reraNumber: project.reraNumber,
+                reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
+                reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
+                reraWebsiteUrl: project.reraWebsiteUrl,
               }}
             />
           )}
@@ -586,6 +606,37 @@ async function MobileProjectDetailContent({
           </div>
         </>
       ) : null}
+
+      {/* ── Legal documents (permissions, licenses, NOCs, certificates, ATS) ── */}
+      <MobileLegalDocsSection
+        docs={legalDocs.map((d) => ({
+          id: d.id,
+          landPurchaseId: d.landPurchaseId,
+          projectId: d.projectId,
+          type: d.type,
+          title: d.title,
+          authority: d.authority,
+          status: d.status,
+          appliesTo: d.appliesTo,
+          docNumber: d.docNumber,
+          sortOrder: d.sortOrder,
+          prerequisiteType: d.prerequisiteType,
+          obtained: d.obtained,
+          applicationDate: d.applicationDate?.toISOString() ?? null,
+          issueDate: d.issueDate?.toISOString() ?? null,
+          validFrom: d.validFrom?.toISOString() ?? null,
+          validTill: d.validTill?.toISOString() ?? null,
+          amount: d.amount ? toNum(d.amount) : null,
+          expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
+          documentUrl: d.documentUrl,
+          documentName: d.documentName,
+          notes: d.notes,
+          createdAt: d.createdAt.toISOString(),
+        }))}
+        projectId={id}
+        canManage={hasPermission(role, PERM.LEGAL_MANAGE)}
+        context="PROJECT"
+      />
     </div>
   );
 }

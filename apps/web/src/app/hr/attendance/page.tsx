@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { PageHeader } from "@/components/page-header";
 import { AttendanceView } from "@/components/hr/attendance-view";
 
 import { NoAccess } from "@/components/no-access";
@@ -119,14 +120,24 @@ async function AttendanceContent() {
   }));
 
   return (
-    <AttendanceView
-      employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      recentAttendance={attendanceRows}
-      todayDate={todayDateOnly.toISOString().split("T")[0] || ""}
-      permissions={perms}
-      leaveRows={leaveRows}
-      leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
-    />
+    <>
+      <PageHeader
+        title="Attendance"
+        description="Daily worker attendance with GPS check-in/out. Track present, absent, half-day, and overtime."
+        stats={[
+          { label: "Records", value: attendanceRows.length },
+          { label: "Pending leaves", value: leaveRows.filter(l => l.status === "PENDING").length },
+        ]}
+      />
+      <AttendanceView
+        employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        recentAttendance={attendanceRows}
+        todayDate={todayDateOnly.toISOString().split("T")[0] || ""}
+        permissions={perms}
+        leaveRows={leaveRows}
+        leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
+      />
+    </>
   );
 }

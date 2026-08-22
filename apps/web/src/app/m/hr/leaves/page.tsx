@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
@@ -15,6 +14,8 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileLeavesList } from "./MobileLeavesList";
 import { MobileLeavesFab } from "./MobileLeavesFab";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/hr/leaves — mobile leave management.
@@ -75,12 +76,31 @@ async function MobileLeavesContent() {
     ) + 1,
   }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "employeeName", label: "Employee" },
+    { key: "employeeTrade", label: "Trade" },
+    { key: "type", label: "Leave Type" },
+    { key: "startDate", label: "From Date", format: "date" },
+    { key: "endDate", label: "To Date", format: "date" },
+    { key: "days", label: "Days" },
+    { key: "status", label: "Status" },
+  ];
+
   return (
     <div>
       <div className="grid grid-cols-3 gap-2.5 mb-4">
         <MobileStatCard label="On Leave Today" value={String(onLeaveToday)} icon={CalendarDays} tone={onLeaveToday > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Pending" value={String(pending)} icon={CalendarDays} tone={pending > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Approved" value={String(approved)} icon={CalendarDays} tone="go" />
+      </div>
+
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Leaves"
+          rows={serialized as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${serialized.length} leave records · ${pending} pending`}
+        />
       </div>
 
       <MobileLeavesList items={serialized} />

@@ -86,7 +86,7 @@ async function MobileCustomerDetailContent({
       saleDate: s.saleDate.toISOString(),
       saleStage: s.saleStage,
       paymentStatus: s.paymentStatus,
-      projectName: s.project.name,
+      projectName: s.project?.name ?? "Standalone",
     };
   });
 

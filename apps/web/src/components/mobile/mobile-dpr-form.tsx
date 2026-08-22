@@ -96,6 +96,7 @@ export function MobileDprForm({
   const [fNotes, setFNotes] = useState("");
   const [fPhotos, setFPhotos] = useState<{ url: string; fileName?: string }[]>([]);
   const [editingDprId, setEditingDprId] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const [materialLines, setMaterialLines] = useState<MaterialLine[]>([]);
   const [laborLines, setLaborLines] = useState<LaborLine[]>([]);
@@ -344,12 +345,12 @@ export function MobileDprForm({
       )}
 
       {/* ── Draft restoration banner ─────────────────────────── */}
-      {hasDraft && !editingDprId && (
+      {hasDraft && !editingDprId && !draftRestored && (
         <DraftBanner
           formName="DPR"
           updatedAt={draftUpdatedAt}
-          onRestore={restoreDraft}
-          onDiscard={clearDraft}
+          onRestore={() => { restoreDraft(); setDraftRestored(true); }}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
         />
       )}
 

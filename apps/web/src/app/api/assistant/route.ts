@@ -21,7 +21,7 @@ import {
 import { apiHandler, json, requireUser, getCompany, toNum, getCurrentUser } from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
 import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
-import { hasPermission, PERM, type Role } from "@/lib/roles";
+import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +73,7 @@ interface ParsedEntities {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
-  const role = (user.role ?? "MANAGER") as Role;
+  const role = (user.role ?? "PROJECT_MANAGER") as Role;
 
   const body = await req.json();
   const text: string = (body?.text ?? "").trim();
@@ -373,15 +373,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
 }
 
 function roleLabel(role: Role): string {
-  const labels: Record<Role, string> = {
-    OWNER: "Owner",
-    ADMIN: "Admin",
-    MANAGER: "Manager",
-    SUPERVISOR: "Supervisor",
-    SALES: "Sales",
-    ACCOUNTANT: "Accountant",
-  };
-  return labels[role] ?? role;
+  return ROLES[role]?.label ?? role;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -389,7 +381,7 @@ function roleLabel(role: Role): string {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function greetingResponse(role: Role): AssistantResponse {
-  const greetings: Record<Role, string[]> = {
+  const greetings: Partial<Record<Role, string[]>> = {
     OWNER: [
       "Namaste! Main Sahayak hoon. Aapka poora business ready hai. Bataiye, kya dekhna hai?",
       "Hello Owner! Sab kuch ready hai — stock, sales, approvals, finance. Bolo kya chahiye.",
@@ -398,15 +390,15 @@ function greetingResponse(role: Role): AssistantResponse {
       "Namaste! Admin mode. Sab modules ready hain. Bataiye kya help karu?",
       "Hello! Aapka system ready hai. Stock, approvals, finance — sab poochho.",
     ],
-    MANAGER: [
-      "Namaste! Manager mode. Projects, procurement, inventory — sab manage kar sakte ho. Bolo?",
+    PROJECT_MANAGER: [
+      "Namaste! Project Manager mode. Projects, procurement, inventory — sab manage kar sakte ho. Bolo?",
       "Hello! Aapke projects aur approvals ready hain. Kya karna hai?",
     ],
     SUPERVISOR: [
       "Namaste! Supervisor mode. Site, stock, attendance, DPR — sab dekh sakte ho. Bolo?",
       "Hello! Site updates ke liye ready hoon. Attendance, stock, DPR — kya chahiye?",
     ],
-    SALES: [
+    SALES_MANAGER: [
       "Namaste! Sales mode. Customers, sales, payments — sab ready. Bolo kya karna hai?",
       "Hello! Aapke sales tools ready hain. Naya sale, customer, payment — bolo?",
     ],
@@ -415,7 +407,7 @@ function greetingResponse(role: Role): AssistantResponse {
       "Hello! Books ready hain. Trial balance, expenses, payments — kya dekhna hai?",
     ],
   };
-  const opts = greetings[role] ?? greetings.MANAGER;
+  const opts = greetings[role] ?? greetings.PROJECT_MANAGER ?? ["Namaste! Main Sahayak hoon. Kya help karu?"];
   return {
     text: opts[Math.floor(Math.random() * opts.length)] ?? opts[0]!,
     intent: "GREETING",

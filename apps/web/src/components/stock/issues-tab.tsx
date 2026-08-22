@@ -29,6 +29,7 @@ export function IssuesTab({
   departments,
   materialOptions,
   locationOptions,
+  categories,
   canIssue,
   autoOpenForm,
 }: {
@@ -37,6 +38,7 @@ export function IssuesTab({
   departments: DepartmentOption[];
   materialOptions: MaterialOption[];
   locationOptions: StockLocationOption[];
+  categories: { id: string; name: string; unit: string }[];
   canIssue: boolean;
   autoOpenForm?: boolean;
 }) {
@@ -125,6 +127,16 @@ export function IssuesTab({
                   {i.issueNumber && (
                     <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-micro text-muted-foreground">{i.issueNumber}</span>
                   )}
+                  {i.status === "PENDING" && (
+                    <span className="rounded bg-warning/15 px-1.5 py-0.5 text-micro font-medium text-warning">
+                      Awaiting Gate Pass
+                    </span>
+                  )}
+                  {i.status === "CANCELLED" && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                      Cancelled
+                    </span>
+                  )}
                 </div>
                 <div className="mt-0.5 text-body text-muted-foreground">{i.fromLocationName}</div>
                 {i.receiverName && (
@@ -165,7 +177,7 @@ export function IssuesTab({
         </div>
       )}
 
-      <IssueFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} locations={locationOptions} materials={materialOptions} departments={departments} />
+      <IssueFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} locations={locationOptions} materials={materialOptions} departments={departments} categories={categories} />
     </div>
   );
 }

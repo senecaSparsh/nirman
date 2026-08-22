@@ -140,16 +140,31 @@ export type PurchaseOrderDetail = {
   expectedDate: string | null;
   subtotal: number;
   gstTotal: number;
+  freightTotal: number;
+  loadingTotal: number;
+  packingTotal: number;
+  insuranceTotal: number;
+  discountTotal: number;
+  miscChargesTotal: number;
   total: number;
   notes: string | null;
   createdAt: string;
   sourceRequisition: { id: string; reqNumber: string } | null;
+  charges: {
+    id: string;
+    heading: string;
+    amount: number;
+    notes: string | null;
+  }[];
   lines: {
     id: string;
     materialId: string;
     materialCode: string;
     materialName: string;
     unit: string;
+    baseUnit: string;
+    secondaryUnit: string | null;
+    uomConversionFactor: number | null;
     qtyOrdered: number;
     qtyReceived: number;
     unitCost: number;
@@ -274,6 +289,11 @@ export type ProjectRow = {
   totalProjectCost: number | null;
   totalSellableArea: number | null;
   description: string | null;
+  // RERA registration
+  reraNumber: string | null;
+  reraRegistrationDate: string | null;
+  reraValidityDate: string | null;
+  reraWebsiteUrl: string | null;
   unitCount: number;
   locationCount: number;
   phaseCount: number;
@@ -354,6 +374,7 @@ export type MaterialIssueListRow = {
   fromLocationId: string;
   fromLocationName: string;
   issueDate: string;
+  status: "PENDING" | "COMPLETED" | "CANCELLED";
   notes: string | null;
   receiverName: string | null;
   receiverMobile: string | null;
@@ -440,6 +461,7 @@ export type LandParcelSummary = {
   id: string;
   number: string;
   status: LandParcelStatus;
+  purpose?: "SELL" | "PROJECT" | "HOLD" | null;
   area: number;
   acquisitionCost: number;
   currentValuation: number;
@@ -461,6 +483,7 @@ export type LandPurchaseRow = {
   registryNo: string | null;
   location: string | null;
   documentUrl: string | null;
+  mode?: "WHOLE" | "SUBDIVIDED" | null;
   parcelCount: number;
   availableArea: number;
   // ── Aggregates for the rich card + portfolio ──
@@ -486,6 +509,7 @@ export type LandParcelRow = {
   area: number;
   areaUnit: AreaUnit;
   status: LandParcelStatus;
+  purpose?: "SELL" | "PROJECT" | "HOLD" | null;
   acquisitionCost: number;
   askingPrice: number | null;
   currentValuation: number;
@@ -587,13 +611,69 @@ export type CustomerRow = {
   activeSales: number;
 };
 
+export type LeadSource = "PORTAL" | "WALK_IN" | "REFERRAL" | "BROKER" | "DIGITAL_AD" | "OTHER";
+export type LeadStage = "NEW" | "CONTACTED" | "SITE_VISIT" | "NEGOTIATION" | "BOOKED" | "LOST";
+export type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "HOT";
+export type LeadActivityType = "CALL" | "EMAIL" | "WHATSAPP" | "MEETING" | "SITE_VISIT" | "NOTE" | "STAGE_CHANGE";
+
+export type LeadRow = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  source: LeadSource;
+  stage: LeadStage;
+  priority: LeadPriority;
+  score: number;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  interestedUnitType: string | null;
+  notes: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  interestedUnitId: string | null;
+  interestedUnitLabel: string | null;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  convertedCustomerId: string | null;
+  nextFollowUpAt: string | null;
+  lastContactAt: string | null;
+  lostReason: string | null;
+  convertedAt: string | null;
+  createdAt: string;
+  activityCount: number;
+  latestActivity: {
+    type: LeadActivityType;
+    note: string | null;
+    outcome: string | null;
+    occurredAt: string;
+  } | null;
+};
+
+export type LeadDetail = LeadRow & {
+  project: { id: string; name: string } | null;
+  interestedUnit: { id: string; unitNumber: string; unitType: string } | null;
+  assignedTo: { id: string; name: string } | null;
+  convertedCustomer: { id: string; name: string } | null;
+  updatedAt: string;
+  activities: {
+    id: string;
+    type: LeadActivityType;
+    note: string | null;
+    outcome: string | null;
+    occurredAt: string;
+    nextFollowUpAt: string | null;
+    createdByName: string | null;
+  }[];
+};
+
 // ───────────────────────────────────────────────────────────
 //  Sales module
 // ───────────────────────────────────────────────────────────
 
-export type SaleStatus = "ACTIVE" | "CANCELLED";
+export type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
-export type AssetType = "LAND" | "BUILT_UNIT";
+export type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 
 export type AssetSaleRow = {
   id: string;
@@ -609,8 +689,8 @@ export type AssetSaleRow = {
   customerId: string;
   customerName: string;
   customerPhone: string | null;
-  projectId: string;
-  projectName: string;
+  projectId: string | null;
+  projectName: string | null;
   salePrice: number;
   gstRate: number;
   gstAmount: number;
@@ -622,6 +702,65 @@ export type AssetSaleRow = {
   depositAmount: number | null;
   depositDate: string | null;
   finalSaleDate: string | null;
+  saleDeedNo: string | null;
+  expectedRegistryDate: string | null;
+  // Sale compliance documents
+  allotmentLetterNo: string | null;
+  allotmentDate: string | null;
+  bbaNo: string | null;
+  bbaDate: string | null;
+  // TDS tracking
+  tdsAmount: number | null;
+  tdsCertificateNo: string | null;
+  // Home loan tracking
+  homeLoanBank: string | null;
+  homeLoanAmount: number | null;
+  homeLoanSanctionNo: string | null;
+  homeLoanSanctionDate: string | null;
+  // Deal terms
+  dealMaturityMonths: number | null;
+  dealMaturityDate: string | null;
+  paymentCycle: string | null;
+  // Broker / deal source
+  dealSource: "SELF" | "BROKER";
+  brokerId: string | null;
+  brokerName: string | null;
+  brokerPhone: string | null;
+  brokerAgency: string | null;
+  commissionAmount: number | null;
+  commissionIsPartOfDeal: boolean;
+  commissionPaid: boolean;
+  commissionPaidDate: string | null;
+  // Sale expenses
+  expenses: {
+    id: string;
+    head: "REGISTRY" | "STAMP_DUTY" | "TRANSFER" | "LEASE_RENT" | "GST" | "OTHER";
+    label: string | null;
+    amount: number;
+    borneBy: "CLIENT" | "SELLER" | "NA";
+    isIncluded: boolean;
+  }[];
+  // Sale terms
+  terms: {
+    id: string;
+    description: string;
+    extraAmount: number | null;
+    isIncluded: boolean;
+  }[];
+  // Payment schedule
+  paymentSchedule: {
+    type: "CLP" | "TLP" | "DPP";
+    totalAmount: number;
+    items: {
+      installmentNo: number;
+      description: string;
+      percentage: number;
+      amount: number;
+      dueDate: string | null;
+      status: string;
+      paidAmount: number;
+    }[];
+  } | null;
   paymentStatus: PaymentStatus;
   paymentMode: string | null;
   notes: string | null;
@@ -649,7 +788,7 @@ export type ProjectCostRow = {
   id: string;
   projectId: string;
   projectName: string;
-  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "OTHER";
+  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "TRANSFER_DUTY" | "OTHER";
   amount: number;
   date: string;
   vendor: string | null;
@@ -675,6 +814,7 @@ export type SellableAssetRow = {
   label: string;
   projectId: string | null;
   projectName: string | null;
+  projectReraNumber: string | null;
   costBasis: number;
   askingPrice: number | null;
   currentValuation: number;
@@ -872,6 +1012,20 @@ export type VendorQuoteRow = {
   notes: string | null;
   varianceVsCheapest: number;
   createdAt: string;
+  deliveryTermsType: "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";
+  deliveryTerms: string | null;
+  buyerTransportTotal: number;
+  paymentTerms: string | null;
+  leadTimeDays: number | null;
+  warranty: string | null;
+  subtotal: number;
+  gstTotal: number;
+  freightTotal: number;
+  loadingTotal: number;
+  packingTotal: number;
+  insuranceTotal: number;
+  discountTotal: number;
+  handlingTotal: number;
   lines: {
     id: string;
     materialId: string;
@@ -880,6 +1034,18 @@ export type VendorQuoteRow = {
     unit: string;
     qty: number;
     unitPrice: number;
+    gstRate: number;
+    gstAmount: number;
+    discountPerUnit: number;
+    packingPerUnit: number;
+    freightPerUnit: number;
+    loadingPerUnit: number;
+    insurancePerUnit: number;
+    handlingPerUnit: number;
+    buyerTransportPerUnit: number;
+    unitLandedCost: number;
+    taxableValue: number;
+    lineSubtotal: number;
     lineTotal: number;
   }[];
 };

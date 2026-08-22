@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nirman Inventory OS — Land Module Flowchart</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --card: #111726;
+    --border: #1f2937;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+    --accent: #3b82f6;
+    --accent2: #8b5cf6;
+    --sell: #f59e0b;
+    --buy: #10b981;
+    --hold: #6366f1;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 32px 24px 80px;
+  }
+  .wrap { max-width: 1600px; margin: 0 auto; }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 8px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin: 24px 0 40px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .diagram-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    overflow-x: auto;
+    margin-bottom: 32px;
+  }
+  .diagram-card h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--fg);
+  }
+  .diagram-card .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+    min-width: 100%;
+  }
+  .mermaid svg {
+    max-width: none !important;
+    height: auto !important;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 20px;
+    margin-top: 32px;
+  }
+  .info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .info-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .info-card h3 .icon {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: white;
+  }
+  .info-card ul {
+    list-style: none;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  .info-card ul li {
+    padding-left: 14px;
+    position: relative;
+  }
+  .info-card ul li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+  .info-card ul li strong { color: var(--fg); font-weight: 600; }
+  .info-card code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: rgba(59,130,246,0.12);
+    color: #93c5fd;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Nirman Inventory OS — Land Module Architecture</h1>
+    <p>Complete flowchart of the land lifecycle and its full reach across the system: acquisition, partition, development, valuation, sale, rental, renovation, legal compliance, accounting, CRM/leads, portal listings, payment schedules, Tally sync, mobile field operations, and cross-module connections — mapped to the actual codebase models, services, API routes, and UI components.</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Acquisition / Master Data</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> Parcel / Subdivision</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Development / Construction</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Sale / Rental / Monetization</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Legal / Compliance</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> GL / Audit / Reporting</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Mobile / Field Operations</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> Cross-Module Connections</div>
+  </div>
+
+  <!-- DIAGRAM 1: Land Lifecycle Flow -->
+  <div class="diagram-card">
+    <h2>1. Land Lifecycle — End-to-End Flow</h2>
+    <p class="sub">From seller master → acquisition → partition → development → monetization (sale / rent / hold) → soft delete. Every transition is atomic, audited, and GL-posted.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef master fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#d1fae5
+  classDef acquire fill:#065f46,stroke:#10b981,stroke-width:2.5px,color:#d1fae5
+  classDef parcel fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff
+  classDef dev fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef sell fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef legal fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+  classDef gl fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+  classDef decision fill:#1f2937,stroke:#6b7280,stroke-width:2px,color:#f3f4f6,stroke-dasharray: 5 5
+
+  Seller["LandSeller<br/><small>Master: name, phone, GSTIN</small><br/><code>model LandSeller</code>"]:::master
+
+  Seller -->|"select or create"| Wizard["Land Purchase Wizard<br/><small>Guided: WHOLE or SUBDIVIDED</small><br/><small>Freehold / Leasehold</small><br/><small>Cost breakup: base + lease + GST</small><br/><small>+ stamp duty + brokerage + legal</small>"]:::acquire
+
+  Wizard -->|"recordLandPurchase()<br/>recordLandPurchaseWithPlan()"| LP["LandPurchase<br/><small>totalArea, totalCost, registryNo</small><br/><small>mode: WHOLE / SUBDIVIDED</small><br/><small>landType: FREEHOLD / LEASEHOLD</small><br/><code>model LandPurchase</code>"]:::acquire
+
+  LP -->|"creates parent parcel"| ParentParcel["LandParcel (Parent)<br/><small>number: PLOT-1</small><br/><small>status: AVAILABLE or PARTITIONED</small><br/><small>purpose: SELL / PROJECT / HOLD</small><br/><code>model LandParcel</code>"]:::parcel
+
+  LP -->|"auto-creates if registryNo"| OwnCert["OWNERSHIP_CERTIFICATE<br/><small>Legal Document</small><br/><code>model LegalDocument</code>"]:::legal
+
+  LP -->|"postLandPurchase()"| GL1["GL Entry<br/><small>Dr LAND_ASSET (1700)</small><br/><small>Cr CASH / BANK</small><br/><code>JournalEntry + JournalLine</code>"]:::gl
+
+  LP -->|"logAction()"| Audit1["AuditLog<br/><small>action: CREATE</small><br/><small>entityType: LandPurchase</small>"]:::gl
+
+  LP -->|"if projectId set"| Realloc1["reallocateProjectCosts()<br/><small>land cost → cost-per-sqft</small><br/><small>→ BuiltUnit.productionCost</small>"]:::gl
+
+  %% Partition branch
+  ParentParcel -->|"WHOLE mode"| WholeParcel["Single Sellable Parcel<br/><small>status: AVAILABLE</small><br/><small>purpose from wizard section</small>"]:::parcel
+
+  ParentParcel -->|"SUBDIVIDED mode<br/>or later partition"| Partition{"Partition?<br/><small>partitionLandParcel()</small>"}:::decision
+
+  Partition -->|"PRO_RATA or<br/>MARKET_VALUE"| Children["N Child Parcels<br/><small>Σ area = parent area</small><br/><small>cost allocated by area / weight</small><br/><small>infrastructure plots = 0 cost</small>"]:::parcel
+
+  Partition -->|"records event"| PartRec["LandPartition<br/><small>allocationModel, devCost</small><br/><small>infrastructureArea</small><br/><code>model LandPartition</code>"]:::parcel
+
+  Partition -->|"parent →"| PartStatus["Parent status:<br/>PARTITIONED (inactive)"]:::parcel
+
+  Partition -->|"logAction()"| Audit2["AuditLog<br/><small>action: LAND_PARTITION</small>"]:::gl
+
+  Children -->|"nesting allowed"| Partition
+
+  %% Unpartition
+  PartStatus -.->|"unpartitionLandParcel()<br/>if no SOLD / no units / no sales"| ParentParcel
+
+  %% Valuation & status
+  WholeParcel --> Valuation["Valuation Management<br/><small>updateParcelValuation()</small><br/><small>updateParcelDetails()</small><br/><small>setParcelStatus()</small>"]:::parcel
+  Children --> Valuation
+
+  Valuation -->|"NRV < cost"| NRV["flagNrvWriteDowns()<br/><small>nrvWriteDown = cost - NRV</small><br/><small>GL: Dr OPERATING_EXP</small><br/><small>Cr LAND_ASSET</small>"]:::gl
+
+  %% Development branch
+  WholeParcel -->|"purpose: PROJECT"| Project["Project<br/><small>linked via projectId</small><br/><code>model Project</code>"]:::dev
+  Children -->|"purpose: PROJECT"| Project
+
+  Project -->|"createBuiltUnits()"| BuiltUnits["BuiltUnit(s) on Parcel<br/><small>linked via landParcelId</small><br/><small>apartments / shops / villas</small><br/><code>model BuiltUnit</code>"]:::dev
+
+  Project -->|"material issues +<br/>project costs"| Realloc2["reallocateProjectCosts()<br/><small>costPerSqft = totalCost / area</small><br/><small>unit.productionCost updated</small>"]:::gl
+
+  WholeParcel -->|"purchaseBuiltUnit()"| PurchasedUnit["PURCHASED BuiltUnit<br/><small>acquisitionCost = price</small><br/><small>linked to parcel</small>"]:::dev
+  Children --> PurchasedUnit
+
+  %% Renovation branch
+  WholeParcel -->|"createRenovation()"| Reno["RenovationProject<br/><small>capital improvement</small><br/><code>model RenovationProject</code>"]:::sell
+  Children --> Reno
+
+  Reno -->|"completeRenovation()"| RenoCap["Capitalize Cost<br/><small>parcel.acquisitionCost += cost</small><br/><small>parcel.currentValuation updated</small>"]:::sell
+
+  %% Sale branch
+  WholeParcel -->|"sellAsset(LAND)"| Sale["AssetSale<br/><small>assetType: LAND</small><br/><small>salePrice, costBasis, profit</small><br/><code>model AssetSale</code>"]:::sell
+  Children --> Sale
+
+  Sale -->|"PENDING"| SalePending["Sale Created<br/><small>ATS / booking</small>"]:::sell
+  SalePending -->|"recordDeposit()"| SaleDeposit["DEPOSIT_RECEIVED<br/><small>parcel → RESERVED</small>"]:::sell
+  SaleDeposit -->|"completeSale()"| SaleDone["COMPLETED<br/><small>parcel → SOLD</small><br/><small>saleDeedNo captured</small>"]:::sell
+  SalePending -.->|"cancelSale()"| SaleCancel["CANCELLED<br/><small>parcel → AVAILABLE</small>"]:::sell
+  SaleDeposit -.->|"cancelSale()"| SaleCancel
+
+  Sale -->|"GL posting"| GLSale["GL Entries<br/><small>Dr CASH / Cr SALE_REVENUE</small><br/><small>Dr COGS / Cr LAND_ASSET</small><br/><small>Dr CASH / Cr OUTPUT_GST</small>"]:::gl
+
+  Sale -->|"compliance docs"| SaleLegal["Sale Compliance<br/><small>ATS, BBA, Allotment Letter</small><br/><small>Sale Deed, TDS Form 16B</small><br/><small>Home Loan tracking</small>"]:::legal
+
+  %% Rental branch
+  WholeParcel -->|"createTenancy(LAND)"| Tenancy["Tenancy<br/><small>assetType: LAND</small><br/><small>monthlyRent, securityDeposit</small><br/><code>model Tenancy</code>"]:::sell
+  Children --> Tenancy
+
+  Tenancy -->|"activateTenancy()"| TenancyActive["ACTIVE<br/><small>parcel → RENTED</small>"]:::sell
+  TenancyActive -->|"recordRentPayment()"| RentPay["RentalPayment<br/><small>GST via SAC code</small>"]:::sell
+  TenancyActive -.->|"terminateTenancy()"| TenancyEnd["TERMINATED<br/><small>parcel → AVAILABLE</small>"]:::sell
+
+  %% Legal branch
+  LP -->|"createLegalDoc()"| LegalDocs["Legal Documents<br/><small>Ownership Cert, Permissions</small><br/><small>NOCs, ATS, Sale Deed</small><br/><small>guided checklist + prerequisites</small><br/><code>model LegalDocument</code>"]:::legal
+
+  %% Soft delete
+  WholeParcel -.->|"soft-delete<br/>if SOLD/PARTITIONED only"| SoftDel["Soft Delete<br/><small>deletedAt = now()</small><br/><small>LandPurchase: no unsold parcels</small>"]:::gl
+  Children -.-> SoftDel
+  LP -.->|"if no unsold parcels"| SoftDel
+
+  %% Reporting
+  Valuation --> Reporting["Reporting & Dashboards<br/><small>unsoldAssetValue()</small><br/><small>projectTotalCost() — land component</small><br/><small>getCompanyPortfolioSummary()</small><br/><small>getRealEstateInventory()</small><br/><small>Orbit visualization</small>"]:::gl
+  Sale --> Reporting
+  Tenancy --> Reporting
+  Project --> Reporting
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 2: Data Model Relationships -->
+  <div class="diagram-card">
+    <h2>2. Data Model — Entity Relationships</h2>
+    <p class="sub">Prisma schema relationships. All land entities use soft deletes (deletedAt). Transactional records (AssetSale, Tenancy, JournalEntry) are immutable.</p>
+    <pre class="mermaid">
+erDiagram
+  Company ||--o{ LandPurchase : "owns"
+  Company ||--o{ LandSeller : "has"
+  LandSeller ||--o{ LandPurchase : "sold by"
+  LandPurchase ||--o{ LandParcel : "contains"
+  LandPurchase ||--o| Project : "linked to"
+  LandParcel ||--o{ LandParcel : "parent → children"
+  LandParcel ||--|| LandPartition : "records split"
+  LandParcel ||--o{ BuiltUnit : "built on"
+  LandParcel ||--o| Project : "assigned to"
+  LandParcel ||--o| AssetSale : "sold via"
+  LandParcel ||--o{ Tenancy : "rented via"
+  LandParcel ||--o{ RenovationProject : "improved by"
+  LandPurchase ||--o{ LegalDocument : "documented by"
+  Project ||--o{ BuiltUnit : "has units"
+  Project ||--o{ AssetSale : "has sales"
+  AssetSale ||--o{ AssetSalePayment : "paid by"
+  AssetSale ||--o| Customer : "bought by"
+  Tenancy ||--o{ RentalPayment : "rent collected"
+  Tenancy ||--o| Customer : "rented by"
+  RenovationProject ||--o{ RenovationCost : "has costs"
+  LandPurchase ||--o{ JournalEntry : "GL posted"
+  LandPurchase ||--o{ AuditLog : "audited"
+
+  LandPurchase {
+    string id PK
+    string companyId FK
+    string projectId FK "nullable"
+    string sellerId FK "nullable"
+    string sellerName
+    decimal totalArea "Decimal(14,3)"
+    decimal totalCost "Decimal(14,2)"
+    string registryNo "nullable"
+    enum mode "WHOLE|SUBDIVIDED"
+    enum landType "FREEHOLD|LEASEHOLD"
+    decimal baseCost "cost breakup"
+    decimal gstAmount "nullable"
+    decimal stampDutyAmount "nullable"
+    decimal brokerageAmount "nullable"
+    datetime deletedAt "soft delete"
+  }
+
+  LandParcel {
+    string id PK
+    string landPurchaseId FK
+    string parentParcelId FK "self-ref, nullable"
+    string number "unique per purchase"
+    decimal area "Decimal(14,3)"
+    enum status "AVAILABLE|HOLD|PARTITIONED|RESERVED|SOLD|RENTED"
+    enum purpose "SELL|PROJECT|HOLD"
+    decimal acquisitionCost "Decimal(14,2)"
+    decimal currentValuation "Decimal(14,2)"
+    decimal askingPrice "nullable"
+    boolean isInfrastructure "no cost basis"
+    decimal marketValue "nullable"
+    json geometry "CAD polygon"
+    string projectId FK "nullable"
+    string saleId "nullable"
+    datetime deletedAt "soft delete"
+  }
+
+  LandPartition {
+    string id PK
+    string parentParcelId FK
+    int childCount
+    string allocationModel "PRO_RATA|MARKET_VALUE"
+    decimal developmentCost "nullable"
+    decimal infrastructureArea "nullable"
+  }
+
+  LandSeller {
+    string id PK
+    string companyId FK
+    string name
+    string phone "unique per company"
+    string gstin "nullable"
+    datetime deletedAt "soft delete"
+  }
+
+  BuiltUnit {
+    string id PK
+    string projectId FK
+    string landParcelId FK "nullable"
+    string unitNumber
+    enum unitType "BHK_1|SHOP|VILLA..."
+    enum status "PLANNED|UNDER_CONSTRUCTION|AVAILABLE|SOLD|RENTED"
+    enum originType "CREATED|PURCHASED"
+    decimal productionCost "area-allocated"
+    decimal acquisitionCost "PURCHASED only"
+    decimal currentValuation
+  }
+
+  AssetSale {
+    string id PK
+    enum assetType "LAND|BUILT_UNIT"
+    string landParcelId FK "nullable"
+    string builtUnitId FK "nullable"
+    string customerId FK
+    string projectId FK "nullable"
+    decimal salePrice
+    decimal costBasis
+    decimal profit
+    enum saleStage "PENDING|DEPOSIT_RECEIVED|COMPLETED|CANCELLED"
+    string saleDeedNo "nullable"
+    decimal tdsAmount "nullable"
+  }
+
+  Tenancy {
+    string id PK
+    enum assetType "LAND|BUILT_UNIT"
+    string landParcelId FK "nullable"
+    string tenantName
+    decimal monthlyRent
+    decimal securityDeposit
+    enum status "PENDING|ACTIVE|TERMINATED"
+    string sacCode "GST on rent"
+  }
+
+  RenovationProject {
+    string id PK
+    string landParcelId FK "nullable"
+    string builtUnitId FK "nullable"
+    string projectId FK
+    decimal budget
+    decimal actualCost
+    decimal newValuation "on completion"
+  }
+
+  LegalDocument {
+    string id PK
+    string landPurchaseId FK "nullable"
+    string projectId FK "nullable"
+    enum type "OWNERSHIP_CERT|PERMISSION|NOC|ATS..."
+    enum status "NOT_REQUIRED|PENDING|APPROVED|EXPIRED"
+    boolean obtained
+    string docNumber "nullable"
+    string documentUrl "nullable"
+  }
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 3: Service & API Layer -->
+  <div class="diagram-card">
+    <h2>3. Service Layer & API Routes</h2>
+    <p class="sub">Every land mutation flows through a service function (atomic transaction) → API route handler (RBAC gated) → UI page. All mutations write AuditLog + GL entries inside the same transaction.</p>
+    <pre class="mermaid">
+flowchart LR
+  classDef ui fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef api fill:#065f46,stroke:#10b981,stroke-width:2px,color:#d1fae5
+  classDef svc fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff
+  classDef cross fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+
+  subgraph UI["UI Pages & Components"]
+    direction TB
+    LandList["/land<br/><small>Land list + portfolio</small>"]:::ui
+    LandHub["/land/[id]<br/><small>Land hub: parcels, sales,<br/>legal, built units, cadastre</small>"]:::ui
+    PartCanvas["PartitionCanvasDialog<br/><small>CAD-based subdivision</small>"]:::ui
+    SellDialog["SellAssetDialog<br/><small>staged sale flow</small>"]:::ui
+    LegalPanel["LegalDocsSection<br/><small>guided checklist</small>"]:::ui
+    Orbit["/orbit<br/><small>relationship graph</small>"]:::ui
+    Reports["/reports<br/><small>portfolio, RE inventory</small>"]:::ui
+  end
+
+  subgraph API["API Route Handlers (RBAC gated)"]
+    direction TB
+    ApiLP["/api/land-purchases<br/>/api/land-purchases/[id]<br/><small>GET POST PATCH DELETE</small>"]:::api
+    ApiParcel["/api/land-parcels<br/><small>POST: partition, unpartition,<br/>valuation, status, update</small>"]:::api
+    ApiSales["/api/sales<br/>/api/sales/[id]<br/><small>POST: sell, deposit, complete,<br/>payment, cancel</small>"]:::api
+    ApiTenancy["/api/tenancies<br/><small>POST: create, activate,<br/>terminate, rent payment</small>"]:::api
+    ApiReno["/api/renovations<br/><small>POST: create, start,<br/>complete, add cost</small>"]:::api
+    ApiLegal["/api/legal-documents<br/><small>POST: create, update,<br/>delete, list</small>"]:::api
+    ApiOrbit["/api/orbit<br/><small>landParcel, landPurchase nodes</small>"]:::api
+  end
+
+  subgraph Services["@nirman/services"]
+    direction TB
+    SvcLand["land.ts<br/><small>recordLandPurchase()<br/>recordLandPurchaseWithPlan()</small>"]:::svc
+    SvcPart["partition.ts<br/><small>partitionLandParcel()<br/>unpartitionLandParcel()<br/>updateParcelValuation()<br/>updateParcelDetails()<br/>setParcelStatus()<br/>allocatePartitionCosts()</small>"]:::svc
+    SvcSale["sale.ts<br/><small>sellAsset()<br/>recordDeposit()<br/>completeSale()<br/>recordPayment()<br/>cancelSale()</small>"]:::svc
+    SvcTen["tenancy.ts<br/><small>createTenancy()<br/>activateTenancy()<br/>terminateTenancy()<br/>recordRentPayment()</small>"]:::svc
+    SvcReno["renovation.ts<br/><small>createRenovation()<br/>completeRenovation()<br/>addRenovationCost()</small>"]:::svc
+    SvcLegal["legal-docs.ts<br/><small>createLegalDoc()<br/>updateLegalDoc()<br/>listLegalDocs()</small>"]:::svc
+    SvcVal["valuation.ts<br/><small>reallocateProjectCosts()<br/>unsoldAssetValue()<br/>projectTotalCost()<br/>getCompanyPortfolioSummary()<br/>getRealEstateInventory()</small>"]:::svc
+  end
+
+  subgraph Cross["Cross-Cutting (inside every transaction)"]
+    direction TB
+    GL["gl-posting.ts<br/><small>postLandPurchase()<br/>postAssetSale()<br/>postNrvWriteDown()</small>"]:::cross
+    Audit["audit.ts<br/><small>logAction() — every mutation</small>"]:::cross
+    SoftDel["soft-delete.ts<br/><small>LandPurchase, LandParcel</small>"]:::cross
+    Alerts["alerts.ts<br/><small>flagNrvWriteDowns()</small>"]:::cross
+  end
+
+  LandList --> ApiLP
+  LandHub --> ApiLP
+  LandHub --> ApiParcel
+  LandHub --> ApiSales
+  LandHub --> ApiLegal
+  PartCanvas --> ApiParcel
+  SellDialog --> ApiSales
+  LegalPanel --> ApiLegal
+  Orbit --> ApiOrbit
+  Reports --> SvcVal
+
+  ApiLP --> SvcLand
+  ApiParcel --> SvcPart
+  ApiSales --> SvcSale
+  ApiTenancy --> SvcTen
+  ApiReno --> SvcReno
+  ApiLegal --> SvcLegal
+
+  SvcLand --> GL
+  SvcLand --> Audit
+  SvcPart --> Audit
+  SvcPart --> SvcVal
+  SvcSale --> GL
+  SvcSale --> Audit
+  SvcReno --> Audit
+  SvcReno --> SvcVal
+  SvcLand --> SvcVal
+  Alerts --> GL
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 4: Parcel Status State Machine -->
+  <div class="diagram-card">
+    <h2>4. LandParcel Status — State Machine</h2>
+    <p class="sub">Every status transition is triggered by a specific service function and is audited. SOLD is terminal (cannot revert). PARTITIONED is reversible only via unpartition.</p>
+    <pre class="mermaid">
+stateDiagram-v2
+  direction TB
+
+  [*] --> AVAILABLE : recordLandPurchase()\nrecordLandPurchaseWithPlan()
+
+  AVAILABLE --> HOLD : setParcelStatus(HOLD)
+  HOLD --> AVAILABLE : setParcelStatus(AVAILABLE)
+
+  AVAILABLE --> PARTITIONED : partitionLandParcel()\nparent becomes inactive
+  PARTITIONED --> AVAILABLE : unpartitionLandParcel()\n(if no SOLD children,\nno built units, no sales)
+
+  AVAILABLE --> RESERVED : sellAsset(LAND)\n+ recordDeposit()\nDEPOSIT_RECEIVED
+  HOLD --> RESERVED : sellAsset(LAND)\n+ recordDeposit()
+
+  RESERVED --> SOLD : completeSale()\nfinal payment + title transfer
+  RESERVED --> AVAILABLE : cancelSale()\nsale cancelled
+
+  AVAILABLE --> RENTED : createTenancy(LAND)\n+ activateTenancy()
+  HOLD --> RENTED : createTenancy(LAND)\n+ activateTenancy()
+  RENTED --> AVAILABLE : terminateTenancy()
+
+  SOLD --> [*] : terminal\n(soft-delete allowed)
+  PARTITIONED --> [*] : soft-delete allowed\n(if no active children)
+
+  note right of SOLD
+    SOLD is terminal.
+    Parcel cannot revert.
+    Soft-delete permitted.
+  end note
+
+  note right of PARTITIONED
+    Parent parcel is a container.
+    Not sellable as a whole.
+    Children are the sellable units.
+  end note
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 5: Cost Flow -->
+  <div class="diagram-card">
+    <h2>5. Cost Flow — Land Cost → Project → Units → GL</h2>
+    <p class="sub">How land acquisition cost propagates through the system: from purchase → parcel cost basis → project cost pool → per-unit production cost (cost-per-sqft allocation) → GL capitalization.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef cost fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef gl fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+  classDef alloc fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+
+  CostBreakup["Land Cost Breakup<br/><small>baseCost</small><br/><small>+ leaseRentAmount (leasehold)</small><br/><small>+ gstAmount</small><br/><small>+ registrationAmount</small><br/><small>+ stampDutyAmount</small><br/><small>+ brokerageAmount</small><br/><small>+ legalFees</small><br/><small>+ otherCharges</small><br/><strong>= totalCost</strong>"]:::cost
+
+  CostBreakup -->|"postLandPurchase()"| GLCap["GL Capitalization<br/><small>Dr LAND_ASSET (1700) = totalCost</small><br/><small>Cr CASH / BANK = totalCost</small>"]:::gl
+
+  CostBreakup -->|"recordLandPurchase()"| ParcelCost["Parcel.acquisitionCost<br/><small>WHOLE: full totalCost</small><br/><small>SUBDIVIDED: pro-rata by area</small><br/><small>infrastructure plots = 0</small>"]:::cost
+
+  ParcelCost -->|"MARKET_VALUE model"| Weighted["Weighted Allocation<br/><small>C_i = totalCost × (A_i × W_i) / Σ(A_j × W_j)</small>"]:::alloc
+
+  ParcelCost -->|"PRO_RATA model"| ProRata["Pro-Rata Allocation<br/><small>C_i = totalCost × A_i / Σ(saleable A)</small>"]:::alloc
+
+  ParcelCost -->|"+ developmentCost"| DevCost["Site Development<br/><small>grading, paving, utilities</small><br/><small>added to cost basis before allocation</small>"]:::cost
+
+  ParcelCost -->|"if projectId set"| ProjectPool["Project Cost Pool<br/><small>land = Σ LandPurchase.totalCost</small><br/><small>+ materials + labour</small><br/><small>− scrap recovery</small>"]:::alloc
+
+  ProjectPool -->|"reallocateProjectCosts()"| CostPerSqft["costPerSqft<br/><small>= totalProjectCost / totalSellableArea</small><br/><small>cached on Project</small>"]:::alloc
+
+  CostPerSqft -->|"× unit.area"| UnitCost["BuiltUnit.productionCost<br/><small>= costPerSqft × area</small><br/><small>+ direct-to-unit material costs</small><br/><small>(PURCHASED units excluded)</small>"]:::alloc
+
+  ParcelCost -->|"completeRenovation()"| RenoCap["Renovation Capitalization<br/><small>parcel.acquisitionCost += renoCost</small><br/><small>parcel.currentValuation updated</small>"]:::cost
+
+  ParcelCost -->|"sellAsset(LAND)"| SaleCost["AssetSale.costBasis<br/><small>= parcel.acquisitionCost</small><br/><small>at time of sale</small>"]:::cost
+
+  SaleCost -->|"completeSale()"| GLSale["GL Sale Entries<br/><small>Dr CASH = salePrice</small><br/><small>Cr SALE_REVENUE = salePrice</small><br/><small>Dr COGS = costBasis</small><br/><small>Cr LAND_ASSET = costBasis</small><br/><small>Cr OUTPUT_GST = gstAmount</small>"]:::gl
+
+  ParcelCost -->|"flagNrvWriteDowns()"| NRV["NRV Write-Down<br/><small>if currentValuation < acquisitionCost</small><br/><small>nrvWriteDown = cost - NRV</small><br/><small>GL: Dr OPERATING_EXP, Cr LAND_ASSET</small>"]:::gl
+
+  UnitCost -->|"unsoldAssetValue()"| ReportVal["Reporting<br/><small>unsold asset value</small><br/><small>portfolio summary</small><br/><small>real estate inventory</small>"]:::gl
+    </pre>
+  </div>
+
+  <!-- Info Cards -->
+  <div class="grid">
+    <div class="info-card">
+      <h3><span class="icon" style="background:#10b981">A</span> Acquisition</h3>
+      <ul>
+        <li><strong>2 entry points</strong>: <code>recordLandPurchase()</code> (simple) + <code>recordLandPurchaseWithPlan()</code> (guided wizard)</li>
+        <li><strong>WHOLE</strong> mode → 1 sellable parcel; <strong>SUBDIVIDED</strong> → N sections at purchase time</li>
+        <li><strong>Freehold</strong> vs <strong>Leasehold</strong> with lease period, rent type (one-time/yearly)</li>
+        <li>Full cost breakup: base + lease rent + GST + registration + stamp duty + brokerage + legal + other</li>
+        <li>Auto-creates <strong>OWNERSHIP_CERTIFICATE</strong> legal doc if registry number provided</li>
+        <li>Inline project creation inside the same atomic transaction</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#6366f1">P</span> Partition</h3>
+      <ul>
+        <li><strong>Area conservation</strong>: Σ children area = parent area (exact, 3 decimals)</li>
+        <li><strong>2 allocation models</strong>: PRO_RATA (by area) + MARKET_VALUE (by area × weight)</li>
+        <li><strong>Infrastructure plots</strong> (roads, parks) absorb zero cost — siblings absorb it</li>
+        <li><strong>Development cost</strong> added to parent basis before allocation</li>
+        <li><strong>Nesting allowed</strong> — a child can itself be partitioned later</li>
+        <li><strong>Unpartition</strong> reverses if no SOLD children, no built units, no active sales</li>
+        <li>CAD canvas with polygon geometry stored as JSON</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#3b82f6">D</span> Development</h3>
+      <ul>
+        <li>Parcels link to <strong>Projects</strong> via <code>projectId</code></li>
+        <li><strong>BuiltUnits</strong> (apartments, shops, villas) linked via <code>landParcelId</code></li>
+        <li><strong>Cost-per-sqft allocation</strong>: land cost → project pool → unit production cost</li>
+        <li>PURCHASED units excluded from area allocation (cost set at acquisition)</li>
+        <li><strong>Renovation</strong> capitalizes cost into parcel's acquisition cost</li>
+        <li>Re-allocation runs after every material issue, project cost, or land purchase change</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#f59e0b">S</span> Sale & Rental</h3>
+      <ul>
+        <li><strong>Staged sale</strong>: PENDING → DEPOSIT_RECEIVED → COMPLETED (or CANCELLED)</li>
+        <li>Parcel status tracks sale: AVAILABLE → RESERVED → SOLD</li>
+        <li>Sale compliance: ATS, BBA, allotment letter, sale deed, TDS (Form 16B), home loan</li>
+        <li><strong>Tenancy</strong>: create → activate (RENTED) → terminate (AVAILABLE)</li>
+        <li>Rent payments with GST via SAC codes (997212 non-residential, 997211 residential)</li>
+        <li>GL posts revenue + COGS + GST on sale completion</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#8b5cf6">L</span> Legal & Compliance</h3>
+      <ul>
+        <li><strong>LegalDocument</strong> linked to LandPurchase + Project</li>
+        <li>Types: ownership cert, permissions, NOCs, ATS, sale deed, transfer duty</li>
+        <li><strong>Guided checklist</strong> with <code>sortOrder</code> + <code>prerequisiteType</code></li>
+        <li>Yes/No branching: <code>obtained</code> flag controls sub-form visibility</li>
+        <li>Validity tracking: issue date, valid from, valid till (expiry alerts)</li>
+        <li>Document upload (PDF/image) with reference numbers</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#ef4444">G</span> GL, Audit & Reporting</h3>
+      <ul>
+        <li><strong>GL posting</strong>: Dr LAND_ASSET (1700) / Cr CASH on purchase</li>
+        <li>NRV write-downs: Dr OPERATING_EXP / Cr LAND_ASSET (if valuation < cost)</li>
+        <li><strong>AuditLog</strong> on every mutation: CREATE, PARTITION, UNPARTITION, VALUATION, STATUS, SALE</li>
+        <li><strong>Soft delete</strong>: LandPurchase (if no unsold parcels), LandParcel (if not AVAILABLE/HOLD)</li>
+        <li>Reporting: <code>unsoldAssetValue()</code>, <code>projectTotalCost()</code>, portfolio summary, RE inventory</li>
+        <li><strong>Orbit</strong> visualization: land parcel + purchase nodes in relationship graph</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- DIAGRAM 6: Sales & CRM Ecosystem -->
+  <div class="diagram-card">
+    <h2>6. Sales & CRM Ecosystem — Leads → Portal Listings → Payment Schedules</h2>
+    <p class="sub">The full real-estate sales pipeline that connects land parcels and built units to customers: lead generation, portal syndication, staged payments, and conversion tracking.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef crm fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef portal fill:#5b21b6,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+  classDef pay fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef gl fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+  classDef parcel fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff
+
+  Parcel["LandParcel<br/><small>AVAILABLE / HOLD</small>"]:::parcel
+  Unit["BuiltUnit<br/><small>on parcel via landParcelId</small>"]:::parcel
+
+  %% Lead pipeline
+  Lead["Lead<br/><small>name, phone, source</small><br/><small>stage: NEW → CONTACTED →<br/>SITE_VISIT → NEGOTIATION →<br/>BOOKED / LOST</small><br/><code>model Lead</code>"]:::crm
+
+  Lead -->|"interestedUnitId"| Unit
+  Lead -->|"projectId"| Project["Project<br/><small>linked to land</small>"]:::parcel
+
+  Lead -->|"LeadActivity<br/>CALL/EMAIL/WHATSAPP/<br/>MEETING/SITE_VISIT"| Activities["Lead Activities<br/><small>interaction log</small><br/><small>outcome tracking</small><br/><code>model LeadActivity</code>"]:::crm
+
+  Lead -->|"score + priority<br/>(LOW/MED/HIGH/HOT)"| Scoring["Lead Scoring<br/><small>budget range, unit type</small><br/><small>next follow-up date</small>"]:::crm
+
+  Lead -->|"convertedCustomerId"| Convert["Lead → Customer<br/><small>convertedAt timestamp</small><br/><small>lostReason if LOST</small>"]:::crm
+
+  Convert --> Customer["Customer<br/><small>buyer record</small>"]:::pay
+
+  %% Portal listings
+  Unit -->|"PortalListing<br/>per portal"| Portal["Property Portals<br/><small>99acres, MagicBricks,</small><br/><small>Housing.com</small><br/><code>model PortalListing</code>"]:::portal
+
+  Portal -->|"DRAFT → LISTED → DELISTED"| PortalSync["Portal Sync<br/><small>pluggable provider</small><br/><small>listingId, listingUrl</small><br/><small>lastSyncedAt, syncError</small><br/><small>photos array</small>"]:::portal
+
+  Portal -->|"title, askingPrice,<br/>bedrooms, bathrooms,<br/>area, floor, furnishing"| ListingData["Listing Details<br/><small>auto-populated from unit</small>"]:::portal
+
+  %% Sale flow with payment schedule
+  Parcel -->|"sellAsset(LAND)"| Sale["AssetSale<br/><small>assetType: LAND</small>"]:::pay
+  Unit -->|"sellAsset(BUILT_UNIT)"| Sale2["AssetSale<br/><small>assetType: BUILT_UNIT</small>"]:::pay
+  Customer --> Sale
+  Customer --> Sale2
+
+  Sale -->|"generatePaymentSchedule()"| PaySched["Payment Schedule<br/><small>CLP / TLP / DPP</small><br/><code>model PaymentSchedule</code>"]:::pay
+  Sale2 --> PaySched
+
+  PaySched -->|"CLP: Construction-Linked"| CLP["CLP Items<br/><small>tied to WBS milestones</small><br/><small>10% foundation, 20% structure...</small><br/><code>wbsNodeId</code>"]:::pay
+  PaySched -->|"TLP: Time-Linked"| TLP["TLP Items<br/><small>fixed installments over time</small><br/><small>installmentNo, dueDate</small>"]:::pay
+  PaySched -->|"DPP: Down Payment"| DPP["DPP Items<br/><small>large upfront + small balance</small>"]:::pay
+
+  CLP --> PayItems["PaymentScheduleItem<br/><small>PENDING → DUE → PARTIAL → PAID → WAIVED</small><br/><code>model PaymentScheduleItem</code>"]:::pay
+  TLP --> PayItems
+  DPP --> PayItems
+
+  Sale -->|"recordDeposit()"| Deposit["Deposit<br/><small>Dr CASH, Cr CUSTOMER_DEPOSIT (2500)</small><br/><small>liability — revenue deferred</small>"]:::gl
+  Sale -->|"recordPayment()"| Payment["AssetSalePayment<br/><small>amount, mode, date</small><br/><code>model AssetSalePayment</code>"]:::pay
+  Sale -->|"completeSale()"| Complete["Complete<br/><small>Dr AR, Cr SALES_REVENUE (4000)</small><br/><small>Cr OUTPUT_GST (2100)</small><br/><small>Dr COGS (5000), Cr LAND_ASSET (1700)</small><br/><small>deposit liability reversed</small>"]:::gl
+
+  Sale -->|"cancelSale()"| Cancel["Cancel<br/><small>Dr CUSTOMER_DEPOSIT, Cr CASH</small><br/><small>(refund deposit)</small><br/><small>parcel → AVAILABLE</small>"]:::gl
+
+  %% Sale compliance
+  Sale --> SaleCompliance["Sale Compliance Docs<br/><small>ATS (Agreement to Sell)</small><br/><small>BBA (Builder-Buyer Agreement)</small><br/><small>Allotment Letter</small><br/><small>Sale Deed (saleDeedNo)</small><br/><small>TDS Form 16B</small><br/><small>Home Loan tracking</small>"]:::portal
+
+  %% TDS
+  Complete -->|"if salePrice > ₹50L"| TDS["TDS Tracking<br/><small>buyer deducts 1%</small><br/><small>tdsAmount, tdsCertificateNo</small>"]:::gl
+
+  %% Home loan
+  Sale -->|"homeLoanBank,<br/>homeLoanAmount,<br/>homeLoanSanctionNo"| HomeLoan["Home Loan<br/><small>bank, sanctioned amount</small><br/><small>sanction letter no + date</small>"]:::pay
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 7: Legal → Cost Bridge & Compliance Flow -->
+  <div class="diagram-card">
+    <h2>7. Legal → Cost Bridge — Transfer Duty & Compliance Flow</h2>
+    <p class="sub">How legal documents bridge into the financial system. Transfer duty on authority (DDA/HUDCO) leasehold land auto-creates a ProjectCost line that flows into cost-per-sqft allocation and the GL.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef legal fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+  classDef cost fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef gl fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+  classDef decision fill:#1f2937,stroke:#6b7280,stroke-width:2px,color:#f3f4f6,stroke-dasharray: 5 5
+
+  LandP["LandPurchase<br/><small>leasehold authority land</small>"]:::legal
+  Project["Project<br/><small>linked to land</small>"]:::legal
+
+  LandP --> LegalDoc["LegalDocument<br/><small>type: TRANSFER_DUTY</small><br/><small>obtained: true</small><br/><small>status: APPROVED</small><br/><small>amount > 0</small><br/><small>projectId set</small>"]:::legal
+
+  Project --> LegalDoc
+
+  LegalDoc --> Check{"syncTransferDutyCost()<br/>conditions met?"}:::decision
+
+  Check -->|"YES"| CreateCost["Create ProjectCost<br/><small>costType: TRANSFER_DUTY</small><br/><small>sourceLegalDocId: doc.id</small><br/><small>vendor: 'Authority'</small><br/><code>model ProjectCost</code>"]:::cost
+
+  Check -->|"NO — conditions<br/>no longer met"| RemoveCost["Remove Linked Cost<br/><small>reverseJournalEntry()</small><br/><small>delete ProjectCost</small><br/><small>reallocateProjectCosts()</small>"]:::gl
+
+  CreateCost --> PostGL["postProjectCost()<br/><small>GL: Dr WIP (1500)</small><br/><small>Cr CASH / AP</small>"]:::gl
+
+  CreateCost --> Realloc["reallocateProjectCosts()<br/><small>transfer duty enters</small><br/><small>project cost pool</small><br/><small>→ costPerSqft updated</small><br/><small>→ unit.productionCost updated</small>"]:::gl
+
+  %% Update path
+  LegalDoc -->|"amount changed"| UpdateCost["Update ProjectCost<br/><small>if amount differs</small><br/><small>reallocateProjectCosts()</small>"]:::cost
+
+  %% Full legal doc lifecycle
+  LandP --> AllDocs["All Legal Document Types<br/><small>OWNERSHIP_CERTIFICATE (auto on registry)</small><br/><small>LAND_SANCTION</small><br/><small>BUILDING_PERMISSION</small><br/><small>FIRE_NOC / POLLUTION_NOC</small><br/><small>COMPLETION_CERTIFICATE</small><br/><small>OCCUPANCY_CERTIFICATE</small><br/><small>AGREEMENT_TO_SELL</small><br/><small>TRANSFER_DUTY</small><br/><small>BUDGET_APPROVAL / OTHER</small>"]:::legal
+
+  AllDocs --> Guided["Guided Checklist<br/><small>sortOrder — display sequence</small><br/><small>prerequisiteType — chain deps</small><br/><small>obtained — yes/no branching</small><br/><small>appliesTo — LAND/PROJECT/BOTH</small>"]:::legal
+
+  Guided --> Validity["Validity Tracking<br/><small>applicationDate → issueDate</small><br/><small>validFrom → validTill</small><br/><small>expiry alerts (RENEWAL_DUE)</small>"]:::legal
+
+  AllDocs --> DocStore["Document Storage<br/><small>documentUrl (PDF/image)</small><br/><small>documentName</small><br/><small>docNumber (reference)</small><br/><small>amount (fee / ATS reg.)</small>"]:::legal
+
+  %% Status flow
+  AllDocs --> StatusFlow["Document Status<br/><small>NOT_REQUIRED → PENDING</small><br/><small>→ APPROVED → EXPIRED</small><br/><small>→ REJECTED → RENEWAL_DUE</small>"]:::legal
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 8: GL Account Detail -->
+  <div class="diagram-card">
+    <h2>8. General Ledger — Land-Related Account Map</h2>
+    <p class="sub">Every land transaction posts to specific GL accounts. This shows the complete chart of accounts touched by land operations, with the exact debit/credit entries for each event.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef asset fill:#065f46,stroke:#10b981,stroke-width:2px,color:#d1fae5
+  classDef liability fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef equity fill:#5b21b6,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+  classDef revenue fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef expense fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+
+  subgraph Accounts["Chart of Accounts (GlAccount)"]
+    direction TB
+    LAND["1700 — LAND_ASSET<br/><small>Unsold land parcels</small>"]:::asset
+    UNIT["1800 — UNIT_ASSET<br/><small>Unsold built units</small>"]:::asset
+    WIP["1500 — WIP<br/><small>Work-in-progress</small>"]:::asset
+    CASH["1100 — CASH / BANK<br/><small>Liquid funds</small>"]:::asset
+    AR["1200 — ACCOUNTS_RECEIVABLE<br/><small>Customer receivables</small>"]:::asset
+
+    DEPOSIT["2500 — CUSTOMER_DEPOSIT<br/><small>Unearned revenue liability</small>"]:::liability
+    GSTOUT["2100 — OUTPUT_GST<br/><small>GST collected on sales</small>"]:::liability
+    TDS["2400 — TDS_PAYABLE<br/><small>TDS deducted by buyers</small>"]:::liability
+
+    REVENUE["4000 — SALES_REVENUE<br/><small>Land + unit sales</small>"]:::revenue
+    RECOVERY["4100 — COST_RECOVERY<br/><small>Scrap sale contra-expense</small>"]:::revenue
+
+    COGS["5000 — COGS<br/><small>Cost of goods sold</small>"]:::expense
+    OPEX["6000 — OPERATING_EXPENSE<br/><small>NRV write-downs, impairments</small>"]:::expense
+  end
+
+  %% Land Purchase
+  Purchase["Land Purchase<br/><small>postLandPurchase()</small>"]:::expense
+  Purchase -->|"Dr"| LAND
+  Purchase -->|"Cr"| CASH
+
+  %% WIP Capitalization
+  WipCap["WIP Capitalization<br/><small>unit → AVAILABLE</small>"]:::expense
+  WipCap -->|"Dr"| UNIT
+  WipCap -->|"Cr"| WIP
+
+  %% Deposit
+  DepositEvt["Deposit Received<br/><small>postDepositReceived()</small>"]:::liability
+  DepositEvt -->|"Dr"| CASH
+  DepositEvt -->|"Cr"| DEPOSIT
+
+  %% Sale completion
+  SaleEvt["Sale Completed<br/><small>postAssetSale()</small>"]:::revenue
+  SaleEvt -->|"Dr"| AR
+  SaleEvt -->|"Cr"| REVENUE
+  SaleEvt -->|"Cr (if GST)"| GSTOUT
+  SaleEvt -->|"Dr"| COGS
+  SaleEvt -->|"Cr"| LAND
+  SaleEvt -->|"reverse deposit"| DEPOSIT
+  SaleEvt -->|"Cr (reverse)"| CASH
+
+  %% NRV Write-down
+  NRV["NRV Write-Down<br/><small>postNrvWriteDown()</small>"]:::expense
+  NRV -->|"Dr"| OPEX
+  NRV -->|"Cr"| LAND
+
+  %% Transfer Duty
+  TransferDuty["Transfer Duty<br/><small>postProjectCost()</small>"]:::expense
+  TransferDuty -->|"Dr"| WIP
+  TransferDuty -->|"Cr"| CASH
+
+  %% Renovation
+  Reno["Renovation Complete<br/><small>capitalized into parcel</small>"]:::expense
+  Reno -->|"Dr (capitalized)"| LAND
+  Reno -->|"Cr (from WIP/expenses)"| WIP
+
+  %% Tally sync
+  Tally["Tally ERP Sync<br/><small>LAND_PURCHASE → Purchase voucher</small><br/><small>ASSET_SALE → Sales voucher</small><br/><small>ASSET_SALE_COGS → Journal voucher</small><br/><small>NRV_WRITE_DOWN → Journal voucher</small>"]:::expense
+
+  LAND -.->|"syncBatchToTally()"| Tally
+  REVENUE -.-> Tally
+  COGS -.-> Tally
+  OPEX -.-> Tally
+
+  %% Trial balance / ledger
+  LAND -.->|"trialBalance()<br/>accountLedger()"| Reports["GL Reports<br/><small>/gl page</small><br/><small>trial balance, ledger drill-down</small><br/><small>TallySyncPanel</small>"]:::revenue
+  REVENUE -.-> Reports
+  COGS -.-> Reports
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 9: Mobile & Field Operations -->
+  <div class="diagram-card">
+    <h2>9. Mobile & Field Operations — Land on the Go</h2>
+    <p class="sub">The complete mobile UI surface for land: portfolio list, guided wizard, parcel detail with field actions, sales, rentals, and cross-links to projects and home dashboard.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef mobile fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef action fill:#065f46,stroke:#10b981,stroke-width:2px,color:#d1fae5
+  classDef data fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#e0e7ff
+
+  subgraph Mobile["Mobile Routes (/m/land)"]
+    direction TB
+    MHome["/m/home<br/><small>company cards with<br/>landCount</small>"]:::mobile
+    MList["/m/land<br/><small>MobileLandList</small><br/><small>portfolio stats + CSV export</small>"]:::mobile
+    MDetail["/m/land/[id]<br/><small>MobileLandDetailClient</small><br/><small>purchase + parcels + sales</small>"]:::mobile
+    MWizard["MobileLandWizard<br/><small>guided multi-step: seller →<br/>area → cost breakup → sections</small>"]:::mobile
+    MNewLand["MobileNewLandDialog<br/><small>quick create</small>"]:::mobile
+    MSeller["MobileSellerDialog<br/><small>create/select seller</small>"]:::mobile
+    MEdit["MobileLandEditForm<br/><small>edit purchase details</small>"]:::mobile
+  end
+
+  subgraph Actions["Field Actions (from parcel detail)"]
+    direction TB
+    ActPart["Partition<br/><small>subdivide parcel</small>"]:::action
+    ActSell["Sell<br/><small>open MobileNewSale</small>"]:::action
+    ActHold["Hold / Release<br/><small>setParcelStatus</small>"]:::action
+    ActVal["Valuate<br/><small>update valuation</small>"]:::action
+    ActLegal["View Legal<br/><small>permissions checklist</small>"]:::action
+  end
+
+  subgraph Cross["Cross-Linked Mobile Pages"]
+    direction TB
+    MSales["/m/sales/new<br/><small>sell land parcel</small>"]:::mobile
+    MSaleDetail["/m/sales/[id]<br/><small>land sale detail</small>"]:::mobile
+    MRentals["/m/rentals<br/><small>land tenancy list</small>"]:::mobile
+    MRentalNew["MobileNewTenancyDialog<br/><small>rent out land</small>"]:::mobile
+    MRentalDetail["/m/rentals/[id]<br/><small>tenancy detail</small>"]:::mobile
+    MProj["/m/projects/[id]<br/><small>project with land parcels</small>"]:::mobile
+    MBooks["/m/books/receipts/[id]<br/><small>land sale payment receipt</small>"]:::mobile
+    MPerms["/m/permissions<br/><small>land legal docs</small>"]:::mobile
+  end
+
+  MHome -->|"landCount badge"| MList
+  MList -->|"tap purchase"| MDetail
+  MList -->|"create button"| MWizard
+  MList -->|"create button"| MNewLand
+  MWizard -->|"select seller"| MSeller
+  MDetail -->|"edit"| MEdit
+  MDetail -->|"parcel actions"| Actions
+  MDetail -->|"sales tab"| MSaleDetail
+
+  ActPart --> MDetail
+  ActSell --> MSales
+  ActHold --> MDetail
+  ActVal --> MDetail
+  ActLegal --> MPerms
+
+  MSales --> MSaleDetail
+  MRentalNew --> MRentalDetail
+  MList -.-> MRentals
+  MProj -.->|"land parcels tab"| MDetail
+  MSaleDetail -.-> MBooks
+
+  %% Data sources
+  subgraph Data["Server Data (Prisma)"]
+    direction TB
+    DBPurchases["LandPurchase<br/>+ parcels + project"]:::data
+    DBSales["AssetSale<br/>+ customer + payments"]:::data
+    DBTenancy["Tenancy<br/>+ rental payments"]:::data
+    DBLegal["LegalDocument<br/>+ landPurchase link"]:::data
+  end
+
+  MList --> DBPurchases
+  MDetail --> DBPurchases
+  MDetail --> DBSales
+  MSaleDetail --> DBSales
+  MRentals --> DBTenancy
+  MRentalDetail --> DBTenancy
+  MPerms --> DBLegal
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 10: Full Component Inventory -->
+  <div class="diagram-card">
+    <h2>10. UI Component Inventory — All Land Components</h2>
+    <p class="sub">Every React component in the land module, grouped by function. Desktop components live in <code>components/land/</code>, mobile in <code>app/m/land/</code>.</p>
+    <pre class="mermaid">
+flowchart TD
+  classDef desktop fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef mobile fill:#065f46,stroke:#10b981,stroke-width:2px,color:#d1fae5
+  classDef shared fill:#5b21b6,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+
+  subgraph Desktop["Desktop Components (components/land/)"]
+    direction TB
+
+    subgraph Pages["Page-Level Views"]
+      LandView["LandView<br/><small>main list + portfolio strip</small>"]:::desktop
+      LandHub["LandHub<br/><small>detail: tabs + cadastre</small>"]:::desktop
+    end
+
+    subgraph Forms["Forms & Dialogs"]
+      Wizard["LandPurchaseWizardDialog<br/><small>guided multi-step wizard</small>"]:::desktop
+      FormDialog["LandPurchaseFormDialog<br/><small>simple create/edit</small>"]:::desktop
+      SellerForm["SellerFormDialog<br/><small>land seller master</small>"]:::desktop
+      PartDialog["PartitionDialog<br/><small>form-based subdivision</small>"]:::desktop
+      PartCanvas["PartitionCanvasDialog<br/><small>CAD canvas subdivision</small>"]:::desktop
+      ValDialog["ParcelValuationDialog<br/><small>update valuation/asking</small>"]:::desktop
+      ParcelDetail["ParcelDetailDialog<br/><small>full parcel info</small>"]:::desktop
+    end
+
+    subgraph Viz["Visualization"]
+      Cadastre["CadastrePlan<br/><small>SVG parcel map</small>"]:::desktop
+      CadLegend["CadastreLegend<br/><small>status color key</small>"]:::desktop
+      PartCanvasComp["PartitionCanvas<br/><small>interactive CAD drawing</small>"]:::desktop
+      Tree["ParcelsTree<br/><small>hierarchical parcel tree</small>"]:::desktop
+    end
+
+    subgraph List["List & Summary"]
+      PurchaseRow["LandPurchaseRow<br/><small>table row component</small>"]:::desktop
+      Portfolio["LandPortfolioStrip<br/><small>KPI summary band</small>"]:::desktop
+      Drawer["LandDetailDrawer<br/><small>slide-out detail</small>"]:::desktop
+    end
+  end
+
+  subgraph Mobile["Mobile Components (app/m/land/)"]
+    direction TB
+    MListComp["MobileLandList<br/><small>card list + portfolio</small>"]:::mobile
+    MDetailComp["MobileLandDetailClient<br/><small>tabs: parcels/sales/legal</small>"]:::mobile
+    MWizardComp["MobileLandWizard<br/><small>step-by-step wizard</small>"]:::mobile
+    MNewComp["MobileNewLandDialog<br/><small>quick create dialog</small>"]:::mobile
+    MSellerComp["MobileSellerDialog<br/><small>seller picker/creator</small>"]:::mobile
+    MEditComp["MobileLandEditForm<br/><small>edit purchase form</small>"]:::mobile
+  end
+
+  subgraph Shared["Shared Components (cross-module)"]
+    direction TB
+    SellDialog["SellAssetDialog<br/><small>from sales module</small>"]:::shared
+    LegalSection["LegalDocsSection<br/><small>from legal module</small>"]:::shared
+    DeleteConf["DeleteConfirmDialog<br/><small>soft-delete confirm</small>"]:::shared
+    StatusPill["StatusPill<br/><small>status badge</small>"]:::shared
+    EmptyState["EmptyState<br/><small>no-data placeholder</small>"]:::shared
+    ExportBar["MobileExportShareBar<br/><small>CSV export + share</small>"]:::shared
+  end
+
+  LandView --> PurchaseRow
+  LandView --> Portfolio
+  LandView --> Drawer
+  LandView --> Wizard
+  LandView --> FormDialog
+  LandView --> SellerForm
+
+  LandHub --> Tree
+  LandHub --> Cadastre
+  LandHub --> CadLegend
+  LandHub --> PartDialog
+  LandHub --> PartCanvas
+  LandHub --> ValDialog
+  LandHub --> ParcelDetail
+  LandHub --> SellDialog
+  LandHub --> LegalSection
+  LandHub --> DeleteConf
+
+  PartCanvas --> PartCanvasComp
+  LandHub --> StatusPill
+  LandHub --> EmptyState
+
+  MListComp --> ExportBar
+  MListComp --> MNewComp
+  MListComp --> MWizardComp
+  MWizardComp --> MSellerComp
+  MDetailComp --> MEditComp
+  MDetailComp --> SellDialog
+  MDetailComp --> LegalSection
+    </pre>
+  </div>
+
+  <!-- DIAGRAM 11: Cross-Module Connection Map -->
+  <div class="diagram-card">
+    <h2>11. Cross-Module Connection Map — Land's Reach Across the System</h2>
+    <p class="sub">Every module that touches land, with the direction and nature of the connection. Land is a foundational entity — it connects to 12+ other modules.</p>
+    <pre class="mermaid">
+flowchart LR
+  classDef land fill:#312e81,stroke:#6366f1,stroke-width:3px,color:#e0e7ff
+  classDef module fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe
+  classDef finance fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fee2e2
+  classDef sales fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fef3c7
+  classDef compliance fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#ede9fe
+  classDef field fill:#065f46,stroke:#10b981,stroke-width:2px,color:#d1fae5
+
+  LAND(("LAND<br/>MODULE<br/><small>LandPurchase<br/>LandParcel<br/>LandPartition<br/>LandSeller</small>")):::land
+
+  %% Project / Construction
+  LAND -->|"projectId link<br/>land cost → project pool"| PROJECT["Project<br/><small>construction on land</small><br/><small>ProjectPhase</small>"]:::module
+  LAND -->|"landParcelId link<br/>units built on plots"| BUILT["BuiltUnit<br/><small>apartments/shops/villas</small>"]:::module
+  LAND -->|"material issues to project<br/>on land"| MATERIALS["Material Inventory<br/><small>StockLocation (project site)</small><br/><small>MaterialIssue</small>"]:::module
+
+  %% Sales / CRM
+  LAND -->|"sellAsset(LAND)"| SALES["AssetSale<br/><small>land sales</small>"]:::sales
+  LAND -->|"createTenancy(LAND)"| TENANCY["Tenancy<br/><small>land rental</small>"]:::sales
+  LAND -->|"BuiltUnit → PortalListing"| PORTAL["Portal Listings<br/><small>99acres, MagicBricks</small>"]:::sales
+  LAND -->|"BuiltUnit → Lead.interestedUnit"| LEADS["Leads & CRM<br/><small>Lead pipeline</small><br/><small>LeadActivity</small>"]:::sales
+  LAND -->|"AssetSale → PaymentSchedule"| PAYMENTS["Payment Schedules<br/><small>CLP/TLP/DPP</small><br/><small>PaymentScheduleItem</small>"]:::sales
+
+  %% Finance / GL
+  LAND -->|"postLandPurchase()"| GL["General Ledger<br/><small>LAND_ASSET (1700)</small><br/><small>CASH (1100)</small>"]:::finance
+  LAND -->|"postAssetSale() COGS"| GL
+  LAND -->|"postNrvWriteDown()"| GL
+  LAND -->|"projectTotalCost()<br/>land component"| VALUATION["Valuation & Reporting<br/><small>unsoldAssetValue()</small><br/><small>portfolio summary</small><br/><small>RE inventory</small>"]:::finance
+  LAND -->|"JournalEntry sync"| TALLY["Tally ERP<br/><small>voucher XML sync</small><br/><small>TallySyncLog</small>"]:::finance
+
+  %% Legal / Compliance
+  LAND -->|"LegalDocument<br/>landPurchaseId"| LEGAL["Legal & Compliance<br/><small>permissions, NOCs</small><br/><small>ownership certs</small><br/><small>ATS, sale deeds</small>"]:::compliance
+  LAND -->|"TRANSFER_DUTY → ProjectCost"| TRANSFERDUTY["Transfer Duty Bridge<br/><small>legal doc → project cost</small><br/><small>→ cost-per-sqft</small>"]:::compliance
+
+  %% Improvement
+  LAND -->|"createRenovation(LAND)"| RENO["Renovation<br/><small>capital improvement</small><br/><small>cost capitalization</small>"]:::module
+
+  %% HR / Field
+  LAND -->|"project on land →<br/>worker attendance"| HR["HR & Workforce<br/><small>GPS-tagged attendance</small><br/><small>on project sites</small><br/><small>DailyProgressReports</small>"]:::field
+  LAND -->|"project on land →<br/>equipment assignment"| EQUIP["Equipment<br/><small>assigned to project sites</small>"]:::field
+
+  %% Audit / Governance
+  LAND -->|"logAction() every mutation"| AUDIT["Audit Log<br/><small>immutable trail</small><br/><small>CREATE/PARTITION/SALE</small>"]:::finance
+  LAND -->|"soft-delete rules"| SOFTDEL["Soft Delete<br/><small>LandPurchase, LandParcel</small>"]:::finance
+  LAND -->|"Orbit graph"| ORBIT["Orbit Visualization<br/><small>relationship graph</small><br/><small>landParcel + landPurchase nodes</small>"]:::module
+
+  %% RBAC
+  LAND -->|"permission gates"| RBAC["RBAC<br/><small>ASSETS_VIEW</small><br/><small>ASSETS_MANAGE</small><br/><small>LAND_PARTITION</small><br/><small>SALE_CREATE</small><br/><small>LEGAL_MANAGE</small>"]:::compliance
+    </pre>
+  </div>
+
+  <!-- EXTENDED Info Cards -->
+  <div class="grid">
+    <div class="info-card">
+      <h3><span class="icon" style="background:#3b82f6">C</span> CRM & Leads</h3>
+      <ul>
+        <li><strong>Lead pipeline</strong>: NEW → CONTACTED → SITE_VISIT → NEGOTIATION → BOOKED / LOST</li>
+        <li>Leads link to <strong>BuiltUnit</strong> via <code>interestedUnitId</code> and Project via <code>projectId</code></li>
+        <li><strong>LeadActivity</strong> log: CALL, EMAIL, WHATSAPP, MEETING, SITE_VISIT, NOTE, STAGE_CHANGE</li>
+        <li>Lead scoring with priority (LOW/MED/HIGH/HOT), budget range, next follow-up</li>
+        <li>Conversion tracking: <code>convertedCustomerId</code> + <code>convertedAt</code></li>
+        <li>Lost leads tracked with <code>lostReason</code></li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#8b5cf6">P</span> Portal Listings</h3>
+      <ul>
+        <li>Syndicate <strong>BuiltUnits</strong> to 99acres, MagicBricks, Housing.com</li>
+        <li>Pluggable <strong>PortalProvider</strong> — stub logs, real provider calls portal API</li>
+        <li>Auto-populated from unit: bedrooms, bathrooms, area, floor, furnishing</li>
+        <li>Status: DRAFT → LISTED → DELISTED with <code>lastSyncedAt</code> + <code>syncError</code></li>
+        <li>One listing per unit per portal (<code>@@unique([builtUnitId, portalName])</code>)</li>
+        <li>Photo array support for multi-image listings</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#f59e0b">S</span> Payment Schedules</h3>
+      <ul>
+        <li><strong>3 plan types</strong>: CLP (construction-linked), TLP (time-linked), DPP (down payment)</li>
+        <li><strong>CLP</strong>: installments tied to <strong>WBS milestone</strong> completion via <code>wbsNodeId</code></li>
+        <li><strong>TLP</strong>: fixed installments over time with <code>dueDate</code></li>
+        <li><strong>DPP</strong>: large upfront + small balance installments</li>
+        <li>Item status: PENDING → DUE → PARTIAL → PAID → WAIVED</li>
+        <li>GST tracked separately: <code>gstAmount</code> + <code>grandTotal</code></li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#8b5cf6">T</span> Transfer Duty Bridge</h3>
+      <ul>
+        <li><strong>TRANSFER_DUTY</strong> legal doc → auto-creates <code>ProjectCost</code> line</li>
+        <li>Conditions: obtained=true, APPROVED, amount>0, projectId set</li>
+        <li>Cost type <code>TRANSFER_DUTY</code> with <code>sourceLegalDocId</code> back-link</li>
+        <li>Flows into <strong>cost-per-sqft</strong> allocation via <code>reallocateProjectCosts()</code></li>
+        <li>GL posts via <code>postProjectCost()</code> — Dr WIP, Cr CASH</li>
+        <li>Idempotent: re-runs on every create/update, upserts by sourceLegalDocId</li>
+        <li>Removal reverses the GL entry and re-allocates</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#ef4444">G</span> GL Account Map</h3>
+      <ul>
+        <li><strong>1700 LAND_ASSET</strong>: Dr on purchase, Cr on sale (COGS), Cr on NRV write-down</li>
+        <li><strong>1100 CASH</strong>: Cr on purchase, Dr on deposit, Cr on sale, Dr on transfer duty</li>
+        <li><strong>2500 CUSTOMER_DEPOSIT</strong>: Cr on deposit, Dr on sale completion / cancel refund</li>
+        <li><strong>4000 SALES_REVENUE</strong>: Cr on sale completion</li>
+        <li><strong>2100 OUTPUT_GST</strong>: Cr on sale (if GST applicable)</li>
+        <li><strong>5000 COGS</strong>: Dr on sale, Cr LAND_ASSET</li>
+        <li><strong>6000 OPERATING_EXPENSE</strong>: Dr on NRV write-down</li>
+        <li><strong>1500 WIP</strong>: Dr on transfer duty, Cr on unit capitalization</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#10b981">M</span> Mobile & Field</h3>
+      <ul>
+        <li><strong>/m/land</strong>: portfolio list with CSV export + share bar</li>
+        <li><strong>/m/land/[id]</strong>: full detail with parcel actions (partition, sell, hold, valuate)</li>
+        <li><strong>MobileLandWizard</strong>: multi-step guided creation (seller → area → cost → sections)</li>
+        <li><strong>MobileSellerDialog</strong>: create/select land seller master</li>
+        <li>Cross-links: /m/sales, /m/rentals, /m/projects/[id], /m/permissions, /m/books/receipts</li>
+        <li>Home dashboard shows <code>landCount</code> per company card</li>
+        <li>Field-ready: supervisors check available land, managers approve sales/partitions</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#6366f1">X</span> Cross-Module Reach</h3>
+      <ul>
+        <li><strong>12+ modules</strong> connect to land — it's a foundational entity</li>
+        <li><strong>Project</strong>: land cost enters project cost pool → cost-per-sqft</li>
+        <li><strong>Materials</strong>: stock locations on project sites (on land)</li>
+        <li><strong>HR</strong>: GPS-tagged worker attendance on project sites</li>
+        <li><strong>Equipment</strong>: machines assigned to project sites on land</li>
+        <li><strong>Tally ERP</strong>: LAND_PURCHASE → Purchase voucher sync</li>
+        <li><strong>Orbit</strong>: land parcel + purchase nodes in relationship graph</li>
+        <li><strong>RBAC</strong>: ASSETS_VIEW, ASSETS_MANAGE, LAND_PARTITION, SALE_CREATE, LEGAL_MANAGE</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3><span class="icon" style="background:#f59e0b">R</span> Renovation & Improvement</h3>
+      <ul>
+        <li><strong>RenovationProject</strong> linked to LandParcel via <code>landParcelId</code></li>
+        <li>Types: structural, cosmetic, electrical, plumbing, roofing, other</li>
+        <li><strong>RenovationCost</strong> lines: LABOUR, OVERHEAD, EQUIPMENT, CONTRACTOR, PERMIT, OTHER</li>
+        <li>On <strong>completeRenovation()</strong>: cost capitalized into <code>parcel.acquisitionCost</code></li>
+        <li>Parcel <code>currentValuation</code> updated (manual or auto = original + actualCost)</li>
+        <li>ROI computation: <code>computeRoi()</code> — (newValuation - originalValuation) / actualCost</li>
+        <li>Status: PLANNED → ACTIVE → COMPLETED / CANCELLED</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    Nirman Inventory OS — Land Module Flowchart (Extended) &middot; Generated from live codebase analysis &middot; <code>packages/services/src/{land,partition,valuation,sale,tenancy,renovation,legal-docs,gl-posting,alerts,soft-delete,tally,notifications}.ts</code> &middot; <code>packages/db/prisma/schema.prisma</code> &middot; <code>apps/web/src/{components/land,app/land,app/m/land,app/api/{land-purchases,land-parcels,sales,tenancies,renovations,legal-documents,orbit}}</code>
+  </footer>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#111726',
+      primaryColor: '#1e3a8a',
+      primaryTextColor: '#e5e7eb',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#6b7280',
+      secondaryColor: '#312e81',
+      tertiaryColor: '#065f46',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '13px',
+    },
+    flowchart: { curve: 'basis', padding: 20, useMaxWidth: false },
+    er: { useMaxWidth: false },
+    stateDiagram: { useMaxWidth: false },
+  });
+</script>
+</body>
+</html>

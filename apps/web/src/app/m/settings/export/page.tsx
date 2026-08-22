@@ -7,6 +7,8 @@ import {
   CheckCircle2, FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 interface ReportType {
   id: string;
@@ -232,24 +234,20 @@ export default function MobileExportPage() {
               <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
                 Project
               </p>
-              <div className="relative">
-                <FolderOpen
-                  className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: "var(--color-ink-500)" }}
-                />
-                <select
+              <div>
+                <MobileSelectWithCreate
+                  label=""
                   value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-[0.6875rem] outline-none appearance-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-                >
-                  <option value="">Select project…</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedProjectId}
+                  placeholder="Select project…"
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  inputClass="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-[0.6875rem] outline-none appearance-none"
+                  inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  labelClass="hidden"
+                  renderDialog={({ open, onClose, onCreated }) => (
+                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                  )}
+                />
               </div>
               {projects.length === 0 ? (
                 <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>

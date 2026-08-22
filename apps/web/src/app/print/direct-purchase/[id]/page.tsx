@@ -1,5 +1,6 @@
 import { connection } from "next/server";
-import { PrintButton } from "@/components/print/print-button";
+import { PrintToolbar } from "@/components/print/print-button";
+import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -50,42 +51,27 @@ export default async function DirectPurchaseVoucherPage({
   const words = amountInWords(billAmount);
   const supplierName = purchase.supplier?.name ?? purchase.supplierName;
 
-  return (
+  return (<>
+          <PrintToolbar title="Direct Purchase Voucher" />
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-wide">Purchase Voucher</h1>
-          <p className="text-sm text-gray-600">Original Copy</p>
-        </div>
-        <div className="text-right text-sm">
-          <div className="font-mono font-bold">No. {purchase.billNumber}</div>
-          <div className="text-gray-600">{formatDate(purchase.billDate)}</div>
-        </div>
-      </div>
+      <PrintHeader
+        company={company}
+        title="Direct Purchase Voucher"
+        docNumber={purchase.billNumber}
+        date={purchase.billDate}
+      />
 
-      {/* Company + Supplier info */}
-      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div className="font-semibold">{company.name}</div>
-          {company.address && <div className="text-gray-600">{company.address}</div>}
-          {company.phone && <div className="text-gray-600">Ph: {company.phone}</div>}
-          {company.email && <div className="text-gray-600">{company.email}</div>}
-          {company.gstin && <div className="text-gray-600">GSTIN: {company.gstin}</div>}
+      {/* Supplier + receipt info */}
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Supplier</div>
+          <div className="font-semibold">{supplierName}</div>
+          {purchase.supplier?.gstin && <div className="text-xs text-gray-500">GSTIN: {purchase.supplier.gstin}</div>}
+          {purchase.supplier?.phone && <div className="text-xs text-gray-500">Ph: {purchase.supplier.phone}</div>}
         </div>
-        <div>
-          <span className="font-semibold">Supplier: </span>
-          <span>{supplierName}</span>
-          {purchase.supplier?.phone && (
-            <div className="text-gray-600">Ph: {purchase.supplier.phone}</div>
-          )}
-          {purchase.supplier?.gstin && (
-            <div className="text-gray-600">GSTIN: {purchase.supplier.gstin}</div>
-          )}
-        </div>
-        <div>
-          <span className="font-semibold">Received At: </span>
-          <span>{purchase.location.name}</span>
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Received At</div>
+          <div className="font-semibold">{purchase.location.name}</div>
         </div>
       </div>
 
@@ -190,10 +176,7 @@ export default async function DirectPurchaseVoucherPage({
         <div className="border-t border-black pt-1">Authorised Signatory</div>
       </div>
 
-      {/* Print button (hidden when printing) */}
-      <div className="mt-8 text-center print:hidden">
-        <PrintButton label="Print Voucher" />
-      </div>
     </div>
+    </>
   );
 }

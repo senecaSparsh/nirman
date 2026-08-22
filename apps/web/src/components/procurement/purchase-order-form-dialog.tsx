@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -9,9 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { required, type ValidationErrors } from "@/lib/validate";
-import type { MaterialRow, ProjectOption, StockLocationRow, SupplierRow } from "@/lib/types";
+import type { MaterialCategory, MaterialRow, ProjectOption, StockLocationRow, SupplierRow } from "@/lib/types";
 
 type PoFormValues = {
   supplierId: string;
@@ -40,6 +45,7 @@ export function PurchaseOrderFormDialog({
   materials,
   locations,
   projects,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -47,11 +53,17 @@ export function PurchaseOrderFormDialog({
   materials: MaterialRow[];
   locations: StockLocationRow[];
   projects: ProjectOption[];
+  categories: MaterialCategory[];
 }) {
+  // Local copy of materials so a newly created material shows up in the line
+  // item dropdown immediately, without waiting for router.refresh.
+  const [localMaterials, setLocalMaterials] = useState<MaterialRow[]>(materials);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
+
   // Build material options for the select column
   const materialOptions = useMemo(
-    () => materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` })),
-    [materials],
+    () => localMaterials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` })),
+    [localMaterials],
   );
 
   // Column definitions for the editable grid
@@ -63,6 +75,7 @@ export function PurchaseOrderFormDialog({
       options: materialOptions,
       placeholder: "Select material…",
       width: "1fr",
+      createLabel: "material",
     },
     {
       key: "qtyOrdered",
@@ -114,9 +127,44 @@ export function PurchaseOrderFormDialog({
   const [locationId, setLocationId] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<Line[]>([newLine()]);
+  const [lines, setLinesState] = useState<Line[]>([newLine()]);
+
+  // Wrap setLines to auto-fill gstRate & unitCost from the selected material.
+  function setLines(updater: Line[] | ((prev: Line[]) => Line[])) {
+    setLinesState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      // For each line, if materialId changed, auto-fill gstRate & unitCost.
+      return next.map((line, i) => {
+        const prevLine = prev[i];
+        if (line.materialId && line.materialId !== prevLine?.materialId) {
+          const mat = localMaterials.find((m) => m.id === line.materialId);
+          if (mat) {
+            return {
+              ...line,
+              gstRate: line.gstRate === "0" || !line.gstRate ? String(mat.gstRate) : line.gstRate,
+              unitCost: !line.unitCost ? String(mat.standardCost) : line.unitCost,
+            };
+          }
+        }
+        return line;
+      });
+    });
+  }
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors<PoFormValues>>({});
+  // Inline create dialog open-state for the master selects.
+  const [supplierCreateOpen, setSupplierCreateOpen] = useState(false);
+  const [projectCreateOpen, setProjectCreateOpen] = useState(false);
+  const [locationCreateOpen, setLocationCreateOpen] = useState(false);
+  const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
+  // Local copies so a freshly created master shows up in its select without
+  // waiting for router.refresh.
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierRow[]>(suppliers);
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
 
   function validateField(key: keyof PoFormValues): string | undefined {
     if (key === "supplierId") return required(supplierId, "Supplier");
@@ -132,7 +180,7 @@ export function PurchaseOrderFormDialog({
   }
 
   // Filter locations by scope
-  const availableLocations = locations.filter((l) =>
+  const availableLocations = localLocations.filter((l) =>
     scope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE",
   );
   // For PROJECT scope, further filter by selected project
@@ -208,7 +256,7 @@ export function PurchaseOrderFormDialog({
       onOpenChange(false);
       // Reset form
       setSupplierId(""); setLocationId(""); setProjectId(""); setExpectedDate(""); setNotes("");
-      setLines([newLine()]);
+      setLinesState([newLine()]);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -222,9 +270,12 @@ export function PurchaseOrderFormDialog({
       open={open}
       onOpenChange={(o) => {
         onOpenChange(o);
-        if (!o) {
+        if (o) {
+          // Default expected date to today + 7 days
+          setExpectedDate((cur) => cur || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+        } else {
           setSupplierId(""); setLocationId(""); setProjectId(""); setScope("COMPANY");
-          setExpectedDate(""); setNotes(""); setLines([newLine()]); setErrors({});
+          setExpectedDate(""); setNotes(""); setLinesState([newLine()]); setErrors({});
         }
       }}
       title="New Purchase Order"
@@ -235,12 +286,20 @@ export function PurchaseOrderFormDialog({
         {/* Header fields */}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Supplier" required error={errors.supplierId}>
-            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} onBlur={() => onBlur("supplierId")} required aria-invalid={!!errors.supplierId} className={errors.supplierId ? errorBorder : undefined}>
-              <option value="" disabled>Select supplier…</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={supplierId}
+              onChange={setSupplierId}
+              onBlur={() => onBlur("supplierId")}
+              required
+              aria-invalid={!!errors.supplierId}
+              className={errors.supplierId ? errorBorder : undefined}
+              placeholder="Select supplier…"
+              createLabel="supplier"
+              options={localSuppliers.map((s) => ({ value: s.id, label: s.balanceOwed > 0 ? `${s.name} (Owes: ${formatCurrency(s.balanceOwed)})` : s.name }))}
+              renderCreateDialog={({ open, onCreated, onClose }) => (
+                <SupplierFormDialog open={open} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { ...({} as SupplierRow), id: e.id, name: e.label ?? "" }]); onCreated(e); }} supplier={null} existingSuppliers={localSuppliers} />
+              )}
+            />
           </Field>
           <Field label="Procurement Scope" required>
             <Select value={scope} onChange={(e) => onScopeChange(e.target.value as "COMPANY" | "PROJECT")}>
@@ -250,26 +309,49 @@ export function PurchaseOrderFormDialog({
           </Field>
           {scope === "PROJECT" && (
             <Field label="Project" required>
-              <Select value={projectId} onChange={(e) => { setProjectId(e.target.value); setLocationId(""); }} required>
-                <option value="" disabled>Select project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Select>
+              <SelectWithCreate
+                value={projectId}
+                onChange={(v) => { setProjectId(v); setLocationId(""); }}
+                required
+                placeholder="Select project…"
+                createLabel="project"
+                options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                renderCreateDialog={({ open, onCreated, onClose }) => (
+                  <ProjectFormDialog open={open} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+                )}
+              />
             </Field>
           )}
           <Field label="Destination Location" required>
-            <Select value={locationId} onChange={(e) => setLocationId(e.target.value)} required>
-              <option value="" disabled>Select location…</option>
-              {projectLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={locationId}
+              onChange={setLocationId}
+              required
+              placeholder="Select location…"
+              createLabel="location"
+              options={projectLocations.map((l) => ({ value: l.id, label: l.name }))}
+              renderCreateDialog={({ open, onCreated, onClose }) => (
+                <LocationFormDialog open={open} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: scope === "PROJECT" ? "PROJECT_SITE" : "COMPANY_WAREHOUSE", projectId: scope === "PROJECT" ? projectId : null }]); onCreated(e); }} projects={localProjects} location={null} />
+              )}
+            />
           </Field>
           <Field label="Expected Date">
             <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </Field>
         </div>
+
+        {/* Supplier outstanding balance context */}
+        {(() => {
+          const sel = localSuppliers.find((s) => s.id === supplierId);
+          if (!sel || sel.balanceOwed <= 0) return null;
+          return (
+            <div className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-caption text-muted-foreground">
+              ⚠ <span className="font-medium text-foreground">{sel.name}</span> has an outstanding balance of{" "}
+              <span className="tnum font-medium text-foreground">{formatCurrency(sel.balanceOwed)}</span>.
+              {sel.openPOs > 0 && <span className="ml-1">({sel.openPOs} open PO{sel.openPOs === 1 ? "" : "s"})</span>}
+            </div>
+          );
+        })()}
 
         {/* Line items — editable grid */}
         <div className="space-y-2">
@@ -287,6 +369,7 @@ export function PurchaseOrderFormDialog({
               getRowId={(r) => r.key}
               sumColumns={["qtyOrdered", "lineTotal"]}
               className="max-h-[40vh]"
+              onCreateOption={() => setMaterialCreateOpen(true)}
             />
           </div>
           {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
@@ -308,6 +391,21 @@ export function PurchaseOrderFormDialog({
           <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create PO"}</Button>
         </div>
       </form>
+
+      {/* Inline material creator — opened from a line item's "+ Create new
+          material…" option. The new material is spliced into the dropdown. */}
+      <MaterialFormDialog
+        open={materialCreateOpen}
+        onOpenChange={setMaterialCreateOpen}
+        categories={categories}
+        material={null}
+        onCreated={(e) => {
+          setLocalMaterials((p) => [
+            ...p,
+            { ...({} as MaterialRow), id: e.id, name: e.label ?? "", code: "" },
+          ]);
+        }}
+      />
     </Dialog>
   );
 }

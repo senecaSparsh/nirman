@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 
@@ -58,6 +60,10 @@ export function PurchaseUnitDialog({
   const [askingPrice, setAskingPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Local copy of projects so freshly created ones appear without a refresh
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   useEffect(() => {
     if (open) {
@@ -135,11 +141,16 @@ export function PurchaseUnitDialog({
     >
       <div className="space-y-3">
         <Field label="Project">
-          <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
+          <SelectWithCreate
+            value={projectId}
+            onChange={setProjectId}
+            placeholder="Select project…"
+            createLabel="project"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

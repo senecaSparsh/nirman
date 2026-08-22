@@ -1,7 +1,8 @@
 import { connection } from "next/server";
-import { PrintButton } from "@/components/print/print-button";
+import { PrintToolbar } from "@/components/print/print-button";
+import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, getCompanyGroupIds } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -26,9 +27,10 @@ export default async function PurchaseOrderPrintPage({
     notFound();
   }
   const company = await getCompany();
+  const groupCompanyIds = await getCompanyGroupIds(company);
 
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: { in: groupCompanyIds } },
     include: {
       supplier: { select: { name: true, phone: true, gstin: true, address: true } },
       project: { select: { name: true } },
@@ -39,6 +41,7 @@ export default async function PurchaseOrderPrintPage({
         },
         orderBy: { material: { name: "asc" } },
       },
+      charges: { orderBy: { createdAt: "asc" } },
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
     },
@@ -49,52 +52,44 @@ export default async function PurchaseOrderPrintPage({
   const subtotal = toNum(po.subtotal);
   const gstTotal = toNum(po.gstTotal);
   const total = toNum(po.total);
+  const freightTotal = toNum(po.freightTotal);
+  const loadingTotal = toNum(po.loadingTotal);
+  const packingTotal = toNum(po.packingTotal);
+  const insuranceTotal = toNum(po.insuranceTotal);
+  const discountTotal = toNum(po.discountTotal);
+  const miscChargesTotal = toNum(po.miscChargesTotal);
+  const charges = po.charges;
   const words = amountInWords(total);
 
-  return (
+  return (<>
+          <PrintToolbar title="Purchase Order" />
     <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-wide">Purchase Order</h1>
-          <p className="text-sm text-gray-600">{po.status}</p>
-        </div>
-        <div className="text-right text-sm">
-          <div className="font-mono font-bold">{po.poNumber}</div>
-          <div className="text-gray-600">{formatDate(po.orderDate)}</div>
-          {po.expectedDate && (
-            <div className="text-gray-600">Expected: {formatDate(po.expectedDate)}</div>
-          )}
-        </div>
-      </div>
+      <PrintHeader
+        company={company}
+        title="Purchase Order"
+        docNumber={po.poNumber}
+        date={po.orderDate}
+        extra={po.expectedDate ? <div className="text-xs text-gray-500">Expected: {formatDate(po.expectedDate)}</div> : undefined}
+      />
 
-      {/* Company + Supplier info */}
-      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div className="font-semibold">{company.name}</div>
-          {company.address && <div className="text-gray-600">{company.address}</div>}
-          {company.phone && <div className="text-gray-600">Ph: {company.phone}</div>}
-          {company.email && <div className="text-gray-600">{company.email}</div>}
-          {company.gstin && <div className="text-gray-600">GSTIN: {company.gstin}</div>}
+      {/* Supplier info */}
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Deliver To</div>
+          <div className="font-semibold">{po.destinationLocation.name}</div>
+          <div className="text-xs text-gray-500">
+            {po.procurementScope === "PROJECT" ? "Project Site" : "Company Warehouse"}
+            {po.project && ` · ${po.project.name}`}
+          </div>
         </div>
-        <div className="border-l border-gray-300 pl-4">
-          <div className="font-semibold">To: {po.supplier.name}</div>
-          {po.supplier.address && <div className="text-gray-600">{po.supplier.address}</div>}
-          {po.supplier.phone && <div className="text-gray-600">Ph: {po.supplier.phone}</div>}
-          {po.supplier.gstin && <div className="text-gray-600">GSTIN: {po.supplier.gstin}</div>}
-        </div>
-      </div>
-
-      {/* Delivery info */}
-      <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <span className="font-semibold">Deliver To: </span>
-          <span>{po.destinationLocation.name}</span>
-        </div>
-        <div>
-          <span className="font-semibold">Scope: </span>
-          <span>{po.procurementScope === "PROJECT" ? "Project Site" : "Company Warehouse"}</span>
-          {po.project && <span className="text-gray-600"> · {po.project.name}</span>}
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Supplier</div>
+          <div className="font-semibold">{po.supplier.name}</div>
+          {po.supplier.address && <div className="text-xs text-gray-500">{po.supplier.address}</div>}
+          <div className="text-xs text-gray-500">
+            {po.supplier.gstin && <span className="mr-2">GSTIN: {po.supplier.gstin}</span>}
+            {po.supplier.phone && <span>Ph: {po.supplier.phone}</span>}
+          </div>
         </div>
       </div>
 
@@ -155,6 +150,31 @@ export default async function PurchaseOrderPrintPage({
               <td className="px-2 py-1.5 text-right tnum">{formatCurrency(gstTotal)}</td>
             </tr>
           )}
+          {/* Itemized charges */}
+          {charges.map((c) => (
+            <tr key={c.id}>
+              <td colSpan={6} className="px-2 py-1.5 text-right font-semibold">
+                {c.heading}{c.notes ? ` (${c.notes})` : ""}:
+              </td>
+              <td className="px-2 py-1.5 text-right tnum">{formatCurrency(toNum(c.amount))}</td>
+            </tr>
+          ))}
+          {/* Auto-computed header charges not itemized */}
+          {freightTotal > 0 && !charges.some((c) => c.heading.includes("Freight")) ? (
+            <tr><td colSpan={6} className="px-2 py-1.5 text-right font-semibold">Freight / Transportation:</td><td className="px-2 py-1.5 text-right tnum">{formatCurrency(freightTotal)}</td></tr>
+          ) : null}
+          {loadingTotal > 0 && !charges.some((c) => c.heading.includes("Loading")) ? (
+            <tr><td colSpan={6} className="px-2 py-1.5 text-right font-semibold">Loading / Unloading:</td><td className="px-2 py-1.5 text-right tnum">{formatCurrency(loadingTotal)}</td></tr>
+          ) : null}
+          {packingTotal > 0 && !charges.some((c) => c.heading.includes("Packing")) ? (
+            <tr><td colSpan={6} className="px-2 py-1.5 text-right font-semibold">Packing & Forwarding:</td><td className="px-2 py-1.5 text-right tnum">{formatCurrency(packingTotal)}</td></tr>
+          ) : null}
+          {insuranceTotal > 0 && !charges.some((c) => c.heading.includes("Insurance")) ? (
+            <tr><td colSpan={6} className="px-2 py-1.5 text-right font-semibold">Transit Insurance:</td><td className="px-2 py-1.5 text-right tnum">{formatCurrency(insuranceTotal)}</td></tr>
+          ) : null}
+          {discountTotal > 0 ? (
+            <tr><td colSpan={6} className="px-2 py-1.5 text-right font-semibold">Discount:</td><td className="px-2 py-1.5 text-right tnum">−{formatCurrency(discountTotal)}</td></tr>
+          ) : null}
           <tr className="border-t-2 border-black">
             <td colSpan={6} className="px-2 py-2 text-right font-bold">
               Grand Total:
@@ -201,10 +221,7 @@ export default async function PurchaseOrderPrintPage({
         <div className="border-t border-black pt-1">For Supplier</div>
       </div>
 
-      {/* Print button (hidden when printing) */}
-      <div className="mt-8 text-center print:hidden">
-        <PrintButton label="Print Purchase Order" />
-      </div>
     </div>
+    </>
   );
 }

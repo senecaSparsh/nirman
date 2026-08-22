@@ -8,6 +8,22 @@ import { getApprovalRouting } from "./procurement-advanced";
 import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
+import { autoFillHsnGst } from "./material-service";
+
+/**
+ * Haversine distance between two lat/lng points in metres.
+ * Used for geo-fence validation of GPS-tagged receipts.
+ */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Earth radius in metres
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
+}
 
 /** Role hierarchy for value-based approval routing (higher index = more authority). */
 const ROLE_RANK: Record<string, number> = {
@@ -40,11 +56,27 @@ interface CreatePOInput {
   expectedDate?: Date;
   notes?: string;
   createdById?: string;
+  /** Override the initial status (default: DRAFT). Used by quotation approval to create APPROVED POs. */
+  initialStatus?: "DRAFT" | "APPROVED";
+  /** Who approved the PO (set when initialStatus = APPROVED). */
+  approvedById?: string;
   lines: {
     materialId: string;
     qtyOrdered: Decimal | number | string;
     unitCost: Decimal | number | string;
     gstRate?: Decimal | number | string;
+    // Per-unit landed-cost components (from VendorQuoteLine)
+    freightPerUnit?: Decimal | number | string;
+    loadingPerUnit?: Decimal | number | string;
+    packingPerUnit?: Decimal | number | string;
+    insurancePerUnit?: Decimal | number | string;
+    discountPerUnit?: Decimal | number | string;
+  }[];
+  // Header-level itemized charges (e.g. "Loading", "Fuel Charge", "Transportation")
+  charges?: {
+    heading: string;
+    amount: Decimal | number | string;
+    notes?: string;
   }[];
 }
 
@@ -114,28 +146,71 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
       if (cost.lt(0)) throw new ServiceError(`unitCost must be >= 0 for material ${line.materialId}`);
     }
 
-    // 4. Compute totals
+    // 4. Compute totals — line subtotals + GST + per-line landed-cost components
     let subtotal = new Decimal(0);
     let gstTotal = new Decimal(0);
+    let freightTotal = new Decimal(0);
+    let loadingTotal = new Decimal(0);
+    let packingTotal = new Decimal(0);
+    let insuranceTotal = new Decimal(0);
+    let discountTotal = new Decimal(0);
     const lineData = input.lines.map((l) => {
       const qty = new Decimal(l.qtyOrdered);
       const cost = new Decimal(l.unitCost);
       const gstRate = new Decimal(l.gstRate ?? 0);
+      const freightPU = new Decimal(l.freightPerUnit ?? 0);
+      const loadingPU = new Decimal(l.loadingPerUnit ?? 0);
+      const packingPU = new Decimal(l.packingPerUnit ?? 0);
+      const insurancePU = new Decimal(l.insurancePerUnit ?? 0);
+      const discountPU = new Decimal(l.discountPerUnit ?? 0);
       const lineSubtotal = qty.times(cost);
       const lineGst = lineSubtotal.times(gstRate).div(100);
-      const lineTotal = lineSubtotal.plus(lineGst);
+      // Per-unit landed cost = (unitCost − discount + packing) × (1 + gst/100) + freight + loading + insurance
+      const taxablePU = cost.minus(discountPU).plus(packingPU);
+      const unitLandedCost = taxablePU.times(new Decimal(1).plus(gstRate.div(100)))
+        .plus(freightPU).plus(loadingPU).plus(insurancePU);
+      const lineTotal = qty.times(unitLandedCost);
       subtotal = subtotal.plus(lineSubtotal);
       gstTotal = gstTotal.plus(lineGst);
+      freightTotal = freightTotal.plus(freightPU.times(qty));
+      loadingTotal = loadingTotal.plus(loadingPU.times(qty));
+      packingTotal = packingTotal.plus(packingPU.times(qty));
+      insuranceTotal = insuranceTotal.plus(insurancePU.times(qty));
+      discountTotal = discountTotal.plus(discountPU.times(qty));
       return {
         materialId: l.materialId,
         qtyOrdered: qty,
         unitCost: cost,
         gstRate,
+        freightPerUnit: freightPU,
+        loadingPerUnit: loadingPU,
+        packingPerUnit: packingPU,
+        insurancePerUnit: insurancePU,
+        discountPerUnit: discountPU,
+        unitLandedCost,
         lineTotal,
       };
     });
 
+    // 4b. Compute misc charges total from itemized charges
+    const charges = input.charges ?? [];
+    let miscChargesTotal = new Decimal(0);
+    for (const c of charges) {
+      miscChargesTotal = miscChargesTotal.plus(new Decimal(c.amount));
+    }
+
+    // 4c. Grand total = subtotal + GST + freight + loading + packing + insurance + misc − discount
+    const grandTotal = subtotal
+      .plus(gstTotal)
+      .plus(freightTotal)
+      .plus(loadingTotal)
+      .plus(packingTotal)
+      .plus(insuranceTotal)
+      .plus(miscChargesTotal)
+      .minus(discountTotal);
+
     // 5. Create PO
+    const initialStatus = input.initialStatus ?? "DRAFT";
     const po = await tx.purchaseOrder.create({
       data: {
         poNumber: await generatePoNumber(tx),
@@ -144,11 +219,19 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
         companyId: input.companyId,
         projectId: input.projectId ?? null,
         destinationLocationId: input.destinationLocationId,
-        status: "DRAFT",
+        status: initialStatus,
+        approvedById: initialStatus === "APPROVED" ? (input.approvedById ?? input.createdById) : null,
+        approvedAt: initialStatus === "APPROVED" ? new Date() : null,
         expectedDate: input.expectedDate,
         subtotal,
         gstTotal,
-        total: subtotal.plus(gstTotal),
+        freightTotal,
+        loadingTotal,
+        packingTotal,
+        insuranceTotal,
+        discountTotal,
+        miscChargesTotal,
+        total: grandTotal,
         notes: input.notes,
         createdById: input.createdById,
         lines: {
@@ -157,11 +240,24 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
             qtyOrdered: l.qtyOrdered,
             unitCost: l.unitCost,
             gstRate: l.gstRate,
+            freightPerUnit: l.freightPerUnit,
+            loadingPerUnit: l.loadingPerUnit,
+            packingPerUnit: l.packingPerUnit,
+            insurancePerUnit: l.insurancePerUnit,
+            discountPerUnit: l.discountPerUnit,
+            unitLandedCost: l.unitLandedCost,
             lineTotal: l.lineTotal,
           })),
         },
+        charges: charges.length > 0 ? {
+          create: charges.map((c) => ({
+            heading: c.heading,
+            amount: new Decimal(c.amount),
+            notes: c.notes ?? null,
+          })),
+        } : undefined,
       },
-      include: { lines: true },
+      include: { lines: true, charges: true },
     });
 
     await logAction(tx, {
@@ -316,7 +412,49 @@ interface ReceiveGoodsInput {
     materialId: string;
     qtyReceived: Decimal | number | string;
     unitCost: Decimal | number | string; // actual invoice cost (may differ from PO)
+    lotNumber?: string;
+    batchCode?: string;
+    expiryDate?: Date;
+    manufacturingDate?: Date;
+    inspectionStatus?: string; // PENDING | PASSED | FAILED | REJECTED
+    inspectionRemarks?: string;
   }[];
+  // ── Delivery proof & logistics (GRN enhancement) ──
+  deliveryTermsType?: string;
+  deliveryMode?: string;
+  vehicleType?: string;
+  vehicleNumber?: string;
+  driverName?: string;
+  driverPhone?: string;
+  transporterName?: string;
+  challanNumber?: string;
+  invoiceNumber?: string;
+  ewayBillNumber?: string;
+  lrNumber?: string;
+  packageCount?: number;
+  photos?: unknown; // JSON array of { url, fileName }
+  receiverSignature?: string; // base64 PNG
+  receiverLat?: number;
+  receiverLng?: number;
+  receiverLocation?: string;
+  gateInAt?: Date;
+  shortageRemarks?: string;
+  damageRemarks?: string;
+  // Supervisor co-signature
+  supervisorSignature?: string;
+  supervisorId?: string;
+  // Weighbridge
+  weighbridgeTicketNo?: string;
+  grossWeight?: Decimal | number | string;
+  tareWeight?: Decimal | number | string;
+  netWeight?: Decimal | number | string;
+  // Gate pass / receiving + unloading
+  gatePassNo?: string;
+  receivingPhotoUrl?: string;
+  unloadingSlipNo?: string;
+  unloadedAt?: Date;
+  unloadingLocation?: string;
+  unloadingRemarks?: string;
 }
 
 export async function receiveGoods(input: ReceiveGoodsInput) {
@@ -329,6 +467,23 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
       throw new ServiceError(`Cannot receive goods against PO in status ${po.status}`);
     }
+
+    // Duplicate prevention: if a GRN was created for this PO in the last 10 seconds,
+    // reject as likely double-submit (client button disable is not enough)
+    if (input.receivedById) {
+      const recentGrn = await tx.goodsReceipt.findFirst({
+        where: {
+          purchaseOrderId: input.purchaseOrderId,
+          receivedById: input.receivedById,
+          rejectedAt: null,
+          receiptDate: { gte: new Date(Date.now() - 10_000) },
+        },
+        select: { id: true },
+      });
+      if (recentGrn) {
+        throw new ServiceError("A receipt was just recorded for this PO. Wait a few seconds before receiving again.");
+      }
+    }
     if (input.locationId !== po.destinationLocationId) {
       throw new ServiceError("Receipt location must match PO destination location");
     }
@@ -336,7 +491,7 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     // Enforce procurement scope: COMPANY POs → COMPANY_WAREHOUSE, PROJECT POs → PROJECT_SITE.
     const destLocation = await tx.stockLocation.findFirst({
       where: { id: po.destinationLocationId, deletedAt: null },
-      select: { type: true },
+      select: { type: true, lat: true, lng: true, geoRadius: true },
     });
     if (destLocation) {
       if (po.procurementScope === "COMPANY" && destLocation.type !== "COMPANY_WAREHOUSE") {
@@ -345,6 +500,17 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       if (po.procurementScope === "PROJECT" && destLocation.type !== "PROJECT_SITE") {
         throw new ServiceError("PROJECT-scope PO must be received into a PROJECT_SITE location");
       }
+    }
+
+    // Geo-fence validation: if the location has coordinates and the receiver
+    // captured GPS, compute the distance. Flag (don't block) if outside radius.
+    let geoFenceOk: boolean | undefined;
+    let geoFenceDistance: number | undefined;
+    if (destLocation?.lat != null && destLocation?.lng != null && input.receiverLat != null && input.receiverLng != null) {
+      const dist = haversineDistance(destLocation.lat, destLocation.lng, input.receiverLat, input.receiverLng);
+      geoFenceDistance = dist;
+      const radius = destLocation.geoRadius ?? 500; // default 500m
+      geoFenceOk = dist <= radius;
     }
 
     // Process each receipt line
@@ -393,12 +559,57 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
         locationId: input.locationId,
         receivedById: input.receivedById,
         notes: input.notes,
+        // Delivery proof & logistics
+        deliveryTermsType: input.deliveryTermsType,
+        deliveryMode: input.deliveryMode,
+        vehicleType: input.vehicleType,
+        vehicleNumber: input.vehicleNumber,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
+        transporterName: input.transporterName,
+        challanNumber: input.challanNumber,
+        invoiceNumber: input.invoiceNumber,
+        ewayBillNumber: input.ewayBillNumber,
+        lrNumber: input.lrNumber,
+        packageCount: input.packageCount,
+        photos: input.photos as never,
+        receiverSignature: input.receiverSignature,
+        receiverLat: input.receiverLat,
+        receiverLng: input.receiverLng,
+        receiverLocation: input.receiverLocation,
+        geoFenceOk,
+        geoFenceDistance,
+        gateInAt: input.gateInAt,
+        shortageRemarks: input.shortageRemarks,
+        damageRemarks: input.damageRemarks,
+        // Supervisor co-signature
+        supervisorSignature: input.supervisorSignature,
+        supervisorId: input.supervisorId,
+        // Weighbridge
+        weighbridgeTicketNo: input.weighbridgeTicketNo,
+        grossWeight: input.grossWeight != null ? new Decimal(input.grossWeight) : undefined,
+        tareWeight: input.tareWeight != null ? new Decimal(input.tareWeight) : undefined,
+        netWeight: input.netWeight != null ? new Decimal(input.netWeight) : undefined,
+        // Gate pass / receiving + unloading
+        gatePassNo: input.gatePassNo,
+        receivingPhotoUrl: input.receivingPhotoUrl,
+        unloadingSlipNo: input.unloadingSlipNo,
+        unloadedById: input.receivedById, // default: same person who receives
+        unloadedAt: input.unloadedAt,
+        unloadingLocation: input.unloadingLocation,
+        unloadingRemarks: input.unloadingRemarks,
         lines: {
           create: input.lines.map((l) => ({
             purchaseOrderLineId: l.purchaseOrderLineId,
             materialId: l.materialId,
             qtyReceived: new Decimal(l.qtyReceived),
             unitCost: new Decimal(l.unitCost),
+            lotNumber: l.lotNumber,
+            batchCode: l.batchCode,
+            expiryDate: l.expiryDate,
+            manufacturingDate: l.manufacturingDate,
+            inspectionStatus: (l.inspectionStatus as never) ?? undefined,
+            inspectionRemarks: l.inspectionRemarks,
           })),
         },
       },
@@ -474,6 +685,17 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     timestamp: new Date(),
   });
 
+  // Auto-fill HSN/GST on materials that are missing it (best-effort, outside tx)
+  // Ensures GST compliance — if a material was created without HSN/GST, the
+  // system auto-suggests from the government HSN master at receipt time.
+  void (async () => {
+    for (const line of input.lines) {
+      try {
+        await autoFillHsnGst(line.materialId);
+      } catch { /* best-effort — don't block receipt for HSN lookup failure */ }
+    }
+  })();
+
   // Auto-sync to Tally (best-effort, outside the transaction)
   // Find the journal entry posted for this goods receipt
   void (async () => {
@@ -487,4 +709,90 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
   })();
 
   return { goodsReceipt: result.goodsReceipt, newStatus: result.newStatus };
+}
+
+/**
+ * Reject a delivery at the gate — goods are refused entry (damaged, wrong, etc.).
+ * Creates a GoodsReceipt with rejection fields set but NO stock movements
+ * (stock is not received). This records the rejection event for audit + supplier
+ * dispute resolution. Optionally links to a SupplierReturn for the return process.
+ */
+export async function rejectDelivery(input: {
+  purchaseOrderId: string;
+  locationId: string;
+  rejectedById?: string;
+  rejectionReason: string;
+  rejectionPhotos?: unknown; // JSON array of { url, fileName }
+  vehicleNumber?: string;
+  challanNumber?: string;
+  notes?: string;
+  receiverLat?: number;
+  receiverLng?: number;
+  receiverLocation?: string;
+  gatePassNo?: string;
+}) {
+  return withStockTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: input.purchaseOrderId },
+      select: { status: true, poNumber: true, supplierId: true, companyId: true },
+    });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
+      throw new ServiceError(`Cannot reject delivery for PO in status ${po.status}`);
+    }
+
+    // Create a GoodsReceipt record marked as rejected (no stock movements)
+    const goodsReceipt = await tx.goodsReceipt.create({
+      data: {
+        purchaseOrderId: input.purchaseOrderId,
+        locationId: input.locationId,
+        receivedById: input.rejectedById,
+        notes: input.notes,
+        vehicleNumber: input.vehicleNumber,
+        challanNumber: input.challanNumber,
+        // Geo-tag the rejection — proves it happened at the gate
+        receiverLat: input.receiverLat,
+        receiverLng: input.receiverLng,
+        receiverLocation: input.receiverLocation,
+        // Gate pass no. (if the vehicle had one)
+        gatePassNo: input.gatePassNo,
+        // Rejection fields
+        rejectedAt: new Date(),
+        rejectedById: input.rejectedById,
+        rejectionReason: input.rejectionReason,
+        rejectionPhotos: input.rejectionPhotos as never,
+        // Mark all lines as REJECTED inspection status
+        inspectionStatus: "REJECTED",
+        inspectionNotes: input.rejectionReason,
+        // No lines created — stock is not received
+      },
+    });
+
+    // Mark the PO with rejection info (PO stays ORDERED — supplier can re-deliver)
+    await tx.purchaseOrder.update({
+      where: { id: input.purchaseOrderId },
+      data: {
+        rejectedAt: new Date(),
+        rejectedById: input.rejectedById,
+        rejectionReason: input.rejectionReason,
+      },
+    });
+
+    if (input.rejectedById) {
+      await logAction(tx, {
+        userId: input.rejectedById,
+        companyId: po.companyId,
+        action: "DELIVERY_REJECTED",
+        entityType: "PurchaseOrder",
+        entityId: input.purchaseOrderId,
+        after: {
+          goodsReceiptId: goodsReceipt.id,
+          reason: input.rejectionReason,
+          poNumber: po.poNumber,
+        },
+      });
+    }
+
+    return { goodsReceipt, po };
+  });
 }

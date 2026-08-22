@@ -20,11 +20,13 @@ export function LocationFormDialog({
   onOpenChange,
   projects,
   location,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projects: ProjectOption[];
   location: StockLocationRow | null;
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() =>
@@ -74,7 +76,11 @@ export function LocationFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save location");
       toast.success(isEdit ? "Location updated" : "Location created");
       onOpenChange(false);
-      router.refresh();
+      if (!isEdit && onCreated) {
+        onCreated({ id: data.id, label: data.name });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {

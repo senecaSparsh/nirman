@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
 
 type LeaveType = "CASUAL" | "SICK" | "EARNED" | "UNPAID" | "MATERNITY" | "PATERNITY";
 
@@ -132,17 +134,21 @@ export function MobileNewLeaveDialog({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Employee */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Employee <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select value={form.employeeId} onChange={(e) => set("employeeId", e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— Select employee —</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.name}{emp.trade ? ` (${emp.trade})` : ""}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Employee"
+            required
+            value={form.employeeId}
+            onChange={(v) => set("employeeId", v)}
+            placeholder="— Select employee —"
+            options={employees.map((emp) => ({ value: emp.id, label: emp.trade ? `${emp.name} (${emp.trade})` : emp.name }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            labelClass={labelClass}
+            labelStyle={labelStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewEmployeeDialog open={open} onClose={onClose} projects={[]} onCreated={(e) => onCreated(e.id, e.name)} />
+            )}
+          />
 
           {/* Leave Type */}
           <div>

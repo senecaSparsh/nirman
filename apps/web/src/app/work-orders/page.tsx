@@ -5,6 +5,7 @@ import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { WorkOrdersView } from "@/components/work-orders/work-orders-view";
 
 export default function WorkOrdersPage() {
@@ -35,7 +36,7 @@ async function WoContent() {
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, type: true, status: true },
   });
 
   const canCreate = hasPermission(role, PERM.ASSETS_MANAGE);
@@ -46,5 +47,14 @@ async function WoContent() {
     canPay: hasPermission(role, PERM.RA_PAY),
   };
 
-  return <WorkOrdersView projects={projects} canCreate={canCreate} permissions={permissions} />;
+  return (
+    <>
+      <PageHeader
+        title="Work Orders"
+        description="Subcontractor work orders, running-account bills, and payment certificates. Track work done, deductions, and certify payments."
+        stats={[{ label: "Projects", value: projects.length }]}
+      />
+      <WorkOrdersView projects={projects} canCreate={canCreate} permissions={permissions} />
+    </>
+  );
 }

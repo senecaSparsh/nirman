@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Ruler, Loader2, Pencil, Trash2 } from "lucide-react";
@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { formatNumber } from "@/lib/utils";
+import type { MaterialCategory } from "@/lib/types";
 
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 
@@ -30,10 +33,12 @@ type BenchmarkRow = {
 export function StandardConsumptionsView({
   benchmarks,
   materials,
+  categories,
   permissions,
 }: {
   benchmarks: BenchmarkRow[];
   materials: MaterialOption[];
+  categories: MaterialCategory[];
   permissions?: { canManage?: boolean };
 }) {
   const canManage = permissions?.canManage ?? false;
@@ -131,6 +136,7 @@ export function StandardConsumptionsView({
       {formOpen && (
         <BenchmarkForm
           materials={materials}
+          categories={categories}
           editTarget={editTarget}
           onOpenChange={setFormOpen}
           onSaved={() => { setFormOpen(false); setEditTarget(null); router.refresh(); }}
@@ -152,11 +158,13 @@ export function StandardConsumptionsView({
 
 function BenchmarkForm({
   materials,
+  categories,
   editTarget,
   onOpenChange,
   onSaved,
 }: {
   materials: MaterialOption[];
+  categories: MaterialCategory[];
   editTarget: BenchmarkRow | null;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -168,6 +176,10 @@ function BenchmarkForm({
   const [baseQty, setBaseQty] = useState(editTarget ? String(editTarget.baseQty) : "100");
   const [unitOfMeasure, setUnitOfMeasure] = useState(editTarget?.unitOfMeasure ?? "per 100 sqft");
   const [notes, setNotes] = useState(editTarget?.notes ?? "");
+  // Local copy so freshly created materials appear in the dropdown without
+  // waiting for router.refresh.
+  const [localMaterials, setLocalMaterials] = useState<MaterialOption[]>(materials);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -224,10 +236,26 @@ function BenchmarkForm({
         </div>
         <div className="space-y-1.5">
           <Label>Material *</Label>
-          <Select value={materialId} onChange={(e) => setMaterialId(e.target.value)} required>
-            <option value="" disabled>Select material…</option>
-            {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
-          </Select>
+          <SelectWithCreate
+            value={materialId}
+            onChange={setMaterialId}
+            required
+            placeholder="Select material…"
+            createLabel="material"
+            options={localMaterials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name} (${m.unit})` }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <MaterialFormDialog
+                open={o}
+                onOpenChange={onClose}
+                categories={categories}
+                material={null}
+                onCreated={(e) => {
+                  setLocalMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "" }]);
+                  onCreated(e);
+                }}
+              />
+            )}
+          />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">

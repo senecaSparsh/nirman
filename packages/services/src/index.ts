@@ -55,13 +55,16 @@ export {
   orderPurchaseOrder,
   cancelPurchaseOrder,
   receiveGoods,
+  rejectDelivery,
 } from "./procurement";
 
 // Transfer — company→project stock movements (intra + inter-company STO)
 export {
   createTransfer,
+  dispatchTransfer,
   completeTransfer,
   cancelTransfer,
+  returnTransferToSource,
   computeTransferPrice,
   type TransferPriceLineInput,
   type TransferPriceLineResult,
@@ -69,11 +72,12 @@ export {
 } from "./transfer";
 
 // Issue — material consumption into projects or departments (cost centers)
-export { issueMaterialsToProject, issueMaterialsToDepartment, amountInWords } from "./issue";
+export { issueMaterialsToProject, issueMaterialsToDepartment, cancelMaterialIssue, createMaterialIssueRequest, executeMaterialIssue, amountInWords } from "./issue";
 
 // Scrap / "Create" Material Generation — internally generated material at scrap valuation
 export {
   createScrapGeneration,
+  cancelScrapGeneration,
   listScrapGenerations,
   getScrapGeneration,
   type CreateScrapGenerationInput,
@@ -208,7 +212,7 @@ export {
 } from "./portal-listing";
 
 // Direct Purchase — simplified purchase log for local/ad-hoc buys
-export { createDirectPurchase, listDirectPurchases } from "./direct-purchase";
+export { createDirectPurchase, cancelDirectPurchase, listDirectPurchases } from "./direct-purchase";
 
 // Supplier Payment — pay down accounts payable
 export { createSupplierPayment, getSupplierPayments, getSupplierOutstanding } from "./supplier-payment";
@@ -236,6 +240,7 @@ export {
 // Partition — land subdivision
 export {
   partitionLandParcel,
+  unpartitionLandParcel,
   updateParcelValuation,
   updateParcelDetails,
   setParcelStatus,
@@ -245,6 +250,16 @@ export {
 } from "./partition";
 export type { AllocationModel } from "./partition";
 
+// Legal documents — permissions, licenses, NOCs, certificates, agreements to sell
+export {
+  createLegalDoc,
+  updateLegalDoc,
+  deleteLegalDoc,
+  listLegalDocs,
+  listAllLegalDocs,
+} from "./legal-docs";
+export type { CreateLegalDocInput, UpdateLegalDocInput } from "./legal-docs";
+
 // Sale — asset sales + payments + staged deposit flow
 export {
   sellAsset,
@@ -252,14 +267,31 @@ export {
   completeSale,
   recordPayment,
   cancelSale,
+  updateSale,
   computeSaleProfit,
   computePaymentStatus,
+  createSalePaymentSchedule,
+  autoGenerateScheduleItems,
+  payBrokerCommission,
+  getPrintableSaleData,
 } from "./sale";
-export type { SellAssetInput, RecordDepositInput, CompleteSaleInput, RecordPaymentInput } from "./sale";
+export type {
+  SellAssetInput,
+  RecordDepositInput,
+  CompleteSaleInput,
+  RecordPaymentInput,
+  UpdateSaleInput,
+  SaleExpenseInput,
+  SaleTermInput,
+  PaymentScheduleInput,
+  PaymentScheduleItemInput,
+} from "./sale";
 
 // Material Sale — sell inventory items to customers
 export {
   createMaterialSale,
+  createMaterialSaleRequest,
+  executeMaterialSale,
   cancelMaterialSale,
   type CreateMaterialSaleInput,
   type MaterialSaleLineInput,
@@ -282,7 +314,7 @@ export {
 } from "./renovation";
 
 // Land — land purchases
-export { recordLandPurchase } from "./land";
+export { recordLandPurchase, recordLandPurchaseWithPlan } from "./land";
 
 // Built Units — sellable units within projects
 export {
@@ -353,6 +385,38 @@ export {
   type PurchaserPerformanceRow,
 } from "./quote-comparison";
 
+// HSN / GST Master — government-provided HSN codes with auto-pick GST rates
+export {
+  seedHsnGstRates,
+  lookupGstByHsn,
+  suggestHsnByMaterial,
+  searchHsnGst,
+  type HsnGstEntry,
+} from "./hsn-gst";
+
+// Material Code Auto-Generation — {CATEGORY_PREFIX}-{GRADE}-{SEQ}
+export { generateMaterialCode, previewMaterialCode } from "./material-code";
+export { autoFillHsnGst, quickCreateMaterial } from "./material-service";
+
+// Standalone Quotation Request — employee collects supplier quotes with
+// per-piece landed cost comparative analysis; approved by direct manager
+export {
+  createQuotationRequest,
+  addQuoteToRequest,
+  approveQuotation,
+  getPendingApprovalsForManager,
+  getComparativeMatrix,
+  listQuotationRequests,
+  computeLineLandedCost,
+  computeQuoteTotals,
+  type CreateQuotationRequestInput,
+  type AddQuoteToRequestInput,
+  type ApproveQuotationInput,
+  type LineLandedCostInput,
+  type LineLandedCostResult,
+  type QuoteTotalsResult,
+} from "./quotation";
+
 // Auto-Requisition — generate DRAFT requisitions from reorder-point breaches
 export { generateAutoRequisition, type AutoRequisitionResult } from "./auto-requisition";
 
@@ -379,6 +443,18 @@ export {
   completeSupplierReturn,
   cancelSupplierReturn,
 } from "./supplier-return";
+
+// Vehicle Master + Trip Log — auto-builds vehicle list from every goods movement
+export {
+  recordVehicleTrip,
+  searchVehicles,
+  getVehicleHistory,
+  listVehicles,
+  VEHICLE_TYPES,
+  VEHICLE_TYPE_LABELS,
+  type VehicleType,
+  type VehicleTripInput,
+} from "./vehicle";
 
 // Alerts & Reporting — low-stock, aging, NRV write-downs
 export {
@@ -411,11 +487,16 @@ export {
   postPayrollPayment,
   postDirectPurchase,
   postStockAdjustment,
+  postTransferShortage,
+  postInterCompanyTransfer,
   postEquipmentAcquisition,
   postEquipmentMaintenance,
   postEquipmentRetirement,
   postSecurityDepositReceived,
   postSecurityDepositRefunded,
+  postSaleExpense,
+  postBrokerCommission,
+  postBrokerCommissionPaid,
   reverseJournalEntry,
   trialBalance,
   accountLedger,
@@ -424,6 +505,9 @@ export {
   type JournalLineInput,
   type PostJournalInput,
 } from "./gl-posting";
+
+// GST reconciliation reports (GSTR-1, GSTR-3B)
+export { generateGstr1, generateGstr3b } from "./gst-reports";
 
 // GL Preview — pure functions that compute journal lines without persisting
 export {
@@ -613,6 +697,83 @@ export {
   type CreateMbEntryInput,
 } from "./boq";
 
+// Rate Analysis — BOQ line item rate breakdown (material + labour + equipment + overhead + profit)
+export {
+  createRateAnalysis,
+  getRateAnalysis,
+  updateRateAnalysis,
+  deleteRateAnalysis,
+  computeRateAnalysis,
+  type ComponentType,
+  type LineBasis,
+  type RateAnalysisLineInput,
+  type CreateRateAnalysisInput,
+  type UpdateRateAnalysisInput,
+  type RateAnalysisComputation,
+} from "./rate-analysis";
+
+// Change Order — project scope/budget/schedule modifications with approval workflow
+export {
+  createChangeOrder,
+  getChangeOrders,
+  getChangeOrder,
+  updateChangeOrder,
+  submitChangeOrder,
+  approveChangeOrder,
+  rejectChangeOrder,
+  cancelChangeOrder,
+  implementChangeOrder,
+  deleteChangeOrder,
+  type ChangeOrderType,
+  type ChangeOrderReason,
+  type ChangeOrderStatus,
+  type ChangeOrderLineInput,
+  type CreateChangeOrderInput,
+  type UpdateChangeOrderInput,
+} from "./change-order";
+
+// Quality Control — NCR (Non-Conformance Reports) + CAPA (Corrective And Preventive Actions)
+export {
+  createNcr,
+  getNcrs,
+  getNcr,
+  updateNcr,
+  reviewNcr,
+  closeNcr,
+  cancelNcr,
+  deleteNcr,
+  createCapa,
+  getCapa,
+  updateCapa,
+  startCapa,
+  completeCorrectiveAction,
+  completePreventiveAction,
+  verifyCapa,
+  closeCapa,
+  type NcrSeverity,
+  type NcrStatus,
+  type NcrCategory,
+  type CapaStatus,
+  type CreateNcrInput,
+  type UpdateNcrInput,
+  type ReviewNcrInput,
+  type CreateCapaInput,
+  type UpdateCapaInput,
+} from "./quality-control";
+
+// Safety Management — Incidents, Hazards, Inspections
+export {
+  computeRiskLevel,
+  createIncident, getIncidents, getIncident, updateIncident, investigateIncident, closeIncident, cancelIncident, deleteIncident,
+  createHazard, getHazards, getHazard, updateHazard, startMitigation, resolveHazard, deleteHazard,
+  createInspection, getInspections, getInspection, updateInspection, startInspection, completeInspection, cancelInspection, deleteInspection,
+  type IncidentType, type IncidentSeverity, type IncidentStatus,
+  type HazardStatus, type HazardRiskLevel,
+  type InspectionResult, type SafetyInspectionStatus,
+  type CreateIncidentInput, type UpdateIncidentInput, type InvestigateIncidentInput,
+  type CreateHazardInput, type CreateInspectionInput,
+} from "./safety";
+
 // Subcontractor Work Orders + RA Bills + TDS
 export {
   createWorkOrder,
@@ -659,6 +820,12 @@ export {
 // CRM + Sales Workflow — lead pipeline, payment schedules, GST on real estate
 export {
   createLead,
+  recordLeadActivity,
+  updateLeadStage,
+  convertLeadToCustomer,
+  deleteLead,
+  computeLeadScore,
+  isLeadStageTransitionAllowed,
   generatePaymentSchedule,
   checkMilestonePayments,
   recordSchedulePayment,
@@ -666,6 +833,11 @@ export {
   type LeadSource,
   type LeadStage,
   type LeadPriority,
+  type LeadActivityType,
+  type CreateLeadInput,
+  type RecordLeadActivityInput,
+  type UpdateLeadStageInput,
+  type ConvertLeadInput,
   type ScheduleType,
   type GeneratePaymentScheduleInput,
 } from "./crm";
@@ -726,3 +898,19 @@ export {
   type IssueRegisterReportData,
   type PurchaseRegisterReportData,
 } from "./excel-export";
+
+// Gate Pass — outbound gate pass with approval workflow
+export {
+  createGatePass,
+  submitGatePass,
+  approveGatePass,
+  rejectGatePass,
+  resubmitGatePass,
+  confirmExit,
+  cancelGatePass,
+  assertGatePassApproved,
+  autoCreateGatePassFromRef,
+  type CreateGatePassInput,
+  type GatePassLineInput,
+  type ConfirmExitInput,
+} from "./gate-pass";

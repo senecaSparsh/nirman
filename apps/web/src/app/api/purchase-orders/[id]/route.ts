@@ -7,18 +7,19 @@ import {
   orderPurchaseOrder,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, toNum } from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { id } = await params;
+  const groupCompanyIds = await getCompanyGroupIds(company);
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: { in: groupCompanyIds } },
     include: {
       supplier: true,
       project: { select: { id: true, name: true } },
-      destinationLocation: { select: { id: true, name: true, type: true } },
+      destinationLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { id: true, name: true } } } },
       lines: {
         include: {
           material: { select: { id: true, code: true, name: true, unit: true } },
@@ -81,6 +82,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       ? { id: po.destinationLocation.id, name: po.destinationLocation.name, type: po.destinationLocation.type }
       : null,
     status: po.status,
+    approvedById: po.approvedById ?? null,
+    approvedAt: po.approvedAt?.toISOString() ?? null,
     orderDate: po.orderDate?.toISOString() ?? null,
     expectedDate: po.expectedDate?.toISOString() ?? null,
     subtotal: toNum(po.subtotal),
@@ -100,8 +103,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string | undefined;
-  if (!action || !["approve", "order", "cancel"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, order, or cancel." }, { status: 400 });
+  if (!action || !["approve", "order", "cancel", "addLine"].includes(action)) {
+    return json({ error: "Invalid action. Use approve, order, cancel, or addLine." }, { status: 400 });
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
@@ -109,6 +112,29 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } else if (action === "order") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await orderPurchaseOrder(id, user.id);
+  } else if (action === "addLine") {
+    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const { materialId, qtyOrdered, unitCost } = body;
+    if (!materialId || !qtyOrdered || !unitCost) {
+      return json({ error: "materialId, qtyOrdered, and unitCost are required" }, { status: 400 });
+    }
+    const po = await prisma.purchaseOrder.findUnique({ where: { id }, select: { status: true } });
+    if (!po) return json({ error: "PO not found" }, { status: 404 });
+    if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
+      return json({ error: "Can only add lines to ORDERED or PARTIAL POs" }, { status: 400 });
+    }
+    const line = await prisma.purchaseOrderLine.create({
+      data: {
+        purchaseOrderId: id,
+        materialId,
+        qtyOrdered: Number(qtyOrdered),
+        unitCost: Number(unitCost),
+        qtyReceived: 0,
+        lineTotal: Number(qtyOrdered) * Number(unitCost),
+      },
+    });
+    revalidatePath(`/m/procurement/${id}`);
+    return json({ ok: true, lineId: line.id }, { status: 201 });
   } else {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);

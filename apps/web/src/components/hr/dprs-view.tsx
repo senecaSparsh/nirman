@@ -12,6 +12,9 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { EmployeeQuickCreateDialog } from "@/components/hr/employee-quick-create-dialog";
 import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
 
 export type DprApprovalStatus = "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED";
@@ -507,6 +510,12 @@ function DprFormDialog({
   const [laborLines, setLaborLines] = useState<Array<{ employeeId: string; crewId: string; hoursWorked: string; taskDescription: string }>>(
     editTarget?.laborLines?.map((l) => ({ employeeId: l.employeeId ?? "", crewId: l.crewId ?? "", hoursWorked: String(l.hoursWorked), taskDescription: l.taskDescription })) ?? []
   );
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState(projects);
+  const [localEmployees, setLocalEmployees] = useState(employees);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  useEffect(() => { setLocalEmployees(employees); }, [employees]);
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -579,10 +588,17 @@ function DprFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Project *</Label>
-              <Select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} required>
-                <option value="">Select project…</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </Select>
+              <SelectWithCreate
+                value={form.projectId}
+                onChange={(v) => set("projectId", v)}
+                placeholder="Select project…"
+                createLabel="project"
+                required
+                options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                  <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                )}
+              />
             </div>
             <div>
               <Label>Date *</Label>
@@ -671,14 +687,17 @@ function DprFormDialog({
             </div>
             {laborLines.map((line, i) => (
               <div key={i} className="mb-1.5 flex gap-1.5">
-                <Select
+                <SelectWithCreate
                   value={line.employeeId}
-                  onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, employeeId: e.target.value } : x))}
+                  onChange={(v) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, employeeId: v } : x))}
+                  placeholder="Employee…"
+                  createLabel="employee"
                   className="flex-1"
-                >
-                  <option value="">Employee…</option>
-                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </Select>
+                  options={localEmployees.map((e) => ({ value: e.id, label: e.name }))}
+                  renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                    <EmployeeQuickCreateDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalEmployees((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                  )}
+                />
                 <Input type="number" step="0.5" min="0" placeholder="Hrs" value={line.hoursWorked} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, hoursWorked: e.target.value } : x))} className="w-16" />
                 <Input placeholder="Task description" value={line.taskDescription} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, taskDescription: e.target.value } : x))} className="flex-1" />
                 <button type="button" onClick={() => setLaborLines((l) => l.filter((_, j) => j !== i))} className="rounded p-1 text-muted-foreground hover:text-danger">×</button>

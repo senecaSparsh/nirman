@@ -3,8 +3,10 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileProcurementList } from "./MobileProcurementList";
 
 export default function MobileProcurementPage() {
@@ -18,11 +20,14 @@ export default function MobileProcurementPage() {
 async function MobileProcurementContent() {
   await connection();
   const company = await getCompany();
+  const groupCompanyIds = await getCompanyGroupIds(company);
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
 
+  // Show POs from the entire company group — quotation-approved POs may
+  // be created in a different company (parent/child) than the user's current.
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: company.id },
+    where: { companyId: { in: groupCompanyIds } },
     orderBy: { createdAt: "desc" },
     take: 60,
     include: {
@@ -57,6 +62,18 @@ async function MobileProcurementContent() {
 
   return (
     <div>
+      <MobileExportShareBar
+        title="Purchase Orders"
+        rows={serialized as unknown as Record<string, unknown>[]}
+        columns={[
+          { key: "poNumber", label: "PO Number" },
+          { key: "supplierName", label: "Supplier" },
+          { key: "status", label: "Status" },
+          { key: "total", label: "Amount", format: "currency" },
+          { key: "createdAt", label: "Created Date", format: "date" },
+        ] as MobileColumnSpec[]}
+        summary={`${serialized.length} purchase orders`}
+      />
       <MobileProcurementList items={serialized} canCreate={canCreate} />
     </div>
   );

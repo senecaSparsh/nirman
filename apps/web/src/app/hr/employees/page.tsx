@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { PageHeader } from "@/components/page-header";
 import { EmployeesView } from "@/components/hr/employees-view";
 
 import { NoAccess } from "@/components/no-access";
@@ -103,13 +104,24 @@ async function EmployeesContent() {
   }));
 
   return (
-    <EmployeesView
-      employees={rows}
-      crews={crews.map((c) => ({ id: c.id, name: c.name }))}
-      crewRows={crewRowsMapped}
-      crewEmployees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Employees"
+        description="Manage your workforce — employee records, designations, wage types, and crew assignments."
+        stats={[
+          { label: "Employees", value: rows.length },
+          { label: "Active", value: rows.filter(e => e.active).length },
+          { label: "Crews", value: crewRowsMapped.length },
+        ]}
+      />
+      <EmployeesView
+        employees={rows}
+        crews={crews.map((c) => ({ id: c.id, name: c.name }))}
+        crewRows={crewRowsMapped}
+        crewEmployees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        permissions={perms}
+      />
+    </>
   );
 }

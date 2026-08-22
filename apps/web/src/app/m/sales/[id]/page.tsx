@@ -74,6 +74,16 @@ async function MobileSaleDetailContent({
         paymentMode={null}
         notes={null}
         totalPaid={0}
+        saleDeedNo={null}
+        expectedRegistryDate={null}
+        allotmentLetterNo={null}
+        allotmentDate={null}
+        bbaNo={null}
+        bbaDate={null}
+        tdsAmount={null}
+        tdsCertificateNo={null}
+        homeLoanBank={null}
+        homeLoanAmount={null}
         customer={null}
         project={null}
         asset={null}
@@ -127,6 +137,19 @@ async function MobileSaleDetailContent({
       paymentMode={sale.paymentMode}
       notes={sale.notes}
       totalPaid={totalPaid}
+      // Sale deed / ATS
+      saleDeedNo={sale.saleDeedNo}
+      expectedRegistryDate={sale.expectedRegistryDate ? sale.expectedRegistryDate.toISOString() : null}
+      // Compliance documents
+      allotmentLetterNo={sale.allotmentLetterNo}
+      allotmentDate={sale.allotmentDate ? sale.allotmentDate.toISOString() : null}
+      bbaNo={sale.bbaNo}
+      bbaDate={sale.bbaDate ? sale.bbaDate.toISOString() : null}
+      tdsAmount={sale.tdsAmount ? toNum(sale.tdsAmount) : null}
+      tdsCertificateNo={sale.tdsCertificateNo}
+      // Home loan
+      homeLoanBank={sale.homeLoanBank}
+      homeLoanAmount={sale.homeLoanAmount ? toNum(sale.homeLoanAmount) : null}
       customer={sale.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null}
       project={sale.project ? { id: sale.project.id, name: sale.project.name } : null}
       asset={asset}

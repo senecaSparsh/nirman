@@ -5,6 +5,7 @@ import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
+import { PageHeader } from "@/components/page-header";
 import { HrDashboard } from "@/components/hr/hr-dashboard";
 import { NoAccess } from "@/components/no-access";
 
@@ -141,13 +142,16 @@ async function HrDashboardContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-section text-foreground">Workforce Overview</h2>
-          <p className="mt-0.5 text-caption text-muted-foreground">
-            {formatDate(today.toISOString())} &middot; {presentToday} on site of {activeEmployees} active employees
-          </p>
-        </div>
+      <PageHeader
+        title="HR Dashboard"
+        description="Daily workforce overview — attendance, pending approvals, and payroll status."
+        stats={[
+          { label: "Employees", value: employeeCount },
+          { label: "Present today", value: presentToday },
+          { label: "Crews", value: crewCount },
+        ]}
+      />
+      <div className="flex justify-end">
         <RefreshButton />
       </div>
 
@@ -187,12 +191,4 @@ async function HrDashboardContent() {
       />
     </div>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
 }

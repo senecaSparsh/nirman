@@ -8,6 +8,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import type { AvailableStockRow, DepartmentOption, ProjectOption, StockLocationRow } from "@/lib/types";
 
@@ -43,6 +46,12 @@ export function IssueMaterialsDialog({
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState<AvailableStockRow[]>([]);
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
 
   useEffect(() => {
     if (!fromLocationId) {
@@ -168,12 +177,17 @@ export function IssueMaterialsDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={targetLabel} required>
             {target === "PROJECT" ? (
-              <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
-                <option value="" disabled>Select project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Select>
+              <SelectWithCreate
+                value={projectId}
+                onChange={setProjectId}
+                required
+                placeholder="Select project…"
+                createLabel="project"
+                options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                  <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+                )}
+              />
             ) : (
               <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
                 <option value="" disabled>Select department…</option>
@@ -194,12 +208,17 @@ export function IssueMaterialsDialog({
             </Field>
           )}
           <Field label="From Location" required>
-            <Select value={fromLocationId} onChange={(e) => { setFromLocationId(e.target.value); setLines([newLine()]); }} required>
-              <option value="" disabled>Select location…</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "PROJECT_SITE" ? "Site" : "Dept"})</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={fromLocationId}
+              onChange={(v) => { setFromLocationId(v); setLines([newLine()]); }}
+              required
+              placeholder="Select location…"
+              createLabel="location"
+              options={localLocations.map((l) => ({ value: l.id, label: `${l.name} (${l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "PROJECT_SITE" ? "Site" : "Dept"})` }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={localProjects} location={null} />
+              )}
+            />
           </Field>
         </div>
 

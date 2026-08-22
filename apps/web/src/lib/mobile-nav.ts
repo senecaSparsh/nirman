@@ -104,9 +104,10 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     more: [
       { label: "Full dashboard", href: "/", desktopOnly: true },
       { label: "Materials catalogue", href: "/m/materials" },
+      { label: "Quotations", href: "/m/quotations" },
       { label: "Stock ledger", href: "/m/stock" },
       { label: "General Ledger", href: "/m/books/gl" },
-      { label: "Settings", href: "/settings", desktopOnly: true },
+      { label: "Settings", href: "/m/settings" },
     ],
   },
 
@@ -116,7 +117,7 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     key: "ops",
     label: "Today",
     tagline: "Keep every site unblocked",
-    roles: ["MANAGER"],
+    roles: ["PROJECT_MANAGER", "PROJECT_DIRECTOR", "PROCUREMENT_MANAGER"],
     home: "/m/command",
     tabs: [
       { label: "Today", href: "/m/command", icon: Sun, world: "today" },
@@ -139,9 +140,10 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     ],
     more: [
       { label: "Task Manager", href: "/m/site/tasks" },
+      { label: "Quotations", href: "/m/quotations" },
       { label: "Stock Ledger", href: "/m/stock" },
       { label: "Equipment", href: "/m/equipment" },
-      { label: "Insights", href: "/reports", desktopOnly: true },
+      { label: "Insights", href: "/m/reports" },
     ],
   },
 
@@ -170,6 +172,7 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     more: [
       { label: "Daily Progress", href: "/m/dprs" },
       { label: "Attendance", href: "/m/site/attendance" },
+      { label: "Quotations", href: "/m/quotations" },
       { label: "Stock Counts", href: "/m/stock-counts" },
     ],
   },
@@ -180,7 +183,7 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
     key: "sales",
     label: "Property",
     tagline: "Close on the go",
-    roles: ["SALES"],
+    roles: ["SALES_MANAGER"],
     home: "/m/sales",
     tabs: [
       { label: "Units", href: "/m/units", icon: Building2, world: "build" },
@@ -216,24 +219,31 @@ export const PERSONAS: Record<PersonaKey, PersonaDef> = {
       { label: "Finance", href: "/m/books/finance" },
       { label: "General Ledger", href: "/m/books/gl" },
       { label: "Reports", href: "/m/books/reports" },
-      { label: "Money Owed", href: "/reports/pending-payments", desktopOnly: true },
+      { label: "Money Owed", href: "/m/reports/pending-payments" },
     ],
   },
 };
 
 /** Reverse map: role → persona key. */
-export const ROLE_PERSONA: Record<Role, PersonaKey> = {
+export const ROLE_PERSONA: Partial<Record<Role, PersonaKey>> = {
   OWNER: "executive",
   ADMIN: "executive",
-  MANAGER: "ops",
-  SUPERVISOR: "field",
-  SALES: "sales",
+  PROJECT_DIRECTOR: "executive",
+  FINANCE_HEAD: "finance",
+  PROJECT_MANAGER: "ops",
+  PROCUREMENT_MANAGER: "ops",
+  HR_MANAGER: "field",
+  SITE_ENGINEER: "field",
+  STORE_KEEPER: "ops",
   ACCOUNTANT: "finance",
+  SALES_MANAGER: "sales",
+  SUPERVISOR: "field",
+  QAQC_ENGINEER: "field",
 };
 
 /** Resolve a persona definition from a role string (falls back to ops). */
 export function personaForRole(role: string | undefined | null): PersonaDef {
-  const r = (role ?? "MANAGER") as Role;
+  const r = (role ?? "PROJECT_MANAGER") as Role;
   const key = ROLE_PERSONA[r] ?? "ops";
   return PERSONAS[key];
 }

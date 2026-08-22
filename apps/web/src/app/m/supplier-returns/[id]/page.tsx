@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Undo2, FileText, Building2, MapPin } from "lucide-react";
+import { Undo2, FileText, Building2, MapPin, ShieldCheck } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -64,6 +64,14 @@ async function MobileSupplierReturnDetailContent({
       </div>
     );
   }
+
+  // Fetch linked gate pass for SUBMITTED returns (to show gate pass approval status)
+  const gatePass = ret.status === "SUBMITTED"
+    ? await prisma.gatePass.findFirst({
+        where: { refType: "SupplierReturn", refId: ret.id },
+        select: { id: true, gatePassNumber: true, status: true },
+      })
+    : null;
 
   const totalValue = ret.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0);
 
@@ -167,6 +175,33 @@ async function MobileSupplierReturnDetailContent({
               </span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* ── Gate pass status banner (for SUBMITTED returns) ── */}
+      {gatePass && (
+        <div className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2" style={{
+          borderColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+            ? "color-mix(in srgb, var(--color-go) 30%, var(--color-line))"
+            : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+          backgroundColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+            ? "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))"
+            : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
+        }}>
+          <ShieldCheck className="size-3.5 shrink-0" style={{
+            color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+              ? "var(--color-go)" : "var(--color-signal-dark)",
+          }} />
+          <span className="text-[0.5625rem] flex-1" style={{ color: "var(--color-ink-700)" }}>
+            Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
+            {gatePass.status === "PENDING" ? "awaiting approval. Completion blocked until approved." :
+             gatePass.status === "APPROVED" ? "approved — ready to complete." :
+             gatePass.status === "REJECTED" ? "rejected — resubmit or cancel the gate pass." :
+             `${gatePass.status}`}
+          </span>
+          <Link href="/m/gate-pass" className="text-[0.5625rem] font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
+            View →
+          </Link>
         </div>
       )}
 

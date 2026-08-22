@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  TrendingUp, Loader2, X, IndianRupee,
+  TrendingUp, Loader2, X, IndianRupee, ShieldCheck,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
-type SaleStatus = "ACTIVE" | "CANCELLED";
+type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
 
 type LineItem = {
@@ -62,6 +62,7 @@ export function MobileMaterialSaleDetailClient({
   lines,
   payments,
   canManage,
+  gatePass,
   notFound,
 }: {
   saleId: string;
@@ -82,6 +83,7 @@ export function MobileMaterialSaleDetailClient({
   lines: LineItem[];
   payments: PaymentItem[];
   canManage: boolean;
+  gatePass: { id: string; gatePassNumber: string; status: string } | null;
   notFound?: boolean;
 }) {
   const router = useRouter();
@@ -185,6 +187,33 @@ export function MobileMaterialSaleDetailClient({
 
   return (
     <div>
+      {/* ── Gate pass status banner (for PENDING sales) ── */}
+      {gatePass && (
+        <div className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2" style={{
+          borderColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+            ? "color-mix(in srgb, var(--color-go) 30%, var(--color-line))"
+            : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+          backgroundColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+            ? "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))"
+            : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
+        }}>
+          <ShieldCheck className="size-3.5 shrink-0" style={{
+            color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
+              ? "var(--color-go)" : "var(--color-signal-dark)",
+          }} />
+          <span className="text-[0.5625rem] flex-1" style={{ color: "var(--color-ink-700)" }}>
+            Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
+            {gatePass.status === "PENDING" ? "awaiting approval. Sale will activate once approved." :
+             gatePass.status === "APPROVED" ? "approved — sale activating." :
+             gatePass.status === "REJECTED" ? "rejected — resubmit or cancel." :
+             `${gatePass.status}`}
+          </span>
+          <Link href="/m/gate-pass" className="text-[0.5625rem] font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
+            View →
+          </Link>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 min-w-0">
@@ -478,9 +507,12 @@ export function MobileMaterialSaleDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {payments.map((p, i) => (
-              <div
+              <a
                 key={p.id}
-                className="flex items-center gap-2 px-2.5 py-2"
+                href={`/print/material-sale-receipt/${p.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2.5 py-2 press"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <span
@@ -501,7 +533,8 @@ export function MobileMaterialSaleDetailClient({
                 <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(p.amount)}
                 </p>
-              </div>
+                <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              </a>
             ))}
           </div>
         </>

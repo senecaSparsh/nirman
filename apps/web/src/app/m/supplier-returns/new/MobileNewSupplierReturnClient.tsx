@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Plus, Trash2, Loader2, ChevronLeft, CheckCircle2,
+  Plus, Trash2, Loader2, CheckCircle2,
   Search, X, ChevronRight, Truck, Package, MapPin, FileText, Send, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -322,24 +322,6 @@ function ReturnForm({
 
   return (
     <div className="pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/supplier-returns" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Supplier Return
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)" }}
-        >
-          <Truck className="size-2.5" />
-          Return
-        </span>
-      </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}

@@ -2,9 +2,13 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { MobileStockMovementsList } from "./MobileStockMovementsList";
 import { MobileLocationDetail } from "./MobileLocationDetail";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { formatCurrency } from "@/lib/utils";
 
 export default function MobileStockPage({
   searchParams,
@@ -25,12 +29,14 @@ async function MobileStockContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
   const { materialId, locationId } = await searchParams;
 
   // ── Location detail view: when locationId is set (and no materialId) ──
   // Different mental model: "what's at this location?" not "company ledger filtered"
   if (locationId && !materialId) {
-    const [location, locationItems, movements] = await Promise.all([
+    const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing] = await Promise.all([
       prisma.stockLocation.findUnique({
         where: { id: locationId },
         select: { id: true, name: true, type: true },
@@ -50,6 +56,24 @@ async function MobileStockContent({
           toLocation: { select: { id: true, name: true } },
         },
       }),
+      // In-transit transfers incoming to this location
+      prisma.stockTransfer.findMany({
+        where: { toLocationId: locationId, status: "IN_TRANSIT" },
+        include: {
+          fromLocation: { select: { name: true } },
+          lines: { include: { material: { select: { name: true, unit: true } } } },
+        },
+        orderBy: { dispatchedAt: "desc" },
+      }),
+      // In-transit transfers outgoing from this location
+      prisma.stockTransfer.findMany({
+        where: { fromLocationId: locationId, status: "IN_TRANSIT" },
+        include: {
+          toLocation: { select: { name: true } },
+          lines: { include: { material: { select: { name: true, unit: true } } } },
+        },
+        orderBy: { dispatchedAt: "desc" },
+      }),
     ]);
 
     if (!location) {
@@ -68,6 +92,7 @@ async function MobileStockContent({
       <MobileLocationDetail
         locationName={location.name}
         locationType={location.type}
+        canManage={canManage}
         items={locationItems.map((i) => ({
           materialId: i.material.id,
           materialName: i.material.name,
@@ -88,6 +113,28 @@ async function MobileStockContent({
           timestamp: m.timestamp.toISOString(),
         }))}
         totalValue={totalValue}
+        inTransitIncoming={inTransitIncoming.map((t) => ({
+          id: t.id,
+          fromLocationName: t.fromLocation.name,
+          dispatchedAt: t.dispatchedAt?.toISOString() ?? null,
+          vehicleNumber: t.vehicleNumber,
+          lines: t.lines.map((l) => ({
+            materialName: l.material.name,
+            qty: toNum(l.qty),
+            unit: l.material.unit,
+          })),
+        }))}
+        inTransitOutgoing={inTransitOutgoing.map((t) => ({
+          id: t.id,
+          toLocationName: t.toLocation.name,
+          dispatchedAt: t.dispatchedAt?.toISOString() ?? null,
+          vehicleNumber: t.vehicleNumber,
+          lines: t.lines.map((l) => ({
+            materialName: l.material.name,
+            qty: toNum(l.qty),
+            unit: l.material.unit,
+          })),
+        }))}
       />
     );
   }
@@ -167,13 +214,33 @@ async function MobileStockContent({
     unit: filterMaterial?.unit ?? "",
   }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "materialName", label: "Material" },
+    { key: "materialUnit", label: "Unit" },
+    { key: "qty", label: "Quantity" },
+    { key: "fromLocationName", label: "From Location" },
+    { key: "toLocationName", label: "To Location" },
+    { key: "movementType", label: "Type" },
+    { key: "timestamp", label: "Date", format: "date" },
+  ];
+
   return (
-    <MobileStockMovementsList
-      locations={serializedLocations}
-      movements={serializedMovements}
-      totalInventoryValue={totalInventoryValue}
-      filterMaterialName={filterMaterial?.name ?? null}
-      materialStockItems={serializedMaterialStock}
-    />
+    <>
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Stock Ledger"
+          rows={serializedMovements as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${serializedMovements.length} stock movements · Total value: ${formatCurrency(totalInventoryValue)}`}
+        />
+      </div>
+      <MobileStockMovementsList
+        locations={serializedLocations}
+        movements={serializedMovements}
+        totalInventoryValue={totalInventoryValue}
+        filterMaterialName={filterMaterial?.name ?? null}
+        materialStockItems={serializedMaterialStock}
+      />
+    </>
   );
 }

@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  ChevronLeft, Loader2, CheckCircle2, Send, Wrench, Tag,
+  Loader2, CheckCircle2, Send, Wrench, Tag,
   Package, IndianRupee, FileText,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -122,24 +121,6 @@ export default function MobileNewEquipmentClient() {
 
   return (
     <div className="pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/equipment" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Equipment
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
-        >
-          <Wrench className="size-2.5" />
-          Asset
-        </span>
-      </div>
 
       {/* ── Section: Identity ── */}
       <SectionHeader icon={Tag} label="Identity" />

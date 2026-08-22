@@ -56,9 +56,10 @@ async function PoDetailContent({
       project: { select: { id: true, name: true } },
       destinationLocation: { select: { id: true, name: true, type: true } },
       lines: {
-        include: { material: { select: { id: true, code: true, name: true, unit: true } } },
+        include: { material: { select: { id: true, code: true, name: true, unit: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true } } },
         orderBy: { material: { name: "asc" } },
       },
+      charges: { orderBy: { createdAt: "asc" } },
       goodsReceipts: {
         include: { lines: { select: { materialId: true, qtyReceived: true, unitCost: true } } },
         orderBy: { receiptDate: "desc" },
@@ -101,8 +102,20 @@ async function PoDetailContent({
     expectedDate: po.expectedDate?.toISOString() ?? null,
     subtotal: toNum(po.subtotal),
     gstTotal: toNum(po.gstTotal),
+    freightTotal: toNum(po.freightTotal),
+    loadingTotal: toNum(po.loadingTotal),
+    packingTotal: toNum(po.packingTotal),
+    insuranceTotal: toNum(po.insuranceTotal),
+    discountTotal: toNum(po.discountTotal),
+    miscChargesTotal: toNum(po.miscChargesTotal),
     total: toNum(po.total),
     notes: po.notes,
+    charges: po.charges.map((c) => ({
+      id: c.id,
+      heading: c.heading,
+      amount: toNum(c.amount),
+      notes: c.notes,
+    })),
     createdAt: po.createdAt.toISOString(),
     sourceRequisition: sourceRequisition
       ? { id: sourceRequisition.id, reqNumber: sourceRequisition.reqNumber }
@@ -113,6 +126,9 @@ async function PoDetailContent({
       materialCode: l.material.code,
       materialName: l.material.name,
       unit: l.material.unit,
+      baseUnit: l.material.baseUnit,
+      secondaryUnit: l.material.secondaryUnit,
+      uomConversionFactor: l.material.uomConversionFactor ? Number(l.material.uomConversionFactor) : null,
       qtyOrdered: toNum(l.qtyOrdered),
       qtyReceived: toNum(l.qtyReceived),
       unitCost: toNum(l.unitCost),

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  ChevronLeft, Loader2, CheckCircle2, Plus, Warehouse, MapPin,
+  Loader2, CheckCircle2, Plus, Warehouse, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 interface ProjectItem { id: string; name: string; }
 
@@ -100,16 +101,6 @@ export default function MobileNewStockLocationClient({
 
   return (
     <div className="pb-32">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/stock" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-          New Stock Location
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Type selector */}
         <div
@@ -188,31 +179,19 @@ export default function MobileNewStockLocationClient({
             className="rounded-[0.625rem] border p-3"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Project <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
+            <MobileSelectWithCreate
+              label="Project"
+              required
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            >
-              <option value="" disabled>Select project…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            {projects.length === 0 && (
-              <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-stop)" }}>
-                No projects found.{" "}
-                <Link href="/m/projects" className="underline font-semibold">
-                  Create a project first
-                </Link>
-                .
-              </p>
-            )}
+              onChange={setProjectId}
+              placeholder="Select project…"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              )}
+            />
           </div>
         )}
 

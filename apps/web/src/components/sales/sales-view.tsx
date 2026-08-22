@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -10,29 +10,42 @@ import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { CustomersView } from "./customers-view";
+import { LeadPipelineView } from "./lead-pipeline-view";
 import { SellAssetDialog } from "./sell-asset-dialog";
 import { SaleDetailDialog } from "./sale-detail-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
-import type { AssetSaleRow, CustomerRow } from "@/lib/types";
+import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
 
 export function SalesView({
+  leads,
   sales,
   customers,
-  defaultTab = "sales",
+  projects,
+  units,
+  assignees,
+  defaultTab = "pipeline",
   permissions,
 }: {
+  leads: LeadRow[];
   sales: AssetSaleRow[];
   customers: CustomerRow[];
+  projects: { id: string; name: string }[];
+  units: { id: string; projectId: string; projectName: string; label: string }[];
+  assignees: { id: string; name: string }[];
   defaultTab?: string;
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
+  const initialTab = defaultTab === "customers" ? "customers" : defaultTab === "sales" ? "sales" : "pipeline";
   const [tab, setTab] = useTabParam(
-    ["sales", "customers"] as const,
-    (defaultTab === "customers" ? "customers" : "sales") as "sales" | "customers",
+    ["pipeline", "sales", "customers"] as const,
+    initialTab,
   );
   const searchParams = useSearchParams();
   const autoOpenSaleId = searchParams.get("sale");
+  const autoOpenNewSale = searchParams.get("newSale") === "1";
+  const initialCustomerId = searchParams.get("customer");
+  const initialUnitId = searchParams.get("unit");
 
   const customerOptions = useMemo(
     () => customers.map((c) => ({ id: c.id, name: c.name })),
@@ -43,16 +56,37 @@ export function SalesView({
     <div className="space-y-5">
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
+          <TabsTrigger value="pipeline">
+            <span className="flex items-center gap-1.5"><ContactRound className="h-3.5 w-3.5" /> Pipeline</span>
+          </TabsTrigger>
           <TabsTrigger value="sales">
-            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Sales</span>
+            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Bookings</span>
           </TabsTrigger>
           <TabsTrigger value="customers">
             <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Customers</span>
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="pipeline">
+          <LeadPipelineView
+            leads={leads}
+            projects={projects}
+            units={units}
+            assignees={assignees}
+            canManage={permissions?.canManage ?? false}
+          />
+        </TabsContent>
         <TabsContent value="sales">
-          <SalesTab sales={sales} customers={customerOptions} permissions={permissions} onAddCustomer={() => setTab("customers")} autoOpenSaleId={autoOpenSaleId} />
+          <SalesTab
+            sales={sales}
+            customers={customerOptions}
+            permissions={permissions}
+            onAddCustomer={() => setTab("customers")}
+            autoOpenSaleId={autoOpenSaleId}
+            autoOpenNewSale={autoOpenNewSale}
+            initialCustomerId={initialCustomerId}
+            initialUnitId={initialUnitId}
+          />
         </TabsContent>
         <TabsContent value="customers">
           <CustomersTab customers={customers} permissions={permissions} />
@@ -82,10 +116,14 @@ const saleColumns: Column<AssetSaleRow>[] = [
     key: "asset",
     label: "Asset",
     sortable: true,
-    sortValue: (s) => s.assetType === "LAND" ? (s.landParcelNumber ?? "") : (s.builtUnitNumber ?? ""),
+    sortValue: (s) => s.assetType === "LAND" ? (s.landParcelNumber ?? "") : s.assetType === "PROJECT" ? (s.projectName ?? "") : (s.builtUnitNumber ?? ""),
     render: (s) => (
       <span className="font-medium text-foreground">
-        {s.assetType === "LAND" ? `Plot ${s.landParcelNumber ?? "—"}` : `Unit ${s.builtUnitNumber ?? "—"}`}
+        {s.assetType === "LAND"
+          ? `Plot ${s.landParcelNumber ?? "—"}`
+          : s.assetType === "PROJECT"
+            ? `Project ${s.projectName ?? "—"}`
+            : `Unit ${s.builtUnitNumber ?? "—"}`}
       </span>
     ),
   },
@@ -111,7 +149,33 @@ const saleColumns: Column<AssetSaleRow>[] = [
     key: "paymentStatus",
     label: "Payment",
     sortable: true,
-    render: (s) => <StatusPill status={s.paymentStatus} />,
+    render: (s) => {
+      // Count overdue installments from the payment schedule
+      const now = new Date();
+      const overdueCount = s.paymentSchedule?.items?.filter(
+        (item) => item.status !== "PAID" && item.dueDate && new Date(item.dueDate) < now,
+      ).length ?? 0;
+      return (
+        <div className="flex items-center gap-1.5">
+          <StatusPill status={s.paymentStatus} />
+          {overdueCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-danger/10 px-1.5 py-0.5 text-micro font-medium text-danger" title={`${overdueCount} overdue installment${overdueCount > 1 ? "s" : ""}`}>
+              {overdueCount} overdue
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    key: "dealSource",
+    label: "Source",
+    sortable: true,
+    render: (s) => (
+      <span className={`text-caption ${s.dealSource === "BROKER" ? "text-brand" : "text-muted-foreground"}`}>
+        {s.dealSource === "BROKER" ? "Broker" : "Self"}
+      </span>
+    ),
   },
   {
     key: "salePrice",
@@ -139,6 +203,17 @@ const saleColumns: Column<AssetSaleRow>[] = [
           <span className="text-micro tnum text-muted-foreground w-8">{Math.round(payPct)}%</span>
         </div>
       );
+    },
+  },
+  {
+    key: "balanceDue",
+    label: "Balance",
+    align: "right",
+    sortable: true,
+    render: (s) => {
+      if (s.status === "CANCELLED") return <span className="text-muted-foreground">—</span>;
+      if (s.balanceDue <= 0) return <span className="text-success font-medium tnum">₹0</span>;
+      return <span className="font-medium tnum text-warning">{formatCurrency(s.balanceDue)}</span>;
     },
   },
   {
@@ -170,17 +245,23 @@ function SalesTab({
   permissions,
   onAddCustomer,
   autoOpenSaleId,
+  autoOpenNewSale,
+  initialCustomerId,
+  initialUnitId,
 }: {
   sales: AssetSaleRow[];
   customers: { id: string; name: string }[];
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
   onAddCustomer?: () => void;
   autoOpenSaleId?: string | null;
+  autoOpenNewSale?: boolean;
+  initialCustomerId?: string | null;
+  initialUnitId?: string | null;
 }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(Boolean(autoOpenNewSale));
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
 
   // Auto-open sale detail when navigated with ?sale={id}
@@ -298,7 +379,7 @@ function SalesTab({
             searchable
             searchPlaceholder="Search by sale no, customer, project…"
             showTotals
-            sumColumns={["salePrice", "totalPaid", "profit"]}
+            sumColumns={["salePrice", "totalPaid", "balanceDue", "profit"]}
             totalFormat={(_key, sum) => formatCurrency(sum)}
             hideable
             pageSize={50}
@@ -338,7 +419,7 @@ function SalesTab({
         </p>
       )}
 
-      <SellAssetDialog open={formOpen} onOpenChange={setFormOpen} customers={customers} />
+      <SellAssetDialog open={formOpen} onOpenChange={setFormOpen} customers={customers} initialCustomerId={initialCustomerId} initialUnitId={initialUnitId} />
       <SaleDetailDialog open={selected != null} onOpenChange={(o) => !o && setSelected(null)} sale={selected} permissions={permissions} />
     </div>
   );

@@ -251,3 +251,139 @@ export function computeNrvWriteDown(costBasis: Decimal, nrv: Decimal): Decimal {
   }
   return new Decimal(0);
 }
+
+/**
+ * Lease expiry alerts: leasehold land purchases where the lease end date is
+ * approaching (within 90/60/30 days) or has already expired.
+ *
+ * Returns land purchases with landType=LEASEHOLD, a non-null leaseEndDate,
+ * and the lease still active (not soft-deleted). Each alert includes the
+ * days until expiry and a severity bucket.
+ */
+export async function leaseExpiryAlerts(companyId?: string) {
+  const now = new Date();
+  const purchases = await prisma.landPurchase.findMany({
+    where: {
+      deletedAt: null,
+      landType: "LEASEHOLD",
+      leaseEndDate: { not: null },
+      ...(companyId ? { companyId } : {}),
+    },
+    select: {
+      id: true,
+      sellerName: true,
+      location: true,
+      registryNo: true,
+      totalCost: true,
+      leaseEndDate: true,
+      leaseStartDate: true,
+      leaseType: true,
+      companyId: true,
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  const alerts = [];
+  for (const lp of purchases) {
+    if (!lp.leaseEndDate) continue;
+    const daysUntilExpiry = Math.floor(
+      (lp.leaseEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    let severity: "EXPIRED" | "CRITICAL" | "WARNING" | "INFO";
+    if (daysUntilExpiry < 0) severity = "EXPIRED";
+    else if (daysUntilExpiry <= 30) severity = "CRITICAL";
+    else if (daysUntilExpiry <= 60) severity = "WARNING";
+    else if (daysUntilExpiry <= 90) severity = "INFO";
+    else continue; // more than 90 days — not an alert
+
+    alerts.push({
+      landPurchaseId: lp.id,
+      sellerName: lp.sellerName,
+      location: lp.location,
+      registryNo: lp.registryNo,
+      totalCost: new Decimal(lp.totalCost),
+      leaseEndDate: lp.leaseEndDate,
+      leaseStartDate: lp.leaseStartDate,
+      leaseType: lp.leaseType,
+      projectName: lp.project?.name ?? null,
+      daysUntilExpiry,
+      severity,
+    });
+  }
+
+  // Sort: expired first, then by days until expiry ascending
+  alerts.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+  return alerts;
+}
+
+/**
+ * Unsold land aging report: how long land parcels have been sitting unsold.
+ * Groups parcels by age buckets based on the parent land purchase date.
+ * Only includes AVAILABLE and HOLD parcels (not SOLD, RESERVED, RENTED, PARTITIONED).
+ *
+ * Buckets: <1yr, 1-2yr, 2-5yr, 5+yr since purchase.
+ */
+export async function unsoldLandAgingReport(companyId?: string) {
+  const parcels = await prisma.landParcel.findMany({
+    where: {
+      deletedAt: null,
+      status: { in: ["AVAILABLE", "HOLD"] },
+      ...(companyId ? { landPurchase: { companyId } } : {}),
+    },
+    include: {
+      landPurchase: {
+        select: {
+          id: true,
+          purchaseDate: true,
+          sellerName: true,
+          location: true,
+          totalCost: true,
+        },
+      },
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  const now = Date.now();
+  const report = [];
+  for (const parcel of parcels) {
+    const purchaseDate = parcel.landPurchase.purchaseDate;
+    const ageDays = Math.floor((now - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+    const ageYears = ageDays / 365.25;
+
+    let bucket: string;
+    if (ageYears < 1) bucket = "<1yr";
+    else if (ageYears < 2) bucket = "1-2yr";
+    else if (ageYears < 5) bucket = "2-5yr";
+    else bucket = "5+yr";
+
+    report.push({
+      parcelId: parcel.id,
+      parcelNumber: parcel.number,
+      area: new Decimal(parcel.area),
+      areaUnit: parcel.areaUnit,
+      acquisitionCost: new Decimal(parcel.acquisitionCost),
+      currentValuation: new Decimal(parcel.currentValuation),
+      askingPrice: parcel.askingPrice ? new Decimal(parcel.askingPrice) : null,
+      status: parcel.status,
+      purpose: parcel.purpose,
+      projectName: parcel.project?.name ?? null,
+      landPurchaseId: parcel.landPurchase.id,
+      sellerName: parcel.landPurchase.sellerName,
+      location: parcel.landPurchase.location,
+      purchaseDate,
+      ageDays,
+      ageYears: Math.round(ageYears * 10) / 10,
+      bucket,
+      isStale: ageYears >= 2,
+      potentialLoss: parcel.currentValuation.lt(parcel.acquisitionCost)
+        ? new Decimal(parcel.acquisitionCost).minus(new Decimal(parcel.currentValuation))
+        : new Decimal(0),
+    });
+  }
+
+  // Sort: oldest first
+  report.sort((a, b) => b.ageDays - a.ageDays);
+  return report;
+}

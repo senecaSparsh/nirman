@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  Recycle, Plus, Trash2, Send, Loader2,
-  ChevronLeft, CheckCircle2,
+  Plus, Trash2, Send, Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 interface LocationItem {
   id: string;
@@ -206,72 +209,75 @@ export default function MobileNewScrapGenerationClient() {
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/scrap-generations" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Scrap Generation
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <Recycle className="size-2.5" />
-          Manual
-        </span>
-      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* ── Destination ── */}
-        <FormField label="Destination location" required>
-          <select
-            value={toLocationId}
-            onChange={(e) => setToLocationId(e.target.value)}
-            className={inputClass}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            required
-          >
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} ({loc.type.replace(/_/g, " ").toLowerCase()})
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <MobileSelectWithCreate
+          label="Destination location"
+          required
+          value={toLocationId}
+          onChange={setToLocationId}
+          options={locations.map((loc) => ({
+            value: loc.id,
+            label: `${loc.name} (${loc.type.replace(/_/g, " ").toLowerCase()})`,
+          }))}
+          inputClass={inputClass}
+          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewStockLocationDialog
+              open={open}
+              onClose={onClose}
+              projects={projects}
+              onCreated={(l) => {
+                setLocations((prev) => [...prev, { id: l.id, name: l.name, type: l.type }]);
+                onCreated(l.id, `${l.name} (${l.type.replace(/_/g, " ").toLowerCase()})`);
+              }}
+            />
+          )}
+        />
 
         {/* ── Project (optional) ── */}
-        <FormField label="Project (optional)">
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className={inputClass}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <option value="">No project linkage</option>
-            {projects.map((proj) => (
-              <option key={proj.id} value={proj.id}>{proj.name}</option>
-            ))}
-          </select>
-        </FormField>
+        <MobileSelectWithCreate
+          label="Project (optional)"
+          value={projectId}
+          onChange={setProjectId}
+          options={projects.map((proj) => ({ value: proj.id, label: proj.name }))}
+          placeholder="No project linkage"
+          inputClass={inputClass}
+          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewProjectDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(p) => {
+                setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
+                onCreated(p.id, p.name);
+              }}
+            />
+          )}
+        />
 
         {/* ── Source material (optional) ── */}
-        <FormField label="Source material (optional)">
-          <select
-            value={sourceMaterialId}
-            onChange={(e) => setSourceMaterialId(e.target.value)}
-            className={inputClass}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <option value="">No source material</option>
-            {materials.map((mat) => (
-              <option key={mat.id} value={mat.id}>{mat.name} ({mat.code})</option>
-            ))}
-          </select>
-        </FormField>
+        <MobileSelectWithCreate
+          label="Source material (optional)"
+          value={sourceMaterialId}
+          onChange={setSourceMaterialId}
+          options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+          placeholder="No source material"
+          inputClass={inputClass}
+          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewMaterialDialog
+              open={open}
+              onClose={onClose}
+              categories={[]}
+              onCreated={(m) => {
+                setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                onCreated(m.id, `${m.name} (${m.code})`);
+              }}
+            />
+          )}
+        />
 
         {/* ── Line items ── */}
         <div>
@@ -289,18 +295,26 @@ export default function MobileNewScrapGenerationClient() {
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
                   {/* Material selector */}
-                  <select
+                  <MobileSelectWithCreate
+                    label="Material"
                     value={line.materialId}
-                    onChange={(e) => handleLineChange(idx, "materialId", e.target.value)}
-                    className={`${inputClass} text-[0.6875rem] mb-2`}
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                  >
-                    {materials.map((mat) => (
-                      <option key={mat.id} value={mat.id}>
-                        {mat.name} ({mat.code})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleLineChange(idx, "materialId", val)}
+                    options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+                    inputClass={`${inputClass} text-[0.6875rem] mb-2`}
+                    inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    labelClass="text-[0.4375rem] font-semibold uppercase block mb-1"
+                    renderDialog={({ open, onClose, onCreated }) => (
+                      <MobileNewMaterialDialog
+                        open={open}
+                        onClose={onClose}
+                        categories={[]}
+                        onCreated={(m) => {
+                          setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                          onCreated(m.id, `${m.name} (${m.code})`);
+                        }}
+                      />
+                    )}
+                  />
 
                   {/* Qty + unit cost */}
                   <div className="grid grid-cols-2 gap-2">

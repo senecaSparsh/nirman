@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, Folder, FileText } from "lucide-react";
+import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, Folder, FileText, Calculator } from "lucide-react";
+import { RateAnalysisDialog } from "./rate-analysis-dialog";
 
 export type BoqNode = {
   id: string;
@@ -26,6 +27,7 @@ export type BoqNode = {
   estimatedAmount: number | null;
   materialId: string | null;
   material?: { code: string; name: string; unit: string } | null;
+  rateAnalysis?: { id: string; totalRate: number } | null;
   notes: string | null;
   sortOrder: number;
   children: BoqNode[];
@@ -55,6 +57,7 @@ export function BoqView({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BoqNode | null>(null);
   const [parentNode, setParentNode] = useState<BoqNode | null>(null);
+  const [raItem, setRaItem] = useState<BoqNode | null>(null);
 
   // Flat lookup for finding parent nodes by id
   const nodeMap = useMemo(() => {
@@ -168,6 +171,7 @@ export function BoqView({
           onAdd={onAdd}
           onEdit={onEdit}
           onDelete={onDelete}
+          onRateAnalysis={(item) => { setRaItem(item); }}
           depth={0}
         />
         <div className="border-t border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
@@ -192,6 +196,17 @@ export function BoqView({
         tree={tree}
         onSaved={onChanged}
       />
+
+      {raItem && (
+        <RateAnalysisDialog
+          open={!!raItem}
+          onOpenChange={(o) => { if (!o) setRaItem(null); }}
+          boqItem={raItem}
+          materials={materials}
+          onSaved={onChanged}
+        />
+      )}
+
       {confirmDialog}
     </div>
   );
@@ -205,6 +220,7 @@ function BoqTree({
   onAdd,
   onEdit,
   onDelete,
+  onRateAnalysis,
   depth,
 }: {
   nodes: BoqNode[];
@@ -214,6 +230,7 @@ function BoqTree({
   onAdd: (parent: BoqNode | null) => void;
   onEdit: (item: BoqNode) => void;
   onDelete: (item: BoqNode) => void;
+  onRateAnalysis: (item: BoqNode) => void;
   depth: number;
 }) {
   return (
@@ -254,6 +271,9 @@ function BoqTree({
                 {node._count?.mbEntries ? (
                   <Badge variant="muted" className="shrink-0 text-xs">{node._count.mbEntries} MB</Badge>
                 ) : null}
+                {node.rateAnalysis ? (
+                  <Badge variant="muted" className="shrink-0 text-xs text-green-700">RA</Badge>
+                ) : null}
               </div>
               <div className="text-muted-foreground text-xs self-center">{node.unit ?? ""}</div>
               <div className="text-right self-center">{node.estimatedQty != null ? formatNumber(node.estimatedQty, 3) : ""}</div>
@@ -262,6 +282,11 @@ function BoqTree({
               <div className="flex items-center gap-1 w-20">
                 {canEdit && (
                   <>
+                    {isLeaf && (
+                      <button onClick={() => onRateAnalysis(node)} className="text-muted-foreground hover:text-primary" title="Rate Analysis">
+                        <Calculator className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {!isLeaf && (
                       <button onClick={() => onAdd(node)} className="text-muted-foreground hover:text-primary" title="Add child">
                         <Plus className="h-3.5 w-3.5" />
@@ -286,6 +311,7 @@ function BoqTree({
                 onAdd={onAdd}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onRateAnalysis={onRateAnalysis}
                 depth={depth + 1}
               />
             )}

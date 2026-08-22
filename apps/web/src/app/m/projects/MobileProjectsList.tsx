@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building2, Search, X, Plus } from "lucide-react";
+import { Building2, Search, X, Plus, ShieldCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -24,6 +24,7 @@ export type ProjectListItem = {
   status: string;
   type: string;
   totalBudget: number | null;
+  reraNumber: string | null;
   unitCount: number;
 };
 
@@ -177,7 +178,17 @@ function FlatList({ items }: { items: ProjectListItem[] }) {
             title={p.name}
             subtitle={`${p.unitCount} units · ${p.type.replace(/_/g, " ").toLowerCase()}`}
             meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
-            badge={<MobileStatusBadge status={p.status} />}
+            badge={
+              <div className="flex items-center gap-1">
+                {p.reraNumber ? (
+                  <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+                    style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+                    <ShieldCheck className="size-2" /> RERA
+                  </span>
+                ) : null}
+                <MobileStatusBadge status={p.status} />
+              </div>
+            }
           />
         ))}
       </div>
@@ -214,7 +225,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
               title={p.name}
               subtitle={`${p.unitCount} units · ${p.type.replace(/_/g, " ").toLowerCase()}`}
               meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
-              badge={<MobileStatusBadge status={p.status} />}
+              badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
             />
           ))}
         </div>
@@ -232,7 +243,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
                 title={p.name}
                 subtitle={`${p.unitCount} units`}
                 meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
-                badge={<MobileStatusBadge status={p.status} />}
+                badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
               />
             ))}
           </div>
@@ -251,12 +262,38 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
                 title={p.name}
                 subtitle={`${p.unitCount} units`}
                 meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
-                badge={<MobileStatusBadge status={p.status} />}
+                badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
               />
             ))}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------
+ * RERA + status badge combo
+ * ---------------------------------------------------------------- */
+function ReraBadge({ reraNumber, status }: { reraNumber: string | null; status: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      {reraNumber ? (
+        <span
+          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+          style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+        >
+          <ShieldCheck className="size-2" /> RERA
+        </span>
+      ) : (
+        <span
+          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+          style={{ color: "var(--color-signal-dark)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
+        >
+          <ShieldCheck className="size-2" /> No RERA
+        </span>
+      )}
+      <MobileStatusBadge status={status} />
     </div>
   );
 }

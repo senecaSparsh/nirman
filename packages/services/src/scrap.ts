@@ -1,10 +1,10 @@
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { postScrapGeneration } from "./gl-posting";
+import { postScrapGeneration, reverseJournalEntry } from "./gl-posting";
 
 /**
  * Scrap / "Create" Material Generation Service.
@@ -221,4 +221,69 @@ export async function getScrapGeneration(id: string, companyId?: string) {
   if (!scrap) throw new ServiceError("Scrap generation not found", 404);
   if (companyId && scrap.companyId !== companyId) throw new ServiceError("Scrap generation not found", 404);
   return scrap;
+}
+
+/** Cancel a scrap generation — reverse stock and GL entries. */
+export async function cancelScrapGeneration(id: string, userId?: string) {
+  return withStockTransaction(async (tx) => {
+    const scrap = await tx.scrapGeneration.findFirst({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!scrap) throw new ServiceError("Scrap generation not found", 404);
+    if (scrap.status === "CANCELLED") throw new ServiceError("Scrap generation is already cancelled");
+
+    // Reverse stock: remove the scrap from stock (ADJUSTMENT_OUT at original cost)
+    for (const line of scrap.lines) {
+      await recordMovement(tx, {
+        materialId: line.materialId,
+        movementType: "ADJUSTMENT_OUT",
+        fromLocationId: scrap.toLocationId,
+        qty: line.qty,
+        unitCost: line.unitCost,
+        reason: `Reversal of scrap generation ${scrap.scrapNumber}`,
+        refType: "SCRAP_GENERATION",
+        refId: scrap.id,
+        userId,
+        companyId: scrap.companyId,
+      });
+    }
+
+    // Refresh MAC for affected materials
+    const affectedMaterials = scrap.lines.map((l) => l.materialId);
+    if (affectedMaterials.length > 0) {
+      await refreshMaterialCurrentCost(tx, affectedMaterials);
+    }
+
+    // Reverse GL entries
+    const journalEntries = await tx.journalEntry.findMany({
+      where: { sourceId: scrap.id, sourceType: "SCRAP_GENERATION" },
+    });
+    for (const je of journalEntries) {
+      await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
+    }
+
+    const updated = await tx.scrapGeneration.update({
+      where: { id: scrap.id },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+        cancelledById: userId ?? null,
+      },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: scrap.companyId,
+        action: "SCRAP_GENERATION_CANCEL",
+        entityType: "ScrapGeneration",
+        entityId: scrap.id,
+        before: { status: "COMPLETED" },
+        after: { status: "CANCELLED" },
+      });
+    }
+
+    return updated;
+  });
 }

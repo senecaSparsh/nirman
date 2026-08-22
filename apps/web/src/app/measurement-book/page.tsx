@@ -36,7 +36,7 @@ async function MbContent() {
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, type: true, status: true },
   });
 
   const canCreate = hasPermission(role, PERM.STOCK_ISSUE);

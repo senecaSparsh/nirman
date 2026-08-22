@@ -211,10 +211,45 @@ export function PurchaseOrderDetailView({
         </Table>
       </div>
 
+      {/* Charges & Freight */}
+      {(detail.charges.length > 0 || detail.freightTotal > 0 || detail.loadingTotal > 0 || detail.packingTotal > 0 || detail.insuranceTotal > 0 || detail.discountTotal > 0 || detail.miscChargesTotal > 0) && (
+        <div className="space-y-1.5">
+          <p className="text-body font-medium">Charges & Freight</p>
+          <div className="rounded-lg border border-border/60 overflow-hidden">
+            <Table>
+              <TBody>
+                {detail.charges.map((c) => (
+                  <TR key={c.id}>
+                    <TD className="font-medium">{c.heading}{c.notes ? <span className="ml-1 text-muted-foreground text-sm">— {c.notes}</span> : null}</TD>
+                    <TD className="text-right tnum">{formatCurrency(c.amount)}</TD>
+                  </TR>
+                ))}
+                {detail.freightTotal > 0 && !detail.charges.some((c) => c.heading.includes("Freight")) ? (
+                  <TR><TD className="font-medium">Freight / Transportation</TD><TD className="text-right tnum">{formatCurrency(detail.freightTotal)}</TD></TR>
+                ) : null}
+                {detail.loadingTotal > 0 && !detail.charges.some((c) => c.heading.includes("Loading")) ? (
+                  <TR><TD className="font-medium">Loading / Unloading</TD><TD className="text-right tnum">{formatCurrency(detail.loadingTotal)}</TD></TR>
+                ) : null}
+                {detail.packingTotal > 0 && !detail.charges.some((c) => c.heading.includes("Packing")) ? (
+                  <TR><TD className="font-medium">Packing & Forwarding</TD><TD className="text-right tnum">{formatCurrency(detail.packingTotal)}</TD></TR>
+                ) : null}
+                {detail.insuranceTotal > 0 && !detail.charges.some((c) => c.heading.includes("Insurance")) ? (
+                  <TR><TD className="font-medium">Transit Insurance</TD><TD className="text-right tnum">{formatCurrency(detail.insuranceTotal)}</TD></TR>
+                ) : null}
+                {detail.discountTotal > 0 ? (
+                  <TR><TD className="font-medium text-go">Discount</TD><TD className="text-right tnum text-go">−{formatCurrency(detail.discountTotal)}</TD></TR>
+                ) : null}
+              </TBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       {/* Totals */}
       <div className="flex justify-end gap-5 text-body">
         <span className="tnum">Subtotal: <strong>{formatCurrency(detail.subtotal)}</strong></span>
         <span className="tnum">GST: <strong>{formatCurrency(detail.gstTotal)}</strong></span>
+        {detail.miscChargesTotal > 0 ? <span className="tnum">Misc: <strong>{formatCurrency(detail.miscChargesTotal)}</strong></span> : null}
         <span className="tnum text-base">Total: <strong>{formatCurrency(detail.total)}</strong></span>
       </div>
 

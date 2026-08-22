@@ -10,17 +10,23 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { StatusPill } from "@/components/page";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { downloadExcel } from "@/lib/export";
 import { ComparativeQuotePanel } from "./comparative-quote-panel";
 import type { RequisitionRow, RequisitionStatus } from "@/lib/types";
 
-type ProjectOption = { id: string; name: string };
+type ProjectOption = { id: string; name: string; type: string; status: string };
 type PhaseOption = { id: string; name: string; projectId: string };
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
 type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" };
+type CategoryOption = { id: string; name: string; unit: string };
 
 /** Column definitions for the requisitions DataTable. */
 const reqColumns: Column<RequisitionRow>[] = [
@@ -108,6 +114,7 @@ export function RequisitionsView({
   materials,
   suppliers,
   locations,
+  categories,
   permissions,
 }: {
   requisitions: RequisitionRow[];
@@ -116,6 +123,7 @@ export function RequisitionsView({
   materials: MaterialOption[];
   suppliers: SupplierOption[];
   locations: LocationOption[];
+  categories: CategoryOption[];
   permissions?: { canCreate?: boolean; canApprove?: boolean };
 }) {
   const canCreate = permissions?.canCreate ?? false;
@@ -504,6 +512,7 @@ export function RequisitionsView({
           phases={phases}
           materials={materials}
           suppliers={suppliers}
+          categories={categories}
         />
       )}
       {convertTarget && (
@@ -512,6 +521,7 @@ export function RequisitionsView({
           suppliers={suppliers}
           materials={materials}
           locations={locations}
+          projects={projects}
           canApprove={canApprove}
           onOpenChange={(o) => !o && setConvertTarget(null)}
         />
@@ -590,6 +600,7 @@ function RequisitionFormDialog({
   phases,
   materials,
   suppliers,
+  categories,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -597,6 +608,7 @@ function RequisitionFormDialog({
   phases: PhaseOption[];
   materials: MaterialOption[];
   suppliers: SupplierOption[];
+  categories: CategoryOption[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -607,6 +619,14 @@ function RequisitionFormDialog({
     notes: "",
   });
   const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; notes: string; preferredSupplierId: string; stockLoading: boolean; currentStock: number | null; stockUnit: string | null }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  const [localMaterials, setLocalMaterials] = useState<MaterialOption[]>(materials);
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
 
   const filteredPhases = form.projectId ? phases.filter((p) => p.projectId === form.projectId) : [];
 
@@ -620,7 +640,7 @@ function RequisitionFormDialog({
       const res = await fetch(`/api/stock/available?materialId=${materialId}`);
       if (res.ok) {
         const data = await res.json();
-        const mat = materials.find((m) => m.id === materialId);
+        const mat = localMaterials.find((m) => m.id === materialId);
         setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, currentStock: data.totalQty ?? 0, stockUnit: mat?.unit ?? null, stockLoading: false } : l));
       } else {
         setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, stockLoading: false } : l));
@@ -680,10 +700,17 @@ function RequisitionFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Project *</Label>
-            <Select value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value, phaseId: "" }))} required>
-              <option value="">Select…</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={form.projectId}
+              onChange={(v) => setForm((f) => ({ ...f, projectId: v, phaseId: "" }))}
+              required
+              placeholder="Select…"
+              createLabel="project"
+              options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Phase</Label>
@@ -703,10 +730,17 @@ function RequisitionFormDialog({
           {lines.map((line, i) => (
             <div key={line.id} className="space-y-1 rounded-md border p-2">
               <div className="flex gap-2">
-                <Select value={line.materialId} onChange={(e) => { setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: e.target.value } : l)); fetchStockContext(i, e.target.value); }} className="flex-1">
-                  <option value="">Select material…</option>
-                  {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name} ({m.unit})</option>)}
-                </Select>
+                <SelectWithCreate
+                  value={line.materialId}
+                  onChange={(v) => { setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, materialId: v } : l)); fetchStockContext(i, v); }}
+                  placeholder="Select material…"
+                  createLabel="material"
+                  className="flex-1"
+                  options={localMaterials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name} (${m.unit})` }))}
+                  renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                    <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { setLocalMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "" }]); onCreated(e); }} />
+                  )}
+                />
                 <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
                 <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1} aria-label="Remove line">
                   <X className="h-4 w-4" />
@@ -730,10 +764,16 @@ function RequisitionFormDialog({
               )}
               {/* Preferred supplier */}
               {line.materialId && (
-                <Select value={line.preferredSupplierId} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, preferredSupplierId: e.target.value } : l))}>
-                  <option value="">No preferred supplier</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </Select>
+                <SelectWithCreate
+                  value={line.preferredSupplierId}
+                  onChange={(v) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, preferredSupplierId: v } : l))}
+                  placeholder="No preferred supplier"
+                  createLabel="supplier"
+                  options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+                  renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                    <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} supplier={null} />
+                  )}
+                />
               )}
             </div>
           ))}
@@ -760,6 +800,7 @@ function ConvertDialog({
   suppliers,
   materials,
   locations,
+  projects,
   canApprove,
   onOpenChange,
 }: {
@@ -767,6 +808,7 @@ function ConvertDialog({
   suppliers: SupplierOption[];
   materials: MaterialOption[];
   locations: LocationOption[];
+  projects: ProjectOption[];
   canApprove: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
@@ -781,6 +823,12 @@ function ConvertDialog({
     notes: "",
   });
   const [lineCosts, setLineCosts] = useState<Record<string, string>>({});
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
+  const [localLocations, setLocalLocations] = useState<LocationOption[]>(locations);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
 
   // Fetch detail (with lines) on mount
   useEffect(() => {
@@ -840,10 +888,17 @@ function ConvertDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Supplier *</Label>
-            <Select value={form.supplierId} onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value }))} required>
-              <option value="">Select…</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={form.supplierId}
+              onChange={(v) => setForm((f) => ({ ...f, supplierId: v }))}
+              required
+              placeholder="Select…"
+              createLabel="supplier"
+              options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} supplier={null} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Procurement Scope</Label>
@@ -856,12 +911,19 @@ function ConvertDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Destination Location *</Label>
-            <Select value={form.destinationLocationId} onChange={(e) => setForm((f) => ({ ...f, destinationLocationId: e.target.value }))} required>
-              <option value="">Select…</option>
-              {locations
+            <SelectWithCreate
+              value={form.destinationLocationId}
+              onChange={(v) => setForm((f) => ({ ...f, destinationLocationId: v }))}
+              required
+              placeholder="Select…"
+              createLabel="location"
+              options={localLocations
                 .filter((l) => form.procurementScope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE")
-                .map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </Select>
+                .map((l) => ({ value: l.id, label: l.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, name: e.label ?? "", type: "PROJECT_SITE", projectId: null }]); onCreated(e); }} projects={projects} location={null} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Expected Date</Label>

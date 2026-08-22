@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 /** Column definitions for the rental payment history DataTable. */
@@ -140,6 +142,10 @@ export function RentalsView({
   const [pMode, setPMode] = useState("BANK");
   const [pDate, setPDate] = useState("");
   const [pRef, setPRef] = useState("");
+
+  // Local copy of customers so freshly created ones appear without a refresh
+  const [localCustomers, setLocalCustomers] = useState(customers);
+  useEffect(() => { setLocalCustomers(customers); }, [customers]);
 
   const assets = fAssetType === "LAND" ? landParcels : builtUnits;
 
@@ -533,12 +539,16 @@ export function RentalsView({
           </div>
           <div>
             <Label>Link to customer (optional)</Label>
-            <Select value={fCustomer} onChange={(e) => setFCustomer(e.target.value)}>
-              <option value="">None</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={fCustomer}
+              onChange={setFCustomer}
+              placeholder="None"
+              createLabel="customer"
+              options={localCustomers.map((c) => ({ value: c.id, label: c.phone ? `${c.name} · ${c.phone}` : c.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <CustomerFormDialog open={o} onOpenChange={onClose} customer={null} onCreated={(e) => { setLocalCustomers((p) => [...p, { id: e.id, name: e.label ?? "", phone: null }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -646,12 +656,16 @@ export function RentalsView({
           </div>
           <div>
             <Label>Link to customer (optional)</Label>
-            <Select value={eCustomer} onChange={(e) => setECustomer(e.target.value)}>
-              <option value="">None</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={eCustomer}
+              onChange={setECustomer}
+              placeholder="None"
+              createLabel="customer"
+              options={localCustomers.map((c) => ({ value: c.id, label: c.phone ? `${c.name} · ${c.phone}` : c.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <CustomerFormDialog open={o} onOpenChange={onClose} customer={null} onCreated={(e) => { setLocalCustomers((p) => [...p, { id: e.id, name: e.label ?? "", phone: null }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

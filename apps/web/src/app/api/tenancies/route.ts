@@ -45,6 +45,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         monthlyRent: toNum(t.monthlyRent),
         securityDeposit: toNum(t.securityDeposit),
         rentAgreementNo: t.rentAgreementNo,
+        sacCode: t.sacCode,
         status: t.status,
         notes: t.notes,
         totalReceived,
@@ -87,6 +88,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       monthlyRent: parsed.data.monthlyRent,
       securityDeposit: parsed.data.securityDeposit ?? 0,
       rentAgreementNo: parsed.data.rentAgreementNo ?? undefined,
+      sacCode: parsed.data.sacCode ?? undefined,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
     });

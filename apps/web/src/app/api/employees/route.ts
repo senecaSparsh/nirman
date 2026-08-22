@@ -71,5 +71,5 @@ export const POST = apiHandler(async (req: NextRequest) => {
     active: parsed.data.active ?? true,
     userId: user.id,
   });
-  return json({ ok: true, id: created.id }, { status: 201 });
+  return json({ ok: true, id: created.id, name: created.name, trade: created.trade }, { status: 201 });
 });

@@ -18,12 +18,13 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const perms = await getUserPermissions();
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-  if (!canApprovePo && !canApproveReq) {
+  const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
     return json({ error: "Forbidden — your role does not have permission for this action" }, { status: 403 });
   }
   const company = await getCompany();
 
-  const [purchaseOrders, requisitions] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT" },
       orderBy: { createdAt: "desc" },
@@ -48,6 +49,17 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         requestedBy: { select: { id: true, name: true } },
       },
     }),
+    canApproveGatePass
+      ? prisma.gatePass.findMany({
+          where: { companyId: company.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          include: {
+            lines: true,
+            location: { select: { name: true } },
+            createdBy: { select: { name: true } },
+          },
+        })
+      : [],
   ]);
 
   // ── Compute budget context for each project ──
@@ -180,6 +192,18 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   return json({
     purchaseOrders: poResponses,
     requisitions: reqResponses,
+    gatePasses: gatePasses.map((gp) => ({
+      id: gp.id,
+      gatePassNumber: gp.gatePassNumber,
+      category: gp.category,
+      locationName: gp.location.name,
+      destination: gp.destination,
+      vehicleNumber: gp.vehicleNumber,
+      lineCount: gp.lines.length,
+      createdByName: gp.createdBy?.name ?? null,
+      createdAt: gp.createdAt.toISOString(),
+      canApprove: canApproveGatePass,
+    })),
     requestedBy: { id: user.id, name: user.name },
   });
 });

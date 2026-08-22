@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { cancelSale, completeSale, recordDeposit, recordPayment, sendNotification } from "@nirman/services";
+import { cancelSale, completeSale, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
 import { apiHandler, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -18,6 +18,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
       payments: { orderBy: { paymentDate: "asc" } },
+      expenses: { orderBy: { sortOrder: "asc" } },
+      terms: { orderBy: { sortOrder: "asc" } },
+      broker: { select: { id: true, name: true, phone: true, agency: true } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
     },
   });
   if (!s) return json({ error: "Sale not found" }, { status: 404 });
@@ -47,7 +51,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     customerName: s.customer.name,
     customerPhone: s.customer.phone,
     projectId: s.projectId,
-    projectName: s.project.name,
+    projectName: s.project?.name ?? null,
     salePrice: toNum(s.salePrice),
     gstRate: toNum(s.gstRate),
     gstAmount: toNum(s.gstAmount),
@@ -62,6 +66,68 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     paymentStatus: s.paymentStatus,
     paymentMode: s.paymentMode,
     notes: s.notes,
+    // Sale deed / registry tracking
+    saleDeedNo: s.saleDeedNo,
+    expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+    // Sale compliance documents
+    allotmentLetterNo: s.allotmentLetterNo,
+    allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
+    bbaNo: s.bbaNo,
+    bbaDate: s.bbaDate ? s.bbaDate.toISOString() : null,
+    // TDS tracking
+    tdsAmount: s.tdsAmount ? toNum(s.tdsAmount) : null,
+    tdsCertificateNo: s.tdsCertificateNo,
+    // Home loan tracking
+    homeLoanBank: s.homeLoanBank,
+    homeLoanAmount: s.homeLoanAmount ? toNum(s.homeLoanAmount) : null,
+    homeLoanSanctionNo: s.homeLoanSanctionNo,
+    homeLoanSanctionDate: s.homeLoanSanctionDate ? s.homeLoanSanctionDate.toISOString() : null,
+    // Deal terms
+    dealMaturityMonths: s.dealMaturityMonths,
+    dealMaturityDate: s.dealMaturityDate ? s.dealMaturityDate.toISOString() : null,
+    paymentCycle: s.paymentCycle,
+    // Broker / deal source
+    dealSource: s.dealSource,
+    brokerId: s.brokerId,
+    brokerName: s.brokerName,
+    brokerPhone: s.brokerPhone,
+    brokerAgency: s.broker?.agency ?? null,
+    commissionAmount: s.commissionAmount ? toNum(s.commissionAmount) : null,
+    commissionIsPartOfDeal: s.commissionIsPartOfDeal,
+    commissionPaid: s.commissionPaid,
+    commissionPaidDate: s.commissionPaidDate ? s.commissionPaidDate.toISOString() : null,
+    // Sale expenses
+    expenses: s.expenses.map((e) => ({
+      id: e.id,
+      head: e.head,
+      label: e.label,
+      amount: toNum(e.amount),
+      borneBy: e.borneBy,
+      isIncluded: e.isIncluded,
+    })),
+    // Sale terms
+    terms: s.terms.map((t) => ({
+      id: t.id,
+      description: t.description,
+      extraAmount: t.extraAmount ? toNum(t.extraAmount) : null,
+      isIncluded: t.isIncluded,
+    })),
+    // Payment schedule
+    paymentSchedule: s.paymentSchedule
+      ? {
+          type: s.paymentSchedule.type,
+          totalAmount: toNum(s.paymentSchedule.totalAmount),
+          items: s.paymentSchedule.items.map((item) => ({
+            installmentNo: item.installmentNo,
+            description: item.description,
+            percentage: toNum(item.percentage),
+            amount: toNum(item.amount),
+            dueDate: item.dueDate ? item.dueDate.toISOString() : null,
+            status: item.status,
+            paidAmount: toNum(item.paidAmount),
+          })),
+        }
+      : null,
     totalPaid,
     balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
     paymentCount: s.payments.length,
@@ -81,14 +147,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  *   body: { action: "cancel" }
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.SALES_MANAGE);
+  const user = await requirePermission(PERM.SALES_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string;
 
   if (action === "cancel") {
     try {
-      await cancelSale(id);
+      await cancelSale(id, user.id);
       revalidatePath("/m/sales");
       return json({ ok: true });
     } catch (err: unknown) {
@@ -96,7 +162,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
 
-  return json({ error: "Invalid action. Use cancel." }, { status: 400 });
+  if (action === "update") {
+    try {
+      const { action: _action, ...fields } = body;
+      await updateSale({ saleId: id, userId: user.id, ...fields });
+      revalidatePath("/m/sales");
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Update failed") }, { status: 400 });
+    }
+  }
+
+  return json({ error: "Invalid action. Use cancel or update." }, { status: 400 });
 });
 
 /**
@@ -177,6 +254,19 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         finalPaymentAmount: parsed.data.finalPaymentAmount,
         paymentMode: parsed.data.paymentMode,
         reference: parsed.data.reference ?? undefined,
+        saleDeedNo: parsed.data.saleDeedNo ?? undefined,
+        // Compliance fields captured at completion
+        allotmentLetterNo: parsed.data.allotmentLetterNo ?? undefined,
+        allotmentDate: parsed.data.allotmentDate ?? undefined,
+        bbaNo: parsed.data.bbaNo ?? undefined,
+        bbaDate: parsed.data.bbaDate ?? undefined,
+        tdsAmount: parsed.data.tdsAmount ?? undefined,
+        tdsCertificateNo: parsed.data.tdsCertificateNo ?? undefined,
+        // Home loan details — often finalized at completion
+        homeLoanBank: parsed.data.homeLoanBank ?? undefined,
+        homeLoanAmount: parsed.data.homeLoanAmount ?? undefined,
+        homeLoanSanctionNo: parsed.data.homeLoanSanctionNo ?? undefined,
+        homeLoanSanctionDate: parsed.data.homeLoanSanctionDate ?? undefined,
         userId: user.id,
       });
       // Send WhatsApp payment confirmation to the customer

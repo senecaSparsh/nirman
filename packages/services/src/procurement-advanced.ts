@@ -303,7 +303,7 @@ export async function cancelRateContract(id: string, userId?: string) {
 // ── 3. Value-Based Approval Routing ────────────────────────
 
 export interface ApprovalRouting {
-  requiredRole: "MANAGER" | "ADMIN" | "OWNER";
+  requiredRole: "PROJECT_MANAGER" | "PROCUREMENT_MANAGER" | "PROJECT_DIRECTOR" | "ADMIN" | "OWNER";
   threshold: Decimal;
   reason: string;
 }
@@ -338,7 +338,7 @@ export async function getApprovalRouting(
 
   if (amount.lt(managerThreshold)) {
     return {
-      requiredRole: "MANAGER",
+      requiredRole: "PROJECT_MANAGER",
       threshold: managerThreshold,
       reason: `PO value ${sym}${amount.toFixed(0)} is below the manager threshold (${sym}${managerThreshold.toFixed(0)})`,
     };

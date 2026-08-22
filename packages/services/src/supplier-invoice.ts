@@ -156,25 +156,13 @@ export function threeWayMatch(
     }
 
     // ── Amount match: line total = qty × price ──
-    // We recompute qty × price and compare to the invoice line total.
-    // Since the invoice line total IS qty × price (we compute it), this
-    // is a self-consistency check — it catches data-entry errors where
-    // the user typed a quantity or price that doesn't match the printed
-    // total. We allow a tiny rounding tolerance of 0.01.
-    const roundingTolerance = new Decimal(0.01);
-    // If the caller provides a separate line total, we'd compare here.
-    // For now, qty × price is the line total by definition, so this
-    // check passes unless a separate total is supplied. We include it
-    // for completeness and future extension.
-    if (invLineTotal.abs().gt(roundingTolerance)) {
-      variances.push({
-        line: lineNo,
-        field: "lineTotal",
-        expected: "0",
-        actual: invLineTotal.toString(),
-        variance: invLineTotal.toString(),
-      });
-    }
+    // Since the invoice line total IS qty × price (we compute it above),
+    // this is always self-consistent by construction. A separate line
+    // total field is not currently provided by the input schema, so there
+    // is nothing to compare against. This check is a no-op placeholder
+    // for future extension when a separate printed total is supplied.
+    // (Previously this code incorrectly flagged every non-zero line as a
+    // variance, causing all invoices to be UNMATCHED.)
   });
 
   const matched = variances.length === 0;

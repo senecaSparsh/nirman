@@ -29,7 +29,7 @@ export default async function MobileNewProcurementPage() {
 
   const company = await getCompany();
 
-  const [suppliers, projects, materials, locations] = await Promise.all([
+  const [suppliers, projects, materials, locations, categories] = await Promise.all([
     prisma.supplier.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, phone: true },
@@ -50,6 +50,11 @@ export default async function MobileNewProcurementPage() {
       select: { id: true, name: true, type: true, projectId: true },
       orderBy: { name: "asc" },
     }),
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const serialized = {
@@ -63,6 +68,7 @@ export default async function MobileNewProcurementPage() {
       gstRate: toNum(m.gstRate),
     })),
     locations: locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId })),
+    categories: categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit })),
   };
 
   return <MobileNewProcurementClient data={serialized} />;

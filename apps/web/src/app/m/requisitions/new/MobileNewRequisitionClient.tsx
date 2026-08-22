@@ -10,6 +10,9 @@ import { toast } from "sonner";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 interface ProjectItem { id: string; name: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; }
@@ -51,6 +54,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<ReqDraft>("requisition", "requisition-new");
+  const [draftRestored, setDraftRestored] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [projectId, setProjectId] = useState(data.projects[0]?.id ?? "");
@@ -175,18 +179,12 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-          New Material Indent
-        </p>
-      </div>
-
-      {hasDraft && (
+      {hasDraft && !draftRestored && (
         <DraftBanner
           formName="Material Indent"
           updatedAt={draftUpdatedAt}
-          onRestore={restoreDraftState}
-          onDiscard={clearDraft}
+          onRestore={() => { restoreDraftState(); setDraftRestored(true); }}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
         />
       )}
 
@@ -203,22 +201,22 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
             </span>
           </div>
 
-          <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Project <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-              required
-            >
-              {data.projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Project"
+            required
+            value={projectId}
+            onChange={setProjectId}
+            options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
+              />
+            )}
+          />
 
           <div>
             <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
@@ -265,18 +263,23 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                 >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <select
+                      <MobileSelectWithCreate
+                        label=""
                         value={line.materialId}
-                        onChange={(e) => updateLine(idx, "materialId", e.target.value)}
-                        className={`${inputClass} text-[0.6875rem]`}
-                        style={inputStyle}
-                      >
-                        {data.materials.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name} ({m.code})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => updateLine(idx, "materialId", val)}
+                        options={data.materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
+                        inputClass={`${inputClass} text-[0.6875rem]`}
+                        inputStyle={inputStyle}
+                        labelClass="hidden"
+                        renderDialog={({ open, onClose, onCreated }) => (
+                          <MobileNewMaterialDialog
+                            open={open}
+                            onClose={onClose}
+                            categories={[]}
+                            onCreated={(m) => onCreated(m.id, m.name)}
+                          />
+                        )}
+                      />
                     </div>
                     {lines.length > 1 ? (
                       <button

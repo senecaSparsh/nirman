@@ -11,14 +11,14 @@ import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
 import { TransferFormDialog } from "@/components/procurement/transfer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { StockLocationRow, TransferRow } from "@/lib/types";
+import type { StockLocationRow, TransferRow, ProjectOption } from "@/lib/types";
 
 /**
  * Transfers tab — move stock between warehouses and project sites, within the
  * same company or across the company group (inter-company STO). Extracted from
  * the old Procurement page so it lives with the rest of the stock lifecycle.
  */
-export function TransfersTab({ transfers, locations, canTransfer }: { transfers: TransferRow[]; locations: StockLocationRow[]; canTransfer: boolean }) {
+export function TransfersTab({ transfers, locations, projects, canTransfer }: { transfers: TransferRow[]; locations: StockLocationRow[]; projects: ProjectOption[]; canTransfer: boolean }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -157,7 +157,7 @@ export function TransfersTab({ transfers, locations, canTransfer }: { transfers:
         </Dialog>
       )}
 
-      <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={locations} />
+      <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={locations} projects={projects} />
     </div>
   );
 }

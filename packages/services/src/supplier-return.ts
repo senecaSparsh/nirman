@@ -4,6 +4,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { logAction } from "./audit";
 import { postSupplierReturn } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -28,6 +29,12 @@ interface CreateSupplierReturnInput {
   locationId: string;
   notes?: string;
   userId?: string;
+  // Vehicle — how the goods are being sent back
+  vehicleNumber?: string;
+  vehicleType?: string;
+  vehiclePhotoUrl?: string;
+  driverName?: string;
+  driverPhone?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -68,6 +75,11 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
         purchaseOrderId: input.purchaseOrderId,
         locationId: input.locationId,
         notes: input.notes,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType,
+        vehiclePhotoUrl: input.vehiclePhotoUrl,
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
         status: "DRAFT",
         lines: {
           create: input.lines.map((l) => ({
@@ -93,7 +105,10 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
 
 export async function submitSupplierReturn(returnId: string, userId?: string) {
   return prisma.$transaction(async (tx) => {
-    const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
+    const ret = await tx.supplierReturn.findUnique({
+      where: { id: returnId },
+      include: { lines: true, supplier: { select: { name: true } } },
+    });
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status !== "DRAFT") throw new ServiceError(`Cannot submit return in status ${ret.status}`);
     const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "SUBMITTED" } });
@@ -105,6 +120,23 @@ export async function submitSupplierReturn(returnId: string, userId?: string) {
       before: { status: "DRAFT" },
       after: { status: "SUBMITTED" },
     });
+
+    // Auto-create a gate pass (PENDING) for the outbound items
+    await autoCreateGatePassFromRef(tx, {
+      companyId: ret.companyId,
+      locationId: ret.locationId,
+      category: "SUPPLIER_RETURN",
+      refType: "SupplierReturn",
+      refId: ret.id,
+      lines: ret.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
+      destination: ret.supplier?.name,
+      vehicleNumber: ret.vehicleNumber ?? undefined,
+      vehicleType: ret.vehicleType ?? undefined,
+      driverName: ret.driverName ?? undefined,
+      driverPhone: ret.driverPhone ?? undefined,
+      createdById: userId,
+    });
+
     return updated;
   });
 }
@@ -123,6 +155,9 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
     });
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status !== "SUBMITTED") throw new ServiceError(`Cannot complete return in status ${ret.status}`);
+
+    // Gate Pass check — items cannot leave the gate until the gate pass is approved
+    await assertGatePassApproved("SupplierReturn", input.returnId);
 
     // Validate stock availability for each line
     for (const line of ret.lines) {

@@ -407,14 +407,14 @@ async function main() {
   let user = await prisma.user.findFirst({ where: { email: "manager@testify.in" } });
   if (!user) {
     user = await prisma.user.create({
-      data: { email: "manager@testify.in", name: "Plant Manager", role: "MANAGER", emailVerified: true },
+      data: { email: "manager@testify.in", name: "Plant Manager", role: "PROJECT_MANAGER", emailVerified: true },
     });
   }
   // Ensure the user is a member of the company.
   await prisma.userCompany.upsert({
     where: { userId_companyId: { userId: user.id, companyId: company.id } },
     update: {},
-    create: { userId: user.id, companyId: company.id, role: "MANAGER" },
+    create: { userId: user.id, companyId: company.id, role: "PROJECT_MANAGER" },
   });
 
   let grandTotal = new Decimal(0);

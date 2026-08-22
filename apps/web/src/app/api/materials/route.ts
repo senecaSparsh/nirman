@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { logAction } from "@nirman/services";
+import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -78,7 +78,39 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const existing = await prisma.material.findUnique({ where: { code: parsed.data.code } });
+
+  // ── Auto-generate material code if not provided ──
+  // Format: {CATEGORY_PREFIX}-{GRADE}-{SEQ} (e.g. STL-Fe500D-001)
+  let code = parsed.data.code;
+  if (!code || code.trim() === "AUTO") {
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+    if (!category) return json({ error: "Category not found" }, { status: 400 });
+    code = await generateMaterialCode(category.name, parsed.data.grade ?? null);
+  }
+
+  // ── Auto-fill HSN/GST from government master if not provided ──
+  let hsnCode = parsed.data.hsnCode;
+  let gstRate = parsed.data.gstRate;
+
+  // If HSN is provided but GST is 0, look up GST from the HSN master
+  if (hsnCode && toNum(gstRate) === 0) {
+    const hsnEntry = await lookupGstByHsn(hsnCode);
+    if (hsnEntry) {
+      gstRate = hsnEntry.gstRate.toNumber();
+    }
+  }
+
+  // If neither HSN nor GST is provided, try to suggest from material name + category
+  if (!hsnCode && toNum(gstRate) === 0) {
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+    const suggestions = await suggestHsnByMaterial(parsed.data.name, category?.name);
+    if (suggestions.length > 0) {
+      hsnCode = suggestions[0]!.hsnCode;
+      gstRate = suggestions[0]!.gstRate.toNumber();
+    }
+  }
+
+  const existing = await prisma.material.findUnique({ where: { code } });
   if (existing && existing.deletedAt) {
     const restored = await prisma.$transaction(async (tx) => {
       const mat = await tx.material.update({
@@ -108,6 +140,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       const mat = await tx.material.create({
         data: {
           ...parsed.data,
+          code,
+          hsnCode,
+          gstRate,
           currentCost: parsed.data.standardCost,
         },
       });
@@ -116,7 +151,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         action: "MATERIAL_CREATE",
         entityType: "Material",
         entityId: mat.id,
-        after: { code: mat.code, name: mat.name, unit: mat.unit, standardCost: mat.standardCost.toString() },
+        after: { code: mat.code, name: mat.name, unit: mat.unit, standardCost: mat.standardCost.toString(), hsnCode: hsnCode ?? null, gstRate: gstRate.toString() },
       });
       return mat;
     });

@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Loader2, AlertCircle } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
-import { ALL_ROLES, type Role, ROLES } from "@/lib/roles";
+import { type Role, ROLES } from "@/lib/roles";
+
+// Demo roles shown as one-click buttons (dev only).
+const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
 
 /**
  * SIGN IN — the first screen, so it sets the expectation for the rest.
@@ -72,7 +75,7 @@ function SignInForm() {
     const me = await fetch("/api/me")
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
-    router.push(homeWorldFor(me?.role ?? "MANAGER").href);
+    router.push(homeWorldFor(me?.role ?? "PROJECT_MANAGER").href);
     router.refresh();
   }
 
@@ -208,7 +211,7 @@ function SignInForm() {
               <span className="text-micro text-muted-foreground">password: nirman123</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {ALL_ROLES.map((role) => (
+              {DEMO_ROLES.map((role) => (
                 <Button
                   key={role}
                   type="button"

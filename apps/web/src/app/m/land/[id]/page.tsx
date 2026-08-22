@@ -29,6 +29,7 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
   const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
   const canPartition = hasPermission(role, PERM.LAND_PARTITION);
   const canSell = hasPermission(role, PERM.SALE_CREATE);
+  const canManageLegal = hasPermission(role, PERM.LEGAL_MANAGE);
 
   const purchase = await prisma.landPurchase.findFirst({
     where: { id, companyId: company.id, deletedAt: null },
@@ -52,13 +53,14 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
         canManage={canManage}
         canPartition={canPartition}
         canSell={canSell}
+        canManageLegal={canManageLegal}
         customers={[]}
       />
     );
   }
 
   const parcelIds = purchase.parcels.map((p) => p.id);
-  const [landSales, customers, parcelBuiltUnits] = await Promise.all([
+  const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
     prisma.assetSale.findMany({
       where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
       select: {
@@ -85,6 +87,11 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
       },
       orderBy: [{ unitNumber: "asc" }],
     }),
+    // Legal documents for this land purchase
+    prisma.legalDocument.findMany({
+      where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    }),
   ]);
 
   const saleByParcel = new Map(
@@ -105,6 +112,7 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
       id: p.id,
       number: p.number,
       status: p.status,
+      purpose: p.purpose,
       area: toNum(p.area),
       areaUnit: p.areaUnit,
       acquisitionCost: toNum(p.acquisitionCost),
@@ -114,6 +122,7 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
       parentParcelNumber: p.parentParcel?.number ?? null,
       isInfrastructure: p.isInfrastructure,
       childCount: p._count.children,
+      projectId: p.projectId,
       salePrice: sale?.salePrice ?? null,
       saleProfit: sale?.saleProfit ?? null,
       saleNumber: sale?.saleNumber ?? null,
@@ -147,6 +156,26 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
     documentUrl: purchase.documentUrl,
     projectId: purchase.projectId,
     projectName: purchase.project?.name ?? null,
+    mode: purchase.mode,
+    // Land type & lease
+    landType: purchase.landType,
+    leaseType: purchase.leaseType,
+    leasePeriodYears: purchase.leasePeriodYears,
+    leaseStartDate: purchase.leaseStartDate?.toISOString() ?? null,
+    leaseEndDate: purchase.leaseEndDate?.toISOString() ?? null,
+    // Cost breakup
+    baseCost: toNum(purchase.baseCost),
+    leaseRentPercent: purchase.leaseRentPercent ? toNum(purchase.leaseRentPercent) : null,
+    leaseRentAmount: purchase.leaseRentAmount ? toNum(purchase.leaseRentAmount) : null,
+    gstPercent: purchase.gstPercent ? toNum(purchase.gstPercent) : null,
+    gstAmount: purchase.gstAmount ? toNum(purchase.gstAmount) : null,
+    registrationPercent: purchase.registrationPercent ? toNum(purchase.registrationPercent) : null,
+    registrationAmount: purchase.registrationAmount ? toNum(purchase.registrationAmount) : null,
+    stampDutyPercent: purchase.stampDutyPercent ? toNum(purchase.stampDutyPercent) : null,
+    stampDutyAmount: purchase.stampDutyAmount ? toNum(purchase.stampDutyAmount) : null,
+    brokerageAmount: purchase.brokerageAmount ? toNum(purchase.brokerageAmount) : null,
+    legalFees: purchase.legalFees ? toNum(purchase.legalFees) : null,
+    otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
     costPerUnit,
     parcels,
     sales: landSales.map((s) => ({
@@ -181,6 +210,30 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
         projectName: u.project.name,
       };
     }),
+    legalDocs: legalDocs.map((d) => ({
+      id: d.id,
+      landPurchaseId: d.landPurchaseId,
+      projectId: d.projectId,
+      type: d.type,
+      title: d.title,
+      authority: d.authority,
+      status: d.status,
+      appliesTo: d.appliesTo,
+      docNumber: d.docNumber,
+      sortOrder: d.sortOrder,
+      prerequisiteType: d.prerequisiteType,
+      obtained: d.obtained,
+      applicationDate: d.applicationDate?.toISOString() ?? null,
+      issueDate: d.issueDate?.toISOString() ?? null,
+      validFrom: d.validFrom?.toISOString() ?? null,
+      validTill: d.validTill?.toISOString() ?? null,
+      amount: d.amount ? toNum(d.amount) : null,
+      expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
+      documentUrl: d.documentUrl,
+      documentName: d.documentName,
+      notes: d.notes,
+      createdAt: d.createdAt.toISOString(),
+    })),
     stats: {
       parcelCount: sellable.length,
       availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
@@ -202,6 +255,7 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
       canManage={canManage}
       canPartition={canPartition}
       canSell={canSell}
+      canManageLegal={canManageLegal}
       customers={customers.map((c) => ({ id: c.id, name: c.name }))}
     />
   );

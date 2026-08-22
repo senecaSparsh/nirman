@@ -11,6 +11,8 @@ import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -480,21 +482,28 @@ function InvoiceDetailContent({
       )}
 
       {/* Actions */}
-      {canManage && canApprove && (
-        <div className="flex justify-end gap-2 border-t border-border pt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onAction("reject")}
-            disabled={actionLoading}
-          >
-            <X className="h-3.5 w-3.5" /> Dispute
+      <div className="flex justify-end gap-2 border-t border-border pt-3">
+        <a href={`/print/supplier-invoice/${detail.id}`} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm">
+            <FileText className="h-3.5 w-3.5" /> Print Invoice
           </Button>
-          <Button size="sm" onClick={() => onAction("approve")} disabled={actionLoading}>
-            <Check className="h-3.5 w-3.5" /> Approve
-          </Button>
-        </div>
-      )}
+        </a>
+        {canManage && canApprove && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAction("reject")}
+              disabled={actionLoading}
+            >
+              <X className="h-3.5 w-3.5" /> Dispute
+            </Button>
+            <Button size="sm" onClick={() => onAction("approve")} disabled={actionLoading}>
+              <Check className="h-3.5 w-3.5" /> Approve
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -523,6 +532,8 @@ function SupplierInvoiceFormDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
   const [form, setForm] = useState({
     invoiceNumber: "",
     supplierId: "",
@@ -638,20 +649,20 @@ function SupplierInvoiceFormDialog({
 
         <div className="space-y-1.5">
           <Label htmlFor="si-supplier">Supplier *</Label>
-          <Select
-            id="si-supplier"
+          <SelectWithCreate
             value={form.supplierId}
-            onChange={(e) => {
-              set("supplierId", e.target.value);
+            onChange={(v) => {
+              set("supplierId", v);
               set("purchaseOrderId", ""); // reset PO when supplier changes
             }}
             required
-          >
-            <option value="">Select supplier…</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </Select>
+            placeholder="Select supplier…"
+            createLabel="supplier"
+            options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} supplier={null} />
+            )}
+          />
         </div>
 
         <div className="space-y-1.5">

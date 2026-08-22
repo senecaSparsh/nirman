@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Save, Clock, Pencil, Trash2, CalendarX, MapPin, SearchX } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { LeavesView, type LeaveRow } from "@/components/hr/leaves-view";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { formatDate, cn } from "@/lib/utils";
 
@@ -114,6 +116,10 @@ export function AttendanceView({
   const [editProject, setEditProject] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   // Initialize statuses from recent attendance for the selected date
   const todayRecords = useMemo(
@@ -351,15 +357,37 @@ export function AttendanceView({
                 </div>
                 <div>
                   <Label>Project (optional)</Label>
-                  <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-auto">
-                    <option value="">All / Default</option>
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </Select>
+                  <SelectWithCreate
+                    value={projectId}
+                    onChange={setProjectId}
+                    placeholder="All / Default"
+                    createLabel="project"
+                    className="w-auto"
+                    options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                    renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                      <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                    )}
+                  />
                 </div>
                 {canEdit && (
-                  <Button size="sm" onClick={handleSave} disabled={saving || employees.length === 0} className="ml-auto">
-                    <Save className="mr-1 h-3.5 w-3.5" /> {saving ? "Saving…" : "Save Attendance"}
-                  </Button>
+                  <div className="ml-auto flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const all: Record<string, AttendanceStatus> = {};
+                        employees.forEach((e) => { all[e.id] = "PRESENT"; });
+                        setStatuses(all);
+                      }}
+                      disabled={employees.length === 0}
+                    >
+                      Mark All Present
+                    </Button>
+                    <Button size="sm" onClick={handleSave} disabled={saving || employees.length === 0}>
+                      <Save className="mr-1 h-3.5 w-3.5" /> {saving ? "Saving…" : "Save Attendance"}
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -469,12 +497,17 @@ export function AttendanceView({
               </div>
               <div>
                 <Label>Project</Label>
-                <Select value={editProject} onChange={(e) => setEditProject(e.target.value)} className="w-full">
-                  <option value="">—</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </Select>
+                <SelectWithCreate
+                  value={editProject}
+                  onChange={setEditProject}
+                  placeholder="—"
+                  createLabel="project"
+                  className="w-full"
+                  options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                  renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                    <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                  )}
+                />
               </div>
               <div>
                 <Label>Notes</Label>

@@ -286,6 +286,7 @@ export function BuiltUnitsView({
       label: `Unit ${u.unitNumber} (${UNIT_TYPE_LABELS[u.unitType]}) — ${formatNumber(u.area, 0)} ${u.areaUnit}`,
       projectId: u.projectId,
       projectName: u.projectName,
+      projectReraNumber: null,
       costBasis: u.productionCost,
       askingPrice: u.askingPrice,
       currentValuation: u.currentValuation,

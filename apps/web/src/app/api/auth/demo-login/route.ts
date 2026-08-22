@@ -31,21 +31,25 @@ import { json } from "@/lib/server";
  */
 const DEMO_PASSWORD = "nirman123";
 
-const ROLE_NAMES: Record<Role, string> = {
+// Demo accounts for the 6 most common roles (shown as quick-login buttons).
+// The other 7 roles can be created via the Team management UI.
+const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
+
+const ROLE_NAMES: Partial<Record<Role, string>> = {
   OWNER: "Amit Patil",
   ADMIN: "Anita Rao",
-  MANAGER: "Sneha Kulkarni",
+  PROJECT_MANAGER: "Sneha Kulkarni",
   SUPERVISOR: "Ravi Deshmukh",
-  SALES: "Karan Mehta",
+  SALES_MANAGER: "Karan Mehta",
   ACCOUNTANT: "Priya Nair",
 };
 
-const ROLE_EMAILS: Record<Role, string> = {
+const ROLE_EMAILS: Partial<Record<Role, string>> = {
   OWNER: "amit@nirman.in",
   ADMIN: "anita@nirman.in",
-  MANAGER: "sneha@nirman.in",
+  PROJECT_MANAGER: "sneha@nirman.in",
   SUPERVISOR: "ravi@nirman.in",
-  SALES: "karan@nirman.in",
+  SALES_MANAGER: "karan@nirman.in",
   ACCOUNTANT: "priya@nirman.in",
 };
 
@@ -64,12 +68,12 @@ export const POST = async (req: NextRequest) => {
   }
 
   const role = body.role as Role | undefined;
-  if (!role || !ALL_ROLES.includes(role)) {
-    return json({ error: `role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
+  if (!role || !DEMO_ROLES.includes(role)) {
+    return json({ error: `role must be one of: ${DEMO_ROLES.join(", ")}` }, { status: 400 });
   }
 
-  const email = ROLE_EMAILS[role];
-  const name = ROLE_NAMES[role];
+  const email = ROLE_EMAILS[role]!;
+  const name = ROLE_NAMES[role]!;
   const hashed = await hashPassword(DEMO_PASSWORD);
 
   // Resolve (or create) the user for this role, then ensure they have a

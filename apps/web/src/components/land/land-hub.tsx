@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
   Calendar, MapPinned, ScrollText, ExternalLink, Home,
@@ -18,6 +20,7 @@ import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
 import { ParcelValuationDialog } from "./parcel-valuation-dialog";
 import { ParcelsTree } from "./parcels-tree";
+import { LegalDocsSection, type LegalDocRow } from "@/components/legal/legal-docs-section";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption, SellableAssetRow } from "@/lib/types";
@@ -38,6 +41,26 @@ export type LandHubData = {
     documentUrl: string | null;
     projectId: string | null;
     projectName: string | null;
+    mode?: "WHOLE" | "SUBDIVIDED" | null;
+    // Land type & lease
+    landType?: "FREEHOLD" | "LEASEHOLD" | null;
+    leaseType?: "ONE_TIME" | "YEARLY" | null;
+    leasePeriodYears?: number | null;
+    leaseStartDate?: string | null;
+    leaseEndDate?: string | null;
+    // Cost breakup
+    baseCost?: number;
+    leaseRentPercent?: number | null;
+    leaseRentAmount?: number | null;
+    gstPercent?: number | null;
+    gstAmount?: number | null;
+    registrationPercent?: number | null;
+    registrationAmount?: number | null;
+    stampDutyPercent?: number | null;
+    stampDutyAmount?: number | null;
+    brokerageAmount?: number | null;
+    legalFees?: number | null;
+    otherCharges?: number | null;
   };
   parcels: LandParcelRow[];
   parcelSummaries: LandParcelSummary[];
@@ -64,11 +87,13 @@ export type LandHubData = {
     soldRevenue: number;
     soldProfit: number;
   };
-  permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean; canSell: boolean };
+  permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean; canSell: boolean; canManageLegal: boolean };
   customers: { id: string; name: string }[];
   projectOptions: ProjectOption[];
   // Built units linked to parcels (subdivided inventory)
   parcelBuiltUnits?: ParcelBuiltUnitRow[];
+  // Legal documents (permissions, licenses, NOCs, certificates, ATS)
+  legalDocs?: LegalDocRow[];
 };
 
 export type ParcelBuiltUnitRow = {
@@ -101,7 +126,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const { purchase, parcels, parcelSummaries, stats, permissions, customers, parcelBuiltUnits } = data;
   const hasBuiltUnits = parcelBuiltUnits && parcelBuiltUnits.length > 0;
   const [tab, setTab] = useTabParam(
-    hasBuiltUnits ? (["parcels","units","sales"] as const) : (["parcels","sales"] as const),
+    hasBuiltUnits ? (["parcels","units","sales","legal"] as const) : (["parcels","sales","legal"] as const),
     "parcels",
   );
   const trackRecent = useTrackRecent();
@@ -117,6 +142,25 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [valuateParcel, setValuateParcel] = useState<LandParcelRow | null>(null);
   const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
   const [deleteParcel, setDeleteParcel] = useState<LandParcelRow | null>(null);
+  const [unpartitionParcel, setUnpartitionParcel] = useState<LandParcelRow | null>(null);
+  const router = useRouter();
+
+  async function handleUnpartition(p: LandParcelRow) {
+    if (!confirm(`Un-divide this parcel? This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`)) return;
+    try {
+      const res = await fetch("/api/land-parcels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unpartition", parentParcelId: p.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unpartition failed");
+      toast.success("Parcel un-divided — original plot restored");
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to un-divide");
+    }
+  }
 
   function toSellableAsset(p: LandParcelRow): SellableAssetRow {
     return {
@@ -125,6 +169,7 @@ export function LandHub({ data }: { data: LandHubData }) {
       label: `Plot ${p.number} — ${formatNumber(p.area, 0)} ${p.areaUnit}`,
       projectId: p.projectId,
       projectName: p.projectName,
+      projectReraNumber: null,
       costBasis: p.acquisitionCost,
       askingPrice: p.askingPrice,
       currentValuation: p.currentValuation,
@@ -193,6 +238,11 @@ export function LandHub({ data }: { data: LandHubData }) {
                 ) : (
                   <span className="text-caption text-muted-foreground/70">Standalone land</span>
                 )}
+                {purchase.mode && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-caption text-muted-foreground">
+                    {purchase.mode === "WHOLE" ? "Whole Plot" : "Sub-divided"}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -229,6 +279,77 @@ export function LandHub({ data }: { data: LandHubData }) {
               href={purchase.documentUrl ?? undefined}
             />
           </div>
+
+          {/* Land type + lease info */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full px-2.5 py-0.5 text-caption font-medium bg-brand/10 text-brand">
+              {purchase.landType === "LEASEHOLD" ? "Leasehold" : "Freehold"}
+            </span>
+            {purchase.landType === "LEASEHOLD" && purchase.leaseType && (
+              <span className="rounded-full px-2.5 py-0.5 text-caption font-medium bg-muted text-muted-foreground">
+                {purchase.leaseType === "ONE_TIME" ? "One-time lease rent" : "Yearly lease rent"}
+                {purchase.leasePeriodYears ? ` · ${purchase.leasePeriodYears} yrs` : ""}
+              </span>
+            )}
+            {purchase.mode === "SUBDIVIDED" && (
+              <span className="rounded-full px-2.5 py-0.5 text-caption font-medium bg-steel/10 text-steel">
+                Sub-divided into {parcels.filter((p) => p.parentParcelId).length} plots
+              </span>
+            )}
+          </div>
+
+          {/* Cost breakup — only show if any breakup fields are present */}
+          {purchase.baseCost != null && purchase.baseCost > 0 && (
+            <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 space-y-1">
+              <div className="text-caption font-semibold text-muted-foreground mb-1">Cost Breakup</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-caption">
+                <div className="flex justify-between"><span className="text-muted-foreground">Base Cost:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.baseCost)}</strong></div>
+                {purchase.leaseRentAmount != null && purchase.leaseRentAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Lease Rent ({purchase.leaseRentPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.leaseRentAmount)}</strong></div>
+                )}
+                {purchase.gstAmount != null && purchase.gstAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">GST ({purchase.gstPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.gstAmount)}</strong></div>
+                )}
+                {purchase.registrationAmount != null && purchase.registrationAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Registration ({purchase.registrationPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.registrationAmount)}</strong></div>
+                )}
+                {purchase.stampDutyAmount != null && purchase.stampDutyAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Stamp Duty ({purchase.stampDutyPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.stampDutyAmount)}</strong></div>
+                )}
+                {purchase.brokerageAmount != null && purchase.brokerageAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Brokerage:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.brokerageAmount)}</strong></div>
+                )}
+                {purchase.legalFees != null && purchase.legalFees > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Legal Fees:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.legalFees)}</strong></div>
+                )}
+                {purchase.otherCharges != null && purchase.otherCharges > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Other Charges:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.otherCharges)}</strong></div>
+                )}
+              </div>
+              <div className="flex justify-between border-t border-border pt-1 text-body font-semibold">
+                <span>Total Land Cost</span>
+                <strong className="tabular-nums">{formatCurrency(purchase.totalCost)}</strong>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-divided notice — shows when land was purchased as SUBDIVIDED
+              OR when a whole-plot purchase was later partitioned into sub-parcels */}
+          {(() => {
+            const childParcels = parcels.filter((p) => p.parentParcelId);
+            const hasPartitionedParent = parcels.some((p) => p.status === "PARTITIONED" || p.childCount > 0);
+            if (purchase.mode === "SUBDIVIDED" || (childParcels.length > 0 && hasPartitionedParent)) {
+              const plotNumbers = childParcels.map((p) => p.number).join(", ");
+              return (
+                <div className="mt-3 rounded-md border border-steel/40 bg-steel/10 px-3 py-2.5 text-caption text-steel">
+                  <Layers className="inline mr-1 h-3.5 w-3.5" />
+                  <strong>This land has been sub-divided.</strong> The original whole land no longer exists as a single entity — it has been converted into {childParcels.length} separate plots:{" "}
+                  <strong>{plotNumbers}</strong>. Each plot is now an independent parcel with its own identity, status, and valuation.
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* KPI row — single clean band of stats */}
           <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-3 border-t border-border/70 pt-3 sm:grid-cols-6">
@@ -279,6 +400,9 @@ export function LandHub({ data }: { data: LandHubData }) {
               <TabsTrigger value="sales">
                 <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Sales <CountBadge n={data.sales.length} /></span>
               </TabsTrigger>
+              <TabsTrigger value="legal">
+                <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Legal <CountBadge n={data.legalDocs?.length ?? 0} /></span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="parcels">
@@ -291,6 +415,7 @@ export function LandHub({ data }: { data: LandHubData }) {
                 onValuate={setValuateParcel}
                 onSell={setSellParcel}
                 onDelete={permissions.canDelete ? setDeleteParcel : undefined}
+                onUnpartition={permissions.canPartition ? handleUnpartition : undefined}
               />
             </TabsContent>
 
@@ -377,6 +502,15 @@ export function LandHub({ data }: { data: LandHubData }) {
                   </Table>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="legal">
+              <LegalDocsSection
+                docs={data.legalDocs ?? []}
+                landPurchaseId={purchase.id}
+                canManage={permissions.canManageLegal}
+                context="LAND"
+              />
             </TabsContent>
           </Tabs>
         </div>

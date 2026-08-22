@@ -5,6 +5,7 @@ import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { BoqProjectView } from "@/components/boq/boq-project-view";
 
 export default function BoqPage() {
@@ -35,7 +36,7 @@ async function BoqContent() {
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, type: true, status: true },
   });
 
   const materials = await prisma.material.findMany({
@@ -47,6 +48,16 @@ async function BoqContent() {
   const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
 
   return (
-    <BoqProjectView projects={projects} materials={materials} canEdit={canEdit} />
+    <>
+      <PageHeader
+        title="Bill of Quantities"
+        description="Itemized material, labour, and cost estimates per project. Build a hierarchical BOQ with sections, subsections, and line items."
+        stats={[
+          { label: "Projects", value: projects.length },
+          { label: "Materials", value: materials.length },
+        ]}
+      />
+      <BoqProjectView projects={projects} materials={materials} canEdit={canEdit} />
+    </>
   );
 }

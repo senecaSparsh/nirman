@@ -8,7 +8,10 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EmptyState } from "@/components/empty-state";
 import { PageLoading } from "@/components/page-loading";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import type { ProjectOption } from "@/lib/types";
 import {
   HardHat,
   Plus,
@@ -24,7 +27,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-type Project = { id: string; name: string };
+type Project = ProjectOption;
 
 type WorkOrder = {
   id: string;
@@ -269,6 +272,10 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   const [actionLoading, setActionLoading] = useState(false);
   const [retentionRelease, setRetentionRelease] = useState<{ woId: string; error: string } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<Project[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   const fetchWOs = useCallback(() => {
     if (!projectId) return;
@@ -355,14 +362,24 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
       {/* ── Header ── */}
       <header className="flex flex-wrap items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-title text-foreground">Work Orders</h1>
-          <Select
+          <SelectWithCreate
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="h-7 w-auto min-w-[180px] text-caption"
-          >
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
+            onChange={setProjectId}
+            placeholder="Select project…"
+            createLabel="project"
+            className="h-7 min-w-[180px] text-caption"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog
+                open={o}
+                onOpenChange={onClose}
+                onCreated={(e) => {
+                  setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]);
+                  onCreated(e);
+                }}
+              />
+            )}
+          />
         </div>
         <div className="flex items-center gap-2">
           {canCreate && (

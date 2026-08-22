@@ -132,6 +132,47 @@ export function ApprovalsView({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [bulkApproving, setBulkApproving] = useState(false);
+
+  async function bulkApprovePOs(pos: ApprovalPORow[]) {
+    setBulkApproving(true);
+    let ok = 0;
+    let fail = 0;
+    await Promise.all(pos.map(async (po) => {
+      try {
+        const res = await fetch(`/api/purchase-orders/${po.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve" }),
+        });
+        if (res.ok) ok++; else fail++;
+      } catch { fail++; }
+    }));
+    setBulkApproving(false);
+    if (ok > 0) toast.success(`Approved ${ok} PO${ok === 1 ? "" : "s"}`);
+    if (fail > 0) toast.error(`${fail} PO${fail === 1 ? "" : "s"} failed to approve`);
+    router.refresh();
+  }
+
+  async function bulkApproveReqs(reqs: ApprovalReqRow[]) {
+    setBulkApproving(true);
+    let ok = 0;
+    let fail = 0;
+    await Promise.all(reqs.map(async (r) => {
+      try {
+        const res = await fetch(`/api/requisitions/${r.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "approve" }),
+        });
+        if (res.ok) ok++; else fail++;
+      } catch { fail++; }
+    }));
+    setBulkApproving(false);
+    if (ok > 0) toast.success(`Approved ${ok} indent${ok === 1 ? "" : "s"}`);
+    if (fail > 0) toast.error(`${fail} indent${fail === 1 ? "" : "s"} failed to approve`);
+    router.refresh();
+  }
 
   const filteredPOs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -198,7 +239,22 @@ export function ApprovalsView({
           {filteredPOs.length > 0 && (
             <Section
               title="Purchase Orders"
-              action={<Badge variant="muted">{filteredPOs.length}</Badge>}
+              action={
+                <div className="flex items-center gap-2">
+                  <Badge variant="muted">{filteredPOs.length}</Badge>
+                  {filteredPOs.some((po) => po.canApprove) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkApproving}
+                      onClick={() => bulkApprovePOs(filteredPOs.filter((po) => po.canApprove))}
+                    >
+                      {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      Approve All
+                    </Button>
+                  )}
+                </div>
+              }
             >
               <div className="divide-y divide-border">
                 {filteredPOs.map((po) => (
@@ -211,7 +267,22 @@ export function ApprovalsView({
           {filteredReqs.length > 0 && (
             <Section
               title="Material Indents"
-              action={<Badge variant="muted">{filteredReqs.length}</Badge>}
+              action={
+                <div className="flex items-center gap-2">
+                  <Badge variant="muted">{filteredReqs.length}</Badge>
+                  {filteredReqs.some((r) => r.canApprove) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkApproving}
+                      onClick={() => bulkApproveReqs(filteredReqs.filter((r) => r.canApprove))}
+                    >
+                      {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      Approve All
+                    </Button>
+                  )}
+                </div>
+              }
             >
               <div className="divide-y divide-border">
                 {filteredReqs.map((r) => (

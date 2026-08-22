@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 interface FormState {
   supplierId: string;
@@ -107,21 +110,33 @@ export function MobileNewRateContractDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <div>
-            <label className={labelClass} style={labelStyle}>Supplier <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <select value={form.supplierId} onChange={(e) => set("supplierId", e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— Select supplier —</option>
-              {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Supplier"
+            required
+            value={form.supplierId}
+            onChange={(v) => set("supplierId", v)}
+            placeholder="— Select supplier —"
+            options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewSupplierDialog open={open} onClose={onClose} onCreated={(s) => onCreated(s.id, s.name)} />
+            )}
+          />
 
-          <div>
-            <label className={labelClass} style={labelStyle}>Material <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <select value={form.materialId} onChange={(e) => set("materialId", e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— Select material —</option>
-              {materials.map((m) => (<option key={m.id} value={m.id}>{m.name} ({m.unit})</option>))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Material"
+            required
+            value={form.materialId}
+            onChange={(v) => set("materialId", v)}
+            placeholder="— Select material —"
+            options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit})` }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewMaterialDialog open={open} onClose={onClose} categories={[]} onCreated={(m) => onCreated(m.id, m.name)} />
+            )}
+          />
 
           <div>
             <label className={labelClass} style={labelStyle}>Agreed Rate (₹) <span style={{ color: "var(--color-stop)" }}>*</span></label>

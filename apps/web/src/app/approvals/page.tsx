@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, getUserPermissions, getUserScope, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -55,7 +56,8 @@ async function ApprovalsContent() {
   const perms = await getUserPermissions();
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-  if (!canApprovePo && !canApproveReq) {
+  const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
     return (
       <NoAccess what="the approval queue" />
     );
@@ -78,7 +80,7 @@ async function ApprovalsContent() {
       ? { projectId: { in: scope.projectIds } }
       : {};
 
-  const [purchaseOrders, requisitions] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           where: { companyId: company.id, status: "DRAFT", ...poProjectFilter },
@@ -108,6 +110,17 @@ async function ApprovalsContent() {
               },
             },
             requestedBy: { select: { id: true, name: true } },
+          },
+        })
+      : [],
+    canApproveGatePass
+      ? prisma.gatePass.findMany({
+          where: { companyId: company.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          include: {
+            lines: { select: { qty: true } },
+            location: { select: { name: true } },
+            createdBy: { select: { name: true } },
           },
         })
       : [],
@@ -226,22 +239,47 @@ async function ApprovalsContent() {
   poRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
   reqRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
 
-  const totalCount = poRows.length + reqRows.length;
+  const totalCount = poRows.length + reqRows.length + gatePasses.length;
   const overdueCount = [...poRows, ...reqRows].filter((r) => r.urgency === "overdue").length;
 
   return (
     <>
       <PageHeader
         title="Approvals"
-        description="Purchase orders and material indents awaiting your approval."
+        description="Purchase orders, material indents, and gate passes awaiting your approval."
         stats={[
-          { label: "Pending", value: totalCount, tone: totalCount > 0 ? "warning" : "muted", hint: "Total items awaiting your approval — purchase orders plus material indents." },
+          { label: "Pending", value: totalCount, tone: totalCount > 0 ? "warning" : "muted", hint: "Total items awaiting your approval — purchase orders, indents, and gate passes." },
           { label: "Overdue", value: overdueCount, tone: overdueCount > 0 ? "danger" : "muted", hint: "Items past their expected or needed-by date." },
           { label: "POs", value: poRows.length, hint: "Draft purchase orders pending your approval before they can be ordered." },
           { label: "Indents", value: reqRows.length, hint: "Submitted material indents pending your approval before conversion to a PO." },
+          ...(canApproveGatePass ? [{ label: "Gate Passes", value: gatePasses.length, hint: "Gate passes pending approval before items can leave the gate." }] : []),
         ]}
       />
       <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />
+      {canApproveGatePass && gatePasses.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-subhead font-semibold">Gate Passes Pending Approval</h3>
+            <Link href="/gate-passes" className="text-caption text-brand hover:underline">View all →</Link>
+          </div>
+          <div className="space-y-2">
+            {gatePasses.slice(0, 5).map((gp) => (
+              <Link key={gp.id} href={`/gate-passes?gp=${gp.id}`} className="flex items-center justify-between rounded-lg border border-border/40 p-2.5 hover:bg-muted/20">
+                <div>
+                  <div className="font-mono text-caption font-medium">{gp.gatePassNumber}</div>
+                  <div className="text-meta text-muted-foreground">
+                    {gp.lines.length} items · {gp.location.name}
+                    {gp.destination && ` → ${gp.destination}`}
+                  </div>
+                </div>
+                <div className="text-meta text-muted-foreground">
+                  {gp.createdBy?.name ?? "—"}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

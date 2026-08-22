@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Beaker } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 interface FormState {
   workType: string;
@@ -103,13 +105,19 @@ export function MobileNewStandardConsumptionDialog({
             <input type="text" value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Foundation, Plastering" autoFocus enterKeyHint="next" className={inputClass} style={inputStyle} />
           </div>
 
-          <div>
-            <label className={labelClass} style={labelStyle}>Material <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <select value={form.materialId} onChange={(e) => set("materialId", e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— Select material —</option>
-              {materials.map((m) => (<option key={m.id} value={m.id}>{m.name} ({m.unit})</option>))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Material"
+            required
+            value={form.materialId}
+            onChange={(v) => set("materialId", v)}
+            placeholder="— Select material —"
+            options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit})` }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewMaterialDialog open={open} onClose={onClose} categories={[]} onCreated={(m) => onCreated(m.id, m.name)} />
+            )}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

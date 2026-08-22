@@ -426,6 +426,10 @@ export function MobileStatusBadge({ status, label }: { status: string; label?: s
     OVERDUE: "stop",
     SYNCED: "go",
     PENDING_SYNC: "signal",
+    // Legal doc statuses
+    NOT_REQUIRED: "neutral",
+    EXPIRED: "stop",
+    RENEWAL_DUE: "signal",
   };
   const tone = toneMap[status] ?? "neutral";
   return <Badge tone={tone}>{label ?? status}</Badge>;

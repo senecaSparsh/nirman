@@ -1,6 +1,6 @@
 import { connection } from "next/server";
-import { PrintButton, GeneratePdfButton } from "@/components/print/print-button";
-import { ShareButton } from "@/components/share-button";
+import { PrintToolbar } from "@/components/print/print-button";
+import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -49,21 +49,16 @@ export default async function UnitSpecSheetPage({
       ? askingPrice / area
       : null;
 
-  return (
+  return (<>
+          <PrintToolbar title={`Unit ${unit.unitNumber} — ${unit.project.name}`} />
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
-          <h2 className="text-lg font-bold uppercase tracking-wide text-gray-700">
-            Unit Specification Sheet
-          </h2>
-        </div>
-        <div className="text-right text-sm">
-          <div className="font-mono font-bold">{unit.unitNumber}</div>
-          <div className="text-gray-600">{unit.unitType.replace(/_/g, " ")}</div>
-        </div>
-      </div>
+      <PrintHeader
+        company={company}
+        title="Unit Specification Sheet"
+        docNumber={unit.unitNumber}
+        date={new Date()}
+        extra={<div className="text-xs text-gray-500">{unit.unitType.replace(/_/g, " ")}</div>}
+      />
 
       {/* Project info */}
       <div className="mt-4 text-sm">
@@ -188,16 +183,7 @@ export default async function UnitSpecSheetPage({
         Generated on {new Date().toLocaleDateString("en-IN")}
       </div>
 
-      {/* Print + Generate PDF + Share buttons (hidden when printing) */}
-      <div className="mt-8 flex items-center justify-center gap-3 print:hidden">
-        <PrintButton label="Print Spec Sheet" />
-        <GeneratePdfButton label="Generate PDF" />
-        <ShareButton
-          title={`Unit ${unit.unitNumber} — ${unit.project.name}`}
-          text={`Unit ${unit.unitNumber} (${unit.unitType.replace(/_/g, " ")}) at ${unit.project.name}${askingPrice != null ? ` — Price: ${formatCurrency(askingPrice)}` : ""}`}
-          label="Share"
-        />
-      </div>
     </div>
+    </>
   );
 }

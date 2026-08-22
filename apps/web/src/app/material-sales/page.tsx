@@ -39,7 +39,7 @@ async function MaterialSalesContent() {
     canRecordPayment: hasPermission(role, PERM.SALES_MANAGE) || hasPermission(role, PERM.FINANCE_MANAGE),
   };
 
-  const [sales, customers, stockLocations, materials] = await Promise.all([
+  const [sales, customers, stockLocations, materials, categories, projects] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -75,6 +75,17 @@ async function MaterialSalesContent() {
       where: { deletedAt: null },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
+    }),
+    // Global catalog entity — needed by the inline material creator.
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, unit: true },
+    }),
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, type: true, status: true },
     }),
   ]);
 
@@ -139,6 +150,8 @@ async function MaterialSalesContent() {
       customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
       locations={stockLocations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
       materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
+      categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
+      projects={projects.map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status }))}
       stockMap={Object.fromEntries(
         Array.from(stockMap.entries()).map(([k, v]) => [k, v]),
       )}

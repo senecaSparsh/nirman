@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, ChevronDown, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { StatusPill } from "@/components/page";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import { formatNumber, formatDate } from "@/lib/utils";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
-import type { StockCountRow } from "@/lib/types";
+import type { StockCountRow, ProjectOption } from "@/lib/types";
 
 type LocationWithStock = {
   id: string;
@@ -37,10 +39,12 @@ type CountLine = {
 export function StockCountsView({
   counts,
   locations,
+  projects,
   permissions,
 }: {
   counts: StockCountRow[];
   locations: LocationWithStock[];
+  projects: ProjectOption[];
   permissions: { canCreate?: boolean; canManage?: boolean };
 }) {
   const canCreate = permissions?.canCreate ?? false;
@@ -230,6 +234,7 @@ export function StockCountsView({
         open={formOpen}
         onOpenChange={setFormOpen}
         locations={locations}
+        projects={projects}
       />
 
       <StockCountDetailDialog
@@ -271,18 +276,24 @@ function StockCountFormDialog({
   open,
   onOpenChange,
   locations,
+  projects,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   locations: LocationWithStock[];
+  projects: ProjectOption[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [locationId, setLocationId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<CountLine[]>([]);
+  // Local copy so freshly created locations appear in the dropdown without
+  // waiting for router.refresh.
+  const [localLocations, setLocalLocations] = useState(locations);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
 
-  const selectedLocation = locations.find((l) => l.id === locationId);
+  const selectedLocation = localLocations.find((l) => l.id === locationId);
 
   // Rebuild lines when location changes
   useEffect(() => {
@@ -396,12 +407,16 @@ function StockCountFormDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Location</Label>
-            <Select value={locationId} onChange={(e) => { setLocationId(e.target.value); }}>
-              <option value="">Select location…</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name} ({l.type.replace("_", " ").toLowerCase()})</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={locationId}
+              onChange={setLocationId}
+              placeholder="Select location…"
+              createLabel="location"
+              options={localLocations.map((l) => ({ value: l.id, label: `${l.name} (${l.type.replace("_", " ").toLowerCase()})` }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} projects={projects} location={null} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, type: "COMPANY_WAREHOUSE", name: e.label ?? "", stockItems: [] }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Notes (optional)</Label>

@@ -41,7 +41,7 @@ async function LandContent() {
   };
 
   // Fetch purchases, parcels, projects, land sales, and customers (for sell dialog).
-  const [purchases, parcels, projects, landSales, customers] = await Promise.all([
+  const [purchases, parcels, projects, landSales, customers, sellers] = await Promise.all([
     prisma.landPurchase.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
@@ -50,7 +50,7 @@ async function LandContent() {
         parcels: {
           where: { deletedAt: null },
           select: {
-            id: true, number: true, status: true, area: true,
+            id: true, number: true, status: true, area: true, purpose: true,
             acquisitionCost: true, currentValuation: true, geometry: true,
             parentParcelId: true, _count: { select: { children: true } },
           },
@@ -84,6 +84,11 @@ async function LandContent() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.landSeller.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, phone: true },
+    }),
   ]);
 
   // Map sale info by landParcelId for quick lookup.
@@ -106,6 +111,7 @@ async function LandContent() {
       id: p.id,
       number: p.number,
       status: p.status,
+      purpose: p.purpose,
       area: toNum(p.area),
       acquisitionCost: toNum(p.acquisitionCost),
       currentValuation: toNum(p.currentValuation),
@@ -139,6 +145,7 @@ async function LandContent() {
       registryNo: lp.registryNo,
       location: lp.location,
       documentUrl: lp.documentUrl,
+      mode: lp.mode,
       parcelCount: parcelSummaries.length,
       availableArea: unsold
         .filter((p) => p.status === "AVAILABLE")
@@ -169,6 +176,7 @@ async function LandContent() {
       area: toNum(p.area),
       areaUnit: p.areaUnit,
       status: p.status,
+      purpose: p.purpose,
       acquisitionCost: toNum(p.acquisitionCost),
       askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
       currentValuation: toNum(p.currentValuation),
@@ -237,6 +245,7 @@ async function LandContent() {
         purchases={purchaseRows}
         parcels={parcelRows}
         projects={projectOptions}
+        sellers={sellers.map((s) => ({ id: s.id, name: s.name, phone: s.phone }))}
         customers={customers.map((c) => ({ id: c.id, name: c.name }))}
         permissions={perms}
       />

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus, Trash2, Pencil, TrendingDown, Wallet, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -40,6 +41,8 @@ export function FinanceView({
   const [deletingCost, setDeletingCost] = useState<ProjectCostRow | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<{ id: string; category: string; amount: number } | null>(null);
   const router = useRouter();
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Merge costs + expenses into a unified money flow timeline
   const moneyFlow: FlowEvent[] = useMemo(() => {
@@ -51,8 +54,31 @@ export function FinanceView({
       id: e.id, date: e.date, amount: e.amount, type: "expense" as const,
       category: e.category, projectName: e.projectName, notes: e.notes, raw: e,
     }));
-    return [...costs, ...exps].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [projectCosts, expenses]);
+    let combined = [...costs, ...exps].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Apply date range filter
+    if (dateFrom) combined = combined.filter((e) => (e.date.split("T")[0] ?? e.date) >= dateFrom);
+    if (dateTo) combined = combined.filter((e) => (e.date.split("T")[0] ?? e.date) <= dateTo);
+    return combined;
+  }, [projectCosts, expenses, dateFrom, dateTo]);
+
+  // Date range filter UI for the Money Flow tab
+  const dateRangeFilter = (
+    <div className="flex items-center gap-1.5">
+      <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-auto text-[13px]" title="From date" />
+      <span className="text-muted-foreground text-xs">—</span>
+      <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-auto text-[13px]" title="To date" />
+      {(dateFrom || dateTo) && (
+        <button
+          type="button"
+          onClick={() => { setDateFrom(""); setDateTo(""); }}
+          className="text-caption text-muted-foreground hover:text-foreground"
+          title="Clear date filter"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -116,17 +142,20 @@ export function FinanceView({
                 searchable
                 searchPlaceholder="Search by category, project, notes…"
                 toolbarTrailing={
-                  <div className="flex gap-2">
-                    {(permissions?.canManageCosts ?? false) && (
-                      <Button size="sm" variant="outline" onClick={() => { setEditingCost(null); setCostFormOpen(true); }} disabled={projects.length === 0}>
-                        <Plus className="h-3.5 w-3.5" /> Cost
-                      </Button>
-                    )}
-                    {(permissions?.canCreateExpense ?? false) && (
-                      <Button size="sm" onClick={() => { setEditingExpense(null); setExpenseFormOpen(true); }}>
-                        <Plus className="h-3.5 w-3.5" /> Expense
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-3">
+                    {dateRangeFilter}
+                    <div className="flex gap-2">
+                      {(permissions?.canManageCosts ?? false) && (
+                        <Button size="sm" variant="outline" onClick={() => { setEditingCost(null); setCostFormOpen(true); }} disabled={projects.length === 0}>
+                          <Plus className="h-3.5 w-3.5" /> Cost
+                        </Button>
+                      )}
+                      {(permissions?.canCreateExpense ?? false) && (
+                        <Button size="sm" onClick={() => { setEditingExpense(null); setExpenseFormOpen(true); }}>
+                          <Plus className="h-3.5 w-3.5" /> Expense
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 }
                 showTotals

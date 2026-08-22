@@ -44,7 +44,9 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
+  { code: "1950", name: "Inter-Company Receivable", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
+  { code: "2050", name: "Inter-Company Payable", type: "LIABILITY" as const },
   { code: "2100", name: "Output GST", type: "LIABILITY" as const },
   { code: "2200", name: "Salaries Payable", type: "LIABILITY" as const },
   { code: "2250", name: "PF Payable", type: "LIABILITY" as const },
@@ -54,13 +56,16 @@ export const CHART_OF_ACCOUNTS = [
   { code: "2450", name: "Profession Tax Payable", type: "LIABILITY" as const },
   { code: "2500", name: "Customer Deposits - Unearned Revenue", type: "LIABILITY" as const },
   { code: "2600", name: "Retention Payable - Subcontractor", type: "LIABILITY" as const },
+  { code: "2700", name: "Broker Commission Payable", type: "LIABILITY" as const },
   { code: "3000", name: "Retained Earnings", type: "EQUITY" as const },
   { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
   { code: "4100", name: "Cost Recovery - Scrap Sales", type: "CONTRA_EXPENSE" as const },
+  { code: "4200", name: "Inter-Company Sales Revenue", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
   { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
   { code: "6100", name: "Salaries & Wages Expense", type: "EXPENSE" as const },
+  { code: "6200", name: "Brokerage & Commission Expense", type: "EXPENSE" as const },
 ];
 
 /** Account code constants — used by posting functions so codes are typo-proof. */
@@ -74,7 +79,9 @@ export const ACCT = {
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
+  IC_RECEIVABLE: "1950",
   AP: "2000",
+  IC_PAYABLE: "2050",
   OUTPUT_GST: "2100",
   SALARIES_PAYABLE: "2200",
   PF_PAYABLE: "2250",
@@ -84,6 +91,7 @@ export const ACCT = {
   PROFESSION_TAX_PAYABLE: "2450",
   CUSTOMER_DEPOSIT: "2500",
   RETENTION_PAYABLE: "2600",
+  BROKER_PAYABLE: "2700",
   RETAINED_EARNINGS: "3000",
   SALES_REVENUE: "4000",
   COST_RECOVERY: "4100",
@@ -91,6 +99,7 @@ export const ACCT = {
   INVENTORY_SHRINKAGE: "5500",
   OPERATING_EXPENSE: "6000",
   SALARIES_EXPENSE: "6100",
+  BROKERAGE_EXPENSE: "6200",
 } as const;
 
 /**
@@ -357,6 +366,46 @@ export async function postWipCapitalization(
 }
 
 /**
+ * Renovation Capitalization: move capitalised renovation costs from WIP into
+ * the asset account (LAND_ASSET for land parcels, UNIT_ASSET for built units).
+ * Called by completeRenovation() — the individual renovation costs were already
+ * posted to WIP via postRenovationCost() as they were incurred. This function
+ * moves them out of WIP and into the permanent asset account.
+ *
+ *   Dr Unsold Assets - Land  (1700)   [capitalisedCost]   — for land parcels
+ *   Dr Unsold Assets - Units (1800)   [capitalisedCost]   — for built units
+ *   Cr WIP - Project Costs    (1500)   [capitalisedCost]
+ *
+ * Only called for capitalisable renovation types (not REPAIR, which is expensed).
+ */
+export async function postRenovationCapitalization(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    renovationProjectId: string;
+    assetType: "LAND" | "BUILT_UNIT";
+    assetId: string;
+    projectId?: string | null;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  const assetAccount = opts.assetType === "LAND" ? ACCT.LAND_ASSET : ACCT.UNIT_ASSET;
+  const entityType = opts.assetType === "LAND" ? "LandParcel" : "BuiltUnit";
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "RENOVATION_CAPITALIZATION",
+    sourceId: opts.renovationProjectId,
+    memo: `Renovation capitalised — ${opts.assetType === "LAND" ? "land parcel" : "built unit"}`,
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: assetAccount, debit: opts.amount, credit: 0, entityType, entityId: opts.assetId },
+      { accountCode: ACCT.WIP, debit: 0, credit: opts.amount, entityType: "RenovationProject", entityId: opts.renovationProjectId },
+    ],
+  });
+}
+
+/**
  * Scrap Generation: record the value of internally generated scrap material
  * added to stock. The scrap is valued at a user-specified (or auto-calculated)
  * unit cost, typically lower than the source material's MAC.
@@ -450,7 +499,7 @@ export async function postAssetSale(
   opts: {
     companyId: string;
     assetSaleId: string;
-    assetType: "LAND" | "BUILT_UNIT";
+    assetType: "LAND" | "BUILT_UNIT" | "PROJECT";
     salePrice: Decimal;
     costBasis: Decimal;
     gstAmount?: Decimal;
@@ -1156,6 +1205,124 @@ export async function postStockAdjustment(
  *   Dr Equipment & Fixtures   (acquisitionCost)
  *   Cr Cash / Bank             (acquisitionCost)
  */
+/**
+ * Transfer Shortage: record the GL impact of stock lost in transit.
+ * The shortage qty left source via TRANSFER_OUT but never arrived at destination.
+ * We write it off as inventory shrinkage at source.
+ *
+ *   Dr Inventory Shrinkage (5500)   shortageValue
+ *   Cr Inventory - Materials (1300)  shortageValue
+ */
+/**
+ * Inter-Company Stock Transfer GL Posting.
+ *
+ * When stock moves between companies at a transfer price (TP = source MAC + freight
+ * + handling + markup), two journal entries are posted:
+ *
+ * SOURCE company (seller):
+ *   Dr Inter-Company Receivable    transferPriceTotal
+ *   Cr Inventory - Materials        sourceCostTotal (at source MAC)
+ *   Cr Inter-Company Sales Revenue  markupTotal (TP − source cost)
+ *
+ * DESTINATION company (buyer):
+ *   Dr Inventory - Materials        transferPriceTotal (at TP = new MAC)
+ *   Cr Inter-Company Payable        transferPriceTotal
+ *
+ * Note: No GST is charged on inter-company stock transfers (same PAN/group).
+ * If GST is applicable in a specific scenario, it should be added separately.
+ */
+export async function postInterCompanyTransfer(
+  tx: Prisma.TransactionClient,
+  opts: {
+    transferId: string;
+    sourceCompanyId: string;
+    destCompanyId: string;
+    postedById?: string;
+    lines: {
+      materialId: string;
+      qty: Decimal;
+      sourceUnitCost: Decimal;  // source MAC
+      transferUnitPrice: Decimal; // TP per unit
+    }[];
+    freight?: Decimal;
+    handlingFee?: Decimal;
+  },
+) {
+  let sourceCostTotal = new Decimal(0);
+  let transferPriceTotal = new Decimal(0);
+  for (const l of opts.lines) {
+    const qty = new Decimal(l.qty);
+    sourceCostTotal = sourceCostTotal.plus(qty.times(new Decimal(l.sourceUnitCost)));
+    transferPriceTotal = transferPriceTotal.plus(qty.times(new Decimal(l.transferUnitPrice)));
+  }
+  const freight = new Decimal(opts.freight ?? 0);
+  const handling = new Decimal(opts.handlingFee ?? 0);
+  transferPriceTotal = transferPriceTotal.plus(freight).plus(handling);
+  const markupTotal = transferPriceTotal.minus(sourceCostTotal);
+
+  // ── Source company entry (sale at TP) ──
+  const sourceLines: JournalLineInput[] = [
+    { accountCode: ACCT.IC_RECEIVABLE, debit: transferPriceTotal, credit: 0, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer sale" },
+    { accountCode: ACCT.INVENTORY, debit: 0, credit: sourceCostTotal, entityType: "StockTransfer", entityId: opts.transferId, memo: "Stock issued for inter-company transfer" },
+  ];
+  if (markupTotal.gt(0)) {
+    sourceLines.push({ accountCode: "4200", debit: 0, credit: markupTotal, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer markup revenue" });
+  }
+  await postJournalEntry(tx, {
+    companyId: opts.sourceCompanyId,
+    sourceType: "STOCK_TRANSFER",
+    sourceId: opts.transferId,
+    memo: `Inter-company transfer (source) — ${opts.transferId}`,
+    postedById: opts.postedById,
+    lines: sourceLines,
+  });
+
+  // ── Destination company entry (purchase at TP) ──
+  const destLines: JournalLineInput[] = [
+    { accountCode: ACCT.INVENTORY, debit: transferPriceTotal, credit: 0, entityType: "StockTransfer", entityId: opts.transferId, memo: "Stock received from inter-company transfer" },
+    { accountCode: ACCT.IC_PAYABLE, debit: 0, credit: transferPriceTotal, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer payable" },
+  ];
+  await postJournalEntry(tx, {
+    companyId: opts.destCompanyId,
+    sourceType: "STOCK_TRANSFER",
+    sourceId: opts.transferId,
+    memo: `Inter-company transfer (destination) — ${opts.transferId}`,
+    postedById: opts.postedById,
+    lines: destLines,
+  });
+}
+
+export async function postTransferShortage(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    transferId: string;
+    postedById?: string;
+    lines: { materialId: string; shortageQty: Decimal; unitCost: Decimal }[];
+  },
+) {
+  let totalLoss = new Decimal(0);
+  for (const l of opts.lines) {
+    const qty = new Decimal(l.shortageQty);
+    if (qty.isZero()) continue;
+    totalLoss = totalLoss.plus(qty.times(new Decimal(l.unitCost)));
+  }
+  if (totalLoss.isZero()) return null;
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.INVENTORY_SHRINKAGE, debit: totalLoss, credit: 0, entityType: "StockTransfer", entityId: opts.transferId, memo: "Transfer shortage (lost in transit)" },
+    { accountCode: ACCT.INVENTORY, debit: 0, credit: totalLoss, entityType: "StockTransfer", entityId: opts.transferId, memo: "Transfer shortage stock write-off" },
+  ];
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "STOCK_TRANSFER_SHORTAGE",
+    sourceId: opts.transferId,
+    memo: "Stock transfer shortage write-off",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
 export async function postEquipmentAcquisition(
   tx: Prisma.TransactionClient,
   opts: {
@@ -1424,6 +1591,108 @@ export async function postNrvWriteDown(
     lines: [
       { accountCode: ACCT.OPERATING_EXPENSE, debit: amount, credit: 0, entityType: opts.entityType, entityId: opts.entityId, memo: "Impairment loss (NRV < cost)" },
       { accountCode: creditAccount, debit: 0, credit: amount, entityType: opts.entityType, entityId: opts.entityId, memo: "Asset written down to NRV" },
+    ],
+  });
+}
+
+/**
+ * Sale Expense (seller-borne): when a sale expense head is marked
+ * "borne by SELLER", the seller absorbs the cost. This posts:
+ *   Dr Operating Expense   (amount)
+ *   Cr Cash / Bank          (amount)
+ *
+ * Expenses borne by CLIENT are added to the receivable (the client pays
+ * them on top of the deal price) — no separate GL posting needed since
+ * they're collected via AssetSalePayment. NA = no posting.
+ */
+export async function postSaleExpense(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    saleExpenseId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero() || amount.isNegative()) return null;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SALE_EXPENSE",
+    sourceId: opts.saleExpenseId,
+    memo: "Sale expense borne by seller",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.OPERATING_EXPENSE, debit: amount, credit: 0, entityType: "SaleExpense", entityId: opts.saleExpenseId, memo: "Sale expense (seller-borne)" },
+      { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "SaleExpense", entityId: opts.saleExpenseId, memo: "Cash paid for sale expense" },
+    ],
+  });
+}
+
+/**
+ * Broker Commission (accrued): when a sale has a broker commission,
+ * accrue the liability. The commission is recognised as an expense
+ * with a payable to the broker (settled later when commissionPaid = true).
+ *   Dr Brokerage & Commission Expense  (amount)
+ *   Cr Broker Commission Payable        (amount)
+ *
+ * If commissionIsPartOfDeal = true, the commission is netted from the
+ * sale proceeds (the broker gets paid from the sale collection) — still
+ * accrued the same way, just settled from the receivable collection.
+ */
+export async function postBrokerCommission(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero() || amount.isNegative()) return null;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "BROKER_COMMISSION",
+    sourceId: opts.assetSaleId,
+    memo: "Broker commission accrued",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.BROKERAGE_EXPENSE, debit: amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Broker commission expense" },
+      { accountCode: ACCT.BROKER_PAYABLE, debit: 0, credit: amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Commission payable to broker" },
+    ],
+  });
+}
+
+/**
+ * Broker Commission Paid: settle the broker payable with cash.
+ *   Dr Broker Commission Payable  (amount)
+ *   Cr Cash / Bank                 (amount)
+ */
+export async function postBrokerCommissionPaid(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero() || amount.isNegative()) return null;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "BROKER_COMMISSION_PAID",
+    sourceId: opts.assetSaleId,
+    memo: "Broker commission paid",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.BROKER_PAYABLE, debit: amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Settle broker payable" },
+      { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Cash paid to broker" },
     ],
   });
 }

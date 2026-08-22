@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { softDelete, extractVersion, ConcurrentEditError } from "@nirman/services";
+import { softDelete, extractVersion, ConcurrentEditError, logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierSchema } from "@/lib/server";
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -19,9 +19,19 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (expectedVersion !== undefined && existing.version !== expectedVersion) {
     return json({ error: new ConcurrentEditError("Supplier", id, expectedVersion, existing.version).message, code: "CONCURRENT_EDIT" }, { status: 409 });
   }
-  const updated = await prisma.supplier.update({
-    where: { id },
-    data: { ...parsed.data, version: { increment: 1 } },
+  const updated = await prisma.$transaction(async (tx) => {
+    const sup = await tx.supplier.update({
+      where: { id },
+      data: { ...parsed.data, version: { increment: 1 } },
+    });
+    await logAction(tx, {
+      userId: user.id,
+      action: "SUPPLIER_UPDATE",
+      entityType: "Supplier",
+      entityId: id,
+      after: parsed.data,
+    });
+    return sup;
   });
   return json(updated);
 });

@@ -35,7 +35,7 @@ async function RequisitionsContent() {
     canApprove: hasPermission(role, PERM.REQUISITION_APPROVE),
   };
 
-  const [reqs, projects, phases, materials, suppliers, locations] = await Promise.all([
+  const [reqs, projects, phases, materials, suppliers, locations, categories] = await Promise.all([
     prisma.materialRequisition.findMany({
       where: { project: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
@@ -54,7 +54,7 @@ async function RequisitionsContent() {
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true, status: true },
     }),
     prisma.projectPhase.findMany({
       where: { project: { companyId: company.id, deletedAt: null } },
@@ -76,6 +76,12 @@ async function RequisitionsContent() {
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true },
+    }),
+    // Global catalog entity — needed by the inline material creator.
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, unit: true },
     }),
   ]);
 
@@ -116,11 +122,12 @@ async function RequisitionsContent() {
       />
       <RequisitionsView
         requisitions={rows}
-        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status }))}
         phases={phases.map((p) => ({ id: p.id, name: p.name, projectId: p.projectId }))}
         materials={materials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit }))}
         suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
         permissions={perms}
       />
     </>

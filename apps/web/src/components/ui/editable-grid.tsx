@@ -68,6 +68,9 @@ export interface EditableColumn<R> {
   filterOptions?: { value: string; label: string }[];
   /** Current filter value for this column. Empty string = no filter. */
   filterValue?: string;
+  /** For "select" columns: when set, appends a "+ Create new {createLabel}…"
+   * option that calls EditableGrid.onCreateOption(colKey) instead of selecting. */
+  createLabel?: string;
 }
 
 export interface EditableGridProps<R> {
@@ -94,6 +97,10 @@ export interface EditableGridProps<R> {
   }[];
   /** Called when a column filter value changes. Receives the column key and new value. */
   onFilterChange?: (columnKey: string, value: string) => void;
+  /** Called when a select column's "+ Create new…" sentinel option is picked.
+   * Receives the column key. The parent opens a create dialog and, on success,
+   * splices the new option into the column's `options` and sets the cell. */
+  onCreateOption?: (columnKey: string) => void;
 }
 
 type CellPos = { row: number; col: number } | null;
@@ -109,6 +116,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
   emptyState,
   actions,
   onFilterChange,
+  onCreateOption,
 }: EditableGridProps<R>) {
   const [editing, setEditing] = useState<CellPos>(null);
   const [selected, setSelected] = useState<CellPos>(null);
@@ -426,6 +434,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                 // Select column — always shows a dropdown, no draft state
                 if (col.type === "select") {
                   const selectedOpt = col.options?.find((o) => o.value === val);
+                  const CREATE_OPT = "__create_new__";
                   return (
                     <td
                       key={col.key}
@@ -435,6 +444,13 @@ export function EditableGrid<R extends Record<string, unknown>>({
                       <select
                         value={(val as string) ?? ""}
                         onChange={(e) => {
+                          if (e.target.value === CREATE_OPT) {
+                            // Restore prior value so the cell doesn't visually
+                            // flip to the sentinel, then defer to the parent.
+                            e.target.value = (val as string) ?? "";
+                            onCreateOption?.(col.key);
+                            return;
+                          }
                           updateSelect(ri, col.key, e.target.value);
                         }}
                         className={cn(
@@ -448,6 +464,9 @@ export function EditableGrid<R extends Record<string, unknown>>({
                         {col.options?.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
+                        {col.createLabel && onCreateOption && (
+                          <option value={CREATE_OPT} disabled>+ Create new {col.createLabel}…</option>
+                        )}
                       </select>
                     </td>
                   );

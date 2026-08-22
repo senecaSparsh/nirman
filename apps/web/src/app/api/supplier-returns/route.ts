@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
-import { createSupplierReturn } from "@nirman/services";
+import { createSupplierReturn, recordVehicleTrip } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
 
@@ -68,6 +68,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
       locationId: parsed.data.locationId,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
+      vehicleNumber: parsed.data.vehicleNumber ?? undefined,
+      vehicleType: parsed.data.vehicleType ?? undefined,
+      vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
+      driverName: parsed.data.driverName ?? undefined,
+      driverPhone: parsed.data.driverPhone ?? undefined,
       lines: parsed.data.lines.map((l) => ({
         materialId: l.materialId,
         qty: l.qty,
@@ -75,6 +80,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
         reason: l.reason ?? undefined,
       })),
     });
+
+    // Log the vehicle trip
+    if (parsed.data.vehicleNumber) {
+      await recordVehicleTrip({
+        vehicleNumber: parsed.data.vehicleNumber,
+        vehicleType: parsed.data.vehicleType ?? "OTHER",
+        photoUrl: parsed.data.vehiclePhotoUrl,
+        driverName: parsed.data.driverName,
+        driverPhone: parsed.data.driverPhone,
+        movementType: "SUPPLIER_RETURN",
+        refType: "SupplierReturn",
+        refId: ret.id,
+        fromLocationId: parsed.data.locationId,
+        companyId: company.id,
+      }).catch(() => { /* best-effort */ });
+    }
+
     return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create supplier return") }, { status: 400 });

@@ -1,5 +1,6 @@
 import { connection } from "next/server";
-import { PrintButton } from "@/components/print/print-button";
+import { PrintToolbar } from "@/components/print/print-button";
+import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -71,30 +72,16 @@ export default async function MaterialSaleReceiptPage({
   const receiptNo = `MSR-${yymmdd}-${payment.id.slice(-4).toUpperCase()}`;
   const timeStr = d.toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-  return (
+  return (<>
+          <PrintToolbar title="Material Sale Receipt" />
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
-      {/* ── Letterhead ── */}
-      <div className="flex items-start justify-between border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
-          {company.address && <div className="text-xs text-gray-600">{company.address}</div>}
-          {company.phone && <div className="text-xs text-gray-600">Ph: {company.phone}</div>}
-          {company.email && <div className="text-xs text-gray-600">{company.email}</div>}
-          <div className="mt-0.5 text-xs text-gray-700">
-            {company.gstin && <span className="mr-3">GSTIN: {company.gstin}</span>}
-            {company.pan && <span>PAN: {company.pan}</span>}
-          </div>
-        </div>
-        <div className="text-right text-sm">
-          <div className="text-xs font-semibold uppercase text-gray-500">Receipt No.</div>
-          <div className="font-mono font-bold">{receiptNo}</div>
-          <div className="mt-1 text-gray-600">{formatDate(payment.paymentDate)} · {timeStr}</div>
-        </div>
-      </div>
-
-      <h2 className="mt-3 text-center text-lg font-bold uppercase tracking-widest text-gray-700">
-        Money Receipt
-      </h2>
+      <PrintHeader
+        company={company}
+        title="Money Receipt"
+        docNumber={receiptNo}
+        date={payment.paymentDate}
+        extra={<div className="text-xs text-gray-500">{timeStr}</div>}
+      />
 
       {/* ── Party + sale blocks ── */}
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
@@ -263,9 +250,7 @@ export default async function MaterialSaleReceiptPage({
         <div className="border-t border-black pt-1">For {company.name}</div>
       </div>
 
-      <div className="mt-8 text-center print:hidden">
-        <PrintButton label="Print Receipt" />
-      </div>
     </div>
+    </>
   );
 }

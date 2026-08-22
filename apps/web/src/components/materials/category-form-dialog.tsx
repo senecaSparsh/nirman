@@ -12,10 +12,12 @@ export function CategoryFormDialog({
   open,
   onOpenChange,
   category,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category: MaterialCategory | null;
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(category?.name ?? "");
@@ -55,7 +57,11 @@ export function CategoryFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save category");
       toast.success(isEdit ? "Category updated" : "Category created");
       onOpenChange(false);
-      router.refresh();
+      if (!isEdit && onCreated) {
+        onCreated({ id: data.id, label: data.name });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {

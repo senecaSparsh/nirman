@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, LayoutGrid, MapPin, Plus, Rows3 } from "lucide-react";
+import { Building2, LayoutGrid, MapPin, Plus, Rows3, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/tabs";
@@ -24,6 +24,7 @@ type ProjectHealth = {
   endDate: string | null;
   totalBudget: number;
   totalProjectCost: number;
+  reraNumber: string | null;
   phaseCount: number;
   unitCount: number;
   soldUnits: number;
@@ -303,6 +304,15 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
             <h3 className="text-body font-semibold text-foreground">{project.name}</h3>
             <Badge variant="outline">{typeLabel}</Badge>
             <StatusPill status={project.status} />
+            {project.reraNumber ? (
+              <Badge variant="outline" className="border-success/40 text-success gap-1">
+                <ShieldCheck className="h-3 w-3" /> RERA
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-warning/40 text-warning gap-1">
+                <ShieldCheck className="h-3 w-3" /> No RERA
+              </Badge>
+            )}
           </div>
           {project.address && (
             <div className="mt-0.5 flex items-center gap-1 text-caption text-muted-foreground">

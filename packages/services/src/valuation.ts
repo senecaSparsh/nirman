@@ -434,8 +434,9 @@ export async function getCompanyPortfolioSummary(
     : [];
   const revenueByProject = new Map<string, Decimal>();
   for (const s of sales) {
-    const prev = revenueByProject.get(s.projectId) ?? new Decimal(0);
-    revenueByProject.set(s.projectId, prev.plus(new Decimal(s.salePrice)));
+    const key = s.projectId ?? "__standalone__";
+    const prev = revenueByProject.get(key) ?? new Decimal(0);
+    revenueByProject.set(key, prev.plus(new Decimal(s.salePrice)));
   }
 
   const projectSummaries: PortfolioProjectSummary[] = projects.map((p) => {

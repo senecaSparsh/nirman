@@ -375,18 +375,56 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     if (!reqCompanyId) throw new ServiceError("Requisition has no project or department — cannot determine company", 400);
 
     // Build PO lines from requisition lines. If a winning quote exists, auto-fill
-    // costs from it (overriding manual lineCosts). Otherwise use manual lineCosts.
-    const winningCostMap = new Map(
-      winningQuote ? winningQuote.lines.map((l) => [l.materialId, new Decimal(l.unitPrice)]) : [],
+    // costs + all landed-cost components from it (overriding manual lineCosts).
+    // Otherwise use manual lineCosts.
+    const winningLineMap = new Map(
+      winningQuote ? winningQuote.lines.map((l) => [l.materialId, l]) : [],
     );
-    const poLines = req.lines.map((line) => ({
-      materialId: line.materialId,
-      qtyOrdered: new Decimal(line.qtyRequested),
-      unitCost: winningCostMap.get(line.materialId) ?? new Decimal(input.lineCosts[line.materialId] ?? 0),
-    }));
+    const poLines = req.lines.map((line) => {
+      const wline = winningLineMap.get(line.materialId);
+      if (wline) {
+        return {
+          materialId: line.materialId,
+          qtyOrdered: new Decimal(line.qtyRequested),
+          unitCost: new Decimal(wline.unitPrice),
+          gstRate: wline.gstRate,
+          freightPerUnit: wline.freightPerUnit,
+          loadingPerUnit: wline.loadingPerUnit,
+          packingPerUnit: wline.packingPerUnit,
+          insurancePerUnit: wline.insurancePerUnit,
+          discountPerUnit: wline.discountPerUnit,
+        };
+      }
+      return {
+        materialId: line.materialId,
+        qtyOrdered: new Decimal(line.qtyRequested),
+        unitCost: new Decimal(input.lineCosts[line.materialId] ?? 0),
+      };
+    });
 
     // Create the PO inside the SAME transaction — if this fails, the
     // requisition status update rolls back too (no stuck CONVERTED state).
+    // Carry over the winning quote's header charges as itemized PO charges.
+    const poCharges = winningQuote ? [
+      ...(winningQuote.freightTotal && winningQuote.freightTotal.gt(0)
+        ? [{ heading: "Freight / Transportation", amount: winningQuote.freightTotal }]
+        : []),
+      ...(winningQuote.loadingTotal && winningQuote.loadingTotal.gt(0)
+        ? [{ heading: "Loading / Unloading", amount: winningQuote.loadingTotal }]
+        : []),
+      ...(winningQuote.packingTotal && winningQuote.packingTotal.gt(0)
+        ? [{ heading: "Packing & Forwarding", amount: winningQuote.packingTotal }]
+        : []),
+      ...(winningQuote.insuranceTotal && winningQuote.insuranceTotal.gt(0)
+        ? [{ heading: "Transit Insurance", amount: winningQuote.insuranceTotal }]
+        : []),
+      ...(winningQuote.handlingTotal && winningQuote.handlingTotal.gt(0)
+        ? [{ heading: "Handling Charges", amount: winningQuote.handlingTotal }]
+        : []),
+      ...(winningQuote.buyerTransportTotal && winningQuote.buyerTransportTotal.gt(0)
+        ? [{ heading: "Transport — own arrangement (ex-works pickup)", amount: winningQuote.buyerTransportTotal }]
+        : []),
+    ] : undefined;
     const po = await createPurchaseOrderTx(tx, {
       supplierId: input.supplierId,
       procurementScope,
@@ -396,6 +434,7 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       expectedDate: input.expectedDate,
       notes: input.notes,
       lines: poLines,
+      charges: poCharges,
     });
 
     // Link the PO to the winning quote (if any) + mark requisition CONVERTED

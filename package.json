@@ -17,6 +17,7 @@
     "postinstall": "pnpm --filter @nirman/db generate"
   },
   "devDependencies": {
+    "tsx": "^4.23.1",
     "turbo": "^2.5.0",
     "typescript": "^5.9.0"
   }

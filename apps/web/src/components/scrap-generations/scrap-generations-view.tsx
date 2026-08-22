@@ -1,21 +1,25 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Hammer, Loader2, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label, Select, Textarea } from "@/components/ui/input";
+import { Label, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatDate, formatCurrency, formatNumber } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
+import type { ProjectOption, MaterialCategory } from "@/lib/types";
 
 type LocationOption = { id: string; name: string; type: string };
 type MaterialOption = { id: string; code: string; name: string; unit: string; isScrap: boolean };
-type ProjectOption = { id: string; name: string };
 
 type ScrapLine = {
   id: string;
@@ -95,12 +99,14 @@ export function ScrapGenerationsView({
   locations,
   materials,
   projects,
+  categories,
   permissions,
 }: {
   scraps: ScrapRow[];
   locations: LocationOption[];
   materials: MaterialOption[];
   projects: ProjectOption[];
+  categories: MaterialCategory[];
   permissions?: { canManage?: boolean };
 }) {
   const canManage = permissions?.canManage ?? false;
@@ -179,6 +185,7 @@ export function ScrapGenerationsView({
           locations={locations}
           materials={materials}
           projects={projects}
+          categories={categories}
           onOpenChange={setFormOpen}
           onCreated={() => router.refresh()}
         />
@@ -191,12 +198,14 @@ function ScrapGenerationForm({
   locations,
   materials,
   projects,
+  categories,
   onOpenChange,
   onCreated,
 }: {
   locations: LocationOption[];
   materials: MaterialOption[];
   projects: ProjectOption[];
+  categories: MaterialCategory[];
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
@@ -208,6 +217,15 @@ function ScrapGenerationForm({
   const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; unitCost: string }[]>(
     [{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "" }],
   );
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localLocations, setLocalLocations] = useState(locations);
+  const [localMaterials, setLocalMaterials] = useState(materials);
+  const [localProjects, setLocalProjects] = useState(projects);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+  const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -249,7 +267,7 @@ function ScrapGenerationForm({
   }
 
   // Show scrap materials first, then non-scrap
-  const sortedMaterials = [...materials].sort((a, b) => {
+  const sortedMaterials = [...localMaterials].sort((a, b) => {
     if (a.isScrap && !b.isScrap) return -1;
     if (!a.isScrap && b.isScrap) return 1;
     return a.name.localeCompare(b.name);
@@ -268,6 +286,7 @@ function ScrapGenerationForm({
       options: scrapMaterialOptions,
       placeholder: "Select material…",
       width: "1fr",
+      createLabel: "material",
     },
     {
       key: "qty",
@@ -313,26 +332,45 @@ function ScrapGenerationForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Destination Location *</Label>
-            <Select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} required>
-              <option value="" disabled>Select…</option>
-              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={toLocationId}
+              onChange={setToLocationId}
+              required
+              placeholder="Select…"
+              createLabel="location"
+              options={localLocations.map((l) => ({ value: l.id, label: l.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} projects={localProjects} location={null} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, type: "COMPANY_WAREHOUSE", name: e.label ?? "" }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Project (optional)</Label>
-            <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">None</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
+            <SelectWithCreate
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="None"
+              createLabel="project"
+              options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+              )}
+            />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label>Source Material (optional — what was scrap generated from?)</Label>
-          <Select value={sourceMaterialId} onChange={(e) => setSourceMaterialId(e.target.value)}>
-            <option value="">None</option>
-            {materials.map((m) => <option key={m.id} value={m.id}>{m.code} — {m.name}</option>)}
-          </Select>
+          <SelectWithCreate
+            value={sourceMaterialId}
+            onChange={setSourceMaterialId}
+            placeholder="None"
+            createLabel="material"
+            options={localMaterials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { setLocalMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "", isScrap: false }]); onCreated(e); }} />
+            )}
+          />
         </div>
 
         <div className="space-y-2">

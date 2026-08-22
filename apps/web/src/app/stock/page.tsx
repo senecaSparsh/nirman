@@ -78,6 +78,7 @@ async function StockContent() {
     scrapProjects,
     counts,
     countLocations,
+    categories,
   ] = await Promise.all([
     // ── On Hand ──
     prisma.stockLocationItem.findMany({
@@ -196,7 +197,7 @@ async function StockContent() {
     }),
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true, status: true },
       orderBy: { name: "asc" },
     }),
     // ── Counts ──
@@ -218,6 +219,13 @@ async function StockContent() {
           include: { material: { select: { id: true, code: true, name: true, unit: true } } },
         },
       },
+    }),
+    // Global catalog entity — needed by the inline material creator in the
+    // issue form's line items.
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, unit: true },
     }),
   ]);
 
@@ -342,6 +350,7 @@ async function StockContent() {
     fromLocationId: i.fromLocationId,
     fromLocationName: i.fromLocation.name,
     issueDate: i.issueDate.toISOString(),
+    status: i.status,
     notes: i.notes,
     receiverName: i.receiverName,
     receiverMobile: i.receiverMobile,
@@ -361,6 +370,7 @@ async function StockContent() {
     id: l.id, type: l.type, name: l.name,
     projectId: l.projectId, projectName: l.project?.name ?? null,
   }));
+  const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }));
 
   // ── Scrap rows ──
   const scrapRows = scraps.map((s) => ({
@@ -388,7 +398,7 @@ async function StockContent() {
 
   const scrapLocationRows = scrapLocations.map((l) => ({ id: l.id, name: l.name, type: l.type }));
   const scrapMaterialRows = scrapMaterials.map((m) => ({ id: m.id, code: m.code, name: m.name, unit: m.unit, isScrap: m.isScrap }));
-  const scrapProjectRows = scrapProjects.map((p) => ({ id: p.id, name: p.name }));
+  const scrapProjectRows = scrapProjects.map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status }));
 
   // ── Count rows ──
   const countRows: StockCountRow[] = counts.map((c) => ({
@@ -457,6 +467,7 @@ async function StockContent() {
         scrapProjects={scrapProjectRows}
         counts={countRows}
         countLocations={countLocationRows}
+        categories={categoryRows}
         permissions={perms}
       />
     </>

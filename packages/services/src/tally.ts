@@ -182,21 +182,51 @@ export function createTallyProvider(baseUrl?: string): TallyProvider {
 
 /** Map our source types to Tally voucher types */
 const SOURCE_TO_VOUCHER_TYPE: Record<string, string> = {
+  // Procurement
   PO_RECEIPT: "Purchase",
   MATERIAL_ISSUE: "Journal",
+  DIRECT_PURCHASE: "Purchase",
+  STOCK_TRANSFER: "Journal",
+  STOCK_ADJUSTMENT: "Journal",
+  STOCK_TRANSFER_SHORTAGE: "Journal",
+  SCRAP_GENERATION: "Journal",
+  // Sales
   ASSET_SALE: "Sales",
+  ASSET_SALE_COGS: "Journal",
+  ASSET_SALE_DEPOSIT: "Receipt",
+  ASSET_SALE_DEPOSIT_REFUND: "Payment",
   PAYMENT_RECEIVED: "Receipt",
+  MATERIAL_SALE: "Sales",
+  MATERIAL_SALE_COGS: "Journal",
+  MATERIAL_SALE_PAYMENT: "Receipt",
+  SALE_EXPENSE: "Journal",
+  BROKER_COMMISSION: "Journal",
+  BROKER_COMMISSION_PAID: "Payment",
+  // Inventory / WIP
+  WIP_CAPITALIZATION: "Journal",
+  RENOVATION_COST: "Journal",
+  RENOVATION_CAPITALIZATION: "Journal",
+  MATERIAL_ISSUE_DEPARTMENT: "Journal",
+  // Finance
   PROJECT_COST: "Journal",
   EXPENSE: "Payment",
   SUPPLIER_RETURN: "Credit Note",
+  SUPPLIER_PAYMENT: "Payment",
   LAND_PURCHASE: "Purchase",
   OPENING: "Journal",
   PAYROLL: "Payment",
-  MATERIAL_SALE: "Sales",
-  RENOVATION_COST: "Journal",
-  STOCK_TRANSFER: "Journal",
-  DIRECT_PURCHASE: "Purchase",
-  SCRAP_GENERATION: "Journal",
+  PAYROLL_PAYMENT: "Payment",
+  NRV_WRITE_DOWN: "Journal",
+  RA_BILL_APPROVAL: "Journal",
+  // Equipment
+  EQUIPMENT_ACQUISITION: "Purchase",
+  EQUIPMENT_MAINTENANCE: "Payment",
+  EQUIPMENT_RETIREMENT: "Journal",
+  // Tenancy
+  RENT_PAYMENT: "Receipt",
+  // Security deposits
+  SECURITY_DEPOSIT_RECEIVED: "Receipt",
+  SECURITY_DEPOSIT_REFUNDED: "Payment",
 };
 
 /** Escape XML special characters */

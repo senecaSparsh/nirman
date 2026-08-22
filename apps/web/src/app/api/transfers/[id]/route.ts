@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { completeTransfer, cancelTransfer } from "@nirman/services";
+import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
@@ -58,12 +58,104 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.STOCK_TRANSFER);
+  const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
   const action = body?.action as string;
+
+  // Fetch the transfer to check company context
+  const transfer = await prisma.stockTransfer.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      fromLocation: { select: { companyId: true } },
+      toLocation: { select: { companyId: true } },
+    },
+  });
+  if (!transfer) {
+    return json({ error: "Transfer not found" }, { status: 404 });
+  }
+
+  // Sender/receiver separation: dispatch from source company, receive at dest company
+  if (action === "dispatch") {
+    if (transfer.fromLocation.companyId !== company.id) {
+      return json({ error: "Only the source company can dispatch this transfer. Switch to the sending company." }, { status: 403 });
+    }
+  }
+  if (action === "complete") {
+    if (transfer.toLocation.companyId !== company.id) {
+      return json({ error: "Only the destination company can receive this transfer. Switch to the receiving company." }, { status: 403 });
+    }
+  }
+  if (action === "returnToSource") {
+    if (transfer.toLocation.companyId !== company.id) {
+      return json({ error: "Only the destination company can return this transfer." }, { status: 403 });
+    }
+  }
+  if (action === "cancel") {
+    if (transfer.fromLocation.companyId !== company.id) {
+      return json({ error: "Only the source company can cancel this transfer." }, { status: 403 });
+    }
+  }
+
   try {
+    if (action === "dispatch") {
+      const t = await dispatchTransfer(id, user.id, {
+        vehicleType: body.vehicleType,
+        vehicleNumber: body.vehicleNumber,
+        driverName: body.driverName,
+        driverPhone: body.driverPhone,
+        transporterName: body.transporterName,
+        challanNumber: body.challanNumber,
+        packageCount: body.packageCount,
+        dispatchPhotos: body.dispatchPhotos,
+        dispatchSignature: body.dispatchSignature,
+      });
+
+      // Log the vehicle trip
+      if (body.vehicleNumber) {
+        const tripTransfer = await prisma.stockTransfer.findUnique({ where: { id }, select: { fromLocationId: true, toLocationId: true } });
+        await recordVehicleTrip({
+          vehicleNumber: body.vehicleNumber,
+          vehicleType: body.vehicleType ?? "OTHER",
+          driverName: body.driverName,
+          driverPhone: body.driverPhone,
+          transporterName: body.transporterName,
+          movementType: "STOCK_TRANSFER",
+          refType: "StockTransfer",
+          refId: id,
+          fromLocationId: tripTransfer?.fromLocationId,
+          toLocationId: tripTransfer?.toLocationId,
+          photos: body.dispatchPhotos,
+          companyId: company.id,
+        }).catch(() => { /* best-effort */ });
+      }
+
+      return json(t);
+    }
     if (action === "complete") {
-      const t = await completeTransfer(id, user.id);
+      const t = await completeTransfer(id, user.id, {
+        receivedById: user.id,
+        receiverSignature: body.receiverSignature,
+        receiverLat: body.receiverLat,
+        receiverLng: body.receiverLng,
+        receiverLocation: body.receiverLocation,
+        photos: body.photos,
+        deliveryMode: body.deliveryMode,
+        shortageRemarks: body.shortageRemarks,
+        damageRemarks: body.damageRemarks,
+        supervisorSignature: body.supervisorSignature,
+        supervisorId: body.supervisorId,
+        weighbridgeTicketNo: body.weighbridgeTicketNo,
+        grossWeight: body.grossWeight,
+        tareWeight: body.tareWeight,
+        netWeight: body.netWeight,
+        lineReceipts: body.lineReceipts,
+      });
+      return json(t);
+    }
+    if (action === "returnToSource") {
+      const t = await returnTransferToSource(id, user.id, body.reason);
       return json(t);
     }
     if (action === "cancel") {

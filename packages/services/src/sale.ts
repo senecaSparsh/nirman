@@ -9,6 +9,9 @@ import {
   postDepositRefund,
   postJournalEntry,
   reverseJournalEntry,
+  postSaleExpense,
+  postBrokerCommission,
+  postBrokerCommissionPaid,
   ACCT,
 } from "./gl-posting";
 import { ServiceError } from "./errors";
@@ -45,6 +48,7 @@ export interface SellAssetInput {
   assetType: AssetType;
   landParcelId?: string;
   builtUnitId?: string;
+  projectId?: string; // required for PROJECT asset type
   customerId: string;
   companyId: string;
   salePrice: Decimal | number | string;
@@ -54,6 +58,66 @@ export interface SellAssetInput {
   initialPayment?: Decimal | number | string;
   initialPaymentMode?: string;
   userId?: string;
+  // Sale deed / registry tracking
+  saleDeedNo?: string;          // sale deed / registry number (if registry is done at creation)
+  expectedRegistryDate?: string; // ISO date — when registry is expected (if ATS / deferred)
+  // Sale compliance documents
+  allotmentLetterNo?: string;
+  allotmentDate?: string;       // ISO date
+  bbaNo?: string;
+  bbaDate?: string;             // ISO date
+  // TDS tracking
+  tdsAmount?: Decimal | number | string;
+  tdsCertificateNo?: string;
+  // Home loan tracking
+  homeLoanBank?: string;
+  homeLoanAmount?: Decimal | number | string;
+  homeLoanSanctionNo?: string;
+  homeLoanSanctionDate?: string; // ISO date
+  // ── Deal terms ──
+  dealMaturityMonths?: number;       // how many months until the deal matures
+  paymentCycle?: string;             // free-text: "25% every month", "Quarterly", etc.
+  // ── Sale expenses (registry, stamp duty, transfer, lease rent, GST, other) ──
+  expenses?: SaleExpenseInput[];
+  // ── Custom terms & conditions ──
+  terms?: SaleTermInput[];
+  // ── Broker / deal source ──
+  dealSource?: "SELF" | "BROKER";
+  brokerId?: string;
+  brokerName?: string;
+  brokerPhone?: string;
+  commissionAmount?: Decimal | number | string;
+  commissionIsPartOfDeal?: boolean;
+  // ── Payment schedule (optional at creation) ──
+  paymentSchedule?: PaymentScheduleInput;
+}
+
+export interface SaleExpenseInput {
+  head: "REGISTRY" | "STAMP_DUTY" | "TRANSFER" | "LEASE_RENT" | "GST" | "OTHER";
+  label?: string | null;
+  amount: Decimal | number | string;
+  borneBy: "CLIENT" | "SELLER" | "NA";
+  isIncluded?: boolean;
+}
+
+export interface SaleTermInput {
+  description: string;
+  extraAmount?: Decimal | number | string | null;
+  isIncluded?: boolean;
+}
+
+export interface PaymentScheduleInput {
+  type: "CLP" | "TLP" | "DPP";
+  items: PaymentScheduleItemInput[];
+}
+
+export interface PaymentScheduleItemInput {
+  installmentNo: number;
+  description: string;
+  percentage: Decimal | number | string;
+  amount: Decimal | number | string;
+  dueDate?: string | null; // ISO date (for TLP/DPP)
+  wbsNodeId?: string | null; // for CLP
 }
 
 export async function sellAsset(input: SellAssetInput) {
@@ -67,7 +131,7 @@ export async function sellAsset(input: SellAssetInput) {
     const salePrice = new Decimal(input.salePrice);
     if (!salePrice.gt(0)) throw new ServiceError("Sale price must be > 0");
 
-    let projectId: string;
+    let projectId: string | null;
     let companyId: string;
     let costBasis: Decimal;
     let landParcelId: string | null = null;
@@ -89,28 +153,43 @@ export async function sellAsset(input: SellAssetInput) {
       }
       if (parcel.saleId) throw new ServiceError("Parcel is already sold (double-sell guard)");
 
-      // Determine project + company
+      // Determine project + company.
+      // Standalone land (no project on parcel or landPurchase) is now supported —
+      // the sale posts to company-level GL accounts (LAND_ASSET, SALES_REVENUE, COGS).
       const projectIdRaw = parcel.projectId;
-      if (!projectIdRaw) {
+      let resolvedProjectId: string | null = null;
+      if (projectIdRaw) {
+        resolvedProjectId = projectIdRaw;
+      } else {
         // Fall back to landPurchase's project
         const landPurchase = await tx.landPurchase.findUnique({
           where: { id: parcel.landPurchaseId },
         });
-        if (!landPurchase?.projectId) {
-          throw new ServiceError("Land parcel must be linked to a project before selling (for accounting)");
+        if (landPurchase?.projectId) {
+          resolvedProjectId = landPurchase.projectId;
         }
-        projectId = landPurchase.projectId;
-      } else {
-        projectId = projectIdRaw;
+        // If still null → standalone land sale (no project). This is valid.
       }
 
-      const project = await tx.project.findUnique({ where: { id: projectId } });
-      if (!project) throw new ServiceError("Project not found", 404);
-      companyId = project.companyId;
+      if (resolvedProjectId) {
+        projectId = resolvedProjectId;
+        const project = await tx.project.findUnique({ where: { id: projectId } });
+        if (!project) throw new ServiceError("Project not found", 404);
+        companyId = project.companyId;
+      } else {
+        // Standalone land — get companyId from the landPurchase
+        projectId = ""; // placeholder, will be set to null on AssetSale
+        const landPurchase = await tx.landPurchase.findUnique({
+          where: { id: parcel.landPurchaseId },
+          select: { companyId: true },
+        });
+        if (!landPurchase) throw new ServiceError("Land purchase not found", 404);
+        companyId = landPurchase.companyId;
+      }
       costBasis = new Decimal(parcel.acquisitionCost);
       // NOTE: asset status is NOT changed here — it stays AVAILABLE until a
       // deposit is recorded (→ RESERVED) or the sale completes (→ SOLD).
-    } else {
+    } else if (input.assetType === "BUILT_UNIT") {
       if (!input.builtUnitId) throw new ServiceError("Built unit sale requires builtUnitId");
       if (input.landParcelId) throw new ServiceError("Built unit sale must not have landParcelId");
       builtUnitId = input.builtUnitId;
@@ -126,11 +205,45 @@ export async function sellAsset(input: SellAssetInput) {
       if (unit.saleId) throw new ServiceError("Unit is already sold (double-sell guard)");
 
       projectId = unit.projectId;
-      const project = await tx.project.findUnique({ where: { id: projectId } });
+      const project = await tx.project.findUnique({ where: { id: projectId! } });
       if (!project) throw new ServiceError("Project not found", 404);
       companyId = project.companyId;
       costBasis = new Decimal(unit.productionCost);
       // NOTE: asset status is NOT changed here — see above.
+    } else if (input.assetType === "PROJECT") {
+      // ── Project-level sale: sell the entire project (all units) to one buyer ──
+      if (!input.projectId) throw new ServiceError("Project sale requires projectId");
+      if (input.builtUnitId || input.landParcelId) throw new ServiceError("Project sale must not have builtUnitId or landParcelId");
+
+      const project = await tx.project.findUnique({ where: { id: input.projectId } });
+      if (!project) throw new ServiceError("Project not found", 404);
+      if (project.deletedAt) throw new ServiceError("Project is deleted");
+
+      projectId = project.id;
+      companyId = project.companyId;
+
+      // Check all units are sellable (AVAILABLE or HOLD, not already sold)
+      const units = await tx.builtUnit.findMany({
+        where: { projectId: project.id, deletedAt: null },
+      });
+      if (units.length === 0) throw new ServiceError("Project has no units to sell");
+      const unsellable = units.filter((u) => u.status !== "AVAILABLE" && u.status !== "HOLD");
+      if (unsellable.length > 0) {
+        throw new ServiceError(
+          `Cannot sell project: ${unsellable.length} unit(s) are not in AVAILABLE/HOLD status (e.g. SOLD/RESERVED). Only fully available projects can be sold as a whole.`,
+        );
+      }
+      const alreadySold = units.filter((u) => u.saleId !== null);
+      if (alreadySold.length > 0) {
+        throw new ServiceError(`Cannot sell project: ${alreadySold.length} unit(s) are already locked to a sale`);
+      }
+
+      // Cost basis = sum of all units' production cost
+      costBasis = units.reduce((sum, u) => sum.plus(new Decimal(u.productionCost)), new Decimal(0));
+      // NOTE: individual unit statuses are NOT changed here — they stay AVAILABLE
+      // until a deposit is recorded (→ RESERVED) or the sale completes (→ SOLD).
+    } else {
+      throw new ServiceError(`Unsupported asset type: ${input.assetType}`);
     }
 
     // Compute GST on the sale (Output GST liability)
@@ -149,6 +262,14 @@ export async function sellAsset(input: SellAssetInput) {
 
     // Create the sale (always starts as PENDING; upgraded below if immediate)
     const profit = salePrice.minus(costBasis);
+
+    // Compute deal maturity date if months provided
+    let dealMaturityDate: Date | null = null;
+    if (input.dealMaturityMonths && input.dealMaturityMonths > 0) {
+      dealMaturityDate = new Date();
+      dealMaturityDate.setMonth(dealMaturityDate.getMonth() + input.dealMaturityMonths);
+    }
+
     const sale = await tx.assetSale.create({
       data: {
         saleNumber: await generateSaleNumber(tx),
@@ -156,7 +277,7 @@ export async function sellAsset(input: SellAssetInput) {
         landParcelId,
         builtUnitId,
         customerId: input.customerId,
-        projectId,
+        projectId: projectId || null,
         companyId,
         salePrice,
         gstRate,
@@ -167,20 +288,141 @@ export async function sellAsset(input: SellAssetInput) {
         paymentMode: input.paymentMode,
         notes: input.notes,
         saleStage: "PENDING",
+        saleDeedNo: input.saleDeedNo ?? null,
+        expectedRegistryDate: input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null,
+        // Sale compliance documents
+        allotmentLetterNo: input.allotmentLetterNo ?? null,
+        allotmentDate: input.allotmentDate ? new Date(input.allotmentDate) : null,
+        bbaNo: input.bbaNo ?? null,
+        bbaDate: input.bbaDate ? new Date(input.bbaDate) : null,
+        // TDS tracking
+        tdsAmount: input.tdsAmount ? new Decimal(input.tdsAmount) : null,
+        tdsCertificateNo: input.tdsCertificateNo ?? null,
+        // Home loan tracking
+        homeLoanBank: input.homeLoanBank ?? null,
+        homeLoanAmount: input.homeLoanAmount ? new Decimal(input.homeLoanAmount) : null,
+        homeLoanSanctionNo: input.homeLoanSanctionNo ?? null,
+        homeLoanSanctionDate: input.homeLoanSanctionDate ? new Date(input.homeLoanSanctionDate) : null,
+        // Deal terms
+        dealMaturityMonths: input.dealMaturityMonths ?? null,
+        dealMaturityDate,
+        paymentCycle: input.paymentCycle ?? null,
+        // Broker / deal source
+        dealSource: input.dealSource ?? "SELF",
+        brokerId: input.brokerId ?? null,
+        brokerName: input.brokerName ?? null,
+        brokerPhone: input.brokerPhone ?? null,
+        commissionAmount: input.commissionAmount ? new Decimal(input.commissionAmount) : null,
+        commissionIsPartOfDeal: input.commissionIsPartOfDeal ?? false,
       },
     });
 
     // Lock the asset by setting saleId (prevents double-sell regardless of status)
     if (input.assetType === "LAND" && landParcelId) {
       await tx.landParcel.update({ where: { id: landParcelId }, data: { saleId: sale.id } });
-    } else if (builtUnitId) {
+    } else if (input.assetType === "BUILT_UNIT" && builtUnitId) {
       await tx.builtUnit.update({ where: { id: builtUnitId }, data: { saleId: sale.id } });
+    } else if (input.assetType === "PROJECT" && projectId) {
+      // Lock ALL units in the project
+      await tx.builtUnit.updateMany({
+        where: { projectId, deletedAt: null },
+        data: { saleId: sale.id },
+      });
+    }
+
+    // ── Create sale expenses (registry, stamp duty, transfer, etc.) ──
+    if (input.expenses && input.expenses.length > 0) {
+      for (const [i, exp] of input.expenses.entries()) {
+        const amount = new Decimal(exp.amount);
+        if (amount.lt(0)) throw new ServiceError(`Expense amount cannot be negative for head ${exp.head}`);
+        const saleExpense = await tx.saleExpense.create({
+          data: {
+            assetSaleId: sale.id,
+            head: exp.head,
+            label: exp.label ?? null,
+            amount,
+            borneBy: exp.borneBy,
+            isIncluded: exp.isIncluded ?? false,
+            sortOrder: i,
+          },
+        });
+        // GL post for seller-borne expenses (client-borne = collected via payment, NA = no posting)
+        if (exp.borneBy === "SELLER" && amount.gt(0)) {
+          await postSaleExpense(tx, {
+            companyId,
+            assetSaleId: sale.id,
+            saleExpenseId: saleExpense.id,
+            amount,
+            postedById: input.userId,
+          });
+        }
+      }
+    }
+
+    // ── Create sale terms & conditions ──
+    if (input.terms && input.terms.length > 0) {
+      for (const [i, term] of input.terms.entries()) {
+        await tx.saleTerm.create({
+          data: {
+            assetSaleId: sale.id,
+            description: term.description,
+            extraAmount: term.extraAmount ? new Decimal(term.extraAmount) : null,
+            isIncluded: term.isIncluded ?? true,
+            sortOrder: i,
+          },
+        });
+      }
+    }
+
+    // ── Accrue broker commission (if broker deal with commission) ──
+    if (input.dealSource === "BROKER" && input.commissionAmount) {
+      const commission = new Decimal(input.commissionAmount);
+      if (commission.gt(0)) {
+        await postBrokerCommission(tx, {
+          companyId,
+          assetSaleId: sale.id,
+          amount: commission,
+          postedById: input.userId,
+        });
+      }
+    }
+
+    // ── Create payment schedule (if provided) ──
+    if (input.paymentSchedule && input.paymentSchedule.items.length > 0) {
+      const schedule = input.paymentSchedule;
+      const scheduleTotal = schedule.items.reduce(
+        (sum, item) => sum.plus(new Decimal(item.amount)),
+        new Decimal(0),
+      );
+      const scheduleGst = new Decimal(0); // GST is tracked at sale level, not per-installment
+      await tx.paymentSchedule.create({
+        data: {
+          assetSaleId: sale.id,
+          type: schedule.type,
+          totalAmount: scheduleTotal,
+          gstAmount: scheduleGst,
+          grandTotal: scheduleTotal.plus(scheduleGst),
+          items: {
+            create: schedule.items.map((item) => ({
+              installmentNo: item.installmentNo,
+              description: item.description,
+              percentage: new Decimal(item.percentage),
+              amount: new Decimal(item.amount),
+              gstPercentage: new Decimal(0),
+              gstAmount: new Decimal(0),
+              totalAmount: new Decimal(item.amount),
+              dueDate: item.dueDate ? new Date(item.dueDate) : null,
+              wbsNodeId: item.wbsNodeId ?? null,
+            })),
+          },
+        },
+      });
     }
 
     if (isImmediateFullPayment) {
       // ── Immediate full payment: recognise revenue + COGS now (existing behaviour) ──
-      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "SOLD");
-      await delistPortalListings(tx, builtUnitId);
+      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "SOLD", projectId || null);
+      await delistPortalListings(tx, builtUnitId, projectId || null);
 
       await tx.assetSalePayment.create({
         data: {
@@ -222,7 +464,7 @@ export async function sellAsset(input: SellAssetInput) {
       }
     } else if (initAmount.gt(0)) {
       // ── Partial initial payment: treat as a deposit (liability, no revenue yet) ──
-      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "RESERVED");
+      await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "RESERVED", projectId || null);
 
       await tx.assetSalePayment.create({
         data: {
@@ -357,7 +599,7 @@ export async function recordDeposit(input: RecordDepositInput) {
     });
 
     // Set asset to RESERVED
-    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "RESERVED");
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "RESERVED", sale.projectId);
 
     // Post deposit liability: Dr Cash, Cr Customer Deposits
     await postDepositReceived(tx, {
@@ -392,6 +634,19 @@ export interface CompleteSaleInput {
   paymentMode?: string;
   reference?: string;
   userId?: string;
+  saleDeedNo?: string; // sale deed / registry number — captured at completion
+  // Compliance fields that can be captured at completion
+  allotmentLetterNo?: string;
+  allotmentDate?: string;
+  bbaNo?: string;
+  bbaDate?: string;
+  tdsAmount?: Decimal | number | string;
+  tdsCertificateNo?: string;
+  // Home loan details — often finalized at completion, not at booking
+  homeLoanBank?: string;
+  homeLoanAmount?: Decimal | number | string;
+  homeLoanSanctionNo?: string;
+  homeLoanSanctionDate?: string;
 }
 
 export async function completeSale(input: CompleteSaleInput) {
@@ -435,8 +690,8 @@ export async function completeSale(input: CompleteSaleInput) {
     }
 
     // Mark asset SOLD + delist portal listings
-    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD");
-    await delistPortalListings(tx, sale.builtUnitId);
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD", sale.projectId);
+    await delistPortalListings(tx, sale.builtUnitId, sale.projectId);
 
     // Update sale stage
     await tx.assetSale.update({
@@ -445,6 +700,19 @@ export async function completeSale(input: CompleteSaleInput) {
         saleStage: "COMPLETED",
         finalSaleDate: new Date(),
         paymentStatus: "PAID",
+        ...(input.saleDeedNo ? { saleDeedNo: input.saleDeedNo } : {}),
+        // Compliance fields captured at completion
+        ...(input.allotmentLetterNo ? { allotmentLetterNo: input.allotmentLetterNo } : {}),
+        ...(input.allotmentDate ? { allotmentDate: new Date(input.allotmentDate) } : {}),
+        ...(input.bbaNo ? { bbaNo: input.bbaNo } : {}),
+        ...(input.bbaDate ? { bbaDate: new Date(input.bbaDate) } : {}),
+        ...(input.tdsAmount ? { tdsAmount: new Decimal(input.tdsAmount) } : {}),
+        ...(input.tdsCertificateNo ? { tdsCertificateNo: input.tdsCertificateNo } : {}),
+        // Home loan details — often finalized at completion
+        ...(input.homeLoanBank !== undefined ? { homeLoanBank: input.homeLoanBank || null } : {}),
+        ...(input.homeLoanAmount !== undefined ? { homeLoanAmount: input.homeLoanAmount ? new Decimal(input.homeLoanAmount) : null } : {}),
+        ...(input.homeLoanSanctionNo !== undefined ? { homeLoanSanctionNo: input.homeLoanSanctionNo || null } : {}),
+        ...(input.homeLoanSanctionDate !== undefined ? { homeLoanSanctionDate: input.homeLoanSanctionDate ? new Date(input.homeLoanSanctionDate) : null } : {}),
       },
     });
 
@@ -611,6 +879,134 @@ export async function recordPayment(input: RecordPaymentInput) {
 }
 
 // ───────────────────────────────────────────────────────────
+//  Update sale — edit mutable fields after creation
+// ───────────────────────────────────────────────────────────
+
+export interface UpdateSaleInput {
+  saleId: string;
+  userId?: string;
+  // Price (only editable pre-completion with no payments)
+  salePrice?: Decimal | number | string;
+  gstRate?: Decimal | number | string;
+  // Always-editable metadata
+  notes?: string | null;
+  // Compliance documents
+  saleDeedNo?: string | null;
+  allotmentLetterNo?: string | null;
+  allotmentDate?: string | null;
+  bbaNo?: string | null;
+  bbaDate?: string | null;
+  tdsAmount?: Decimal | number | string | null;
+  tdsCertificateNo?: string | null;
+  // Home loan
+  homeLoanBank?: string | null;
+  homeLoanAmount?: Decimal | number | string | null;
+  homeLoanSanctionNo?: string | null;
+  homeLoanSanctionDate?: string | null;
+  // Broker
+  brokerName?: string | null;
+  brokerPhone?: string | null;
+  brokerAgency?: string | null;
+  commissionAmount?: Decimal | number | string | null;
+  // Deal terms
+  expectedRegistryDate?: string | null;
+  dealMaturityMonths?: number | null;
+  paymentCycle?: string | null;
+}
+
+/**
+ * Update mutable fields on an existing sale.
+ *
+ * - Price/gstRate: only editable when sale is PENDING or DEPOSIT_RECEIVED
+ *   AND no payments have been recorded. Changing the price re-posts the
+ *   sale GL entry if revenue was recognised (COMPLETED stage is blocked).
+ * - Notes, compliance, broker, home loan, deal terms: always editable
+ *   (regardless of stage) — these are metadata, not financial primitives.
+ * - Cancelled sales cannot be edited.
+ */
+export async function updateSale(input: UpdateSaleInput) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({
+      where: { id: input.saleId },
+      include: { payments: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") {
+      throw new ServiceError("Cannot edit a cancelled sale");
+    }
+
+    const data: Prisma.AssetSaleUpdateInput = {};
+    const priceChanged =
+      input.salePrice !== undefined &&
+      new Decimal(input.salePrice).toNumber() !== sale.salePrice.toNumber();
+
+    // ── Price change: only pre-completion with no payments ──
+    if (priceChanged) {
+      if (sale.saleStage === "COMPLETED") {
+        throw new ServiceError("Cannot change price on a completed sale — cancel and re-create instead");
+      }
+      if (sale.payments.length > 0) {
+        throw new ServiceError("Cannot change price after payments have been recorded");
+      }
+      const newPrice = new Decimal(input.salePrice!);
+      if (!newPrice.gt(0)) throw new ServiceError("Sale price must be > 0");
+      data.salePrice = newPrice;
+
+      // Recompute GST amount if gstRate is also being updated
+      const rate = input.gstRate !== undefined ? Number(input.gstRate) : sale.gstRate?.toNumber() ?? 0;
+      data.gstAmount = newPrice.mul(rate).div(100);
+      // Recompute profit (cost basis doesn't change)
+      data.profit = newPrice.minus(sale.costBasis);
+    }
+
+    if (input.gstRate !== undefined) {
+      data.gstRate = new Decimal(input.gstRate);
+      if (!priceChanged) {
+        // Recompute GST amount with the new rate on the existing price
+        data.gstAmount = sale.salePrice.mul(Number(input.gstRate)).div(100);
+      }
+    }
+
+    // ── Always-editable metadata ──
+    if (input.notes !== undefined) data.notes = input.notes ?? null;
+    if (input.saleDeedNo !== undefined) data.saleDeedNo = input.saleDeedNo ?? null;
+    if (input.allotmentLetterNo !== undefined) data.allotmentLetterNo = input.allotmentLetterNo ?? null;
+    if (input.allotmentDate !== undefined) data.allotmentDate = input.allotmentDate ? new Date(input.allotmentDate) : null;
+    if (input.bbaNo !== undefined) data.bbaNo = input.bbaNo ?? null;
+    if (input.bbaDate !== undefined) data.bbaDate = input.bbaDate ? new Date(input.bbaDate) : null;
+    if (input.tdsAmount !== undefined) data.tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : null;
+    if (input.tdsCertificateNo !== undefined) data.tdsCertificateNo = input.tdsCertificateNo ?? null;
+    if (input.homeLoanBank !== undefined) data.homeLoanBank = input.homeLoanBank ?? null;
+    if (input.homeLoanAmount !== undefined) data.homeLoanAmount = input.homeLoanAmount != null ? new Decimal(input.homeLoanAmount) : null;
+    if (input.homeLoanSanctionNo !== undefined) data.homeLoanSanctionNo = input.homeLoanSanctionNo ?? null;
+    if (input.homeLoanSanctionDate !== undefined) data.homeLoanSanctionDate = input.homeLoanSanctionDate ? new Date(input.homeLoanSanctionDate) : null;
+    if (input.brokerName !== undefined) data.brokerName = input.brokerName ?? null;
+    if (input.brokerPhone !== undefined) data.brokerPhone = input.brokerPhone ?? null;
+    // brokerAgency is derived from the Broker master record (s.broker.agency),
+    // not a direct field on AssetSale — not editable here.
+    if (input.commissionAmount !== undefined) data.commissionAmount = input.commissionAmount != null ? new Decimal(input.commissionAmount) : null;
+    if (input.expectedRegistryDate !== undefined) data.expectedRegistryDate = input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null;
+    if (input.dealMaturityMonths !== undefined) data.dealMaturityMonths = input.dealMaturityMonths;
+    if (input.paymentCycle !== undefined) data.paymentCycle = input.paymentCycle ?? null;
+
+    const updated = await tx.assetSale.update({
+      where: { id: input.saleId },
+      data,
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "SALE_UPDATE",
+      entityType: "AssetSale",
+      entityId: input.saleId,
+      after: { updatedFields: Object.keys(data) },
+    });
+
+    return updated;
+  });
+}
+
+// ───────────────────────────────────────────────────────────
 //  Cancel sale — release asset + refund deposit if applicable
 // ───────────────────────────────────────────────────────────
 
@@ -629,11 +1025,17 @@ export async function cancelSale(saleId: string, userId?: string) {
     const depositAmount = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
 
     // Revert asset status to AVAILABLE + unlock
-    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE");
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE", sale.projectId);
     if (sale.assetType === "LAND" && sale.landParcelId) {
       await tx.landParcel.update({ where: { id: sale.landParcelId }, data: { saleId: null } });
-    } else if (sale.builtUnitId) {
+    } else if (sale.assetType === "BUILT_UNIT" && sale.builtUnitId) {
       await tx.builtUnit.update({ where: { id: sale.builtUnitId }, data: { saleId: null } });
+    } else if (sale.assetType === "PROJECT" && sale.projectId) {
+      // Unlock ALL units in the project
+      await tx.builtUnit.updateMany({
+        where: { projectId: sale.projectId, deletedAt: null },
+        data: { saleId: null },
+      });
     }
 
     // Reverse GL entries based on the sale stage
@@ -650,9 +1052,38 @@ export async function cancelSale(saleId: string, userId?: string) {
       // (PENDING sales never posted revenue/COGS or deposit liability.)
     }
 
+    // Reverse sale expense GL entries (seller-borne expenses were posted at sale creation)
+    const saleExpenses = await tx.saleExpense.findMany({
+      where: { assetSaleId: saleId, borneBy: "SELLER" },
+      select: { id: true },
+    });
+    for (const exp of saleExpenses) {
+      const je = await tx.journalEntry.findFirst({
+        where: { sourceType: "SALE_EXPENSE", sourceId: exp.id, status: "POSTED" },
+        select: { id: true },
+      });
+      if (je) {
+        await reverseJournalEntry(tx, je.id, { postedById: userId, memo: "Sale cancelled — expense reversal" });
+      }
+    }
+
+    // Reverse broker commission accrual (if not already paid — paid commissions are settled, not reversed)
+    if (sale.dealSource === "BROKER" && sale.commissionAmount && !sale.commissionPaid) {
+      const brokerJe = await tx.journalEntry.findFirst({
+        where: { sourceType: "BROKER_COMMISSION", sourceId: saleId, status: "POSTED" },
+        select: { id: true },
+      });
+      if (brokerJe) {
+        await reverseJournalEntry(tx, brokerJe.id, { postedById: userId, memo: "Sale cancelled — broker commission reversal" });
+      }
+    }
+
     // Re-run cost allocation — a reserved/sold unit's production cost was cached;
     // cancellation makes it sellable again, so allocation must be refreshed.
-    await reallocateProjectCosts(tx, sale.projectId);
+    // Standalone land sales (no project) have nothing to reallocate.
+    if (sale.projectId) {
+      await reallocateProjectCosts(tx, sale.projectId);
+    }
 
     const updated = await tx.assetSale.update({
       where: { id: saleId },
@@ -679,26 +1110,35 @@ export async function cancelSale(saleId: string, userId?: string) {
 //  Helpers
 // ───────────────────────────────────────────────────────────
 
-/** Update the asset (land parcel or built unit) status. */
+/** Update the asset (land parcel, built unit, or all units in a project) status. */
 async function markAssetStatus(
   tx: Prisma.TransactionClient,
   assetType: AssetType,
   landParcelId: string | null,
   builtUnitId: string | null,
   status: "AVAILABLE" | "RESERVED" | "SOLD",
+  projectId?: string | null,
 ) {
   if (assetType === "LAND" && landParcelId) {
     await tx.landParcel.update({ where: { id: landParcelId }, data: { status } });
-  } else if (builtUnitId) {
+  } else if (assetType === "BUILT_UNIT" && builtUnitId) {
     await tx.builtUnit.update({ where: { id: builtUnitId }, data: { status } });
+  } else if (assetType === "PROJECT" && projectId) {
+    // Update ALL units in the project
+    await tx.builtUnit.updateMany({
+      where: { projectId, deletedAt: null },
+      data: { status },
+    });
   }
 }
 
-/** Auto-delist any active portal listings for a built unit (on sale completion). */
-async function delistPortalListings(tx: Prisma.TransactionClient, builtUnitId: string | null) {
-  if (!builtUnitId) return;
+/** Auto-delist any active portal listings for a built unit or all units in a project (on sale completion). */
+async function delistPortalListings(tx: Prisma.TransactionClient, builtUnitId: string | null, projectId?: string | null) {
+  if (!builtUnitId && !projectId) return;
   const activeListings = await tx.portalListing.findMany({
-    where: { builtUnitId, status: { in: ["DRAFT", "LISTED"] } },
+    where: projectId
+      ? { builtUnit: { projectId, deletedAt: null }, status: { in: ["DRAFT", "LISTED"] } }
+      : { builtUnitId: builtUnitId!, status: { in: ["DRAFT", "LISTED"] } },
     select: { id: true },
   });
   for (const listing of activeListings) {
@@ -728,4 +1168,233 @@ export function computePaymentStatus(
   if (paid.isZero()) return "PENDING";
   if (paid.lt(price)) return "PARTIAL";
   return "PAID";
+}
+
+// ───────────────────────────────────────────────────────────
+//  Payment Schedule — generate / update a payment plan for a sale
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Generate (or replace) a payment schedule for an existing sale.
+ * Validates that installment percentages sum to 100% and amounts sum
+ * to the sale's total collectible (salePrice + gstAmount).
+ */
+export async function createSalePaymentSchedule(
+  saleId: string,
+  schedule: PaymentScheduleInput,
+  userId?: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
+
+    if (schedule.items.length === 0) {
+      throw new ServiceError("Payment schedule must have at least one installment");
+    }
+
+    // Validate percentages sum to 100
+    const totalPct = schedule.items.reduce(
+      (sum, item) => sum.plus(new Decimal(item.percentage)),
+      new Decimal(0),
+    );
+    if (!totalPct.eq(100)) {
+      throw new ServiceError(`Installment percentages must sum to 100%, got ${totalPct}%`);
+    }
+
+    // Validate amounts sum to sale price + GST
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+    const totalAmt = schedule.items.reduce(
+      (sum, item) => sum.plus(new Decimal(item.amount)),
+      new Decimal(0),
+    );
+    if (!totalAmt.eq(totalCollectible)) {
+      throw new ServiceError(
+        `Installment amounts must sum to ${totalCollectible} (sale price + GST), got ${totalAmt}`,
+      );
+    }
+
+    // Delete existing schedule (if any) and create new one
+    await tx.paymentSchedule.deleteMany({ where: { assetSaleId: saleId } });
+
+    const created = await tx.paymentSchedule.create({
+      data: {
+        assetSaleId: saleId,
+        type: schedule.type,
+        totalAmount: totalAmt,
+        gstAmount: new Decimal(0),
+        grandTotal: totalAmt,
+        items: {
+          create: schedule.items.map((item) => ({
+            installmentNo: item.installmentNo,
+            description: item.description,
+            percentage: new Decimal(item.percentage),
+            amount: new Decimal(item.amount),
+            gstPercentage: new Decimal(0),
+            gstAmount: new Decimal(0),
+            totalAmount: new Decimal(item.amount),
+            dueDate: item.dueDate ? new Date(item.dueDate) : null,
+            wbsNodeId: item.wbsNodeId ?? null,
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "SALE_SCHEDULE_CREATE",
+        entityType: "AssetSale",
+        entityId: saleId,
+        after: { type: schedule.type, installmentCount: schedule.items.length },
+      });
+    }
+
+    return created;
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Auto-generate payment schedule from deal terms
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Auto-generate a TLP (Time-Linked Plan) from deal maturity months + payment cycle.
+ * E.g., dealMaturityMonths = 4, advance = 10% → 4 equal monthly installments of 22.5% each.
+ * The advance (initialPayment) is NOT part of the schedule — it's already recorded.
+ */
+export function autoGenerateScheduleItems(
+  salePrice: Decimal | number | string,
+  gstAmount: Decimal | number | string,
+  advanceAmount: Decimal | number | string,
+  dealMaturityMonths: number,
+): PaymentScheduleItemInput[] {
+  const total = new Decimal(salePrice).plus(new Decimal(gstAmount));
+  const advance = new Decimal(advanceAmount);
+  const balance = total.minus(advance);
+  if (balance.lte(0)) return []; // fully paid, no schedule needed
+  if (dealMaturityMonths <= 0) return [];
+
+  const perInstallmentAmount = balance.div(dealMaturityMonths);
+  const perInstallmentPct = perInstallmentAmount.div(total).mul(100).toDecimalPlaces(2);
+  const advancePct = advance.div(total).mul(100).toDecimalPlaces(2);
+
+  const items: PaymentScheduleItemInput[] = [];
+
+  // First installment = advance (already paid, shown for reference)
+  if (advance.gt(0)) {
+    items.push({
+      installmentNo: 1,
+      description: "Booking Advance",
+      percentage: advancePct,
+      amount: advance,
+    });
+  }
+
+  // Remaining installments spread over dealMaturityMonths
+  const startInstallment = advance.gt(0) ? 2 : 1;
+  for (let i = 0; i < dealMaturityMonths; i++) {
+    const dueDate = new Date();
+    dueDate.setMonth(dueDate.getMonth() + i + 1);
+    items.push({
+      installmentNo: startInstallment + i,
+      description: `Installment ${startInstallment + i} (Month ${i + 1})`,
+      percentage: perInstallmentPct,
+      amount: perInstallmentAmount,
+      dueDate: dueDate.toISOString(),
+    });
+  }
+
+  // Fix rounding: adjust last installment so percentages sum to exactly 100
+  const totalPct = items.reduce((s, item) => s.plus(new Decimal(item.percentage)), new Decimal(0));
+  const diff = new Decimal(100).minus(totalPct);
+  if (!diff.isZero() && items.length > 0) {
+    const last = items[items.length - 1]!;
+    last.percentage = new Decimal(last.percentage).plus(diff).toDecimalPlaces(2);
+  }
+
+  return items;
+}
+
+// ───────────────────────────────────────────────────────────
+//  Pay broker commission — settle the accrued payable
+// ───────────────────────────────────────────────────────────
+
+export async function payBrokerCommission(saleId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.dealSource !== "BROKER") throw new ServiceError("Sale is not a broker deal");
+    if (sale.commissionPaid) throw new ServiceError("Commission already paid");
+    if (!sale.commissionAmount || new Decimal(sale.commissionAmount).lte(0)) {
+      throw new ServiceError("No commission amount to pay");
+    }
+
+    const amount = new Decimal(sale.commissionAmount);
+
+    await postBrokerCommissionPaid(tx, {
+      companyId: sale.companyId,
+      assetSaleId: saleId,
+      amount,
+      postedById: userId,
+    });
+
+    const updated = await tx.assetSale.update({
+      where: { id: saleId },
+      data: { commissionPaid: true, commissionPaidDate: new Date() },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "BROKER_COMMISSION_PAID",
+        entityType: "AssetSale",
+        entityId: saleId,
+        after: { amount: amount.toString(), paidAt: new Date().toISOString() },
+      });
+    }
+
+    return updated;
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Printable sale form data — fetch all data needed for the printable receipt
+// ───────────────────────────────────────────────────────────
+
+export async function getPrintableSaleData(saleId: string, companyId?: string) {
+  const sale = await prisma.assetSale.findFirst({
+    where: { id: saleId, ...(companyId ? { companyId } : {}) },
+    include: {
+      customer: { select: { id: true, name: true, phone: true, email: true, address: true } },
+      project: { select: { id: true, name: true, address: true, reraNumber: true } },
+      company: { select: { id: true, name: true, phone: true, email: true, address: true, gstin: true } },
+      builtUnit: { select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, floor: true, wing: true } },
+      landParcel: { select: { id: true, number: true, area: true, areaUnit: true } },
+      payments: { orderBy: { paymentDate: "asc" } },
+      expenses: { orderBy: { sortOrder: "asc" } },
+      terms: { orderBy: { sortOrder: "asc" } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
+      broker: { select: { id: true, name: true, phone: true, agency: true } },
+    },
+  });
+  if (!sale) throw new ServiceError("Sale not found", 404);
+
+  // landParcel is now eagerly loaded via the AssetSale.landParcel relation
+  const landParcel = sale.landParcel;
+
+  // For PROJECT sales, fetch all units
+  let projectUnits: { id: string; unitNumber: string; unitType: string; area: Decimal; areaUnit: string }[] = [];
+  if (sale.assetType === "PROJECT" && sale.projectId) {
+    projectUnits = await prisma.builtUnit.findMany({
+      where: { projectId: sale.projectId, deletedAt: null },
+      select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
+      orderBy: { unitNumber: "asc" },
+    });
+  }
+
+  return { sale, landParcel, projectUnits };
 }

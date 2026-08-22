@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { postPaymentReceived } from "./gl-posting";
 import { ServiceError } from "./errors";
 
 /**
@@ -33,6 +34,7 @@ export type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "HOT";
 export interface CreateLeadInput {
   companyId: string;
   projectId?: string;
+  interestedUnitId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -44,7 +46,56 @@ export interface CreateLeadInput {
   interestedUnitType?: string;
   notes?: string;
   assignedToId?: string;
+  nextFollowUpAt?: Date;
   userId?: string;
+}
+
+export interface LeadScoreInput {
+  source: LeadSource;
+  priority: LeadPriority;
+  hasBudget: boolean;
+  hasProject: boolean;
+  hasInterestedUnit: boolean;
+  activityCount: number;
+  hasSiteVisit: boolean;
+}
+
+const LEAD_TRANSITIONS: Record<LeadStage, LeadStage[]> = {
+  NEW: ["CONTACTED", "LOST"],
+  CONTACTED: ["SITE_VISIT", "NEGOTIATION", "LOST"],
+  SITE_VISIT: ["NEGOTIATION", "BOOKED", "LOST"],
+  NEGOTIATION: ["SITE_VISIT", "BOOKED", "LOST"],
+  BOOKED: [],
+  LOST: ["CONTACTED"],
+};
+
+export function computeLeadScore(input: LeadScoreInput): number {
+  const sourceScore: Record<LeadSource, number> = {
+    WALK_IN: 20,
+    REFERRAL: 18,
+    BROKER: 15,
+    PORTAL: 12,
+    DIGITAL_AD: 8,
+    OTHER: 5,
+  };
+  const priorityScore: Record<LeadPriority, number> = {
+    LOW: 0,
+    MEDIUM: 8,
+    HIGH: 16,
+    HOT: 25,
+  };
+  const score = sourceScore[input.source]
+    + priorityScore[input.priority]
+    + (input.hasBudget ? 10 : 0)
+    + (input.hasProject ? 8 : 0)
+    + (input.hasInterestedUnit ? 10 : 0)
+    + Math.min(20, input.activityCount * 4)
+    + (input.hasSiteVisit ? 15 : 0);
+  return Math.min(100, score);
+}
+
+export function isLeadStageTransitionAllowed(from: LeadStage, to: LeadStage): boolean {
+  return from === to || LEAD_TRANSITIONS[from].includes(to);
 }
 
 /**
@@ -53,35 +104,330 @@ export interface CreateLeadInput {
  */
 export async function createLead(input: CreateLeadInput) {
   return prisma.$transaction(async (tx) => {
-    // Check if a customer with this phone already exists in this company
-    const existing = await tx.customer.findFirst({
-      where: { phone: input.phone, companyId: input.companyId, deletedAt: null },
+    const phone = input.phone.trim();
+    if (!phone) throw new ServiceError("Phone number is required", 400);
+
+    const duplicate = await tx.lead.findFirst({
+      where: {
+        companyId: input.companyId,
+        phone,
+        deletedAt: null,
+        stage: { notIn: ["BOOKED", "LOST"] },
+      },
     });
-    if (existing) {
-      throw new ServiceError("A customer with this phone number already exists", 409);
+    if (duplicate) throw new ServiceError("An open lead with this phone number already exists", 409);
+
+    if (input.projectId) {
+      const project = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!project) throw new ServiceError("Project not found", 404);
     }
 
-    const customer = await tx.customer.create({
+    if (input.interestedUnitId) {
+      const unit = await tx.builtUnit.findFirst({
+        where: {
+          id: input.interestedUnitId,
+          deletedAt: null,
+          project: { companyId: input.companyId, deletedAt: null },
+        },
+        select: { id: true, projectId: true },
+      });
+      if (!unit) throw new ServiceError("Interested unit not found", 404);
+      if (input.projectId && unit.projectId !== input.projectId) {
+        throw new ServiceError("Interested unit does not belong to the selected project", 400);
+      }
+    }
+
+    if (input.assignedToId) {
+      const membership = await tx.userCompany.findFirst({
+        where: { userId: input.assignedToId, companyId: input.companyId },
+        select: { id: true },
+      });
+      if (!membership) throw new ServiceError("Assignee is not a member of this company", 400);
+    }
+
+    const priority = input.priority ?? "MEDIUM";
+    const score = computeLeadScore({
+      source: input.source,
+      priority,
+      hasBudget: input.budgetMin != null || input.budgetMax != null,
+      hasProject: Boolean(input.projectId),
+      hasInterestedUnit: Boolean(input.interestedUnitId),
+      activityCount: 0,
+      hasSiteVisit: false,
+    });
+
+    const lead = await tx.lead.create({
       data: {
-        name: input.name,
-        phone: input.phone,
-        email: input.email ?? null,
-        address: null,
         companyId: input.companyId,
+        projectId: input.projectId ?? null,
+        interestedUnitId: input.interestedUnitId ?? null,
+        assignedToId: input.assignedToId ?? null,
+        name: input.name.trim(),
+        phone,
+        email: input.email?.trim() || null,
+        source: input.source,
+        stage: input.stage ?? "NEW",
+        priority,
+        score,
+        budgetMin: input.budgetMin != null ? new Decimal(input.budgetMin) : null,
+        budgetMax: input.budgetMax != null ? new Decimal(input.budgetMax) : null,
+        interestedUnitType: input.interestedUnitType?.trim() || null,
+        notes: input.notes?.trim() || null,
+        nextFollowUpAt: input.nextFollowUpAt ?? null,
       },
     });
 
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
+        companyId: input.companyId,
         action: "LEAD_CREATE",
-        entityType: "Customer",
-        entityId: customer.id,
-        after: { name: input.name, phone: input.phone, source: input.source },
+        entityType: "Lead",
+        entityId: lead.id,
+        after: { name: lead.name, phone: lead.phone, source: lead.source, stage: lead.stage, score },
       });
     }
 
-    return customer;
+    return lead;
+  });
+}
+
+export type LeadActivityType = "CALL" | "EMAIL" | "WHATSAPP" | "MEETING" | "SITE_VISIT" | "NOTE" | "STAGE_CHANGE";
+
+export interface RecordLeadActivityInput {
+  leadId: string;
+  companyId: string;
+  type: LeadActivityType;
+  note?: string;
+  outcome?: string;
+  occurredAt?: Date;
+  nextFollowUpAt?: Date;
+  userId?: string;
+}
+
+export async function recordLeadActivity(input: RecordLeadActivityInput) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findFirst({
+      where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
+      include: { activities: { select: { type: true } } },
+    });
+    if (!lead) throw new ServiceError("Lead not found", 404);
+    if (lead.stage === "BOOKED") throw new ServiceError("Booked leads cannot receive new pre-sales activities", 409);
+
+    const activity = await tx.leadActivity.create({
+      data: {
+        leadId: lead.id,
+        type: input.type,
+        note: input.note?.trim() || null,
+        outcome: input.outcome?.trim() || null,
+        occurredAt: input.occurredAt ?? new Date(),
+        nextFollowUpAt: input.nextFollowUpAt ?? null,
+        createdById: input.userId ?? null,
+      },
+    });
+
+    const activityCount = lead.activities.length + 1;
+    const hasSiteVisit = input.type === "SITE_VISIT" || lead.activities.some((item) => item.type === "SITE_VISIT");
+    const score = computeLeadScore({
+      source: lead.source,
+      priority: lead.priority,
+      hasBudget: lead.budgetMin != null || lead.budgetMax != null,
+      hasProject: Boolean(lead.projectId),
+      hasInterestedUnit: Boolean(lead.interestedUnitId),
+      activityCount,
+      hasSiteVisit,
+    });
+
+    await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        score,
+        lastContactAt: input.type === "NOTE" ? lead.lastContactAt : activity.occurredAt,
+        nextFollowUpAt: input.nextFollowUpAt ?? lead.nextFollowUpAt,
+      },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "LEAD_ACTIVITY_CREATE",
+        entityType: "Lead",
+        entityId: lead.id,
+        after: { type: input.type, outcome: activity.outcome, nextFollowUpAt: activity.nextFollowUpAt, score },
+      });
+    }
+
+    return { activity, score };
+  });
+}
+
+export interface UpdateLeadStageInput {
+  leadId: string;
+  companyId: string;
+  stage: LeadStage;
+  lostReason?: string;
+  nextFollowUpAt?: Date;
+  userId?: string;
+}
+
+export async function updateLeadStage(input: UpdateLeadStageInput) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findFirst({
+      where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
+    });
+    if (!lead) throw new ServiceError("Lead not found", 404);
+    if (input.stage === "BOOKED") throw new ServiceError("Use Convert & book to complete this lead", 400);
+    if (!isLeadStageTransitionAllowed(lead.stage, input.stage)) {
+      throw new ServiceError(`Cannot move lead from ${lead.stage} to ${input.stage}`, 409);
+    }
+    if (input.stage === "LOST" && !input.lostReason?.trim()) {
+      throw new ServiceError("A reason is required when marking a lead lost", 400);
+    }
+
+    const updated = await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        stage: input.stage,
+        lostReason: input.stage === "LOST" ? input.lostReason!.trim() : null,
+        nextFollowUpAt: input.stage === "LOST" ? null : input.nextFollowUpAt ?? lead.nextFollowUpAt,
+      },
+    });
+
+    if (lead.stage !== input.stage) {
+      await tx.leadActivity.create({
+        data: {
+          leadId: lead.id,
+          type: "STAGE_CHANGE",
+          note: `${lead.stage} → ${input.stage}`,
+          nextFollowUpAt: input.nextFollowUpAt ?? null,
+          createdById: input.userId ?? null,
+        },
+      });
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "LEAD_STAGE_CHANGE",
+        entityType: "Lead",
+        entityId: lead.id,
+        before: { stage: lead.stage },
+        after: { stage: updated.stage, lostReason: updated.lostReason },
+      });
+    }
+
+    return updated;
+  });
+}
+
+export interface ConvertLeadInput {
+  leadId: string;
+  companyId: string;
+  userId?: string;
+}
+
+export async function convertLeadToCustomer(input: ConvertLeadInput) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findFirst({
+      where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
+    });
+    if (!lead) throw new ServiceError("Lead not found", 404);
+    if (lead.stage === "BOOKED" && lead.convertedCustomerId) {
+      const customer = await tx.customer.findUnique({ where: { id: lead.convertedCustomerId } });
+      if (!customer) throw new ServiceError("Converted customer not found", 404);
+      return { lead, customer };
+    }
+    if (!isLeadStageTransitionAllowed(lead.stage, "BOOKED")) {
+      throw new ServiceError("Complete a site visit or move the lead into negotiation before booking", 409);
+    }
+
+    const existingCustomer = await tx.customer.findFirst({
+      where: { companyId: input.companyId, phone: lead.phone },
+    });
+    const customer = existingCustomer
+      ? await tx.customer.update({
+          where: { id: existingCustomer.id },
+          data: {
+            name: lead.name,
+            email: lead.email ?? existingCustomer.email,
+            deletedAt: null,
+            version: { increment: 1 },
+          },
+        })
+      : await tx.customer.create({
+          data: {
+            companyId: input.companyId,
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+          },
+        });
+
+    const updatedLead = await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        stage: "BOOKED",
+        convertedCustomerId: customer.id,
+        convertedAt: new Date(),
+        nextFollowUpAt: null,
+      },
+    });
+
+    await tx.leadActivity.create({
+      data: {
+        leadId: lead.id,
+        type: "STAGE_CHANGE",
+        note: `${lead.stage} → BOOKED`,
+        outcome: `Converted to customer ${customer.name}`,
+        createdById: input.userId ?? null,
+      },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "LEAD_CONVERT",
+        entityType: "Lead",
+        entityId: lead.id,
+        before: { stage: lead.stage },
+        after: { stage: "BOOKED", customerId: customer.id },
+      });
+    }
+
+    return { lead: updatedLead, customer };
+  });
+}
+
+export async function deleteLead(input: { leadId: string; companyId: string; userId?: string }) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findFirst({
+      where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
+    });
+    if (!lead) throw new ServiceError("Lead not found", 404);
+    if (lead.convertedCustomerId) {
+      throw new ServiceError("Cannot delete a converted lead — archive the linked customer instead", 409);
+    }
+    const updated = await tx.lead.update({
+      where: { id: lead.id },
+      data: { deletedAt: new Date() },
+    });
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "LEAD_DELETE",
+        entityType: "Lead",
+        entityId: lead.id,
+        before: { name: lead.name, stage: lead.stage },
+      });
+    }
+    return updated;
   });
 }
 
@@ -145,10 +491,13 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
     // Compute GST split for real estate
     // For residential: 1/3 of price is land (exempt), 2/3 is construction (taxable)
     // For commercial: full price is taxable at 18%
-    const project = await tx.project.findUnique({
-      where: { id: sale.projectId },
-      select: { type: true },
-    });
+    // Standalone land sales (no project) default to commercial-rate GST.
+    const project = sale.projectId
+      ? await tx.project.findUnique({
+          where: { id: sale.projectId },
+          select: { type: true },
+        })
+      : null;
     const isResidential = project?.type === "RESIDENTIAL";
     const gstRate = isResidential ? new Decimal(5) : new Decimal(18);
     const taxablePortion = isResidential ? new Decimal(2).div(3) : new Decimal(1);
@@ -292,7 +641,7 @@ export async function recordSchedulePayment(
 
     // Create AssetSalePayment
     const sale = item.paymentSchedule.assetSale;
-    await tx.assetSalePayment.create({
+    const payment = await tx.assetSalePayment.create({
       data: {
         assetSaleId: sale.id,
         amount: payAmount.toString(),
@@ -300,6 +649,15 @@ export async function recordSchedulePayment(
         mode: paymentMode ?? "BANK_TRANSFER",
         reference: `Installment ${item.installmentNo}: ${item.description}`,
       },
+    });
+
+    // Post GL entry: Dr Cash, Cr AR (reduces the receivable created by postAssetSale)
+    await postPaymentReceived(tx, {
+      companyId: sale.companyId,
+      assetSaleId: sale.id,
+      paymentId: payment.id,
+      amount: payAmount,
+      postedById: userId,
     });
 
     // Update sale payment status

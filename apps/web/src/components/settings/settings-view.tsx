@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug } from "lucide-react";
@@ -13,6 +13,8 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
@@ -165,6 +167,10 @@ export function SettingsView({
   const [locForm, setLocForm] = useState({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "" });
   const [savingLoc, setSavingLoc] = useState(false);
   const [deletingLoc, setDeletingLoc] = useState<StockLocationRow | null>(null);
+
+  // Local copy of projects so freshly created ones appear without a refresh
+  const [localProjects, setLocalProjects] = useState(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   async function saveCompany(e: React.FormEvent) {
     e.preventDefault();
@@ -352,10 +358,16 @@ export function SettingsView({
               {locForm.type === "PROJECT_SITE" && (
                 <div className="space-y-1.5">
                   <Label>Project</Label>
-                  <Select value={locForm.projectId} onChange={(e) => setLocForm((f) => ({ ...f, projectId: e.target.value }))}>
-                    <option value="">Select project…</option>
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </Select>
+                  <SelectWithCreate
+                    value={locForm.projectId}
+                    onChange={(v) => setLocForm((f) => ({ ...f, projectId: v }))}
+                    placeholder="Select project…"
+                    createLabel="project"
+                    options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                    renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                      <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                    )}
+                  />
                 </div>
               )}
               <div className="space-y-1.5">
@@ -609,7 +621,7 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
   const [saving, setSaving] = useState<string | null>(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [addEmail, setAddEmail] = useState("");
-  const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "MANAGER");
+  const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
   const [adding, setAdding] = useState(false);
 
   const assignable = assignableRoles(actorRole);
@@ -689,10 +701,17 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
     switch (role) {
       case "OWNER": return "warning";
       case "ADMIN": return "danger";
-      case "MANAGER": return "default";
-      case "SUPERVISOR": return "outline";
-      case "SALES": return "success";
+      case "PROJECT_DIRECTOR": return "default";
+      case "FINANCE_HEAD": return "default";
+      case "PROJECT_MANAGER": return "default";
+      case "PROCUREMENT_MANAGER": return "default";
+      case "HR_MANAGER": return "default";
+      case "SITE_ENGINEER": return "outline";
+      case "STORE_KEEPER": return "outline";
       case "ACCOUNTANT": return "muted";
+      case "SALES_MANAGER": return "success";
+      case "SUPERVISOR": return "outline";
+      case "QAQC_ENGINEER": return "outline";
       default: return "outline";
     }
   };

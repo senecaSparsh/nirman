@@ -149,14 +149,6 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <History className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-section font-semibold">Audit Trail</h1>
-        <span className="text-caption text-muted-foreground">
-          System-wide activity log
-        </span>
-      </div>
-
       {/* Filters */}
       <Card>
         <CardContent className="p-4">

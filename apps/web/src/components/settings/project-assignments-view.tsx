@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatDate } from "@/lib/utils";
 
 export type AssignmentRow = {
@@ -53,6 +55,8 @@ export function ProjectAssignmentsView({
   const [fUser, setFUser] = useState("");
   const [fProject, setFProject] = useState("");
   const [fScopedRole, setFScopedRole] = useState("SUPERVISOR");
+  const [localProjects, setLocalProjects] = useState(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
 
   async function submit() {
     if (!fUser) return toast.error("Select a user");
@@ -158,20 +162,29 @@ export function ProjectAssignmentsView({
           </div>
           <div>
             <Label>Project *</Label>
-            <Select value={fProject} onChange={(e) => setFProject(e.target.value)}>
-              <option value="">Select project…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={fProject}
+              onChange={setFProject}
+              placeholder="Select project…"
+              createLabel="project"
+              options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+              )}
+            />
           </div>
           <div>
             <Label>Scoped role</Label>
             <Select value={fScopedRole} onChange={(e) => setFScopedRole(e.target.value)}>
               <option value="SUPERVISOR">Supervisor</option>
-              <option value="SALES">Sales</option>
+              <option value="QAQC_ENGINEER">QA/QC Engineer</option>
+              <option value="SITE_ENGINEER">Site Engineer</option>
+              <option value="STORE_KEEPER">Store Keeper</option>
+              <option value="SALES_MANAGER">Sales Manager</option>
               <option value="ACCOUNTANT">Accountant</option>
-              <option value="MANAGER">Manager</option>
+              <option value="PROJECT_MANAGER">Project Manager</option>
+              <option value="PROCUREMENT_MANAGER">Procurement Manager</option>
+              <option value="HR_MANAGER">HR Manager</option>
             </Select>
             <p className="mt-1 text-caption text-muted-foreground">
               The role the user acts as within this project. OWNER/ADMIN see all projects regardless.

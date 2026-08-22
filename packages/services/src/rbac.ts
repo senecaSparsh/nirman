@@ -3,21 +3,22 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 
 /**
- * Hierarchical RBAC Service — the Admin → Sub-Admin → Sub-Sub-Admin
- * delegation hierarchy from the owner's system map.
+ * Hierarchical RBAC Service — the 5-tier delegation hierarchy.
  *
- * The three tiers map onto the existing role set:
- *   Admin         = OWNER / ADMIN   (scopeType COMPANY — unscoped, sees all)
- *   Sub-Admin     = MANAGER          (scopeType DEPARTMENT — sees their depts)
- *   Sub-Sub-Admin = SUPERVISOR       (scopeType PROJECT — sees their sites)
+ * The five tiers map onto the 13-role set:
+ *   Tier 1 — Executive:     OWNER / ADMIN (scopeType COMPANY — unscoped, sees all)
+ *   Tier 2 — Senior Mgmt:   PROJECT_DIRECTOR / FINANCE_HEAD (DEPARTMENT)
+ *   Tier 3 — Middle Mgmt:   PROJECT_MANAGER / PROCUREMENT_MANAGER / HR_MANAGER (DEPARTMENT)
+ *   Tier 4 — Execution:     SITE_ENGINEER / STORE_KEEPER / ACCOUNTANT / SALES_MANAGER (PROJECT)
+ *   Tier 5 — Field:         SUPERVISOR / QAQC_ENGINEER (PROJECT)
  *
- * The reporting line is per company-membership: a Sub-Sub-Admin in company X
- * reports to a Sub-Admin in the same company, who may report up to an Admin.
+ * The reporting line is per company-membership: a Tier 5 in company X
+ * reports to a Tier 4 in the same company, who may report up to Tier 3, etc.
  * `UserCompany.reportsToUserCompanyId` is the self-relation that encodes this.
  *
  * Scope is a join table (`UserScope`) so one membership can hold multiple
- * scopes — a Sub-Admin managing departments A *and* B has two rows; a
- * Sub-Sub-Admin on sites P1 *and* P2 has two rows. COMPANY-scoped memberships
+ * scopes — a Tier 3 managing departments A *and* B has two rows; a
+ * Tier 4 on sites P1 *and* P2 has two rows. COMPANY-scoped memberships
  * have no scope rows (unscoped = everything in the company).
  *
  * Every mutation runs inside a transaction that appends an AuditLog row.
@@ -46,12 +47,23 @@ export function defaultScopeType(role: string): ScopeType {
     case "OWNER":
     case "ADMIN":
       return "COMPANY";
-    case "MANAGER":
-      return "COMPANY"; // regional heads opt into DEPARTMENT explicitly
+    case "PROJECT_DIRECTOR":
+    case "FINANCE_HEAD":
+      return "COMPANY"; // senior management — company-wide by default
+    case "PROJECT_MANAGER":
+    case "PROCUREMENT_MANAGER":
+    case "HR_MANAGER":
+      return "COMPANY"; // middle management opt into DEPARTMENT explicitly
+    case "SITE_ENGINEER":
+    case "STORE_KEEPER":
     case "SUPERVISOR":
-      return "PROJECT";
+    case "QAQC_ENGINEER":
+      return "PROJECT"; // field/execution roles are project-scoped
+    case "ACCOUNTANT":
+    case "SALES_MANAGER":
+      return "COMPANY"; // accountant/sales default to company-wide
     default:
-      return "COMPANY"; // SALES / ACCOUNTANT default to company-wide
+      return "COMPANY";
   }
 }
 
@@ -215,20 +227,26 @@ export interface AssignScopeInput {
 }
 
 // ── Role hierarchy (mirrors roles.ts in the web app) ──
-// Tier 1 = OWNER/ADMIN (Admin), Tier 2 = MANAGER (Sub-Admin),
-// Tier 3 = SUPERVISOR/SALES/ACCOUNTANT (Sub-Sub-Admin).
-// A role can only assign roles STRICTLY below its own tier.
+// 5-tier delegation hierarchy. A role can only assign roles STRICTLY below
+// its own tier (with the T1 OWNER↔ADMIN exception for same-tier cross-assign).
 const SVC_ROLE_TIER: Record<string, number> = {
   OWNER: 1,
   ADMIN: 1,
-  MANAGER: 2,
-  SUPERVISOR: 3,
-  SALES: 3,
-  ACCOUNTANT: 3,
+  PROJECT_DIRECTOR: 2,
+  FINANCE_HEAD: 2,
+  PROJECT_MANAGER: 3,
+  PROCUREMENT_MANAGER: 3,
+  HR_MANAGER: 3,
+  SITE_ENGINEER: 4,
+  STORE_KEEPER: 4,
+  ACCOUNTANT: 4,
+  SALES_MANAGER: 4,
+  SUPERVISOR: 5,
+  QAQC_ENGINEER: 5,
 };
 
 function svcRoleTier(role: string): number {
-  return SVC_ROLE_TIER[role] ?? 3;
+  return SVC_ROLE_TIER[role] ?? 5;
 }
 
 /** Exported for unit testing — mirrors canAssignRole in the web app's roles.ts. */
@@ -239,10 +257,11 @@ export function _svcCanAssignRole(actorRole: string, targetRole: string): boolea
 function svcCanAssignRole(actorRole: string, targetRole: string): boolean {
   const actorTier = svcRoleTier(actorRole);
   const targetTier = svcRoleTier(targetRole);
-  if (actorTier >= 3) return false;
+  if (actorTier >= 5) return false; // Tier 5 can't assign anyone
   if (actorRole === targetRole) return false; // no self-cloning
   if (actorTier < targetTier) return true; // strictly below
-  if (actorTier === targetTier && actorRole !== targetRole) return true; // same tier, different role (OWNER↔ADMIN)
+  // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN)
+  if (actorTier === 1 && actorTier === targetTier && actorRole !== targetRole) return true;
   return false;
 }
 

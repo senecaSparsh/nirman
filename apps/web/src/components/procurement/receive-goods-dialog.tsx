@@ -17,12 +17,15 @@ type RecvLine = {
   materialId: string;
   materialName: string;
   unit: string;
+  baseUnit: string;
+  uomConversionFactor: number | null;
   qtyOrdered: number;
   qtyReceived: number;
   remaining: number;
   defaultCost: number;
   qtyToReceive: string;
   unitCost: string;
+  weightReceived: string;
 };
 
 /** Column definitions for the receive-goods editable grid. */
@@ -46,6 +49,17 @@ const recvColumns: EditableColumn<RecvLine>[] = [
     type: "readonly",
     align: "right",
     format: (v) => formatNumber(v as number, 3),
+  },
+  {
+    key: "weightReceived",
+    label: "Weight (KG)",
+    type: "number",
+    align: "right",
+    step: "0.001",
+    min: 0,
+    placeholder: "—",
+    width: "100px",
+    format: (v) => v ? formatNumber(Number(v), 3) : "",
   },
   {
     key: "qtyToReceive",
@@ -105,19 +119,50 @@ export function ReceiveGoodsDialog({
             materialId: l.materialId,
             materialName: l.materialName,
             unit: l.unit,
+            baseUnit: l.baseUnit,
+            uomConversionFactor: l.uomConversionFactor,
             qtyOrdered: l.qtyOrdered,
             qtyReceived: l.qtyReceived,
             remaining: l.remaining,
             defaultCost: l.unitCost,
             qtyToReceive: "",
             unitCost: String(l.unitCost),
+            weightReceived: "",
           })),
       );
     }
   }
 
   function updateLine(lineId: string, patch: Partial<RecvLine>) {
-    setLines((ls) => ls.map((l) => (l.lineId === lineId ? { ...l, ...patch } : l)));
+    setLines((ls) =>
+      ls.map((l) => {
+        if (l.lineId !== lineId) return l;
+        const next = { ...l, ...patch };
+        // Auto-calculate qty from weight when conversion factor exists
+        if (patch.weightReceived !== undefined && l.uomConversionFactor && l.uomConversionFactor > 0) {
+          const wt = Number(patch.weightReceived);
+          if (wt > 0) {
+            next.qtyToReceive = (wt / l.uomConversionFactor).toFixed(3);
+          } else if (patch.weightReceived === "") {
+            next.qtyToReceive = "";
+          }
+        }
+        return next;
+      }),
+    );
+  }
+
+  // Intercept grid changes to auto-calc qty from weight
+  function handleGridChange(newRows: RecvLine[]) {
+    setLines(newRows.map((r) => {
+      if (r.uomConversionFactor && r.uomConversionFactor > 0 && r.weightReceived) {
+        const wt = Number(r.weightReceived);
+        if (wt > 0) {
+          return { ...r, qtyToReceive: (wt / r.uomConversionFactor).toFixed(3) };
+        }
+      }
+      return r;
+    }));
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -202,16 +247,39 @@ export function ReceiveGoodsDialog({
       ) : (
         <form onSubmit={onSubmit} className="space-y-3" onFocus={ensureLines}>
           {lines.length > 0 && (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <EditableGrid
-                rows={lines}
-                onChange={setLines}
-                columns={recvColumns}
-                getRowId={(r) => r.lineId}
-                sumColumns={["qtyToReceive", "lineTotal"]}
-                className="max-h-[50vh]"
-              />
-            </div>
+            <>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setLines((ls) => ls.map((l) => ({
+                      ...l,
+                      qtyToReceive: l.remaining > 0 ? String(l.remaining) : "",
+                    })));
+                    toast.success("Filled all remaining quantities");
+                  }}
+                >
+                  Receive All Remaining
+                </Button>
+              </div>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <EditableGrid
+                  rows={lines}
+                  onChange={handleGridChange}
+                  columns={recvColumns}
+                  getRowId={(r) => r.lineId}
+                  sumColumns={["qtyToReceive", "lineTotal"]}
+                  className="max-h-[50vh]"
+                />
+              </div>
+              {lines.some((l) => l.uomConversionFactor && l.uomConversionFactor > 0) && (
+                <p className="text-xs text-muted-foreground">
+                  💡 Enter weight in the "Weight" column — qty auto-calculates from the material's UOM conversion factor (e.g., 5000 KG ÷ 50 = 100 BAG).
+                </p>
+              )}
+            </>
           )}
           <div className="space-y-1.5">
             <Label>GRN notes</Label>

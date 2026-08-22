@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { formatNumber } from "@/lib/utils";
-import type { AvailableStockRow, StockLocationRow } from "@/lib/types";
+import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
 
 type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
 
@@ -23,11 +25,13 @@ export function TransferFormDialog({
   open,
   onOpenChange,
   locations,
+  projects,
   defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locations: StockLocationRow[];
+  projects: ProjectOption[];
   /** Pre-fill fields (e.g. { fromLocationId: "abc" } when scoped to a location node). */
   defaults?: { fromLocationId?: string };
 }) {
@@ -41,6 +45,10 @@ export function TransferFormDialog({
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState<AvailableStockRow[]>([]);
+  // Local copy so a freshly created location appears in both dropdowns without
+  // waiting for router.refresh.
+  const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
 
   // Apply defaults when the dialog opens
   useEffect(() => {
@@ -59,7 +67,7 @@ export function TransferFormDialog({
       .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
   }, [fromLocationId]);
 
-  const otherLocations = locations.filter((l) => l.id !== fromLocationId);
+  const otherLocations = localLocations.filter((l) => l.id !== fromLocationId);
 
   // Build material options from available stock
   const stockOptions = useMemo(
@@ -118,14 +126,14 @@ export function TransferFormDialog({
   // Group locations by company for the dropdowns. Source stays the current
   // company; destinations span the whole company group (siblings/children/parent)
   // so inter-company Stock Transfer Orders (STOs) are reachable from the UI.
-  const fromLocations = locations; // source = current company (first in list)
-  const fromLocation = locations.find((l) => l.id === fromLocationId);
-  const toLocation = locations.find((l) => l.id === toLocationId);
+  const fromLocations = localLocations; // source = current company (first in list)
+  const fromLocation = localLocations.find((l) => l.id === fromLocationId);
+  const toLocation = localLocations.find((l) => l.id === toLocationId);
   const isInterCompany = !!fromLocation && !!toLocation && fromLocation.companyId !== toLocation.companyId;
 
   // Build <optgroup> per company, preserving the order locations arrive in.
-  const groupByCompany = (locs: typeof locations) => {
-    const groups = new Map<string, { companyName: string; items: typeof locations }>();
+  const groupByCompany = (locs: typeof localLocations) => {
+    const groups = new Map<string, { companyName: string; items: typeof localLocations }>();
     for (const l of locs) {
       const g = groups.get(l.companyId) ?? { companyName: l.companyName, items: [] };
       g.items.push(l);
@@ -133,6 +141,17 @@ export function TransferFormDialog({
     }
     return [...groups.values()];
   };
+
+  // Convert grouped locations into the SelectWithCreate `groups` shape.
+  const locTypeTag = (l: StockLocationRow) => l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "DEPARTMENT" ? "Dept" : "Site";
+  const fromGroups = groupByCompany(fromLocations).map((g) => ({
+    label: g.companyName,
+    options: g.items.map((l) => ({ value: l.id, label: `${l.name} (${locTypeTag(l)})` })),
+  }));
+  const toGroups = groupByCompany(otherLocations).map((g) => ({
+    label: g.companyName,
+    options: g.items.map((l) => ({ value: l.id, label: `${l.name} (${locTypeTag(l)})` })),
+  }));
 
   function addLine() {
     setLines((ls) => [...ls, newLine()]);
@@ -194,28 +213,31 @@ export function TransferFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="From Location" required>
-            <Select value={fromLocationId} onChange={(e) => { setFromLocationId(e.target.value); setLines([newLine()]); }} required>
-              <option value="" disabled>Select source…</option>
-              {groupByCompany(fromLocations).map((g) => (
-                <optgroup key={g.companyName} label={g.companyName}>
-                  {g.items.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "DEPARTMENT" ? "Dept" : "Site"})</option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={fromLocationId}
+              onChange={(v) => { setFromLocationId(v); setLines([newLine()]); }}
+              required
+              placeholder="Select source…"
+              createLabel="location"
+              groups={fromGroups}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={projects} location={null} />
+              )}
+            />
           </Field>
           <Field label="To Location" required>
-            <Select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} required disabled={!fromLocationId}>
-              <option value="" disabled>Select destination…</option>
-              {groupByCompany(otherLocations).map((g) => (
-                <optgroup key={g.companyName} label={g.companyName}>
-                  {g.items.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name} ({l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "DEPARTMENT" ? "Dept" : "Site"})</option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={toLocationId}
+              onChange={setToLocationId}
+              required
+              disabled={!fromLocationId}
+              placeholder="Select destination…"
+              createLabel="location"
+              groups={toGroups}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={projects} location={null} />
+              )}
+            />
           </Field>
         </div>
 

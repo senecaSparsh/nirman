@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Plus, Trash2, Loader2, ChevronLeft, CheckCircle2,
+  Plus, Trash2, Loader2, CheckCircle2,
   Search, X, ChevronRight, Truck, Building2, Package, MapPin,
   Send, Calendar, WifiOff,
 } from "lucide-react";
@@ -13,17 +13,23 @@ import { toast } from "sonner";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 interface SupplierItem { id: string; name: string; phone?: string | null; }
 interface ProjectItem { id: string; name: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; gstRate: number; }
 interface LocationItem { id: string; name: string; type: string; projectId: string | null; }
+interface CategoryItem { id: string; name: string; unit: string; }
 
 interface FormData {
   suppliers: SupplierItem[];
   projects: ProjectItem[];
   materials: MaterialItem[];
   locations: LocationItem[];
+  categories: CategoryItem[];
 }
 
 interface PoLine {
@@ -31,6 +37,12 @@ interface PoLine {
   qty: string;
   unitCost: string;
   gstRate: string;
+}
+
+interface PoCharge {
+  heading: string;
+  amount: string;
+  notes: string;
 }
 
 type Scope = "COMPANY" | "PROJECT";
@@ -43,12 +55,17 @@ interface PoDraft {
   expectedDate: string;
   notes: string;
   lines: PoLine[];
+  charges: PoCharge[];
 }
 
 export default function MobileNewProcurementClient({ data }: { data: FormData }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
-  const { suppliers, projects, materials, locations } = data;
+  const { categories } = data;
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>(data.suppliers);
+  const [projects, setProjects] = useState<ProjectItem[]>(data.projects);
+  const [materials, setMaterials] = useState<MaterialItem[]>(data.materials);
+  const [locations, setLocations] = useState<LocationItem[]>(data.locations);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -61,8 +78,11 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   const [lines, setLines] = useState<PoLine[]>(
     [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }],
   );
+  const [charges, setCharges] = useState<PoCharge[]>([]);
 
   const [success, setSuccess] = useState<{ poNumber: string; total: number } | null>(null);
+  // Track last-purchase-price source per line for the "auto-filled from last PO" hint
+  const [lastPriceHint, setLastPriceHint] = useState<Record<number, { poNumber: string; date: string } | null>>({});
 
   // Draft auto-save
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<PoDraft>(
@@ -89,8 +109,8 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   // Auto-save draft
   useEffect(() => {
     if (success) return;
-    saveDraft({ supplierId, scope, projectId, destinationLocationId: locationId, expectedDate, notes, lines });
-  }, [supplierId, scope, projectId, locationId, expectedDate, notes, lines, success, saveDraft]);
+    saveDraft({ supplierId, scope, projectId, destinationLocationId: locationId, expectedDate, notes, lines, charges });
+  }, [supplierId, scope, projectId, locationId, expectedDate, notes, lines, charges, success, saveDraft]);
 
   function restoreDraftState() {
     if (!draft) return;
@@ -101,6 +121,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     setExpectedDate(draft.expectedDate);
     setNotes(draft.notes);
     setLines(draft.lines);
+    if (draft.charges) setCharges(draft.charges);
     setDraftRestored(true);
   }
 
@@ -117,6 +138,41 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     const updated = [...lines];
     updated[index] = { ...updated[index]!, [field]: val };
     setLines(updated);
+
+    // When material changes, auto-fill unit cost from last purchase price
+    // and GST rate from the material master.
+    if (field === "materialId" && val) {
+      const mat = materials.find((m) => m.id === val);
+      if (mat) {
+        // Auto-fill GST rate from material master
+        updated[index] = { ...updated[index]!, gstRate: String(mat.gstRate ?? 0) };
+        setLines([...updated]);
+        // Clear previous hint for this line
+        setLastPriceHint((prev) => ({ ...prev, [index]: null }));
+        // Fetch last purchase price (async, doesn't block)
+        fetch(`/api/materials/${val}/last-purchase`)
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => {
+            if (data && data.unitCost > 0) {
+              setLines((prev) => {
+                const next = [...prev];
+                if (next[index] && next[index]!.materialId === val && !next[index]!.unitCost) {
+                  next[index] = { ...next[index]!, unitCost: String(data.unitCost) };
+                  // Record hint if source is a receipt
+                  if (data.source === "receipt" && data.poNumber) {
+                    setLastPriceHint((h) => ({
+                      ...h,
+                      [index]: { poNumber: data.poNumber, date: data.date },
+                    }));
+                  }
+                }
+                return next;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    }
   };
 
   const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0), 0);
@@ -124,7 +180,8 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     const rate = Number(l.gstRate) || 0;
     return s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0) * rate / 100;
   }, 0);
-  const total = subtotal + gstTotal;
+  const miscChargesTotal = charges.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const total = subtotal + gstTotal + miscChargesTotal;
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
   const selectedProject = projects.find((p) => p.id === projectId);
@@ -153,6 +210,9 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
           unitCost: Number(l.unitCost),
           gstRate: Number(l.gstRate) || 0,
         })),
+        charges: charges
+          .filter((c) => c.heading.trim() && Number(c.amount) > 0)
+          .map((c) => ({ heading: c.heading.trim(), amount: Number(c.amount), notes: c.notes.trim() || null })),
       };
 
       // Offline: queue for later sync
@@ -229,6 +289,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             onClick={() => {
               setSuccess(null);
               setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
+              setCharges([]);
               setNotes("");
               setExpectedDate("");
             }}
@@ -289,6 +350,11 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       projects={projects}
       materials={materials}
       availableLocations={availableLocations}
+      categories={categories}
+      setSuppliers={setSuppliers}
+      setProjects={setProjects}
+      setMaterials={setMaterials}
+      setLocations={setLocations}
       supplierId={supplierId}
       setSupplierId={setSupplierId}
       scope={scope}
@@ -310,10 +376,14 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       online={online}
       subtotal={subtotal}
       gstTotal={gstTotal}
+      miscChargesTotal={miscChargesTotal}
       total={total}
       selectedSupplier={selectedSupplier}
       selectedProject={selectedProject}
       selectedLocation={selectedLocation}
+      lastPriceHint={lastPriceHint}
+      charges={charges}
+      setCharges={setCharges}
     />
     </>
   );
@@ -324,6 +394,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
  * ═══════════════════════════════════════════════════════════ */
 function PoForm({
   suppliers, projects, materials, availableLocations,
+  categories, setSuppliers, setProjects, setMaterials, setLocations,
   supplierId, setSupplierId,
   scope, setScope,
   projectId, setProjectId,
@@ -333,13 +404,20 @@ function PoForm({
   lines,
   onAddLine, onRemoveLine, onLineChange,
   onSubmit, submitting, online,
-  subtotal, gstTotal, total,
+  subtotal, gstTotal, miscChargesTotal, total,
   selectedSupplier, selectedProject, selectedLocation,
+  lastPriceHint,
+  charges, setCharges,
 }: {
   suppliers: SupplierItem[];
   projects: ProjectItem[];
   materials: MaterialItem[];
   availableLocations: LocationItem[];
+  categories: CategoryItem[];
+  setSuppliers: React.Dispatch<React.SetStateAction<SupplierItem[]>>;
+  setProjects: React.Dispatch<React.SetStateAction<ProjectItem[]>>;
+  setMaterials: React.Dispatch<React.SetStateAction<MaterialItem[]>>;
+  setLocations: React.Dispatch<React.SetStateAction<LocationItem[]>>;
   supplierId: string;
   setSupplierId: (v: string) => void;
   scope: Scope;
@@ -361,17 +439,44 @@ function PoForm({
   online: boolean;
   subtotal: number;
   gstTotal: number;
+  miscChargesTotal: number;
   total: number;
   selectedSupplier?: SupplierItem;
   selectedProject?: ProjectItem;
   selectedLocation?: LocationItem;
+  lastPriceHint: Record<number, { poNumber: string; date: string } | null>;
+  charges: PoCharge[];
+  setCharges: React.Dispatch<React.SetStateAction<PoCharge[]>>;
 }) {
   const [modal, setModal] = useState<{
     type: "supplier" | "project" | "location" | "material";
     lineIndex?: number;
   } | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState<"supplier" | "project" | "location" | "material" | null>(null);
 
   const closeModal = () => setModal(null);
+  const closeCreateDialog = () => setShowCreateDialog(null);
+
+  // When a new entity is created inline, add it to the list and select it
+  const handleCreated = (type: "supplier" | "project" | "location" | "material", id: string, name: string, extra?: Partial<SupplierItem & ProjectItem & MaterialItem & LocationItem>) => {
+    if (type === "supplier") {
+      setSuppliers((prev) => [...prev, { id, name, phone: extra?.phone ?? null }]);
+      setSupplierId(id);
+    } else if (type === "project") {
+      setProjects((prev) => [...prev, { id, name }]);
+      setProjectId(id);
+    } else if (type === "location") {
+      setLocations((prev) => [...prev, { id, name, type: extra?.type ?? "PROJECT_SITE", projectId: extra?.projectId ?? null }]);
+      setLocationId(id);
+    } else if (type === "material") {
+      setMaterials((prev) => [...prev, { id, name, code: extra?.code ?? "", unit: extra?.unit ?? "", gstRate: extra?.gstRate ?? 0 }]);
+      if (modal?.lineIndex !== undefined) {
+        onLineChange(modal.lineIndex, "materialId", id);
+      }
+    }
+    closeCreateDialog();
+    closeModal();
+  };
 
   const handleSelect = (id: string) => {
     if (!modal) return;
@@ -379,33 +484,14 @@ function PoForm({
     else if (modal.type === "project") setProjectId(id);
     else if (modal.type === "location") setLocationId(id);
     else if (modal.type === "material" && modal.lineIndex !== undefined) {
-      const mat = materials.find((m) => m.id === id);
+      // handleLineChange auto-fills gstRate + last purchase price on materialId change
       onLineChange(modal.lineIndex, "materialId", id);
-      if (mat) onLineChange(modal.lineIndex, "gstRate", String(mat.gstRate));
     }
     closeModal();
   };
 
   return (
     <div className="pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <Link href="/m/procurement" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Purchase Order
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <Truck className="size-2.5" />
-          PO
-        </span>
-      </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
@@ -532,6 +618,11 @@ function PoForm({
                         className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                       />
+                      {lastPriceHint[idx] ? (
+                        <p className="text-[0.375rem] mt-0.5" style={{ color: "var(--color-steel)" }}>
+                          From {lastPriceHint[idx]!.poNumber}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -585,6 +676,68 @@ function PoForm({
           <span className="text-[0.6875rem] font-bold">Add another item</span>
         </button>
 
+        {/* ══════ SECTION: CHARGES (Freight, Loading, Misc) ══════ */}
+        <SectionHeader icon={Truck} label="Charges & Freight" />
+
+        <div className="flex flex-col gap-2">
+          {charges.map((charge, idx) => (
+            <div
+              key={idx}
+              className="rounded-[0.5rem] border p-2 flex flex-col gap-1.5"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={charge.heading}
+                  onChange={(e) => {
+                    const next = [...charges];
+                    next[idx] = { ...next[idx]!, heading: e.target.value };
+                    setCharges(next);
+                  }}
+                  placeholder="Heading (e.g. Loading, Freight, Fuel Charge)"
+                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-semibold outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setCharges(charges.filter((_, i) => i !== idx))}
+                  className="shrink-0 grid place-items-center size-7 rounded-[0.375rem] press"
+                  style={{ color: "var(--color-stop)" }}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={charge.amount}
+                  onChange={(e) => {
+                    const next = [...charges];
+                    next[idx] = { ...next[idx]!, amount: e.target.value };
+                    setCharges(next);
+                  }}
+                  placeholder="0"
+                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setCharges([...charges, { heading: "", amount: "", notes: "" }])}
+            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2 press"
+            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+          >
+            <Plus className="size-3" />
+            <span className="text-[0.625rem] font-bold">Add charge (freight, loading, fuel…)</span>
+          </button>
+        </div>
+
         {/* ══════ SECTION: WHEN ══════ */}
         <SectionHeader icon={Calendar} label="Delivery" />
 
@@ -629,7 +782,7 @@ function PoForm({
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           <div className="shrink-0">
             <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              {formatCurrency(subtotal)} + {formatCurrency(gstTotal)} GST
+              {formatCurrency(subtotal)} + {formatCurrency(gstTotal)} GST{miscChargesTotal > 0 ? ` + ${formatCurrency(miscChargesTotal)} chg` : ""}
             </p>
             <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrency(total)}
@@ -678,6 +831,40 @@ function PoForm({
           }
           onSelect={handleSelect}
           onClose={closeModal}
+          onCreateNew={() => {
+            if (modal) setShowCreateDialog(modal.type);
+          }}
+        />
+      ) : null}
+
+      {/* ══════ INLINE CREATE DIALOGS ══════ */}
+      {showCreateDialog === "supplier" ? (
+        <MobileNewSupplierDialog
+          open
+          onClose={closeCreateDialog}
+          onCreated={(s) => handleCreated("supplier", s.id, s.name)}
+        />
+      ) : null}
+      {showCreateDialog === "project" ? (
+        <MobileNewProjectDialog
+          open
+          onClose={closeCreateDialog}
+          onCreated={(p) => handleCreated("project", p.id, p.name)}
+        />
+      ) : null}
+      {showCreateDialog === "location" ? (
+        <MobileNewStockLocationDialog
+          open
+          onClose={closeCreateDialog}
+          onCreated={(l) => handleCreated("location", l.id, l.name, { type: l.type, projectId: scope === "PROJECT" ? projectId : null })}
+        />
+      ) : null}
+      {showCreateDialog === "material" ? (
+        <MobileNewMaterialDialog
+          open
+          onClose={closeCreateDialog}
+          categories={categories}
+          onCreated={(m) => handleCreated("material", m.id, m.name, { code: m.code, unit: m.unit, gstRate: m.gstRate })}
         />
       ) : null}
     </div>
@@ -841,7 +1028,7 @@ function SelectorRow({
  * Selector modal — bottom-sheet with searchable list
  * ═══════════════════════════════════════════════════════════ */
 function SelectorModal({
-  type: _type, title, items, selectedId, onSelect, onClose,
+  type: _type, title, items, selectedId, onSelect, onClose, onCreateNew,
 }: {
   type: "supplier" | "project" | "location" | "material";
   title: string;
@@ -849,6 +1036,7 @@ function SelectorModal({
   selectedId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
+  onCreateNew?: () => void;
 }) {
   const [query, setQuery] = useState("");
 
@@ -938,6 +1126,21 @@ function SelectorModal({
             })
           )}
         </div>
+
+        {/* ── Create new ── */}
+        {onCreateNew ? (
+          <div className="border-t" style={{ borderColor: "var(--color-line)" }}>
+            <button
+              type="button"
+              onClick={onCreateNew}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-3 press"
+              style={{ color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-4" />
+              <span className="text-[0.75rem] font-bold">Create new {title.replace("Select ", "").toLowerCase()}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

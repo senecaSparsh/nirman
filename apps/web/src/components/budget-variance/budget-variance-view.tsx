@@ -94,12 +94,22 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-title text-foreground">Budget Variance</h1>
+          {projectSelector}
         </div>
         <dl className="flex items-start gap-x-6 gap-y-2 no-print">
           <div className="min-w-0">
-            <dt className="text-label leading-none text-muted-foreground">Projects</dt>
-            <dd className="mt-1 text-[13px] font-semibold leading-none tnum text-foreground">{projects.length}</dd>
+            <dt className="text-label leading-none text-muted-foreground">Budget</dt>
+            <dd className="mt-1 text-[13px] font-semibold leading-none tnum text-foreground">{data ? formatCurrency(data.totalBudget) : "—"}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-label leading-none text-muted-foreground">Actual</dt>
+            <dd className="mt-1 text-[13px] font-semibold leading-none tnum text-foreground">{data ? formatCurrency(data.totalActual) : "—"}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-label leading-none text-muted-foreground">Variance</dt>
+            <dd className={cn("mt-1 text-[13px] font-semibold leading-none tnum", data && data.totalVariance < 0 ? "text-danger" : "text-success")}>
+              {data ? `${data.totalVariance >= 0 ? "+" : ""}${formatCurrency(data.totalVariance)}` : "—"}
+            </dd>
           </div>
         </dl>
       </header>

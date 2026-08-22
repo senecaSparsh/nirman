@@ -98,7 +98,28 @@ export function DirectPurchaseFormDialog({
   const [locationId, setLocationId] = useState("");
   const [billDate, setBillDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
+  const [lines, setLinesState] = useState<Line[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
+
+  // Wrap setLines to auto-fill gstRate & unitCost from the selected material.
+  function setLines(updater: Line[] | ((prev: Line[]) => Line[])) {
+    setLinesState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      return next.map((line, i) => {
+        const prevLine = prev[i];
+        if (line.materialId && line.materialId !== prevLine?.materialId) {
+          const mat = materials.find((m) => m.id === line.materialId);
+          if (mat) {
+            return {
+              ...line,
+              gstRate: !line.gstRate ? String(mat.gstRate) : line.gstRate,
+              unitCost: !line.unitCost ? String(mat.standardCost) : line.unitCost,
+            };
+          }
+        }
+        return line;
+      });
+    });
+  }
 
   function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]); }
 
@@ -145,7 +166,7 @@ export function DirectPurchaseFormDialog({
       toast.success(`Direct purchase ${data.billNumber} created`);
       onOpenChange(false);
       setSupplierId(""); setSupplierName(""); setLocationId(""); setBillDate(""); setNotes("");
-      setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
+      setLinesState([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
@@ -157,7 +178,13 @@ export function DirectPurchaseFormDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (o) {
+          // Default bill date to today
+          setBillDate((cur) => cur || new Date().toISOString().slice(0, 10));
+        }
+      }}
       title="New Cash Purchase"
       description="Log a local or ad-hoc purchase without a formal PO. Add line items to receive stock automatically."
       className="max-w-2xl"

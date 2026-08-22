@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IndianRupee } from "lucide-react";
@@ -8,6 +8,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { SupplierRow } from "@/lib/types";
@@ -41,6 +43,8 @@ export function SupplierPaymentFormDialog({
 }) {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState(defaultSupplierId ?? "");
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierRow[]>(suppliers);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
   const [tdsAmount, setTdsAmount] = useState("");
   const [tdsSection, setTdsSection] = useState("");
@@ -133,22 +137,21 @@ export function SupplierPaymentFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <Field label="Supplier" required error={errors.supplierId}>
-          <Select
+          <SelectWithCreate
             value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
+            onChange={setSupplierId}
             onBlur={() => onBlur("supplierId")}
             disabled={!!purchaseOrderId}
             required
             aria-invalid={!!errors.supplierId}
             className={errors.supplierId ? errorBorder : undefined}
-          >
-            <option value="">Select supplier…</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}{s.balanceOwed > 0 ? ` (Owes: ${formatCurrency(s.balanceOwed)})` : ""}
-              </option>
-            ))}
-          </Select>
+            placeholder="Select supplier…"
+            createLabel="supplier"
+            options={localSuppliers.map((s) => ({ value: s.id, label: s.balanceOwed > 0 ? `${s.name} (Owes: ${formatCurrency(s.balanceOwed)})` : s.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0 }]); onCreated(e); }} supplier={null} />
+            )}
+          />
         </Field>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -168,6 +171,15 @@ export function SupplierPaymentFormDialog({
                 aria-invalid={!!errors.amount}
               />
             </div>
+            {selectedSupplier && selectedSupplier.balanceOwed > 0 && (
+              <button
+                type="button"
+                onClick={() => setAmount(String(selectedSupplier.balanceOwed))}
+                className="mt-1 text-caption text-primary hover:underline"
+              >
+                Pay full outstanding: {formatCurrency(selectedSupplier.balanceOwed)}
+              </button>
+            )}
           </Field>
           <Field label="Payment Date" required error={errors.paymentDate}>
             <Input

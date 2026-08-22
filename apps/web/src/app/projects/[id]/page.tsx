@@ -223,7 +223,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
   // Fetch active sales for this project's land parcels + built units (for sale info columns)
   const parcelIds = landParcels.map((p) => p.id);
-  const [landSales] = await Promise.all([
+  const [landSales, legalDocs] = await Promise.all([
     parcelIds.length > 0
       ? prisma.assetSale.findMany({
           where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
@@ -234,6 +234,11 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
           },
         })
       : Promise.resolve([]),
+    // Legal documents for this project
+    prisma.legalDocument.findMany({
+      where: { projectId: id, companyId: company.id, deletedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    }),
   ]);
   const saleByParcel = new Map(
     landSales.map((s) => [s.landParcelId!, {
@@ -418,6 +423,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     fromLocationId: i.fromLocationId,
     fromLocationName: i.fromLocation?.name ?? "—",
     issueDate: i.issueDate.toISOString(),
+    status: i.status,
     notes: i.notes,
     receiverName: i.receiverName,
     receiverMobile: i.receiverMobile,
@@ -531,6 +537,10 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       totalProjectCost: project.totalProjectCost ? toNum(project.totalProjectCost) : null,
       costPerSqft: project.costPerSqft ? toNum(project.costPerSqft) : null,
       totalSellableArea: project.totalSellableArea ? toNum(project.totalSellableArea) : null,
+      reraNumber: project.reraNumber,
+      reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
+      reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
+      reraWebsiteUrl: project.reraWebsiteUrl,
     },
     stats: {
       builtUnitCount: unitRows.length,
@@ -579,6 +589,31 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       otherCostsTotal,
       landCostTotal,
     },
+    legalDocs: legalDocs.map((d) => ({
+      id: d.id,
+      landPurchaseId: d.landPurchaseId,
+      projectId: d.projectId,
+      type: d.type,
+      title: d.title,
+      authority: d.authority,
+      status: d.status,
+      appliesTo: d.appliesTo,
+      docNumber: d.docNumber,
+      sortOrder: d.sortOrder,
+      prerequisiteType: d.prerequisiteType,
+      obtained: d.obtained,
+      applicationDate: d.applicationDate?.toISOString() ?? null,
+      issueDate: d.issueDate?.toISOString() ?? null,
+      validFrom: d.validFrom?.toISOString() ?? null,
+      validTill: d.validTill?.toISOString() ?? null,
+      amount: d.amount ? toNum(d.amount) : null,
+      expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
+      documentUrl: d.documentUrl,
+      documentName: d.documentName,
+      notes: d.notes,
+      createdAt: d.createdAt.toISOString(),
+    })),
+    canManageLegal: hasPermission(role, PERM.LEGAL_MANAGE),
   };
 
   const editInitial = {
@@ -590,6 +625,10 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     endDate: project.endDate?.toISOString().slice(0, 10) ?? "",
     totalBudget: project.totalBudget ? toNum(project.totalBudget) : undefined,
     description: project.description ?? "",
+    reraNumber: project.reraNumber ?? "",
+    reraRegistrationDate: project.reraRegistrationDate?.toISOString().slice(0, 10) ?? "",
+    reraValidityDate: project.reraValidityDate?.toISOString().slice(0, 10) ?? "",
+    reraWebsiteUrl: project.reraWebsiteUrl ?? "",
   };
 
   return <ProjectHub data={hubData} editInitial={editInitial} />;

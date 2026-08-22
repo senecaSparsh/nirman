@@ -10,6 +10,8 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileAttendanceList } from "./MobileAttendanceList";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/attendance — mobile attendance list. Replaces desktop `/hr/attendance`
@@ -56,12 +58,28 @@ async function MobileAttendanceContent() {
 
   const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "employeeName", label: "Employee" },
+    { key: "projectName", label: "Project / Location" },
+    { key: "date", label: "Date", format: "date" },
+    { key: "status", label: "Status" },
+  ];
+
   return (
     <div>
       <div className="mb-4">
         <MobileCta href="/m/site/attendance" icon={CalendarCheck} variant="primary">
           Check in now
         </MobileCta>
+      </div>
+
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Attendance"
+          rows={serialized as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${serialized.length} attendance records`}
+        />
       </div>
 
       <MobileAttendanceList items={serialized} projects={projectOptions} />

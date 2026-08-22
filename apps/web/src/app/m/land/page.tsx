@@ -5,6 +5,9 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileLandList } from "./MobileLandList";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * /m/land — mobile land portfolio. Shows land purchases with parcel
@@ -42,7 +45,7 @@ async function MobileLandContent() {
       parcels: {
         where: { deletedAt: null },
         select: {
-          id: true, number: true, status: true, area: true,
+          id: true, number: true, status: true, area: true, purpose: true,
           acquisitionCost: true, currentValuation: true,
           askingPrice: true, parentParcelId: true,
           _count: { select: { children: true } },
@@ -51,20 +54,28 @@ async function MobileLandContent() {
     },
   });
 
-  // Fetch active projects for the project dropdown in the create dialog
-  const projects = canManage
-    ? await prisma.project.findMany({
-        where: { companyId: company.id, deletedAt: null },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      })
-    : [];
+  // Fetch active projects and sellers for the dropdowns in the create dialog
+  const [projects, sellers] = canManage
+    ? await Promise.all([
+        prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+        prisma.landSeller.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, phone: true },
+        }),
+      ])
+    : [[], []];
 
   // Build portfolio stats
   const allParcels = purchases.flatMap((p) => p.parcels);
   const sellable = allParcels.filter((p) => p.status !== "PARTITIONED");
   const available = sellable.filter((p) => p.status === "AVAILABLE");
   const hold = sellable.filter((p) => p.status === "HOLD");
+  const sold = sellable.filter((p) => p.status === "SOLD");
   const partitioned = allParcels.filter((p) => p.status === "PARTITIONED");
   const totalArea = purchases.reduce((s, p) => s + toNum(p.totalArea), 0);
   const unsoldValue = sellable.reduce((s, p) => s + toNum(p.currentValuation), 0);
@@ -76,6 +87,7 @@ async function MobileLandContent() {
     const sellableP = parcels.filter((p) => p.status !== "PARTITIONED");
     const availP = sellableP.filter((p) => p.status === "AVAILABLE");
     const holdP = sellableP.filter((p) => p.status === "HOLD");
+    const soldP = sellableP.filter((p) => p.status === "SOLD");
     const partP = parcels.filter((p) => p.status === "PARTITIONED");
     const unsoldVal = sellableP.reduce((s, p) => s + toNum(p.currentValuation), 0);
     const costBasis = sellableP.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
@@ -92,9 +104,12 @@ async function MobileLandContent() {
       location: lp.location,
       projectId: lp.projectId,
       projectName: lp.project?.name ?? null,
+      mode: lp.mode,
+      landType: lp.landType,
       parcelCount: sellableP.length,
       availableCount: availP.length,
       holdCount: holdP.length,
+      soldCount: soldP.length,
       partitionedCount: partP.length,
       availableArea: availP.reduce((s, p) => s + toNum(p.area), 0),
       unsoldValue: unsoldVal,
@@ -104,6 +119,7 @@ async function MobileLandContent() {
         id: p.id,
         number: p.number,
         status: p.status,
+        purpose: p.purpose,
         area: toNum(p.area),
         currentValuation: toNum(p.currentValuation),
         askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
@@ -113,23 +129,48 @@ async function MobileLandContent() {
     };
   });
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "projectName", label: "Project" },
+    { key: "sellerName", label: "Seller" },
+    { key: "totalArea", label: "Area" },
+    { key: "areaUnit", label: "Area Unit" },
+    { key: "totalCost", label: "Total Cost", format: "currency" },
+    { key: "unsoldValue", label: "Valuation", format: "currency" },
+    { key: "parcelCount", label: "Parcels" },
+    { key: "availableCount", label: "Available" },
+    { key: "purchaseDate", label: "Purchase Date", format: "date" },
+  ];
+
   return (
-    <MobileLandList
-      items={serialized}
-      portfolio={{
-        purchaseCount: purchases.length,
-        totalArea,
-        areaUnit: purchases[0]?.areaUnit ?? "SQFT",
-        parcelCount: sellable.length,
-        availableCount: available.length,
-        holdCount: hold.length,
-        partitionedCount: partitioned.length,
-        availableArea,
-        unsoldValue,
-        costBasis,
-      }}
-      canManage={canManage}
-      projects={projects}
-    />
+    <>
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Land & Parcels"
+          rows={serialized as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${purchases.length} land purchases · ${sellable.length} parcels · Valuation: ${formatCurrency(unsoldValue)}`}
+        />
+      </div>
+      <MobileLandList
+        items={serialized}
+        portfolio={{
+          purchaseCount: purchases.length,
+          totalArea,
+          areaUnit: purchases[0]?.areaUnit ?? "SQFT",
+          parcelCount: sellable.length,
+          availableCount: available.length,
+          holdCount: hold.length,
+          soldCount: sold.length,
+          partitionedCount: partitioned.length,
+          availableArea,
+          unsoldValue,
+          costBasis,
+        }}
+        canManage={canManage}
+        projects={projects}
+        sellers={sellers.map((s) => ({ id: s.id, name: s.name, phone: s.phone }))}
+        company={{ id: company.id, name: company.name }}
+      />
+    </>
   );
 }

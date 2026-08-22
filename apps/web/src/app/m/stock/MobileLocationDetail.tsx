@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ChevronLeft, Search, X,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
-  Package,
+  Package, Truck, Plus,
   type LucideIcon,
 } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -29,6 +29,15 @@ export type DetailMovement = {
   fromLocationName: string | null;
   toLocationName: string | null;
   timestamp: string;
+};
+
+export type InTransitTransfer = {
+  id: string;
+  fromLocationName?: string;
+  toLocationName?: string;
+  dispatchedAt: string | null;
+  vehicleNumber: string | null;
+  lines: { materialName: string; qty: number; unit: string }[];
 };
 
 /* ── Location type helpers ── */
@@ -89,15 +98,21 @@ export function MobileLocationDetail({
   items,
   movements,
   totalValue,
+  inTransitIncoming = [],
+  inTransitOutgoing = [],
+  canManage = false,
 }: {
   locationName: string;
   locationType: string;
   items: DetailStockItem[];
   movements: DetailMovement[];
   totalValue: number;
+  inTransitIncoming?: InTransitTransfer[];
+  inTransitOutgoing?: InTransitTransfer[];
+  canManage?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"inventory" | "activity">("inventory");
+  const [tab, setTab] = useState<"inventory" | "activity" | "transit">("inventory");
 
   const accentColor = typeColor(locationType);
 
@@ -140,9 +155,6 @@ export function MobileLocationDetail({
     <div>
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
-        <Link href="/m/site/stock" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
@@ -242,6 +254,19 @@ export function MobileLocationDetail({
         >
           Activity ({movements.length})
         </button>
+        {(inTransitIncoming.length > 0 || inTransitOutgoing.length > 0) && (
+          <button
+            onClick={() => setTab("transit")}
+            className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+            style={
+              tab === "transit"
+                ? { backgroundColor: "var(--color-signal)", color: "#fff" }
+                : { backgroundColor: "var(--color-paper)", color: "var(--color-signal-dark)", border: "1px solid var(--color-line)" }
+            }
+          >
+            Transit ({inTransitIncoming.length + inTransitOutgoing.length})
+          </button>
+        )}
       </div>
 
       {/* ── Sticky search ── */}
@@ -282,16 +307,134 @@ export function MobileLocationDetail({
 
       {/* ── Tab content ── */}
       {tab === "inventory" ? (
-        <InventoryTab items={filteredItems} />
-      ) : (
+        <InventoryTab items={filteredItems} canManage={canManage} />
+      ) : tab === "activity" ? (
         <ActivityTab groups={groupedMovements} />
+      ) : (
+        <TransitTab incoming={inTransitIncoming} outgoing={inTransitOutgoing} />
+      )}
+    </div>
+  );
+}
+
+/* ── In-Transit Tab ── */
+function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; outgoing: InTransitTransfer[] }) {
+  return (
+    <div className="space-y-4">
+      {incoming.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <ArrowDownToLine className="size-3.5" style={{ color: "var(--color-go)" }} />
+            <h3 className="text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-go)" }}>
+              Incoming ({incoming.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {incoming.map((t) => (
+              <Link
+                key={t.id}
+                href={`/m/transfers/${t.id}`}
+                className="block rounded-[0.5rem] border p-2.5 press"
+                style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 4%, transparent)" }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                    From {t.fromLocationName}
+                  </span>
+                  {t.vehicleNumber && (
+                    <span className="flex items-center gap-1 text-[0.5rem] font-mono" style={{ color: "var(--color-steel)" }}>
+                      <Truck className="size-3" />{t.vehicleNumber}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  {t.lines.map((l, i) => (
+                    <div key={i} className="flex justify-between text-[0.5625rem]">
+                      <span style={{ color: "var(--color-ink-700)" }}>{l.materialName}</span>
+                      <span className="tabular-nums font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                        {formatNumber(l.qty, 3)} {l.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {t.dispatchedAt && (
+                  <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                    Dispatched {formatDate(t.dispatchedAt)}
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {outgoing.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <ArrowUpFromLine className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
+            <h3 className="text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-signal-dark)" }}>
+              Outgoing ({outgoing.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {outgoing.map((t) => (
+              <Link
+                key={t.id}
+                href={`/m/transfers/${t.id}`}
+                className="block rounded-[0.5rem] border p-2.5 press"
+                style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, transparent)" }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                    To {t.toLocationName}
+                  </span>
+                  {t.vehicleNumber && (
+                    <span className="flex items-center gap-1 text-[0.5rem] font-mono" style={{ color: "var(--color-steel)" }}>
+                      <Truck className="size-3" />{t.vehicleNumber}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  {t.lines.map((l, i) => (
+                    <div key={i} className="flex justify-between text-[0.5625rem]">
+                      <span style={{ color: "var(--color-ink-700)" }}>{l.materialName}</span>
+                      <span className="tabular-nums font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                        {formatNumber(l.qty, 3)} {l.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {t.dispatchedAt && (
+                  <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                    Dispatched {formatDate(t.dispatchedAt)}
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {incoming.length === 0 && outgoing.length === 0 && (
+        <div className="text-center py-8">
+          <Truck className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
+          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            No transfers in transit
+          </p>
+        </div>
       )}
     </div>
   );
 }
 
 /* ─── Inventory tab — material list with qty + value ─── */
-function InventoryTab({ items }: { items: DetailStockItem[] }) {
+function InventoryTab({
+  items,
+  canManage = false,
+}: {
+  items: DetailStockItem[];
+  canManage?: boolean;
+}) {
   if (items.length === 0) {
     return (
       <div
@@ -302,6 +445,23 @@ function InventoryTab({ items }: { items: DetailStockItem[] }) {
         <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
           No materials in stock
         </p>
+        <p className="text-[0.5625rem] mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
+          Receive stock against a purchase order, transfer from another location, or add a new material to your catalog.
+        </p>
+        {canManage && (
+          <Link
+            href="/m/materials/new"
+            className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-[0.6875rem] font-bold press"
+            style={{
+              borderColor: "var(--color-signal)",
+              backgroundColor: "var(--color-signal-wash)",
+              color: "var(--color-signal-dark)",
+            }}
+          >
+            <Plus className="size-3.5" />
+            Add Material
+          </Link>
+        )}
       </div>
     );
   }

@@ -11,6 +11,8 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobilePortalListingsList, type PortalListingItem } from "./MobilePortalListingsList";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/portal-listings — mobile portal listing management. Sales users need
@@ -66,6 +68,15 @@ async function MobilePortalListingsContent() {
   const failed = rows.filter((l) => l.status === "SYNC_FAILED");
   const delisted = rows.filter((l) => l.status === "DELISTED");
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "title", label: "Title" },
+    { key: "portalName", label: "Portal" },
+    { key: "projectName", label: "Project" },
+    { key: "unitNumber", label: "Unit" },
+    { key: "status", label: "Status" },
+    { key: "askingPrice", label: "Asking Price", format: "currency" },
+  ];
+
   return (
     <div>
       <div className="grid grid-cols-2 gap-2.5 mb-4">
@@ -75,6 +86,15 @@ async function MobilePortalListingsContent() {
           <MobileStatCard label="Failed" value={String(failed.length)} icon={Globe} tone="stop" />
         )}
         <MobileStatCard label="Delisted" value={String(delisted.length)} icon={Globe} />
+      </div>
+
+      <div className="mb-4">
+        <MobileExportShareBar
+          title="Portal Listings"
+          rows={rows as unknown as Record<string, unknown>[]}
+          columns={csvColumns}
+          summary={`${rows.length} listings · ${listed.length} listed`}
+        />
       </div>
 
       {rows.length === 0 ? (

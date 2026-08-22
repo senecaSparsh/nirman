@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     try {
       const managers = await prisma.user.findMany({
         where: {
-          memberships: { some: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "MANAGER"] } } },
+          memberships: { some: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "PROCUREMENT_MANAGER"] } } },
           phone: { not: null },
           active: true,
         },

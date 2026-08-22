@@ -10,12 +10,18 @@ import { z } from "zod";
  * Returns a single vendor quote with its lines.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requirePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const { id } = await params;
 
   const quote = await prisma.vendorQuote.findFirst({
-    where: { id, requisition: { project: { companyId: company.id } } },
+    where: {
+      id,
+      OR: [
+        { requisition: { project: { companyId: company.id } } },
+        { quotationRequest: { companyId: company.id } },
+      ],
+    },
     include: {
       supplier: { select: { id: true, name: true, phone: true } },
       lines: {
@@ -63,12 +69,25 @@ const updateQuoteLineSchema = z.object({
   materialId: z.string().min(1),
   qty: z.coerce.number().positive(),
   unitPrice: z.coerce.number().nonnegative(),
+  gstRate: z.coerce.number().min(0).max(100).optional(),
+  discountPerUnit: z.coerce.number().nonnegative().optional(),
+  packingPerUnit: z.coerce.number().nonnegative().optional(),
+  freightPerUnit: z.coerce.number().nonnegative().optional(),
+  loadingPerUnit: z.coerce.number().nonnegative().optional(),
+  insurancePerUnit: z.coerce.number().nonnegative().optional(),
+  handlingPerUnit: z.coerce.number().nonnegative().optional(),
+  buyerTransportPerUnit: z.coerce.number().nonnegative().optional(),
 });
 
 const updateQuoteSchema = z.object({
   landedTotal: z.coerce.number().nonnegative().optional(),
   validUntil: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  deliveryTermsType: z.enum(["DELIVERED_SITE", "EX_WORKS", "FOR_STATION", "CUSTOM"]).optional(),
+  deliveryTerms: z.string().optional().nullable(),
+  paymentTerms: z.string().optional().nullable(),
+  leadTimeDays: z.coerce.number().int().min(0).nullable().optional(),
+  warranty: z.string().optional().nullable(),
   lines: z.array(updateQuoteLineSchema).optional(),
 });
 
@@ -77,7 +96,7 @@ const updateQuoteSchema = z.object({
  * Update a quote (only if not yet selected as the winner).
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requirePermission(PERM.QUOTATION_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const parsed = updateQuoteSchema.safeParse(body);
@@ -88,7 +107,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // Verify the quote belongs to the current company
   const company = await getCompany();
   const existing = await prisma.vendorQuote.findFirst({
-    where: { id, requisition: { project: { companyId: company.id } } },
+    where: {
+      id,
+      OR: [
+        { requisition: { project: { companyId: company.id } } },
+        { quotationRequest: { companyId: company.id } },
+      ],
+    },
     select: { id: true },
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });
@@ -98,10 +123,23 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     landedTotal: parsed.data.landedTotal,
     validUntil: parsed.data.validUntil !== undefined ? (parsed.data.validUntil ? new Date(parsed.data.validUntil) : null) : undefined,
     notes: parsed.data.notes,
+    deliveryTermsType: parsed.data.deliveryTermsType,
+    deliveryTerms: parsed.data.deliveryTerms,
+    paymentTerms: parsed.data.paymentTerms,
+    leadTimeDays: parsed.data.leadTimeDays,
+    warranty: parsed.data.warranty,
     lines: parsed.data.lines?.map((l) => ({
       materialId: l.materialId,
       qty: l.qty,
       unitPrice: l.unitPrice,
+      gstRate: l.gstRate,
+      discountPerUnit: l.discountPerUnit,
+      packingPerUnit: l.packingPerUnit,
+      freightPerUnit: l.freightPerUnit,
+      loadingPerUnit: l.loadingPerUnit,
+      insurancePerUnit: l.insurancePerUnit,
+      handlingPerUnit: l.handlingPerUnit,
+      buyerTransportPerUnit: l.buyerTransportPerUnit,
     })),
     userId: user.id,
   });
@@ -114,12 +152,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  * Delete a quote (only if not the selected winner).
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requirePermission(PERM.QUOTATION_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 
   const existing = await prisma.vendorQuote.findFirst({
-    where: { id, requisition: { project: { companyId: company.id } } },
+    where: {
+      id,
+      OR: [
+        { requisition: { project: { companyId: company.id } } },
+        { quotationRequest: { companyId: company.id } },
+      ],
+    },
     select: { id: true },
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });

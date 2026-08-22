@@ -4,13 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Plus, Trash2, Send, Loader2,
-  MapPin, User, CheckCircle2, ChevronLeft, WifiOff,
+  MapPin, User, CheckCircle2, WifiOff, Printer,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 
 interface LocationItem {
   id: string;
@@ -56,6 +60,7 @@ export default function MobileIssueForm() {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<IssueDraft>("material-issue", "material-issue-new");
+  const [draftRestored, setDraftRestored] = useState(false);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -71,12 +76,14 @@ export default function MobileIssueForm() {
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
   const [notes, setNotes] = useState("");
+  const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
 
   const [lines, setLines] = useState<IssueLine[]>([
     { materialId: "", qty: "" },
   ]);
 
   const [issueSuccess, setIssueSuccess] = useState<{
+    issueId?: string;
     issueNumber: string;
     totalAmount: number;
   } | null>(null);
@@ -201,6 +208,11 @@ export default function MobileIssueForm() {
         builtUnitId: builtUnitId || undefined,
         receiverName: receiverName.trim() || undefined,
         receiverMobile: receiverMobile.trim() || undefined,
+        vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+        vehicleType: vehicle.vehicleType || undefined,
+        vehiclePhotoUrl: vehicle.photoUrl,
+        driverName: vehicle.driverName,
+        driverPhone: vehicle.driverPhone,
         notes: notes.trim() || undefined,
         lines: validLines.map((l) => ({
           materialId: l.materialId,
@@ -242,6 +254,7 @@ export default function MobileIssueForm() {
       clearDraft();
       router.refresh();
       setIssueSuccess({
+        issueId: data.materialIssueId,
         issueNumber: data.issueNumber,
         totalAmount: data.totalAmount || 0,
       });
@@ -267,13 +280,6 @@ export default function MobileIssueForm() {
     const isQueued = issueSuccess.issueNumber === "QUEUED";
     return (
       <div className="p-1">
-        {/* Back arrow */}
-        <div className="mb-3">
-          <button onClick={() => router.back()} className="flex items-center" style={{ color: "var(--color-ink-700)" }}>
-            <ChevronLeft className="size-5" />
-          </button>
-        </div>
-
         <div
           className="rounded-[0.875rem] border p-5 text-center space-y-3"
           style={{
@@ -318,6 +324,18 @@ export default function MobileIssueForm() {
           </div>
 
           <div className="pt-1 flex flex-col gap-2">
+            {!isQueued && issueSuccess.issueId && (
+              <a
+                href={`/print/issue/${issueSuccess.issueId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-transform active:scale-95"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              >
+                <Printer className="size-4" />
+                Print Issue Slip
+              </a>
+            )}
             <button
               onClick={() => {
                 setIssueSuccess(null);
@@ -343,19 +361,12 @@ export default function MobileIssueForm() {
 
   return (
     <div className="space-y-3">
-      {/* Back arrow */}
-      <div>
-        <button onClick={() => router.back()} className="flex items-center" style={{ color: "var(--color-ink-700)" }}>
-          <ChevronLeft className="size-5" />
-        </button>
-      </div>
-
-      {hasDraft && (
+      {hasDraft && !draftRestored && (
         <DraftBanner
           formName="Material Issue"
           updatedAt={draftUpdatedAt}
-          onRestore={restoreDraftState}
-          onDiscard={clearDraft}
+          onRestore={() => { restoreDraftState(); setDraftRestored(true); }}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
         />
       )}
 
@@ -387,20 +398,21 @@ export default function MobileIssueForm() {
             </select>
           </FormField>
 
-          <FormField label="To project" required>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={inputClass}
-              required
-            >
-              {projects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
+          <MobileSelectWithCreate
+            label="To project"
+            required
+            value={projectId}
+            onChange={setProjectId}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            inputClass={inputClass}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
+              />
+            )}
+          />
 
           {units.length > 0 ? (
             <FormField label="Built unit (optional)">
@@ -454,6 +466,17 @@ export default function MobileIssueForm() {
           </div>
         </div>
 
+        {/* ── Vehicle — how the goods are being transported ── */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
+            <Package className="size-3.5" style={{ color: "var(--color-steel)" }} />
+            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Vehicle / Carrier
+            </span>
+          </div>
+          <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+        </div>
+
         {/* ── Material Lines ── */}
         <div
           className="rounded-[0.625rem] border p-3 space-y-2.5"
@@ -487,17 +510,21 @@ export default function MobileIssueForm() {
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
                 >
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    <select
+                    <MobileSelectWithCreate
+                      label="Material"
                       value={line.materialId}
-                      onChange={(e) => handleLineChange(idx, "materialId", e.target.value)}
-                      className={`${inputClass} text-[0.6875rem]`}
-                    >
-                      {materials.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.unit})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleLineChange(idx, "materialId", val)}
+                      options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit})` }))}
+                      inputClass={`${inputClass} text-[0.6875rem]`}
+                      renderDialog={({ open, onClose, onCreated }) => (
+                        <MobileNewMaterialDialog
+                          open={open}
+                          onClose={onClose}
+                          categories={[]}
+                          onCreated={(m) => onCreated(m.id, m.name)}
+                        />
+                      )}
+                    />
 
                     <div className="flex items-center gap-2">
                       <input

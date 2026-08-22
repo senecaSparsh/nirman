@@ -1,8 +1,9 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { postRenovationCost } from "./gl-posting";
+import { postRenovationCost, postRenovationCapitalization } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 
 /**
@@ -102,7 +103,7 @@ export async function createRenovation(input: CreateRenovationInput) {
     }
 
     return renovation;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function startRenovation(id: string, userId?: string) {
@@ -126,12 +127,12 @@ export async function startRenovation(id: string, userId?: string) {
       });
     }
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export interface AddRenovationCostInput {
   renovationProjectId: string;
-  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "OTHER";
+  costType: "LABOUR" | "OVERHEAD" | "EQUIPMENT" | "CONTRACTOR" | "PERMIT" | "TRANSFER_DUTY" | "OTHER";
   amount: Decimal | number | string;
   vendor?: string;
   notes?: string;
@@ -198,7 +199,7 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
     }
 
     return cost;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function deleteRenovationCost(costId: string, userId?: string) {
@@ -267,7 +268,7 @@ export async function completeRenovation(
   id: string,
   opts: { newValuation?: Decimal | number | string; userId?: string },
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const renovation = await tx.renovationProject.findUnique({
       where: { id },
       include: { builtUnit: true, landParcel: true },
@@ -317,6 +318,46 @@ export async function completeRenovation(
       },
     });
 
+    // Post GL capitalization entry: move capitalised cost from WIP to the
+    // permanent asset account (LAND_ASSET or UNIT_ASSET). REPAIR costs were
+    // already expensed via postRenovationCost() — no capitalization needed.
+    if (!isRepair && capitalisedCost.gt(0)) {
+      // Determine companyId from the renovation's project or the asset itself
+      let companyId: string | null = null;
+      if (renovation.projectId) {
+        const project = await tx.project.findUnique({
+          where: { id: renovation.projectId },
+          select: { companyId: true },
+        });
+        companyId = project?.companyId ?? null;
+      }
+      if (!companyId && renovation.landParcelId) {
+        const lp = await tx.landPurchase.findFirst({
+          where: { parcels: { some: { id: renovation.landParcelId } } },
+          select: { companyId: true },
+        });
+        companyId = lp?.companyId ?? null;
+      }
+      if (!companyId && renovation.builtUnitId) {
+        const unit = await tx.builtUnit.findUnique({
+          where: { id: renovation.builtUnitId },
+          select: { project: { select: { companyId: true } } },
+        });
+        companyId = unit?.project?.companyId ?? null;
+      }
+      if (companyId) {
+        await postRenovationCapitalization(tx, {
+          companyId,
+          renovationProjectId: id,
+          assetType: renovation.landParcelId ? "LAND" : "BUILT_UNIT",
+          assetId: renovation.landParcelId ?? renovation.builtUnitId!,
+          projectId: renovation.projectId,
+          amount: capitalisedCost,
+          postedById: opts.userId,
+        });
+      }
+    }
+
     // Reallocate project costs so cost-per-sqft reflects the capitalised
     // renovation cost across all sellable units in the project.
     if (renovation.projectId && !isRepair) {
@@ -345,8 +386,23 @@ export async function completeRenovation(
       });
     }
 
-    return { renovation: updated, roi };
+    return { renovation: updated, roi, actualCost, newValuation, companyId: renovation.companyId };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.RENOVATION_COMPLETED,
+    companyId: result.companyId,
+    entityType: "RenovationProject",
+    entityId: id,
+    variables: {
+      actualCost: result.actualCost.toString(),
+      newValuation: result.newValuation.toString(),
+      roi: result.roi.toFixed(2),
+    },
+    timestamp: new Date(),
   });
+
+  return { renovation: result.renovation, roi: result.roi };
 }
 
 export async function cancelRenovation(id: string, userId?: string) {
@@ -355,6 +411,45 @@ export async function cancelRenovation(id: string, userId?: string) {
   if (renovation.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed renovation");
 
   return prisma.$transaction(async (tx) => {
+    // Reverse all posted RENOVATION_COST GL entries for this renovation.
+    // Each cost was posted via postRenovationCost() (Dr WIP/Expense, Cr Cash).
+    // We reverse them so the books don't carry orphan WIP/expense for a
+    // cancelled renovation.
+    const costs = await tx.renovationCost.findMany({
+      where: { renovationProjectId: id },
+      select: { id: true },
+    });
+    for (const cost of costs) {
+      const je = await tx.journalEntry.findFirst({
+        where: { sourceId: cost.id, sourceType: "RENOVATION_COST" },
+      });
+      if (je) {
+        const lines = await tx.journalLine.findMany({ where: { journalEntryId: je.id } });
+        await tx.journalEntry.create({
+          data: {
+            entryNumber: `${je.entryNumber}-REV`,
+            sourceType: "RENOVATION_COST_REVERSAL",
+            sourceId: je.sourceId,
+            memo: `Reversal of ${je.memo} (renovation cancelled)`,
+            companyId: je.companyId,
+            postedById: userId,
+            status: "POSTED",
+            totalDebit: je.totalCredit,
+            totalCredit: je.totalDebit,
+            lines: {
+              create: lines.map((l) => ({
+                accountCode: l.accountCode,
+                debit: l.credit,
+                credit: l.debit,
+                entityType: l.entityType,
+                entityId: l.entityId,
+              })),
+            },
+          },
+        });
+      }
+    }
+
     const updated = await tx.renovationProject.update({
       where: { id },
       data: { status: "CANCELLED" },
@@ -366,11 +461,11 @@ export async function cancelRenovation(id: string, userId?: string) {
         entityType: "RenovationProject",
         entityId: id,
         before: { status: renovation.status },
-        after: { status: "CANCELLED" },
+        after: { status: "CANCELLED", costsReversed: costs.length },
       });
     }
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 /** Compute ROI for a completed renovation. */

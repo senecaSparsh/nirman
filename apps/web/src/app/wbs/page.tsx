@@ -5,6 +5,7 @@ import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { WbsView } from "@/components/wbs/wbs-view";
 
 export default function WbsPage() {
@@ -41,6 +42,13 @@ async function WbsContent() {
   const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
 
   return (
-    <WbsView projects={projects} canEdit={canEdit} />
+    <>
+      <PageHeader
+        title="Work Breakdown Structure"
+        description="Decompose project scope into phases, deliverables, and work packages. Track progress and dependencies."
+        stats={[{ label: "Projects", value: projects.length }]}
+      />
+      <WbsView projects={projects} canEdit={canEdit} />
+    </>
   );
 }

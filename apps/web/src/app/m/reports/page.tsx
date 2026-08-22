@@ -7,6 +7,7 @@ import {
   Package, Truck, ShoppingCart, Building2, Wallet,
   ClipboardCheck, TrendingUp, FileText, Receipt, BarChart3,
   Layers, Gauge, Percent, Users, Calendar, ArrowRight,
+  FileSpreadsheet,
 } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -17,6 +18,7 @@ import {
   MobileRow,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import { MobileReportHeader } from "@/components/mobile/v2/report-ui";
 
 /**
  * /m/reports — unified mobile reports hub.
@@ -88,6 +90,12 @@ async function MobileReportsHubContent() {
 
   return (
     <div>
+      <MobileReportHeader
+        title="Reports & Analysis"
+        subtitle="All reports in one place"
+        icon={FileSpreadsheet}
+      />
+
       {/* ── Headline metrics ── */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard label="Inventory Value" value={formatCurrency(inventoryValue)} icon={Package} />
@@ -124,45 +132,45 @@ async function MobileReportsHubContent() {
 
       {/* Sales & Revenue */}
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/sales-revenue" icon={ShoppingCart} label="Sales Revenue" sublabel="Revenue by project, unit, period" />
-        <ReportLink href="/reports/profit" icon={TrendingUp} label="Profit & Loss" sublabel="Revenue vs costs summary" />
-        <ReportLink href="/reports/pending-payments" icon={Wallet} label="Pending Payments" sublabel="Outstanding receivables" />
-        <ReportLink href="/reports/cash-flow" icon={Receipt} label="Cash Flow" sublabel="Inflows and outflows" />
+        <ReportLink href="/m/reports/sales-revenue" icon={ShoppingCart} label="Sales Revenue" sublabel="Revenue by project, unit, period" />
+        <ReportLink href="/m/reports/profit" icon={TrendingUp} label="Profit & Loss" sublabel="Revenue vs costs summary" />
+        <ReportLink href="/m/reports/pending-payments" icon={Wallet} label="Pending Payments" sublabel="Outstanding receivables" />
+        <ReportLink href="/m/reports/cash-flow" icon={Receipt} label="Cash Flow" sublabel="Inflows and outflows" />
       </div>
 
       {/* Purchasing */}
       <MobileSectionTitle>Purchasing</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/purchase-register" icon={FileText} label="Purchase Register" sublabel="All POs by date, supplier" />
-        <ReportLink href="/reports/purchase-trends" icon={TrendingUp} label="Purchase Trends" sublabel="Spend over time, top materials" />
-        <ReportLink href="/reports/purchaser-performance" icon={Users} label="Purchaser Performance" sublabel="Quote selection metrics" />
-        <ReportLink href="/reports/comparative" icon={BarChart3} label="Comparative Quotes" sublabel="Vendor quote comparison" />
+        <ReportLink href="/m/reports/purchase-register" icon={FileText} label="Purchase Register" sublabel="All POs by date, supplier" />
+        <ReportLink href="/m/reports/purchase-trends" icon={TrendingUp} label="Purchase Trends" sublabel="Spend over time, top materials" />
+        <ReportLink href="/m/reports/purchaser-performance" icon={Users} label="Purchaser Performance" sublabel="Quote selection metrics" />
+        <ReportLink href="/m/reports/comparative" icon={BarChart3} label="Comparative Analysis" sublabel="DPR, workforce, P&L per project" />
       </div>
 
       {/* Inventory */}
       <MobileSectionTitle>Inventory</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/inventory-value" icon={Package} label="Inventory Value" sublabel="Stock value by location, Moving Average Cost" />
-        <ReportLink href="/reports/stock-movement-summary" icon={Layers} label="Stock Movement" sublabel="In/out/transfer summary" />
-        <ReportLink href="/reports/issue-register" icon={ClipboardCheck} label="Issue Register" sublabel="Material issues to projects" />
-        <ReportLink href="/reports/department-consumption" icon={Building2} label="Dept Consumption" sublabel="Material usage by department" />
+        <ReportLink href="/m/reports/inventory-value" icon={Package} label="Inventory Value" sublabel="Stock value by location, Moving Average Cost" />
+        <ReportLink href="/m/reports/stock-movement-summary" icon={Layers} label="Stock Movement" sublabel="In/out/transfer summary" />
+        <ReportLink href="/m/reports/issue-register" icon={ClipboardCheck} label="Issue Register" sublabel="Material issues to projects" />
+        <ReportLink href="/m/reports/department-consumption" icon={Building2} label="Dept Consumption" sublabel="Material usage by department" />
       </div>
 
       {/* Projects */}
       <MobileSectionTitle>Projects</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/project-progress" icon={Gauge} label="Project Progress" sublabel="Completion %, timeline status" />
-        <ReportLink href="/reports/job-costing" icon={Building2} label="Job Costing" sublabel="Per-project cost breakdown" />
-        <ReportLink href="/reports/real-estate-inventory" icon={Package} label="Real Estate Inventory" sublabel="Units available, sold, rented" />
+        <ReportLink href="/m/reports/project-progress" icon={Gauge} label="Project Progress" sublabel="Completion %, timeline status" />
+        <ReportLink href="/m/reports/job-costing" icon={Building2} label="Job Costing" sublabel="Per-project cost breakdown" />
+        <ReportLink href="/m/reports/real-estate-inventory" icon={Package} label="Real Estate Inventory" sublabel="Units available, sold, rented" />
       </div>
 
       {/* Finance & Tax */}
       <MobileSectionTitle>Finance & Tax</MobileSectionTitle>
       <div className="flex flex-col gap-1.5 mb-4">
-        <ReportLink href="/reports/gst" icon={Percent} label="GST Report" sublabel="Input/output GST summary" />
-        <ReportLink href="/reports/tds-certificates" icon={FileText} label="Tax Deducted at Source Certificates" sublabel="TDS deducted by vendor" />
-        <ReportLink href="/reports/payroll-expense" icon={Calendar} label="Payroll Expense" sublabel="Salary expense by month" />
-        <ReportLink href="/reports/expenses" icon={Wallet} label="Expenses" sublabel="Operating expense breakdown" />
+        <ReportLink href="/m/reports/gst" icon={Percent} label="GST Report" sublabel="Input/output GST summary" />
+        <ReportLink href="/m/reports/tds-certificates" icon={FileText} label="TDS Certificates" sublabel="TDS deducted by vendor" />
+        <ReportLink href="/m/reports/payroll-expense" icon={Calendar} label="Payroll Expense" sublabel="Salary expense by month" />
+        <ReportLink href="/m/reports/expenses" icon={Wallet} label="Expenses" sublabel="Operating expense breakdown" />
       </div>
     </div>
   );

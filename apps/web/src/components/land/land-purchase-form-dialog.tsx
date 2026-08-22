@@ -8,6 +8,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { ProjectOption, LandPurchaseRow } from "@/lib/types";
 
@@ -44,6 +46,8 @@ export function LandPurchaseFormDialog({
   const [uploading, setUploading] = useState(false);
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [documentName, setDocumentName] = useState<string>("");
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
   const [form, setForm] = useState({
     projectId: "",
     sellerName: "",
@@ -196,10 +200,16 @@ export function LandPurchaseFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>Project (optional)</Label>
-          <Select value={form.projectId} onChange={(e) => set("projectId", e.target.value)}>
-            <option value="">No project — standalone land</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
+          <SelectWithCreate
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            placeholder="No project — standalone land"
+            createLabel="project"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

@@ -83,6 +83,11 @@ function isAuthRoute(pathname: string): boolean {
   );
 }
 
+/** Print pages render bare — no nav sidebar, no shell chrome. */
+function isPrintRoute(pathname: string): boolean {
+  return pathname === "/print" || pathname.startsWith("/print/");
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -93,13 +98,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[]
   >([]);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
-  const [userRole, setUserRole] = useState<string>("MANAGER");
+  const [userRole, setUserRole] = useState<string>("PROJECT_MANAGER");
   const [userName, setUserName] = useState<string>("");
 
   // ── Auth guard ───────────────────────────────────────────────
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
-    if (isAuthRoute(pathname)) return;
+    if (isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     if (!sessionLoading && !session) {
       authSignOut().catch(() => {});
       router.replace("/sign-in");
@@ -108,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // ── Global 401 interceptor ──────────────────────────────────
   useEffect(() => {
-    if (isAuthRoute(pathname)) return;
+    if (isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     if ((window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled) return;
     (window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled = true;
     const originalFetch = window.fetch;
@@ -152,7 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // ── Context fetches ─────────────────────────────────────────
   useEffect(() => {
-    if (isMobileRoute(pathname) || isAuthRoute(pathname)) return;
+    if (isMobileRoute(pathname) || isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     let cancelled = false;
 
     fetch("/api/company")
@@ -210,7 +215,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // after a successful switch. We listen for it and re-fetch /api/company
   // to update the brand mark, document title, and switcher list.
   useEffect(() => {
-    if (isMobileRoute(pathname) || isAuthRoute(pathname)) return;
+    if (isMobileRoute(pathname) || isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     function onCompanySwitched() {
       fetch("/api/company")
         .then((r) => (r.ok ? r.json() : null))
@@ -236,6 +241,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Auth/public pages render their own full-screen layout — no nav chrome.
   if (isAuthRoute(pathname)) return <>{children}</>;
+
+  // Print pages render bare — no sidebar, no nav, no shell.
+  if (isPrintRoute(pathname)) return <>{children}</>;
 
   if (process.env.NODE_ENV === "production" && sessionLoading && !session) {
     return (

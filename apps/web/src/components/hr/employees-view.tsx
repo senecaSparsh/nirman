@@ -368,7 +368,7 @@ function EmployeeFormDialog({
     monthlySalary: employee?.monthlySalary?.toString() ?? "",
     crewId: employee?.crewId ?? "",
     activeProjectId: employee?.activeProjectId ?? "",
-    joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : "",
+    joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : new Date().toISOString().slice(0, 10),
     active: employee?.active ?? true,
   });
 

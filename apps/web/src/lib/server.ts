@@ -120,6 +120,8 @@ export const materialCategorySchema = z.object({
 export const materialSchema = z.object({
   code: z.string().min(1, "Code is required").max(40),
   name: z.string().min(1, "Name is required").max(120),
+  grade: z.string().max(60).optional().nullable(),
+  specification: z.string().max(200).optional().nullable(),
   categoryId: z.string().min(1, "Category is required"),
   unit: z.string().min(1).max(20).default("NOS"),
   hsnCode: z.string().max(20).optional().nullable(),
@@ -181,6 +183,17 @@ export const projectSchema = z.object({
   totalSellableArea: z.coerce.number().min(0).optional().nullable(),
   lciThreshold: z.coerce.number().min(0).max(100).optional().nullable(),
   description: z.string().max(2000).optional().nullable(),
+  // ATS (Agreement to Sell) — not stored on Project, used to auto-create a legal doc
+  isATS: z.boolean().optional(),
+  atsRegistrationAmount: z.coerce.number().min(0).optional().nullable(),
+  atsExpectedRegistryDate: z.string().optional().nullable(),
+  // Registry number — captured when ATS = No (registry is done)
+  registryNo: z.string().max(200).optional().nullable(),
+  // ── RERA registration ──
+  reraNumber: z.string().max(100).optional().nullable(),
+  reraRegistrationDate: z.string().optional().nullable(),
+  reraValidityDate: z.string().optional().nullable(),
+  reraWebsiteUrl: z.string().max(500).optional().nullable(),
 });
 
 export const projectPhaseSchema = z.object({
@@ -205,11 +218,120 @@ export const supplierSchema = z.object({
   leadTimeDays: z.coerce.number().int().min(0).optional().nullable(),
 });
 
+// ───────────────────────────────────────────────────────────
+//  Standalone Quotation Request schemas
+// ───────────────────────────────────────────────────────────
+
+export const quotationRequestLineSchema = z.object({
+  materialId: z.string().min(1, "Material is required"),
+  qtyRequired: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
+});
+
+export const quotationRequestSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200),
+  projectId: z.string().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  minQuotesRequired: z.coerce.number().int().min(1).max(20).default(3),
+  requiredByDate: z.string().min(1, "Required-by date is mandatory"),
+  workActivity: z.string().max(200).optional().nullable(),
+  destinationLocationId: z.string().min(1, "Destination location is mandatory — pick where material should be delivered"),
+  lines: z.array(quotationRequestLineSchema).min(1, "At least one material is required"),
+});
+
+export const quoteLineSchema = z.object({
+  materialId: z.string().min(1, "Material is required"),
+  qty: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
+  unitPrice: z.coerce.number().finite().min(0, "Unit price must be >= 0"),
+  discountPerUnit: z.coerce.number().finite().min(0).default(0),
+  packingPerUnit: z.coerce.number().finite().min(0).default(0),
+  freightPerUnit: z.coerce.number().finite().min(0).default(0),
+  loadingPerUnit: z.coerce.number().finite().min(0).default(0),
+  insurancePerUnit: z.coerce.number().finite().min(0).default(0),
+  handlingPerUnit: z.coerce.number().finite().min(0).default(0),
+  buyerTransportPerUnit: z.coerce.number().finite().min(0).default(0),
+});
+
+export const addQuoteSchema = z.object({
+  supplierId: z.string().optional().nullable(),
+  // Inline supplier creation — when the supplier doesn't exist yet, the
+  // user can create one directly from the quote upload dialog without
+  // going to a separate "add supplier" page.
+  newSupplier: z.object({
+    name: z.string().min(1).max(160),
+    gstin: z.string().max(20).optional().nullable(),
+    phone: z.string().max(30).optional().nullable(),
+    email: z.string().max(120).optional().nullable(),
+    address: z.string().max(500).optional().nullable(),
+  }).optional(),
+  fileUrl: z.string().optional().nullable(),
+  fileName: z.string().optional().nullable(),
+  mimeType: z.string().optional().nullable(),
+  quoteSource: z.enum(["DOCUMENT", "EMAIL", "VERBAL", "WHATSAPP", "LETTER", "EXCEL"]).default("DOCUMENT"),
+  sourceNote: z.string().max(500).optional().nullable(),
+  validUntil: z.string().min(1, "Quote validity date is mandatory"),
+  notes: z.string().max(2000).optional().nullable(),
+  // ── Commercial terms (mandatory for like-for-like comparison) ──
+  paymentTerms: z.string().min(1, "Payment terms are mandatory").max(200),
+  // Structured delivery basis — determines who bears transport cost.
+  deliveryTermsType: z.enum(["DELIVERED_SITE", "EX_WORKS", "FOR_STATION", "CUSTOM"]).default("DELIVERED_SITE"),
+  // Free-text detail (required when deliveryTermsType = CUSTOM)
+  deliveryTerms: z.string().max(100).optional().nullable(),
+  leadTimeDays: z.coerce.number().int().min(0, "Lead time is mandatory").max(365),
+  warranty: z.string().max(200).optional().nullable(),
+  lines: z.array(quoteLineSchema).min(1, "At least one line is required"),
+}).refine(
+  (data) => data.supplierId || data.newSupplier,
+  { message: "Either supplierId or newSupplier is required" },
+).refine(
+  // deliveryTerms detail is required when deliveryTermsType = CUSTOM
+  (data) => data.deliveryTermsType !== "CUSTOM" || !!data.deliveryTerms?.trim(),
+  { message: "Delivery terms detail is required when delivery basis is 'Custom'", path: ["deliveryTerms"] },
+).refine(
+  // Buyer transport is mandatory for ex-works / FOR-station quotes
+  (data) => {
+    if (data.deliveryTermsType !== "EX_WORKS" && data.deliveryTermsType !== "FOR_STATION") return true;
+    return data.lines.every((l) => l.buyerTransportPerUnit > 0);
+  },
+  { message: "Buyer transport per unit is mandatory for ex-works / FOR-station quotes — enter estimated transport for every line", path: ["lines"] },
+).refine(
+  // File is required for document-based sources; optional for verbal/email
+  (data) => {
+    const needsFile = ["DOCUMENT", "LETTER", "EXCEL"].includes(data.quoteSource);
+    if (!needsFile) return true;
+    return !!data.fileUrl;
+  },
+  { message: "Quote file is required for DOCUMENT/LETTER/EXCEL sources. Use VERBAL or EMAIL source for quotes without a file.", path: ["fileUrl"] },
+).refine(
+  // Source note is required for non-document sources
+  (data) => {
+    const needsFile = ["DOCUMENT", "LETTER", "EXCEL"].includes(data.quoteSource);
+    if (needsFile) return true;
+    return !!data.sourceNote?.trim();
+  },
+  { message: "A source note is required for non-document quotes (e.g. 'Verbal quote from Ramesh on 15-Aug over phone')", path: ["sourceNote"] },
+);
+
+export const approveQuotationSchema = z.object({
+  selectedQuoteId: z.string().min(1, "A quote must be selected"),
+  reason: z.string().max(1000).optional().nullable(),
+});
+
 export const purchaseOrderLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
   qtyOrdered: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
   unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
   gstRate: z.coerce.number().min(0).max(100).default(0),
+  freightPerUnit: z.coerce.number().min(0).optional().default(0),
+  loadingPerUnit: z.coerce.number().min(0).optional().default(0),
+  packingPerUnit: z.coerce.number().min(0).optional().default(0),
+  insurancePerUnit: z.coerce.number().min(0).optional().default(0),
+  discountPerUnit: z.coerce.number().min(0).optional().default(0),
+});
+
+export const purchaseOrderChargeSchema = z.object({
+  heading: z.string().min(1, "Charge heading is required").max(100),
+  amount: z.coerce.number().finite().min(0, "Amount must be >= 0"),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 export const purchaseOrderSchema = z.object({
@@ -220,6 +342,7 @@ export const purchaseOrderSchema = z.object({
   expectedDate: z.string().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(purchaseOrderLineSchema).min(1, "At least one line item is required"),
+  charges: z.array(purchaseOrderChargeSchema).optional().default([]),
 });
 
 export const receiveGoodsLineSchema = z.object({
@@ -228,11 +351,64 @@ export const receiveGoodsLineSchema = z.object({
   qtyReceived: z.coerce.number().finite().min(0.001, "Received quantity must be > 0"),
   unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
   lotNumber: z.string().max(80).optional().nullable(),
+  batchCode: z.string().max(80).optional().nullable(),
+  expiryDate: z.coerce.date().optional().nullable(),
+  manufacturingDate: z.coerce.date().optional().nullable(),
+  inspectionStatus: z.enum(["PASSED", "FAILED", "RETEST", "PENDING"]).optional().nullable(),
+  inspectionRemarks: z.string().max(500).optional().nullable(),
 });
 
 export const receiveGoodsSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(receiveGoodsLineSchema).min(1, "At least one line is required"),
+  // Delivery proof & logistics
+  deliveryTermsType: z.string().optional(),
+  deliveryMode: z.string().optional(),
+  vehicleType: z.string().optional(),
+  vehicleNumber: z.string().max(50).optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
+  transporterName: z.string().max(100).optional(),
+  challanNumber: z.string().max(50).optional(),
+  invoiceNumber: z.string().max(50).optional(),
+  ewayBillNumber: z.string().max(50).optional(),
+  lrNumber: z.string().max(50).optional(),
+  packageCount: z.coerce.number().int().min(0).optional(),
+  photos: z.array(z.object({ url: z.string(), fileName: z.string().optional() })).optional(),
+  receiverSignature: z.string().optional(),
+  receiverLat: z.coerce.number().optional(),
+  receiverLng: z.coerce.number().optional(),
+  receiverLocation: z.string().max(200).optional(),
+  gateInAt: z.coerce.date().optional(),
+  shortageRemarks: z.string().max(1000).optional(),
+  damageRemarks: z.string().max(1000).optional(),
+  // Supervisor co-signature
+  supervisorSignature: z.string().optional(),
+  supervisorId: z.string().optional(),
+  // Weighbridge
+  weighbridgeTicketNo: z.string().max(50).optional(),
+  grossWeight: z.coerce.number().optional(),
+  tareWeight: z.coerce.number().optional(),
+  netWeight: z.coerce.number().optional(),
+  // Gate pass / receiving + unloading
+  gatePassNo: z.string().max(50).optional(),
+  receivingPhotoUrl: z.string().optional(),
+  unloadingSlipNo: z.string().max(50).optional(),
+  unloadedAt: z.coerce.date().optional(),
+  unloadingLocation: z.string().max(200).optional(),
+  unloadingRemarks: z.string().max(1000).optional(),
+});
+
+export const rejectDeliverySchema = z.object({
+  rejectionReason: z.string().min(1, "Rejection reason is required").max(2000),
+  rejectionPhotos: z.array(z.object({ url: z.string(), fileName: z.string().optional() })).optional(),
+  vehicleNumber: z.string().max(50).optional(),
+  challanNumber: z.string().max(50).optional(),
+  receiverLat: z.coerce.number().optional(),
+  receiverLng: z.coerce.number().optional(),
+  receiverLocation: z.string().max(200).optional(),
+  gatePassNo: z.string().max(50).optional(),
+  notes: z.string().max(2000).optional(),
 });
 
 export const transferLineSchema = z.object({
@@ -263,6 +439,12 @@ export const issueMaterialsSchema = z.object({
   // Receiver accountability — who physically picked up the stock
   receiverName: z.string().max(200).optional().nullable(),
   receiverMobile: z.string().max(20).optional().nullable(),
+  // Vehicle — how the goods were transported from store to site
+  vehicleNumber: z.string().max(50).optional(),
+  vehicleType: z.string().max(50).optional(),
+  vehiclePhotoUrl: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
   // Round-off to match physical bill totals
   roundOff: z.coerce.number().optional().nullable(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
@@ -274,6 +456,7 @@ export const issueMaterialsSchema = z.object({
 // ── Land ──
 export const landPurchaseSchema = z.object({
   projectId: z.string().optional().nullable(),
+  sellerId: z.string().optional().nullable(),
   sellerName: z.string().min(1, "Seller name is required"),
   sellerContact: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
@@ -284,6 +467,114 @@ export const landPurchaseSchema = z.object({
   location: z.string().optional().nullable(),
   documentUrl: z.string().optional().nullable(),
   initialParcelNumber: z.string().optional(),
+});
+
+// Inline project creation spec for the guided land purchase wizard
+const inlineProjectCreateSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  type: z.enum(["RESIDENTIAL", "COMMERCIAL", "WAREHOUSE", "MALL", "LAND", "OTHER"]).optional(),
+  status: z.enum(["PLANNED", "ACTIVE", "COMPLETED", "ON_HOLD"]).optional(),
+  address: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  totalBudget: z.coerce.number().finite().nonnegative().optional(),
+  totalSellableArea: z.coerce.number().finite().nonnegative().optional(),
+  description: z.string().optional().nullable(),
+});
+
+// A single section in the guided land purchase plan
+const planSectionSchema = z.object({
+  number: z.string().min(1, "Section number is required"),
+  area: z.coerce.number().finite().positive("Section area must be > 0"),
+  purpose: z.enum(["SELL", "PROJECT", "HOLD"]),
+  askingPrice: z.coerce.number().finite().positive().optional(),
+  projectId: z.string().optional().nullable(),
+  projectCreate: inlineProjectCreateSchema.optional(),
+}).refine(
+  (data) => !(data.projectId && data.projectCreate),
+  { message: "Cannot specify both projectId and projectCreate", path: ["projectId"] },
+);
+
+// The full guided land purchase plan (wizard payload)
+export const landPurchasePlanSchema = z.object({
+  sellerId: z.string().optional().nullable(),
+  sellerName: z.string().min(1, "Seller name is required"),
+  sellerContact: z.string().optional().nullable(),
+  purchaseDate: z.string().optional().nullable(),
+  totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
+  areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
+  totalCost: z.coerce.number().finite().positive("Total cost must be > 0"),
+  registryNo: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  documentUrl: z.string().optional().nullable(),
+  mode: z.enum(["WHOLE", "SUBDIVIDED"]),
+  sections: z.array(planSectionSchema).min(1, "At least one section is required"),
+  parentParcelNumber: z.string().optional(),
+  // ── Land type & lease details ──
+  landType: z.enum(["FREEHOLD", "LEASEHOLD"]).default("FREEHOLD"),
+  leaseType: z.enum(["ONE_TIME", "YEARLY"]).optional().nullable(),
+  leasePeriodYears: z.coerce.number().finite().positive().optional().nullable(),
+  leaseStartDate: z.string().optional().nullable(),
+  leaseEndDate: z.string().optional().nullable(),
+  // ── Cost breakup ──
+  baseCost: z.coerce.number().finite().nonnegative().optional(),
+  leaseRentPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  leaseRentAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  gstPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  gstAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  registrationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  // Additional acquisition costs
+  brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
+  otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
+});
+
+// Edit schema for PATCH /api/land-purchases/[id] — includes all editable fields
+// (base + cost breakup + lease details) but NOT mode/sections (immutable after creation).
+export const landPurchaseEditSchema = z.object({
+  projectId: z.string().optional().nullable(),
+  sellerId: z.string().optional().nullable(),
+  sellerName: z.string().min(1, "Seller name is required").optional(),
+  sellerContact: z.string().optional().nullable(),
+  purchaseDate: z.string().optional().nullable(),
+  totalArea: z.coerce.number().finite().positive("Total area must be > 0").optional(),
+  areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).optional(),
+  totalCost: z.coerce.number().finite().positive("Total cost must be > 0").optional(),
+  registryNo: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  documentUrl: z.string().optional().nullable(),
+  // ── Land type & lease details ──
+  landType: z.enum(["FREEHOLD", "LEASEHOLD"]).optional(),
+  leaseType: z.enum(["ONE_TIME", "YEARLY"]).optional().nullable(),
+  leasePeriodYears: z.coerce.number().finite().positive().optional().nullable(),
+  leaseStartDate: z.string().optional().nullable(),
+  leaseEndDate: z.string().optional().nullable(),
+  // ── Cost breakup ──
+  baseCost: z.coerce.number().finite().nonnegative().optional().nullable(),
+  leaseRentPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  leaseRentAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  gstPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  gstAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  registrationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
+  otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
+});
+
+// ── Land Seller ──
+export const landSellerSchema = z.object({
+  name: z.string().min(1, "Name is required").max(160),
+  phone: z.string().max(30).optional().nullable(),
+  email: z.string().email("Invalid email").optional().nullable(),
+  gstin: z.string().max(20).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
 });
 
 export const partitionSchema = z.object({
@@ -360,17 +651,89 @@ export const customerSchema = z.object({
 
 // ── Sales ──
 export const sellAssetSchema = z.object({
-  assetType: z.enum(["LAND", "BUILT_UNIT"]),
+  assetType: z.enum(["LAND", "BUILT_UNIT", "PROJECT"]),
   landParcelId: z.string().optional().nullable(),
   builtUnitId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
   customerId: z.string().min(1, "Customer is required"),
-  projectId: z.string().min(1, "Project is required"),
   salePrice: z.coerce.number().finite().positive("Sale price must be > 0"),
   gstRate: z.coerce.number().finite().nonnegative().max(28).optional(),
   paymentMode: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   initialPayment: z.coerce.number().finite().nonnegative().optional(),
   initialPaymentMode: z.string().optional(),
+  // Sale deed / registry tracking
+  saleDeedNo: z.string().max(200).optional().nullable(),
+  expectedRegistryDate: z.string().optional().nullable(),
+  // Sale compliance documents
+  allotmentLetterNo: z.string().max(200).optional().nullable(),
+  allotmentDate: z.string().optional().nullable(),
+  bbaNo: z.string().max(200).optional().nullable(),
+  bbaDate: z.string().optional().nullable(),
+  // TDS tracking
+  tdsAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  tdsCertificateNo: z.string().max(200).optional().nullable(),
+  // Home loan tracking
+  homeLoanBank: z.string().max(200).optional().nullable(),
+  homeLoanAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  homeLoanSanctionNo: z.string().max(200).optional().nullable(),
+  homeLoanSanctionDate: z.string().optional().nullable(),
+  // Deal terms
+  dealMaturityMonths: z.coerce.number().int().positive().optional().nullable(),
+  paymentCycle: z.string().max(500).optional().nullable(),
+  // Sale expenses
+  expenses: z.array(z.object({
+    head: z.enum(["REGISTRY", "STAMP_DUTY", "TRANSFER", "LEASE_RENT", "GST", "OTHER"]),
+    label: z.string().max(200).optional().nullable(),
+    amount: z.coerce.number().finite().nonnegative(),
+    borneBy: z.enum(["CLIENT", "SELLER", "NA"]),
+    isIncluded: z.boolean().optional(),
+  })).optional(),
+  // Sale terms & conditions
+  terms: z.array(z.object({
+    description: z.string().min(1, "Term description is required"),
+    extraAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+    isIncluded: z.boolean().optional(),
+  })).optional(),
+  // Broker / deal source
+  dealSource: z.enum(["SELF", "BROKER"]).optional(),
+  brokerId: z.string().optional().nullable(),
+  brokerName: z.string().max(200).optional().nullable(),
+  brokerPhone: z.string().max(20).optional().nullable(),
+  commissionAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  commissionIsPartOfDeal: z.boolean().optional(),
+  // Payment schedule
+  paymentSchedule: z.object({
+    type: z.enum(["CLP", "TLP", "DPP"]),
+    items: z.array(z.object({
+      installmentNo: z.coerce.number().int().positive(),
+      description: z.string().min(1),
+      percentage: z.coerce.number().finite().nonnegative(),
+      amount: z.coerce.number().finite().nonnegative(),
+      dueDate: z.string().optional().nullable(),
+      wbsNodeId: z.string().optional().nullable(),
+    })).min(1, "At least one installment is required"),
+  }).optional(),
+});
+
+export const paymentScheduleSchema = z.object({
+  type: z.enum(["CLP", "TLP", "DPP"]),
+  items: z.array(z.object({
+    installmentNo: z.coerce.number().int().positive(),
+    description: z.string().min(1),
+    percentage: z.coerce.number().finite().nonnegative(),
+    amount: z.coerce.number().finite().nonnegative(),
+    dueDate: z.string().optional().nullable(),
+    wbsNodeId: z.string().optional().nullable(),
+  })).min(1, "At least one installment is required"),
+});
+
+export const brokerSchema = z.object({
+  name: z.string().min(1, "Broker name is required"),
+  phone: z.string().max(20).optional().nullable(),
+  agency: z.string().max(200).optional().nullable(),
+  defaultCommissionPercent: z.coerce.number().finite().nonnegative().max(100).optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 export const paymentSchema = z.object({
@@ -389,6 +752,19 @@ export const completeSaleSchema = z.object({
   finalPaymentAmount: z.coerce.number().finite().nonnegative().optional(),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
+  saleDeedNo: z.string().max(200).optional().nullable(),
+  // Compliance fields that can be captured at completion
+  allotmentLetterNo: z.string().max(200).optional().nullable(),
+  allotmentDate: z.string().optional().nullable(),
+  bbaNo: z.string().max(200).optional().nullable(),
+  bbaDate: z.string().optional().nullable(),
+  tdsAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  tdsCertificateNo: z.string().max(200).optional().nullable(),
+  // Home loan details — often finalized at completion
+  homeLoanBank: z.string().max(200).optional().nullable(),
+  homeLoanAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  homeLoanSanctionNo: z.string().max(200).optional().nullable(),
+  homeLoanSanctionDate: z.string().optional().nullable(),
 });
 
 // ── Material Sales ──
@@ -405,6 +781,12 @@ export const materialSaleSchema = z.object({
   projectId: z.string().optional().nullable(),
   lines: z.array(materialSaleLineSchema).min(1, "At least one line item is required"),
   paymentMode: z.string().optional().nullable(),
+  // Vehicle — how the goods were dispatched to the customer
+  vehicleNumber: z.string().max(50).optional(),
+  vehicleType: z.string().max(50).optional(),
+  vehiclePhotoUrl: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -422,7 +804,7 @@ export const renovationSchema = z.object({
 
 export const renovationCostSchema = z.object({
   renovationProjectId: z.string().min(1, "Renovation project is required"),
-  costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"]),
+  costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"]),
   amount: z.coerce.number().finite().positive("Amount must be > 0"),
   vendor: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -458,6 +840,7 @@ export const tenancySchema = z.object({
   monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
   securityDeposit: z.coerce.number().finite().nonnegative().optional(),
   rentAgreementNo: z.string().optional().nullable(),
+  sacCode: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -497,7 +880,7 @@ export const dailyReportSchema = z.object({
 // ── Project Costs ──
 export const projectCostSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
-  costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "OTHER"]),
+  costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"]),
   amount: z.coerce.number().finite().positive("Amount must be > 0"),
   date: z.string().optional().nullable(),
   vendor: z.string().optional().nullable(),
@@ -689,6 +1072,12 @@ export const supplierReturnSchema = z.object({
   purchaseOrderId: z.string().optional().nullable(),
   locationId: z.string().min(1, "Source location is required"),
   creditNoteNo: z.string().optional().nullable(),
+  // Vehicle — how the goods are being sent back to the supplier
+  vehicleNumber: z.string().max(50).optional(),
+  vehicleType: z.string().max(50).optional(),
+  vehiclePhotoUrl: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
   notes: z.string().optional().nullable(),
   lines: z.array(supplierReturnLineSchema).min(1, "At least one line is required"),
 });
@@ -727,7 +1116,7 @@ export const workflowScheduleSchema = z.object({
 
 // ── User role management ──
 export const userRoleSchema = z.object({
-  role: z.enum(["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"]).optional(),
+  role: z.enum(["OWNER","ADMIN","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"]).optional(),
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
@@ -765,7 +1154,7 @@ async function getDevBypassUser() {
   if (_devUser) return _devUser;
   // Prefer the first OWNER (full permissions); fall back to ADMIN, then any
   // user; fall back to synthetic "dev" only if the DB has no users at all.
-  const rolePriority = ["OWNER", "ADMIN", "MANAGER", "SUPERVISOR", "SALES", "ACCOUNTANT"];
+  const rolePriority = ["OWNER","ADMIN","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"];
   let u = null;
   for (const role of rolePriority) {
     u = await prisma.user.findFirst({
@@ -895,7 +1284,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
  */
 export async function getUserRole(): Promise<string> {
   const user = await getCurrentUser();
-  return user?.role ?? "SALES";
+  return user?.role ?? "SUPERVISOR";
 }
 
 /**
@@ -908,7 +1297,7 @@ export async function getAssignedProjectIds(): Promise<string[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
   // OWNER, ADMIN, MANAGER are unscoped — they see all projects
-  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "MANAGER") {
+  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "PROJECT_DIRECTOR" || user.role === "PROJECT_MANAGER") {
     return null; // null = unscoped (all projects)
   }
   // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects.
@@ -1040,6 +1429,31 @@ export async function requireUser(): Promise<CurrentUser> {
   if (!user) throw new UnauthorizedError();
   if (!user.active) throw new ForbiddenError("Your account is inactive.");
   return user;
+}
+
+/**
+ * Get the current user's UserCompany membership for the active company.
+ * Returns the membership row (with id, role, scopeType, reportsToUserCompanyId)
+ * or null if the user has no membership in the current company.
+ *
+ * In dev-bypass mode with the synthetic "dev" user (no real DB row), this
+ * returns null — callers should handle that gracefully (e.g. allow the
+ * operation without hierarchy enforcement).
+ */
+export async function getCurrentUserMembership(): Promise<{
+  id: string;
+  role: string;
+  scopeType: string | null;
+  reportsToUserCompanyId: string | null;
+} | null> {
+  const user = await getCurrentUser();
+  if (!user || !user.companyId) return null;
+  // The synthetic "dev" user has no real UserCompany row.
+  if (user.id === "dev") return null;
+  return prisma.userCompany.findFirst({
+    where: { userId: user.id, companyId: user.companyId },
+    select: { id: true, role: true, scopeType: true, reportsToUserCompanyId: true },
+  });
 }
 
 /**

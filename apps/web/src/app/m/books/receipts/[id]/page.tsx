@@ -222,7 +222,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
 
       <SectionCard title="Against Sale">
         <FieldRow icon={FileText} label="Sale No." value={sale.saleNumber} mono />
-        <FieldRow icon={Building2} label="Project" value={sale.project.name} />
+        <FieldRow icon={Building2} label="Project" value={sale.project?.name ?? "Standalone"} />
         <FieldRow icon={Building2} label="Property" value={propertyDesc} />
         <FieldRow icon={CalendarDays} label="Sale Date" value={formatDate(sale.saleDate)} />
       </SectionCard>

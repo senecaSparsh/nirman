@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, Printer, CreditCard, SearchX } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -12,9 +12,14 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
+import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import type { ProjectOption } from "@/lib/types";
 import { MaterialSalePaymentFormDialog } from "./material-sale-payment-form-dialog";
 
 /** Column definitions for the material sale line items DataTable. */
@@ -163,6 +168,8 @@ export function MaterialSalesView({
   customers,
   locations,
   materials,
+  categories,
+  projects,
   stockMap,
   permissions,
 }: {
@@ -170,6 +177,8 @@ export function MaterialSalesView({
   customers: { id: string; name: string; phone: string | null }[];
   locations: { id: string; name: string; type: string }[];
   materials: { id: string; name: string; unit: string | null }[];
+  categories: { id: string; name: string; unit: string }[];
+  projects: ProjectOption[];
   stockMap: Record<string, { qty: number; mac: number }>;
   permissions?: { canCreate?: boolean; canCancel?: boolean; canRecordPayment?: boolean };
 }) {
@@ -193,6 +202,16 @@ export function MaterialSalesView({
   const [lines, setLines] = useState<LineForm[]>([
     { key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" },
   ]);
+  // Local copies so freshly created masters appear in their dropdowns without
+  // waiting for router.refresh.
+  const [localCustomers, setLocalCustomers] = useState(customers);
+  const [localMaterials, setLocalMaterials] = useState(materials);
+  const [localLocations, setLocalLocations] = useState(locations);
+  useEffect(() => { setLocalCustomers(customers); }, [customers]);
+  useEffect(() => { setLocalMaterials(materials); }, [materials]);
+  useEffect(() => { setLocalLocations(locations); }, [locations]);
+  const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
+  const [locationCreateOpen, setLocationCreateOpen] = useState(false);
 
   function addLine() {
     setLines([...lines, { key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" }]);
@@ -265,12 +284,12 @@ export function MaterialSalesView({
 
   // EditableGrid column definitions for the sale line items
   const materialOptions = useMemo(
-    () => materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit ?? ""})` })),
-    [materials],
+    () => localMaterials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit ?? ""})` })),
+    [localMaterials],
   );
   const locationOptions = useMemo(
-    () => locations.map((l) => ({ value: l.id, label: l.name })),
-    [locations],
+    () => localLocations.map((l) => ({ value: l.id, label: l.name })),
+    [localLocations],
   );
 
   const saleColumns: EditableColumn<LineForm>[] = useMemo(() => [
@@ -281,6 +300,7 @@ export function MaterialSalesView({
       options: materialOptions,
       placeholder: "Select…",
       width: "1fr",
+      createLabel: "material",
     },
     {
       key: "locationId",
@@ -289,6 +309,7 @@ export function MaterialSalesView({
       options: locationOptions,
       placeholder: "Select…",
       width: "140px",
+      createLabel: "location",
     },
     {
       key: "qty",
@@ -366,11 +387,19 @@ export function MaterialSalesView({
           })),
           paymentMode: fPaymentMode,
           notes: fNotes || null,
+          requireGatePass: true,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create material sale");
-      toast.success(`Material sale ${data.saleNumber} created`);
+      if (data.pending) {
+        toast.success(`Gate pass created — awaiting approval`, {
+          description: data.message ?? "Items cannot leave the gate until the gate pass is approved.",
+          action: { label: "View Gate Passes", onClick: () => router.push("/gate-passes") },
+        });
+      } else {
+        toast.success(`Material sale ${data.saleNumber} created`);
+      }
       setFormOpen(false);
       setFCustomer(""); setFNotes(""); setFPaymentMode("BANK");
       setLines([{ key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" }]);
@@ -503,6 +532,16 @@ export function MaterialSalesView({
   function rowActions(s: MaterialSaleRow) {
     return (
       <>
+        {s.status === "PENDING" && (
+          <a
+            href="/gate-passes"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-1 text-micro font-medium text-warning hover:bg-warning/25"
+            title="Awaiting gate pass approval"
+          >
+            <ShieldCheck className="h-3 w-3" /> Gate Pass
+          </a>
+        )}
         {s.status === "ACTIVE" && (
           <a
             href={`/print/material-sale/${s.id}`}
@@ -571,6 +610,7 @@ export function MaterialSalesView({
             totalFormat={(_key, sum) => formatCurrency(sum)}
             rowTone={(s) => {
               if (s.status === "CANCELLED") return "warning";
+              if (s.status === "PENDING") return "warning";
               return null;
             }}
             rowActions={rowActions}
@@ -613,12 +653,16 @@ export function MaterialSalesView({
         <div className="space-y-3">
           <div>
             <Label>Customer *</Label>
-            <Select value={fCustomer} onChange={(e) => setFCustomer(e.target.value)}>
-              <option value="">Select customer…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={fCustomer}
+              onChange={setFCustomer}
+              placeholder="Select customer…"
+              createLabel="customer"
+              options={localCustomers.map((c) => ({ value: c.id, label: c.phone ? `${c.name} · ${c.phone}` : c.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <CustomerFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalCustomers((p) => [...p, { id: e.id, name: e.label ?? "", phone: null }]); onCreated(e); }} customer={null} />
+              )}
+            />
           </div>
 
           {/* Line items — editable grid */}
@@ -637,6 +681,10 @@ export function MaterialSalesView({
                 getRowId={(r) => r.key}
                 sumColumns={["qty", "lineTotal"]}
                 className="max-h-[40vh]"
+                onCreateOption={(colKey) => {
+                  if (colKey === "materialId") setMaterialCreateOpen(true);
+                  else if (colKey === "locationId") setLocationCreateOpen(true);
+                }}
               />
             </div>
           </div>
@@ -670,6 +718,27 @@ export function MaterialSalesView({
           </div>
         </div>
       </Dialog>
+
+      {/* Inline material / location creators — opened from a line item's
+          "+ Create new …" option. */}
+      <MaterialFormDialog
+        open={materialCreateOpen}
+        onOpenChange={setMaterialCreateOpen}
+        categories={categories}
+        material={null}
+        onCreated={(e) => {
+          setLocalMaterials((p) => [...p, { id: e.id, name: e.label ?? "", unit: null }]);
+        }}
+      />
+      <LocationFormDialog
+        open={locationCreateOpen}
+        onOpenChange={setLocationCreateOpen}
+        projects={projects}
+        location={null}
+        onCreated={(e) => {
+          setLocalLocations((p) => [...p, { id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE" }]);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmCancelOpen}

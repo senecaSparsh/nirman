@@ -68,7 +68,7 @@ export function Dialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:overflow-y-auto sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center pb-[65px] sm:items-start sm:overflow-y-auto sm:p-6 sm:pb-6">
       <div
         className="drawer-backdrop fixed inset-0 bg-foreground/40 backdrop-blur-[2px]"
         onClick={() => onOpenChange(false)}

@@ -7,6 +7,7 @@ import {
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
   ClipboardList, HardHat, Ruler, ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import { statusColor, StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
+import { LegalDocsSection } from "@/components/legal/legal-docs-section";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type {
@@ -44,6 +46,10 @@ export type ProjectHubData = {
     totalProjectCost: number | null;
     costPerSqft: number | null;
     totalSellableArea: number | null;
+    reraNumber: string | null;
+    reraRegistrationDate: string | null;
+    reraValidityDate: string | null;
+    reraWebsiteUrl: string | null;
   };
   stats: {
     builtUnitCount: number;
@@ -138,6 +144,9 @@ export type ProjectHubData = {
     otherCostsTotal: number;
     landCostTotal: number;
   };
+  // ── Legal documents (permissions, licenses, NOCs, certificates, ATS) ──
+  legalDocs?: import("@/components/legal/legal-docs-section").LegalDocRow[];
+  canManageLegal?: boolean;
 };
 
 const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
@@ -149,6 +158,11 @@ const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "mute
 const TYPE_LABELS: Record<string, string> = {
   RESIDENTIAL: "Residential", COMMERCIAL: "Commercial", WAREHOUSE: "Warehouse",
   MALL: "Mall / Retail", LAND: "Land Development", OTHER: "Other",
+};
+
+const COST_TYPE_LABELS: Record<string, string> = {
+  LABOUR: "Labour", OVERHEAD: "Overhead", EQUIPMENT: "Equipment",
+  CONTRACTOR: "Contractor", PERMIT: "Permit", TRANSFER_DUTY: "Transfer Duty", OTHER: "Other",
 };
 
 const UNIT_TYPE_LABELS: Record<string, string> = {
@@ -164,7 +178,7 @@ export function ProjectHub({
   editInitial: ProjectFormValues;
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview","procurement","stock","construction","units","land","finance","equipment"] as const,
+    ["overview","procurement","stock","construction","units","land","finance","equipment","legal"] as const,
     "overview",
   );
   const { project, stats, pnl } = data;
@@ -194,6 +208,15 @@ export function ProjectHub({
           <div className="flex flex-wrap items-center gap-4 text-caption text-muted-foreground">
             <StatusPill status={project.status} />
             <Badge variant="outline">{TYPE_LABELS[project.type] ?? project.type}</Badge>
+            {project.reraNumber ? (
+              <Badge variant="outline" className="border-success/40 text-success gap-1">
+                <ShieldCheck className="h-3 w-3" /> RERA: {project.reraNumber}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="border-warning/40 text-warning gap-1">
+                <ShieldCheck className="h-3 w-3" /> RERA: Not registered
+              </Badge>
+            )}
             {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
             <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDate(project.startDate)} → {formatDate(project.endDate)}</span>
           </div>
@@ -208,6 +231,36 @@ export function ProjectHub({
         ]}
       />
 
+      {/* RERA expiry warning */}
+      {project.reraNumber && project.reraValidityDate && (() => {
+        const days = Math.ceil((new Date(project.reraValidityDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        if (days > 30) return null;
+        const isExpired = days < 0;
+        return (
+          <div className={cn(
+            "flex items-start gap-2 rounded-md border px-3 py-2",
+            isExpired ? "border-danger/30 bg-danger-soft/20" : "border-warning/30 bg-warning-soft/30",
+          )}>
+            <ShieldCheck className={cn("h-4 w-4 shrink-0 mt-0.5", isExpired ? "text-danger" : "text-warning")} />
+            <div className="min-w-0">
+              <p className={cn("text-body font-medium", isExpired ? "text-danger" : "text-warning")}>
+                {isExpired
+                  ? `RERA registration expired ${Math.abs(days)} days ago`
+                  : `RERA registration expires in ${days} days`}
+              </p>
+              <p className="text-caption text-muted-foreground">
+                {isExpired
+                  ? "This project's RERA registration has lapsed. Renew immediately — selling units without active RERA registration is illegal."
+                  : "Renew RERA registration before it lapses. Selling units without active RERA registration is illegal."}
+                {project.reraWebsiteUrl && (
+                  <> · <a href={project.reraWebsiteUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">RERA website</a></>
+                )}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
@@ -219,6 +272,7 @@ export function ProjectHub({
           <TabsTrigger value="land">Land <CountBadge n={stats.landParcelCount} /></TabsTrigger>
           <TabsTrigger value="finance">Analytics <CountBadge n={data.projectCosts.length} /></TabsTrigger>
           <TabsTrigger value="equipment">Equipment <CountBadge n={stats.equipmentCount} /></TabsTrigger>
+          <TabsTrigger value="legal">Legal <CountBadge n={data.legalDocs?.length ?? 0} /></TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab data={data} /></TabsContent>
@@ -229,6 +283,14 @@ export function ProjectHub({
         <TabsContent value="land"><LandTab data={data} /></TabsContent>
         <TabsContent value="finance"><FinanceTab data={data} /></TabsContent>
         <TabsContent value="equipment"><EquipmentTab data={data} /></TabsContent>
+        <TabsContent value="legal">
+          <LegalDocsSection
+            docs={data.legalDocs ?? []}
+            projectId={data.project.id}
+            canManage={data.canManageLegal ?? false}
+            context="PROJECT"
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -1257,7 +1319,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
                 key: "costType",
                 label: "Type",
                 sortable: true,
-                render: (c) => <span className="font-medium text-foreground">{c.costType}</span>,
+                render: (c) => <span className="font-medium text-foreground">{COST_TYPE_LABELS[c.costType] ?? c.costType}</span>,
               },
               {
                 key: "amount",

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowRight, Plus, Search, Package,
   CheckCircle2, Clock, AlertTriangle, X,
+  ArrowDownToLine, ArrowUpFromLine,
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -14,9 +15,11 @@ export interface TransferItem {
   fromLocationName: string;
   fromLocationType: string;
   fromCompanyName: string | null;
+  fromCompanyId: string;
   toLocationName: string;
   toLocationType: string;
   toCompanyName: string | null;
+  toCompanyId: string;
   status: string;
   transferDate: string;
   createdAt: string;
@@ -29,6 +32,7 @@ export interface TransferItem {
 }
 
 type TransferFilter = "ALL" | "PENDING" | "IN_TRANSIT" | "RECEIVED" | "CANCELLED";
+type DirectionFilter = "ALL" | "OUTGOING" | "INCOMING";
 
 const FILTERS: { label: string; value: TransferFilter }[] = [
   { label: "All", value: "ALL" },
@@ -36,6 +40,12 @@ const FILTERS: { label: string; value: TransferFilter }[] = [
   { label: "In Transit", value: "IN_TRANSIT" },
   { label: "Received", value: "RECEIVED" },
   { label: "Cancelled", value: "CANCELLED" },
+];
+
+const DIRECTION_FILTERS: { label: string; value: DirectionFilter }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Outgoing", value: "OUTGOING" },
+  { label: "Incoming", value: "INCOMING" },
 ];
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -48,15 +58,21 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 export function MobileTransfersList({
   items,
   canCreate,
+  currentCompanyId,
 }: {
   items: TransferItem[];
   canCreate: boolean;
+  currentCompanyId: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TransferFilter>("ALL");
+  const [dirFilter, setDirFilter] = useState<DirectionFilter>("ALL");
 
   const filtered = useMemo(() => {
     let result = items;
+    // Direction filter: outgoing = from current company, incoming = to current company
+    if (dirFilter === "OUTGOING") result = result.filter((t) => t.fromCompanyId === currentCompanyId);
+    if (dirFilter === "INCOMING") result = result.filter((t) => t.toCompanyId === currentCompanyId);
     if (filter !== "ALL") result = result.filter((t) => t.status === filter);
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -68,7 +84,7 @@ export function MobileTransfersList({
       );
     }
     return result;
-  }, [items, query, filter]);
+  }, [items, query, filter, dirFilter, currentCompanyId]);
 
   const counts = {
     total: items.length,
@@ -143,7 +159,32 @@ export function MobileTransfersList({
         )}
       </div>
 
-      {/* ── Filter chips ── */}
+      {/* ── Direction filter chips ── */}
+      <div className="flex gap-1.5 mb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {DIRECTION_FILTERS.map((f) => {
+          const active = dirFilter === f.value;
+          return (
+            <button
+              key={f.value}
+              onClick={() => setDirFilter(f.value)}
+              className="shrink-0 h-7 px-2.5 rounded-full text-[0.5625rem] font-semibold press flex items-center gap-1"
+              style={{
+                color: active ? "#fff" : "var(--color-ink-600)",
+                backgroundColor: active
+                  ? f.value === "OUTGOING" ? "var(--color-signal-dark)" : f.value === "INCOMING" ? "var(--color-go)" : "var(--color-ink-950)"
+                  : "var(--color-paper)",
+                border: active ? "none" : "1px solid var(--color-line)",
+              }}
+            >
+              {f.value === "OUTGOING" && <ArrowUpFromLine className="size-2.5" />}
+              {f.value === "INCOMING" && <ArrowDownToLine className="size-2.5" />}
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Status filter chips ── */}
       <div className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {FILTERS.map((f) => {
           const active = filter === f.value;
@@ -168,16 +209,44 @@ export function MobileTransfersList({
       <div className="flex flex-col gap-2">
         {filtered.map((t) => {
           const StatusIcon = STATUS_ICON[t.status] ?? Package;
+          const isOutgoing = t.fromCompanyId === currentCompanyId;
+          const isIncoming = t.toCompanyId === currentCompanyId;
           return (
             <Link
               key={t.id}
               href={`/m/transfers/${t.id}`}
               className="block rounded-[0.625rem] border overflow-hidden active:opacity-80 transition-opacity"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              style={{
+                borderColor: isIncoming && !isOutgoing && t.status === "IN_TRANSIT"
+                  ? "color-mix(in srgb, var(--color-go) 30%, var(--color-line))"
+                  : "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+              }}
             >
               {/* Header: from → to */}
               <div className="p-2.5">
                 <div className="flex items-center gap-2 mb-1.5">
+                  {/* Direction badge */}
+                  <span
+                    className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide flex items-center gap-0.5"
+                    style={{
+                      backgroundColor: isOutgoing ? "var(--color-signal-wash)" : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+                      color: isOutgoing ? "var(--color-signal-dark)" : "var(--color-go)",
+                    }}
+                  >
+                    {isOutgoing ? <ArrowUpFromLine className="size-2" /> : <ArrowDownToLine className="size-2" />}
+                    {isOutgoing ? "OUT" : "IN"}
+                  </span>
+                  {/* Transfer type badge */}
+                  <span
+                    className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide"
+                    style={{
+                      backgroundColor: t.isInterCompany ? "var(--color-signal-wash)" : "var(--color-concrete)",
+                      color: t.isInterCompany ? "var(--color-signal-dark)" : "var(--color-ink-600)",
+                    }}
+                  >
+                    {t.isInterCompany ? "C to C" : "inHouse"}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[0.5625rem] font-semibold truncate" style={{ color: "var(--color-ink-500)" }}>
                       {t.fromLocationName}
@@ -214,6 +283,11 @@ export function MobileTransfersList({
                       }}
                     />
                     <MobileStatusBadge status={t.status} />
+                    {isIncoming && t.status === "IN_TRANSIT" ? (
+                      <span className="text-[0.375rem] font-bold px-1.5 py-px rounded-full animate-pulse" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)", color: "var(--color-go)" }}>
+                        ACTION NEEDED
+                      </span>
+                    ) : null}
                   </div>
                   <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-400)" }}>
                     {formatDate(t.transferDate)}

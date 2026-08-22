@@ -158,16 +158,8 @@ export function TdsCertificatesView() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Receipt className="h-5 w-5" /> TDS Certificates
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Form 16C-style certificates for subcontractors — Section 194C
-          </p>
-        </div>
+      {/* Toolbar */}
+      <div className="flex items-center justify-end gap-4">
         <div className="flex items-center gap-2">
           <Field label="Financial Year">
             <Input

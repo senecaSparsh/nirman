@@ -66,19 +66,34 @@
   password (`nirman123`) for that role's user, then runs the real
   `signIn.email` flow — so the session is real, not a bypass. Demo users:
   `amit@nirman.in` (OWNER), `anita@nirman.in` (ADMIN), `sneha@nirman.in`
-  (MANAGER), `ravi@nirman.in` (SUPERVISOR), `karan@nirman.in` (SALES),
-  `priya@nirman.in` (ACCOUNTANT) — all password `nirman123`.
-- **RBAC**: 6 roles (OWNER, ADMIN, MANAGER, SUPERVISOR, SALES, ACCOUNTANT) with
-  a View+Manage permission matrix in `@/lib/roles.ts`. 44 permissions covering
-  all modules + approval actions (`po.approve`, `requisition.approve`,
-  `stock.transfer`, `stock.issue`, `sale.create`, `expense.create`,
-  `asset.sell`, `land.partition`). OWNER/ADMIN = "*" (all permissions).
-  Fine-grained overrides via `RolePermission` table (additive to the matrix).
-  Multi-company via `UserCompany` join (role per membership). Server Components
-  gate UI by calling `getUserRole()` + `hasPermission()` and passing a
-  `permissions` prop to client views. Client components can use the
-  `usePermissions()` hook from `@/lib/permissions`. Nav items are role-gated
-  via the `roles` array in `src/lib/nav.ts`.
+  (PROJECT_MANAGER), `ravi@nirman.in` (SUPERVISOR), `karan@nirman.in`
+  (SALES_MANAGER), `priya@nirman.in` (ACCOUNTANT) — all password `nirman123`.
+- **RBAC**: 13 construction-specific roles with a 5-tier delegation hierarchy
+  in `@/lib/roles.ts`:
+  - **Tier 1 — Executive**: OWNER, ADMIN (full access, can assign any role)
+  - **Tier 2 — Senior Mgmt**: PROJECT_DIRECTOR, FINANCE_HEAD (can assign T3-T5)
+  - **Tier 3 — Middle Mgmt**: PROJECT_MANAGER, PROCUREMENT_MANAGER, HR_MANAGER (can assign T4-T5)
+  - **Tier 4 — Execution**: SITE_ENGINEER, STORE_KEEPER, ACCOUNTANT, SALES_MANAGER (can assign T5)
+  - **Tier 5 — Field**: SUPERVISOR, QAQC_ENGINEER (cannot create accounts)
+  - `canAssignRole(actor, target)` enforces strict hierarchy (no self-cloning,
+    no peer creation except T1 OWNER↔ADMIN). `assignableRoles(actor)` returns
+    the filtered list for UI dropdowns. Roles grouped by category for display.
+  - 60+ permission keys covering all modules + approval actions
+    (`po.approve`, `requisition.approve`, `stock.transfer`, `stock.issue`,
+    `sale.create`, `expense.create`, `expense.approve`, `asset.sell`,
+    `land.partition`, `ra.approve`, `ra.pay`, `dpr.approve_sub_admin`,
+    `dpr.approve_admin`, etc.). OWNER/ADMIN = "*" (all permissions).
+  - Fine-grained overrides via `RolePermission` table (additive to the matrix).
+  - Enterprise user fields: `employeeCode`, `designation`, `department`,
+    `joiningDate` on the `User` model. Shown in team list + add/edit forms.
+  - Multi-company via `UserCompany` join (role per membership). Server Components
+    gate UI by calling `getUserRole()` + `hasPermission()` and passing a
+    `permissions` prop to client views. Client components can use the
+    `usePermissions()` hook from `@/lib/permissions`. Nav items are role-gated
+    via the `roles` array in `src/lib/nav.ts`.
+  - **Role change audit logging**: `PATCH /api/users/[id]` writes
+    `USER_ROLE_CHANGE`, `USER_ACTIVATE`, `USER_DEACTIVATE` entries to
+    `AuditLog` with before/after state for compliance.
 - **Approvals**: POs go DRAFT→APPROVED (requires `po.approve`), requisitions go
   SUBMITTED→APPROVED (requires `requisition.approve`). The `/approvals` page
   shows the queue for approvers. Approval columns: `approvedById`/`approvedAt`
@@ -152,7 +167,7 @@
   for the scrap portion of the sale.
 - **DPR Multi-Tier Approval**: `DailyProgressReport.approvalStatus`
   (`SUBMITTED → SUB_ADMIN_APPROVED → APPROVED | REJECTED`). Sub-Admins
-  (MANAGER, `dpr.approve_sub_admin`) approve first; Admins (OWNER/ADMIN,
+  (PROJECT_MANAGER/HR_MANAGER, `dpr.approve_sub_admin`) approve first; Admins (OWNER/ADMIN,
   `dpr.approve_admin`) give final approval. Rejected DPRs can be
   resubmitted. Service: `subAdminApproveDpr()`, `adminApproveDpr()`,
   `rejectDpr()`, `resubmitDpr()` in `@nirman/services`/`hr.ts`. API:
@@ -622,3 +637,55 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
   to `BuiltUnit` (was missing — `builtUnitId` existed but no relation).
   `BuiltUnit` back-relation `assetSales`. All back-relations added to
   `Supplier`, `Material`, `User` for `RateContract`.
+
+- **Standalone Quotation Request + HSN/GST Master**: A standalone
+  quotation system (not tied to requisitions) with comparative per-piece
+  landed cost analysis and hierarchical approval. `@nirman/services`/
+  `quotation.ts` — `createQuotationRequest()` creates a request with
+  material lines (snapshots HSN+GST from each material at creation);
+  `addQuoteToRequest()` adds a vendor quote with per-line computation of
+  `unitLandedCost = unitPrice + (unitPrice × gstRate/100) + freightPerUnit
+  + handlingPerUnit`, `gstAmount`, `lineSubtotal`, `lineTotal`, and
+  header totals (`subtotal`, `gstTotal`, `freightTotal`,
+  `handlingTotal`, `landedTotal`); `approveQuotation()` selects the
+  winning quote — ENFORCEMENT: only the submitter's DIRECT REPORTING
+  MANAGER (one level up via `UserCompany.reportsToUserCompanyId`) can
+  approve, not anyone with a permission flag. If the selected quote is
+  NOT the cheapest, a reason is mandatory. `getComparativeMatrix()`
+  returns the full per-material × per-supplier matrix with cheapest
+  flags and variances. `getPendingApprovalsForManager()` lists requests
+  from direct reports. HSN/GST master: `@nirman/services`/`hsn-gst.ts`
+  — `seedHsnGstRates()` seeds 81 curated construction-industry HSN codes
+  (cement, steel, bricks, sand, paint, electrical, PVC, sanitary ware,
+  hardware, machinery, services/SAC); `lookupGstByHsn()` for exact
+  lookup; `suggestHsnByMaterial()` for fuzzy match by material name;
+  `searchHsnGst()` for the HSN picker UI. Schema: `HsnGstRate` (hsnCode
+  unique, description, gstRate, sacCode, category Goods/Services) +
+  `QuotationRequest` (requestNumber, companyId, projectId, title, notes,
+  minQuotesRequired, submittedById, submittedByUserCompanyId, status
+  OPEN→QUOTES_COLLECTED→APPROVED, approvedById, approvedByUserCompanyId,
+  approvedAt, approvalReason, selectedQuoteId) + `QuotationRequestLine`
+  (materialId, qtyRequired, hsnCode, gstRate — snapshotted from
+  material). `VendorQuote` enhanced with optional `quotationRequestId`
+  (standalone quotes) + `subtotal`, `gstTotal`, `freightTotal`,
+  `handlingTotal` header fields. `VendorQuoteLine` enhanced with
+  `gstAmount`, `freightPerUnit`, `handlingPerUnit`, `unitLandedCost`,
+  `lineSubtotal`. `VendorQuote.requisitionId` made optional (nullable)
+  to support standalone quotes. Permissions: `QUOTATION_VIEW`,
+  `QUOTATION_MANAGE` (MANAGER, SUPERVISOR get manage; SALES, ACCOUNTANT
+  get view). API: `GET/POST /api/quotations` (list/create, `?scope=mine|
+  pending|all`, `?status=` filter), `GET /api/quotations/[id]`
+  (comparative matrix), `POST /api/quotations/[id]/quotes` (add quote
+  with inline supplier creation via `newSupplier` field), `POST
+  /api/quotations/[id]/approve` (hierarchy-enforced approval), `GET/PUT
+  /api/hsn-gst` (search/lookup/suggest + seed). UI: mobile-first at
+  `/m/quotations` (list with All/Mine/Pending tabs), `/m/quotations/new`
+  (material picker with HSN/GST display), `/m/quotations/[id]`
+  (comparative analysis: per-material per-piece landed cost cards,
+  expandable breakdown with GST/freight/handling, quote document list,
+  sticky approve bar with winner selection dialog, reason required if
+  not cheapest). Desktop overview at `/quotations` (table view,
+  redirects to mobile for detail). Inline supplier creation in the
+  quote upload dialog — no separate "add supplier" page needed. Nav:
+  Build → Procure section on desktop; "More" menu on mobile for
+  executive/ops/field personas.

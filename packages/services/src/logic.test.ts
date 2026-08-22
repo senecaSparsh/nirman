@@ -7,6 +7,7 @@ import {
 import {
   computeSaleProfit,
   computePaymentStatus,
+  autoGenerateScheduleItems,
 } from "./sale";
 import {
   computeMovingAverageCost,
@@ -120,6 +121,110 @@ describe("sale: computePaymentStatus", () => {
 
   it("returns PAID when overpaid (edge case — should be blocked at payment time)", () => {
     expect(computePaymentStatus(new Decimal(5500000), new Decimal(5000000))).toBe("PAID");
+  });
+});
+
+describe("sale: autoGenerateScheduleItems", () => {
+  it("generates advance + equal monthly installments", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 4);
+    expect(items.length).toBe(5);
+    expect(items[0]!.description).toBe("Booking Advance");
+    expect(Number(items[0]!.amount)).toBe(500000);
+    expect(Number(items[1]!.amount)).toBe(1125000);
+    expect(Number(items[4]!.amount)).toBe(1125000);
+  });
+
+  it("percentages sum to exactly 100%", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 4);
+    const totalPct = items.reduce((s, item) => s + Number(item.percentage), 0);
+    expect(Math.abs(totalPct - 100)).toBeLessThan(0.01);
+  });
+
+  it("returns empty when fully paid (no balance)", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 5000000, 4);
+    expect(items.length).toBe(0);
+  });
+
+  it("returns empty when dealMaturityMonths is 0", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 0);
+    expect(items.length).toBe(0);
+  });
+
+  it("generates installments without advance when advance is 0", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 0, 3);
+    expect(items.length).toBe(3);
+    expect(items[0]!.description).toContain("Installment 1");
+    expect(Number(items[0]!.amount)).toBeCloseTo(1666666.67, 1);
+  });
+
+  it("includes GST in total collectible", () => {
+    const items = autoGenerateScheduleItems(5000000, 900000, 0, 1);
+    expect(items.length).toBe(1);
+    expect(Number(items[0]!.amount)).toBe(5900000);
+  });
+
+  it("assigns due dates to future months", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 0, 3);
+    expect(items[0]!.dueDate).toBeTruthy();
+    const now = new Date();
+    const firstDue = new Date(items[0]!.dueDate!);
+    expect(firstDue.getTime()).toBeGreaterThan(now.getTime());
+  });
+});
+
+describe("sale: autoGenerateScheduleItems", () => {
+  it("generates advance + equal monthly installments", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 4);
+    // Advance = 1 item + 4 monthly = 5 total
+    expect(items.length).toBe(5);
+    // First item is the advance
+    expect(items[0]!.description).toBe("Booking Advance");
+    expect(Number(items[0]!.amount)).toBe(500000);
+    // Remaining 4 installments of (5000000 - 500000) / 4 = 1125000 each
+    expect(Number(items[1]!.amount)).toBe(1125000);
+    expect(Number(items[4]!.amount)).toBe(1125000);
+  });
+
+  it("percentages sum to exactly 100%", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 4);
+    const totalPct = items.reduce((s, item) => s + Number(item.percentage), 0);
+    expect(Math.abs(totalPct - 100)).toBeLessThan(0.01);
+  });
+
+  it("returns empty when fully paid (no balance)", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 5000000, 4);
+    expect(items.length).toBe(0);
+  });
+
+  it("returns empty when dealMaturityMonths is 0", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 500000, 0);
+    expect(items.length).toBe(0);
+  });
+
+  it("generates installments without advance when advance is 0", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 0, 3);
+    // No advance, 3 monthly installments
+    expect(items.length).toBe(3);
+    expect(items[0]!.description).toContain("Installment 1");
+    // Each installment = 5000000 / 3
+    expect(Number(items[0]!.amount)).toBeCloseTo(1666666.67, 1);
+  });
+
+  it("includes GST in total collectible", () => {
+    const items = autoGenerateScheduleItems(5000000, 900000, 0, 1);
+    // Total = 5900000, 1 installment = 5900000
+    expect(items.length).toBe(1);
+    expect(Number(items[0]!.amount)).toBe(5900000);
+  });
+
+  it("assigns due dates to future months", () => {
+    const items = autoGenerateScheduleItems(5000000, 0, 0, 3);
+    expect(items[0]!.dueDate).toBeTruthy();
+    expect(items[1]!.dueDate).toBeTruthy();
+    // Due dates should be in the future
+    const now = new Date();
+    const firstDue = new Date(items[0]!.dueDate!);
+    expect(firstDue.getTime()).toBeGreaterThan(now.getTime());
   });
 });
 

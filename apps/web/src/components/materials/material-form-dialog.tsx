@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { CategoryFormDialog } from "@/components/materials/category-form-dialog";
 import type { MaterialCategory, MaterialRow } from "@/lib/types";
 
 type FormState = {
@@ -48,11 +50,15 @@ export function MaterialFormDialog({
   onOpenChange,
   categories,
   material,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: MaterialCategory[];
   material: MaterialRow | null;
+  /** Fired with the newly created material (create-only). When provided, the
+   * dialog skips router.refresh and lets the caller wire the new entity in. */
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() =>
@@ -76,6 +82,10 @@ export function MaterialFormDialog({
       : empty,
   );
   const [saving, setSaving] = useState(false);
+  // Local copy so a freshly created category appears in the dropdown without
+  // waiting for router.refresh.
+  const [localCategories, setLocalCategories] = useState<MaterialCategory[]>(categories);
+  useEffect(() => { setLocalCategories(categories); }, [categories]);
 
   const isEdit = material != null;
 
@@ -156,7 +166,11 @@ export function MaterialFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save material");
       toast.success(isEdit ? "Material updated" : "Material created");
       onOpenChange(false);
-      router.refresh();
+      if (!isEdit && onCreated) {
+        onCreated({ id: data.id, label: data.name });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -192,16 +206,17 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Category" required>
-            <Select value={form.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value)} required>
-              <option value="" disabled>
-                Select category…
-              </option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={form.categoryId ?? ""}
+              onChange={(v) => set("categoryId", v)}
+              required
+              placeholder="Select category…"
+              createLabel="category"
+              options={localCategories.map((c) => ({ value: c.id, label: c.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <CategoryFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalCategories((p) => [...p, { id: e.id, name: e.label ?? "", unit: "NOS" }]); onCreated(e); }} category={null} />
+              )}
+            />
           </Field>
           <Field label="Unit of Measure" required>
             <Input

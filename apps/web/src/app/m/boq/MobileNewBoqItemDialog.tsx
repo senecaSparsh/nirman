@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 type BoqItemType = "SECTION" | "SUBSECTION" | "LINE_ITEM";
 
@@ -208,15 +210,19 @@ export function MobileNewBoqItemDialog({
             <>
               {/* Material link (optional) */}
               {materials.length > 0 && (
-                <div>
-                  <label className={labelClass} style={labelStyle}>Link to Material (optional)</label>
-                  <select value={form.materialId} onChange={(e) => onMaterialChange(e.target.value)} className={inputClass} style={inputStyle}>
-                    <option value="">— None —</option>
-                    {materials.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                    ))}
-                  </select>
-                </div>
+                <MobileSelectWithCreate
+                  label="Link to Material (optional)"
+                  required={false}
+                  value={form.materialId}
+                  onChange={(v) => onMaterialChange(v)}
+                  placeholder="— None —"
+                  options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit})` }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                  renderDialog={({ open, onClose, onCreated }) => (
+                    <MobileNewMaterialDialog open={open} onClose={onClose} categories={[]} onCreated={(m) => onCreated(m.id, m.name)} />
+                  )}
+                />
               )}
 
               {/* Unit + Qty + Rate */}

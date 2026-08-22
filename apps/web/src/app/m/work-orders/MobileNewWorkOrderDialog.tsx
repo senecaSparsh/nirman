@@ -7,6 +7,8 @@ import { X, Loader2, Wrench, Plus, Trash2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 type TdsCategory = "INDIVIDUAL" | "COMPANY" | "OTHER";
 
@@ -248,13 +250,19 @@ export function MobileNewWorkOrderDialog({
             className="flex flex-col gap-3"
           >
             {/* Project */}
-            <div>
-              <label className={labelClass} style={labelStyle}>Project <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className={inputClass} style={inputStyle}>
-                <option value="">— Select project —</option>
-                {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="Project"
+              required
+              value={form.projectId}
+              onChange={(v) => set("projectId", v)}
+              placeholder="— Select project —"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              )}
+            />
 
             {/* Subcontractor */}
             <div>

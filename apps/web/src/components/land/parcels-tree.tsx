@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Layers, PencilRuler, Pencil, Pause, Play, Trash2, CircleDollarSign,
+  Layers, PencilRuler, Pencil, Pause, Play, Trash2, CircleDollarSign, Split,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -63,6 +63,7 @@ export function ParcelsTree({
   onValuate,
   onSell,
   onDelete,
+  onUnpartition,
 }: {
   parcels: LandParcelRow[];
   canPartition: boolean;
@@ -72,6 +73,7 @@ export function ParcelsTree({
   onValuate: (p: LandParcelRow) => void;
   onSell: (p: LandParcelRow) => void;
   onDelete?: (p: LandParcelRow) => void;
+  onUnpartition?: (p: LandParcelRow) => void;
 }) {
   const tree = useMemo(() => buildTree(parcels), [parcels]);
   // Default: all parents with children expanded
@@ -144,6 +146,26 @@ export function ParcelsTree({
           );
         }
         return <StatusPill status={p.status} />;
+      },
+    },
+    {
+      key: "purpose",
+      label: "Purpose",
+      render: (p) => {
+        if (!p.purpose || p.status === "PARTITIONED") {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        const meta: Record<string, { label: string; className: string }> = {
+          SELL: { label: "Sell", className: "text-success" },
+          PROJECT: { label: "Project", className: "text-info" },
+          HOLD: { label: "Hold", className: "text-warning" },
+        };
+        const m = meta[p.purpose];
+        return m ? (
+          <span className={cn("text-caption font-medium", m.className)}>{m.label}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
       },
     },
     {
@@ -252,6 +274,7 @@ export function ParcelsTree({
           onValuate={onValuate}
           onSell={onSell}
           onDelete={onDelete}
+          onUnpartition={onUnpartition}
         />
       ),
     },
@@ -281,6 +304,7 @@ function ParcelActions({
   onValuate,
   onSell,
   onDelete,
+  onUnpartition,
 }: {
   parcel: FlatParcel;
   canPartition: boolean;
@@ -290,6 +314,7 @@ function ParcelActions({
   onValuate: (p: LandParcelRow) => void;
   onSell: (p: LandParcelRow) => void;
   onDelete?: (p: LandParcelRow) => void;
+  onUnpartition?: (p: LandParcelRow) => void;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
@@ -367,9 +392,21 @@ function ParcelActions({
         </>
       )}
       {(parcel.status === "PARTITIONED" || parcel.status === "SOLD") && (
-        <button onClick={() => onValuate(parcel)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Edit">
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        <>
+          <button onClick={() => onValuate(parcel)} disabled={acting} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Edit">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          {parcel.status === "PARTITIONED" && canPartition && onUnpartition && (
+            <button
+              onClick={() => onUnpartition(parcel)}
+              disabled={acting}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Un-divide (restore original plot)"
+            >
+              <Split className="h-3.5 w-3.5 rotate-180" />
+            </button>
+          )}
+        </>
       )}
     </div>
   );

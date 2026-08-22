@@ -4,7 +4,9 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { PageHeader } from "@/components/page-header";
 import { RentalsView } from "@/components/rentals/rentals-view";
+import { formatCurrency } from "@/lib/utils";
 
 import { NoAccess } from "@/components/no-access";
 export default function RentalsPage() {
@@ -100,13 +102,24 @@ async function RentalsContent() {
   });
 
   return (
-    <RentalsView
-      tenancies={tenancyRows}
-      landParcels={landParcels.map((p) => ({ id: p.id, label: `Parcel ${p.number} (${toNum(p.area)} ${p.areaUnit})`, projectId: p.projectId }))}
-      builtUnits={builtUnits.map((u) => ({ id: u.id, label: `${u.unitNumber} (${u.unitType})`, projectId: u.projectId }))}
-      customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      permissions={perms}
-    />
+    <>
+      <PageHeader
+        title="Rentals"
+        description="Manage rental tenancies for land parcels and built units. Track agreements, security deposits, and monthly rent payments."
+        stats={[
+          { label: "Tenancies", value: tenancyRows.length },
+          { label: "Active", value: tenancyRows.filter((t) => t.status === "ACTIVE").length },
+          { label: "Monthly rent", value: formatCurrency(tenancyRows.filter((t) => t.status === "ACTIVE").reduce((s, t) => s + t.monthlyRent, 0)) },
+        ]}
+      />
+      <RentalsView
+        tenancies={tenancyRows}
+        landParcels={landParcels.map((p) => ({ id: p.id, label: `Parcel ${p.number} (${toNum(p.area)} ${p.areaUnit})`, projectId: p.projectId }))}
+        builtUnits={builtUnits.map((u) => ({ id: u.id, label: `${u.unitNumber} (${u.unitType})`, projectId: u.projectId }))}
+        customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        permissions={perms}
+      />
+    </>
   );
 }

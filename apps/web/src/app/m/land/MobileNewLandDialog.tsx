@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 type AreaUnit = "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
 
@@ -201,20 +203,18 @@ export function MobileNewLandDialog({
           </div>
 
           {/* Project (optional) */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Project (optional)</label>
-            <select
-              value={form.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— None —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Project (optional)"
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            placeholder="— None —"
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+            )}
+          />
 
           {/* Location */}
           <div>

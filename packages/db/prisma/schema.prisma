@@ -52,8 +52,15 @@ model Company {
   stockLocations StockLocation[]
   purchaseOrders PurchaseOrder[]
   landPurchases  LandPurchase[]
+  landSellers    LandSeller[]
   assetSales     AssetSale[]
   materialSales  MaterialSale[]
+  changeOrders   ChangeOrder[]
+  ncrs           NonConformanceReport[]
+  capas          Capa[]
+  safetyIncidents SafetyIncident[]
+  safetyHazards   SafetyHazard[]
+  safetyInspections SafetyInspection[]
   renovations    RenovationProject[]
   expenses       Expense[]
   equipment      Equipment[]
@@ -88,7 +95,14 @@ model Company {
   suppliers              Supplier[]
   subcontractors         Subcontractor[]
   customers              Customer[]
+  leads                  Lead[]
   integrationConfigs     IntegrationConfig[]
+  quotationRequests      QuotationRequest[]
+  vehicles               Vehicle[]
+  vehicleTrips           VehicleTrip[]
+  gatePasses             GatePass[]
+  legalDocuments         LegalDocument[]
+  brokers                Broker[]
 
   @@index([parentCompanyId])
 }
@@ -232,8 +246,13 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   phone         String?   // phone number for WhatsApp notifications
-  role          String    @default("MANAGER") // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  role          String    @default("PROJECT_MANAGER") // See roles.ts for full list
   active        Boolean   @default(true)
+  // Enterprise employee fields
+  employeeCode  String?   // EMP-001 — company-assigned employee ID
+  designation   String?   // "Site Engineer", "Store Keeper", etc.
+  department    String?   // "Construction", "Procurement", "Finance", "HR"
+  joiningDate   DateTime? // official joining date
   // Default company scope (nullable so a user can exist before being
   // assigned to a company; resolved into a UserCompany membership on
   // first login or via the settings UI). UserCompany.role takes
@@ -248,6 +267,9 @@ model User {
   accounts          Account[]
   stockMovements    StockMovement[]
   goodsReceipts     GoodsReceipt[]
+  supervisedGoodsReceipts GoodsReceipt[] @relation("GrnSupervisor")
+  rejectedGoodsReceipts   GoodsReceipt[] @relation("GrnRejecter")
+  unloadedGoodsReceipts   GoodsReceipt[] @relation("GrnUnloadedBy")
   materialIssues    MaterialIssue[]
   scrapGenerations  ScrapGeneration[]
   auditLogs         AuditLog[]
@@ -261,6 +283,7 @@ model User {
   // Approval / creator attribution for transactional records
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprover")
   createdPurchaseOrders  PurchaseOrder[] @relation("POCreator")
+  rejectedPurchaseOrders PurchaseOrder[] @relation("PORejecter")
   requestedRequisitions  MaterialRequisition[] @relation("ReqRequester")
   approvedRequisitions   MaterialRequisition[] @relation("ReqApprover")
   rejectedRequisitions   MaterialRequisition[] @relation("ReqRejecter")
@@ -271,8 +294,15 @@ model User {
   createdRenovations     RenovationProject[]
   createdRenovationCosts RenovationCost[]
   createdStockTransfers  StockTransfer[]
+  dispatchedStockTransfers StockTransfer[] @relation("TransferDispatcher")
+  receivedStockTransfers   StockTransfer[] @relation("TransferReceiver")
+  supervisedStockTransfers StockTransfer[] @relation("TransferSupervisor")
   createdSupplierReturns SupplierReturn[]
   createdLandPurchases   LandPurchase[]
+  // Cancellation reversals
+  cancelledMaterialIssues  MaterialIssue[]  @relation("MaterialIssueCancelledBy")
+  cancelledDirectPurchases DirectPurchase[] @relation("DirectPurchaseCancelledBy")
+  cancelledScrapGenerations ScrapGeneration[] @relation("ScrapCancelledBy")
   // HR — DPR submission, attendance recording, payroll processing
   submittedDPRs        DailyProgressReport[]
   subAdminApprovedDPRs DailyProgressReport[] @relation("DprSubAdminApprover")
@@ -295,7 +325,27 @@ model User {
   mbVerifiedEntries   MeasurementBookEntry[] @relation("MbVerifiedBy")
   mbApprovedEntries   MeasurementBookEntry[] @relation("MbApprovedBy")
   approvedRaBills     RaBill[]                @relation("RaBillApprover")
+  submittedChangeOrders  ChangeOrder[]        @relation("ChangeOrderSubmitter")
+  approvedChangeOrders   ChangeOrder[]        @relation("ChangeOrderApprover")
+  implementedChangeOrders ChangeOrder[]       @relation("ChangeOrderImplementer")
+  // Quality Control — NCR raised/reviewed/closed by + CAPA actions
+  ncrsRaisedBy        NonConformanceReport[]  @relation("NcrRaisedBy")
+  ncrsReviewedBy      NonConformanceReport[]  @relation("NcrReviewedBy")
+  ncrsClosedBy        NonConformanceReport[]  @relation("NcrClosedBy")
+  capasCorrectiveDoneBy Capa[]                @relation("CapaCorrectiveDoneBy")
+  capasPreventiveDoneBy Capa[]                @relation("CapaPreventiveDoneBy")
+  capasVerifiedBy     Capa[]                  @relation("CapaVerifiedBy")
+  capasClosedBy       Capa[]                  @relation("CapaClosedBy")
+  // Safety Management — incident/hazard/inspection user relations
+  incidentsReportedBy    SafetyIncident[]      @relation("IncidentReportedBy")
+  incidentsInvestigatedBy SafetyIncident[]     @relation("IncidentInvestigatedBy")
+  incidentsClosedBy      SafetyIncident[]      @relation("IncidentClosedBy")
+  hazardsIdentifiedBy    SafetyHazard[]        @relation("HazardIdentifiedBy")
+  hazardsMitigatedBy     SafetyHazard[]        @relation("HazardMitigatedBy")
+  hazardsResolvedBy      SafetyHazard[]        @relation("HazardResolvedBy")
+  inspectionsConductedBy SafetyInspection[]    @relation("InspectionConductedBy")
   createdRateContracts RateContract[]          @relation("RateContractCreator")
+  createdBrokers       Broker[]                @relation("BrokerCreator")
   supplierPayments     SupplierPayment[]       @relation("SupplierPaymentCreator")
   salePayments         MaterialSalePayment[]   @relation("SalePaymentCreator")
   receivedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceReceiver")
@@ -303,6 +353,18 @@ model User {
   // Notification system — preferences + in-app notifications
   notificationPreferences NotificationPreference[]
   inAppNotifications      InAppNotification[]
+  // Standalone Quotation Requests — submission + approval
+  submittedQuotationRequests  QuotationRequest[] @relation("QuotationRequestSubmitter")
+  approvedQuotationRequests   QuotationRequest[] @relation("QuotationRequestApprover")
+  // Gate Pass — creator, submitter, approver, rejecter, exit confirmer
+  createdGatePasses     GatePass[]              @relation("GatePassCreatedBy")
+  assignedLeads         Lead[]                  @relation("LeadAssignee")
+  createdLeadActivities LeadActivity[]          @relation("LeadActivityCreator")
+  submittedGatePasses   GatePass[]              @relation("GatePassSubmittedBy")
+  approvedGatePasses    GatePass[]              @relation("GatePassApprovedBy")
+  rejectedGatePasses    GatePass[]              @relation("GatePassRejectedBy")
+  exitedGatePasses      GatePass[]              @relation("GatePassExitedBy")
+  createdLegalDocuments LegalDocument[]         @relation("LegalDocCreatedBy")
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -409,6 +471,13 @@ model Project {
   totalProjectCost Decimal?  @db.Decimal(14, 2) // materials + labour/overhead + allocated land
   totalSellableArea Decimal? @db.Decimal(14, 3) // sum of sellable unit areas
   lciThreshold       Decimal? @db.Decimal(5, 2)  // per-project LCI threshold override (null → company default)
+  // ── RERA registration ──
+  // Mandatory for projects > 500 sqm or > 8 units (RERA Act 2016).
+  // Without a RERA number, the project cannot legally be marketed or sold.
+  reraNumber          String?   // RERA registration number (e.g. P1234567890)
+  reraRegistrationDate DateTime? // date of RERA registration
+  reraValidityDate    DateTime?  // RERA registration validity expiry (typically 5 years or project completion)
+  reraWebsiteUrl      String?    // RERA project page URL (for buyer verification)
   // Optimistic locking — see Material.version comment
   version      Int           @default(0)
   createdAt   DateTime      @default(now())
@@ -444,6 +513,16 @@ model Project {
   mbEntries        MeasurementBookEntry[]
   subcontractorWorkOrders SubcontractorWorkOrder[]
   raBills          RaBill[]
+  quotationRequests QuotationRequest[]
+  gatePasses       GatePass[]
+  leads            Lead[]
+  changeOrders     ChangeOrder[]
+  ncrs             NonConformanceReport[]
+  capas            Capa[]
+  safetyIncidents  SafetyIncident[]
+  safetyHazards    SafetyHazard[]
+  safetyInspections SafetyInspection[]
+  legalDocuments   LegalDocument[] @relation("LegalDocsProject")
 
   @@index([companyId])
   @@index([status])
@@ -477,6 +556,7 @@ model ProjectPhase {
   wbsNodes       WbsNode[]
   mbEntries      MeasurementBookEntry[]
   subcontractorWorkOrders SubcontractorWorkOrder[]
+  changeOrders   ChangeOrder[]
 
   @@index([projectId])
 }
@@ -491,6 +571,67 @@ enum StockLocationType {
   DEPARTMENT // operational cost-center stock room (e.g. Workshop, Boiler house)
 }
 
+// ───────────────────────────────────────────────────────────
+//  VEHICLE MASTER + TRIP LOG
+//  Every goods movement (receive, issue, sell, transfer, return, direct
+//  purchase) involves a vehicle — truck, tempo, pickup, tractor, bike,
+//  cycle, hand cart, or even a porter carrying on shoulder. The Vehicle
+//  master auto-builds from usage: first time a vehicle number is entered,
+//  a record is created. Subsequent uses update lastUsedAt + tripCount.
+//  A photo of the vehicle is stored for identification.
+// ───────────────────────────────────────────────────────────
+model Vehicle {
+  id              String   @id @default(cuid())
+  // Vehicle number — "MH-12-AB-1234" for trucks, or descriptive for
+  // non-registered: "CYCLE-01", "PORTER-RAMU", "HANDCART-03"
+  vehicleNumber   String
+  vehicleType     String             // TRUCK | TEMPO | PICKUP | TRACTOR | MINI_TRUCK | AUTO | CAR | BIKE | CYCLE | HAND_CART | PORTER | OTHER
+  photoUrl        String?            // photo of the vehicle (for ID)
+  // Driver / carrier details — auto-filled from last trip
+  driverName      String?
+  driverPhone     String?
+  transporterName String?            // for third-party transport
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tripCount       Int      @default(0)  // auto-incremented on each trip
+  lastUsedAt      DateTime?
+  lastLocationId  String?            // where it was last seen
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  trips           VehicleTrip[]
+
+  @@unique([vehicleNumber, companyId])
+  @@index([companyId])
+}
+
+model VehicleTrip {
+  id              String   @id @default(cuid())
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  // What type of movement was this?
+  movementType    String   // PURCHASE_RECEIPT | STOCK_TRANSFER | MATERIAL_ISSUE | MATERIAL_SALE | SUPPLIER_RETURN | DIRECT_PURCHASE | SCRAP_SALE
+  refType         String   // "GoodsReceipt" | "StockTransfer" | "MaterialIssue" | "MaterialSale" | "SupplierReturn" | "DirectPurchase"
+  refId           String   // ID of the referenced record
+  // Route
+  fromLocationId  String?
+  toLocationId    String?
+  // Driver info for this specific trip (may differ from vehicle master)
+  driverName      String?
+  driverPhone     String?
+  transporterName String?
+  // Photos of the vehicle + goods for this trip
+  photos          Json?    // array of { url, fileName }
+  timestamp       DateTime @default(now())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([companyId])
+  @@index([refType, refId])
+}
+
 model StockLocation {
   id        String            @id @default(cuid())
   type      StockLocationType
@@ -500,6 +641,12 @@ model StockLocation {
   departmentId String?        @unique // set when type = DEPARTMENT (1:1 — a department has at most one stock room)
   name      String
   address   String?
+  // Geo-fence center + radius (metres) for validating GPS-tagged receipts.
+  // When receiverLat/receiverLng is captured, the system checks the distance
+  // against these coordinates. If > geoRadius, the receipt is flagged as off-site.
+  lat       Float?
+  lng       Float?
+  geoRadius Int?              // allowed radius in metres (default 500 if null)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   deletedAt DateTime?
@@ -522,6 +669,8 @@ model StockLocation {
   supplierReturns SupplierReturn[]
   materialSaleLines MaterialSaleLine[]
   directPurchases  DirectPurchase[]
+  quotationRequestDestinations QuotationRequest[] @relation("QuotationRequestDestination")
+  gatePasses       GatePass[]
 
   @@index([companyId])
   @@index([projectId])
@@ -553,6 +702,12 @@ model Material {
   barcode          String?  @unique
   qrCode           String?  @unique
   name             String
+  // Grade + specification — used for auto-generating the material code and
+  // for like-for-like comparison in quotations. Real-world material masters
+  // always carry these: "Fe500D" (steel grade), "OPC 53" (cement grade),
+  // "12mm" (steel diameter), "IS 1786" (BIS standard).
+  grade            String?  // e.g. "Fe500D", "OPC 53", "20mm"
+  specification    String?  // e.g. "IS 1786", "IS 269", full spec string
   categoryId       String
   unit             String   @default("NOS")
   hsnCode          String?
@@ -602,10 +757,13 @@ model Material {
   materialSaleLines  MaterialSaleLine[]
   directPurchaseLines DirectPurchaseLine[]
   vendorQuoteLines  VendorQuoteLine[]
+  quotationRequestLines QuotationRequestLine[]
   standardConsumptions StandardConsumption[]
   boqItems         BoqItem[]
   rateContracts    RateContract[]
   lots             MaterialLot[]
+  gatePassLines    GatePassLine[]
+  rateAnalysisLines RateAnalysisLine[]
 
   @@index([categoryId])
 }
@@ -717,6 +875,7 @@ model Subcontractor {
   materialIssues  MaterialIssue[]
   projectCosts    ProjectCost[]
   workOrders      SubcontractorWorkOrder[]
+  ncrs            NonConformanceReport[]
 
   @@index([companyId])
   @@index([companyId, deletedAt])
@@ -1004,6 +1163,18 @@ model PurchaseOrder {
   expectedDate          DateTime?
   subtotal              Decimal             @default(0) @db.Decimal(14, 2)
   gstTotal              Decimal             @default(0) @db.Decimal(14, 2)
+  // ── Landed-cost components (carried over from the winning VendorQuote or
+  // entered manually). These are header-level totals that complement the
+  // per-line amounts. The grand total = subtotal + gstTotal + freightTotal +
+  // loadingTotal + packingTotal + insuranceTotal + miscChargesTotal − discountTotal.
+  freightTotal          Decimal             @default(0) @db.Decimal(14, 2) // transport / carriage
+  loadingTotal          Decimal             @default(0) @db.Decimal(14, 2) // loading + unloading
+  packingTotal          Decimal             @default(0) @db.Decimal(14, 2) // packing & forwarding
+  insuranceTotal        Decimal             @default(0) @db.Decimal(14, 2) // transit insurance
+  discountTotal         Decimal             @default(0) @db.Decimal(14, 2) // discount (reduces total)
+  miscChargesTotal      Decimal             @default(0) @db.Decimal(14, 2) // Σ of PurchaseOrderCharge rows
+  // Grand total — subtotal + GST + all charges − discount. This is what the
+  // supplier is expected to invoice.
   total                 Decimal             @default(0) @db.Decimal(14, 2)
   notes                 String?
   // Approval workflow — DRAFT → APPROVED requires a user with po.approve
@@ -1011,6 +1182,12 @@ model PurchaseOrder {
   approvedById          String?
   approvedAt            DateTime?
   approvalNotes         String?
+  // Delivery rejection tracking — when a delivery is refused at the gate,
+  // rejectedAt is set. The PO stays ORDERED (supplier can re-deliver), but
+  // the rejection is visible in the UI and audit trail.
+  rejectedAt            DateTime?
+  rejectedById          String?
+  rejectionReason       String?
   // The winning VendorQuote that this PO was generated from (traceability for
   // the Comparative Quote Engine). Null for POs created directly (not from a quote).
   selectedQuoteId       String?
@@ -1023,11 +1200,14 @@ model PurchaseOrder {
   destinationLocation StockLocation        @relation(fields: [destinationLocationId], references: [id])
   createdBy           User?                @relation("POCreator", fields: [createdById], references: [id], onDelete: SetNull)
   approvedBy          User?                @relation("POApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy          User?                @relation("PORejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
   selectedQuote       VendorQuote?         @relation("POSelectedQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
   lines               PurchaseOrderLine[]
+  charges             PurchaseOrderCharge[]
   goodsReceipts       GoodsReceipt[]
   supplierPayments    SupplierPayment[]
   supplierInvoices    SupplierInvoice[]
+  quotationRequest    QuotationRequest? @relation("QuotationConvertedPo")
 
   @@index([companyId])
   @@index([projectId])
@@ -1113,6 +1293,16 @@ model PurchaseOrderLine {
   qtyReceived    Decimal  @default(0) @db.Decimal(14, 3)
   unitCost       Decimal  @db.Decimal(14, 2)
   gstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  // ── Per-unit landed-cost components (carried over from VendorQuoteLine
+  // when the PO is auto-generated from a quotation). All default to 0 for
+  // POs created directly. These let the PO reflect the true per-unit cost
+  // breakdown that the supplier quoted.
+  freightPerUnit   Decimal  @default(0) @db.Decimal(14, 2)
+  loadingPerUnit   Decimal  @default(0) @db.Decimal(14, 2)
+  packingPerUnit   Decimal  @default(0) @db.Decimal(14, 2)
+  insurancePerUnit Decimal  @default(0) @db.Decimal(14, 2)
+  discountPerUnit  Decimal  @default(0) @db.Decimal(14, 2)
+  unitLandedCost   Decimal  @default(0) @db.Decimal(14, 2) // all-in per-unit cost
   lineTotal      Decimal  @default(0) @db.Decimal(14, 2)
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
@@ -1121,6 +1311,28 @@ model PurchaseOrderLine {
 
   @@index([purchaseOrderId])
   @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  PO CHARGES — itemized miscellaneous charges on a Purchase Order.
+//  Each charge has a heading (e.g. "Loading", "Unloading", "Fuel Charge",
+//  "Transportation", "Packing & Forwarding") and an amount. This lets the
+//  PO reflect the full landed-cost breakdown that the supplier quoted.
+//  Charges are carried over from the winning VendorQuote when the PO is
+//  auto-generated from a quotation, and can also be added/edited manually.
+// ───────────────────────────────────────────────────────────
+
+model PurchaseOrderCharge {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  heading         String   // e.g. "Loading", "Unloading", "Fuel Charge", "Transportation"
+  amount          Decimal  @db.Decimal(14, 2)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
 }
 
 enum InspectionStatus {
@@ -1144,6 +1356,69 @@ model GoodsReceipt {
   inspectedById    String?
   inspectedAt      DateTime?
 
+  // ── Delivery proof & logistics (GRN enhancement) ──
+  // Captured at the time of receiving to create an auditable, Amazon-style
+  // proof-of-delivery record. Mandatory fields are enforced at the API layer.
+  // Delivery context — carried from the PO/quote for adaptive field display.
+  deliveryTermsType  String?   // DELIVERED_SITE | EX_WORKS | FOR_STATION | CUSTOM
+  // How the goods arrived
+  deliveryMode       String?   // SUPPLIER_VEHICLE | OWN_VEHICLE | THIRD_PARTY | HAND_CARRY
+  vehicleType        String?   // TRUCK | TEMPO | PICKUP | TRACTOR | HAND_CART | OTHER
+  vehicleNumber      String?
+  driverName         String?
+  driverPhone        String?
+  transporterName    String?
+  // Supplier dispatch documents
+  challanNumber      String?
+  invoiceNumber      String?
+  ewayBillNumber     String?
+  lrNumber           String?   // Lorry Receipt (transport document)
+  packageCount       Int?
+  // Proof of delivery — mandatory
+  photos             Json?     // array of { url, fileName } uploaded via /api/uploads
+  receiverSignature  String?   // base64 PNG of e-signature canvas
+  // Geo-tag at receipt time — verifies goods are at the expected location
+  receiverLat        Float?
+  receiverLng        Float?
+  receiverLocation   String?   // reverse-geocoded or manual label
+  geoFenceOk         Boolean?  // true if receiver GPS is within location geoRadius
+  geoFenceDistance   Float?    // distance in metres from location center (null if no geo-fence)
+  // Gate-in timestamp (when vehicle entered premises) vs receiptDate (formal GRN)
+  gateInAt           DateTime?
+  // Gate pass no. — the supplier's gate pass / delivery authorization number.
+  // "kis gate pass par maal utra" — formal deliveries have this.
+  // For small/informal deliveries with no gate pass, a receiving photo is uploaded instead.
+  gatePassNo         String?
+  // Receiving photo — when there's no formal gate pass (chota-mota kaam),
+  // the company issues a simple receiving. User uploads a photo of it.
+  receivingPhotoUrl  String?
+  // Unloading slip — issued by storekeeper after goods are physically unloaded.
+  // Sequential per location per year: US-YYYY-NNN
+  unloadingSlipNo    String?
+  unloadedById       String?
+  unloadedBy         User?     @relation("GrnUnloadedBy", fields: [unloadedById], references: [id], onDelete: SetNull)
+  unloadedAt         DateTime?
+  unloadingLocation  String?   // bay/yard/shed where goods were unloaded
+  unloadingRemarks   String?   // damage during unloading, stacking notes
+  // Shortage / damage observations
+  shortageRemarks    String?
+  damageRemarks      String?
+  // Supervisor co-signature (dual signature for high-value receipts)
+  supervisorSignature String?  // base64 PNG
+  supervisorId       String?
+  supervisor         User?     @relation("GrnSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  // Weighbridge data — for bulk materials (aggregate, sand, steel)
+  weighbridgeTicketNo String?
+  grossWeight        Decimal?  @db.Decimal(14, 3) // vehicle + load (kg)
+  tareWeight         Decimal?  @db.Decimal(14, 3) // empty vehicle (kg)
+  netWeight          Decimal?  @db.Decimal(14, 3) // gross - tare = material weight
+  // Rejection at gate (goods refused entry — no GRN created)
+  rejectedAt         DateTime?
+  rejectedById       String?
+  rejectedBy         User?     @relation("GrnRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
+  rejectionReason    String?
+  rejectionPhotos    Json?     // array of { url, fileName } — proof of rejection
+
   purchaseOrder PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   location      StockLocation       @relation(fields: [locationId], references: [id])
   receivedBy    User?               @relation(fields: [receivedById], references: [id])
@@ -1160,6 +1435,15 @@ model GoodsReceiptLine {
   materialId        String
   qtyReceived       Decimal @db.Decimal(14, 3)
   unitCost          Decimal @db.Decimal(14, 2)
+  // Batch/lot tracking — critical for cement, paint, steel, chemicals.
+  // Links to MaterialLot for expiry tracking and recall management.
+  lotNumber         String?
+  batchCode         String?
+  expiryDate        DateTime?
+  manufacturingDate DateTime?
+  // Quality inspection per line
+  inspectionStatus  InspectionStatus @default(PENDING)
+  inspectionRemarks String?
 
   goodsReceipt     GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
   purchaseOrderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id])
@@ -1251,10 +1535,19 @@ model MaterialIssue {
   subcontractorId String?
   issueDate      DateTime @default(now())
   issuedById     String?
+  status         MaterialIssueStatus @default(COMPLETED)
+  cancelledAt    DateTime?
+  cancelledById  String?
   // Receiver accountability — who physically picked up the stock.
   // Matches the paper slip's "RECIEVER NAME" + "MOBILE NO." fields.
   receiverName   String?
   receiverMobile String?
+  // Vehicle — how the goods were transported from store to site
+  vehicleNumber  String?
+  vehicleType    String?
+  vehiclePhotoUrl String?
+  driverName     String?
+  driverPhone    String?
   notes          String?
   totalCost      Decimal  @default(0) @db.Decimal(14, 2)
   // Round-off to match physical bill totals (paper slip has "ROUNDOFF : 0.00")
@@ -1272,6 +1565,7 @@ model MaterialIssue {
   fromLocation  StockLocation      @relation(fields: [fromLocationId], references: [id])
   subcontractor Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   issuedBy      User?              @relation(fields: [issuedById], references: [id])
+  cancelledBy   User?              @relation("MaterialIssueCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   sourceDpr     DailyProgressReport? @relation("DprMaterialIssues", fields: [sourceDprId], references: [id], onDelete: SetNull)
   lines         MaterialIssueLine[]
 
@@ -1317,12 +1611,16 @@ model ScrapGeneration {
   createdById     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  status          ScrapGenerationStatus @default(COMPLETED)
+  cancelledAt     DateTime?
+  cancelledById   String?
 
   company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   toLocation    StockLocation @relation(fields: [toLocationId], references: [id])
   sourceMaterial Material?    @relation("ScrapSourceMaterial", fields: [sourceMaterialId], references: [id], onDelete: SetNull)
   project       Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  cancelledBy   User?         @relation("ScrapCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   dprAutoScrap  DailyProgressReport? @relation("DprAutoScrap") // back-link if auto-generated from DPR variance
   lines         ScrapGenerationLine[]
 
@@ -1352,6 +1650,22 @@ enum StockTransferStatus {
   CANCELLED
 }
 
+enum MaterialIssueStatus {
+  PENDING     // awaiting gate pass approval before stock movement
+  COMPLETED
+  CANCELLED
+}
+
+enum DirectPurchaseStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum ScrapGenerationStatus {
+  COMPLETED
+  CANCELLED
+}
+
 model StockTransfer {
   id             String              @id @default(cuid())
   fromLocationId String
@@ -1373,9 +1687,51 @@ model StockTransfer {
   transferPriceTotal Decimal? @db.Decimal(14, 2)             // Σ line transfer totals — set on completion
   createdAt      DateTime            @default(now())
 
+  // ── Dispatch + Receive proof (split DRAFT→IN_TRANSIT→COMPLETED) ──
+  // Dispatch: source location marks goods as handed over to transport.
+  // Receive: destination location confirms receipt with proof.
+  dispatchedAt       DateTime?
+  dispatchedById     String?
+  // Receive proof at destination
+  receivedAt         DateTime?
+  receivedById       String?
+  receiverSignature  String?   // base64 PNG of e-signature canvas
+  receiverLat        Float?
+  receiverLng        Float?
+  receiverLocation   String?
+  geoFenceOk         Boolean?  // true if receiver GPS is within destination location geoRadius
+  geoFenceDistance   Float?    // distance in metres from destination center
+  photos             Json?     // array of { url, fileName } — receive proof photos
+  // Transport details for the transfer
+  deliveryMode       String?   // OWN_VEHICLE | THIRD_PARTY | HAND_CARRY
+  vehicleType        String?   // TRUCK | TEMPO | PICKUP | TRACTOR | HAND_CART | OTHER
+  vehicleNumber      String?
+  driverName         String?
+  driverPhone        String?
+  transporterName    String?
+  // Dispatch documents
+  challanNumber      String?
+  packageCount       Int?
+  shortageRemarks    String?
+  damageRemarks      String?
+  // Dispatch proof (accountability at source)
+  dispatchPhotos     Json?     // array of { url, fileName } — photo of loaded vehicle
+  dispatchSignature  String?   // base64 PNG — dispatcher e-signature
+  // Supervisor co-signature at receive (dual signature)
+  supervisorSignature String?  // base64 PNG
+  supervisorId       String?
+  // Weighbridge data (for bulk material transfers)
+  weighbridgeTicketNo String?
+  grossWeight        Decimal?  @db.Decimal(14, 3)
+  tareWeight         Decimal?  @db.Decimal(14, 3)
+  netWeight          Decimal?  @db.Decimal(14, 3)
+
   fromLocation StockLocation         @relation("TransferFrom", fields: [fromLocationId], references: [id])
   toLocation   StockLocation         @relation("TransferTo", fields: [toLocationId], references: [id])
   createdBy   User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  dispatchedBy User?                 @relation("TransferDispatcher", fields: [dispatchedById], references: [id], onDelete: SetNull)
+  receivedBy  User?                  @relation("TransferReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+  supervisor  User?                  @relation("TransferSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
   lines        StockTransferLine[]
 
   @@index([fromLocationId])
@@ -1389,6 +1745,10 @@ model StockTransferLine {
   stockTransferId String
   materialId      String
   qty             Decimal @db.Decimal(14, 3)
+  // Partial receipt: qtyReceived tracks how much has actually arrived at the
+  // destination. Defaults to 0. When the transfer completes, qtyReceived may
+  // be < qty (shortage/damage in transit). The difference is recorded as shortage.
+  qtyReceived     Decimal  @default(0) @db.Decimal(14, 3)
   // Captured at completion (inter-company only). unitCostAtSource = source MAC at
   // the moment of issue; unitTransferPrice = (base + freight + handling + markup)/qty;
   // lineTransferTotal = qty × unitTransferPrice. Null for intra-company transfers
@@ -1453,10 +1813,55 @@ enum AreaUnit {
   HECTARE
 }
 
+enum LandPurchaseMode {
+  WHOLE       // single parcel covering the full area
+  SUBDIVIDED  // multiple sections created at purchase time
+}
+
+// Freehold = indefinite ownership (outright purchase)
+// Leasehold = lease from authorities for a fixed period (e.g. 99 years)
+enum LandType {
+  FREEHOLD
+  LEASEHOLD
+}
+
+// For leasehold land: how the lease rent is paid
+enum LeaseType {
+  ONE_TIME  // one-time upfront lease rent
+  YEARLY    // recurring yearly lease rent
+}
+
+// ── Land Seller master ──
+// Reusable seller records so the land purchase wizard can offer a dropdown
+// of known sellers (with a "create" option) instead of free-text only.
+// LandPurchase.sellerName / sellerContact remain as denormalized snapshots.
+model LandSeller {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  phone     String?
+  email     String?
+  gstin     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  landPurchases LandPurchase[]
+
+  @@unique([companyId, phone])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+  @@index([name])
+}
+
 model LandPurchase {
   id           String   @id @default(cuid())
   companyId    String
   projectId    String?
+  sellerId     String?  // → LandSeller (optional for backward compat; sellerName remains as snapshot)
   sellerName   String
   sellerContact String?
   purchaseDate DateTime @default(now())
@@ -1466,6 +1871,33 @@ model LandPurchase {
   registryNo   String?
   location     String?
   documentUrl  String?
+  // How the land was acquired: as a single whole plot or pre-subdivided
+  // into sections at purchase time. Set by the guided wizard.
+  mode         LandPurchaseMode @default(WHOLE)
+  // ── Land type & lease details ──
+  // FREEHOLD = outright purchase, indefinite ownership
+  // LEASEHOLD = leased from authorities for a fixed term
+  landType     LandType @default(FREEHOLD)
+  leaseType    LeaseType?  // ONE_TIME or YEARLY (only for LEASEHOLD)
+  leasePeriodYears Int?    // lease term in years (only for LEASEHOLD)
+  leaseStartDate  DateTime? // lease commencement (only for LEASEHOLD)
+  leaseEndDate    DateTime? // lease expiry (only for LEASEHOLD)
+  // ── Cost breakup ──
+  // totalCost = baseCost + leaseRentAmount + gstAmount + registrationAmount + stampDutyAmount
+  // All percentages are user-entered (not fixed) and amounts auto-calculate.
+  baseCost           Decimal  @default(0) @db.Decimal(14, 2) // the land price itself
+  leaseRentPercent   Decimal? @db.Decimal(5, 2)  // % of baseCost (leasehold only)
+  leaseRentAmount    Decimal? @db.Decimal(14, 2) // auto = baseCost × leaseRentPercent / 100
+  gstPercent         Decimal? @db.Decimal(5, 2)  // % on lease rent (leasehold only)
+  gstAmount          Decimal? @db.Decimal(14, 2) // auto = leaseRentAmount × gstPercent / 100
+  registrationPercent Decimal? @db.Decimal(5, 2) // % of baseCost
+  registrationAmount Decimal? @db.Decimal(14, 2) // auto = baseCost × registrationPercent / 100
+  stampDutyPercent   Decimal? @db.Decimal(5, 2)  // % of baseCost
+  stampDutyAmount    Decimal? @db.Decimal(14, 2) // auto = baseCost × stampDutyPercent / 100
+  // ── Additional acquisition costs ──
+  brokerageAmount    Decimal? @db.Decimal(14, 2) // broker commission (typically 1-2% of baseCost)
+  legalFees          Decimal? @db.Decimal(14, 2) // lawyer / due diligence / title search fees
+  otherCharges       Decimal? @db.Decimal(14, 2) // misc acquisition costs (EDC/IDC, conversion, etc.)
   createdById  String?
   createdAt    DateTime @default(now())
   deletedAt    DateTime?
@@ -1473,11 +1905,14 @@ model LandPurchase {
   company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  seller  LandSeller?  @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   parcels LandParcel[]
+  legalDocuments LegalDocument[] @relation("LegalDocsLand")
 
   @@index([companyId])
   @@index([projectId])
   @@index([createdById])
+  @@index([sellerId])
 }
 
 enum LandParcelStatus {
@@ -1489,6 +1924,15 @@ enum LandParcelStatus {
   RENTED
 }
 
+// Intent recorded at purchase time (guided wizard). SELL = plot earmarked
+// for outright sale; PROJECT = plot assigned to a construction/development
+// project (projectId will be set); HOLD = no specific purpose yet.
+enum LandParcelPurpose {
+  SELL
+  PROJECT
+  HOLD
+}
+
 model LandParcel {
   id              String           @id @default(cuid())
   landPurchaseId  String
@@ -1497,6 +1941,7 @@ model LandParcel {
   area            Decimal          @db.Decimal(14, 3)
   areaUnit        AreaUnit         @default(SQFT)
   status          LandParcelStatus @default(AVAILABLE)
+  purpose         LandParcelPurpose @default(HOLD)
   acquisitionCost Decimal          @default(0) @db.Decimal(14, 2)
   askingPrice     Decimal?         @db.Decimal(14, 2)
   currentValuation Decimal         @default(0) @db.Decimal(14, 2)
@@ -1510,7 +1955,7 @@ model LandParcel {
   marketValue      Decimal?        @db.Decimal(15, 2)
   // Optional custom weighting index used by the MARKET_VALUE allocation model.
   weightFactor     Decimal?        @db.Decimal(5, 2)
-  saleId          String?
+  saleId          String? @unique
   projectId       String?
   /// Polygon vertices in normalized [0,1] coordinates relative to the parcel's
   /// bounding box. Stored as [{x,y},...]. null for parcels created without the
@@ -1528,10 +1973,14 @@ model LandParcel {
   project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   builtUnits   BuiltUnit[]   @relation("LandParcelBuiltUnits")
   renovations   RenovationProject[]
+  sale         AssetSale?    @relation("LandParcelSale", fields: [saleId], references: [id], onDelete: SetNull)
+  assetSales   AssetSale[]   @relation("AssetSaleLandParcel")
 
   @@index([landPurchaseId])
   @@index([parentParcelId])
   @@index([status])
+  @@index([saleId])
+  @@index([landPurchaseId, status])
   @@unique([landPurchaseId, number])
 }
 
@@ -1620,7 +2069,7 @@ model BuiltUnit {
   currentValuation Decimal         @default(0) @db.Decimal(14, 2)
   nrvWriteDown    Decimal          @default(0) @db.Decimal(14, 2) // NRV < cost → write-down amount
   capitalizedAmount Decimal        @default(0) @db.Decimal(14, 2) // total WIP capitalized to this unit (for idempotency)
-  saleId          String?
+  saleId          String? @unique
   // Optimistic locking — see Material.version comment
   version         Int              @default(0)
   createdAt       DateTime         @default(now())
@@ -1630,10 +2079,12 @@ model BuiltUnit {
   project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   phase   ProjectPhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   landParcel LandParcel? @relation("LandParcelBuiltUnits", fields: [landParcelId], references: [id], onDelete: SetNull)
+  sale     AssetSale?   @relation("BuiltUnitSale", fields: [saleId], references: [id], onDelete: SetNull)
+  assetSales     AssetSale[]  @relation("AssetSaleBuiltUnit")
   renovations   RenovationProject[]
   portalListings PortalListing[]
+  interestedLeads Lead[]
   materialIssues MaterialIssue[]
-  assetSales     AssetSale[]
 
   @@index([projectId])
   @@index([phaseId])
@@ -1641,6 +2092,7 @@ model BuiltUnit {
   @@index([status])
   @@index([unitType])
   @@index([originType])
+  @@index([saleId])
   @@unique([projectId, unitNumber])
 }
 
@@ -1875,20 +2327,64 @@ enum QuoteStatus {
   REJECTED   // explicitly not chosen (informational)
 }
 
+// Delivery basis — determines who bears the transport cost.
+// This is critical for fair comparison: an ex-works quote at ₹90/unit
+// + ₹15/unit buyer transport = ₹105/unit true landed, which is MORE
+// than a delivered quote at ₹100/unit. The system must account for
+// this when flagging the cheapest quote.
+enum DeliveryTerms {
+  DELIVERED_SITE  // supplier delivers to site (freight included in quote)
+  EX_WORKS        // buyer picks up from supplier (buyer bears full transport)
+  FOR_STATION     // supplier delivers to nearest depot, buyer arranges onward
+  CUSTOM          // other — see deliveryTerms for details
+}
+
 model VendorQuote {
   id            String      @id @default(cuid())
-  requisitionId String
+  requisitionId String?
   supplierId    String
-  // The uploaded quote document (PDF/image) — URL returned by /api/uploads.
-  fileUrl       String
-  fileName      String
-  mimeType      String
+  // The uploaded quote document (PDF/image/Excel) — URL returned by /api/uploads.
+  // Optional: not all quotes arrive as files (verbal, email text, WhatsApp text).
+  // When null, quoteSource must be set and sourceNote should explain the origin.
+  fileUrl       String?
+  fileName      String?
+  mimeType      String?
+  // How this quote was received — DOCUMENT (file upload), EMAIL, VERBAL, etc.
+  quoteSource   QuoteSource @default(DOCUMENT)
+  // Free-text note explaining the source for non-document quotes.
+  // e.g. "Verbal quote from Ramesh (Ambuja) on 15-Aug-2026 over phone"
+  sourceNote    String?
   // Landed total = delivered-to-site price (per the transcript: "delivery at
   // site"). This is the figure used for cheapest-quote comparison. The
   // per-line breakdown (VendorQuoteLine) sums up to this for transparency.
   landedTotal   Decimal     @db.Decimal(14, 2)
+  // Computed breakdown — sum of the per-line fields. The service computes
+  // these from the lines so the header always matches the detail.
+  subtotal      Decimal     @default(0) @db.Decimal(14, 2) // Σ lineSubtotal (qty × unitPrice, ex-GST)
+  gstTotal      Decimal     @default(0) @db.Decimal(14, 2) // Σ gstAmount
+  freightTotal  Decimal     @default(0) @db.Decimal(14, 2) // Σ (freightPerUnit × qty)
+  handlingTotal Decimal     @default(0) @db.Decimal(14, 2) // Σ (handlingPerUnit × qty)
+  discountTotal Decimal     @default(0) @db.Decimal(14, 2) // Σ (discountPerUnit × qty)
+  packingTotal  Decimal     @default(0) @db.Decimal(14, 2) // Σ (packingPerUnit × qty)
+  loadingTotal  Decimal     @default(0) @db.Decimal(14, 2) // Σ (loadingPerUnit × qty)
+  insuranceTotal Decimal    @default(0) @db.Decimal(14, 2) // Σ (insurancePerUnit × qty)
+  // Σ (buyerTransportPerUnit × qty) — buyer's own transport cost for ex-works/FOR quotes
+  buyerTransportTotal Decimal @default(0) @db.Decimal(14, 2)
   currency      String      @default("INR")
   validUntil    DateTime?
+  // ── Commercial terms (per the real-world Comparative Statement format) ──
+  // These are captured per-quote and shown side-by-side in the comparison.
+  // They often override pure price: "30 days credit at a higher rate beats
+  // advance payment at a lower one" (SiteSetu procurement guide).
+  paymentTerms    String?  // e.g. "30 days credit", "50% advance, balance on delivery"
+  // Structured delivery basis — determines who bears the transport cost.
+  // Used by the comparative analysis to normalize quotes on different bases.
+  deliveryTermsType DeliveryTerms @default(DELIVERED_SITE)
+  // Free-text delivery terms detail (legacy field, kept for back-compat).
+  // e.g. "FOR site", "ex-works Ambuja factory, Nimbahera", "freight extra at actuals"
+  deliveryTerms   String?
+  leadTimeDays    Int?     // delivery lead time in days from PO date
+  warranty        String?  // e.g. "12 months", "as per manufacturer"
   // Computed by recomputeCheapest(): true when this quote has the lowest
   // landedTotal among all PENDING/SELECTED quotes for the requisition.
   isCheapest    Boolean     @default(false)
@@ -1903,14 +2399,22 @@ model VendorQuote {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  requisition  MaterialRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  // Standalone quotation request — when this quote is attached to a
+  // QuotationRequest instead of a MaterialRequisition. Nullable for
+  // back-compat with the existing requisition-attached quotes.
+  quotationRequestId String?
+
+  requisition  MaterialRequisition? @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
   supplier     Supplier            @relation(fields: [supplierId], references: [id])
   submittedBy  User?               @relation("QuoteSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   selectedBy   User?               @relation("QuoteSelector", fields: [selectedById], references: [id], onDelete: SetNull)
+  quotationRequest QuotationRequest? @relation("QuotationRequestQuotes", fields: [quotationRequestId], references: [id], onDelete: Cascade)
+  selectedForRequest QuotationRequest? @relation("QuotationRequestSelectedQuote")
   lines        VendorQuoteLine[]
   purchaseOrders PurchaseOrder[] @relation("POSelectedQuote")
 
   @@index([requisitionId])
+  @@index([quotationRequestId])
   @@index([supplierId])
   @@index([status])
 }
@@ -1920,13 +2424,164 @@ model VendorQuoteLine {
   vendorQuoteId String
   materialId  String
   qty         Decimal  @db.Decimal(14, 3)
-  unitPrice   Decimal  @db.Decimal(14, 2) // per-unit delivered price
-  lineTotal   Decimal  @db.Decimal(14, 2) // qty × unitPrice
+  unitPrice   Decimal  @db.Decimal(14, 2) // basic per-unit price (ex-GST, ex-freight)
+  // GST snapshot — inherited from Material at quote creation time so the
+  // quote keeps its original tax basis even if the material master changes.
+  hsnCode     String?
+  gstRate     Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal  @default(0) @db.Decimal(14, 2) // qty × unitPrice × gstRate / 100
+  // Per-unit landed-cost components — full real-world landed cost:
+  //   taxableValue = unitPrice − discount + packingForwarding
+  //   landedCost   = taxableValue + GST + freight + loadingUnloading + transitInsurance
+  discountPerUnit    Decimal @default(0) @db.Decimal(14, 2) // discount per unit (reduces taxable value)
+  packingPerUnit     Decimal @default(0) @db.Decimal(14, 2) // packing & forwarding per unit
+  freightPerUnit     Decimal @default(0) @db.Decimal(14, 2) // transport cost per unit (supplier-quoted)
+  loadingPerUnit     Decimal @default(0) @db.Decimal(14, 2) // loading/unloading per unit (separate from freight)
+  insurancePerUnit   Decimal @default(0) @db.Decimal(14, 2) // transit insurance per unit
+  handlingPerUnit    Decimal @default(0) @db.Decimal(14, 2) // misc handling per unit (legacy compat)
+  // Buyer-borne transport cost per unit — entered when deliveryTermsType = EX_WORKS
+  // or FOR_STATION. This is the buyer's OWN estimated transport cost (arranging their
+  // own truck, etc.), separate from any supplier-quoted freightPerUnit. Included in
+  // unitLandedCost so the comparative analysis normalizes quotes on different delivery bases.
+  buyerTransportPerUnit Decimal @default(0) @db.Decimal(14, 2)
+  // The headline number — per-piece all-in landed cost:
+  //   unitLandedCost = (unitPrice − discount + packing) × (1 + gstRate/100) + freight + loading + insurance + handling
+  unitLandedCost Decimal @default(0) @db.Decimal(14, 2)
+  taxableValue   Decimal @default(0) @db.Decimal(14, 2) // (unitPrice − discount + packing) × qty
+  lineSubtotal   Decimal @default(0) @db.Decimal(14, 2) // qty × unitPrice (ex-everything)
+  lineTotal      Decimal @db.Decimal(14, 2) // qty × unitLandedCost (full landed)
 
   vendorQuote VendorQuote @relation(fields: [vendorQuoteId], references: [id], onDelete: Cascade)
   material    Material    @relation(fields: [materialId], references: [id])
 
   @@index([vendorQuoteId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  HSN / SAC MASTER — government-provided HSN codes with their
+//  GST rates. Seeded from CBIC data. The system auto-picks the
+//  GST rate when a material's HSN code is entered, so users never
+//  have to look up the rate manually.
+// ───────────────────────────────────────────────────────────
+
+model HsnGstRate {
+  id          String   @id @default(cuid())
+  hsnCode     String   @unique
+  description String
+  gstRate     Decimal  @db.Decimal(5, 2)
+  sacCode     String?  // Service Accounting Code (for services)
+  category    String?  // "Goods" | "Services"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([hsnCode])
+  @@index([category])
+}
+
+// ───────────────────────────────────────────────────────────
+//  STANDALONE QUOTATION REQUEST — an employee asks for prices on
+//  a bundle of materials, then uploads/fills quotes from multiple
+//  suppliers against it. The comparative analysis (per-piece landed
+//  cost across suppliers) lives on the request itself. Approval is
+//  done by the submitter's direct reporting manager (one hierarchy
+//  level up via UserCompany.reportsToUserCompanyId), not by anyone
+//  with a permission flag.
+// ───────────────────────────────────────────────────────────
+
+enum QuotationRequestStatus {
+  OPEN            // collecting quotes
+  QUOTES_COLLECTED // min quotes met, ready for approval
+  APPROVED        // manager selected the winner
+  CLOSED          // converted to PO / no longer needed
+  CANCELLED
+}
+
+// How a vendor quote was received — not all quotes arrive as uploaded files.
+// Suppliers quote via WhatsApp, email text, verbal over phone, printed letters,
+// Excel rate lists, etc. The structured price data (per-line) is what matters;
+// the file is evidence, not the data itself.
+enum QuoteSource {
+  DOCUMENT    // PDF or photo upload (the default — backwards compatible)
+  EMAIL       // rates received in email body (no file)
+  VERBAL      // quoted over phone (no file — sourceNote mandatory)
+  WHATSAPP    // screenshot or text from WhatsApp (may or may not have file)
+  LETTER      // printed/handwritten letter (photo upload)
+  EXCEL       // Excel/CSV rate list upload
+}
+
+model QuotationRequest {
+  id              String   @id @default(cuid())
+  requestNumber   String   @unique // QR-YYMMDD-NNNN
+  companyId       String
+  projectId       String?  // optional — site this is being bought for
+  title           String
+  notes           String?
+  status          QuotationRequestStatus @default(OPEN)
+  minQuotesRequired Int    @default(3)
+  // ── Real-world procurement context ──
+  // Required-by date: when the site needs this material. Drives urgency
+  // and delivery planning. Without this, procurement is disconnected from
+  // the project schedule.
+  requiredByDate  DateTime?
+  // Work activity / BOQ link: what site activity is this material for?
+  // e.g. "third-floor slab casting", "blockwork", "internal plaster".
+  // Connects procurement to project execution and BOQ reconciliation.
+  workActivity    String?
+  // ── Destination location (user-chosen, not auto-guessed) ──
+  // The site engineer picks WHERE the material should be delivered. This
+  // can be any location in the company GROUP (parent's central warehouse,
+  // current company's project site, child company's warehouse, etc.).
+  // The auto-created PO's companyId = this location's companyId, so the
+  // PO and stock live in the company that owns the warehouse.
+  destinationLocationId String?
+
+  // Who submitted it (the employee asking for prices)
+  submittedById          String
+  submittedByUserCompanyId String // the UserCompany membership row of the submitter
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Approval — ONLY the direct manager (one level up the reporting chain)
+  approvedById             String?
+  approvedByUserCompanyId  String?
+  approvedAt               DateTime?
+  approvalReason           String? // required if overriding the cheapest
+
+  // The winner (selected by the approver)
+  selectedQuoteId String? @unique
+  // Auto-created PO after hierarchical approval — null until approved.
+  convertedPoId   String?  @unique
+
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  convertedPo    PurchaseOrder? @relation("QuotationConvertedPo", fields: [convertedPoId], references: [id], onDelete: SetNull)
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  destinationLocation StockLocation? @relation("QuotationRequestDestination", fields: [destinationLocationId], references: [id], onDelete: SetNull)
+  submittedBy    User      @relation("QuotationRequestSubmitter", fields: [submittedById], references: [id], onDelete: Cascade)
+  approvedBy     User?     @relation("QuotationRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  lines          QuotationRequestLine[]
+  quotes         VendorQuote[]           @relation("QuotationRequestQuotes")
+  selectedQuote  VendorQuote?            @relation("QuotationRequestSelectedQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([submittedById])
+  @@index([status])
+}
+
+model QuotationRequestLine {
+  id                  String   @id @default(cuid())
+  quotationRequestId  String
+  materialId          String
+  qtyRequired         Decimal  @db.Decimal(14, 3)
+  // HSN + GST auto-filled from Material at creation time (snapshot)
+  hsnCode             String?
+  gstRate             Decimal  @default(0) @db.Decimal(5, 2)
+
+  quotationRequest    QuotationRequest @relation(fields: [quotationRequestId], references: [id], onDelete: Cascade)
+  material            Material         @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@index([quotationRequestId])
   @@index([materialId])
 }
 
@@ -1951,6 +2606,12 @@ model SupplierReturn {
   status       SupplierReturnStatus @default(DRAFT)
   returnDate   DateTime            @default(now())
   creditNoteNo String?
+  // Vehicle — how the goods are being sent back to the supplier
+  vehicleNumber  String?
+  vehicleType    String?
+  vehiclePhotoUrl String?
+  driverName     String?
+  driverPhone    String?
   notes        String?
   createdById  String?
   createdAt    DateTime            @default(now())
@@ -2003,15 +2664,25 @@ model DirectPurchase {
   gstTotal     Decimal  @default(0) @db.Decimal(14, 2)
   roundOff     Decimal  @default(0) @db.Decimal(14, 2)
   billAmount   Decimal  @default(0) @db.Decimal(14, 2) // subtotal + gstTotal + roundOff
+  // Vehicle — how the goods were brought from the local market
+  vehicleNumber  String?
+  vehicleType    String?
+  vehiclePhotoUrl String?
+  driverName     String?
+  driverPhone    String?
   notes        String?
   createdById  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  status         DirectPurchaseStatus @default(COMPLETED)
+  cancelledAt    DateTime?
+  cancelledById  String?
 
   supplier     Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   location     StockLocation  @relation(fields: [locationId], references: [id])
   createdBy    User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  cancelledBy  User?          @relation("DirectPurchaseCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   lines        DirectPurchaseLine[]
 
   @@index([companyId])
@@ -2039,6 +2710,101 @@ model DirectPurchaseLine {
 //  SALES: customers, asset sales, payments
 // ───────────────────────────────────────────────────────────
 
+enum LeadSource {
+  PORTAL
+  WALK_IN
+  REFERRAL
+  BROKER
+  DIGITAL_AD
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  SITE_VISIT
+  NEGOTIATION
+  BOOKED
+  LOST
+}
+
+enum LeadPriority {
+  LOW
+  MEDIUM
+  HIGH
+  HOT
+}
+
+enum LeadActivityType {
+  CALL
+  EMAIL
+  WHATSAPP
+  MEETING
+  SITE_VISIT
+  NOTE
+  STAGE_CHANGE
+}
+
+model Lead {
+  id                  String       @id @default(cuid())
+  companyId           String
+  projectId           String?
+  interestedUnitId    String?
+  assignedToId        String?
+  convertedCustomerId String?
+  name                String
+  phone               String
+  email               String?
+  source              LeadSource
+  stage               LeadStage    @default(NEW)
+  priority            LeadPriority @default(MEDIUM)
+  score               Int          @default(0)
+  budgetMin           Decimal?     @db.Decimal(14, 2)
+  budgetMax           Decimal?     @db.Decimal(14, 2)
+  interestedUnitType  String?
+  notes               String?
+  nextFollowUpAt      DateTime?
+  lastContactAt       DateTime?
+  lostReason          String?
+  convertedAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  deletedAt           DateTime?
+
+  company           Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project           Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  interestedUnit    BuiltUnit? @relation(fields: [interestedUnitId], references: [id], onDelete: SetNull)
+  assignedTo        User?      @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedCustomer Customer?  @relation(fields: [convertedCustomerId], references: [id], onDelete: SetNull)
+  activities        LeadActivity[]
+
+  @@index([companyId, stage])
+  @@index([assignedToId, stage])
+  @@index([projectId])
+  @@index([interestedUnitId])
+  @@index([phone])
+  @@index([nextFollowUpAt])
+  @@index([deletedAt])
+}
+
+model LeadActivity {
+  id             String           @id @default(cuid())
+  leadId         String
+  type           LeadActivityType
+  note           String?
+  outcome        String?
+  occurredAt     DateTime         @default(now())
+  nextFollowUpAt DateTime?
+  createdById    String?
+  createdAt      DateTime         @default(now())
+
+  lead      Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("LeadActivityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([leadId, occurredAt])
+  @@index([createdById])
+}
+
 model Customer {
   id        String   @id @default(cuid())
   companyId String
@@ -2057,6 +2823,7 @@ model Customer {
   assetSales     AssetSale[]
   materialSales  MaterialSale[]
   tenancies      Tenancy[]
+  convertedLeads Lead[]
 
   @@unique([companyId, phone])
   @@index([companyId])
@@ -2067,9 +2834,35 @@ model Customer {
 enum AssetType {
   LAND
   BUILT_UNIT
+  PROJECT
+}
+
+// ── Sale expense heads (registry, stamp duty, transfer, lease rent, GST, other) ──
+// Same heads as land purchase, but on the SELL side. Each row has a 3-way
+// "borne by" toggle: CLIENT (buyer pays), SELLER (seller absorbs), NA (not applicable).
+enum SaleExpenseHead {
+  REGISTRY
+  STAMP_DUTY
+  TRANSFER
+  LEASE_RENT
+  GST
+  OTHER
+}
+
+enum ExpenseBorneBy {
+  CLIENT
+  SELLER
+  NA
+}
+
+// ── Deal source — who brought the deal ──
+enum DealSource {
+  SELF
+  BROKER
 }
 
 enum SaleStatus {
+  PENDING     // material sale awaiting gate pass approval before stock movement
   ACTIVE
   CANCELLED
 }
@@ -2087,7 +2880,7 @@ model AssetSale {
   landParcelId  String?
   builtUnitId   String?
   customerId    String
-  projectId     String
+  projectId     String?
   companyId     String
   salePrice     Decimal       @db.Decimal(14, 2)
   gstRate       Decimal       @default(0) @db.Decimal(5, 2) // GST % applied on sale (e.g. 1, 5, 18)
@@ -2107,23 +2900,62 @@ model AssetSale {
   depositAmount   Decimal?    @db.Decimal(14, 2)   // initial customer deposit
   depositDate     DateTime?                          // when deposit was received
   finalSaleDate   DateTime?                          // when final payment + title transfer happened
+  // ── Sale deed / registry tracking ──
+  // A sale starts as an ATS (Agreement to Sell) — booking amount paid, registry deferred.
+  // When the sale deed is registered, saleDeedNo is captured and saleStage → COMPLETED.
+  saleDeedNo        String?                           // sale deed / registry number (set when registry is done)
+  expectedRegistryDate DateTime?                     // when the full registry is expected (if ATS / not yet registered)
+  // ── Sale compliance documents ──
+  allotmentLetterNo  String?    // allotment letter number (issued at booking)
+  allotmentDate      DateTime?  // date allotment letter was issued
+  bbaNo              String?    // Builder-Buyer Agreement number (RERA mandates within 45 days of booking)
+  bbaDate            DateTime?  // date BBA was executed
+  // ── TDS tracking (sales > ₹50L, buyer deducts 1% TDS) ──
+  tdsAmount          Decimal?   @db.Decimal(14, 2)  // TDS amount deducted by buyer
+  tdsCertificateNo   String?    // TDS certificate number (Form 16B)
+  // ── Home loan tracking ──
+  homeLoanBank       String?    // bank/financial institution name
+  homeLoanAmount     Decimal?   @db.Decimal(14, 2)  // sanctioned loan amount
+  homeLoanSanctionNo String?    // loan sanction letter number
+  homeLoanSanctionDate DateTime? // date loan was sanctioned
+  // ── Deal terms ──
+  dealMaturityMonths  Int?      // how many months until the deal matures
+  dealMaturityDate    DateTime? // computed: saleDate + dealMaturityMonths
+  paymentCycle        String?   // free-text: "25% every month", "Quarterly", etc.
+  // ── Broker / deal source ──
+  dealSource          DealSource @default(SELF)  // SELF or BROKER
+  brokerId            String?                     // → Broker master (optional)
+  brokerName          String?                     // snapshot (free-text if no broker master)
+  brokerPhone         String?
+  commissionAmount    Decimal?  @db.Decimal(14, 2) // broker commission
+  commissionIsPartOfDeal Boolean @default(false)    // deducted from proceeds or paid separately
+  commissionPaid      Boolean   @default(false)
+  commissionPaidDate  DateTime?
   createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   customer  Customer            @relation(fields: [customerId], references: [id])
-  project   Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  project   Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   company   Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  builtUnit BuiltUnit?          @relation(fields: [builtUnitId], references: [id], onDelete: SetNull)
+  landParcel LandParcel?        @relation("AssetSaleLandParcel", fields: [landParcelId], references: [id], onDelete: SetNull)
+  builtUnit BuiltUnit?          @relation("AssetSaleBuiltUnit", fields: [builtUnitId], references: [id], onDelete: SetNull)
+  parcelSale LandParcel?        @relation("LandParcelSale")
+  unitSale   BuiltUnit?         @relation("BuiltUnitSale")
+  broker    Broker?             @relation(fields: [brokerId], references: [id], onDelete: SetNull)
   createdBy User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
   payments  AssetSalePayment[]
   paymentSchedule PaymentSchedule?
+  expenses  SaleExpense[]
+  terms     SaleTerm[]
 
   @@index([projectId])
   @@index([companyId])
   @@index([customerId])
   @@index([paymentStatus])
   @@index([createdById])
+  @@index([brokerId])
+  @@index([landParcelId])
 }
 
 model AssetSalePayment {
@@ -2141,6 +2973,79 @@ model AssetSalePayment {
 }
 
 // ───────────────────────────────────────────────────────────
+//  SALE EXPENSES — expense heads on the sell side (registry,
+//  stamp duty, transfer, lease rent, GST, other). Each has a
+//  3-way "borne by" toggle: CLIENT, SELLER, or NA.
+//  Mirrors the land purchase cost breakup but for sales.
+// ───────────────────────────────────────────────────────────
+
+model SaleExpense {
+  id          String          @id @default(cuid())
+  assetSaleId String
+  head        SaleExpenseHead
+  label       String?         // custom label (for OTHER head)
+  amount      Decimal         @db.Decimal(14, 2)
+  borneBy     ExpenseBorneBy  @default(NA)
+  isIncluded  Boolean         @default(false)  // included in deal price or extra on top
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+
+  assetSale AssetSale @relation(fields: [assetSaleId], references: [id], onDelete: Cascade)
+
+  @@index([assetSaleId])
+  @@index([head])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SALE TERMS — free-text terms & conditions with optional
+//  extra charge. E.g. "Fire NOC to be obtained by seller" (no
+//  charge), or "Fire NOC ₹5L extra" (extraAmount = 500000,
+//  isIncluded = false → added on top of deal price).
+// ───────────────────────────────────────────────────────────
+
+model SaleTerm {
+  id          String   @id @default(cuid())
+  assetSaleId String
+  description String                    // the condition text
+  extraAmount Decimal? @db.Decimal(14, 2) // optional charge for this condition
+  isIncluded  Boolean  @default(true)   // included in deal price or extra on top
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  assetSale AssetSale @relation(fields: [assetSaleId], references: [id], onDelete: Cascade)
+
+  @@index([assetSaleId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  BROKER — master entity for real estate brokers/agents.
+//  Tracks default commission % and contact info. Used on
+//  AssetSale.dealSource = BROKER to record who brought the deal.
+// ───────────────────────────────────────────────────────────
+
+model Broker {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  phone       String?
+  agency      String?
+  defaultCommissionPercent Decimal? @db.Decimal(5, 2)
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy  User?    @relation("BrokerCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assetSales AssetSale[]
+
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+  @@index([name])
+}
+
+// ───────────────────────────────────────────────────────────
 //  FINANCE: project costs, expenses, audit
 // ───────────────────────────────────────────────────────────
 
@@ -2150,6 +3055,7 @@ enum ProjectCostType {
   EQUIPMENT
   CONTRACTOR
   PERMIT
+  TRANSFER_DUTY   // Transfer duty / unearned increase on authority (DDA/HUDCO) leasehold land
   OTHER
 }
 
@@ -2166,17 +3072,23 @@ model ProjectCost {
   createdById String?
   // DPR-Finance Bridge: link this cost back to the DPR that triggered it
   sourceDprId String?  // null = manual cost entry (not from DPR)
+  // Legal-Doc Bridge: when this cost was auto-created from a TRANSFER_DUTY
+  // legal document (transfer duty on authority land), link back to it so
+  // the permission tracking and the financial impact stay connected.
+  sourceLegalDocId String?  // null = manual cost entry (not from a legal doc)
   createdAt DateTime        @default(now())
 
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   subcontractor Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
   sourceDpr     DailyProgressReport? @relation("DprProjectCosts", fields: [sourceDprId], references: [id], onDelete: SetNull)
+  sourceLegalDoc LegalDocument? @relation("LegalDocProjectCosts", fields: [sourceLegalDocId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([costType])
   @@index([createdById])
   @@index([sourceDprId])
+  @@index([sourceLegalDocId])
 }
 
 model Expense {
@@ -2742,6 +3654,11 @@ model Tenancy {
   monthlyRent   Decimal        @db.Decimal(14, 2)
   securityDeposit Decimal      @default(0) @db.Decimal(14, 2)
   rentAgreementNo String?
+  // SAC code for GST on rental income. Renting out equipment, machinery, or
+  // property is a SERVICE supply under GST (not goods → no HSN, uses SAC).
+  // Default: 997313 (leasing/rental of construction machinery & equipment, 18%).
+  // For property rent: 997212 (non-residential, 18%) or 997211 (residential, exempt).
+  sacCode       String?  // e.g. "997313", "997212", "997211"
   status        TenancyStatus  @default(PENDING)
   notes         String?
   createdById   String?
@@ -2834,6 +3751,12 @@ model MaterialSale {
   status        SaleStatus    @default(ACTIVE)
   paymentStatus PaymentStatus @default(PENDING)
   paymentMode   String?
+  // Vehicle — how the goods were dispatched to the customer
+  vehicleNumber  String?
+  vehicleType    String?
+  vehiclePhotoUrl String?
+  driverName     String?
+  driverPhone    String?
   notes         String?
   createdById   String?
   createdAt     DateTime      @default(now())
@@ -3025,10 +3948,105 @@ model BoqItem {
   mbEntries   MeasurementBookEntry[]
   workOrderLines SubcontractorWorkOrderLine[]
   raBillLines RaBillLine[]
+  rateAnalysis  RateAnalysis?
+  changeOrderLines ChangeOrderLine[]
+  ncrs             NonConformanceReport[] @relation("NcrBoqItem")
 
   @@index([projectId])
   @@index([parentId])
   @@index([phaseId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  RATE ANALYSIS — the cost breakdown of a BOQ line item's rate.
+//  A BOQ line item has a single "rate" (₹ per unit). Rate Analysis
+//  justifies HOW that rate was derived by breaking it down into:
+//  - MATERIAL components (cement, sand, steel, etc. with qty per unit of work)
+//  - LABOUR components (mason, helper, etc. with hours/days per unit)
+//  - EQUIPMENT components (mixer, crane, etc. with hours per unit)
+//  - OVERHEAD (% of material + labour subtotal)
+//  - PROFIT (% of everything above)
+//  - OTHER (transport, taxes, contingencies — flat amount or %)
+//
+//  The computed total from all lines should equal (or closely match)
+//  the BoqItem.rate. The service can optionally auto-update the
+//  BoqItem.rate from the rate analysis total.
+// ───────────────────────────────────────────────────────────
+
+enum RateAnalysisComponentType {
+  MATERIAL     // material component (optionally linked to Material catalog)
+  LABOUR       // labour / manpower component
+  EQUIPMENT    // machinery / equipment component
+  OVERHEAD     // overhead (% of material + labour + equipment subtotal)
+  PROFIT       // contractor profit margin (% of everything above)
+  OTHER        // transport, taxes, contingencies, etc.
+}
+
+enum RateAnalysisLineBasis {
+  QUANTITY   // amount = quantity × rate (for MATERIAL, LABOUR, EQUIPMENT, OTHER)
+  PERCENTAGE // amount = percentage × base (for OVERHEAD, PROFIT, OTHER)
+}
+
+model RateAnalysis {
+  id          String   @id @default(cuid())
+  boqItemId   String   @unique  // one rate analysis per BOQ line item
+  // The unit of work this rate analysis is for (should match BoqItem.unit)
+  // e.g. "CUM" means the rate analysis gives the cost per 1 CUM of this work
+  perUnit     String              // e.g. "CUM", "SQM", "NOS"
+  // Computed total rate (sum of all line amounts) — cached for quick display
+  totalRate   Decimal  @default(0) @db.Decimal(14, 2)
+  // Subtotals by component type (cached)
+  materialSubtotal  Decimal @default(0) @db.Decimal(14, 2)
+  labourSubtotal    Decimal @default(0) @db.Decimal(14, 2)
+  equipmentSubtotal Decimal @default(0) @db.Decimal(14, 2)
+  overheadSubtotal  Decimal @default(0) @db.Decimal(14, 2)
+  profitSubtotal    Decimal @default(0) @db.Decimal(14, 2)
+  otherSubtotal     Decimal @default(0) @db.Decimal(14, 2)
+  // Wastage factor (%) applied to material components — e.g. 5% means
+  // material quantities are inflated by 5% to account for wastage
+  wastagePct  Decimal  @default(0) @db.Decimal(5, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  boqItem     BoqItem  @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  lines       RateAnalysisLine[]
+
+  @@index([boqItemId])
+}
+
+model RateAnalysisLine {
+  id              String                   @id @default(cuid())
+  rateAnalysisId  String
+  componentType   RateAnalysisComponentType
+  basis           RateAnalysisLineBasis    @default(QUANTITY)
+  // For MATERIAL: optional link to Material catalog
+  materialId      String?
+  // Description of the component (e.g. "Cement (OPC 53)", "Mason", "Concrete Mixer")
+  description     String
+  // For QUANTITY basis:
+  //   quantity = amount per unit of BOQ work (e.g. 4.5 bags cement per CUM)
+  //   unit = unit of the component (e.g. "bags", "hours", "days")
+  //   rate = ₹ per unit of component (e.g. ₹350/bag)
+  //   amount = quantity × rate
+  // For PERCENTAGE basis:
+  //   percentage = % applied to the base subtotal
+  //   base = what the percentage is calculated on (set by service logic)
+  //   amount = percentage × base / 100
+  quantity        Decimal?  @db.Decimal(14, 5)
+  unit            String?
+  rate            Decimal?  @db.Decimal(14, 2)
+  percentage      Decimal?  @db.Decimal(5, 2)
+  amount          Decimal   @default(0) @db.Decimal(14, 2)  // computed
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  rateAnalysis    RateAnalysis @relation(fields: [rateAnalysisId], references: [id], onDelete: Cascade)
+  material        Material?    @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([rateAnalysisId])
   @@index([materialId])
 }
 
@@ -3074,6 +4092,9 @@ model WbsNode {
   blocks      WbsDependency[] @relation("WbsBlocking")
   mbEntries   MeasurementBookEntry[]
   paymentScheduleItems PaymentScheduleItem[]
+  ncrs        NonConformanceReport[]
+  safetyIncidents SafetyIncident[]
+  safetyHazards   SafetyHazard[]
 
   @@index([projectId])
   @@index([parentId])
@@ -3318,6 +4339,477 @@ model RaBillLine {
 }
 
 // ───────────────────────────────────────────────────────────
+//  CHANGE ORDER — formal modifications to the project scope,
+//  BOQ, schedule, or budget after the original BOQ was approved.
+//
+//  A Change Order captures:
+//  - WHAT changed (description, reason, type)
+//  - WHY it changed (client request, site condition, design error, etc.)
+//  - Impact on COST (added/removed line items with qty/rate deltas)
+//  - Impact on SCHEDULE (days added/removed, affected WBS nodes)
+//  - Approval workflow (DRAFT → SUBMITTED → APPROVED/REJECTED → IMPLEMENTED)
+//
+//  When approved + implemented, the change order can:
+//  - Add new BOQ items or modify existing ones (qty/rate changes)
+//  - Update Project.totalBudget
+//  - Adjust WBS node planned dates
+//  - Create ProjectCost entries for the cost delta
+// ───────────────────────────────────────────────────────────
+
+enum ChangeOrderType {
+  ADDITION      // new work added to scope
+  DELETION      // work removed from scope
+  MODIFICATION  // existing work modified (qty/rate/spec change)
+  ACCELERATION  // schedule acceleration (crash costs)
+  DECELERATION  // schedule extension
+  VARIATION     // site condition / design variation
+}
+
+enum ChangeOrderReason {
+  CLIENT_REQUEST       // client asked for a change
+  SITE_CONDITION       // unforeseen site conditions
+  DESIGN_CHANGE        // architect/engineer design revision
+  ERROR_OMISSION       // correction of error or omission in original BOQ
+  REGULATORY           // statutory / RERA / compliance change
+  VALUE_ENGINEERING    // cost optimization
+  OTHER
+}
+
+enum ChangeOrderStatus {
+  DRAFT         // being prepared by PM/QS
+  SUBMITTED     // submitted for approval
+  APPROVED      // approved by owner/admin
+  REJECTED      // rejected — needs revision
+  IMPLEMENTED   // changes applied to BOQ/budget/schedule
+  CANCELLED     // withdrawn before approval
+}
+
+model ChangeOrder {
+  id              String             @id @default(cuid())
+  companyId       String
+  projectId       String
+  phaseId         String?
+  changeOrderNo   String             @unique  // CO-YYMMDD-NNNN
+  title           String
+  description     String
+  type            ChangeOrderType    @default(MODIFICATION)
+  reason          ChangeOrderReason  @default(OTHER)
+  status          ChangeOrderStatus  @default(DRAFT)
+  // Cost impact (computed from lines)
+  originalAmount  Decimal            @default(0) @db.Decimal(14, 2)  // original BOQ value affected
+  revisedAmount   Decimal            @default(0) @db.Decimal(14, 2)  // revised value after change
+  costDelta       Decimal            @default(0) @db.Decimal(14, 2)  // revisedAmount - originalAmount
+  // Schedule impact
+  scheduleDeltaDays Int             @default(0)  // +ve = delay, -ve = acceleration
+  // Client approval (separate from internal approval)
+  clientApprovalRequired Boolean    @default(true)
+  clientApprovedAt   DateTime?
+  clientApprovedBy   String?        // client name (free text — external party)
+  // Internal approval workflow
+  submittedById   String?
+  submittedAt     DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectReason    String?
+  implementedById String?
+  implementedAt   DateTime?
+  // Metadata
+  initiatedBy     String?           // who requested the change (free text or user)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase           ProjectPhase?      @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  submittedBy     User?              @relation("ChangeOrderSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy      User?              @relation("ChangeOrderApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  implementedBy   User?              @relation("ChangeOrderImplementer", fields: [implementedById], references: [id], onDelete: SetNull)
+  lines           ChangeOrderLine[]
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+  @@index([phaseId])
+}
+
+model ChangeOrderLine {
+  id              String   @id @default(cuid())
+  changeOrderId   String
+  boqItemId       String?  // linked BOQ item (null for new items not yet in BOQ)
+  // Description of the change for this line
+  description     String
+  // For ADDITION: originalQty = 0, revisedQty = new qty
+  // For DELETION: originalQty = existing qty, revisedQty = 0
+  // For MODIFICATION: originalQty = old qty, revisedQty = new qty
+  originalQty     Decimal  @default(0) @db.Decimal(14, 3)
+  revisedQty      Decimal  @default(0) @db.Decimal(14, 3)
+  unit            String
+  rate            Decimal  @db.Decimal(14, 2)
+  originalAmount  Decimal  @default(0) @db.Decimal(14, 2)  // originalQty × rate
+  revisedAmount   Decimal  @default(0) @db.Decimal(14, 2)  // revisedQty × rate
+  amountDelta     Decimal  @default(0) @db.Decimal(14, 2)  // revisedAmount - originalAmount
+  notes           String?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  changeOrder     ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  boqItem         BoqItem?    @relation(fields: [boqItemId], references: [id], onDelete: SetNull)
+
+  @@index([changeOrderId])
+  @@index([boqItemId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  QUALITY CONTROL — Non-Conformance Reports (NCR) and
+//  Corrective And Preventive Actions (CAPA).
+//
+//  NCR: raised when work/material doesn't conform to spec or
+//  quality standards. Captures what's wrong, where, severity,
+//  and the responsible party. Goes through OPEN → UNDER_REVIEW
+//  → CAPA_REQUIRED / ACCEPTED / REJECTED → CLOSED.
+//
+//  CAPA: the corrective + preventive action plan for an NCR.
+//  Root cause analysis → corrective action (fix the problem) →
+//  preventive action (stop it happening again) → verification
+//  → closure. One NCR can have one CAPA.
+// ───────────────────────────────────────────────────────────
+
+enum NcrSeverity {
+  CRITICAL    // safety-critical / structural — stop work
+  MAJOR       // significant non-conformance — rework required
+  MINOR       // small deviation — can be accepted with concession
+  OBSERVATION // note for improvement — no immediate action
+}
+
+enum NcrStatus {
+  OPEN            // newly raised, awaiting review
+  UNDER_REVIEW    // being investigated by QA/QC
+  CAPA_REQUIRED   // review done, corrective action needed
+  ACCEPTED        // non-conformance accepted with concession (minor)
+  REJECTED        // work rejected — must be reworked
+  CLOSED          // resolved + verified
+  CANCELLED       // withdrawn
+}
+
+enum NcrCategory {
+  MATERIAL    // material doesn't meet spec (e.g. wrong cement grade)
+  WORKMANSHIP // poor quality of execution (e.g. uneven plaster)
+  DESIGN      // design issue causing non-conformance
+  DOCUMENT    // missing or incorrect documentation/test reports
+  PROCESS     // process not followed (e.g. curing not done)
+  SAFETY      // safety-related quality issue
+  OTHER
+}
+
+enum CapaStatus {
+  DRAFT          // being prepared
+  IN_PROGRESS    // corrective action underway
+  VERIFICATION   // action done, awaiting verification
+  VERIFIED       // verified effective
+  CLOSED         // fully closed
+  REJECTED       // verification failed — needs rework
+}
+
+model NonConformanceReport {
+  id              String        @id @default(cuid())
+  companyId       String
+  projectId       String
+  ncrNumber       String        @unique  // NCR-YYMMDD-NNNN
+  title           String
+  description     String        // what is non-conforming
+  category        NcrCategory   @default(WORKMANSHIP)
+  severity        NcrSeverity   @default(MINOR)
+  status          NcrStatus     @default(OPEN)
+  // Where the issue was found
+  location        String?       // e.g. "Tower A, 3rd floor, flat 302"
+  wbsNodeId       String?       // linked WBS activity (optional)
+  boqItemId       String?       // linked BOQ item (optional)
+  // Who raised it and when
+  raisedById      String?
+  raisedAt        DateTime      @default(now())
+  // Responsible party (who caused the non-conformance)
+  responsibleParty String?      // e.g. "Subcontractor: ABC Constructions", "In-house team"
+  subcontractorId String?       // if a subcontractor is responsible
+  // Review
+  reviewedById    String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  // Closure
+  closedById      String?
+  closedAt        DateTime?
+  closureNotes    String?
+  // Attachments (photo evidence, test reports, etc.)
+  attachments     String[]      @default([])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  wbsNode         WbsNode?      @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
+  boqItem         BoqItem?      @relation("NcrBoqItem", fields: [boqItemId], references: [id], onDelete: SetNull)
+  subcontractor   Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  raisedBy        User?         @relation("NcrRaisedBy", fields: [raisedById], references: [id], onDelete: SetNull)
+  reviewedBy      User?         @relation("NcrReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  closedBy        User?         @relation("NcrClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  capa            Capa?
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+  @@index([severity])
+}
+
+model Capa {
+  id              String        @id @default(cuid())
+  ncrId           String        @unique  // one CAPA per NCR
+  companyId       String
+  projectId       String
+  capaNumber      String        @unique  // CAPA-YYMMDD-NNNN
+  status          CapaStatus    @default(DRAFT)
+  // Root cause analysis
+  rootCause       String        // why did the non-conformance happen?
+  // Corrective action — fix the immediate problem
+  correctiveAction    String    // what will be done to fix it
+  correctiveDueDate   DateTime?
+  correctiveDoneAt    DateTime?
+  correctiveDoneById  String?
+  // Preventive action — stop it happening again
+  preventiveAction    String    // what will be done to prevent recurrence
+  preventiveDueDate   DateTime?
+  preventiveDoneAt    DateTime?
+  preventiveDoneById  String?
+  // Verification — did the actions work?
+  verificationMethod   String?  // how effectiveness was checked
+  verifiedById         String?
+  verifiedAt           DateTime?
+  verificationNotes    String?
+  // Closure
+  closedById     String?
+  closedAt       DateTime?
+  closureNotes   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  ncr            NonConformanceReport @relation(fields: [ncrId], references: [id], onDelete: Cascade)
+  company        Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  correctiveDoneBy User?             @relation("CapaCorrectiveDoneBy", fields: [correctiveDoneById], references: [id], onDelete: SetNull)
+  preventiveDoneBy User?             @relation("CapaPreventiveDoneBy", fields: [preventiveDoneById], references: [id], onDelete: SetNull)
+  verifiedBy       User?             @relation("CapaVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  closedBy         User?             @relation("CapaClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@index([ncrId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SAFETY MANAGEMENT — incidents, hazards, and safety
+//  inspections for construction sites.
+//
+//  SafetyIncident: accidents, near-misses, injuries, property
+//  damage. Tracks severity, type, people involved, root cause,
+//  and corrective actions. Goes through REPORTED →
+//  UNDER_INVESTIGATION → INVESTIGATED → CLOSED.
+//
+//  SafetyHazard: identified hazards on site with risk
+//  assessment (likelihood × severity = risk level). Tracks
+//  mitigation status: IDENTIFIED → MITIGATING → RESOLVED.
+//
+//  SafetyInspection: scheduled or ad-hoc safety walkthroughs.
+//  Records findings, compliance checks, and follow-up items.
+// ───────────────────────────────────────────────────────────
+
+enum IncidentType {
+  ACCIDENT          // actual harm/damage occurred
+  NEAR_MISS         // could have caused harm but didn't
+  INJURY            // person injured
+  FATALITY          // death
+  PROPERTY_DAMAGE   // damage to property/equipment
+  ENVIRONMENTAL     // environmental damage (spill, dust, noise)
+  FIRE              // fire incident
+  STRUCTURAL        // structural failure/collapse
+  OTHER
+}
+
+enum IncidentSeverity {
+  FIRST_AID     // minor — first aid only, no lost time
+  LOST_TIME     // missed work days
+  SERIOUS       // hospitalization / permanent disability
+  FATAL         // death
+  PROPERTY_ONLY // no human harm, property damage only
+}
+
+enum IncidentStatus {
+  REPORTED              // newly reported
+  UNDER_INVESTIGATION   // being investigated
+  INVESTIGATED          // investigation complete, report ready
+  CLOSED                // fully resolved + corrective actions done
+  CANCELLED             // withdrawn / duplicate
+}
+
+enum HazardStatus {
+  IDENTIFIED    // hazard found, not yet addressed
+  MITIGATING    // mitigation in progress
+  RESOLVED      // hazard eliminated/controlled
+}
+
+enum HazardRiskLevel {
+  LOW       // acceptable risk
+  MEDIUM    // needs controls
+  HIGH      // urgent action required
+  CRITICAL  // stop work immediately
+}
+
+enum InspectionResult {
+  PASSED       // no major issues found
+  PASSED_WITH_NOTES  // minor issues, no stop-work
+  FAILED       // major issues found, corrective action needed
+  STOP_WORK    // critical safety issues — work stopped
+}
+
+enum SafetyInspectionStatus {
+  SCHEDULED    // planned but not yet done
+  IN_PROGRESS  // being conducted
+  COMPLETED    // finished
+  CANCELLED    // cancelled
+}
+
+model SafetyIncident {
+  id              String            @id @default(cuid())
+  companyId       String
+  projectId       String
+  incidentNumber  String            @unique  // INC-YYMMDD-NNNN
+  title           String
+  description     String            // what happened
+  type            IncidentType      @default(ACCIDENT)
+  severity        IncidentSeverity  @default(FIRST_AID)
+  status          IncidentStatus    @default(REPORTED)
+  // When & where
+  incidentDate    DateTime          // when the incident occurred
+  incidentTime    String?           // HH:MM (optional, for precise time)
+  location        String?           // where on site
+  wbsNodeId       String?           // linked WBS activity (optional)
+  // People involved
+  peopleInvolved  String?           // names/description of people involved
+  injuredCount    Int               @default(0)
+  fatalities      Int               @default(0)
+  // Property damage
+  propertyDamageEstimate Decimal?   @db.Decimal(14, 2)  // estimated cost of damage
+  // Reporting
+  reportedById    String?
+  reportedAt      DateTime          @default(now())
+  // Investigation
+  investigatedById String?
+  investigatedAt   DateTime?
+  rootCause        String?           // root cause analysis findings
+  correctiveActions String?         // what will be done to prevent recurrence
+  // Closure
+  closedById      String?
+  closedAt        DateTime?
+  closureNotes    String?
+  // Attachments (photos, reports, witness statements)
+  attachments     String[]          @default([])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  wbsNode         WbsNode?          @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
+  reportedBy      User?             @relation("IncidentReportedBy", fields: [reportedById], references: [id], onDelete: SetNull)
+  investigatedBy  User?             @relation("IncidentInvestigatedBy", fields: [investigatedById], references: [id], onDelete: SetNull)
+  closedBy        User?             @relation("IncidentClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+  @@index([severity])
+  @@index([type])
+}
+
+model SafetyHazard {
+  id              String            @id @default(cuid())
+  companyId       String
+  projectId       String
+  hazardNumber    String            @unique  // HZD-YYMMDD-NNNN
+  title           String
+  description     String            // what is the hazard
+  status          HazardStatus      @default(IDENTIFIED)
+  // Risk assessment
+  likelihood      Int               @default(2)  // 1-5 (1=rare, 5=almost certain)
+  severity        Int               @default(2)  // 1-5 (1=minor, 5=catastrophic)
+  riskLevel       HazardRiskLevel   @default(MEDIUM)  // computed from likelihood × severity
+  // Location
+  location        String?
+  wbsNodeId       String?
+  // Identification
+  identifiedById  String?
+  identifiedAt    DateTime          @default(now())
+  // Mitigation
+  mitigationPlan  String?           // how the hazard will be controlled
+  mitigatedById   String?
+  mitigatedAt     DateTime?
+  // Resolution
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  // Target date for mitigation
+  targetResolutionDate DateTime?
+  attachments     String[]          @default([])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  wbsNode         WbsNode?          @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
+  identifiedBy    User?             @relation("HazardIdentifiedBy", fields: [identifiedById], references: [id], onDelete: SetNull)
+  mitigatedBy     User?             @relation("HazardMitigatedBy", fields: [mitigatedById], references: [id], onDelete: SetNull)
+  resolvedBy      User?             @relation("HazardResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+  @@index([riskLevel])
+}
+
+model SafetyInspection {
+  id              String              @id @default(cuid())
+  companyId       String
+  projectId       String
+  inspectionNumber String             @unique  // INS-YYMMDD-NNNN
+  title           String
+  status          SafetyInspectionStatus    @default(SCHEDULED)
+  result          InspectionResult?
+  // Schedule
+  scheduledDate   DateTime            // when the inspection is planned
+  conductedDate   DateTime?           // when it was actually done
+  // Inspector
+  inspectorId     String?
+  inspectorName   String?             // external inspector name (if not a user)
+  // Findings
+  findings        String?             // what was found during the inspection
+  complianceNotes String?             // compliance checklist results
+  followUpActions String?             // actions needed based on findings
+  // People
+  conductedById   String?
+  // Attachments (photos, checklists)
+  attachments     String[]            @default([])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  company         Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspector       User?               @relation("InspectionConductedBy", fields: [conductedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([companyId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+// ───────────────────────────────────────────────────────────
 //  PAYMENT SCHEDULE — for real estate sales. Generated when a
 //  unit is booked. Three types:
 //  - CLP (Construction-Linked Plan): payments tied to WBS
@@ -3423,6 +4915,259 @@ model RateContract {
   @@index([companyId])
   @@index([materialId])
   @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────
+//  GATE PASS — outbound gate pass with approval workflow.
+//  Whenever items physically leave a gate (warehouse or project
+//  site), a gate pass is generated with item details, vehicle,
+//  driver, destination. An authorized person must approve before
+//  items can physically exit. Security confirms the exit.
+// ───────────────────────────────────────────────────────────
+
+enum GatePassStatus {
+  DRAFT          // created, not yet submitted for approval
+  PENDING        // submitted, awaiting approver
+  APPROVED       // approved — items can now physically exit
+  REJECTED       // rejected by approver
+  EXITED         // items have physically left the gate (closed by security)
+  CANCELLED      // cancelled before exit
+}
+
+enum GatePassCategory {
+  MATERIAL_ISSUE     // linked to MaterialIssue
+  STOCK_TRANSFER     // linked to StockTransfer
+  MATERIAL_SALE      // linked to MaterialSale
+  SUPPLIER_RETURN    // linked to SupplierReturn
+  MANUAL             // standalone (non-linked, e.g. borrowed tools)
+}
+
+model GatePass {
+  id              String           @id @default(cuid())
+  gatePassNumber  String           @unique   // GP-YYMMDD-NNNN
+  companyId       String
+  projectId       String?
+  locationId      String           // gate/location from which items exit
+
+  // Workflow
+  status          GatePassStatus   @default(DRAFT)
+  category        GatePassCategory
+
+  // Link to source transaction (nullable for MANUAL category)
+  refType         String?          // "MaterialIssue" | "StockTransfer" | "MaterialSale" | "SupplierReturn"
+  refId           String?
+
+  // Approval workflow
+  submittedById   String?
+  submittedAt     DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
+  approvalNotes   String?
+  rejectedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Exit details (filled by security at gate)
+  exitedAt        DateTime?
+  exitedById      String?
+  exitNotes       String?
+  exitPhotos      Json?            // array of { url, fileName? }
+
+  // Vehicle / transport
+  vehicleNumber   String?
+  vehicleType     String?
+  driverName      String?
+  driverPhone     String?
+  transporterName String?
+
+  // Context
+  destination     String?          // where items are going
+  purpose         String?
+  notes           String?
+
+  // Creator
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  location        StockLocation    @relation(fields: [locationId], references: [id])
+  submittedBy     User?            @relation("GatePassSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy      User?            @relation("GatePassApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy      User?            @relation("GatePassRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  exitedBy        User?            @relation("GatePassExitedBy", fields: [exitedById], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("GatePassCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines           GatePassLine[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([locationId])
+  @@index([status])
+  @@index([category])
+  @@index([refType, refId])
+}
+
+model GatePassLine {
+  id              String   @id @default(cuid())
+  gatePassId      String
+  materialId      String?
+  materialCode    String?  // snapshot for print
+  materialName    String?  // snapshot for print
+  unit            String?  // snapshot for print
+  qty             Decimal  @db.Decimal(14, 3)
+  description     String?  // for non-material items (tools, equipment)
+
+  gatePass        GatePass @relation(fields: [gatePassId], references: [id], onDelete: Cascade)
+  material        Material? @relation(fields: [materialId], references: [id])
+
+  @@index([gatePassId])
+  @@index([materialId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  LEGAL DOCUMENTS — permissions, licenses, NOCs, certificates,
+//  agreements to sell. Attached to a land purchase OR a project
+//  (or both when the document covers the land+project combo).
+//
+//  Indian construction requires a sequential chain of government
+//  approvals, organized into three stages:
+//
+//  FEASIBILITY (land-level):
+//    ownership → non-encumbrance → land sanction (CLU) → mutation
+//    → agreement to sell (if registry deferred) → transfer duty
+//
+//  SANCTION (project-level, sequential):
+//    layout approval → building permission (map approval)
+//    → environmental clearance → pollution NOC (consent to establish)
+//    → fire NOC → tree/airport/drainage/electricity NOCs
+//    → commencement certificate
+//
+//  POST-COMPLETION:
+//    plinth certificate → completion certificate
+//    → occupancy/functional certificate
+//
+//  Each document has a validity period and an issuing authority.
+//  Documents are uploaded as proof (PDF/images).
+//
+//  Agreement to Sell (ATS) is a legal substitute for registry —
+//  used when the seller cannot registry immediately (e.g. land
+//  is under government acquisition, conversion pending). The ATS
+//  records the registration amount paid + future registry date.
+//
+//  The guided flow uses sortOrder + prerequisiteType to enforce
+//  the sequence. The "obtained" boolean drives the yes/no branching:
+//  if a prerequisite is not obtained, downstream chapters are hidden.
+// ───────────────────────────────────────────────────────────
+
+enum LegalDocType {
+  // ── Feasibility stage (land-level) ──
+  OWNERSHIP_CERTIFICATE    // Title deed / ownership proof from revenue dept
+  NON_ENCUMBRANCE          // Non-encumbrance certificate from revenue dept
+  LAND_SANCTION            // Land use conversion / CLU / sanction order
+  MUTATION_ENTRY           // Mutation/integration of land records
+  AGREEMENT_TO_SELL        // ATS — registry substitute (registration amount paid, registry deferred)
+  TRANSFER_DUTY            // Transfer duty / unearned increase on authority land (DDA, HUDCO)
+  // ── Sanction stage (project-level, sequential) ──
+  BUDGET_APPROVAL          // Project budget approval — internal, must be prepared before applying for building permission
+  LAYOUT_APPROVAL          // Layout plan / subdivision plan approval
+  BUILDING_PERMISSION      // Map approval / building plan sanction (sanctioned plan)
+  ENVIRONMENTAL_CLEARANCE  // Environmental clearance (large projects, EIA)
+  POLLUTION_NOC_ESTABLISH  // Pollution board Consent to Establish (before construction)
+  POLLUTION_NOC_OPERATE    // Pollution board Consent to Operate (after construction)
+  FIRE_NOC                 // Fire department NOC
+  TREE_CUTTING_NOC         // Tree cutting / forest department NOC
+  AIRPORT_NOC              // Airport authority NOC (height restrictions near airports)
+  DRAINAGE_NOC             // Drainage & sewerage NOC from municipal corp
+  ELECTRICITY_NOC          // Electricity board NOC / connection sanction
+  WATER_NOC                // Water supply NOC / connection sanction
+  COMMENCEMENT_CERTIFICATE // Commencement certificate (allows construction to start)
+  RERA_REGISTRATION        // RERA project registration — mandatory before marketing/selling units
+  // ── Post-completion stage ──
+  PLINTH_CERTIFICATE       // Plinth certificate (after foundation inspection)
+  COMPLETION_CERTIFICATE   // Completion certificate (construction complete, conforms to plan)
+  OCCUPANCY_CERTIFICATE    // Occupancy certificate (building fit for occupation)
+  FUNCTIONAL_CERTIFICATE   // Functional certificate (utilities connected, operational)
+  // ── Custom ──
+  OTHER                    // Custom license/permission/NOC
+}
+
+enum LegalDocStatus {
+  NOT_REQUIRED  // This permission is not applicable to this project/land
+  PENDING       // Applied, awaiting approval
+  APPROVED      // Approved/issued by authority
+  REJECTED      // Rejected by authority
+  EXPIRED       // Validity period has passed
+  RENEWAL_DUE   // Approaching expiry (within 30 days)
+}
+
+// Which entity the document applies to — drives where it shows in the UI
+enum LegalDocAppliesTo {
+  LAND     // Shows on land detail page
+  PROJECT  // Shows on project detail page
+  BOTH     // Shows on both (e.g. environmental clearance for land+project combo)
+}
+
+model LegalDocument {
+  id            String             @id @default(cuid())
+  companyId     String
+  landPurchaseId String?           // linked to a land purchase (optional)
+  projectId     String?            // linked to a project (optional)
+  type          LegalDocType
+  title         String             // user-friendly label, e.g. "Map Approval — Tower A"
+  authority     String?            // issuing authority, e.g. "DDA", "Fire Dept", "UPPCB"
+  status        LegalDocStatus     @default(NOT_REQUIRED)
+  appliesTo     LegalDocAppliesTo  @default(BOTH)
+  docNumber     String?            // reference number on the certificate/NOC
+  // ── Guided flow ordering ──
+  // sortOrder defines the display sequence in the guided checklist.
+  // prerequisiteType (optional) links this doc to a predecessor — if the
+  // prerequisite is not APPROVED, this doc's chapter is collapsed/hidden.
+  sortOrder     Int                @default(0)
+  prerequisiteType LegalDocType?   // which doc type must be APPROVED before this one
+  // ── Yes/No branching ──
+  // "obtained" = the user has this permission (yes). If false, the
+  // sub-form (authority, dates, upload) is hidden and downstream docs
+  // that depend on this one are also hidden.
+  obtained      Boolean            @default(false)
+  // ── Validity ──
+  applicationDate DateTime?        // when the application was submitted (before issueDate)
+  issueDate     DateTime?          // when the authority issued it
+  validFrom     DateTime?          // validity start (often = issueDate)
+  validTill     DateTime?          // expiry date (null = permanent/no expiry)
+  // ── Financials ──
+  // For AGREEMENT_TO_SELL: the registration amount paid to seller.
+  // For TRANSFER_DUTY: the transfer duty / unearned increase paid to authority.
+  // For permits/NOCs: the fee paid to the authority.
+  amount        Decimal?           @db.Decimal(14, 2)
+  // ── For AGREEMENT_TO_SELL specifically ──
+  // The expected future registry date (when the ATS converts to full registry).
+  expectedRegistryDate DateTime?
+  // ── Proof document ──
+  documentUrl   String?            // uploaded file (PDF/image) — the actual certificate/NOC
+  documentName  String?            // original filename for display
+  // ── Notes ──
+  notes         String?            // free-form notes, conditions, remarks
+  // ── Audit ──
+  createdById   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
+
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  landPurchase LandPurchase?  @relation("LegalDocsLand", fields: [landPurchaseId], references: [id], onDelete: Cascade)
+  project      Project?       @relation("LegalDocsProject", fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User?          @relation("LegalDocCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceProjectCosts ProjectCost[] @relation("LegalDocProjectCosts")
+
+  @@index([companyId])
+  @@index([landPurchaseId])
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
+  @@index([appliesTo])
+  @@index([sortOrder])
 }
 
 

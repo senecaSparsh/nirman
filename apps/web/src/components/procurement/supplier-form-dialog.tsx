@@ -13,10 +13,15 @@ export function SupplierFormDialog({
   open,
   onOpenChange,
   supplier,
+  onCreated,
+  existingSuppliers,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   supplier: (Omit<SupplierRow, "openPOs" | "balanceOwed"> & { balanceOwed?: number; openPOs?: number }) | null;
+  onCreated?: (entity: { id: string; label?: string }) => void;
+  /** Optional list for client-side duplicate GSTIN check. */
+  existingSuppliers?: SupplierRow[];
 }) {
   const router = useRouter();
   const isEdit = supplier != null;
@@ -71,7 +76,11 @@ export function SupplierFormDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to save supplier");
       toast.success(isEdit ? "Supplier updated" : "Supplier created");
       onOpenChange(false);
-      router.refresh();
+      if (!isEdit && onCreated) {
+        onCreated({ id: data.id, label: data.name });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {
@@ -94,7 +103,12 @@ export function SupplierFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="s-gstin">GSTIN</Label>
-            <Input id="s-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="29ABCDE1234F1Z5" />
+            <Input id="s-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value.toUpperCase())} placeholder="29ABCDE1234F1Z5" />
+            {form.gstin.trim() && existingSuppliers && existingSuppliers.some((s) => s.gstin === form.gstin.trim() && s.id !== supplier?.id) && (
+              <p className="text-caption text-warning" role="alert">
+                ⚠ Another supplier already uses this GSTIN.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="s-phone">Phone</Label>

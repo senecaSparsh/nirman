@@ -13,9 +13,11 @@ const CATEGORIES = ["Heavy Machinery", "Power Tool", "Vehicle", "Scaffolding", "
 export function EquipmentFormDialog({
   open,
   onOpenChange,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -68,19 +70,27 @@ export function EquipmentFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create equipment");
-      toast.success("Equipment created", {
-        description: "Assign it to a project or site to start tracking usage.",
-        action: {
-          label: "View Equipment",
-          onClick: () => router.push("/equipment"),
-        },
-      });
+      if (onCreated) {
+        toast.success("Equipment created");
+      } else {
+        toast.success("Equipment created", {
+          description: "Assign it to a project or site to start tracking usage.",
+          action: {
+            label: "View Equipment",
+            onClick: () => router.push("/equipment"),
+          },
+        });
+      }
       onOpenChange(false);
       setForm({
         assetTag: "", name: "", model: "", serialNumber: "", category: "",
         acquisitionCost: "", purchaseDate: "", notes: "",
       });
-      router.refresh();
+      if (onCreated) {
+        onCreated({ id: data.id, label: form.name.trim() });
+      } else {
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
     } finally {

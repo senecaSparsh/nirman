@@ -5,12 +5,13 @@ import { prisma } from "@nirman/db";
 import { Wrench, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileWorkOrdersList } from "./MobileWorkOrdersList";
 import { MobileWorkOrdersFab } from "./MobileWorkOrdersFab";
 
@@ -86,6 +87,20 @@ async function MobileWorkOrdersContent() {
         <MobileStatCard label="Active" value={String(active)} icon={Wrench} tone={active > 0 ? "go" : "neutral"} />
         <MobileStatCard label="Completed" value={String(completed)} icon={Wrench} />
       </div>
+
+      <MobileExportShareBar
+        title="Work Orders"
+        rows={serialized as unknown as Record<string, unknown>[]}
+        columns={[
+          { key: "workOrderNumber", label: "WO Number" },
+          { key: "subcontractorName", label: "Subcontractor" },
+          { key: "projectName", label: "Project" },
+          { key: "workTitle", label: "Scope" },
+          { key: "status", label: "Status" },
+          { key: "advanceAmount", label: "Advance", format: "currency" },
+        ] as MobileColumnSpec[]}
+        summary={`${serialized.length} work orders`}
+      />
 
       <MobileWorkOrdersList items={serialized} />
 

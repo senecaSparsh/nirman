@@ -6,11 +6,14 @@ import { toast } from "sonner";
 import { BookOpen, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption } from "@/lib/types";
+import { formatCurrency } from "@/lib/utils";
 
 const COMMON_CATEGORIES = [
   "Office Supplies",
@@ -23,6 +26,10 @@ const COMMON_CATEGORIES = [
   "Repairs & Maintenance",
   "Insurance",
   "Bank Charges",
+  "Transfer Duty",
+  "Stamp Duty",
+  "Registration Fee",
+  "Legal Fees",
   "Miscellaneous",
 ];
 
@@ -56,6 +63,27 @@ export function ExpenseFormDialog({
     date: todayISO(),
     notes: "",
   });
+
+  // Local copy so freshly created projects appear in the dropdown without
+  // waiting for router.refresh.
+  const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
+  useEffect(() => { setLocalProjects(projects); }, [projects]);
+
+  // Fetch project budget info when a project is selected
+  const [projectBudget, setProjectBudget] = useState<{ budget: number; spent: number } | null>(null);
+  useEffect(() => {
+    if (!form.projectId) { setProjectBudget(null); return; }
+    fetch(`/api/projects/${form.projectId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.totalBudget != null) {
+          setProjectBudget({ budget: d.totalBudget, spent: d.totalProjectCost ?? 0 });
+        } else {
+          setProjectBudget(null);
+        }
+      })
+      .catch(() => setProjectBudget(null));
+  }, [form.projectId]);
 
   // Reset/populate form when dialog opens
   useEffect(() => {
@@ -151,13 +179,27 @@ export function ExpenseFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="e-project">Project</Label>
-          <Select id="e-project" value={form.projectId} onChange={(e) => set("projectId", e.target.value)}>
-            <option value="">No project (company expense)</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
+          <SelectWithCreate
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            placeholder="No project (company expense)"
+            createLabel="project"
+            options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+            renderCreateDialog={({ open: o, onCreated, onClose }) => (
+              <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
+            )}
+          />
         </div>
+        {projectBudget && (
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+            <span>Budget: <span className="tnum font-medium text-foreground">{formatCurrency(projectBudget.budget)}</span></span>
+            <span className="ml-3">Spent: <span className="tnum font-medium text-foreground">{formatCurrency(projectBudget.spent)}</span></span>
+            <span className="ml-3">Remaining: <span className="tnum font-medium text-foreground">{formatCurrency(projectBudget.budget - projectBudget.spent)}</span></span>
+            {Number(form.amount) > 0 && (projectBudget.spent + Number(form.amount)) > projectBudget.budget && (
+              <span className="ml-2 text-danger font-medium">⚠ This expense will exceed the budget</span>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="e-category">Category *</Label>

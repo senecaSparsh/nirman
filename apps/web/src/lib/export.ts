@@ -4,7 +4,7 @@
  * the app for audit trails, reports, and data export.
  */
 
-interface ColumnDef {
+export interface ColumnDef {
   /** Property name on the row object (may be dotted, e.g. "customer.name") */
   key: string;
   /** Column header in the CSV */

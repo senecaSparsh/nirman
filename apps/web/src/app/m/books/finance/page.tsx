@@ -8,6 +8,8 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard, MobileCta } from "@/components/mobile/v2/primitives";
+import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileFinanceList } from "./MobileFinanceList";
 import { MobileFinanceFab } from "./MobileNewFinanceDialog";
 
@@ -73,11 +75,33 @@ async function MobileFinanceContent() {
     date: c.date.toISOString(),
   }));
 
+  // Combined rows for export/share
+  const exportRows: Record<string, unknown>[] = [
+    ...expenseItems.map((e) => ({ type: "Expense", category: e.category, projectName: e.projectName, vendor: "", amount: e.amount, date: e.date })),
+    ...projectCostItems.map((c) => ({ type: "Project Cost", category: c.costType, projectName: c.projectName, vendor: c.vendor ?? "", amount: c.amount, date: c.date })),
+  ];
+
   return (
     <div>
       <div className="grid grid-cols-2 gap-2 mb-3">
         <MobileStatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={Wallet} />
         <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} />
+      </div>
+
+      <div className="mb-3">
+        <MobileExportShareBar
+          title="Expenses & Project Costs"
+          rows={exportRows}
+          columns={[
+            { key: "type", label: "Type" },
+            { key: "category", label: "Category" },
+            { key: "projectName", label: "Project" },
+            { key: "vendor", label: "Vendor" },
+            { key: "amount", label: "Amount", format: "currency" },
+            { key: "date", label: "Date" },
+          ] as MobileColumnSpec[]}
+          summary={`${expenses.length} expenses · ${projectCosts.length} project costs`}
+        />
       </div>
 
       {expenses.length === 0 && projectCosts.length === 0 ? (

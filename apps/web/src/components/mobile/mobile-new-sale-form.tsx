@@ -2,16 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin } from "lucide-react";
+import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
-import { MobileCreateCustomerButton } from "./mobile-customer-form";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 
 interface UnitOpt {
   id: string;
   label: string;
   projectId: string;
+  projectReraNumber: string | null;
   askingPrice: number | null;
   area: number;
   areaUnit: string;
@@ -20,6 +22,7 @@ interface ParcelOpt {
   id: string;
   label: string;
   projectId: string | null;
+  projectReraNumber: string | null;
   askingPrice: number | null;
   area: number;
   areaUnit: string;
@@ -104,6 +107,22 @@ export function MobileNewSaleForm({
   const [initialPayment, setInitialPayment] = useState("");
   const [initialPaymentMode, setInitialPaymentMode] = useState<string>("BANK_TRANSFER");
   const [notes, setNotes] = useState("");
+  // Sale deed / ATS tracking
+  const [isATS, setIsATS] = useState(true); // default: booking, registry deferred
+  const [saleDeedNo, setSaleDeedNo] = useState("");
+  const [expectedRegistryDate, setExpectedRegistryDate] = useState("");
+  // Home loan tracking (optional)
+  const [hasHomeLoan, setHasHomeLoan] = useState(false);
+  const [homeLoanBank, setHomeLoanBank] = useState("");
+  const [homeLoanAmount, setHomeLoanAmount] = useState("");
+  const [homeLoanSanctionNo, setHomeLoanSanctionNo] = useState("");
+  const [homeLoanSanctionDate, setHomeLoanSanctionDate] = useState("");
+  // Deal terms
+  const [dealMaturityMonths, setDealMaturityMonths] = useState("");
+  const [dealSource, setDealSource] = useState<"SELF" | "BROKER">("SELF");
+  const [brokerName, setBrokerName] = useState("");
+  const [brokerPhone, setBrokerPhone] = useState("");
+  const [commissionAmount, setCommissionAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const assetOptions = assetType === "BUILT_UNIT" ? units : parcels;
@@ -161,6 +180,21 @@ export function MobileNewSaleForm({
           initialPayment: payment,
           initialPaymentMode: payment ? initialPaymentMode : undefined,
           notes: notes || null,
+          // Sale deed / ATS tracking
+          saleDeedNo: !isATS && saleDeedNo.trim() ? saleDeedNo.trim() : null,
+          expectedRegistryDate: isATS && expectedRegistryDate ? expectedRegistryDate : null,
+          // Home loan tracking
+          homeLoanBank: hasHomeLoan && homeLoanBank.trim() ? homeLoanBank.trim() : null,
+          homeLoanAmount: hasHomeLoan && homeLoanAmount ? Number(homeLoanAmount) : null,
+          homeLoanSanctionNo: hasHomeLoan && homeLoanSanctionNo.trim() ? homeLoanSanctionNo.trim() : null,
+          homeLoanSanctionDate: hasHomeLoan && homeLoanSanctionDate ? homeLoanSanctionDate : null,
+          // Deal terms
+          dealMaturityMonths: dealMaturityMonths ? Number(dealMaturityMonths) : null,
+          // Broker / deal source
+          dealSource,
+          brokerName: dealSource === "BROKER" && brokerName.trim() ? brokerName.trim() : null,
+          brokerPhone: dealSource === "BROKER" && brokerPhone.trim() ? brokerPhone.trim() : null,
+          commissionAmount: dealSource === "BROKER" && commissionAmount ? Number(commissionAmount) : null,
         }),
       });
       const data = await res.json();
@@ -265,37 +299,48 @@ export function MobileNewSaleForm({
           )}
         </FormField>
 
+        {/* ── RERA warning (built unit without RERA) ── */}
+        {assetType === "BUILT_UNIT" && selectedAsset && !selectedAsset.projectReraNumber && (
+          <div
+            className="flex items-start gap-2 rounded-[0.5rem] border p-2.5"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",
+              backgroundColor: "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))",
+            }}
+          >
+            <ShieldCheck className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-stop)" }} />
+            <div>
+              <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>RERA not registered</p>
+              <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                This project has no RERA number. Selling units without RERA registration is illegal under RERA Act 2016.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ── Customer ── */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label
-              className="text-[0.5625rem] font-semibold"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Customer <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <MobileCreateCustomerButton
-              existingPhones={existingPhones}
+        <MobileSelectWithCreate
+          label="Customer"
+          required
+          value={customerId}
+          onChange={setCustomerId}
+          options={customers.map((c) => ({
+            value: c.id,
+            label: c.phone ? `${c.name} · ${c.phone}` : c.name,
+          }))}
+          inputClass={inputClass}
+          inputStyle={inputStyle}
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewCustomerDialog
+              open={open}
+              onClose={onClose}
               onCreated={(c) => {
-                setCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: c.phone }]);
-                setCustomerId(c.id);
+                setCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: null }]);
+                onCreated(c.id, c.name);
               }}
             />
-          </div>
-          <select
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.phone ? ` · ${c.phone}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+          )}
+        />
 
         {/* ── Price ── */}
         <FormField label="Sale price" required>
@@ -392,6 +437,119 @@ export function MobileNewSaleForm({
           </div>
         </div>
 
+        {/* ── Sale Deed / ATS ── */}
+        <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Sale Deed / Registry</div>
+            <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              Booking (ATS — registry deferred) or completed sale (sale deed registered)?
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => { setIsATS(true); haptic(10); }}
+              className="h-9 rounded-[0.375rem] border-2 text-[0.5625rem] font-bold press"
+              style={{
+                borderColor: isATS ? "var(--color-ink-950)" : "var(--color-line)",
+                backgroundColor: isATS ? "var(--color-ink-950)" : "var(--color-paper)",
+                color: isATS ? "#fff" : "var(--color-ink-500)",
+              }}>
+              ATS (Booking)
+            </button>
+            <button type="button" onClick={() => { setIsATS(false); haptic(10); }}
+              className="h-9 rounded-[0.375rem] border-2 text-[0.5625rem] font-bold press"
+              style={{
+                borderColor: !isATS ? "var(--color-ink-950)" : "var(--color-line)",
+                backgroundColor: !isATS ? "var(--color-ink-950)" : "var(--color-paper)",
+                color: !isATS ? "#fff" : "var(--color-ink-500)",
+              }}>
+              Sale Deed Done
+            </button>
+          </div>
+          {isATS ? (
+            <FormField label="Expected Registry Date">
+              <input type="date" value={expectedRegistryDate}
+                onChange={(e) => setExpectedRegistryDate(e.target.value)}
+                className={inputClass} style={inputStyle} />
+              <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                When the full sale deed registration is expected.
+              </p>
+            </FormField>
+          ) : (
+            <FormField label="Sale Deed / Registry No.">
+              <input type="text" value={saleDeedNo}
+                onChange={(e) => setSaleDeedNo(e.target.value)}
+                placeholder="e.g. SR-1234/2025"
+                className={inputClass} style={inputStyle} />
+              <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                The registered sale deed number from the sub-registrar.
+              </p>
+            </FormField>
+          )}
+        </div>
+
+        {/* ── Home Loan (optional) ── */}
+        <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Home Loan</div>
+              <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                Is the buyer taking a home loan?
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button type="button" onClick={() => { setHasHomeLoan(false); haptic(10); }}
+                className="h-7 rounded-[0.375rem] border-2 text-[0.5rem] font-bold press px-2.5"
+                style={{
+                  borderColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
+                  color: !hasHomeLoan ? "#fff" : "var(--color-ink-500)",
+                }}>
+                No
+              </button>
+              <button type="button" onClick={() => { setHasHomeLoan(true); haptic(10); }}
+                className="h-7 rounded-[0.375rem] border-2 text-[0.5rem] font-bold press px-2.5"
+                style={{
+                  borderColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
+                  color: hasHomeLoan ? "#fff" : "var(--color-ink-500)",
+                }}>
+                Yes
+              </button>
+            </div>
+          </div>
+          {hasHomeLoan && (
+            <div className="space-y-2.5 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <FormField label="Bank / Institution">
+                  <input type="text" value={homeLoanBank}
+                    onChange={(e) => setHomeLoanBank(e.target.value)}
+                    placeholder="e.g. HDFC, SBI"
+                    className={inputClass} style={inputStyle} />
+                </FormField>
+                <FormField label="Loan Amount (₹)">
+                  <input type="text" inputMode="decimal" value={homeLoanAmount}
+                    onChange={(e) => setHomeLoanAmount(e.target.value)}
+                    placeholder="0"
+                    className={`${inputClass} tabular-nums`} style={inputStyle} />
+                </FormField>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <FormField label="Sanction Letter No.">
+                  <input type="text" value={homeLoanSanctionNo}
+                    onChange={(e) => setHomeLoanSanctionNo(e.target.value)}
+                    placeholder="e.g. HDFC-2025-001"
+                    className={inputClass} style={inputStyle} />
+                </FormField>
+                <FormField label="Sanction Date">
+                  <input type="date" value={homeLoanSanctionDate}
+                    onChange={(e) => setHomeLoanSanctionDate(e.target.value)}
+                    className={inputClass} style={inputStyle} />
+                </FormField>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Notes ── */}
         <FormField label="Notes (optional)">
           <textarea
@@ -403,6 +561,89 @@ export function MobileNewSaleForm({
             style={inputStyle}
           />
         </FormField>
+
+        {/* ── Deal Terms ── */}
+        <FormField label="Deal Maturity (months)">
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={dealMaturityMonths}
+            onChange={(e) => setDealMaturityMonths(e.target.value)}
+            placeholder="e.g. 4"
+            className={`${inputClass} tabular-nums`}
+            style={inputStyle}
+          />
+        </FormField>
+
+        {/* ── Deal Source (Broker/Self) ── */}
+        <FormField label="Deal Source">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setDealSource("SELF")}
+              className="h-10 rounded-[0.5rem] border text-[0.75rem] font-medium transition-colors"
+              style={{
+                borderColor: dealSource === "SELF" ? "var(--color-ink-950)" : "var(--color-line)",
+                backgroundColor: dealSource === "SELF" ? "var(--color-concrete)" : "var(--color-paper)",
+                color: dealSource === "SELF" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+              }}
+            >
+              Self (Direct)
+            </button>
+            <button
+              type="button"
+              onClick={() => setDealSource("BROKER")}
+              className="h-10 rounded-[0.5rem] border text-[0.75rem] font-medium transition-colors"
+              style={{
+                borderColor: dealSource === "BROKER" ? "var(--color-ink-950)" : "var(--color-line)",
+                backgroundColor: dealSource === "BROKER" ? "var(--color-concrete)" : "var(--color-paper)",
+                color: dealSource === "BROKER" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+              }}
+            >
+              Broker
+            </button>
+          </div>
+        </FormField>
+
+        {dealSource === "BROKER" && (
+          <div className="space-y-2 rounded-lg border p-2" style={{ borderColor: "var(--color-line)" }}>
+            <div className="grid grid-cols-2 gap-2">
+              <FormField label="Broker Name">
+                <input
+                  type="text"
+                  value={brokerName}
+                  onChange={(e) => setBrokerName(e.target.value)}
+                  placeholder="Name"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </FormField>
+              <FormField label="Broker Phone">
+                <input
+                  type="tel"
+                  value={brokerPhone}
+                  onChange={(e) => setBrokerPhone(e.target.value)}
+                  placeholder="Phone"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </FormField>
+            </div>
+            <FormField label="Commission Amount">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                value={commissionAmount}
+                onChange={(e) => setCommissionAmount(e.target.value)}
+                placeholder="0"
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
+            </FormField>
+          </div>
+        )}
       </form>
 
       {/* ── Sticky bottom bar ── */}

@@ -1,6 +1,6 @@
 import { connection } from "next/server";
-import { PrintButton } from "@/components/print/print-button";
-import { ShareButton } from "@/components/share-button";
+import { PrintToolbar } from "@/components/print/print-button";
+import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -59,39 +59,34 @@ export default async function SaleInvoicePage({
     ? `Plot ${landParcel?.number ?? "—"}`
     : `Unit ${builtUnit?.unitNumber ?? "—"}`;
 
-  return (
+  return (<>
+          <PrintToolbar title={`Invoice ${sale.saleNumber}`} />
     <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
-          <h2 className="text-lg font-bold uppercase tracking-wide text-gray-700">
-            {sale.assetType === "LAND" ? "Land Allotment Letter" : "Unit Allotment Letter"}
-          </h2>
-          <p className="text-sm text-gray-600">Sale Invoice</p>
-        </div>
-        <div className="text-right text-sm">
-          <div className="font-mono font-bold">{sale.saleNumber}</div>
-          <div className="text-gray-600">{formatDate(sale.saleDate)}</div>
-        </div>
-      </div>
+      <PrintHeader
+        company={company}
+        title={sale.assetType === "LAND" ? "Land Allotment Letter" : "Unit Allotment Letter"}
+        docNumber={sale.saleNumber}
+        date={sale.saleDate}
+      />
 
       {/* Company + Customer info */}
-      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-        <div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From</div>
           <div className="font-semibold">{company.name}</div>
-          {company.address && <div className="text-gray-600">{company.address}</div>}
-          {company.phone && <div className="text-gray-600">Ph: {company.phone}</div>}
-          {company.email && <div className="text-gray-600">{company.email}</div>}
-          {company.gstin && <div className="text-gray-600">GSTIN: {company.gstin}</div>}
-          {company.pan && <div className="text-gray-600">PAN: {company.pan}</div>}
+          {company.email && <div className="text-xs text-gray-500">{company.email}</div>}
+          <div className="text-xs text-gray-500">
+            {company.gstin && <span className="mr-2">GSTIN: {company.gstin}</span>}
+            {company.pan && <span>PAN: {company.pan}</span>}
+          </div>
         </div>
-        <div className="border-l border-gray-300 pl-4">
-          <div className="font-semibold">Bill To: {sale.customer.name}</div>
-          {sale.customer.address && <div className="text-gray-600">{sale.customer.address}</div>}
-          {sale.customer.phone && <div className="text-gray-600">Ph: {sale.customer.phone}</div>}
-          {sale.customer.email && <div className="text-gray-600">{sale.customer.email}</div>}
-          {sale.customer.gstin && <div className="text-gray-600">GSTIN: {sale.customer.gstin}</div>}
+        <div className="rounded-md border border-gray-300 p-2.5">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Bill To</div>
+          <div className="font-semibold">{sale.customer.name}</div>
+          {sale.customer.address && <div className="text-xs text-gray-500">{sale.customer.address}</div>}
+          {sale.customer.phone && <div className="text-xs text-gray-500">Ph: {sale.customer.phone}</div>}
+          {sale.customer.email && <div className="text-xs text-gray-500">{sale.customer.email}</div>}
+          {sale.customer.gstin && <div className="text-xs text-gray-500">GSTIN: {sale.customer.gstin}</div>}
         </div>
       </div>
 
@@ -105,7 +100,7 @@ export default async function SaleInvoicePage({
           </div>
           <div>
             <span className="text-gray-600">Project: </span>
-            <span>{sale.project.name}</span>
+            <span>{sale.project?.name ?? "Standalone"}</span>
           </div>
           {builtUnit && (
             <div>
@@ -254,16 +249,7 @@ export default async function SaleInvoicePage({
         </div>
       </div>
 
-      {/* Print + Share buttons (hidden when printing) */}
-      <div className="mt-8 flex items-center justify-center gap-3 print:hidden">
-        <PrintButton label="Print Invoice" />
-        <ShareButton
-          title={`Invoice ${sale.saleNumber}`}
-          text={`Invoice ${sale.saleNumber} from ${company.name} — Total: ${formatCurrency(total)}`}
-          whatsappNumber={sale.customer.phone ?? undefined}
-          label="Share"
-        />
-      </div>
     </div>
+    </>
   );
 }

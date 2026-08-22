@@ -1,40 +1,32 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import Link from "next/link";
-import {
-  ScanLine,
-  PackageCheck,
-  PackagePlus,
-  ArrowLeftRight,
-  ClipboardCheck,
-  TrendingUp,
-  Truck,
-  Send,
-} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   Badge,
-  SectionHead,
 } from "@/components/mobile/v2/primitives";
-import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { InventoryInteractive } from "./inventory-interactive";
+import {
+  InventoryHierarchy,
+  type InventoryCompanyNode,
+  type InventoryLocationNode,
+  type InventoryProjectNode,
+  type InventoryTreeData,
+} from "./InventoryHierarchy";
 
 /**
  * Inventory module home — the first tab.
  *
- * Visual architecture matches nirman-os:
- *   1. Stock health summary card (4 colored wash tiles)
- *   2. Category cards (Raw Material / Real Estate) — tap to open popup
- *   3. Portfolio KPI strip
- *   4. Quick actions (3-col compact grid)
- *   5. Needs attention (2-col grid, tap for detail popup)
- *   6. Pending indents
+ * Visual architecture:
+ *   1. Attention banner carousel
+ *   2. Raw Material / Real Estate toggle + quick actions
+ *   3. Company-group inventory tree (parent → subsidiaries → warehouses / projects)
+ *   4. Pending indents
  */
 export default function InventoryHomePage() {
   return (
@@ -48,7 +40,7 @@ async function InventoryContent() {
   await connection();
   const company = await getCompany();
 
-  const [draftPOs, pendingReqs, recentRequisitions, materials, categoryCounts] =
+  const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree] =
     await Promise.all([
       prisma.purchaseOrder.count({
         where: { companyId: company.id, status: "DRAFT" },
@@ -85,32 +77,10 @@ async function InventoryContent() {
         },
         orderBy: { name: "asc" },
       }),
-      // Category counts for the "Top categories" horizontal strip
-      prisma.materialCategory.findMany({
-        where: {
-          deletedAt: null,
-          materials: {
-            some: {
-              deletedAt: null,
-              stockItems: { some: { location: { companyId: company.id } } },
-            },
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          _count: {
-            select: {
-              materials: {
-                where: {
-                  deletedAt: null,
-                  stockItems: { some: { location: { companyId: company.id } } },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { name: "asc" },
+      loadInventoryTree({
+        id: company.id,
+        parentCompanyId: company.parentCompanyId,
+        name: company.name,
       }),
     ]);
 
@@ -196,12 +166,6 @@ async function InventoryContent() {
     });
   }
 
-  // Popular materials — top 6 by stock value (qty × MAC), showing healthy stock first
-  const popularMaterials = materialRows
-    .filter((m) => !m.isOut)
-    .sort((a, b) => b.stockValue - a.stockValue)
-    .slice(0, 6);
-
   return (
     <div>
       {/* ── Attention banner carousel — auto-scrolling needs-attention items ── */}
@@ -210,86 +174,11 @@ async function InventoryContent() {
         approvalsCount={approvalCount}
       />
 
-      {/* ── Category cards (Raw Material / Real Estate) ── */}
+      {/* ── Category tabs + quick actions (Raw Material / Real Estate) ── */}
       <InventoryInteractive />
 
-      {/* ── Quick actions — 4-col grid, owner's daily workflow ── */}
-      <SectionHead title="Quick actions" />
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
-        {/* Row 1: daily operational actions */}
-        <QuickActionTile href="/m/procurement/new" icon={Truck} label="New Purchase Order" />
-        <QuickActionTile href="/m/pulse/approvals" icon={ClipboardCheck} label="Approvals" />
-        <QuickActionTile href="/m/site/receive" icon={ScanLine} label="Receive" />
-        <QuickActionTile href="/m/site/issue" icon={Send} label="Issue" />
-        {/* Row 2: periodic / inventory management */}
-        <QuickActionTile href="/m/transfers/new" icon={ArrowLeftRight} label="Transfer" />
-        <QuickActionTile href="/m/material-sales/new" icon={TrendingUp} label="Sell" />
-        <QuickActionTile href="/m/stock-counts/new" icon={PackageCheck} label="Stock Count" />
-        <QuickActionTile href="/m/materials/new" icon={PackagePlus} label="New Material" />
-      </div>
-
-      {/* ── Top categories — horizontal scroll of circular chips ── */}
-      {categoryCounts.length > 0 ? (
-        <div className="mb-3">
-          <SectionHead title="Top categories" />
-          <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2 w-max">
-              {categoryCounts.map((cat) => (
-                <Link
-                  key={cat.id}
-                  href={`/m/materials?category=${encodeURIComponent(cat.name)}`}
-                  className="flex flex-col items-center gap-1 shrink-0 active:opacity-70"
-                >
-                  <div
-                    className="w-12 h-12 rounded-full border-2 grid place-items-center p-1.5 overflow-hidden"
-                    style={{
-                      borderColor: "var(--color-line)",
-                      backgroundColor: "var(--color-paper)",
-                    }}
-                  >
-                    <MaterialIllustration categoryName={cat.name} />
-                  </div>
-                  <span
-                    className="text-[0.5625rem] font-semibold text-center leading-tight max-w-[3.5rem] truncate"
-                    style={{ color: "var(--color-ink-950)" }}
-                  >
-                    {cat.name}
-                  </span>
-                  <span
-                    className="text-[0.5rem]"
-                    style={{ color: "var(--color-ink-500)" }}
-                  >
-                    {cat._count.materials} item{cat._count.materials !== 1 ? "s" : ""}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Popular materials — 3-col grid with illustrations ── */}
-      {popularMaterials.length > 0 ? (
-        <div className="mb-3">
-          <SectionHead
-            title="Popular materials"
-            action={
-              <Link
-                href="/m/materials"
-                className="text-[0.625rem] font-semibold underline underline-offset-2"
-                style={{ color: "var(--color-steel)" }}
-              >
-                View all →
-              </Link>
-            }
-          />
-          <div className="grid grid-cols-3 gap-1.5">
-            {popularMaterials.map((m) => (
-              <PopularMaterialCard key={m.id} material={m} />
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {/* ── Group inventory tree — parent → children → projects ── */}
+      <InventoryHierarchy tree={inventoryTree} />
 
       {/* ── Pending indents ── */}
       {recentRequisitions.length > 0 ? (
@@ -313,132 +202,133 @@ async function InventoryContent() {
   );
 }
 
-/* ── Quick action tile ── */
-function QuickActionTile({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 press"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      <span
-        className="grid place-items-center w-7 h-7 rounded-[0.375rem]"
-        style={{ backgroundColor: "var(--color-concrete)" }}
-      >
-        <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-      </span>
-      <span
-        className="font-semibold text-[0.625rem] text-center"
-        style={{ color: "var(--color-ink-950)" }}
-      >
-        {label}
-      </span>
-    </a>
-  );
-}
+async function loadInventoryTree(current: {
+  id: string;
+  parentCompanyId: string | null;
+  name: string;
+}): Promise<InventoryTreeData> {
+  const groupIds = await getCompanyGroupIds(current);
+  const companies = await prisma.company.findMany({
+    where: { id: { in: groupIds }, deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      businessType: true,
+      parentCompanyId: true,
+    },
+    orderBy: { name: "asc" },
+  });
 
-/* ── Popular material card — 3-col grid card with SVG illustration ── */
-/* Adapted from nirman-os ProductCard, but shows stock info instead of
-   price/cart — this is inventory management, not e-commerce. */
-function PopularMaterialCard({
-  material,
-}: {
-  material: {
-    id: string;
-    code: string;
-    name: string;
-    unit: string;
-    categoryName: string;
-    totalQty: number;
-    stockValue: number;
-    isLow: boolean;
-    isOut: boolean;
+  const [locations, projects] = await Promise.all([
+    prisma.stockLocation.findMany({
+      where: { companyId: { in: groupIds }, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        companyId: true,
+        projectId: true,
+        stockItems: {
+          where: { qty: { not: 0 } },
+          select: { qty: true, movingAvgCost: true, materialId: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.project.findMany({
+      where: { companyId: { in: groupIds }, deletedAt: null },
+      select: { id: true, name: true, status: true, companyId: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  function locNode(loc: (typeof locations)[number]): InventoryLocationNode {
+    const stockValue = loc.stockItems.reduce(
+      (s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost),
+      0,
+    );
+    return {
+      id: loc.id,
+      name: loc.name,
+      type: loc.type,
+      stockValue,
+      skuCount: new Set(loc.stockItems.map((i) => i.materialId)).size,
+    };
+  }
+
+  const groupIdSet = new Set(groupIds);
+  const nodes = new Map<string, InventoryCompanyNode>();
+
+  for (const c of companies) {
+    const ownLocs = locations.filter((l) => l.companyId === c.id);
+    const warehouses = ownLocs.filter((l) => !l.projectId).map(locNode);
+    const ownProjects: InventoryProjectNode[] = projects
+      .filter((p) => p.companyId === c.id)
+      .map((p) => {
+        const projectLocs = ownLocs.filter((l) => l.projectId === p.id).map(locNode);
+        return {
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          stockValue: projectLocs.reduce((s, l) => s + l.stockValue, 0),
+          skuCount: projectLocs.reduce((s, l) => s + l.skuCount, 0),
+          locations: projectLocs,
+        };
+      });
+    const warehouseValue = warehouses.reduce((s, l) => s + l.stockValue, 0);
+    const ownValue = warehouseValue + ownProjects.reduce((s, p) => s + p.stockValue, 0);
+    const ownSkus = warehouses.reduce((s, l) => s + l.skuCount, 0)
+      + ownProjects.reduce((s, p) => s + p.skuCount, 0);
+    nodes.set(c.id, {
+      id: c.id,
+      name: c.name,
+      businessType: c.businessType,
+      isCurrent: c.id === current.id,
+      warehouseValue,
+      stockValue: ownValue,
+      skuCount: ownSkus,
+      warehouses,
+      projects: ownProjects,
+      subsidiaries: [],
+    });
+  }
+
+  const roots: InventoryCompanyNode[] = [];
+  for (const c of companies) {
+    const node = nodes.get(c.id);
+    if (!node) continue;
+    const parentId = c.parentCompanyId;
+    if (parentId && groupIdSet.has(parentId)) {
+      nodes.get(parentId)?.subsidiaries.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  function rollup(node: InventoryCompanyNode) {
+    for (const sub of node.subsidiaries) rollup(sub);
+    node.stockValue += node.subsidiaries.reduce((s, sub) => s + sub.stockValue, 0);
+    node.skuCount += node.subsidiaries.reduce((s, sub) => s + sub.skuCount, 0);
+    node.subsidiaries.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  for (const root of roots) rollup(root);
+  roots.sort((a, b) => {
+    if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const rootName = roots.length === 1
+    ? roots[0]!.name
+    : current.parentCompanyId
+      ? (nodes.get(current.parentCompanyId)?.name ?? current.name)
+      : current.name;
+
+  return {
+    rootName,
+    totalValue: roots.reduce((s, n) => s + n.stockValue, 0),
+    companyCount: companies.length,
+    locationCount: locations.length,
+    skuCount: roots.reduce((s, n) => s + n.skuCount, 0),
+    companies: roots,
   };
-}) {
-  const statusColor = material.isOut
-    ? "var(--color-stop)"
-    : material.isLow
-      ? "var(--color-signal-dark)"
-      : "var(--color-go)";
-  const statusLabel = material.isOut
-    ? "OUT"
-    : material.isLow
-      ? "LOW"
-      : "OK";
-
-  return (
-    <Link
-      href={`/m/materials/${material.id}`}
-      className="block rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      {/* Illustration area */}
-      <div
-        className="aspect-square relative"
-        style={{ backgroundColor: "var(--color-paper-2)" }}
-      >
-        <MaterialIllustration
-          categoryName={material.categoryName}
-          materialName={material.name}
-        />
-        {/* Status dot */}
-        <span
-          className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: statusColor }}
-        />
-      </div>
-
-      {/* Content */}
-      <div className="p-1.5">
-        <p
-          className="text-[0.5rem] font-semibold uppercase tracking-wide truncate"
-          style={{ color: "var(--color-steel)" }}
-        >
-          {material.categoryName}
-        </p>
-        <p
-          className="font-semibold text-[0.625rem] leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          {material.name}
-        </p>
-        <div className="mt-1 flex items-baseline justify-between gap-1">
-          <div className="min-w-0">
-            <p
-              className="numeric text-[0.625rem] font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {formatNumber(material.totalQty, 0)} {material.unit}
-            </p>
-            <p
-              className="numeric text-[0.5rem]"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              {formatCurrency(material.stockValue)}
-            </p>
-          </div>
-          <span
-            className="text-[0.5rem] font-bold uppercase shrink-0"
-            style={{ color: statusColor }}
-          >
-            {statusLabel}
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
 }

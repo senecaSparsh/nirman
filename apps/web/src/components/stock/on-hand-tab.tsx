@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Boxes, ChevronDown } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Boxes, ChevronDown, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 
@@ -20,10 +20,26 @@ import type { StockLocationRow, StockRow } from "@/lib/types";
  */
 export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
   const [locationFilter, setLocationFilter] = useState("");
-  const filtered = useMemo(
-    () => (locationFilter ? stock.filter((s) => s.locationId === locationFilter) : stock),
-    [stock, locationFilter],
-  );
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [lowStockIds, setLowStockIds] = useState<Set<string>>(new Set());
+
+  // Fetch low-stock material IDs when the toggle is enabled
+  useEffect(() => {
+    if (!lowStockOnly) { setLowStockIds(new Set()); return; }
+    fetch("/api/low-stock")
+      .then((r) => r.json())
+      .then((data: { id: string }[]) => {
+        setLowStockIds(new Set(data.map((d) => d.id)));
+      })
+      .catch(() => setLowStockIds(new Set()));
+  }, [lowStockOnly]);
+
+  const filtered = useMemo(() => {
+    let result = stock;
+    if (locationFilter) result = result.filter((s) => s.locationId === locationFilter);
+    if (lowStockOnly) result = result.filter((s) => lowStockIds.has(s.materialId));
+    return result;
+  }, [stock, locationFilter, lowStockOnly, lowStockIds]);
 
   const locationSelect = (
     <div className="relative shrink-0" style={{ width: 180 }}>
@@ -42,6 +58,21 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
     </div>
+  );
+
+  const lowStockToggle = (
+    <button
+      type="button"
+      onClick={() => setLowStockOnly(!lowStockOnly)}
+      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors ${
+        lowStockOnly
+          ? "border-warning/40 bg-warning/10 text-warning"
+          : "border-input bg-card text-muted-foreground hover:text-foreground"
+      }`}
+      title="Show only materials below their reorder point"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" /> Low stock only
+    </button>
   );
 
   return (
@@ -65,7 +96,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
             totalFormat={(key, sum) => key === "value" ? formatCurrency(sum) : formatNumber(sum, 3)}
             hideable
             pageSize={50}
-            toolbarLeading={locationSelect}
+            toolbarLeading={<div className="flex items-center gap-2">{locationSelect}{lowStockToggle}</div>}
           />
         </div>
       )}

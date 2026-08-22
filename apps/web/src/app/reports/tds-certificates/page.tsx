@@ -4,6 +4,7 @@ import { getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { PageHeader } from "@/components/page-header";
 import { TdsCertificatesView } from "@/components/tds-certificates/tds-certificates-view";
 
 export default function TdsCertificatesPage() {
@@ -24,5 +25,13 @@ async function TdsContent() {
     return <NoAccess what="TDS certificates" />;
   }
 
-  return <TdsCertificatesView />;
+  return (
+    <>
+      <PageHeader
+        title="TDS Certificates"
+        description="Generate and manage Form 16C TDS certificates for subcontractor payments, as required under Section 194C of the Income Tax Act."
+      />
+      <TdsCertificatesView />
+    </>
+  );
 }

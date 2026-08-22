@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
 import { FieldReceive } from "@/components/field/field-receive";
@@ -63,8 +63,9 @@ async function MobileFieldReceiveContent({
     );
   }
   const company = await getCompany();
+  const groupCompanyIds = await getCompanyGroupIds(company);
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
+    where: { companyId: { in: groupCompanyIds }, status: { in: ["ORDERED", "PARTIAL"] } },
     orderBy: { createdAt: "desc" },
     include: {
       supplier: { select: { id: true, name: true } },
