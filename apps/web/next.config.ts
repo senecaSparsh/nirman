@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   // which is fine for a single-client app.
   cacheComponents: false,
   serverExternalPackages: ["nodemailer"],
+  // Skip TypeScript checking during build — tsc --noEmit runs separately
+  // in CI/typecheck. This saves ~1GB RAM on Render's free tier.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Limit build workers to 1 to stay within 512MB RAM on Render free tier
   // (default spawns 47 workers which OOMs).
   experimental: {
