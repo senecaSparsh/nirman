@@ -26,9 +26,7 @@ async function MobileInspectionDetailContent({ id }: { id: string }) {
     where: { id },
     include: {
       project: { select: { id: true, name: true } },
-      wbsNode: { select: { id: true, code: true, name: true } },
-      scheduledBy: { select: { id: true, name: true } },
-      conductedBy: { select: { id: true, name: true } },
+      inspector: { select: { id: true, name: true } },
     },
   });
 
@@ -36,12 +34,11 @@ async function MobileInspectionDetailContent({ id }: { id: string }) {
 
   const serialized = {
     id: insp.id, inspectionNumber: insp.inspectionNumber, title: insp.title, status: insp.status, result: insp.result,
-    projectName: insp.project.name, wbsNodeName: insp.wbsNode ? `${insp.wbsNode.code} — ${insp.wbsNode.name}` : null,
+    projectName: insp.project.name,
     inspectorName: insp.inspectorName, findings: insp.findings, complianceNotes: insp.complianceNotes, followUpActions: insp.followUpActions,
     attachments: insp.attachments,
     scheduledDate: insp.scheduledDate.toISOString(),
-    scheduledAt: insp.scheduledAt.toISOString(), scheduledByName: insp.scheduledBy?.name ?? null,
-    conductedDate: insp.conductedDate?.toISOString() ?? null, conductedByName: insp.conductedBy?.name ?? null,
+    conductedDate: insp.conductedDate?.toISOString() ?? null, conductedByName: insp.inspector?.name ?? null,
   };
 
   return <MobileInspectionDetailClient inspection={serialized} canManage={canManage} />;

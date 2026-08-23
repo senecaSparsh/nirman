@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import type { IncidentListItem } from "./MobileSafetyContent";
 
 type Filter = "ALL" | "REPORTED" | "UNDER_INVESTIGATION" | "INVESTIGATED" | "CLOSED";
@@ -53,13 +53,33 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search incidents…"
-        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />}
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+          </div>
+        }
+        showClear={!!query || filter !== "ALL"}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
       />
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching incidents" hint="Try a different filter" />
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} incident{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {filtered.map((i) => (
             <Link key={i.id} href={`/m/safety/incidents/${i.id}`} className="rounded-[0.5rem] border p-2.5 block press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -96,6 +116,7 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
               </div>
             </Link>
           ))}
+        </div>
         </div>
       )}
     </div>

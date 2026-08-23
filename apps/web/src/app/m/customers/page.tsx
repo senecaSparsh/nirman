@@ -4,7 +4,6 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 
@@ -103,19 +102,6 @@ async function MobileCustomersContent() {
 
   return (
     <div>
-      <MobileExportShareBar
-        title="Customers"
-        rows={rows as unknown as Record<string, unknown>[]}
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "phone", label: "Phone" },
-          { key: "email", label: "Email" },
-          { key: "totalValue", label: "Total Purchased", format: "currency" },
-          { key: "totalPaid", label: "Total Paid", format: "currency" },
-          { key: "outstanding", label: "Outstanding", format: "currency" },
-        ] as MobileColumnSpec[]}
-        summary={`${rows.length} customers · ${withDues.length} with dues`}
-      />
       <MobileCustomersList
         items={rows}
         canCreate={canCreate}
@@ -125,6 +111,17 @@ async function MobileCustomersContent() {
           totalOutstanding,
           pipelineValue,
         }}
+        exportTitle="Customers"
+        exportRows={rows as unknown as Record<string, unknown>[]}
+        exportColumns={[
+          { key: "name", label: "Name" },
+          { key: "phone", label: "Phone" },
+          { key: "email", label: "Email" },
+          { key: "totalValue", label: "Total Purchased", format: "currency" },
+          { key: "totalPaid", label: "Total Paid", format: "currency" },
+          { key: "outstanding", label: "Outstanding", format: "currency" },
+        ] as MobileColumnSpec[]}
+        exportSummary={`${rows.length} customers · ${withDues.length} with dues`}
       />
     </div>
   );

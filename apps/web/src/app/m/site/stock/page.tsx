@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum } from "@/lib/server";
 import { MobileSiteStockList } from "./MobileSiteStockList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /** Field → Stock tab: physical inventory at each location + recent activity. */
 export default function SiteStockPage() {
@@ -81,12 +82,23 @@ async function SiteStockContent() {
     0,
   );
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "name", label: "Location" },
+    { key: "type", label: "Type" },
+    { key: "itemCount", label: "Items" },
+    { key: "totalQty", label: "Total Qty" },
+  ];
+
   return (
     <MobileSiteStockList
       locations={serializedLocations}
       movements={serializedMovements}
       totalItems={totalItems}
       totalUnits={totalUnits}
+      exportTitle="Site Stock"
+      exportRows={serializedLocations as unknown as Record<string, unknown>[]}
+      exportColumns={exportColumns}
+      exportSummary={`${serializedLocations.length} locations · ${totalItems} items`}
     />
   );
 }

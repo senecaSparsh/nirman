@@ -40,7 +40,7 @@ export function CurrencyToggleRow() {
         className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-1 rounded-[0.375rem] tabular-nums"
         style={{
           backgroundColor: isCompact ? "var(--color-ink-950)" : "var(--color-concrete)",
-          color: isCompact ? "#fff" : "var(--color-ink-500)",
+          color: isCompact ? "var(--color-paper)" : "var(--color-ink-500)",
         }}
       >
         {isCompact ? "₹1.2L" : "₹1,234"}

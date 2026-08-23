@@ -10,11 +10,10 @@ import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface InspectionDetail {
   id: string; inspectionNumber: string; title: string; status: string; result: string | null;
-  projectName: string; wbsNodeName: string | null; inspectorName: string | null;
+  projectName: string; inspectorName: string | null;
   findings: string | null; complianceNotes: string | null; followUpActions: string | null;
   attachments: string[];
   scheduledDate: string;
-  scheduledAt: string; scheduledByName: string | null;
   conductedDate: string | null; conductedByName: string | null;
 }
 
@@ -67,7 +66,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
         <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: resultBg }}>
           <div className="flex items-center justify-between">
             <p className="text-[0.625rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Result</p>
-            <span className="text-[0.875rem] font-bold uppercase" style={{ color: resultTone }}>{inspection.result.replace(/_/g, " ")}</span>
+            <span className="text-[0.875rem] font-bold uppercase" style={{ color: resultTone ?? undefined }}>{inspection.result.replace(/_/g, " ")}</span>
           </div>
         </div>
       )}
@@ -77,7 +76,6 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
         <DetailCard label="Scheduled" value={formatDate(inspection.scheduledDate)} />
         {inspection.conductedDate && <DetailCard label="Conducted" value={formatDate(inspection.conductedDate)} />}
         {inspection.inspectorName && <DetailCard label="Inspector" value={inspection.inspectorName} />}
-        {inspection.wbsNodeName && <DetailCard label="WBS Node" value={inspection.wbsNodeName} />}
       </div>
 
       {/* Findings */}
@@ -104,7 +102,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-[0.625rem] font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
-          <TimelineRow label="Scheduled" date={inspection.scheduledAt} name={inspection.scheduledByName} />
+          <TimelineRow label="Scheduled" date={inspection.scheduledDate} name={null} />
           {inspection.conductedDate && <TimelineRow label="Conducted" date={inspection.conductedDate} name={inspection.conductedByName} />}
         </div>
       </div>
@@ -181,7 +179,7 @@ function TimelineRow({ label, date, name }: { label: string; date: string; name?
 
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" },
+    primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },

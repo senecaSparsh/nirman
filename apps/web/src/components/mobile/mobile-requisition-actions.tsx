@@ -14,6 +14,9 @@ import {
 import { toast } from "sonner";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 
 interface ReqPayload {
   id: string;
@@ -106,13 +109,14 @@ export function MobileRequisitionActions({
         />
       )}
       {showApproveReject && (
-        <>
+        <div className="flex gap-2">
           <BarButton
             onClick={() => act("approve", `Requisition ${requisition.reqNumber} approved`)}
             busy={busy === "approve"}
             icon={CheckCircle2}
             label="Approve"
             variant="primary"
+            className="flex-1"
           />
           <BarButton
             onClick={() => act("reject", `Requisition ${requisition.reqNumber} rejected`)}
@@ -120,8 +124,9 @@ export function MobileRequisitionActions({
             icon={XCircle}
             label="Reject"
             variant="outline"
+            className="flex-1"
           />
-        </>
+        </div>
       )}
       {canConvert && (
         <>
@@ -164,6 +169,8 @@ function ConvertForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierOpt[]>(suppliers);
+  const [localLocations, setLocalLocations] = useState<LocationOpt[]>(locations);
   const [supplierId, setSupplierId] = useState(lines[0]?.preferredSupplierId ?? suppliers[0]?.id ?? "");
   const [scope, setScope] = useState<"COMPANY" | "PROJECT">("COMPANY");
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
@@ -175,7 +182,7 @@ function ConvertForm({
   const [submitting, setSubmitting] = useState(false);
 
   // Locations valid for the chosen scope.
-  const scopedLocations = locations.filter((l) =>
+  const scopedLocations = localLocations.filter((l) =>
     scope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE",
   );
 
@@ -218,18 +225,25 @@ function ConvertForm({
         <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Supplier
         </label>
-        <select
+        <MobileSelectWithCreate
+          label=""
           value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        >
-          {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+          onChange={setSupplierId}
+          options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          labelClass="hidden"
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewSupplierDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(s) => {
+                setLocalSuppliers((p) => [...p, { id: s.id, name: s.name }]);
+                onCreated(s.id, s.name);
+              }}
+            />
+          )}
+        />
       </div>
 
       <div>
@@ -242,7 +256,7 @@ function ConvertForm({
             const next = e.target.value as "COMPANY" | "PROJECT";
             setScope(next);
             // Reset location if it's not valid for the new scope
-            const valid = locations.filter((l) =>
+            const valid = localLocations.filter((l) =>
               next === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE",
             );
             if (!valid.some((l) => l.id === locationId) && valid[0]) setLocationId(valid[0].id);
@@ -259,22 +273,27 @@ function ConvertForm({
         <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Receive at
         </label>
-        <select
+        <MobileSelectWithCreate
+          label=""
           value={locationId}
-          onChange={(e) => setLocationId(e.target.value)}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        >
-          {scopedLocations.length === 0 ? (
-            <option value="">No locations for this scope</option>
-          ) : (
-            scopedLocations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))
+          onChange={setLocationId}
+          options={scopedLocations.map((l) => ({ value: l.id, label: l.name }))}
+          placeholder={scopedLocations.length === 0 ? "No locations for this scope" : "Select location…"}
+          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          labelClass="hidden"
+          renderDialog={({ open, onClose, onCreated }) => (
+            <MobileNewStockLocationDialog
+              open={open}
+              onClose={onClose}
+              projects={[]}
+              onCreated={(l) => {
+                setLocalLocations((p) => [...p, { id: l.id, name: l.name, type: l.type, projectId: null }]);
+                onCreated(l.id, l.name);
+              }}
+            />
           )}
-        </select>
+        />
       </div>
 
       <div>
@@ -352,7 +371,7 @@ function ConvertForm({
         onClick={convert}
         disabled={submitting}
         className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-3.5" />}
         Create Purchase Order
@@ -367,22 +386,24 @@ function BarButton({
   icon: Icon,
   label,
   variant,
+  className,
 }: {
   onClick: () => void;
   busy: boolean;
   icon: typeof CheckCircle2;
   label: string;
   variant: "primary" | "outline";
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+      className={`flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50 ${className ?? ""}`}
       style={
         variant === "primary"
-          ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+          ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
           : { border: "2px solid var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
       }
     >

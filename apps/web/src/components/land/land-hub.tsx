@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload, Building2, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -207,6 +207,8 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [completeOpen, setCompleteOpen] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createProjectLoading, setCreateProjectLoading] = useState(false);
   const router = useRouter();
 
   const isBooked = purchase.purchaseStage === "BOOKED";
@@ -214,6 +216,30 @@ export function LandHub({ data }: { data: LandHubData }) {
   const totalPaid = purchase.totalPaid ?? 0;
   const balanceDue = purchase.balanceDue ?? 0;
   const payments = purchase.payments ?? [];
+
+  async function handleCreateProject() {
+    const name = window.prompt("Enter project name", `${purchase.sellerName} Development`);
+    if (!name) return;
+    setCreateProjectLoading(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${purchase.id}/create-project`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to create project");
+      }
+      const data = await res.json();
+      toast.success("Project created", { description: `${name} has been linked to this land` });
+      router.push(`/projects/${data.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create project");
+    } finally {
+      setCreateProjectLoading(false);
+    }
+  }
 
   async function uploadLandDocument(documentType: "ATS" | "REGISTRY", photos: { url: string; fileName?: string }[]) {
     if (photos.length === 0) return;
@@ -376,6 +402,12 @@ export function LandHub({ data }: { data: LandHubData }) {
               {isBooked && permissions.canEdit && (
                 <Button size="sm" onClick={() => setCompleteOpen(true)}>
                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                </Button>
+              )}
+              {permissions.canEdit && !purchase.projectId && (
+                <Button variant="outline" size="sm" onClick={handleCreateProject} disabled={createProjectLoading}>
+                  {createProjectLoading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Building2 className="mr-1 h-3.5 w-3.5" />}
+                  Create Project
                 </Button>
               )}
               {permissions.canEdit && (

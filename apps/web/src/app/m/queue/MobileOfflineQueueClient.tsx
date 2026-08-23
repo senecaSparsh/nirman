@@ -20,7 +20,7 @@ const KIND_LABELS: Record<QueuedOperation["kind"], { label: string; icon: typeof
   "stock-transfer": { label: "Stock Transfer", icon: ArrowRightLeft },
   "material-sale": { label: "Material Sale", icon: ShoppingCart },
   "requisition": { label: "Requisition", icon: ClipboardCheck },
-  "stock-count": { label: "Stock Count", icon: ClipboardCheck },
+  "stock-count": { label: "Stock Inventory", icon: ClipboardCheck },
   "supplier-return": { label: "Supplier Return", icon: Undo2 },
   "purchase-order": { label: "Purchase Order", icon: ShoppingCart },
 };
@@ -91,7 +91,7 @@ export function MobileOfflineQueueClient() {
             onClick={() => { haptic(10); void sync(); }}
             disabled={syncing}
             className="ml-auto flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1 text-[0.625rem] font-bold press active:scale-95 disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {syncing ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
             {syncing ? "Syncing…" : "Sync Now"}

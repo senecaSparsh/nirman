@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarClock, ContactRound, Flame, Phone, Plus, Search, UserRoundCheck } from "lucide-react";
-import { MobileExportShareBar, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { CalendarClock, ContactRound, Flame, Phone, Plus, UserRoundCheck } from "lucide-react";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { LeadFormDialog } from "@/components/sales/lead-form-dialog";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";
 import type { LeadRow, LeadStage } from "@/lib/types";
+import { MobileSearchHeader, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
 import { MobileSalesCollection, type CollectionStats, type SaleItem } from "./MobileSalesCollection";
 
 const STAGES: { value: "OPEN" | LeadStage; label: string }[] = [
@@ -76,15 +77,14 @@ export function MobileSalesHub({
         <MobileLeadPipeline leads={leads} projects={projects} units={units} assignees={assignees} canManage={canManage} />
       ) : (
         <>
-          <div className="mb-3">
-            <MobileExportShareBar
-              title="Sales"
-              rows={sales as unknown as Record<string, unknown>[]}
-              columns={csvColumns}
-              summary={`${sales.length} sales · ${formatCurrency(stats.totalValue)} total · ${formatCurrency(stats.totalOutstanding)} outstanding`}
-            />
-          </div>
-          <MobileSalesCollection items={sales} stats={stats} />
+          <MobileSalesCollection
+            items={sales}
+            stats={stats}
+            exportTitle="Sales"
+            exportRows={sales as unknown as Record<string, unknown>[]}
+            exportColumns={csvColumns}
+            exportSummary={`${sales.length} sales · ${formatCurrency(stats.totalValue)} total · ${formatCurrency(stats.totalOutstanding)} outstanding`}
+          />
         </>
       )}
     </div>
@@ -161,34 +161,37 @@ function MobileLeadPipeline({
         </button>
       )}
 
-      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
-        {STAGES.map((item) => {
-          const count = item.value === "OPEN" ? openLeads.length : leads.filter((lead) => lead.stage === item.value).length;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setStage(item.value)}
-              className="flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[0.5rem] font-bold press"
-              style={{ backgroundColor: stage === item.value ? "var(--color-ink-950)" : "var(--color-concrete)", color: stage === item.value ? "var(--color-paper)" : "var(--color-ink-600)" }}
-            >
-              {item.label}<span className="tabular-nums opacity-60">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search lead, phone, project…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={STAGES.map((s) => ({
+                label: `${s.label} (${s.value === "OPEN" ? openLeads.length : leads.filter((lead) => lead.stage === s.value).length})`,
+                value: s.value,
+              }))}
+              active={stage}
+              defaultValue="OPEN"
+              onChange={(v) => setStage(v as "OPEN" | LeadStage)}
+            />
+          </div>
+        }
+        showClear={!!query || stage !== "OPEN"}
+        onClear={() => { setQuery(""); setStage("OPEN"); }}
+      />
 
-      <div className="relative mb-3">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" style={{ color: "var(--color-ink-300)" }} />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search lead, phone, project…"
-          className="h-10 w-full rounded-[0.5rem] border pl-8 pr-3 text-[0.6875rem] outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        />
-      </div>
-
+      {(query || stage !== "OPEN") && filtered.length > 0 && (
+        <div className="flex items-center justify-end mb-1.5">
+          <span
+            className="text-[0.625rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {filtered.length} lead{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         {filtered.map((lead) => {
           const overdue = Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < now && !["BOOKED", "LOST"].includes(lead.stage));

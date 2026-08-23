@@ -193,7 +193,9 @@ const STATUS_META: Record<string, { color: string; label: string; icon: typeof C
   AVAILABLE: { color: "var(--color-go)", label: "Available", icon: CheckCircle2 },
   HOLD: { color: "var(--color-signal)", label: "Hold", icon: PauseCircle },
   PARTITIONED: { color: "var(--color-steel)", label: "Partitioned", icon: Split },
+  RESERVED: { color: "var(--color-signal)", label: "Reserved", icon: Tag },
   SOLD: { color: "var(--color-stop)", label: "Sold", icon: DollarSign },
+  RENTED: { color: "var(--color-steel)", label: "Rented", icon: KeyRound },
 };
 
 const PURPOSE_META: Record<string, { color: string; label: string; icon: typeof Tag }> = {
@@ -1546,11 +1548,15 @@ function ParcelCard({
   const [showValuate, setShowValuate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
-  const meta = STATUS_META[p.status] ?? STATUS_META.AVAILABLE;
+  // When a parcel has been sold (salePrice != null), override the status
+  // badge to "Sold" regardless of the raw DB status field — the DB status
+  // may still be AVAILABLE/HOLD if markAssetStatus wasn't called.
+  const isSold = p.salePrice != null;
+  const effectiveStatus = isSold ? "SOLD" : p.status;
+  const meta = STATUS_META[effectiveStatus] ?? STATUS_META.AVAILABLE;
   const StatusIcon = meta!.icon;
   const isPartitioned = p.status === "PARTITIONED";
-  const isAvailable = p.status === "AVAILABLE";
-  const isSold = p.salePrice != null;
+  const isAvailable = p.status === "AVAILABLE" && !isSold;
 
   const gain = p.currentValuation - p.acquisitionCost;
   const gainPct = p.acquisitionCost > 0 ? Math.round((gain / p.acquisitionCost) * 100) : 0;
@@ -1625,7 +1631,7 @@ function ParcelCard({
                 INFRA
               </span>
             ) : null}
-            {p.purpose && PURPOSE_META[p.purpose] ? (
+            {p.purpose && PURPOSE_META[p.purpose] && !isSold ? (
               <span
                 className="flex items-center gap-0.5 text-[0.5625rem] font-semibold px-1 py-0.5 rounded"
                 style={{ color: PURPOSE_META[p.purpose]!.color, backgroundColor: `color-mix(in srgb, ${PURPOSE_META[p.purpose]!.color} 10%, transparent)` }}

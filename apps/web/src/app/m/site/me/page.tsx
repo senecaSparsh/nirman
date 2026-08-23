@@ -2,12 +2,18 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { getCurrentUser } from "@/lib/server";
-import { PERSONAS } from "@/lib/mobile-nav";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { CalendarCheck, ClipboardList, CheckSquare, ArrowRight, Monitor } from "lucide-react";
 import Link from "next/link";
 
 /** Field → Me tab: my profile + field-worker shortcuts + more links. */
+const FIELD_MORE_LINKS = [
+  { label: "Daily Progress", href: "/m/dprs" },
+  { label: "Attendance", href: "/m/site/attendance" },
+  { label: "Quotations", href: "/m/quotations" },
+  { label: "Stock Counts", href: "/m/stock-counts" },
+];
+
 export default function SiteMePage() {
   return (
     <Suspense fallback={<MobileSkeletonList rows={3} />}>
@@ -19,7 +25,6 @@ export default function SiteMePage() {
 async function SiteMeContent() {
   await connection();
   await getCurrentUser();
-  const more = PERSONAS.field.more;
 
   return (
     <div>
@@ -32,7 +37,7 @@ async function SiteMeContent() {
 
       <MobileSectionTitle>More</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
-        {more.map((m) => (
+        {FIELD_MORE_LINKS.map((m) => (
           <Link key={m.href} href={m.href} className="flex items-center gap-3 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-medium" style={{ color: "var(--color-ink-950)" }}>{m.label}</span>
             <ArrowRight className="h-4 w-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />

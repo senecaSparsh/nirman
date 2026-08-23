@@ -5,9 +5,9 @@ import { getCompany, getCompanyGroupIds, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileRow,
   Badge,
 } from "@/components/mobile/v2/primitives";
+import Link from "next/link";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { InventoryInteractive } from "./inventory-interactive";
@@ -180,21 +180,50 @@ async function InventoryContent() {
       {/* ── Group inventory tree — parent → children → projects ── */}
       <InventoryHierarchy tree={inventoryTree} />
 
-      {/* ── Pending indents ── */}
+      {/* ── Pending indents — compact rows that match the tree's density ── */}
       {recentRequisitions.length > 0 ? (
         <>
-          <MobileSectionTitle>Pending indents</MobileSectionTitle>
-          <div className="flex flex-col gap-2.5">
-            {recentRequisitions.map((req) => (
-              <MobileRow
-                key={req.id}
-                href={`/m/requisitions/${req.id}`}
-                title={`REQ-${req.reqNumber ?? req.id.slice(-6)}`}
-                subtitle={req.project?.name ?? "—"}
-                meta="SUBMITTED"
-                badge={<Badge tone="signal">pending</Badge>}
-              />
-            ))}
+          <MobileSectionTitle
+            right={
+              <Link
+                href="/m/requisitions"
+                className="text-[0.625rem] font-semibold press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                View all
+              </Link>
+            }
+          >
+            Pending indents
+          </MobileSectionTitle>
+          <div
+            className="rounded-[0.625rem] border px-1 py-1.5 flex flex-col"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            {recentRequisitions.map((req) => {
+              const reqLabel = `REQ-${req.reqNumber ?? req.id.slice(-6)}`;
+              return (
+                <Link
+                  key={req.id}
+                  href={`/m/requisitions/${req.id}`}
+                  className="flex items-center gap-2 px-1.5 py-1.5 press rounded-[0.375rem]"
+                >
+                  <span
+                    className="text-[0.625rem] font-bold tabular-nums shrink-0"
+                    style={{ color: "var(--color-ink-950)" }}
+                  >
+                    {reqLabel}
+                  </span>
+                  <span
+                    className="text-[0.5625rem] truncate flex-1"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {req.project?.name ?? "—"}
+                  </span>
+                  <Badge tone="signal">pending</Badge>
+                </Link>
+              );
+            })}
           </div>
         </>
       ) : null}

@@ -63,7 +63,7 @@ export function MobileSafetyContent({
               className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-[0.6875rem] font-bold transition-colors press"
               style={{
                 backgroundColor: active ? "var(--color-ink-950)" : "transparent",
-                color: active ? "#fff" : "var(--color-ink-500)",
+                color: active ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               <Icon className="size-3.5" />

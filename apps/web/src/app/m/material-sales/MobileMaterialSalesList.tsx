@@ -6,13 +6,14 @@ import { TrendingUp } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type SaleFilter = "ALL" | "ACTIVE" | "PENDING" | "PAID" | "CANCELLED";
 
@@ -48,12 +49,20 @@ export function MobileMaterialSalesList({
   totalProfit,
   pendingCount,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: MaterialSaleItem[];
   totalRevenue: number;
   totalProfit: number;
   pendingCount: number;
   canCreate: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<SaleFilter>("ALL");
@@ -93,15 +102,23 @@ export function MobileMaterialSalesList({
         onQueryChange={setQuery}
         placeholder="Search sale, customer, project…"
         action={
-          <>
-            <MobileFilterDropdown
-              label="All"
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
               options={FILTER_OPTIONS}
               active={filter}
-              onChange={setFilter}
+              defaultValue="ALL"
+              onChange={(v) => setFilter(v as SaleFilter)}
             />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
             {canCreate ? <MobileHeaderAction href="/m/material-sales/new">New</MobileHeaderAction> : null}
-          </>
+          </div>
         }
         showClear={filter !== "ALL" || !!query}
         onClear={() => { setQuery(""); setFilter("ALL"); }}
@@ -114,11 +131,23 @@ export function MobileMaterialSalesList({
           hint={query || filter !== "ALL" ? "Try a different search or filter" : "Sell surplus or scrap material"}
         />
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} sale{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <MobileCardGrid cols={2}>
           {filtered.map((s) => (
             <SaleCard key={s.id} s={s} />
           ))}
         </MobileCardGrid>
+        </div>
       )}
     </div>
   );

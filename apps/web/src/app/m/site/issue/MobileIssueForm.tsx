@@ -330,7 +330,7 @@ export default function MobileIssueForm() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-transform active:scale-95"
-                style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 <Printer className="size-4" />
                 Print Issue Slip
@@ -342,7 +342,7 @@ export default function MobileIssueForm() {
                 setLines([{ materialId: materials[0]?.id || "", qty: "" }]);
               }}
               className="w-full rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-transform active:scale-95"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               Issue More Materials
             </button>
@@ -583,7 +583,7 @@ export default function MobileIssueForm() {
           type="submit"
           disabled={submitting}
           className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />

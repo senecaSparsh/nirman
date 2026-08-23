@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getCompanyGroupIds, getUserRole, getCurrentUserMembership, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileQuotationsList } from "./MobileQuotationsList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileQuotationsPage() {
   return (
@@ -101,9 +102,27 @@ async function MobileQuotationsContent() {
     })),
   };
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "requestNumber", label: "Request #" },
+    { key: "title", label: "Title" },
+    { key: "projectName", label: "Project" },
+    { key: "status", label: "Status" },
+    { key: "quoteCount", label: "Quotes" },
+    { key: "cheapestLandedTotal", label: "Cheapest Total", format: "currency" },
+    { key: "createdAt", label: "Created", format: "date" },
+  ];
+
   return (
     <div>
-      <MobileQuotationsList items={serialized} canCreate={canCreate} catalog={catalog} />
+      <MobileQuotationsList
+        items={serialized}
+        canCreate={canCreate}
+        catalog={catalog}
+        exportTitle="Quotation Requests"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={exportColumns}
+        exportSummary={`${serialized.length} requests`}
+      />
     </div>
   );
 }

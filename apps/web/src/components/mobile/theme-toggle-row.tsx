@@ -57,7 +57,7 @@ export function ThemeToggleRow() {
         className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-1 rounded-[0.375rem]"
         style={{
           backgroundColor: dark ? "var(--color-ink-950)" : "var(--color-concrete)",
-          color: dark ? "#fff" : "var(--color-ink-500)",
+          color: dark ? "var(--color-paper)" : "var(--color-ink-500)",
         }}
       >
         {dark ? "On" : "Off"}

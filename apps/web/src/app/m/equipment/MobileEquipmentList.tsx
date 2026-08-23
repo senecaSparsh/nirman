@@ -6,12 +6,13 @@ import { Wrench, CheckCircle2, MapPin, Settings, Archive } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSearchHeader,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type EquipmentFilter = "ALL" | "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
 
@@ -46,10 +47,18 @@ export function MobileEquipmentList({
   items,
   counts,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: EquipmentItem[];
   counts: { total: number; available: number; assigned: number; inMaintenance: number; retired: number; totalValue: number };
   canCreate: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EquipmentFilter>("ALL");
@@ -94,15 +103,23 @@ export function MobileEquipmentList({
         onQueryChange={setQuery}
         placeholder="Search name, tag, category…"
         action={
-          <>
-            <MobileFilterDropdown
-              label="All"
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
               options={FILTER_OPTIONS}
               active={filter}
-              onChange={setFilter}
+              defaultValue="ALL"
+              onChange={(v) => setFilter(v as EquipmentFilter)}
             />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
             {canCreate && <MobileHeaderAction href="/m/equipment/new">New</MobileHeaderAction>}
-          </>
+          </div>
         }
         showClear={filter !== "ALL" || query !== ""}
         onClear={() => { setQuery(""); setFilter("ALL"); }}

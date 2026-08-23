@@ -10,9 +10,10 @@ import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { MobileNewTenancyDialog } from "./MobileNewTenancyDialog";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /* ─── Types ─── */
 
@@ -70,6 +71,10 @@ export function MobileRentalsList({
   unitAssets = [],
   parcelAssets = [],
   customers = [],
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: RentalListItem[];
   stats: Stats;
@@ -77,6 +82,10 @@ export function MobileRentalsList({
   unitAssets?: { id: string; label: string }[];
   parcelAssets?: { id: string; label: string }[];
   customers?: { id: string; name: string }[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -174,28 +183,37 @@ export function MobileRentalsList({
         </div>
       </div>
 
-      {/* ── Search + filter chips ── */}
+      {/* ── Search + filter + export ── */}
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
         placeholder="Search tenant, asset, phone…"
-        filterChips={
-          <MobileFilterChips<Filter>
-            chips={[
-              { label: "All", value: "all", count: items.length },
-              { label: "Overdue", value: "overdue", count: overdueCount },
-              { label: "Expiring", value: "expiring", count: stats.expiringCount },
-              { label: "Active", value: "active", count: stats.activeCount },
-              ...(stats.pendingCount > 0
-                ? [{ label: "Pending", value: "pending" as const, count: stats.pendingCount }]
-                : []),
-            ]}
-            active={filter}
-            onChange={setFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={[
+                { label: "All", value: "all" },
+                { label: "Overdue", value: "overdue" },
+                { label: "Expiring", value: "expiring" },
+                { label: "Active", value: "active" },
+                ...(stats.pendingCount > 0 ? [{ label: "Pending", value: "pending" as const }] : []),
+              ]}
+              active={filter}
+              defaultValue="all"
+              onChange={(v) => setFilter(v as Filter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        showClear={!!query || filter !== "all"}
+        onClear={() => { setQuery(""); setFilter("all"); }}
       />
 
       {/* ── Tenancy cards ── */}
@@ -205,10 +223,22 @@ export function MobileRentalsList({
           hint={query ? "Try a different search" : canManage ? "Tap + to create your first tenancy" : "Tenancies will appear here once created"}
         />
       ) : (
+        <div>
+          {(query || filter !== "all") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {sorted.length} tenanc{sorted.length !== 1 ? "ies" : "y"}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {sorted.map((t) => (
             <TenancyCard key={t.id} tenancy={t} />
           ))}
+        </div>
         </div>
       )}
 
@@ -220,7 +250,7 @@ export function MobileRentalsList({
           style={{
             bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
             backgroundColor: "var(--color-ink-950)",
-            color: "#fff",
+            color: "var(--color-paper)",
             boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
           }}
           aria-label="Add new tenancy"

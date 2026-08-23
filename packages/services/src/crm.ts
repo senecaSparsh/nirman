@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postPaymentReceived, postDepositReceived } from "./gl-posting";
+import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
 
 /**
@@ -750,4 +751,88 @@ export function computeRealEstateGst(
     effectiveGstRate: effectiveGstRate.toDecimalPlaces(2),
     gstAmount,
   };
+}
+
+// ───────────────────────────────────────────────────────────
+//  PAYMENT DUE REMINDERS — send notifications for due/overdue
+//  payment schedule items (BBA pipeline milestone payments)
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Send payment-due reminders for all DUE payment schedule items
+ * across all companies (or a specific company). Notifies the customer
+ * via WhatsApp/Email about upcoming/overdue milestone payments.
+ *
+ * Called by a cron job or manual trigger. Returns count of reminders sent.
+ */
+export async function sendPaymentDueReminders(companyId?: string) {
+  const now = new Date();
+  // Find all DUE schedule items with a due date <= now+3 days (upcoming or overdue)
+  const dueItems = await prisma.paymentScheduleItem.findMany({
+    where: {
+      status: "DUE",
+      dueDate: { lte: new Date(now.getTime() + 3 * 86400000) },
+      paymentSchedule: {
+        assetSale: {
+          status: { not: "CANCELLED" },
+          ...(companyId ? { companyId } : {}),
+        },
+      },
+    },
+    include: {
+      paymentSchedule: {
+        include: {
+          assetSale: {
+            include: {
+              customer: { select: { id: true, name: true, phone: true, email: true } },
+            },
+          },
+        },
+      },
+    },
+    take: 200,
+  });
+
+  let sent = 0;
+  for (const item of dueItems) {
+    try {
+      const sale = item.paymentSchedule.assetSale;
+      const customer = sale.customer;
+      if (!customer) continue;
+
+      const recipient = customer.phone ?? customer.email;
+      if (!recipient) continue;
+
+      const isOverdue = item.dueDate && new Date(item.dueDate) < now;
+      const channel = customer.phone ? "WHATSAPP" : "EMAIL";
+      const subject = isOverdue ? "Payment Overdue" : "Payment Due Soon";
+      const message =
+        `Dear ${customer.name},\n\n` +
+        `${isOverdue ? "Your payment is OVERDUE" : "Your payment is due soon"}.\n` +
+        `Installment: ${item.description}\n` +
+        `Amount: ₹${new Decimal(item.amount).toNumber().toLocaleString("en-IN")}\n` +
+        (item.dueDate ? `Due date: ${item.dueDate.toISOString().slice(0, 10)}\n` : "") +
+        `Sale: ${sale.saleNumber}\n\n` +
+        `Please make the payment at the earliest.\n— Nirman Inventory`;
+
+      await sendNotification({
+        companyId: sale.companyId,
+        eventType: "SALE_PAYMENT_RECEIVED",
+        channel,
+        recipient,
+        recipientName: customer.name,
+        message,
+        metadata: {
+          saleId: sale.id,
+          scheduleItemId: item.id,
+          amount: item.amount.toString(),
+          isOverdue: isOverdue ? "true" : "false",
+        },
+      });
+      sent++;
+    } catch {
+      // Skip failures — will retry on next cron run
+    }
+  }
+  return { checked: dueItems.length, sent };
 }

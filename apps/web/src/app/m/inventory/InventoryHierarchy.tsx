@@ -125,7 +125,7 @@ function CompanyNode({
       <TreeRow
         depth={depth}
         isLast={isLast}
-        icon={<Building2 className="size-2.5" style={{ color: "#fff" }} />}
+        icon={<Building2 className="size-2.5" style={{ color: "var(--color-paper)" }} />}
         iconBg="var(--color-ink-950)"
         chevron={childCount > 0}
         chevronOpen={open}

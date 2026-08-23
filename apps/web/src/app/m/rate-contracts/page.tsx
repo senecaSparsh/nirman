@@ -2,17 +2,15 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { FileText, Plus } from "lucide-react";
+import { FileText } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {
-  MobileEmptyState,
   MobileStatCard,
-  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileRateContractsList } from "./MobileRateContractsList";
 import { MobileRateContractsFab } from "./MobileRateContractsFab";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileRateContractsEmptyState } from "./MobileRateContractsEmptyState";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -33,7 +31,7 @@ async function MobileRateContractsContent() {
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
 
-  const [contracts, suppliers, materials] = await Promise.all([
+  const [contracts, suppliers, materials, categories] = await Promise.all([
     prisma.rateContract.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -53,6 +51,12 @@ async function MobileRateContractsContent() {
     canManage
       ? prisma.material.findMany({
           where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, unit: true },
+        })
+      : [],
+    canManage
+      ? prisma.materialCategory.findMany({
           orderBy: { name: "asc" },
           select: { id: true, name: true, unit: true },
         })
@@ -97,39 +101,20 @@ async function MobileRateContractsContent() {
         <MobileStatCard label="Expired" value={String(expired)} icon={FileText} tone={expired > 0 ? "stop" : "neutral"} />
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Rate Contracts"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${contracts.length} contracts · ${active} active`}
-        />
-      </div>
-
-      <MobileRateContractsList items={serialized} />
+      <MobileRateContractsList
+        items={serialized}
+        exportTitle="Rate Contracts"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${contracts.length} contracts · ${active} active`}
+      />
 
       {contracts.length === 0 && (
-        <MobileEmptyState
-          icon={FileText}
-          title="No rate contracts"
-          hint={
-            canManage
-              ? suppliers.length === 0
-                ? "Add suppliers first, then create rate contracts for materials"
-                : materials.length === 0
-                  ? "Add materials first, then create rate contracts with suppliers"
-                  : "Tap + to create a rate contract with a supplier"
-              : "Rate contracts will appear here"
-          }
-          action={
-            canManage ? (
-              suppliers.length === 0 ? (
-                <MobileCta href="/m/suppliers/new" icon={Plus} variant="primary">Add Supplier</MobileCta>
-              ) : materials.length === 0 ? (
-                <MobileCta href="/m/materials/new" icon={Plus} variant="primary">Add Material</MobileCta>
-              ) : undefined
-            ) : undefined
-          }
+        <MobileRateContractsEmptyState
+          hasSuppliers={suppliers.length > 0}
+          hasMaterials={materials.length > 0}
+          canManage={canManage}
+          categories={categories}
         />
       )}
 

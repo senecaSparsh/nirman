@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { formatNumber } from "@/lib/utils";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type StandardConsumptionListItem = {
   id: string;
@@ -15,7 +16,19 @@ export type StandardConsumptionListItem = {
   notes: string | null;
 };
 
-export function MobileStandardConsumptionsList({ items }: { items: StandardConsumptionListItem[] }) {
+export function MobileStandardConsumptionsList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: StandardConsumptionListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -39,6 +52,18 @@ export function MobileStandardConsumptionsList({ items }: { items: StandardConsu
         query={query}
         onQueryChange={setQuery}
         placeholder="Search work type or material…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={!!query}
         onClear={() => setQuery("")}
       />
@@ -47,15 +72,23 @@ export function MobileStandardConsumptionsList({ items }: { items: StandardConsu
         <MobileNoResults title="No matching benchmarks" hint="Try a different search" />
       ) : (
         <div className="flex flex-col gap-3">
-          {workTypes.map((wt) => {
+          {workTypes.map((wt, idx) => {
             const items_wt = filtered.filter((b) => b.workType === wt);
             return (
               <div key={wt}>
                 <div
-                  className="pb-1 pt-1 text-[0.5625rem] font-bold uppercase tracking-wide"
+                  className="pb-1 pt-1 text-[0.5625rem] font-bold uppercase tracking-wide flex items-center gap-1.5"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   {wt} ({items_wt.length})
+                  {idx === 0 && query && (
+                    <span
+                      className="ml-auto text-[0.625rem] font-semibold"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      {filtered.length} benchmark{filtered.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {items_wt.map((b) => (

@@ -9,11 +9,12 @@ import {
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   MobileSummaryStrip,
   MobileNoResults,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type StockLocation = {
   id: string;
@@ -101,12 +102,20 @@ export function MobileStockMovementsList({
   totalInventoryValue,
   filterMaterialName,
   materialStockItems,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   locations: StockLocation[];
   movements: StockMovementItem[];
   totalInventoryValue: number;
   filterMaterialName: string | null;
   materialStockItems: MaterialStockItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MovementFilter>("ALL");
@@ -202,12 +211,22 @@ export function MobileStockMovementsList({
         onQueryChange={setQuery}
         placeholder="Search material, type, location…"
         action={
-          <MobileFilterDropdown
-            label="All"
-            options={FILTER_CHIPS}
-            active={filter}
-            onChange={setFilter}
-          />
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
         showClear={filter !== "ALL" || !!query}
         onClear={() => { setQuery(""); setFilter("ALL"); }}

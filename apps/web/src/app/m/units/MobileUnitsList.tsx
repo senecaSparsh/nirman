@@ -4,11 +4,12 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
-  MobileFilterChips,
+  MobileSearchHeader,
+  MobileFilterIcon,
   MobileCardGrid,
   MobileNoResults,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type UnitStatusFilter =
   | "ALL"
@@ -73,9 +74,17 @@ const STATUS_LABEL: Record<string, string> = {
 export function MobileUnitsList({
   items,
   projectFiltered = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: UnitListItem[];
   projectFiltered?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<UnitStatusFilter>("ALL");
@@ -102,30 +111,31 @@ export function MobileUnitsList({
 
   return (
     <div>
-      {/* Search bar */}
-      <div className="mb-2.5">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={projectFiltered ? "Search unit number..." : "Search unit or project..."}
-          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] focus:outline-none"
-          style={{
-            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-            color: "var(--color-ink-950)",
-          }}
-        />
-      </div>
-
-      {/* Filter chips */}
-      <div className="mb-3">
-        <MobileFilterChips
-          chips={FILTER_CHIPS as FilterChip<UnitStatusFilter>[]}
-          active={statusFilter}
-          onChange={setStatusFilter}
-        />
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder={projectFiltered ? "Search unit number..." : "Search unit or project..."}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as UnitStatusFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={isFiltering}
+        onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
+      />
 
       {isFiltering ? (
         <FlatList items={filtered} projectFiltered={projectFiltered} />

@@ -27,9 +27,10 @@ export enum NotificationEventType {
   SUPPLIER_PAYMENT_DUE = "SUPPLIER_PAYMENT_DUE",
   LOW_STOCK_ALERT = "LOW_STOCK_ALERT",
 
-  // Sales (5)
+  // Sales (6)
   SALE_CREATED = "SALE_CREATED",
   SALE_PAYMENT_RECEIVED = "SALE_PAYMENT_RECEIVED",
+  SALE_PAYMENT_DUE = "SALE_PAYMENT_DUE",
   SALE_CANCELLED = "SALE_CANCELLED",
   CUSTOMER_DEPOSIT_RECEIVED = "CUSTOMER_DEPOSIT_RECEIVED",
   UNIT_LISTING_SYNCED = "UNIT_LISTING_SYNCED",
@@ -68,6 +69,7 @@ export enum NotificationEventType {
   LEASE_EXPIRY_WARNING = "LEASE_EXPIRY_WARNING",
   RENT_DUE_REMINDER = "RENT_DUE_REMINDER",
   RENT_ESCALATION_APPLIED = "RENT_ESCALATION_APPLIED",
+  LAND_PAYMENT_DUE = "LAND_PAYMENT_DUE",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -91,6 +93,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   // Sales
   [NotificationEventType.SALE_CREATED]: "IMMEDIATE",
   [NotificationEventType.SALE_PAYMENT_RECEIVED]: "IMMEDIATE",
+  [NotificationEventType.SALE_PAYMENT_DUE]: "IMMEDIATE",
   [NotificationEventType.SALE_CANCELLED]: "DAILY",
   [NotificationEventType.CUSTOMER_DEPOSIT_RECEIVED]: "IMMEDIATE",
   [NotificationEventType.UNIT_LISTING_SYNCED]: "WEEKLY",
@@ -129,6 +132,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.LEASE_EXPIRY_WARNING]: "IMMEDIATE",
   [NotificationEventType.RENT_DUE_REMINDER]: "IMMEDIATE",
   [NotificationEventType.RENT_ESCALATION_APPLIED]: "DAILY",
+  [NotificationEventType.LAND_PAYMENT_DUE]: "IMMEDIATE",
 };
 
 export interface NotificationEvent {
@@ -290,6 +294,7 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
   const SALES_EVENTS = new Set([
     NotificationEventType.SALE_CREATED,
     NotificationEventType.SALE_PAYMENT_RECEIVED,
+    NotificationEventType.SALE_PAYMENT_DUE,
     NotificationEventType.SALE_CANCELLED,
     NotificationEventType.CUSTOMER_DEPOSIT_RECEIVED,
     NotificationEventType.UNIT_LISTING_SYNCED,
@@ -316,6 +321,7 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
     NotificationEventType.LEASE_EXPIRY_WARNING,
     NotificationEventType.RENT_DUE_REMINDER,
     NotificationEventType.RENT_ESCALATION_APPLIED,
+    NotificationEventType.LAND_PAYMENT_DUE,
   ]);
 
   if (role === "OWNER" || role === "ADMIN") return true;

@@ -19,7 +19,7 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { formatDate, cn } from "@/lib/utils";
 
-type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE";
+type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
 
 export type AttendanceRow = {
   id: string;
@@ -42,6 +42,9 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; short: string; ac
   HALF_DAY: { label: "Half Day", short: "H", activeClass: "bg-warning/15 text-warning border-warning/30", dotClass: "bg-warning" },
   OVERTIME: { label: "Overtime", short: "OT", activeClass: "bg-info/15 text-info border-info/30", dotClass: "bg-info" },
   LEAVE: { label: "Leave", short: "L", activeClass: "bg-muted text-muted-foreground border-border", dotClass: "bg-muted-foreground" },
+  LATE: { label: "Late", short: "LT", activeClass: "bg-warning/15 text-warning border-warning/30", dotClass: "bg-warning" },
+  PAID_LEAVE: { label: "Paid Leave", short: "PL", activeClass: "bg-info/15 text-info border-info/30", dotClass: "bg-info" },
+  NON_PAID_LEAVE: { label: "Non-Paid Leave", short: "NPL", activeClass: "bg-muted text-muted-foreground border-border", dotClass: "bg-muted-foreground" },
 };
 
 /** Attendance summary stats bar. */

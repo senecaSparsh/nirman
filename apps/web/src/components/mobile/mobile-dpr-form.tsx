@@ -446,7 +446,7 @@ export function MobileDprForm({
               type="button"
               onClick={addMaterialLine}
               className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-[0.5rem] font-bold press"
-              style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-2.5" /> Add
             </button>
@@ -553,7 +553,7 @@ export function MobileDprForm({
             type="button"
             onClick={addLaborLine}
             className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-[0.5rem] font-bold press"
-            style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <Plus className="size-2.5" /> Add
           </button>
@@ -623,7 +623,7 @@ export function MobileDprForm({
             onClick={submit}
             disabled={submitting}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

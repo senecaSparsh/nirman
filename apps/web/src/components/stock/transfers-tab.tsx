@@ -10,6 +10,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
 import { TransferFormDialog } from "@/components/procurement/transfer-form-dialog";
+import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { StockLocationRow, TransferRow, ProjectOption } from "@/lib/types";
 
@@ -23,13 +24,15 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
   const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<TransferRow | null>(null);
+  const [locationCreateOpen, setLocationCreateOpen] = useState(false);
+  const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
 
   const filtered = useMemo(() => {
     let result = transfers;
     if (statusFilter) result = result.filter((t) => t.status === statusFilter);
     return result;
   }, [transfers, statusFilter]);
-  const canCreate = canTransfer && locations.length >= 2;
+  const canCreate = canTransfer && localLocations.length >= 2;
 
   const transferColumns: Column<TransferRow>[] = [
     {
@@ -110,10 +113,13 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
 
   return (
     <div className="space-y-4">
-      {canTransfer && locations.length < 2 && (
-        <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
-          You need at least two stock locations to create a transfer. Add locations in Settings → Locations.
-        </p>
+      {canTransfer && localLocations.length < 2 && (
+        <div className="rounded-md border border-dashed p-3 text-body text-muted-foreground flex items-center justify-between gap-3">
+          <span>You need at least two stock locations to create a transfer.</span>
+          <Button onClick={() => setLocationCreateOpen(true)} size="sm" variant="outline">
+            <Plus className="h-4 w-4" /> Add Location
+          </Button>
+        </div>
       )}
 
       {filtered.length === 0 ? (
@@ -157,7 +163,21 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
         </Dialog>
       )}
 
-      <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={locations} projects={projects} />
+      <TransferFormDialog open={formOpen} onOpenChange={setFormOpen} locations={localLocations} projects={projects} />
+
+      {/* Inline location creation — opened from the "Add Location" button
+          when there are fewer than 2 locations. No redirection to Settings. */}
+      <LocationFormDialog
+        open={locationCreateOpen}
+        onOpenChange={setLocationCreateOpen}
+        projects={projects}
+        location={null}
+        onCreated={(entity) => {
+          setLocationCreateOpen(false);
+          // Refresh to pick up the new location in the list
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

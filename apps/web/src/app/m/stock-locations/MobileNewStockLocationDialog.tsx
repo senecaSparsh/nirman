@@ -25,7 +25,7 @@ export function MobileNewStockLocationDialog({
   projects?: { id: string; name: string }[];
 }) {
   const [name, setName] = useState("");
-  const [type, setType] = useState<"COMPANY_WAREHOUSE" | "PROJECT_SITE">("COMPANY_WAREHOUSE");
+  const [type, setType] = useState<"CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE">("COMPANY_WAREHOUSE");
   const [projectId, setProjectId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -114,10 +114,11 @@ export function MobileNewStockLocationDialog({
             </label>
             <select
               value={type}
-              onChange={(e) => { setType(e.target.value as "COMPANY_WAREHOUSE" | "PROJECT_SITE"); setProjectId(""); haptic(10); }}
+              onChange={(e) => { setType(e.target.value as "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE"); setProjectId(""); haptic(10); }}
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
+              <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent)</option>
               <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
               <option value="PROJECT_SITE">Project Site</option>
             </select>
@@ -150,7 +151,7 @@ export function MobileNewStockLocationDialog({
             type="submit"
             disabled={saving}
             className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />

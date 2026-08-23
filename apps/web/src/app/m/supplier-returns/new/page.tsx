@@ -29,7 +29,7 @@ export default async function MobileNewSupplierReturnPage() {
 
   // Fetch dropdown data directly from Prisma (company-scoped, non-deleted)
   const company = await getCompany();
-  const [suppliers, locations, materials, purchaseOrders] = await Promise.all([
+  const [suppliers, locations, materials, purchaseOrders, categories] = await Promise.all([
     prisma.supplier.findMany({
       where: { deletedAt: null, companyId: company.id },
       select: { id: true, name: true },
@@ -51,6 +51,11 @@ export default async function MobileNewSupplierReturnPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -59,6 +64,7 @@ export default async function MobileNewSupplierReturnPage() {
       locations={locations}
       materials={materials}
       purchaseOrders={purchaseOrders}
+      categories={categories}
     />
   );
 }

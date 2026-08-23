@@ -7,13 +7,13 @@ import { formatDate } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileDashedCreateButton,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type ReqStatus =
   | "ALL"
@@ -60,9 +60,17 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 export function MobileRequisitionsList({
   items,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: RequisitionListItem[];
   canCreate?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReqStatus>("ALL");
@@ -101,8 +109,6 @@ export function MobileRequisitionsList({
     );
   }
 
-  const filterChips: FilterChip<ReqStatus>[] = FILTER_CHIPS;
-
   return (
     <div>
       {/* ── Sticky search header ── */}
@@ -110,15 +116,25 @@ export function MobileRequisitionsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search req no, project…"
-        action={canCreate ? <MobileHeaderAction href="/m/requisitions/new">New Req</MobileHeaderAction> : undefined}
-        filterChips={
-          <MobileFilterChips
-            chips={filterChips}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as ReqStatus)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+            {canCreate && <MobileHeaderAction href="/m/requisitions/new">New Req</MobileHeaderAction>}
+          </div>
         }
-        resultCount={`${filtered.length} requisition${filtered.length !== 1 ? "s" : ""}`}
         showClear={(statusFilter !== "ALL" || !!query) && filtered.length > 0}
         onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
@@ -131,11 +147,23 @@ export function MobileRequisitionsList({
           hint="No requisitions match the selected filter."
         />
       ) : (
+        <div>
+          {(query || statusFilter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} requisition{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <MobileCardGrid cols={2}>
           {filtered.map((r) => (
             <ReqCard key={r.id} req={r} />
           ))}
         </MobileCardGrid>
+        </div>
       )}
     </div>
   );

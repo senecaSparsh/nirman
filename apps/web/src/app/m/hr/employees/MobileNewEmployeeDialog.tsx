@@ -245,7 +245,7 @@ export function MobileNewEmployeeDialog({
                   style={{
                     borderColor: form.wageType === w ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: form.wageType === w ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: form.wageType === w ? "#fff" : "var(--color-ink-500)",
+                    color: form.wageType === w ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}
                 >
                   {WAGE_TYPE_LABELS[w]}
@@ -336,7 +336,7 @@ export function MobileNewEmployeeDialog({
               className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
-                color: "#fff",
+                color: "var(--color-paper)",
               }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}

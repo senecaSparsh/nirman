@@ -347,6 +347,7 @@ export function SettingsView({
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 <Select value={locForm.type} onChange={(e) => setLocForm((f) => ({ ...f, type: e.target.value, projectId: "" }))}>
+                  <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent)</option>
                   <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
                   <option value="PROJECT_SITE">Project Site</option>
                 </Select>

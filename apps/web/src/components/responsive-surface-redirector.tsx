@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { PERSONAS } from "@/lib/mobile-nav";
+import { MOBILE_TABS } from "@/lib/mobile-nav-v2";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -41,7 +41,7 @@ const MOBILE_HOME = "/m";
 /** Routes where auto-redirect is safe — home/list roots only. */
 const MOBILE_HOMES = new Set<string>([
   MOBILE_HOME,
-  ...Object.values(PERSONAS).map((p) => p.home),
+  ...MOBILE_TABS.map((t) => t.href),
 ]);
 
 function isMobileSurface(pathname: string): boolean {

@@ -9,7 +9,7 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileMaterialsList } from "./MobileMaterialsList";
@@ -92,26 +92,26 @@ async function MobileMaterialsContent({
     })
     .sort((a, b) => Number(b.isLow || b.isOut) - Number(a.isLow || a.isOut) || a.name.localeCompare(b.name));
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "code", label: "Code" },
+    { key: "name", label: "Name" },
+    { key: "categoryName", label: "Category" },
+    { key: "unit", label: "Unit" },
+    { key: "reorderPoint", label: "Reorder Point" },
+    { key: "totalQty", label: "Stock Qty" },
+    { key: "stockValue", label: "Stock Value", format: "currency" },
+  ];
+
   return (
     <div>
-      <MobileExportShareBar
-        title="Materials"
-        rows={rows as unknown as Record<string, unknown>[]}
-        columns={[
-          { key: "code", label: "Code" },
-          { key: "name", label: "Name" },
-          { key: "categoryName", label: "Category" },
-          { key: "unit", label: "Unit" },
-          { key: "reorderPoint", label: "Reorder Point" },
-          { key: "totalQty", label: "Stock Qty" },
-          { key: "stockValue", label: "Stock Value", format: "currency" },
-        ] as MobileColumnSpec[]}
-        summary={`${rows.length} materials`}
-      />
       <MobileMaterialsList
         key={category ?? "all"}
         items={rows}
         initialCategory={category}
+        exportTitle="Materials"
+        exportRows={rows as unknown as Record<string, unknown>[]}
+        exportColumns={exportColumns}
+        exportSummary={`${rows.length} materials`}
       />
 
       {rows.length === 0 && (

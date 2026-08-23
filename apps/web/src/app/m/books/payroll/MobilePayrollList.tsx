@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { CalendarCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow, MobileStatusBadge } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type PayrollListItem = {
   id: string;
@@ -31,7 +32,19 @@ const FILTER_CHIPS: { label: string; value: PayrollFilter }[] = [
  * chips (All / Draft / Paid / Processed). Each row shows a coloured
  * MobileStatusBadge instead of plain text.
  */
-export function MobilePayrollList({ items }: { items: PayrollListItem[] }) {
+export function MobilePayrollList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: PayrollListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PayrollFilter>("ALL");
 
@@ -58,15 +71,26 @@ export function MobilePayrollList({ items }: { items: PayrollListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
-        showClear={!!query}
-        onClear={() => setQuery("")}
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as PayrollFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
+        showClear={!!query || statusFilter !== "ALL"}
+        onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
 
       <MobileSectionTitle>Periods ({filtered.length})</MobileSectionTitle>

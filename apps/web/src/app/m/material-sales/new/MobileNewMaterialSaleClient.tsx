@@ -375,7 +375,7 @@ export default function MobileNewMaterialSaleClient() {
               router.push("/m/material-sales");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Sales
           </button>
@@ -786,7 +786,7 @@ function SaleForm({
                           className="rounded-[0.375rem] py-1 text-[0.5rem] font-bold transition-colors press"
                           style={
                             active
-                              ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+                              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                               : { backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
                           }
                         >
@@ -957,7 +957,7 @@ function SaleForm({
             onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -1072,7 +1072,7 @@ function PaymentTypeCard({
       className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center press transition-colors"
       style={
         active
-          ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "#fff" }
+          ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
           : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
       }
     >

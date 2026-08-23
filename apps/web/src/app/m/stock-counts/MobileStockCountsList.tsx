@@ -6,7 +6,7 @@ import { ScanLine, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileSearchHeader,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
@@ -91,15 +91,15 @@ export function MobileStockCountsList({
         onQueryChange={setQuery}
         placeholder="Search location…"
         action={
-          <>
-            <MobileFilterDropdown
-              label="All"
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
               options={FILTER_OPTIONS}
               active={filter}
+              defaultValue="ALL"
               onChange={setFilter}
             />
             {canCreate && <MobileHeaderAction href="/m/stock-counts/new">New</MobileHeaderAction>}
-          </>
+          </div>
         }
         showClear={filter !== "ALL" || query !== ""}
         onClear={() => { setQuery(""); setFilter("ALL"); }}
@@ -116,7 +116,7 @@ export function MobileStockCountsList({
           >
             <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
             <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-              No stock counts
+              No stock inventories
             </p>
             <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
               Start a physical verification
@@ -124,11 +124,23 @@ export function MobileStockCountsList({
           </div>
         )
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} count{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <MobileCardGrid>
           {filtered.map((c) => (
             <CountCard key={c.id} c={c} />
           ))}
         </MobileCardGrid>
+        </div>
       )}
     </div>
   );

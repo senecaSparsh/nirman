@@ -14,7 +14,7 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobileReportHeader, MobileReportSummary, MobileBarChart } from "@/components/mobile/v2/report-ui";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -104,7 +104,7 @@ async function MobileCashFlowContent({
             style={{
               borderColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-paper)",
-              color: p.id === selected.id ? "#fff" : "var(--color-ink-700)",
+              color: p.id === selected.id ? "var(--color-paper)" : "var(--color-ink-700)",
             }}
           >
             {p.name}
@@ -113,7 +113,7 @@ async function MobileCashFlowContent({
       </div>
 
       <div className="mb-4">
-        <MobileExportShareBar
+        <MobileExportShareIcons
           title="Cash Flow Forecast"
           rows={scheduledPayments as unknown as Record<string, unknown>[]}
           columns={csvColumns}

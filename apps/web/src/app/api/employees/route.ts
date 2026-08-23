@@ -23,6 +23,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       crew: { select: { id: true, name: true } },
       activeProject: { select: { id: true, name: true } },
+      reportingLocation: { select: { id: true, name: true } },
       _count: { select: { attendances: true, payrollLines: true } },
     },
   });
@@ -43,6 +44,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       activeProjectId: e.activeProjectId,
       activeProjectName: e.activeProject?.name ?? null,
       active: e.active,
+      reportingLocationId: e.reportingLocationId,
+      reportingLocationName: e.reportingLocation?.name ?? null,
+      hierarchyLevel: e.hierarchyLevel,
     })),
   );
 });
@@ -69,6 +73,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     crewId: parsed.data.crewId || undefined,
     activeProjectId: parsed.data.activeProjectId || undefined,
     active: parsed.data.active ?? true,
+    reportingLocationId: parsed.data.reportingLocationId || undefined,
+    hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
   });
   return json({ ok: true, id: created.id, name: created.name, trade: created.trade }, { status: 201 });

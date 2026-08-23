@@ -541,6 +541,9 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
       reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
       reraWebsiteUrl: project.reraWebsiteUrl,
+      isPossessed: project.isPossessed,
+      possessionDate: project.possessionDate?.toISOString() ?? null,
+      possessionNotes: project.possessionNotes,
     },
     stats: {
       builtUnitCount: unitRows.length,

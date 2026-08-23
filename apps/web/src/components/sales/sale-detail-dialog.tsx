@@ -543,7 +543,7 @@ export function SaleDetailDialog({
 
             {/* Payment schedule */}
             {sale.paymentSchedule && sale.paymentSchedule.items.length > 0 && (
-              <div className="rounded-lg border p-3 space-y-2">
+              <div className="rounded-lg border p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-label text-muted-foreground">Payment Schedule ({sale.paymentSchedule.type})</p>
                   {canManage && !isCancelled && (
@@ -555,6 +555,50 @@ export function SaleDetailDialog({
                       Edit
                     </button>
                   )}
+                </div>
+
+                {/* CLP Timeline — horizontal progress visualization showing
+                    each installment as a segment with its status. This is the
+                    "4QT-style" view: at a glance, see which slabs are paid,
+                    which are due, and which are pending. */}
+                <div className="flex items-stretch gap-0.5 rounded-md bg-muted/30 p-1">
+                  {sale.paymentSchedule.items.map((item, idx) => {
+                    const segmentColor =
+                      item.status === "PAID" ? "bg-success" :
+                      item.status === "DUE" ? "bg-warning" :
+                      item.status === "PARTIAL" ? "bg-brand" :
+                      item.status === "WAIVED" ? "bg-muted-foreground/30" :
+                      "bg-muted-foreground/15";
+                    const statusLabel =
+                      item.status === "PAID" ? "Paid" :
+                      item.status === "DUE" ? "Due" :
+                      item.status === "PARTIAL" ? "Partial" :
+                      item.status === "WAIVED" ? "Waived" :
+                      "Pending";
+                    return (
+                      <div
+                        key={item.installmentNo}
+                        className="group relative flex-1"
+                        title={`${item.installmentNo}. ${item.description} — ${item.percentage}% · ${statusLabel}`}
+                      >
+                        <div className={`h-7 rounded-sm ${segmentColor} transition-all group-hover:h-8`} />
+                        {idx < sale.paymentSchedule!.items.length - 1 && (
+                          <div className="absolute right-0 top-0 h-full w-px bg-background/50" />
+                        )}
+                        {/* Tooltip on hover */}
+                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-micro text-background group-hover:block">
+                          {item.description} · {item.percentage}% · {statusLabel}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Timeline legend */}
+                <div className="flex items-center gap-3 text-micro text-muted-foreground">
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-success" /> Paid</span>
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-warning" /> Due</span>
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-brand" /> Partial</span>
+                  <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-muted-foreground/15" /> Pending</span>
                 </div>
                 {/* Next-due installment banner — surfaces the most actionable
                     schedule item so the sales manager doesn't have to scan the

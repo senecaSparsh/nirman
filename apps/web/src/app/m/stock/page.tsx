@@ -6,7 +6,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileStockMovementsList } from "./MobileStockMovementsList";
 import { MobileLocationDetail } from "./MobileLocationDetail";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 
@@ -36,7 +35,7 @@ async function MobileStockContent({
   // ── Location detail view: when locationId is set (and no materialId) ──
   // Different mental model: "what's at this location?" not "company ledger filtered"
   if (locationId && !materialId) {
-    const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing] = await Promise.all([
+    const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing, categories] = await Promise.all([
       prisma.stockLocation.findUnique({
         where: { id: locationId },
         select: { id: true, name: true, type: true },
@@ -74,6 +73,12 @@ async function MobileStockContent({
         },
         orderBy: { dispatchedAt: "desc" },
       }),
+      // Material categories for inline material creation
+      prisma.materialCategory.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, unit: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
     if (!location) {
@@ -91,8 +96,9 @@ async function MobileStockContent({
     return (
       <MobileLocationDetail
         locationName={location.name}
-        locationType={location.type}
+        locationType={location.type as string}
         canManage={canManage}
+        categories={categories}
         items={locationItems.map((i) => ({
           materialId: i.material.id,
           materialName: i.material.name,
@@ -226,20 +232,16 @@ async function MobileStockContent({
 
   return (
     <>
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Stock Ledger"
-          rows={serializedMovements as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serializedMovements.length} stock movements · Total value: ${formatCurrency(totalInventoryValue)}`}
-        />
-      </div>
       <MobileStockMovementsList
         locations={serializedLocations}
         movements={serializedMovements}
         totalInventoryValue={totalInventoryValue}
         filterMaterialName={filterMaterial?.name ?? null}
         materialStockItems={serializedMaterialStock}
+        exportTitle="Stock Ledger"
+        exportRows={serializedMovements as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serializedMovements.length} stock movements · Total value: ${formatCurrency(totalInventoryValue)}`}
       />
     </>
   );

@@ -211,11 +211,23 @@ model Employee {
   joinDate       DateTime?
   crewId         String?  // crew membership (a worker belongs to one crew)
   activeProjectId String? // current project assignment (for attendance + DPR scoping)
+  // ── Reporting location for GPS-based auto-attendance ──
+  // The office/site where this employee reports. When they enter the
+  // geo-fence radius of this location, their attendance auto-marks as
+  // PRESENT with a timestamp. Uses StockLocation.lat/lng/geoRadius.
+  reportingLocationId String? // → StockLocation (COMPANY_WAREHOUSE or PROJECT_SITE)
+  // ── Customizable hierarchy level (H1-H6) ──
+  // Owner assigns each employee to a numbered level (1=top/management,
+  // 6=labor). This is separate from the RBAC role system — it lets the
+  // owner customize the reporting hierarchy independent of permissions.
+  // e.g. H1=Management, H2=Manager, H3=Engineer, H4=Supervisor, H5=Skilled Labor, H6=Labor
+  hierarchyLevel Int? // 1-6, null = unassigned
   active    Boolean  @default(true)
   companyId String
   userId    String?  // link to auth User — lets site workers log in (self-service attendance, DPR, tasks)
   company   Company  @relation(fields: [companyId], references: [id])
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reportingLocation StockLocation? @relation("EmployeeReportingLocation", fields: [reportingLocationId], references: [id], onDelete: SetNull)
   // Optimistic locking — see Material.version comment
   version   Int      @default(0)
   createdAt DateTime @default(now())
@@ -573,6 +585,7 @@ model ProjectPhase {
 // ───────────────────────────────────────────────────────────
 
 enum StockLocationType {
+  CENTRAL_WAREHOUSE // parent company level — distributes to child company warehouses
   COMPANY_WAREHOUSE
   PROJECT_SITE
   DEPARTMENT // operational cost-center stock room (e.g. Workshop, Boiler house)
@@ -678,6 +691,7 @@ model StockLocation {
   directPurchases  DirectPurchase[]
   quotationRequestDestinations QuotationRequest[] @relation("QuotationRequestDestination")
   gatePasses       GatePass[]
+  employeeReportingLocations Employee[] @relation("EmployeeReportingLocation")
 
   @@index([companyId])
   @@index([projectId])
@@ -955,6 +969,9 @@ enum AttendanceStatus {
   HALF_DAY
   OVERTIME
   LEAVE
+  LATE         // arrived late (< 100% but ≥ 85% of working hours)
+  PAID_LEAVE   // paid leave (PL) — no salary deduction
+  NON_PAID_LEAVE // non-paid leave (NPL) — salary deducted
 }
 
 model WorkerAttendance {
@@ -1891,7 +1908,7 @@ model LandPurchase {
   leaseStartDate  DateTime? // lease commencement (only for LEASEHOLD)
   leaseEndDate    DateTime? // lease expiry (only for LEASEHOLD)
   // ── Cost breakup ──
-  // totalCost = baseCost + leaseRentAmount + gstAmount + registrationAmount + stampDutyAmount
+  // totalCost = baseCost + leaseRentAmount + gstAmount + registrationAmount + stampDutyAmount + transferDutyAmount
   // All percentages are user-entered (not fixed) and amounts auto-calculate.
   baseCost           Decimal  @default(0) @db.Decimal(14, 2) // the land price itself
   leaseRentPercent   Decimal? @db.Decimal(5, 2)  // % of baseCost (leasehold only)
@@ -1902,6 +1919,11 @@ model LandPurchase {
   registrationAmount Decimal? @db.Decimal(14, 2) // auto = baseCost × registrationPercent / 100
   stampDutyPercent   Decimal? @db.Decimal(5, 2)  // % of baseCost
   stampDutyAmount    Decimal? @db.Decimal(14, 2) // auto = baseCost × stampDutyPercent / 100
+  // ── Transfer duty (authority land only — DDA, HUDCO, etc.) ──
+  // Transfer duty / unearned increase payable to the authority when
+  // land is transferred. Applicable mainly to leasehold land from authorities.
+  transferDutyPercent Decimal? @db.Decimal(5, 2)  // % of baseCost
+  transferDutyAmount  Decimal? @db.Decimal(14, 2) // auto = baseCost × transferDutyPercent / 100
   // ── Additional acquisition costs ──
   brokerageAmount    Decimal? @db.Decimal(14, 2) // broker commission (typically 1-2% of baseCost)
   legalFees          Decimal? @db.Decimal(14, 2) // lawyer / due diligence / title search fees

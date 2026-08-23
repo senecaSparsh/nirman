@@ -465,7 +465,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                         {col.createLabel && onCreateOption && (
-                          <option value={CREATE_OPT} disabled>+ Create new {col.createLabel}…</option>
+                          <option value={CREATE_OPT}>+ Create new {col.createLabel}…</option>
                         )}
                       </select>
                     </td>

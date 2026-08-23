@@ -450,7 +450,7 @@ export function MobileLandWizard({
                 <div className="grid place-items-center size-4 rounded-full text-[0.5rem] font-bold"
                   style={{
                     backgroundColor: step === i + 1 ? "var(--color-ink-950)" : step > i + 1 ? "var(--color-go)" : "var(--color-line)",
-                    color: step >= i + 1 ? "#fff" : "var(--color-ink-500)",
+                    color: step === i + 1 ? "var(--color-paper)" : step > i + 1 ? "#fff" : "var(--color-ink-500)",
                   }}>
                   {step > i + 1 ? <Check className="size-2.5" /> : i + 1}
                 </div>
@@ -1006,20 +1006,20 @@ export function MobileLandWizard({
           {step < 3 ? (
             <button type="button" onClick={next} disabled={saving}
               className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               Next <ChevronRight className="size-4" />
             </button>
           ) : step === 3 ? (
             <button type="button" onClick={onSubmit} disabled={saving}
               className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               {saving ? "Saving…" : "Record Purchase"}
             </button>
           ) : (
             <button type="button" onClick={onClose}
               className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               <Check className="size-4" /> Done
             </button>
           )}

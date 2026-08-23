@@ -10,7 +10,6 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileAttendanceList } from "./MobileAttendanceList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -54,6 +53,8 @@ async function MobileAttendanceContent() {
     projectId: r.projectId ?? null,
     date: r.date.toISOString(),
     status: r.status,
+    checkIn: r.checkIn?.toTimeString().slice(0, 5) ?? null,
+    checkOut: r.checkOut?.toTimeString().slice(0, 5) ?? null,
   }));
 
   const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
@@ -73,16 +74,14 @@ async function MobileAttendanceContent() {
         </MobileCta>
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Attendance"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serialized.length} attendance records`}
-        />
-      </div>
-
-      <MobileAttendanceList items={serialized} projects={projectOptions} />
+      <MobileAttendanceList
+        items={serialized}
+        projects={projectOptions}
+        exportTitle="Attendance"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} attendance records`}
+      />
 
       {records.length === 0 && (
         <>

@@ -109,10 +109,12 @@ export function OwnerFinancialDashboard({
                 <div>
                   <div className="text-caption text-muted-foreground">Total Revenue</div>
                   <div className="text-body font-semibold tnum text-foreground">{formatCurrency(totalRevenue)}</div>
+                  <div className="text-meta text-muted-foreground/70">Booked (accrual)</div>
                 </div>
                 <div>
                   <div className="text-caption text-muted-foreground">Total Cost</div>
                   <div className="text-body font-semibold tnum text-foreground">{formatCurrency(totalCost)}</div>
+                  <div className="text-meta text-muted-foreground/70">Land + materials + explicit costs</div>
                 </div>
                 <div>
                   <div className="text-caption text-muted-foreground">Net Profit</div>
@@ -127,11 +129,16 @@ export function OwnerFinancialDashboard({
 
               {/* Per-project rows — top 3 by profit, bottom 3 by loss */}
               <div className="space-y-3">
-                {/* Top 3 by profit */}
+                {/* Top 3 by profit — only projects with actual revenue */}
                 {(() => {
-                  const sorted = [...projectProfits].sort((a, b) => b.profit - a.profit);
+                  const sorted = [...projectProfits]
+                    .filter((p) => p.revenue > 0 && p.profit > 0)
+                    .sort((a, b) => b.profit - a.profit);
                   const top3 = sorted.slice(0, 3);
-                  const bottom3 = sorted.filter(p => p.profit < 0).slice(-3).reverse();
+                  const bottom3 = [...projectProfits]
+                    .filter((p) => p.profit < 0)
+                    .sort((a, b) => a.profit - b.profit)
+                    .slice(0, 3);
                   return (
                     <>
                       {top3.length > 0 && (

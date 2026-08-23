@@ -9,6 +9,7 @@ import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
+import { MobileQuotePanel } from "./MobileQuotePanel";
 
 /**
  * /m/requisitions/[id] — requisition detail as a workflow document.
@@ -140,19 +141,7 @@ async function MobileRequisitionDetailContent({
 
   return (
     <div>
-      {/* ── Compact header strip ── */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <a
-          href={`/print/requisition/${req.id}`}
-          className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Printer className="size-3.5" />
-          Print
-        </a>
-      </div>
-
-      {/* Req number + status + needed-by in one compact block */}
+      {/* Req number + status + print in one compact header row */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="text-[1.125rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
@@ -164,6 +153,14 @@ async function MobileRequisitionDetailContent({
           >
             {req.status}
           </span>
+          <a
+            href={`/print/requisition/${req.id}`}
+            className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+          >
+            <Printer className="size-3.5" />
+            Print
+          </a>
         </div>
         <div className="flex items-center gap-3 text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
           <Link
@@ -317,6 +314,26 @@ async function MobileRequisitionDetailContent({
           ))}
         </div>
       </div>
+
+      {/* ── Vendor quotes + comparative statement (mobile) ──
+          Shown when the requisition is APPROVED (quotes collection phase)
+          or when quotes already exist. Inline — no redirection. */}
+      {req.status === "APPROVED" || quoteCount > 0 ? (
+        <MobileQuotePanel
+          requisitionId={req.id}
+          reqNumber={req.reqNumber}
+          requisitionLines={lines.map((l) => ({
+            materialId: l.materialId,
+            materialCode: l.materialCode,
+            materialName: l.materialName,
+            unit: l.unit,
+            qtyRequested: l.qtyRequested,
+          }))}
+          suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+          canApprove={canApprove}
+          canCreate={canManage}
+        />
+      ) : null}
 
       {/* ── Notes block ── */}
       {req.notes ? (

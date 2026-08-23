@@ -257,9 +257,19 @@ export async function listAllLegalDocs(
   filter?: { type?: string; status?: string; appliesTo?: string },
 ) {
   const where: Record<string, unknown> = { companyId, deletedAt: null };
-  if (filter?.type) where.type = filter.type;
-  if (filter?.status) where.status = filter.status;
-  if (filter?.appliesTo) where.appliesTo = filter.appliesTo;
+  if (filter?.type) {
+    // Support comma-separated list (e.g. "PENDING,EXPIRED,RENEWAL_DUE")
+    const parts = filter.type.split(",").map((s) => s.trim()).filter(Boolean);
+    where.type = parts.length > 1 ? { in: parts } : parts[0];
+  }
+  if (filter?.status) {
+    const parts = filter.status.split(",").map((s) => s.trim()).filter(Boolean);
+    where.status = parts.length > 1 ? { in: parts } : parts[0];
+  }
+  if (filter?.appliesTo) {
+    const parts = filter.appliesTo.split(",").map((s) => s.trim()).filter(Boolean);
+    where.appliesTo = parts.length > 1 ? { in: parts } : parts[0];
+  }
 
   return prisma.legalDocument.findMany({
     where: where as never,

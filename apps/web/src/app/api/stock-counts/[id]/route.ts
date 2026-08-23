@@ -20,7 +20,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     },
   });
   if (!count || count.location.companyId !== company.id) {
-    return json({ error: "Stock count not found" }, { status: 404 });
+    return json({ error: "Stock inventory not found" }, { status: 404 });
   }
 
   // Fetch current MAC per material at this location for GL preview
@@ -85,7 +85,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
     include: { location: { select: { companyId: true } } },
   });
   if (!count || count.location.companyId !== company.id) {
-    return json({ error: "Stock count not found" }, { status: 404 });
+    return json({ error: "Stock inventory not found" }, { status: 404 });
   }
   try {
     await deleteStockCount(id, user.id);

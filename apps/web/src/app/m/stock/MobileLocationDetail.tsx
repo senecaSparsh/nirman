@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft, Search, X,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
@@ -9,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 
 export type DetailStockItem = {
   materialId: string;
@@ -101,6 +103,7 @@ export function MobileLocationDetail({
   inTransitIncoming = [],
   inTransitOutgoing = [],
   canManage = false,
+  categories = [],
 }: {
   locationName: string;
   locationType: string;
@@ -110,7 +113,9 @@ export function MobileLocationDetail({
   inTransitIncoming?: InTransitTransfer[];
   inTransitOutgoing?: InTransitTransfer[];
   canManage?: boolean;
+  categories?: { id: string; name: string; unit: string }[];
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"inventory" | "activity" | "transit">("inventory");
 
@@ -237,7 +242,7 @@ export function MobileLocationDetail({
           className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
           style={
             tab === "inventory"
-              ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
               : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
           }
         >
@@ -248,7 +253,7 @@ export function MobileLocationDetail({
           className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
           style={
             tab === "activity"
-              ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
               : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
           }
         >
@@ -307,7 +312,12 @@ export function MobileLocationDetail({
 
       {/* ── Tab content ── */}
       {tab === "inventory" ? (
-        <InventoryTab items={filteredItems} canManage={canManage} />
+        <InventoryTab
+          items={filteredItems}
+          canManage={canManage}
+          categories={categories}
+          onAddMaterial={() => router.refresh()}
+        />
       ) : tab === "activity" ? (
         <ActivityTab groups={groupedMovements} />
       ) : (
@@ -431,38 +441,58 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
 function InventoryTab({
   items,
   canManage = false,
+  categories = [],
+  onAddMaterial,
 }: {
   items: DetailStockItem[];
   canManage?: boolean;
+  categories?: { id: string; name: string; unit: string }[];
+  onAddMaterial?: () => void;
 }) {
+  const [showCreateMaterial, setShowCreateMaterial] = useState(false);
+
   if (items.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          No materials in stock
-        </p>
-        <p className="text-[0.5625rem] mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
-          Receive stock against a purchase order, transfer from another location, or add a new material to your catalog.
-        </p>
-        {canManage && (
-          <Link
-            href="/m/materials/new"
-            className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-[0.6875rem] font-bold press"
-            style={{
-              borderColor: "var(--color-signal)",
-              backgroundColor: "var(--color-signal-wash)",
-              color: "var(--color-signal-dark)",
+      <>
+        <div
+          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+        >
+          <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
+          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            No materials in stock
+          </p>
+          <p className="text-[0.5625rem] mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
+            Receive stock against a purchase order, transfer from another location, or add a new material to your catalog.
+          </p>
+          {canManage && (
+            <button
+              onClick={() => setShowCreateMaterial(true)}
+              className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-[0.6875rem] font-bold press"
+              style={{
+                borderColor: "var(--color-signal)",
+                backgroundColor: "var(--color-signal-wash)",
+                color: "var(--color-signal-dark)",
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add Material
+            </button>
+          )}
+        </div>
+
+        {showCreateMaterial ? (
+          <MobileNewMaterialDialog
+            open
+            onClose={() => setShowCreateMaterial(false)}
+            categories={categories}
+            onCreated={() => {
+              setShowCreateMaterial(false);
+              onAddMaterial?.();
             }}
-          >
-            <Plus className="size-3.5" />
-            Add Material
-          </Link>
-        )}
-      </div>
+          />
+        ) : null}
+      </>
     );
   }
 

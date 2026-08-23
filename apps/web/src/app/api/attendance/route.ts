@@ -120,6 +120,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     notes: parsed.data.notes ?? undefined,
     recordedById: user.id,
     userId: user.id,
+    checkInLat: parsed.data.checkInLat ?? undefined,
+    checkInLng: parsed.data.checkInLng ?? undefined,
+    checkOutLat: parsed.data.checkOutLat ?? undefined,
+    checkOutLng: parsed.data.checkOutLng ?? undefined,
+    checkInLocation: parsed.data.checkInLocation ?? undefined,
+    checkOutLocation: parsed.data.checkOutLocation ?? undefined,
   });
   return json({ ok: true, id: attendance.id }, { status: 201 });
 });

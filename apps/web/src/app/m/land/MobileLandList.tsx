@@ -10,8 +10,10 @@ import {
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSearchHeader,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileNewLandDialog } from "./MobileNewLandDialog";
 import { MobileLandWizard } from "./MobileLandWizard";
 import { MobileLandPurchaseOrderDialog } from "./MobileLandPurchaseOrderDialog";
@@ -42,6 +44,8 @@ interface LandPurchaseItem {
   projectName: string | null;
   mode?: "WHOLE" | "SUBDIVIDED" | "BOOKED" | null;
   landType?: "FREEHOLD" | "LEASEHOLD" | null;
+  purchaseStage?: string | null;
+  isPossessed?: boolean;
   parcelCount: number;
   availableCount: number;
   holdCount: number;
@@ -91,6 +95,10 @@ export function MobileLandList({
   projects,
   sellers,
   company,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: LandPurchaseItem[];
   portfolio: Portfolio;
@@ -98,11 +106,16 @@ export function MobileLandList({
   projects: { id: string; name: string }[];
   sellers?: { id: string; name: string; phone?: string | null }[];
   company?: { id: string; name: string } | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [showBook, setShowBook] = useState(false);
+  const [filter, setFilter] = useState<"all" | "booked" | "possessed" | "balance">("all");
 
   // A purchase is "sub-divided" if it has been partitioned (root split into
   // sub-parcels) OR has more than 1 sellable parcel. "Whole" = single parcel.
@@ -110,16 +123,22 @@ export function MobileLandList({
     p.partitionedCount > 0 || p.parcelCount > 1;
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
+    let result = items;
+    // Apply filter chip
+    if (filter === "booked") result = result.filter((p) => p.purchaseStage === "BOOKED");
+    else if (filter === "possessed") result = result.filter((p) => p.isPossessed);
+    else if (filter === "balance") result = result.filter((p) => p.purchaseStage === "BOOKED" && !p.isPossessed);
+    // Apply search query
+    if (!query.trim()) return result;
     const q = query.toLowerCase();
-    return items.filter(
+    return result.filter(
       (p) =>
         p.sellerName.toLowerCase().includes(q) ||
         (p.location?.toLowerCase().includes(q) ?? false) ||
         (p.projectName?.toLowerCase().includes(q) ?? false) ||
         (p.registryNo?.toLowerCase().includes(q) ?? false),
     );
-  }, [items, query]);
+  }, [items, query, filter]);
 
   const wholeItems = filtered.filter((p) => !isSubdivided(p));
   const subdividedItems = filtered.filter((p) => isSubdivided(p));
@@ -187,8 +206,31 @@ export function MobileLandList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search seller, location, project…"
-        showClear={query !== ""}
-        onClear={() => setQuery("")}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={[
+                { label: "All", value: "all" },
+                { label: "Booked", value: "booked" },
+                { label: "Balance Due", value: "balance" },
+                { label: "Possessed", value: "possessed" },
+              ]}
+              active={filter}
+              defaultValue="all"
+              onChange={(v) => setFilter(v as "all" | "booked" | "possessed" | "balance")}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={query !== "" || filter !== "all"}
+        onClear={() => { setQuery(""); setFilter("all"); }}
       />
 
       {/* ── Two vertical columns: Whole | Sub-divided (matches desktop) ── */}
@@ -198,6 +240,17 @@ export function MobileLandList({
           hint={query ? "Try a different search" : canManage ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
         />
       ) : (
+        <div>
+          {(query || filter !== "all") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} purchase{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="grid grid-cols-2 gap-2.5 items-start">
           {/* ── Left column: Whole ── */}
           <div className="flex flex-col gap-2">
@@ -235,6 +288,7 @@ export function MobileLandList({
             )}
           </div>
         </div>
+        </div>
       )}
 
       {/* ── FAB: New Land Purchase (opens guided wizard) ── */}
@@ -263,7 +317,7 @@ export function MobileLandList({
             className="grid place-items-center size-12 rounded-full shadow-lg press self-end"
             style={{
               backgroundColor: "var(--color-ink-950)",
-              color: "#fff",
+              color: "var(--color-paper)",
               boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
             }}
             aria-label="Record new land purchase"
@@ -419,6 +473,25 @@ function PurchaseCard({
             <span className="size-1 rounded-full" style={{ backgroundColor: isLeasehold ? "var(--color-signal)" : "var(--color-go)" }} />
             {isLeasehold ? "Lease" : "Free"}
           </span>
+        </div>
+        {/* Stage + possession badges */}
+        <div className="flex items-center gap-1 mt-1">
+          {p.purchaseStage === "BOOKED" && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.375rem] font-bold"
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal)" }}
+            >
+              BOOKED
+            </span>
+          )}
+          {p.isPossessed && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.375rem] font-bold"
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
+            >
+              POSSESSED
+            </span>
+          )}
         </div>
       </div>
 

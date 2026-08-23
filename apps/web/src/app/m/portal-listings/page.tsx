@@ -11,7 +11,6 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobilePortalListingsList, type PortalListingItem } from "./MobilePortalListingsList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -88,15 +87,6 @@ async function MobilePortalListingsContent() {
         <MobileStatCard label="Delisted" value={String(delisted.length)} icon={Globe} />
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Portal Listings"
-          rows={rows as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${rows.length} listings · ${listed.length} listed`}
-        />
-      </div>
-
       {rows.length === 0 ? (
         <MobileEmptyState
           icon={Globe}
@@ -112,7 +102,13 @@ async function MobilePortalListingsContent() {
         />
       ) : (
         <>
-          <MobilePortalListingsList items={rows} />
+          <MobilePortalListingsList
+            items={rows}
+            exportTitle="Portal Listings"
+            exportRows={rows as unknown as Record<string, unknown>[]}
+            exportColumns={csvColumns}
+            exportSummary={`${rows.length} listings · ${listed.length} listed`}
+          />
           {canManage && (
             <div className="mt-4">
               <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">

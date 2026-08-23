@@ -86,6 +86,14 @@ async function MobileScrapDetailContent({
           <SourceIcon className="size-2.5" />
           {isAuto ? "Auto" : "Manual"}
         </span>
+        <Link
+          href={`/print/scrap/${scrap.id}`}
+          className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press shrink-0"
+          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+        >
+          <Printer className="size-3.5" />
+          Print
+        </Link>
       </div>
 
       {/* ── Value banner ── */}
@@ -236,17 +244,6 @@ async function MobileScrapDetailContent({
         </div>
       )}
 
-      {/* ── Print action ── */}
-      <Link
-        href={`/print/scrap/${scrap.id}`}
-        className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border py-2 press"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <Printer className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
-        <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-          Print Slip
-        </span>
-      </Link>
     </div>
   );
 }

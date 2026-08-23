@@ -5,7 +5,8 @@ import Link from "next/link";
 import { AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type NcrListItem = {
   id: string;
@@ -58,7 +59,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-export function MobileNcrList({ items }: { items: NcrListItem[] }) {
+export function MobileNcrList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: NcrListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<NcrFilter>("ALL");
 
@@ -82,18 +95,47 @@ export function MobileNcrList({ items }: { items: NcrListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search NCR…"
-        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />}
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query || filter !== "ALL"}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
       />
 
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching NCRs" hint="Try a different search or filter" />
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} NCR{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {filtered.map((n) => (
             <NcrCard key={n.id} ncr={n} />
           ))}
+        </div>
         </div>
       )}
     </div>

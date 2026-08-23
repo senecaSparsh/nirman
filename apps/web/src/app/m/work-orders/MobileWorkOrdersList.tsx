@@ -5,9 +5,10 @@ import { formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type WorkOrderListItem = {
   id: string;
@@ -34,7 +35,19 @@ const FILTER_CHIPS: { label: string; value: WOFilter }[] = [
   { label: "Completed", value: "COMPLETED" },
 ];
 
-export function MobileWorkOrdersList({ items }: { items: WorkOrderListItem[] }) {
+export function MobileWorkOrdersList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: WorkOrderListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<WOFilter>("ALL");
 
@@ -63,12 +76,23 @@ export function MobileWorkOrdersList({ items }: { items: WorkOrderListItem[] }) 
         query={query}
         onQueryChange={setQuery}
         placeholder="Search work order…"
-        filterChips={
-          <MobileFilterChips<WOFilter>
-            chips={FILTER_CHIPS}
-            active={filter}
-            onChange={setFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
         showClear={query !== "" || filter !== "ALL"}
         onClear={() => {
@@ -80,10 +104,22 @@ export function MobileWorkOrdersList({ items }: { items: WorkOrderListItem[] }) 
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching work orders" hint="Try a different search or filter" />
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} order{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {filtered.map((w) => (
             <WorkOrderCard key={w.id} wo={w} />
           ))}
+        </div>
         </div>
       )}
     </div>

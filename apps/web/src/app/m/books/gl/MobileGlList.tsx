@@ -5,6 +5,7 @@ import { BookOpen } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type GlListItem = {
   code: string;
@@ -19,7 +20,19 @@ export type GlListItem = {
  * Client component for the mobile trial balance list. Handles
  * client-side search by account code or account name.
  */
-export function MobileGlList({ items }: { items: GlListItem[] }) {
+export function MobileGlList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: GlListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -38,6 +51,18 @@ export function MobileGlList({ items }: { items: GlListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={!!query}
         onClear={() => setQuery("")}
       />

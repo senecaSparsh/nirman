@@ -42,7 +42,7 @@ export function DraftBanner({
         type="button"
         onClick={onRestore}
         className="shrink-0 flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-[0.5625rem] font-bold press"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         <RotateCcw className="size-2.5" />
         Restore

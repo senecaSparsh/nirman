@@ -11,13 +11,13 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileDashedCreateButton,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type PoStatus =
   | "ALL"
@@ -64,9 +64,17 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 export function MobileProcurementList({
   items,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: ProcurementListItem[];
   canCreate?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PoStatus>("ALL");
@@ -106,8 +114,6 @@ export function MobileProcurementList({
     );
   }
 
-  const filterChips: FilterChip<PoStatus>[] = FILTER_CHIPS;
-
   return (
     <div>
       {/* ── Sticky search header ── */}
@@ -115,15 +121,25 @@ export function MobileProcurementList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search Purchase Order no, supplier…"
-        action={canCreate ? <MobileHeaderAction href="/m/procurement/new">New PO</MobileHeaderAction> : undefined}
-        filterChips={
-          <MobileFilterChips
-            chips={filterChips}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as PoStatus)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+            {canCreate && <MobileHeaderAction href="/m/procurement/new">New PO</MobileHeaderAction>}
+          </div>
         }
-        resultCount={`${filtered.length} Purchase Order${filtered.length !== 1 ? "s" : ""}`}
         showClear={(statusFilter !== "ALL" || !!query) && filtered.length > 0}
         onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
@@ -136,11 +152,23 @@ export function MobileProcurementList({
           hint="No Purchase Orders match the selected filter."
         />
       ) : (
+        <div>
+          {(query || statusFilter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} Purchase Order{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <MobileCardGrid cols={2}>
           {filtered.map((po) => (
             <PoCard key={po.id} po={po} onAction={() => router.refresh()} />
           ))}
         </MobileCardGrid>
+        </div>
       )}
     </div>
   );

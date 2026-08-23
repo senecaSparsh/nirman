@@ -49,6 +49,12 @@ const landPurchaseColumns: Column<LandPurchaseRowType>[] = [
             <span className="truncate font-medium text-foreground">{p.sellerName}</span>
             {isPartitioned && <Layers className="h-3 w-3 shrink-0 text-muted-foreground" />}
             {allSold && <StatusPill status="SOLD" />}
+            {p.purchaseStage === "BOOKED" && (
+              <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-caption font-semibold text-warning">BOOKED</span>
+            )}
+            {p.isPossessed && (
+              <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-caption font-semibold text-success">POSSESSED</span>
+            )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0 text-caption text-muted-foreground">
             <span className="truncate">{p.projectName ?? "Standalone land"}</span>
@@ -66,6 +72,7 @@ const landPurchaseColumns: Column<LandPurchaseRowType>[] = [
   {
     key: "parcels",
     label: "Parcels",
+    hint: "Available / Hold / Partitioned / Sold",
     render: (p) => {
       if (p.parcelCount === 0) return <span className="text-muted-foreground">—</span>;
       const counts: { status: LandParcelStatus; n: number }[] = [
@@ -78,7 +85,7 @@ const landPurchaseColumns: Column<LandPurchaseRowType>[] = [
       return (
         <div className="flex items-center gap-2.5">
           {counts.map((c) => (
-            <span key={c.status} className="flex items-center gap-1 text-micro text-muted-foreground tnum">
+            <span key={c.status} className="flex items-center gap-1 text-micro text-muted-foreground tnum" title={`${c.n} ${c.status.toLowerCase().charAt(0) + c.status.toLowerCase().slice(1)}`}>
               <span
                 className="h-2 w-2 rounded-[2px]"
                 style={{ backgroundColor: statusColor(c.status), opacity: 0.6 }}

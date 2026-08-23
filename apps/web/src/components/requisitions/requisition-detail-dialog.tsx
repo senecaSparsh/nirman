@@ -18,7 +18,7 @@ type SupplierOption = { id: string; name: string };
 type LocationOption = {
   id: string;
   name: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   projectId: string | null;
 };
 

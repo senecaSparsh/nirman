@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserSwitch, TrendingUp, CalendarClock, FileText, ExternalLink, Upload } from "lucide-react";
+import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserCog, TrendingUp, CalendarClock, FileText, ExternalLink, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -608,7 +608,7 @@ export function RentalsView({
               </Button>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openChangeTenant(t); }} disabled={submitting} title="Change tenant">
-              <UserSwitch className="h-3.5 w-3.5" />
+              <UserCog className="h-3.5 w-3.5" />
             </Button>
             {canTerminate && (
               <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); requestTerminate(t); }} disabled={submitting} title="Terminate">
@@ -1191,7 +1191,7 @@ function TenancyDetailDialog({
                   <CalendarClock className="h-3.5 w-3.5" /> Generate Schedule
                 </Button>
                 <Button size="sm" variant="outline" onClick={onChangeTenant} disabled={submitting}>
-                  <UserSwitch className="h-3.5 w-3.5" /> Change Tenant
+                  <UserCog className="h-3.5 w-3.5" /> Change Tenant
                 </Button>
                 {canTerminate && (
                   <Button size="sm" variant="outline" className="text-danger" onClick={onTerminate} disabled={submitting}>

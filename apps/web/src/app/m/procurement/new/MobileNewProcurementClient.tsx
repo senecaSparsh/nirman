@@ -281,7 +281,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
               router.push("/m/procurement");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All POs
           </button>
@@ -303,7 +303,8 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     );
   }
 
-  /* ── Empty-data guard — with action buttons to create prerequisites ── */
+  /* ── Empty-data guard — with inline create dialogs (no redirection) ── */
+  const [guardDialog, setGuardDialog] = useState<"supplier" | "material" | "location" | null>(null);
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -313,24 +314,64 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
         </p>
         <div className="flex flex-col gap-2 w-full max-w-xs">
           {suppliers.length === 0 && (
-            <Link href="/m/suppliers/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              type="button"
+              onClick={() => setGuardDialog("supplier")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Supplier
-            </Link>
+            </button>
           )}
           {materials.length === 0 && (
-            <Link href="/m/materials/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              type="button"
+              onClick={() => setGuardDialog("material")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Material
-            </Link>
+            </button>
           )}
           {locations.length === 0 && (
-            <Link href="/m/stock-locations/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              type="button"
+              onClick={() => setGuardDialog("location")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Stock Location
-            </Link>
+            </button>
           )}
         </div>
         <Link href="/m/procurement" className="mt-4 text-[0.6875rem] font-semibold press" style={{ color: "var(--color-ink-500)" }}>
           Back to POs
         </Link>
+
+        {/* Inline create dialogs — no redirection */}
+        {guardDialog === "supplier" ? (
+          <MobileNewSupplierDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            onCreated={(s) => { setSuppliers((p) => [...p, { id: s.id, name: s.name, phone: null }]); setGuardDialog(null); }}
+          />
+        ) : null}
+        {guardDialog === "material" ? (
+          <MobileNewMaterialDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            categories={categories}
+            onCreated={(m) => { setMaterials((p) => [...p, { id: m.id, name: m.name, code: m.code, unit: m.unit, gstRate: m.gstRate }]); setGuardDialog(null); }}
+          />
+        ) : null}
+        {guardDialog === "location" ? (
+          <MobileNewStockLocationDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            projects={[]}
+            onCreated={(l) => { setLocations((p) => [...p, { id: l.id, name: l.name, type: l.type, projectId: null }]); setGuardDialog(null); }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -793,7 +834,7 @@ function PoForm({
             onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -904,7 +945,7 @@ function ScopeCard({
       className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center press transition-colors"
       style={
         active
-          ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "#fff" }
+          ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
           : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
       }
     >

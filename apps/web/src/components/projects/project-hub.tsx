@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Package, Truck, Home, LandPlot, Wallet, Wrench,
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
   ClipboardList, HardHat, Ruler, ListChecks,
-  ShieldCheck,
+  ShieldCheck, KeyRound,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +52,10 @@ export type ProjectHubData = {
     reraRegistrationDate: string | null;
     reraValidityDate: string | null;
     reraWebsiteUrl: string | null;
+    // Possession tracking
+    isPossessed?: boolean;
+    possessionDate?: string | null;
+    possessionNotes?: string | null;
   };
   stats: {
     builtUnitCount: number;
@@ -183,6 +189,30 @@ export function ProjectHub({
   );
   const { project, stats, pnl } = data;
   const trackRecent = useTrackRecent();
+  const router = useRouter();
+  const [possessionSubmitting, setPossessionSubmitting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  async function handleTogglePossession() {
+    setPossessionSubmitting(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/possession`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPossessed: !project.isPossessed }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to update possession");
+      }
+      toast.success(project.isPossessed ? "Possession revoked" : "Possession marked");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update possession");
+    } finally {
+      setPossessionSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     trackRecent({ type: "project", id: project.id, label: project.name, href: `/projects/${project.id}` });
@@ -197,7 +227,7 @@ export function ProjectHub({
         </Button>
         <div className="flex items-center gap-2">
           <QuickActionsMenu />
-          <ProjectDetailActions projectId={project.id} initial={editInitial} />
+          <ProjectDetailActions projectId={project.id} initial={editInitial} editOpen={editOpen} setEditOpen={setEditOpen} />
         </div>
       </div>
 
@@ -213,9 +243,14 @@ export function ProjectHub({
                 <ShieldCheck className="h-3 w-3" /> RERA: {project.reraNumber}
               </Badge>
             ) : (
-              <Badge variant="outline" className="border-warning/40 text-warning gap-1">
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-warning/40 px-2 py-0.5 text-caption font-medium text-warning transition-colors hover:bg-warning/10"
+                title="Register RERA number"
+              >
                 <ShieldCheck className="h-3 w-3" /> RERA: Not registered
-              </Badge>
+              </button>
             )}
             {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}
             <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDate(project.startDate)} → {formatDate(project.endDate)}</span>
@@ -260,6 +295,28 @@ export function ProjectHub({
           </div>
         );
       })()}
+
+      {/* Possession status */}
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-medium"
+          style={{
+            backgroundColor: project.isPossessed ? "color-mix(in srgb, var(--color-go, #22c55e) 10%, transparent)" : "color-mix(in srgb, var(--color-signal, #f59e0b) 10%, transparent)",
+            color: project.isPossessed ? "var(--color-go, #22c55e)" : "var(--color-signal, #f59e0b)",
+          }}
+        >
+          <KeyRound className="h-3 w-3" />
+          {project.isPossessed ? "Possession Taken" : "Possession Pending"}
+          {project.possessionDate ? ` · ${formatDate(project.possessionDate)}` : ""}
+        </span>
+        <button
+          onClick={handleTogglePossession}
+          disabled={possessionSubmitting}
+          className="text-caption text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          {project.isPossessed ? "Revoke" : "Mark Possessed"}
+        </button>
+      </div>
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab}>

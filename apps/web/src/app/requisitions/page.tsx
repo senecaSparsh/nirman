@@ -66,9 +66,11 @@ async function RequisitionsContent() {
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, unit: true },
     }),
-    // Supplier has no companyId — scope to suppliers with POs in this company.
+    // Suppliers scoped to this company — all non-deleted suppliers,
+    // not just those with existing POs (chicken-and-egg: a supplier
+    // needs to appear in the dropdown to get their first PO).
     prisma.supplier.findMany({
-      where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

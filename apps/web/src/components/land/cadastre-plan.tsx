@@ -229,7 +229,9 @@ export function CadastreLegend() {
   const items: { label: string; color: string }[] = [
     { label: "Available", color: "var(--color-success)" },
     { label: "Hold", color: "var(--color-warning)" },
+    { label: "Reserved", color: "var(--color-brand)" },
     { label: "Sold", color: "var(--color-danger)" },
+    { label: "Rented", color: "var(--color-info)" },
   ];
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">

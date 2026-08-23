@@ -9,7 +9,7 @@ import { haptic } from "@/lib/haptic";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 
-type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE";
+type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
 
 type EmployeeRow = {
   id: string;
@@ -33,9 +33,12 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
   HALF_DAY: { label: "Half", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
   OVERTIME: { label: "OT", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
   LEAVE: { label: "Leave", color: "var(--color-ink-500)", bg: "var(--color-concrete)", border: "var(--color-line)" },
+  LATE: { label: "Late", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 8%, transparent)", border: "color-mix(in srgb, var(--color-signal) 25%, transparent)" },
+  PAID_LEAVE: { label: "PL", color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)", border: "color-mix(in srgb, var(--color-steel) 30%, transparent)" },
+  NON_PAID_LEAVE: { label: "NPL", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 8%, transparent)", border: "color-mix(in srgb, var(--color-stop) 25%, transparent)" },
 };
 
-const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE"];
+const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];
 
 const inputClass = "w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] font-medium outline-none";
 const inputStyle = {
@@ -111,7 +114,7 @@ export function MobileAttendanceForm({
   }, [employees, search]);
 
   const stats = useMemo(() => {
-    let present = 0, absent = 0, halfDay = 0, overtime = 0, leave = 0;
+    let present = 0, absent = 0, halfDay = 0, overtime = 0, leave = 0, late = 0, paidLeave = 0, nonPaidLeave = 0;
     for (const emp of employees) {
       const r = records[emp.id];
       if (!r) continue;
@@ -120,8 +123,11 @@ export function MobileAttendanceForm({
       else if (r.status === "HALF_DAY") halfDay++;
       else if (r.status === "OVERTIME") overtime++;
       else if (r.status === "LEAVE") leave++;
+      else if (r.status === "LATE") late++;
+      else if (r.status === "PAID_LEAVE") paidLeave++;
+      else if (r.status === "NON_PAID_LEAVE") nonPaidLeave++;
     }
-    return { present, absent, halfDay, overtime, leave, total: employees.length };
+    return { present, absent, halfDay, overtime, leave, late, paidLeave, nonPaidLeave, total: employees.length };
   }, [records, employees]);
 
   function setStatus(employeeId: string, status: AttendanceStatus) {
@@ -147,7 +153,7 @@ export function MobileAttendanceForm({
       }
       return next;
     });
-    toast.success(`Marked ${stats.absent + stats.halfDay + stats.overtime + stats.leave} workers as present`);
+    toast.success(`Marked ${stats.absent + stats.halfDay + stats.overtime + stats.leave + stats.late + stats.paidLeave + stats.nonPaidLeave} workers as present`);
   }
 
   function updateRecord(employeeId: string, field: string, value: string) {
@@ -241,29 +247,53 @@ export function MobileAttendanceForm({
         className="flex items-center justify-between rounded-[0.625rem] border p-2.5 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center gap-2.5 text-[0.5625rem] font-semibold">
-          <span className="flex items-center gap-1" style={{ color: "var(--color-go)" }}>
+        <div className="flex items-center gap-2 text-[0.5rem] font-semibold overflow-x-auto scrollbar-hide">
+          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-go)" }} title="Present">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
-            {stats.present}
+            {stats.present} P
           </span>
-          <span className="flex items-center gap-1" style={{ color: "var(--color-stop)" }}>
+          {stats.late > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Late">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
+              {stats.late} L
+            </span>
+          )}
+          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }} title="Absent">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-stop)" }} />
-            {stats.absent}
+            {stats.absent} A
           </span>
-          <span className="flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
-            {stats.halfDay}
-          </span>
-          <span className="flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
-            {stats.overtime}
-          </span>
-          <span className="flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-ink-400)" }} />
-            {stats.leave}
-          </span>
+          {stats.halfDay > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Half Day">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
+              {stats.halfDay} H
+            </span>
+          )}
+          {stats.overtime > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Overtime">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
+              {stats.overtime} OT
+            </span>
+          )}
+          {stats.leave > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-ink-500)" }} title="Leave">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-ink-400)" }} />
+              {stats.leave} L
+            </span>
+          )}
+          {stats.paidLeave > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-steel)" }} title="Paid Leave">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-steel)" }} />
+              {stats.paidLeave} PL
+            </span>
+          )}
+          {stats.nonPaidLeave > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }} title="Non-Paid Leave">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-stop)" }} />
+              {stats.nonPaidLeave} NPL
+            </span>
+          )}
         </div>
-        <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-[0.5625rem] font-bold tabular-nums shrink-0 ml-2" style={{ color: "var(--color-ink-500)" }}>
           {stats.total} total
         </span>
       </div>
@@ -472,7 +502,7 @@ export function MobileAttendanceForm({
             onClick={submit}
             disabled={submitting}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

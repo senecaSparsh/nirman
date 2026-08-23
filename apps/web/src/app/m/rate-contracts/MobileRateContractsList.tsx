@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type RateContractListItem = {
   id: string;
@@ -20,7 +21,19 @@ export type RateContractListItem = {
   isActive: boolean;
 };
 
-export function MobileRateContractsList({ items }: { items: RateContractListItem[] }) {
+export function MobileRateContractsList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: RateContractListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -42,6 +55,18 @@ export function MobileRateContractsList({ items }: { items: RateContractListItem
         query={query}
         onQueryChange={setQuery}
         placeholder="Search supplier or material…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={query !== ""}
         onClear={() => setQuery("")}
       />
@@ -49,10 +74,22 @@ export function MobileRateContractsList({ items }: { items: RateContractListItem
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching contracts" hint="Try a different search" />
       ) : (
+        <div>
+          {query && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} contract{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {filtered.map((c) => (
             <ContractCard key={c.id} contract={c} />
           ))}
+        </div>
         </div>
       )}
     </div>

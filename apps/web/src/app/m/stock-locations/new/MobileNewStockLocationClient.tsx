@@ -79,7 +79,7 @@ export default function MobileNewStockLocationClient({
           <button
             onClick={() => router.push("/m/stock")}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Stock
           </button>
@@ -230,7 +230,7 @@ export default function MobileNewStockLocationClient({
             onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
             disabled={saving}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />

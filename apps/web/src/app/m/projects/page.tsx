@@ -9,7 +9,6 @@ import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileProjectsList } from "./MobileProjectsList";
@@ -139,20 +138,20 @@ async function MobileProjectsContent() {
         <MobileStatCard label="On Hold" value={formatNumber(hold.length, 0)} icon={Building2} tone="stop" />
       </div>
 
-      <MobileExportShareBar
-        title="Projects"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileProjectsList
+        items={serialized}
+        canManage={canManage}
+        exportTitle="Projects"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "name", label: "Name" },
           { key: "type", label: "Type" },
           { key: "status", label: "Status" },
           { key: "totalBudget", label: "Budget", format: "currency" },
           { key: "unitCount", label: "Units" },
         ] as MobileColumnSpec[]}
-        summary={`${projects.length} projects · ${active.length} active`}
+        exportSummary={`${projects.length} projects · ${active.length} active`}
       />
-
-      <MobileProjectsList items={serialized} canManage={canManage} />
     </div>
   );
 }

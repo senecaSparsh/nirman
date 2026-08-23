@@ -58,6 +58,8 @@ export function MobileLandPurchaseOrderDialog({
   // Payment plan (optional at booking)
   const [showPlan, setShowPlan] = useState(false);
   const [planItems, setPlanItems] = useState<{ description: string; percentage: string; dueDate: string }[]>([]);
+  // Partial registry allowed
+  const [partialRegistry, setPartialRegistry] = useState(false);
 
   if (!open) return null;
 
@@ -68,6 +70,7 @@ export function MobileLandPurchaseOrderDialog({
     setTokenAmount(""); setTokenPaymentMode("BANK_TRANSFER"); setTokenCheque(EMPTY_MOBILE_CHEQUE);
     setAtsDocUrl(""); setAtsDocName("");
     setShowPlan(false); setPlanItems([]);
+    setPartialRegistry(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -106,10 +109,40 @@ export function MobileLandPurchaseOrderDialog({
           } : {}),
           atsDocumentUrl: atsDocUrl || undefined,
           atsDocumentName: atsDocName || undefined,
+          partialRegistryAllowed: partialRegistry || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to book land purchase");
+
+      // If payment plan items were entered, create the schedule
+      if (showPlan && planItems.length > 0) {
+        const totalPct = planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0);
+        if (Math.abs(totalPct - 100) > 0.01) {
+          toast.warning("Payment plan percentages don't sum to 100% — plan not saved", {
+            description: "You can edit the plan later from the land detail page.",
+          });
+        } else {
+          const scheduleRes = await fetch(`/api/land-purchases/${data.id}/payment-schedule`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: planItems.map((it, i) => ({
+                installmentNo: i + 1,
+                description: it.description || `Installment ${i + 1}`,
+                percentage: parseFloat(it.percentage) || 0,
+                dueDate: it.dueDate || null,
+              })),
+            }),
+          });
+          if (!scheduleRes.ok) {
+            toast.warning("Land booked but payment plan failed — you can add it later", {
+              description: "Visit the land detail page to create a payment plan.",
+            });
+          }
+        }
+      }
+
       toast.success("Land purchase booked", {
         description: `Token of ${formatCurrency(Number(tokenAmount))} recorded. Complete with registry document later.`,
       });
@@ -339,6 +372,102 @@ export function MobileLandPurchaseOrderDialog({
               onRemove={() => { setAtsDocUrl(""); setAtsDocName(""); }}
             />
           </div>
+
+          {/* Partial registry toggle */}
+          <label className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
+            <input
+              type="checkbox"
+              checked={partialRegistry}
+              onChange={(e) => setPartialRegistry(e.target.checked)}
+              className="size-3.5"
+            />
+            <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
+              Allow registry before full payment
+            </span>
+          </label>
+
+          {/* Payment Plan (optional) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowPlan(!showPlan)}
+              className="w-full flex items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2 text-[0.625rem] font-bold press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+            >
+              <CalendarClock className="size-3.5" />
+              {showPlan ? "Hide Payment Plan" : "Add Payment Plan (optional)"}
+            </button>
+          </div>
+          {showPlan && (
+            <div className="space-y-2">
+              {totalCost && tokenAmount && Number(totalCost) > Number(tokenAmount) && (
+                <p className="text-[0.4375rem] rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
+                  Balance to schedule: <span className="font-bold">{formatCurrency(Number(totalCost) - Number(tokenAmount))}</span>
+                </p>
+              )}
+              {planItems.map((item, idx) => {
+                const balance = Number(totalCost) - Number(tokenAmount || 0);
+                const amount = (balance * (parseFloat(item.percentage) || 0)) / 100;
+                return (
+                  <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
+                      <button type="button" onClick={() => setPlanItems(planItems.filter((_, i) => i !== idx))} className="press">
+                        <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
+                      placeholder="Description (e.g. On ATS, On Registry)"
+                      className={`${inputClass} mb-1.5`}
+                      style={inputStyle}
+                    />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className={labelClass} style={labelStyle}>% of Balance</label>
+                        <input
+                          type="number"
+                          value={item.percentage}
+                          onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, percentage: e.target.value } : it))}
+                          className={`${inputClass} tabular-nums`}
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className={labelClass} style={labelStyle}>Due Date</label>
+                        <input
+                          type="date"
+                          value={item.dueDate}
+                          onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, dueDate: e.target.value } : it))}
+                          className={inputClass}
+                          style={inputStyle}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[0.5rem] mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                      = {formatCurrency(amount)}
+                    </p>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setPlanItems([...planItems, { description: "", percentage: "0", dueDate: "" }])}
+                className="w-full rounded-[0.375rem] border border-dashed py-1.5 text-[0.5625rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+              >
+                <Plus className="size-3 inline" /> Add Installment
+              </button>
+              {planItems.length > 0 && (
+                <p className="text-[0.5rem] text-center" style={{ color: "var(--color-ink-500)" }}>
+                  Total: {planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0).toFixed(0)}%
+                  {Math.abs(planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0) - 100) < 0.01 ? " ✓" : " (must be 100%)"}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">

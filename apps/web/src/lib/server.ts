@@ -137,7 +137,7 @@ export const materialSchema = z.object({
 });
 
 export const stockLocationSchema = z.object({
-  type: z.enum(["COMPANY_WAREHOUSE", "PROJECT_SITE"]),
+  type: z.enum(["CENTRAL_WAREHOUSE", "COMPANY_WAREHOUSE", "PROJECT_SITE", "DEPARTMENT"]),
   name: z.string().min(1, "Name is required").max(120),
   projectId: z.string().optional().nullable(),
   address: z.string().max(300).optional().nullable(),
@@ -1013,6 +1013,8 @@ export const employeeSchema = z.object({
   crewId: z.string().optional().nullable(),
   activeProjectId: z.string().optional().nullable(),
   active: z.boolean().optional(),
+  reportingLocationId: z.string().optional().nullable(),
+  hierarchyLevel: z.coerce.number().int().min(1).max(6).optional().nullable(),
 });
 
 // ── Crew ──
@@ -1032,8 +1034,14 @@ export const attendanceSchema = z.object({
   checkIn: z.string().optional().nullable(),
   checkOut: z.string().optional().nullable(),
   hoursWorked: z.coerce.number().min(0).max(24).optional().nullable(),
-  status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE"]),
+  status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "PAID_LEAVE", "NON_PAID_LEAVE"]),
   notes: z.string().max(500).optional().nullable(),
+  checkInLat: z.number().optional().nullable(),
+  checkInLng: z.number().optional().nullable(),
+  checkOutLat: z.number().optional().nullable(),
+  checkOutLng: z.number().optional().nullable(),
+  checkInLocation: z.string().max(300).optional().nullable(),
+  checkOutLocation: z.string().max(300).optional().nullable(),
 });
 
 export const bulkAttendanceSchema = z.object({
@@ -1041,7 +1049,7 @@ export const bulkAttendanceSchema = z.object({
   projectId: z.string().optional().nullable(),
   records: z.array(z.object({
     employeeId: z.string().min(1),
-    status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE"]),
+    status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "PAID_LEAVE", "NON_PAID_LEAVE"]),
     checkIn: z.string().optional().nullable(),
     checkOut: z.string().optional().nullable(),
     hoursWorked: z.coerce.number().min(0).max(24).optional().nullable(),

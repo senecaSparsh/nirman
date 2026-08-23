@@ -126,7 +126,7 @@ export function MobileChequeFields({
               className="absolute top-1 right-1 rounded-full p-1 press"
               style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 70%, transparent)" }}
             >
-              <X className="size-3" style={{ color: "#fff" }} />
+              <X className="size-3" style={{ color: "var(--color-paper)" }} />
             </button>
           </div>
         ) : (

@@ -61,7 +61,7 @@ export function MobileStockCountDetailClient({
       <div>
         <div className="flex items-center gap-2 mb-3">
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Stock count not found
+            Stock inventory not found
           </p>
         </div>
         <div
@@ -130,7 +130,7 @@ export function MobileStockCountDetailClient({
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
           <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Stock Count
+            Stock Inventory
           </p>
         </div>
         <span
@@ -296,7 +296,7 @@ export function MobileStockCountDetailClient({
               onClick={() => handleAction("confirm")}
               disabled={acting !== null}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "confirm" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -314,7 +314,7 @@ export function MobileStockCountDetailClient({
               onClick={() => handleAction("reconcile")}
               disabled={acting !== null}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "reconcile" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -375,7 +375,7 @@ export function MobileStockCountDetailClient({
             </div>
             <div className="p-3">
               <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
-                This will permanently delete the draft stock count for {count.location.name}. This action cannot be undone.
+                This will permanently delete the draft stock inventory for {count.location.name}. This action cannot be undone.
               </p>
               <div className="flex gap-2">
                 <button

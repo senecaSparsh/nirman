@@ -244,9 +244,9 @@ export function MobileExportShareBar({
           {shared ? (
             <Check className="size-3.5" style={{ color: "var(--color-go)" }} />
           ) : (
-            <Share2 className="size-3.5" style={{ color: "#fff" }} />
+            <Share2 className="size-3.5" style={{ color: "var(--color-paper)" }} />
           )}
-          <span className="text-[0.6875rem] font-semibold" style={{ color: shared ? "var(--color-go)" : "#fff" }}>
+          <span className="text-[0.6875rem] font-semibold" style={{ color: shared ? "var(--color-go)" : "var(--color-paper)" }}>
             {shared ? "Shared" : "Share"}
           </span>
         </button>
@@ -288,6 +288,167 @@ export function MobileExportShareBar({
                   </p>
                   <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
                     Formatted workbook with summary
+                  </p>
+                </div>
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MobileExportShareIcons — compact icon-only version for inline use
+   inside MobileSearchHeader's action slot. Renders two small icon
+   buttons (Download, Share) that fit beside Sort in the search row.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function MobileExportShareIcons({
+  title,
+  rows,
+  columns,
+  exportType,
+  exportParams,
+  summary,
+}: MobileExportShareBarProps) {
+  const [downloading, setDownloading] = React.useState(false);
+  const [shared, setShared] = React.useState(false);
+  const [showMenu, setShowMenu] = React.useState(false);
+
+  const filename = `${title.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  async function handleCSV() {
+    downloadCSVFile(filename, rows, columns);
+    setShowMenu(false);
+  }
+
+  async function handleExcel() {
+    if (!exportType) return;
+    setDownloading(true);
+    try {
+      const searchParams = new URLSearchParams();
+      searchParams.set("type", exportType);
+      searchParams.set("format", "xlsx");
+      if (exportParams?.from) searchParams.set("from", exportParams.from);
+      if (exportParams?.to) searchParams.set("to", exportParams.to);
+      if (exportParams?.asOn) searchParams.set("asOn", exportParams.asOn);
+      if (exportParams?.projectId) searchParams.set("projectId", exportParams.projectId);
+
+      const res = await fetch(`/api/export?${searchParams.toString()}`);
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      link.download = filenameMatch?.[1] ?? `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      downloadCSVFile(filename, rows, columns);
+    } finally {
+      setDownloading(false);
+      setShowMenu(false);
+    }
+  }
+
+  async function handleShare() {
+    const shareText = summary ? `${title}\n${summary}` : title;
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text: shareText, url: shareUrl });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        // User cancelled
+      }
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        // Clipboard failed
+      }
+    }
+  }
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="relative flex items-center gap-1 shrink-0">
+      {/* Export icon */}
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        disabled={downloading}
+        aria-label="Export"
+        className="grid place-items-center size-8 rounded-[0.5rem] border press active:opacity-80 disabled:opacity-40"
+        style={{
+          borderColor: showMenu ? "var(--color-ink-950)" : "var(--color-line)",
+          backgroundColor: showMenu ? "var(--color-concrete)" : "var(--color-paper)",
+        }}
+      >
+        <Download className="size-4" style={{ color: "var(--color-ink-700)" }} />
+      </button>
+
+      {/* Share icon */}
+      <button
+        onClick={handleShare}
+        aria-label="Share"
+        className="grid place-items-center size-8 rounded-[0.5rem] border press active:opacity-80"
+        style={{
+          borderColor: shared ? "var(--color-go)" : "var(--color-line)",
+          backgroundColor: shared ? "color-mix(in srgb, var(--color-go) 8%, transparent)" : "var(--color-paper)",
+        }}
+      >
+        {shared ? (
+          <Check className="size-4" style={{ color: "var(--color-go)" }} />
+        ) : (
+          <Share2 className="size-4" style={{ color: "var(--color-ink-700)" }} />
+        )}
+      </button>
+
+      {/* Export dropdown */}
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div
+            className="absolute z-50 top-full right-0 mt-1 w-48 rounded-[0.625rem] border overflow-hidden shadow-lg"
+            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+          >
+            <button
+              onClick={handleCSV}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left"
+            >
+              <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-600)" }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  Download CSV
+                </p>
+                <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                  {rows.length} rows
+                </p>
+              </div>
+            </button>
+            {exportType && (
+              <button
+                onClick={handleExcel}
+                disabled={downloading}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left border-t disabled:opacity-40"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <FileSpreadsheet className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                    {downloading ? "Generating…" : "Download Excel"}
                   </p>
                 </div>
               </button>

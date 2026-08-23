@@ -225,7 +225,7 @@ export function MobileCustomerForm({
             onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={saving || !form.name.trim() || !form.phone.trim()}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />
@@ -402,7 +402,7 @@ export function MobileCreateCustomerButton({
                 type="submit"
                 disabled={saving || !form.name.trim() || !form.phone.trim()}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 {saving ? (
                   <Loader2 className="size-3.5 animate-spin" />

@@ -130,7 +130,7 @@ export function MobileNewCategoryDialog({
             type="submit"
             disabled={saving}
             className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />

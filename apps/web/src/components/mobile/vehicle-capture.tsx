@@ -202,7 +202,7 @@ export function VehicleCapture({
               className="absolute top-1 right-1 grid place-items-center size-5 rounded-full"
               style={{ backgroundColor: "var(--color-ink-950)" }}
             >
-              <X className="size-3" style={{ color: "#fff" }} />
+              <X className="size-3" style={{ color: "var(--color-paper)" }} />
             </button>
             <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
               <span className="text-[0.4375rem] font-semibold text-white">✓ Vehicle photo</span>

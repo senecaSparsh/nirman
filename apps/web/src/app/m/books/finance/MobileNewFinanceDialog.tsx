@@ -206,7 +206,7 @@ export function MobileNewFinanceDialog({
               style={{
                 borderColor: tab === "expense" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: tab === "expense" ? "var(--color-ink-950)" : "var(--color-paper)",
-                color: tab === "expense" ? "#fff" : "var(--color-ink-500)",
+                color: tab === "expense" ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               Expense
@@ -218,7 +218,7 @@ export function MobileNewFinanceDialog({
               style={{
                 borderColor: tab === "projectCost" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: tab === "projectCost" ? "var(--color-ink-950)" : "var(--color-paper)",
-                color: tab === "projectCost" ? "#fff" : "var(--color-ink-500)",
+                color: tab === "projectCost" ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               Project Cost
@@ -300,7 +300,7 @@ export function MobileNewFinanceDialog({
                       style={{
                         borderColor: costForm.costType === t ? "var(--color-ink-950)" : "var(--color-line)",
                         backgroundColor: costForm.costType === t ? "var(--color-ink-950)" : "var(--color-paper)",
-                        color: costForm.costType === t ? "#fff" : "var(--color-ink-500)",
+                        color: costForm.costType === t ? "var(--color-paper)" : "var(--color-ink-500)",
                       }}
                     >
                       {COST_TYPE_LABELS[t]}
@@ -340,7 +340,7 @@ export function MobileNewFinanceDialog({
             <button type="button" onClick={onClose} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button type="submit" disabled={saving} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               {saving ? "Saving…" : tab === "expense" ? "Record Expense" : "Add Cost"}
             </button>
@@ -375,7 +375,7 @@ export function MobileFinanceFab({
         style={{
           bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
           backgroundColor: "var(--color-ink-950)",
-          color: "#fff",
+          color: "var(--color-paper)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         }}
         aria-label="Add expense or project cost"

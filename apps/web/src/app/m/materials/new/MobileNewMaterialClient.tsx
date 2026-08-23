@@ -17,30 +17,48 @@ interface Category {
   unit: string;
 }
 
+interface ExistingMaterial {
+  id: string;
+  code: string;
+  name: string;
+  grade: string | null;
+  specification: string | null;
+  categoryId: string;
+  unit: string;
+  hsnCode: string | null;
+  gstRate: number;
+  standardCost: number;
+  reorderPoint: number | null;
+  description: string | null;
+}
+
 const COMMON_UNITS = ["NOS", "BAG", "KG", "TON", "MTR", "FEET", "SQFT", "CUM", "LTR", "BOX", "ROLL", "SET"];
 
 export default function MobileNewMaterialClient({
   categories,
+  material,
 }: {
   categories: Category[];
+  material?: ExistingMaterial;
 }) {
   const router = useRouter();
+  const isEdit = !!material;
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<{ name: string; code: string; id: string } | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [categoryList, setCategoryList] = useState(categories);
 
-  const [code, setCode] = useState("AUTO");
-  const [name, setName] = useState("");
-  const [grade, setGrade] = useState("");
-  const [specification, setSpecification] = useState("");
-  const [categoryId, setCategoryId] = useState(categoryList[0]?.id ?? "");
-  const [unit, setUnit] = useState(categoryList[0]?.unit ?? "NOS");
-  const [hsnCode, setHsnCode] = useState("");
-  const [gstRate, setGstRate] = useState("0");
-  const [standardCost, setStandardCost] = useState("");
-  const [reorderPoint, setReorderPoint] = useState("");
-  const [description, setDescription] = useState("");
+  const [code, setCode] = useState(material?.code ?? "AUTO");
+  const [name, setName] = useState(material?.name ?? "");
+  const [grade, setGrade] = useState(material?.grade ?? "");
+  const [specification, setSpecification] = useState(material?.specification ?? "");
+  const [categoryId, setCategoryId] = useState(material?.categoryId ?? categoryList[0]?.id ?? "");
+  const [unit, setUnit] = useState(material?.unit ?? categoryList[0]?.unit ?? "NOS");
+  const [hsnCode, setHsnCode] = useState(material?.hsnCode ?? "");
+  const [gstRate, setGstRate] = useState(String(material?.gstRate ?? 0));
+  const [standardCost, setStandardCost] = useState(material ? String(material.standardCost) : "");
+  const [reorderPoint, setReorderPoint] = useState(material?.reorderPoint != null ? String(material.reorderPoint) : "");
+  const [description, setDescription] = useState(material?.description ?? "");
 
   // Auto-code preview — fetch from API when category or grade changes.
   const [codePreview, setCodePreview] = useState("");
@@ -72,29 +90,32 @@ export default function MobileNewMaterialClient({
     setSaving(true);
     haptic(10);
     try {
-      const res = await fetch("/api/materials", {
-        method: "POST",
+      const payload = {
+        code: code.trim() || "AUTO",
+        name: name.trim(),
+        grade: grade.trim() || null,
+        specification: specification.trim() || null,
+        categoryId,
+        unit: unit.trim().toUpperCase(),
+        hsnCode: hsnCode.trim() || null,
+        gstRate: Number(gstRate) || 0,
+        standardCost: Number(standardCost) || 0,
+        reorderPoint: reorderPoint.trim() === "" ? null : Number(reorderPoint),
+        description: description.trim() || null,
+      };
+      const url = isEdit ? `/api/materials/${material!.id}` : "/api/materials";
+      const method = isEdit ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: code.trim() || "AUTO",
-          name: name.trim(),
-          grade: grade.trim() || null,
-          specification: specification.trim() || null,
-          categoryId,
-          unit: unit.trim().toUpperCase(),
-          hsnCode: hsnCode.trim() || null,
-          gstRate: Number(gstRate) || 0,
-          standardCost: Number(standardCost) || 0,
-          reorderPoint: reorderPoint.trim() === "" ? null : Number(reorderPoint),
-          description: description.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create material");
+      if (!res.ok) throw new Error(data.error ?? `Failed to ${isEdit ? "update" : "create"} material`);
 
       haptic([10, 40, 80]);
       setSuccess({ name: data.name, code: data.code, id: data.id });
-      toast.success(`${data.name} created successfully`);
+      toast.success(`${data.name} ${isEdit ? "updated" : "created"} successfully`);
     } catch (err) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -114,7 +135,7 @@ export default function MobileNewMaterialClient({
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
         <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-          Material Created
+          {isEdit ? "Material Updated" : "Material Created"}
         </p>
         <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
           {success.code}
@@ -126,7 +147,7 @@ export default function MobileNewMaterialClient({
           <button
             onClick={() => router.push(`/m/materials/${success.id}`)}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Material
           </button>
@@ -407,14 +428,14 @@ export default function MobileNewMaterialClient({
           type="submit"
           disabled={saving}
           className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <>
               <Send className="size-4" />
-              <span>Create Material</span>
+              <span>{isEdit ? "Update Material" : "Create Material"}</span>
             </>
           )}
         </button>

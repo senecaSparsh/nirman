@@ -123,7 +123,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   }
   if (canManageStock && pendingStockCounts > 0) {
     queues.push({ key: "stock-count", count: pendingStockCounts, urgency: "soon" });
-    pendingActions.push({ label: "Stock counts", value: pendingStockCounts });
+    pendingActions.push({ label: "Stock inventories", value: pendingStockCounts });
   }
   if (canSeeSales && availableUnits > 0) {
     queues.push({ key: "units-sell", count: availableUnits, urgency: "soon" });

@@ -12,7 +12,6 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileUnitsList } from "./MobileUnitsList";
 import { MobileUnitsFab } from "./MobileUnitsFab";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -171,16 +170,17 @@ async function MobileUnitsContent({
       ) : null}
 
       <div className="mb-4">
-        <MobileExportShareBar
-          title="Built Units"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${units.length} units · Stock value: ${formatCurrency(inventoryValue)}`}
-        />
       </div>
 
       {/* ── Searchable/filterable list ── */}
-      <MobileUnitsList items={serialized} projectFiltered={!!project} />
+      <MobileUnitsList
+        items={serialized}
+        projectFiltered={!!project}
+        exportTitle="Built Units"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${units.length} units · Stock value: ${formatCurrency(inventoryValue)}`}
+      />
 
       {/* ── FAB: New Unit ── */}
       {canManage && projects.length > 0 && (

@@ -291,7 +291,7 @@ export async function reallocateProjectCosts(
   //    PURCHASED units have their cost basis set at acquisition (acquisitionCost),
   //    and should NOT receive area-allocated construction costs.
   const units = await tx.builtUnit.findMany({
-    where: { projectId, deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "UNDER_CONSTRUCTION"] }, originType: "CREATED" },
+    where: { projectId, deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "UNDER_CONSTRUCTION", "RESERVED"] }, originType: "CREATED" },
     select: { id: true, area: true },
   });
   const totalArea = units.reduce(

@@ -345,12 +345,16 @@ export async function updateWbsNode(
 
     const updated = await tx.wbsNode.update({ where: { id }, data });
 
-    // ── CLP trigger: when actualEnd is set (milestone completed), mark linked
-    // PaymentScheduleItem rows as DUE. This is the demand-generation step for
-    // Construction-Linked Plans — the buyer owes the installment once the
-    // milestone is reached. Only PENDING items are advanced to DUE (PARTIAL /
-    // PAID items already have payments and are left alone).
-    if (patch.actualEnd !== undefined && patch.actualEnd != null) {
+    // ── CLP trigger: when a milestone is completed (actualEnd set OR
+    // progressPct reaches 100%), mark linked PaymentScheduleItem rows as DUE.
+    // This is the demand-generation step for Construction-Linked Plans —
+    // the buyer owes the installment once the milestone is reached.
+    // Only PENDING items are advanced to DUE (PARTIAL / PAID items already
+    // have payments and are left alone).
+    const milestoneCompleted =
+      (patch.actualEnd !== undefined && patch.actualEnd != null) ||
+      (patch.progressPct !== undefined && new Decimal(patch.progressPct).gte(100));
+    if (milestoneCompleted) {
       const clpItems = await tx.paymentScheduleItem.findMany({
         where: { wbsNodeId: id, status: "PENDING" },
         include: { paymentSchedule: { select: { assetSaleId: true } } },

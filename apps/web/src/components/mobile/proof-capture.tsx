@@ -67,7 +67,7 @@ export function PhotoCapture({
               className="absolute top-0.5 right-0.5 grid place-items-center size-4 rounded-full"
               style={{ backgroundColor: "var(--color-ink-950)" }}
             >
-              <X className="size-2.5" style={{ color: "#fff" }} />
+              <X className="size-2.5" style={{ color: "var(--color-paper)" }} />
             </button>
           </div>
         ))}
@@ -523,7 +523,7 @@ export function ReceivingPhotoUpload({
           className="absolute top-0.5 right-0.5 grid place-items-center size-4 rounded-full"
           style={{ backgroundColor: "var(--color-ink-950)" }}
         >
-          <X className="size-2.5" style={{ color: "#fff" }} />
+          <X className="size-2.5" style={{ color: "var(--color-paper)" }} />
         </button>
         <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
           <span className="text-[0.4375rem] font-semibold text-white truncate">✓ Receiving photo</span>

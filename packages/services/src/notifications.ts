@@ -377,6 +377,56 @@ export async function notifyQuoteApproval(
   return results;
 }
 
+/**
+ * Notify recipients about a pending payment due (sale, land, rent, or supplier).
+ * Sends via WhatsApp + email if the recipient has a phone/email.
+ * Used by the payment reminder cron / manual trigger.
+ */
+export async function notifyPaymentDue(
+  companyId: string,
+  payment: {
+    type: "SALE" | "LAND" | "RENT" | "SUPPLIER";
+    entityName: string;
+    amount: number;
+    dueDate?: string | null;
+    balanceDue?: number | null;
+  },
+  recipients: Array<{ phone?: string | null; email?: string | null; name: string }>,
+) {
+  const dueStr = payment.dueDate ? ` due on ${payment.dueDate}` : "";
+  const balanceStr = payment.balanceDue != null ? ` (Total balance: ₹${payment.balanceDue.toFixed(2)})` : "";
+  const message = `🔔 Payment Reminder: ${payment.type} payment of ₹${payment.amount.toFixed(2)} for ${payment.entityName}${dueStr}${balanceStr}. Please process before the due date.`;
+
+  const results = [];
+  for (const r of recipients) {
+    if (r.phone) {
+      const result = await sendNotification({
+        companyId,
+        eventType: "PAYMENT_DUE",
+        channel: "WHATSAPP",
+        recipient: r.phone,
+        recipientName: r.name,
+        message,
+        metadata: { type: payment.type, entityName: payment.entityName, amount: payment.amount },
+      });
+      results.push(result);
+    }
+    if (r.email) {
+      const result = await sendNotification({
+        companyId,
+        eventType: "PAYMENT_DUE",
+        channel: "EMAIL",
+        recipient: r.email,
+        recipientName: r.name,
+        message,
+        metadata: { type: payment.type, entityName: payment.entityName, amount: payment.amount },
+      });
+      results.push(result);
+    }
+  }
+  return results;
+}
+
 // ── Template Management ────────────────────────────────────
 
 export async function listNotificationTemplates(companyId: string) {

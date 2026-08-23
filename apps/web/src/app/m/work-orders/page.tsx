@@ -2,18 +2,16 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Wrench, Plus } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {
-  MobileEmptyState,
   MobileStatCard,
-  MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileWorkOrdersList } from "./MobileWorkOrdersList";
 import { MobileWorkOrdersFab } from "./MobileWorkOrdersFab";
+import { MobileWorkOrdersEmptyState } from "./MobileWorkOrdersEmptyState";
 
 /**
  * /m/work-orders — mobile subcontractor work order management.
@@ -88,10 +86,11 @@ async function MobileWorkOrdersContent() {
         <MobileStatCard label="Completed" value={String(completed)} icon={Wrench} />
       </div>
 
-      <MobileExportShareBar
-        title="Work Orders"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileWorkOrdersList
+        items={serialized}
+        exportTitle="Work Orders"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "workOrderNumber", label: "WO Number" },
           { key: "subcontractorName", label: "Subcontractor" },
           { key: "projectName", label: "Project" },
@@ -99,33 +98,14 @@ async function MobileWorkOrdersContent() {
           { key: "status", label: "Status" },
           { key: "advanceAmount", label: "Advance", format: "currency" },
         ] as MobileColumnSpec[]}
-        summary={`${serialized.length} work orders`}
+        exportSummary={`${serialized.length} work orders`}
       />
 
-      <MobileWorkOrdersList items={serialized} />
-
       {workOrders.length === 0 && (
-        <MobileEmptyState
-          icon={Wrench}
-          title="No work orders"
-          hint={
-            canManage
-              ? projects.length === 0
-                ? "Create a project first, then issue work orders to subcontractors"
-                : subcontractors.length === 0
-                  ? "Add subcontractor suppliers first, then issue work orders"
-                  : "Tap + to issue a work order to a subcontractor"
-              : "Work orders will appear here"
-          }
-          action={
-            canManage ? (
-              projects.length === 0 ? (
-                <MobileCta href="/m/projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
-              ) : subcontractors.length === 0 ? (
-                <MobileCta href="/m/suppliers/new" icon={Plus} variant="primary">Add Subcontractor</MobileCta>
-              ) : undefined
-            ) : undefined
-          }
+        <MobileWorkOrdersEmptyState
+          canManage={canManage}
+          hasProjects={projects.length > 0}
+          hasSubcontractors={subcontractors.length > 0}
         />
       )}
 

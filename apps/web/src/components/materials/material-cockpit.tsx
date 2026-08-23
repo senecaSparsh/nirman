@@ -110,6 +110,9 @@ export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
   const { material } = data;
   const totalQty = data.stockItems.reduce((s, si) => s + si.qty, 0);
   const totalValue = data.stockItems.reduce((s, si) => s + si.totalValue, 0);
+  // Aggregate MAC = qty-weighted average across all locations.
+  // Falls back to material.currentCost only when no stock exists.
+  const aggregateMac = totalQty > 0 ? totalValue / totalQty : material.currentCost;
   const isLowStock = material.reorderPoint != null && totalQty <= material.reorderPoint;
   const trackRecent = useTrackRecent();
 
@@ -154,7 +157,7 @@ export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
         </div>
         <div className="flex items-baseline gap-1.5">
           <span className="text-label text-muted-foreground/70">Current Cost</span>
-          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(material.currentCost)}/{material.unit}</span>
+          <span className="tnum text-body font-semibold text-foreground">{formatCurrency(aggregateMac)}/{material.unit}</span>
         </div>
         {material.reorderPoint != null && (
           <div className="flex items-baseline gap-1.5">

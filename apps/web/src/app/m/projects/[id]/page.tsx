@@ -8,6 +8,7 @@ import {
   MapPin, Calendar, TrendingUp, PackageCheck,
   FileText, CalendarCheck, ShieldCheck,
 } from "lucide-react";
+import { MobileProjectPossession } from "./MobileProjectPossession";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
@@ -372,6 +373,15 @@ async function MobileProjectDetailContent({
           </div>
         </div>
       </div>
+
+      {/* ── Possession tracking ── */}
+      <MobileProjectPossession
+        projectId={project.id}
+        isPossessed={project.isPossessed}
+        possessionDate={project.possessionDate?.toISOString() ?? null}
+        possessionNotes={project.possessionNotes}
+        canManage={canManage}
+      />
 
       {/* ── Quick actions ── */}
       <SectionHead title="Quick actions" />

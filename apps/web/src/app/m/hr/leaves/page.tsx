@@ -14,7 +14,6 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileLeavesList } from "./MobileLeavesList";
 import { MobileLeavesFab } from "./MobileLeavesFab";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -94,16 +93,13 @@ async function MobileLeavesContent() {
         <MobileStatCard label="Approved" value={String(approved)} icon={CalendarDays} tone="go" />
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Leaves"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serialized.length} leave records · ${pending} pending`}
-        />
-      </div>
-
-      <MobileLeavesList items={serialized} />
+      <MobileLeavesList
+        items={serialized}
+        exportTitle="Leaves"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} leave records · ${pending} pending`}
+      />
 
       {leaves.length === 0 && (
         <MobileEmptyState

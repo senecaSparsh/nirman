@@ -14,7 +14,7 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobileReportHeader, MobileReportSummary, MobileBarChart } from "@/components/mobile/v2/report-ui";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -122,7 +122,7 @@ async function MobileSalesRevenueContent() {
       />
 
       <div className="mb-4">
-        <MobileExportShareBar
+        <MobileExportShareIcons
           title="Sales Revenue Report"
           rows={records as unknown as Record<string, unknown>[]}
           columns={csvColumns}

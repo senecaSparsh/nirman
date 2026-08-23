@@ -8,7 +8,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobilePayrollList } from "./MobilePayrollList";
 import { MobilePayrollFab } from "./MobileGeneratePayrollDialog";
@@ -58,20 +57,6 @@ async function BooksPayrollContent() {
         <MobileStatCard label="Paid" value={formatNumber(paidCount, 0)} icon={CalendarCheck} tone={paidCount > 0 ? "go" : "neutral"} />
       </div>
 
-      <div className="mb-3">
-        <MobileExportShareBar
-          title="Payroll"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={[
-            { key: "monthLabel", label: "Month" },
-            { key: "status", label: "Status" },
-            { key: "totalGross", label: "Gross", format: "currency" },
-            { key: "totalNet", label: "Net", format: "currency" },
-          ] as MobileColumnSpec[]}
-          summary={`${serialized.length} payroll periods · ${paidCount} paid`}
-        />
-      </div>
-
       {periods.length === 0 ? (
         <MobileEmptyState
           icon={CalendarCheck}
@@ -79,7 +64,18 @@ async function BooksPayrollContent() {
           hint={canManage ? "Tap + to generate payroll for a month" : "Payroll periods will appear here once generated"}
         />
       ) : (
-        <MobilePayrollList items={serialized} />
+        <MobilePayrollList
+          items={serialized}
+          exportTitle="Payroll"
+          exportRows={serialized as unknown as Record<string, unknown>[]}
+          exportColumns={[
+            { key: "monthLabel", label: "Month" },
+            { key: "status", label: "Status" },
+            { key: "totalGross", label: "Gross", format: "currency" },
+            { key: "totalNet", label: "Net", format: "currency" },
+          ] as MobileColumnSpec[]}
+          exportSummary={`${serialized.length} payroll periods · ${paidCount} paid`}
+        />
       )}
 
       {canManage && <MobilePayrollFab />}

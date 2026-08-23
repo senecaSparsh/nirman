@@ -9,7 +9,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats } from "@nirman/services";
+import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -42,7 +42,7 @@ async function AccountsContent() {
   await connection();
   const company = await getCompany();
 
-  const [tallyStats, recentReceipts, payableSuppliers, draftPayroll, ,] =
+  const [tallyStats, recentReceipts, allSupplierOutstanding, draftPayroll, ,] =
     await Promise.all([
       getTallySyncStats(company.id).catch(() => ({
         total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
@@ -53,12 +53,8 @@ async function AccountsContent() {
         take: 5,
         include: { assetSale: { select: { customer: { select: { name: true } } } } },
       }).catch(() => []),
-      prisma.supplier.findMany({
-        where: { deletedAt: null, balanceOwed: { gt: 0 }, purchaseOrders: { some: { companyId: company.id } } },
-        orderBy: { balanceOwed: "desc" },
-        take: 5,
-        select: { id: true, name: true, balanceOwed: true },
-      }).catch(() => []),
+      // Use the same service function as Settings page for consistency
+      getSupplierOutstanding(company.id).catch(() => []),
       prisma.payrollPeriod.findFirst({
         where: { companyId: company.id, status: "DRAFT" },
         orderBy: [{ year: "desc" }, { month: "desc" }],
@@ -72,7 +68,13 @@ async function AccountsContent() {
       }).catch(() => []),
     ]);
 
-  const totalPayables = payableSuppliers.reduce((s, x) => s + toNum(x.balanceOwed), 0);
+  // Only suppliers with outstanding balance > 0 are "payable"
+  const payableSuppliers = allSupplierOutstanding
+    .filter((s) => toNum(s.balanceOwed) > 0)
+    .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed))
+    .slice(0, 5);
+  const totalPayables = allSupplierOutstanding.reduce((s, x) => s + toNum(x.balanceOwed), 0);
+  const payableVendorCount = allSupplierOutstanding.filter((s) => toNum(s.balanceOwed) > 0).length;
   const totalReceipts = recentReceipts.reduce((s, r) => s + toNum(r.amount), 0);
 
   // ── Build attention banners ──
@@ -107,7 +109,7 @@ async function AccountsContent() {
   // Outstanding payables — one per top vendor
   for (const s of payableSuppliers.slice(0, 3)) {
     attentionBanners.push({
-      id: s.id,
+      id: s.supplierId,
       title: s.name,
       subtitle: `Outstanding payable · ${formatCurrency(toNum(s.balanceOwed))}`,
       href: "/m/suppliers",
@@ -139,7 +141,7 @@ async function AccountsContent() {
       id: "clear",
       title: "All caught up!",
       subtitle: `${formatCurrency(totalReceipts)} received recently · no pending syncs · no outstanding payables`,
-      href: "/m/books",
+      href: "/m/accounts",
       severity: "clear",
       qtyText: "✓",
       category: "Everything looks good",
@@ -153,7 +155,7 @@ async function AccountsContent() {
 
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <MobileStatCard label="Payables" value={formatCurrency(totalPayables)} hint={`${payableSuppliers.length} vendors`} icon={Receipt} tone={totalPayables > 0 ? "signal" : "neutral"} />
+        <MobileStatCard label="Payables" value={formatCurrency(totalPayables)} hint={`${payableVendorCount} vendors`} icon={Receipt} tone={totalPayables > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Receipts" value={formatCurrency(totalReceipts)} hint={`${recentReceipts.length} recent`} icon={Wallet} tone="go" />
         <MobileStatCard label="Tally Pending" value={formatNumber(tallyStats.pending, 0)} icon={AlertCircle} tone={tallyStats.pending > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Tally Failed" value={formatNumber(tallyStats.failed, 0)} icon={AlertCircle} tone={tallyStats.failed > 0 ? "stop" : "neutral"} />

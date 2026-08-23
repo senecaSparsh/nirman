@@ -110,18 +110,6 @@ async function MobileDprDetailContent({
 
   return (
     <div>
-      {/* ── Back + Print ── */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <a
-          href={`/api/dprs/${dpr.id}/print`}
-          className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Printer className="size-3.5" />
-          Print
-        </a>
-      </div>
-
       {/* ── Report header banner ── */}
       <div
         className="rounded-[0.75rem] overflow-hidden mb-4"
@@ -133,9 +121,19 @@ async function MobileDprDetailContent({
         <div className="flex items-start gap-3 p-3.5">
           {/* Left: date + project + badges */}
           <div className="min-w-0 flex-1">
-            <h1 className="text-[1.25rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-              {formatDate(dpr.date)}
-            </h1>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h1 className="text-[1.25rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+                {formatDate(dpr.date)}
+              </h1>
+              <a
+                href={`/api/dprs/${dpr.id}/print`}
+                className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+              >
+                <Printer className="size-3.5" />
+                Print
+              </a>
+            </div>
             <Link
               href={`/m/projects/${dpr.project.id}`}
               className="text-[0.75rem] font-semibold block mt-0.5 hover:underline"

@@ -111,6 +111,17 @@ async function MobileReportsHubContent() {
         />
       </div>
 
+      {/* ── Basis clarification ── */}
+      <div
+        className="rounded-[0.5rem] border px-3 py-2 mb-4 text-[0.5rem]"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+      >
+        <strong style={{ color: "var(--color-ink-700)" }}>Note:</strong> Revenue = cash received (not booked).
+        Project Costs = explicit cost entries only (equipment, contractor, overhead).
+        Land + material issues are tracked per-project on the project detail page.
+        Net Profit = received revenue − explicit costs − purchases − expenses.
+      </div>
+
       {/* ── Revenue breakdown ── */}
       <MobileSectionTitle>Revenue</MobileSectionTitle>
       <div className="flex flex-col gap-2 mb-4">
@@ -122,9 +133,9 @@ async function MobileReportsHubContent() {
       {/* ── Cost breakdown ── */}
       <MobileSectionTitle>Costs</MobileSectionTitle>
       <div className="flex flex-col gap-2 mb-4">
-        <MobileRow icon={Building2} title="Project costs" meta={formatCurrency(totalProjectCosts)} />
+        <MobileRow icon={Building2} title="Project costs" subtitle="Explicit entries only (equipment, contractor, overhead)" meta={formatCurrency(totalProjectCosts)} />
         <MobileRow icon={Wallet} title="Operating expenses" meta={formatCurrency(totalExpenses)} />
-        <MobileRow icon={Truck} title="Purchases" meta={formatCurrency(purchaseSpend)} />
+        <MobileRow icon={Truck} title="Purchases" subtitle="PO totals (incl. GST)" meta={formatCurrency(purchaseSpend)} />
       </div>
 
       {/* ── Report links — grouped ── */}

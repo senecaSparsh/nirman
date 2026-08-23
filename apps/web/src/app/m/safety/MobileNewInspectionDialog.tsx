@@ -62,7 +62,7 @@ export function MobileNewInspectionDialog({ open, onClose, projects }: { open: b
           </div>
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
-            <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Scheduling…" : "Schedule"}
             </button>
           </div>

@@ -137,6 +137,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         tokenChequePhotoUrl: body.tokenChequePhotoUrl ?? undefined,
         atsDocumentUrl: body.atsDocumentUrl ?? undefined,
         atsDocumentName: body.atsDocumentName ?? undefined,
+        partialRegistryAllowed: body.partialRegistryAllowed ?? undefined,
         createdById: user.id,
       });
       return json({

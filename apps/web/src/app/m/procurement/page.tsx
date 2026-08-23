@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 
 import { getCompany, getCompanyGroupIds, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileProcurementList } from "./MobileProcurementList";
 
@@ -62,19 +61,20 @@ async function MobileProcurementContent() {
 
   return (
     <div>
-      <MobileExportShareBar
-        title="Purchase Orders"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileProcurementList
+        items={serialized}
+        canCreate={canCreate}
+        exportTitle="Purchase Orders"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "poNumber", label: "PO Number" },
           { key: "supplierName", label: "Supplier" },
           { key: "status", label: "Status" },
           { key: "total", label: "Amount", format: "currency" },
           { key: "createdAt", label: "Created Date", format: "date" },
         ] as MobileColumnSpec[]}
-        summary={`${serialized.length} purchase orders`}
+        exportSummary={`${serialized.length} purchase orders`}
       />
-      <MobileProcurementList items={serialized} canCreate={canCreate} />
     </div>
   );
 }

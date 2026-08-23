@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
-  MobileFilterChips,
+  MobileSearchHeader,
+  MobileFilterIcon,
   MobileNoResults,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /* ─── Types ─── */
 
@@ -55,10 +56,18 @@ export function MobileCustomersList({
   items,
   stats,
   canCreate = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: CustomerListItem[];
   stats: Stats;
   canCreate?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -81,6 +90,12 @@ export function MobileCustomersList({
 
   const duesCount = items.filter((c) => c.dueCount > 0).length;
   const clearCount = items.length - duesCount;
+
+  const FILTER_OPTIONS: { label: string; value: Filter }[] = [
+    { label: "All", value: "all" },
+    { label: "Dues", value: "dues" },
+    { label: "Clear", value: "clear" },
+  ];
 
   return (
     <div>
@@ -130,41 +145,51 @@ export function MobileCustomersList({
         <Link
           href="/m/customers/new"
           className="flex items-center justify-center gap-1.5 h-9 rounded-[0.625rem] mb-3 text-[0.75rem] font-bold press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           <UserPlus className="size-3.5" />
           New Customer
         </Link>
       ) : null}
 
-      {/* ── Search ── */}
-      <div className="mb-2.5">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, phone, GSTIN…"
-          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] outline-none"
-          style={{
-            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-            color: "var(--color-ink-950)",
-          }}
-        />
-      </div>
+      {/* ── Search + filter ── */}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search name, phone, GSTIN…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_OPTIONS}
+              active={filter}
+              defaultValue="all"
+              onChange={(v) => setFilter(v as Filter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query || filter !== "all"}
+        onClear={() => { setQuery(""); setFilter("all"); }}
+      />
 
-      {/* ── Filter chips ── */}
-      <div className="mb-3">
-        <MobileFilterChips
-          chips={[
-            { label: "All", value: "all", count: items.length },
-            { label: "Dues", value: "dues", count: duesCount },
-            { label: "Clear", value: "clear", count: clearCount },
-          ] as FilterChip<Filter>[]}
-          active={filter}
-          onChange={setFilter}
-        />
-      </div>
+      {/* ── Result count ── */}
+      {(query || filter !== "all") && filtered.length > 0 && (
+        <div className="flex items-center justify-end mb-1.5">
+          <span
+            className="text-[0.625rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
       {/* ── Customer cards ── */}
       {filtered.length === 0 ? (

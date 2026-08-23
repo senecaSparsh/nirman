@@ -25,7 +25,7 @@ type ProjectOption = { id: string; name: string; type: string; status: string };
 type PhaseOption = { id: string; name: string; projectId: string };
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
-type LocationOption = { id: string; name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" };
+type LocationOption = { id: string; name: string; type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" };
 type CategoryOption = { id: string; name: string; unit: string };
 
 /** Column definitions for the requisitions DataTable. */
@@ -43,7 +43,7 @@ const reqColumns: Column<RequisitionRow>[] = [
     render: (r) => (
       <div>
         <span className="font-medium text-foreground">{r.projectName}</span>
-        {r.phaseName && <span className="ml-2 text-caption text-muted-foreground">{r.phaseName}</span>}
+        {r.phaseName && <span className="ml-2 text-caption text-muted-foreground">· {r.phaseName}</span>}
       </div>
     ),
   },

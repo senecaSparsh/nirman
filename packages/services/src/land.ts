@@ -228,6 +228,9 @@ interface RecordLandPurchaseWithPlanInput {
   registrationAmount?: Decimal | number | string | null;
   stampDutyPercent?: Decimal | number | string | null;
   stampDutyAmount?: Decimal | number | string | null;
+  // Transfer duty (authority land only)
+  transferDutyPercent?: Decimal | number | string | null;
+  transferDutyAmount?: Decimal | number | string | null;
   // Additional acquisition costs
   brokerageAmount?: Decimal | number | string | null;
   legalFees?: Decimal | number | string | null;
@@ -338,6 +341,8 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
         registrationAmount: input.registrationAmount != null ? new Decimal(input.registrationAmount) : null,
         stampDutyPercent: input.stampDutyPercent != null ? new Decimal(input.stampDutyPercent) : null,
         stampDutyAmount: input.stampDutyAmount != null ? new Decimal(input.stampDutyAmount) : null,
+        transferDutyPercent: input.transferDutyPercent != null ? new Decimal(input.transferDutyPercent) : null,
+        transferDutyAmount: input.transferDutyAmount != null ? new Decimal(input.transferDutyAmount) : null,
         brokerageAmount: input.brokerageAmount != null ? new Decimal(input.brokerageAmount) : null,
         legalFees: input.legalFees != null ? new Decimal(input.legalFees) : null,
         otherCharges: input.otherCharges != null ? new Decimal(input.otherCharges) : null,
@@ -592,6 +597,8 @@ export interface LandPurchaseOrderInput {
   // ATS document (optional at booking)
   atsDocumentUrl?: string;
   atsDocumentName?: string;
+  // Allow registry completion before full payment
+  partialRegistryAllowed?: boolean;
   createdById?: string;
 }
 
@@ -653,6 +660,7 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
         tokenChequePhotoUrl: input.tokenChequePhotoUrl ?? null,
         atsDocumentUrl: input.atsDocumentUrl ?? null,
         atsDocumentName: input.atsDocumentName ?? null,
+        partialRegistryAllowed: input.partialRegistryAllowed ?? false,
       },
     });
 

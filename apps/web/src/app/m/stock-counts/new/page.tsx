@@ -15,10 +15,10 @@ export default async function MobileNewStockCountPage() {
         <div className="mb-4">
         </div>
         <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          New Stock Count
+          New Stock Inventory
         </p>
         <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to create stock counts.
+          You don&apos;t have permission to create stock inventories.
         </p>
       </div>
     );

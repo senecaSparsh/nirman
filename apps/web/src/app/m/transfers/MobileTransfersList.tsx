@@ -10,10 +10,11 @@ import {
 import { formatNumber, formatDate } from "@/lib/utils";
 import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
-  MobileFilterChips,
+  MobileSearchHeader,
+  MobileFilterIcon,
   MobileDashedCreateButton,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export interface TransferItem {
   id: string;
@@ -64,10 +65,18 @@ export function MobileTransfersList({
   items,
   canCreate,
   currentCompanyId,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: TransferItem[];
   canCreate: boolean;
   currentCompanyId: string;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TransferFilter>("ALL");
@@ -132,39 +141,50 @@ export function MobileTransfersList({
         </div>
       )}
 
-      {/* ── Search ── */}
-      <div className="relative mb-3">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by location or material…"
-          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] outline-none"
-          style={{
-            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-            color: "var(--color-ink-950)",
-          }}
-        />
-      </div>
+      {/* ── Search + filters ── */}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search by location or material…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={DIRECTION_FILTERS}
+              active={dirFilter}
+              defaultValue="ALL"
+              onChange={(v) => setDirFilter(v as DirectionFilter)}
+            />
+            <MobileFilterIcon
+              options={FILTERS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={(v) => setFilter(v as TransferFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query || filter !== "ALL" || dirFilter !== "ALL"}
+        onClear={() => { setQuery(""); setFilter("ALL"); setDirFilter("ALL"); }}
+      />
 
-      {/* ── Direction filter chips ── */}
-      <div className="mb-2">
-        <MobileFilterChips
-          chips={DIRECTION_FILTERS as FilterChip<DirectionFilter>[]}
-          active={dirFilter}
-          onChange={setDirFilter}
-        />
-      </div>
-
-      {/* ── Status filter chips ── */}
-      <div className="mb-3">
-        <MobileFilterChips
-          chips={FILTERS as FilterChip<TransferFilter>[]}
-          active={filter}
-          onChange={setFilter}
-        />
-      </div>
+      {/* ── Result count ── */}
+      {(query || filter !== "ALL" || dirFilter !== "ALL") && filtered.length > 0 && (
+        <div className="flex items-center justify-end mb-1.5">
+          <span
+            className="text-[0.625rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {filtered.length} transfer{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
       {/* ── Transfer cards ── */}
       <div className="flex flex-col gap-2">
@@ -289,7 +309,7 @@ export function MobileTransfersList({
             <Link
               href="/m/transfers/new"
               className="flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-[0.6875rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-3.5" />
               New Transfer

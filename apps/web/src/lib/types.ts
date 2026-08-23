@@ -31,7 +31,7 @@ export type MaterialRow = {
 
 export type StockLocationRow = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   address: string | null;
   projectId: string | null;
@@ -48,7 +48,7 @@ export type StockRow = {
   id: string;
   locationId: string;
   locationName: string;
-  locationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  locationType: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   materialId: string;
   materialCode: string;
   materialName: string;
@@ -104,7 +104,7 @@ export type PurchaseOrderRow = {
   projectName: string | null;
   destinationLocationId: string;
   destinationLocationName: string;
-  destinationLocationType: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  destinationLocationType: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   status: "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
   orderDate: string;
   expectedDate: string | null;
@@ -311,7 +311,7 @@ export type PhaseRow = {
 
 export type StockLocationLite = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   address: string | null;
 };
@@ -340,7 +340,7 @@ export type SupplierOption = {
 
 export type StockLocationOption = {
   id: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   name: string;
   projectId: string | null;
   projectName: string | null;
@@ -489,6 +489,9 @@ export type LandPurchaseRow = {
   tokenAmount?: number | null;
   tokenPaymentDate?: string | null;
   tokenPaymentMode?: string | null;
+  // ── Possession ──
+  isPossessed?: boolean;
+  possessionDate?: string | null;
   // ── Documents ──
   atsDocumentUrl?: string | null;
   atsDocumentName?: string | null;

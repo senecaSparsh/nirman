@@ -147,7 +147,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan (optional)</label>
               <textarea value={mitigationPlan} onChange={(e) => setMitigationPlan(e.target.value)} rows={3} placeholder="How will the hazard be controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
-            <button onClick={() => doAction("mitigate", mitigationPlan ? { mitigationPlan } : {})} disabled={acting === "mitigate"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button onClick={() => doAction("mitigate", mitigationPlan ? { mitigationPlan } : {})} disabled={acting === "mitigate"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "mitigate" ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Start Mitigation
             </button>
           </div>
@@ -192,7 +192,7 @@ function TimelineRow({ label, date, name }: { label: string; date: string; name?
 
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" },
+    primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },

@@ -941,9 +941,27 @@ export async function recordPayment(input: RecordPaymentInput) {
       paymentStatus = "PAID";
     }
 
+    // ── Status sync: if the sale is still PENDING (no deposit recorded yet),
+    //    receiving any payment means the asset is no longer available — mark
+    //    it RESERVED and upgrade the sale stage to DEPOSIT_RECEIVED. This
+    //    prevents the inconsistent state where an asset shows "Available" but
+    //    has payments/sale recorded against it. ──
+    let stageUpgrade: { saleStage: "DEPOSIT_RECEIVED"; depositAmount: Decimal; depositDate: Date } | null = null;
+    if (sale.saleStage === "PENDING") {
+      await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "RESERVED", sale.projectId);
+      stageUpgrade = {
+        saleStage: "DEPOSIT_RECEIVED",
+        depositAmount: cumulative,
+        depositDate: sale.depositDate ?? new Date(),
+      };
+    }
+
     await tx.assetSale.update({
       where: { id: input.assetSaleId },
-      data: { paymentStatus },
+      data: {
+        paymentStatus,
+        ...(stageUpgrade ? { saleStage: stageUpgrade.saleStage, depositAmount: stageUpgrade.depositAmount, depositDate: stageUpgrade.depositDate } : {}),
+      },
     });
 
     // ── Allocate payment to schedule items (FIFO by installmentNo) ──

@@ -2,18 +2,18 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Beaker, Plus } from "lucide-react";
+import { Beaker } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import {
-  MobileEmptyState,
   MobileStatCard,
   MobileSectionTitle,
-  MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileStandardConsumptionsList } from "./MobileStandardConsumptionsList";
 import { MobileStandardConsumptionsFab } from "./MobileStandardConsumptionsFab";
+import { MobileStandardConsumptionsEmptyState } from "./MobileStandardConsumptionsEmptyState";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/standard-consumptions — mobile standard consumption benchmarks.
@@ -33,7 +33,7 @@ async function MobileStandardConsumptionsContent() {
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
 
-  const [benchmarks, materials] = await Promise.all([
+  const [benchmarks, materials, categories] = await Promise.all([
     prisma.standardConsumption.findMany({
       where: { companyId: company.id },
       orderBy: [{ workType: "asc" }, { material: { name: "asc" } }],
@@ -44,6 +44,12 @@ async function MobileStandardConsumptionsContent() {
     canManage
       ? prisma.material.findMany({
           where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, unit: true },
+        })
+      : [],
+    canManage
+      ? prisma.materialCategory.findMany({
           orderBy: { name: "asc" },
           select: { id: true, name: true, unit: true },
         })
@@ -72,22 +78,25 @@ async function MobileStandardConsumptionsContent() {
         <MobileStatCard label="Work Types" value={String(workTypes.length)} icon={Beaker} tone="neutral" />
       </div>
 
-      <MobileStandardConsumptionsList items={serialized} />
+      <MobileStandardConsumptionsList
+        items={serialized}
+        exportTitle="Standard Consumptions"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
+          { key: "workType", label: "Work Type" },
+          { key: "materialName", label: "Material" },
+          { key: "standardQty", label: "Standard Qty" },
+          { key: "baseQty", label: "Base Qty" },
+          { key: "unitOfMeasure", label: "UOM" },
+        ] as MobileColumnSpec[]}
+        exportSummary={`${serialized.length} benchmarks · ${workTypes.length} work types`}
+      />
 
       {benchmarks.length === 0 && (
-        <MobileEmptyState
-          icon={Beaker}
-          title="No standard consumptions"
-          hint={canManage
-            ? materialOptions.length > 0
-              ? "Tap + to define how much material a work type should consume"
-              : "Add materials first, then define standard consumption benchmarks"
-            : "Standard consumption benchmarks will appear here"}
-          action={
-            canManage && materialOptions.length === 0 ? (
-              <MobileCta href="/m/materials/new" icon={Plus} variant="primary">Add Material</MobileCta>
-            ) : undefined
-          }
+        <MobileStandardConsumptionsEmptyState
+          hasMaterials={materialOptions.length > 0}
+          canManage={canManage}
+          categories={categories}
         />
       )}
 

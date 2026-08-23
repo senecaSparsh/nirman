@@ -173,7 +173,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
                 style={{
                   borderColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.portalName === p ? "#fff" : "var(--color-ink-500)",
+                  color: form.portalName === p ? "var(--color-paper)" : "var(--color-ink-500)",
                 }}
               >
                 {p}
@@ -291,7 +291,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             type="submit"
             disabled={saving}
             className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
             {saving ? "Creating…" : "Create Listing"}

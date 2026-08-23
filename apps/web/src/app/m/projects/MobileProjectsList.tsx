@@ -11,9 +11,10 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileNewProjectDialog } from "./MobileNewProjectDialog";
 
 type ProjectStatusFilter =
@@ -53,9 +54,17 @@ const FILTER_CHIPS: { label: string; value: ProjectStatusFilter }[] = [
 export function MobileProjectsList({
   items,
   canManage = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: ProjectListItem[];
   canManage?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("ALL");
@@ -104,17 +113,28 @@ export function MobileProjectsList({
         />
       ) : (
         <>
-          {/* ── Search + filter chips ─────────────────────────── */}
+          {/* ── Search + filter + export ─────────────────────── */}
           <MobileSearchHeader
             query={query}
             onQueryChange={setQuery}
             placeholder="Search by project name…"
-            filterChips={
-              <MobileFilterChips<ProjectStatusFilter>
-                chips={FILTER_CHIPS}
-                active={statusFilter}
-                onChange={setStatusFilter}
-              />
+            action={
+              <div className="flex items-center gap-1 shrink-0">
+                <MobileFilterIcon
+                  options={FILTER_CHIPS}
+                  active={statusFilter}
+                  defaultValue="ALL"
+                  onChange={(v) => setStatusFilter(v as ProjectStatusFilter)}
+                />
+                {exportTitle && exportRows && exportColumns ? (
+                  <MobileExportShareIcons
+                    title={exportTitle}
+                    rows={exportRows}
+                    columns={exportColumns}
+                    summary={exportSummary}
+                  />
+                ) : null}
+              </div>
             }
             showClear={query !== "" || statusFilter !== "ALL"}
             onClear={() => {

@@ -13,7 +13,6 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileSupplierReturnsList } from "./MobileSupplierReturnsList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -88,16 +87,13 @@ async function MobileSupplierReturnsContent() {
         />
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Supplier Returns"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serialized.length} returns · ${formatCurrency(totalValue)}`}
-        />
-      </div>
-
-      <MobileSupplierReturnsList items={serialized} />
+      <MobileSupplierReturnsList
+        items={serialized}
+        exportTitle="Supplier Returns"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} returns · ${formatCurrency(totalValue)}`}
+      />
 
       {returns.length === 0 && (
         <>

@@ -248,7 +248,7 @@ export function MobileSupplierDetailClient({
           className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
           style={
             tab === "pos"
-              ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
               : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
           }
         >
@@ -259,7 +259,7 @@ export function MobileSupplierDetailClient({
           className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
           style={
             tab === "payments"
-              ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
               : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
           }
         >

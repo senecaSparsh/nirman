@@ -8,7 +8,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileReceiptsList, type ReceiptListItem } from "./MobileReceiptsList";
 
@@ -75,11 +74,14 @@ async function BooksReceiptsContent() {
         <MobileStatCard label="Average" value={formatCurrency(avg)} icon={Wallet} />
       </div>
 
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Receipts"
-          rows={items as unknown as Record<string, unknown>[]}
-          columns={[
+      {items.length === 0 ? (
+        <MobileEmptyState icon={Wallet} title="No payments received" hint="Record payments from the Sales section" />
+      ) : (
+        <MobileReceiptsList
+          items={items}
+          exportTitle="Receipts"
+          exportRows={items as unknown as Record<string, unknown>[]}
+          exportColumns={[
             { key: "saleNumber", label: "Receipt Number" },
             { key: "customerName", label: "Customer" },
             { key: "kind", label: "Type" },
@@ -87,14 +89,8 @@ async function BooksReceiptsContent() {
             { key: "paymentDate", label: "Date" },
             { key: "mode", label: "Mode" },
           ] as MobileColumnSpec[]}
-          summary={`${items.length} receipts · ${formatCurrency(total)} total`}
+          exportSummary={`${items.length} receipts · ${formatCurrency(total)} total`}
         />
-      </div>
-
-      {items.length === 0 ? (
-        <MobileEmptyState icon={Wallet} title="No payments received" hint="Record payments from the Sales section" />
-      ) : (
-        <MobileReceiptsList items={items} />
       )}
     </div>
   );

@@ -7,9 +7,10 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type ChangeOrderListItem = {
   id: string;
@@ -46,7 +47,19 @@ const TYPE_LABELS: Record<string, string> = {
   VARIATION: "Variation",
 };
 
-export function MobileChangeOrdersList({ items }: { items: ChangeOrderListItem[] }) {
+export function MobileChangeOrdersList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: ChangeOrderListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<COFilter>("ALL");
 
@@ -73,24 +86,47 @@ export function MobileChangeOrdersList({ items }: { items: ChangeOrderListItem[]
         query={query}
         onQueryChange={setQuery}
         placeholder="Search change order…"
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={filter}
-            onChange={setFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        showClear={!!query || filter !== "ALL"}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
       />
 
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching change orders" hint="Try a different search or filter" />
       ) : (
+        <div>
+          {(query || filter !== "ALL") && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} change order{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <div className="flex flex-col gap-2">
           {filtered.map((c) => (
             <ChangeOrderCard key={c.id} co={c} />
           ))}
+        </div>
         </div>
       )}
     </div>

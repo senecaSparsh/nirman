@@ -238,7 +238,7 @@ export default function MobileNewStockCountClient() {
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(10);
         }
-        toast.success("Stock count queued offline", {
+        toast.success("Stock inventory queued offline", {
           description: "Will sync when back online",
         });
         clearDraft();
@@ -254,14 +254,14 @@ export default function MobileNewStockCountClient() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to create stock count");
+        throw new Error(err.error ?? "Failed to create stock inventory");
       }
 
       const data = await res.json();
       clearDraft();
       setSuccess({ id: data.id });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create stock count");
+      toast.error(err instanceof Error ? err.message : "Failed to create stock inventory");
     } finally {
       setSubmitting(false);
     }
@@ -287,7 +287,7 @@ export default function MobileNewStockCountClient() {
           )}
         </div>
         <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {isQueued ? "Stock Count Queued" : "Stock Count Created"}
+          {isQueued ? "Stock Inventory Queued" : "Stock Inventory Created"}
         </p>
         {isQueued ? (
           <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
@@ -306,7 +306,7 @@ export default function MobileNewStockCountClient() {
                 router.push(`/m/stock-counts/${success.id}`);
               }}
               className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View Count
             </button>
@@ -348,7 +348,7 @@ export default function MobileNewStockCountClient() {
     <>
       {hasDraft && !draftRestored && !success && (
         <DraftBanner
-          formName="Stock Count"
+          formName="Stock Inventory"
           updatedAt={draftUpdatedAt}
           onRestore={restoreDraftState}
           onDiscard={() => { clearDraft(); setDraftRestored(true); }}
@@ -576,7 +576,7 @@ export default function MobileNewStockCountClient() {
             onClick={handleSubmit}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

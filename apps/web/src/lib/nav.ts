@@ -37,6 +37,8 @@ import {
   History,
   Calculator,
   GitBranch,
+  ShieldAlert,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -519,12 +521,28 @@ export const WORLDS: World[] = [
             keywords: ["change order", "scope change", "variation", "modification", "addition", "deletion", "budget change", "schedule change"],
           },
           {
+            label: "Workflows",
+            href: "/workflows",
+            icon: Workflow,
+            hint: "Approval workflows — multi-step routing for POs, requisitions, and expenses",
+            roles: BOOKS,
+            keywords: ["workflow", "approval", "routing", "multi-step", "automation", "trigger"],
+          },
+          {
             label: "Quality Control",
             href: "/quality-control",
             icon: ClipboardCheck,
             hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)",
             roles: BOOKS,
             keywords: ["quality", "ncr", "capa", "non-conformance", "corrective", "preventive", "qa", "qc", "defect", "rework"],
+          },
+          {
+            label: "Safety",
+            href: "/safety",
+            icon: ShieldAlert,
+            hint: "Hazards, incidents, and safety inspections across all sites",
+            roles: [...OPS, "SUPERVISOR"],
+            keywords: ["safety", "hazard", "incident", "inspection", "accident", "near miss", "ppe", "compliance"],
           },
           // ── Construction reports (hidden from sidebar, on /reports) ──
           {

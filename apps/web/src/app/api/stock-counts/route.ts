@@ -61,6 +61,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json({ ok: true, id: count.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create stock count") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to create stock inventory") }, { status: 400 });
   }
 });

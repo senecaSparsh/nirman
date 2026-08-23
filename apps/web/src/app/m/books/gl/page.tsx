@@ -9,6 +9,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/books/gl — mobile trial balance. Replaces desktop `/gl` leaks.
@@ -85,7 +86,20 @@ async function MobileGlContent() {
       {rows.length === 0 ? (
         <MobileEmptyState icon={BookOpen} title="No journal entries" hint="Post transactions to see balances" />
       ) : (
-        <MobileGlList items={serialized} />
+        <MobileGlList
+          items={serialized}
+          exportTitle="Trial Balance"
+          exportRows={serialized as unknown as Record<string, unknown>[]}
+          exportColumns={[
+            { key: "code", label: "Code" },
+            { key: "name", label: "Account" },
+            { key: "type", label: "Type" },
+            { key: "debit", label: "Debit", format: "currency" },
+            { key: "credit", label: "Credit", format: "currency" },
+            { key: "balance", label: "Balance", format: "currency" },
+          ] as MobileColumnSpec[]}
+          exportSummary={`${rows.length} accounts · Dr ${formatCurrency(totalDebit)} / Cr ${formatCurrency(totalCredit)}`}
+        />
       )}
     </div>
   );

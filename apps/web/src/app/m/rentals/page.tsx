@@ -3,8 +3,10 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { formatCurrency } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileRentalsList, type RentalListItem } from "./MobileRentalsList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/rentals — mobile rental/lease management.
@@ -117,6 +119,16 @@ async function MobileRentalsContent() {
   const totalOverdue = rows.reduce((s, t) => s + t.overdueAmount, 0);
   const expiringCount = rows.filter((t) => t.expiringSoon).length;
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "tenantName", label: "Tenant" },
+    { key: "assetLabel", label: "Asset" },
+    { key: "projectName", label: "Project" },
+    { key: "monthlyRent", label: "Monthly Rent", format: "currency" },
+    { key: "totalReceived", label: "Received", format: "currency" },
+    { key: "overdueAmount", label: "Overdue", format: "currency" },
+    { key: "endDate", label: "End Date", format: "date" },
+  ];
+
   return (
     <MobileRentalsList
       items={rows}
@@ -132,6 +144,10 @@ async function MobileRentalsContent() {
       unitAssets={units.map((u) => ({ id: u.id, label: `${u.unitNumber} · ${u.project.name}` }))}
       parcelAssets={parcels.map((p) => ({ id: p.id, label: `Parcel ${p.number} · ${p.landPurchase.location ?? p.landPurchase.sellerName}` }))}
       customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+      exportTitle="Rentals"
+      exportRows={rows as unknown as Record<string, unknown>[]}
+      exportColumns={exportColumns}
+      exportSummary={`${rows.length} tenancies · ${formatCurrency(totalOverdue)} overdue`}
     />
   );
 }

@@ -31,7 +31,7 @@ async function SalesContent() {
     );
   }
 
-  const [sales, customers, leads, projects, units, salesMembers] = await Promise.all([
+  const [sales, customers, leads, projects, units, salesMembers, unitStats] = await Promise.all([
     prisma.assetSale.findMany({
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
@@ -85,6 +85,11 @@ async function SalesContent() {
       },
       orderBy: { user: { name: "asc" } },
       select: { user: { select: { id: true, name: true } } },
+    }),
+    prisma.builtUnit.groupBy({
+      by: ["status"],
+      where: { deletedAt: null, project: { companyId: company.id, deletedAt: null } },
+      _count: true,
     }),
   ]);
 
@@ -272,16 +277,28 @@ async function SalesContent() {
   const revenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.salePrice, 0);
   const collected = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.totalPaid, 0);
 
+  // Unit inventory summary — "kitni unit bachi, kitni bik gayi"
+  const unitCountByStatus = Object.fromEntries(unitStats.map((u) => [u.status, u._count]));
+  const totalUnits = Object.values(unitCountByStatus).reduce((s: number, c) => s + (c as number), 0);
+  const soldUnits = unitCountByStatus.SOLD ?? 0;
+  const availableUnits = unitCountByStatus.AVAILABLE ?? 0;
+  const reservedUnits = unitCountByStatus.RESERVED ?? 0;
+  const rentedUnits = unitCountByStatus.RENTED ?? 0;
+  const underConstruction = unitCountByStatus.UNDER_CONSTRUCTION ?? 0;
+
   return (
     <>
       <PageHeader
         title="Sales"
         description="Sales of land parcels and built units — bookings, payment plans, profit, and cancellations."
         stats={[
+          { label: "Total Units", value: totalUnits, hint: "All built units across all projects (excluding deleted)." },
+          { label: "Available", value: availableUnits, hint: "Units ready for sale and not yet booked or reserved." },
+          { label: "Sold", value: soldUnits, tone: "success", hint: "Units with a completed sale (registry done). Booked units with deposit are in 'Reserved' below." },
+          { label: "Reserved", value: reservedUnits, tone: "warning", hint: "Units with a deposit received but sale not yet completed." },
           { label: "Open Leads", value: leadRows.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length, hint: "Leads still moving through qualification and follow-up." },
-          { label: "Sales", value: saleRows.length, hint: "Total number of sale records including bookings, active sales, and cancellations." },
-          { label: "Revenue", value: formatCurrency(revenue), hint: "Sum of sale prices across all non-cancelled sales." },
-          { label: "Collected", value: formatCurrency(collected), hint: "Total payments received across all non-cancelled sales." },
+          { label: "Revenue", value: formatCurrency(revenue), tone: "success", hint: "Sum of sale prices across all non-cancelled sales." },
+          { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales." },
         ]}
       />
       <SalesView

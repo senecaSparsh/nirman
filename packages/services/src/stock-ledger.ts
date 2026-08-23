@@ -363,14 +363,23 @@ export async function refreshMaterialCurrentCost(
   materialIds: string[],
 ): Promise<void> {
   for (const materialId of materialIds) {
-    const avg = await tx.stockLocationItem.aggregate({
+    // Qty-weighted average across all locations (not simple average).
+    // MAC = Σ(qty_i × mac_i) / Σ(qty_i).  When total qty is 0, keep the
+    // last known currentCost (don't overwrite with 0).
+    const items = await tx.stockLocationItem.findMany({
       where: { materialId, location: { deletedAt: null }, material: { deletedAt: null } },
-      _avg: { movingAvgCost: true },
+      select: { qty: true, movingAvgCost: true },
     });
-    if (avg._avg.movingAvgCost != null) {
+    const totalQty = items.reduce((s, i) => s.add(i.qty), new Decimal(0));
+    if (totalQty.gt(0)) {
+      const totalValue = items.reduce(
+        (s, i) => s.add(i.qty.mul(i.movingAvgCost)),
+        new Decimal(0),
+      );
+      const weightedAvg = totalValue.div(totalQty);
       await tx.material.update({
         where: { id: materialId },
-        data: { currentCost: avg._avg.movingAvgCost },
+        data: { currentCost: weightedAvg },
       });
     }
   }

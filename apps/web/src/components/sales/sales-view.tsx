@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound, FileText, Bell, LayoutGrid, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -13,6 +14,8 @@ import { CustomersView } from "./customers-view";
 import { LeadPipelineView } from "./lead-pipeline-view";
 import { SellAssetDialog } from "./sell-asset-dialog";
 import { SaleDetailDialog } from "./sale-detail-dialog";
+import { BbaPipelineBoard } from "./bba-pipeline-board";
+import { CustomerFormDialog } from "./customer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
@@ -51,6 +54,11 @@ export function SalesView({
     () => customers.map((c) => ({ id: c.id, name: c.name })),
     [customers],
   );
+  const [customerCreateOpen, setCustomerCreateOpen] = useState(false);
+
+  // Lifted sale-detail state — shared across Sales and Customers tabs so
+  // clicking a sale from the customer detail dialog works from either tab.
+  const [globalSelectedSale, setGlobalSelectedSale] = useState<AssetSaleRow | null>(null);
 
   return (
     <div className="space-y-5">
@@ -80,8 +88,9 @@ export function SalesView({
           <SalesTab
             sales={sales}
             customers={customerOptions}
+            projects={projects}
             permissions={permissions}
-            onAddCustomer={() => setTab("customers")}
+            onAddCustomer={() => setCustomerCreateOpen(true)}
             autoOpenSaleId={autoOpenSaleId}
             autoOpenNewSale={autoOpenNewSale}
             initialCustomerId={initialCustomerId}
@@ -89,9 +98,35 @@ export function SalesView({
           />
         </TabsContent>
         <TabsContent value="customers">
-          <CustomersTab customers={customers} permissions={permissions} />
+          <CustomersTab
+            customers={customers}
+            sales={sales}
+            permissions={permissions}
+            onSelectSale={(s) => setGlobalSelectedSale(s)}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* Shared sale detail dialog — opened from either Sales or Customers tab */}
+      <SaleDetailDialog
+        open={globalSelectedSale != null}
+        onOpenChange={(o) => !o && setGlobalSelectedSale(null)}
+        sale={globalSelectedSale}
+        permissions={permissions}
+      />
+
+      {/* Inline customer creation — opened from the "Add a customer" button
+          on the sales tab when there are no customers yet. No tab switch. */}
+      <CustomerFormDialog
+        open={customerCreateOpen}
+        onOpenChange={setCustomerCreateOpen}
+        customer={null}
+        onCreated={() => {
+          setCustomerCreateOpen(false);
+          // Refresh to pick up the new customer in the customers list
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
@@ -178,6 +213,25 @@ const saleColumns: Column<AssetSaleRow>[] = [
     ),
   },
   {
+    key: "bbaStatus",
+    label: "BBA",
+    sortable: true,
+    sortValue: (s) => s.bbaNo ?? "",
+    render: (s) => {
+      if (s.bbaDocumentUrl) {
+        return (
+          <a href={s.bbaDocumentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-caption text-success hover:underline">
+            <FileText className="h-3 w-3" /> Signed
+          </a>
+        );
+      }
+      if (s.bbaNo) {
+        return <span className="text-caption text-success font-medium">Signed</span>;
+      }
+      return <span className="text-caption text-warning">Pending</span>;
+    },
+  },
+  {
     key: "salePrice",
     label: "Sale Price",
     align: "right",
@@ -242,6 +296,7 @@ const saleColumns: Column<AssetSaleRow>[] = [
 function SalesTab({
   sales,
   customers,
+  projects,
   permissions,
   onAddCustomer,
   autoOpenSaleId,
@@ -251,6 +306,7 @@ function SalesTab({
 }: {
   sales: AssetSaleRow[];
   customers: { id: string; name: string }[];
+  projects: { id: string; name: string }[];
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
   onAddCustomer?: () => void;
   autoOpenSaleId?: string | null;
@@ -258,9 +314,11 @@ function SalesTab({
   initialCustomerId?: string | null;
   initialUnitId?: string | null;
 }) {
+  const [view, setView] = useState<"board" | "table">("board");
   const [statusFilter, setStatusFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
+  const [bbaFilter, setBbaFilter] = useState("");
   const [formOpen, setFormOpen] = useState(Boolean(autoOpenNewSale));
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
 
@@ -277,9 +335,29 @@ function SalesTab({
       if (statusFilter && s.status !== statusFilter) return false;
       if (stageFilter && s.saleStage !== stageFilter) return false;
       if (payFilter && s.paymentStatus !== payFilter) return false;
+      if (bbaFilter === "signed" && !s.bbaNo && !s.bbaDocumentUrl) return false;
+      if (bbaFilter === "pending" && (s.bbaNo || s.bbaDocumentUrl)) return false;
       return true;
     }),
-    [sales, statusFilter, stageFilter, payFilter],
+    [sales, statusFilter, stageFilter, payFilter, bbaFilter],
+  );
+
+  // ── View toggle — Board vs Table (shared between both branches) ──
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+      <button
+        onClick={() => setView("board")}
+        className={`flex items-center gap-1 rounded px-2 py-1 text-caption font-medium transition-colors ${view === "board" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        <LayoutGrid className="size-3" /> Board
+      </button>
+      <button
+        onClick={() => setView("table")}
+        className={`flex items-center gap-1 rounded px-2 py-1 text-caption font-medium transition-colors ${view === "table" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        <Rows3 className="size-3" /> Table
+      </button>
+    </div>
   );
 
   // ── Toolbar controls — same visual language as Procurement's PO table:
@@ -308,6 +386,29 @@ function SalesTab({
 
   const trailingButtons = (
     <>
+      <div className="group relative">
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/cron/reminders", { method: "POST", headers: { "x-cron-secret": process.env.NEXT_PUBLIC_CRON_SECRET ?? "" } });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
+              toast.success("Payment reminders sent", {
+                description: `${data.saleReminders?.sent ?? 0} sale reminders · ${data.rentReminders?.sent ?? 0} rent reminders · ${data.escalations?.escalated ?? 0} escalations`,
+              });
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+            }
+          }}
+          className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+          title="Send payment due reminders"
+        >
+          <Bell className="size-3.5" />
+        </button>
+        <span className="pointer-events-none absolute top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[11px] text-background opacity-0 transition-opacity group-hover:opacity-100 z-50">
+          Send Reminders
+        </span>
+      </div>
       <div className="group relative">
         <button
           onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
@@ -366,10 +467,47 @@ function SalesTab({
             ) : undefined
           }
         />
+      ) : view === "board" ? (
+        /* ── BBA Pipeline Board (kanban) ───────────────────────────
+           The 4QT-style pipeline: Booked → BBA Signed → Payments →
+           Registry → Completed. Each card shows the unit, customer,
+           paid %, next due installment, and BBA/registry badges. */
+        <>
+          <div className="flex items-center justify-between gap-2">
+            {viewToggle}
+            <div className="flex items-center gap-1.5">
+              {trailingButtons}
+              {customers.length > 0 && (permissions?.canCreateSale ?? false) && (
+                <Button onClick={() => setFormOpen(true)} size="sm"><Plus className="h-4 w-4" /> New Sale</Button>
+              )}
+            </div>
+          </div>
+          <BbaPipelineBoard
+            sales={sales}
+            projects={projects}
+            onSelectSale={(s) => setSelected(s)}
+            onSendReminders={async () => {
+              try {
+                const res = await fetch("/api/cron/reminders", { method: "POST", headers: { "x-cron-secret": process.env.NEXT_PUBLIC_CRON_SECRET ?? "" } });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
+                toast.success("Payment reminders sent", {
+                  description: `${data.saleReminders?.sent ?? 0} sale reminders · ${data.rentReminders?.sent ?? 0} rent reminders`,
+                });
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+              }
+            }}
+          />
+        </>
       ) : (
         /* ── Data Table view (enterprise-grade) ────────────────────
            Dense, sortable columns — the same shape as the Procurement
            Orders table so Sales stops feeling like a different app. */
+        <>
+        <div className="flex items-center justify-between gap-2">
+          {viewToggle}
+        </div>
         <div className="rounded-lg border border-border overflow-hidden">
           <DataTable
             data={filtered}
@@ -406,11 +544,17 @@ function SalesTab({
                   { value: "PARTIAL", label: "Partial" },
                   { value: "PAID", label: "Paid" },
                 ])}
+                {filterSelect(bbaFilter, setBbaFilter, 120, [
+                  { value: "", label: "All BBA" },
+                  { value: "signed", label: "BBA Signed" },
+                  { value: "pending", label: "BBA Pending" },
+                ])}
               </div>
             }
             toolbarTrailing={trailingButtons}
           />
         </div>
+        </>
       )}
 
       {customers.length === 0 && (
@@ -429,12 +573,24 @@ function SalesTab({
 //  Customers tab — delegates to the shared CustomersView
 // ───────────────────────────────────────────────────────────
 
-function CustomersTab({ customers, permissions }: { customers: CustomerRow[]; permissions?: { canCreateSale?: boolean; canManage?: boolean } }) {
+function CustomersTab({
+  customers,
+  sales,
+  permissions,
+  onSelectSale,
+}: {
+  customers: CustomerRow[];
+  sales: AssetSaleRow[];
+  permissions?: { canCreateSale?: boolean; canManage?: boolean };
+  onSelectSale?: (sale: AssetSaleRow) => void;
+}) {
   const canManage = permissions?.canManage ?? false;
   return (
     <CustomersView
       customers={customers}
+      sales={sales}
       permissions={{ canCreate: canManage, canEdit: canManage, canDelete: canManage }}
+      onSelectSale={onSelectSale}
     />
   );
 }

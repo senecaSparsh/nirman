@@ -145,6 +145,7 @@ async function SettingsContent() {
     (s, o) => s + toNum(o.balanceOwed),
     0,
   );
+  const payableVendorCount = supplierOutstanding.filter((o) => toNum(o.balanceOwed) > 0).length;
   const lastMonthRev = toNum(lastMonthRevenue._sum?.amount ?? 0);
 
   // Last month date range
@@ -167,7 +168,7 @@ async function SettingsContent() {
             className="grid place-items-center w-10 h-10 rounded-[0.5rem] shrink-0 text-[1.125rem] font-bold"
             style={{
               backgroundColor: "var(--color-ink-950)",
-              color: "#fff",
+              color: "var(--color-paper)",
             }}
           >
             {company.name.slice(0, 2).toUpperCase()}
@@ -243,9 +244,9 @@ async function SettingsContent() {
               icon={Receipt}
               label="Pending payables"
               value={formatCurrency(totalPayables)}
-              hint={`${supplierOutstanding.length} vendors`}
+              hint={`${payableVendorCount} vendors with dues`}
               tone="stop"
-              href="/m/books"
+              href="/m/accounts"
             />
             <DuesRow
               icon={Wallet}

@@ -2,11 +2,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats, lowStockAlerts } from "@nirman/services";
+import { getTallySyncStats, lowStockAlerts, leaseExpiryAlerts } from "@nirman/services";
 import {
   AlertTriangle, ClipboardCheck, Package, Truck, RefreshCw,
   CheckCircle2, ChevronRight, ArrowRight,
-  TrendingDown, Building2,
+  TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
@@ -53,6 +53,7 @@ async function AttentionContent() {
     lowStock,
     tallyStats,
     overBudgetProjects,
+    leaseExpiry,
   ] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT" },
@@ -94,6 +95,7 @@ async function AttentionContent() {
       },
       orderBy: { name: "asc" },
     }),
+    leaseExpiryAlerts(company.id).catch(() => []),
   ]);
 
   // Filter to projects where actual > budget
@@ -110,7 +112,7 @@ async function AttentionContent() {
 
   const approvalCount = draftPOs.length + pendingReqs.length;
   const totalAlerts =
-    approvalCount + overduePOs.length + lowStock.length + overBudget.length + tallyStats.pending;
+    approvalCount + overduePOs.length + lowStock.length + overBudget.length + tallyStats.pending + leaseExpiry.length;
 
   const now = Date.now();
 
@@ -175,6 +177,9 @@ async function AttentionContent() {
           ) : null}
           {tallyStats.pending > 0 ? (
             <CategoryPill label="Tally" count={tallyStats.pending} color="var(--color-steel)" />
+          ) : null}
+          {leaseExpiry.length > 0 ? (
+            <CategoryPill label="Lease" count={leaseExpiry.length} color="var(--color-signal)" />
           ) : null}
         </div>
       </div>
@@ -397,6 +402,46 @@ async function AttentionContent() {
             metaColor="var(--color-steel)"
             icon={<RefreshCw className="size-3" />}
           />
+        </Section>
+      ) : null}
+
+      {/* ── 6. Lease expiry — land leases expiring soon ── */}
+      {leaseExpiry.length > 0 ? (
+        <Section
+          icon={<CalendarClock className="size-3" />}
+          title="Lease Expiry"
+          subtitle="Land leases expiring within 90 days"
+          count={leaseExpiry.length}
+          color="var(--color-signal)"
+        >
+          <div className="flex flex-col gap-1.5">
+            {leaseExpiry.slice(0, 10).map((l) => {
+              const isExpired = l.daysUntilExpiry < 0;
+              const isCritical = l.daysUntilExpiry <= 30 && l.daysUntilExpiry >= 0;
+              const accent = isExpired ? "var(--color-stop)" : isCritical ? "var(--color-signal)" : "var(--color-steel)";
+              return (
+                <AlertCard
+                  key={l.landPurchaseId}
+                  href="/m/alerts/lease-expiry"
+                  title={l.sellerName}
+                  subtitle={`${l.location}${l.projectName ? ` · ${l.projectName}` : ""}`}
+                  meta={isExpired ? "Expired" : `${l.daysUntilExpiry}d left`}
+                  metaColor={accent}
+                  icon={<CalendarClock className="size-3" />}
+                  borderAccent={accent}
+                />
+              );
+            })}
+            {leaseExpiry.length > 10 ? (
+              <Link
+                href="/m/alerts/lease-expiry"
+                className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                style={{ color: "var(--color-ink-600)" }}
+              >
+                +{leaseExpiry.length - 10} more leases
+              </Link>
+            ) : null}
+          </div>
         </Section>
       ) : null}
     </div>

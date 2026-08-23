@@ -686,8 +686,8 @@ export function MobileNewSaleForm({
                     style={{ backgroundColor: commissionIsPartOfDeal ? "var(--color-ink-950)" : "var(--color-line)" }}
                   >
                     <div
-                      className="size-2.5 rounded-full bg-white transition-transform"
-                      style={{ transform: commissionIsPartOfDeal ? "translateX(12px)" : "translateX(2px)" }}
+                      className="size-2.5 rounded-full transition-transform"
+                      style={{ backgroundColor: "var(--color-paper)", transform: commissionIsPartOfDeal ? "translateX(12px)" : "translateX(2px)" }}
                     />
                   </div>
                 </button>
@@ -759,7 +759,7 @@ export function MobileNewSaleForm({
                   style={{
                     borderColor: isATS ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: isATS ? "#fff" : "var(--color-ink-500)",
+                    color: isATS ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}>
                   ATS
                 </button>
@@ -768,7 +768,7 @@ export function MobileNewSaleForm({
                   style={{
                     borderColor: !isATS ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: !isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: !isATS ? "#fff" : "var(--color-ink-500)",
+                    color: !isATS ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}>
                   Deed Done
                 </button>
@@ -806,7 +806,7 @@ export function MobileNewSaleForm({
                   style={{
                     borderColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: !hasHomeLoan ? "#fff" : "var(--color-ink-500)",
+                    color: !hasHomeLoan ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}>
                   No
                 </button>
@@ -815,7 +815,7 @@ export function MobileNewSaleForm({
                   style={{
                     borderColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: hasHomeLoan ? "#fff" : "var(--color-ink-500)",
+                    color: hasHomeLoan ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}>
                   Yes
                 </button>
@@ -1132,7 +1132,7 @@ export function MobileNewSaleForm({
             onClick={submit}
             disabled={submitting}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

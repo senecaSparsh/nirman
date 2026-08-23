@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
   ScanLine, Truck, AlertTriangle,
-  Building2, IndianRupee, ClipboardList,
+  Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
 import { getCompany, getCompanyGroupIds, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -14,7 +14,6 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobilePoActions } from "@/components/mobile/mobile-po-actions";
-import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
 
 /**
@@ -209,6 +208,16 @@ async function MobilePoDetailContent({
           >
             {po.status}
           </span>
+          <a
+            href={`/print/purchase-order/${po.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press shrink-0"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+          >
+            <Printer className="size-3.5" />
+            Print
+          </a>
         </div>
 
         {/* Rejection banner — shown if a delivery was rejected */}
@@ -616,18 +625,6 @@ async function MobilePoDetailContent({
         canApprove={canApprove}
         canManage={canManage}
         backHref="/m/procurement"
-      />
-
-      {/* ── Print ── */}
-      <MobileDetailActions
-        links={[
-          {
-            label: "Print Purchase Order",
-            icon: "Printer",
-            href: `/print/purchase-order/${po.id}`,
-            variant: "outline",
-          },
-        ]}
       />
     </div>
   );

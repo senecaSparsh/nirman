@@ -11,6 +11,7 @@ import {
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type ScrapGenerationItem = {
   id: string;
@@ -33,10 +34,18 @@ export function MobileScrapGenerationsList({
   items,
   totalValue,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: ScrapGenerationItem[];
   totalValue: number;
   canCreate: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -67,7 +76,19 @@ export function MobileScrapGenerationsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search slip, location, material…"
-        action={canCreate ? <MobileHeaderAction href="/m/scrap-generations/new">New</MobileHeaderAction> : undefined}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+            {canCreate && <MobileHeaderAction href="/m/scrap-generations/new">New</MobileHeaderAction>}
+          </div>
+        }
         showClear={query !== ""}
         onClear={() => setQuery("")}
       />
@@ -91,11 +112,23 @@ export function MobileScrapGenerationsList({
           </div>
         )
       ) : (
+        <div>
+          {query && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filtered.length} slip{filtered.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         <MobileCardGrid>
           {filtered.map((sc) => (
             <ScrapCard key={sc.id} sc={sc} />
           ))}
         </MobileCardGrid>
+        </div>
       )}
     </div>
   );

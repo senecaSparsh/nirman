@@ -12,9 +12,10 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type ListingFilter = "ALL" | "LISTED" | "DRAFT" | "SYNC_FAILED" | "DELISTED";
 
@@ -52,8 +53,16 @@ const FILTER_CHIPS: { label: string; value: ListingFilter }[] = [
  */
 export function MobilePortalListingsList({
   items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: PortalListingItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListingFilter>("ALL");
@@ -84,12 +93,23 @@ export function MobilePortalListingsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as ListingFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
         showClear={query !== "" || statusFilter !== "ALL"}
         onClear={() => { setQuery(""); setStatusFilter("ALL"); }}

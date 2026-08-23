@@ -7,6 +7,7 @@ import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSectionTitle, MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileGatePassList, MobileGatePassFormDialog } from "./MobileGatePassList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export const metadata = { title: "Gate Pass · Nirman" };
 
@@ -146,6 +147,18 @@ async function MobileGatePassContent() {
           canExit={canExit}
           canCreate={canCreate}
           canManage={canManage}
+          exportTitle="Gate Passes"
+          exportRows={rows as unknown as Record<string, unknown>[]}
+          exportColumns={[
+            { key: "gatePassNumber", label: "GP Number" },
+            { key: "status", label: "Status" },
+            { key: "category", label: "Category" },
+            { key: "locationName", label: "Location" },
+            { key: "vehicleNumber", label: "Vehicle" },
+            { key: "destination", label: "Destination" },
+            { key: "createdAt", label: "Created", format: "date" },
+          ] as MobileColumnSpec[]}
+          exportSummary={`${rows.length} gate passes · ${pending.length} pending`}
         />
       )}
     </div>

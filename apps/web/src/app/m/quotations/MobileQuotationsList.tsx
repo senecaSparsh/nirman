@@ -7,10 +7,11 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileNewQuotationClient } from "./new/MobileNewQuotationClient";
 import { MobileQuotationDetail } from "./[id]/MobileQuotationDetail";
 
@@ -51,10 +52,18 @@ export function MobileQuotationsList({
   items,
   canCreate,
   catalog,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: QuotationListItem[];
   canCreate?: boolean;
   catalog: Catalog;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,19 +147,29 @@ export function MobileQuotationsList({
             query={query}
             onQueryChange={setQuery}
             placeholder="Search quote no, title, project…"
-            action={canCreate ? <MobileHeaderAction onClick={openNew}>New</MobileHeaderAction> : undefined}
-            filterChips={
-              <MobileFilterChips<TabKey>
-                chips={[
-                  { label: "All", value: "all" },
-                  { label: "Mine", value: "mine" },
-                  { label: "Pending Approval", value: "pending", count: pendingCount > 0 ? pendingCount : undefined },
-                ]}
-                active={tab}
-                onChange={setTab}
-              />
+            action={
+              <div className="flex items-center gap-1 shrink-0">
+                <MobileFilterIcon
+                  options={[
+                    { label: "All", value: "all" },
+                    { label: "Mine", value: "mine" },
+                    { label: `Pending Approval${pendingCount > 0 ? ` (${pendingCount})` : ""}`, value: "pending" },
+                  ]}
+                  active={tab}
+                  defaultValue="all"
+                  onChange={(v) => setTab(v as TabKey)}
+                />
+                {exportTitle && exportRows && exportColumns ? (
+                  <MobileExportShareIcons
+                    title={exportTitle}
+                    rows={exportRows}
+                    columns={exportColumns}
+                    summary={exportSummary}
+                  />
+                ) : null}
+                {canCreate && <MobileHeaderAction onClick={openNew}>New</MobileHeaderAction>}
+              </div>
             }
-            resultCount={`${filtered.length} request${filtered.length !== 1 ? "s" : ""}`}
             showClear={query !== "" || tab !== "all"}
             onClear={() => {
               setQuery("");
@@ -165,10 +184,22 @@ export function MobileQuotationsList({
               hint={tab === "pending" ? "You have no quotation requests awaiting your approval" : "Try a different filter."}
             />
           ) : (
+            <div>
+              {(query || tab !== "all") && (
+                <div className="flex items-center justify-end mb-1.5">
+                  <span
+                    className="text-[0.625rem] font-semibold"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {filtered.length} request{filtered.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
             <div className="space-y-2">
               {filtered.map((r) => (
                 <QuotationCard key={r.id} req={r} onOpen={() => openDetail(r.id)} />
               ))}
+            </div>
             </div>
           )}
         </>

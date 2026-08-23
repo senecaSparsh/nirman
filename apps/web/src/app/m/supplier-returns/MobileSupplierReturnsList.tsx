@@ -10,9 +10,10 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type ReturnStatus = "ALL" | "DRAFT" | "SUBMITTED" | "COMPLETED" | "CANCELLED";
 
@@ -38,7 +39,19 @@ const FILTER_CHIPS: { label: string; value: ReturnStatus }[] = [
  * Client component for the supplier returns list. Handles
  * client-side search + status filter chips.
  */
-export function MobileSupplierReturnsList({ items }: { items: SupplierReturnItem[] }) {
+export function MobileSupplierReturnsList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: SupplierReturnItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReturnStatus>("ALL");
 
@@ -68,21 +81,41 @@ export function MobileSupplierReturnsList({ items }: { items: SupplierReturnItem
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={setStatusFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
         showClear={query !== "" || statusFilter !== "ALL"}
         onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
 
-      <MobileSectionTitle>
-        {query || statusFilter !== "ALL"
-          ? `Results (${filtered.length})`
-          : "Recent"}
+      <MobileSectionTitle
+        right={
+          (query || statusFilter !== "ALL") ? (
+            <span
+              className="text-[0.625rem] font-semibold"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {filtered.length} return{filtered.length !== 1 ? "s" : ""}
+            </span>
+          ) : undefined
+        }
+      >
+        {query || statusFilter !== "ALL" ? "Results" : "Recent"}
       </MobileSectionTitle>
 
       {filtered.length === 0 ? (

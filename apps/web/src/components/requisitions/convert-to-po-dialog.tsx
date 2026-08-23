@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { RequisitionDetail } from "@/lib/types";
 
@@ -14,7 +16,7 @@ type SupplierOption = { id: string; name: string };
 type LocationOption = {
   id: string;
   name: string;
-  type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
+  type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
   projectId: string | null;
 };
 
@@ -39,6 +41,9 @@ export function ConvertToPoDialog({
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lineCosts, setLineCosts] = useState<Record<string, string>>({});
+  // Local copy so freshly created suppliers appear without router.refresh
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
+  useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
 
   // Auto-fill line costs from last purchase rate when dialog opens
   useEffect(() => {
@@ -150,12 +155,17 @@ export function ConvertToPoDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Supplier *</Label>
-            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required>
-              <option value="" disabled>Select supplier…</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={supplierId}
+              onChange={setSupplierId}
+              required
+              placeholder="Select supplier…"
+              createLabel="supplier"
+              options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} supplier={null} />
+              )}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Procurement Scope</Label>

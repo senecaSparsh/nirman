@@ -27,6 +27,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     crewId: parsed.data.crewId,
     activeProjectId: parsed.data.activeProjectId,
     active: parsed.data.active,
+    reportingLocationId: parsed.data.reportingLocationId,
+    hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
   });
   return json({ ok: true, id: updated.id });

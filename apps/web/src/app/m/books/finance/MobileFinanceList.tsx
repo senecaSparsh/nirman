@@ -5,6 +5,7 @@ import { Wallet, Building2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type ExpenseListItem = {
   id: string;
@@ -32,9 +33,17 @@ export type ProjectCostListItem = {
 export function MobileFinanceList({
   expenses,
   projectCosts,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   expenses: ExpenseListItem[];
   projectCosts: ProjectCostListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -65,6 +74,18 @@ export function MobileFinanceList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={!!query}
         onClear={() => setQuery("")}
       />

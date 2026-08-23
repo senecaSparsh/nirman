@@ -5,6 +5,7 @@ import { Wallet, Printer } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type ReceiptListItem = {
   id: string;
@@ -21,7 +22,19 @@ export type ReceiptListItem = {
  * search by customer name or payment mode. Rows link to the receipt
  * detail page (/m/books/receipts/[id]?kind=…).
  */
-export function MobileReceiptsList({ items }: { items: ReceiptListItem[] }) {
+export function MobileReceiptsList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: ReceiptListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -41,6 +54,18 @@ export function MobileReceiptsList({ items }: { items: ReceiptListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search customer, mode, sale no..."
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={!!query}
         onClear={() => setQuery("")}
       />

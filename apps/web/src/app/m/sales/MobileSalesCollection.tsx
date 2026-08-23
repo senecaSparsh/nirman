@@ -10,10 +10,11 @@ import {
 import { toast } from "sonner";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
-  MobileFilterChips,
+  MobileSearchHeader,
+  MobileFilterIcon,
   MobileNoResults,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export interface SaleItem {
   id: string;
@@ -47,7 +48,21 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
   PAID: { color: "var(--color-go)", label: "Paid" },
 };
 
-export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; stats: CollectionStats }) {
+export function MobileSalesCollection({
+  items,
+  stats,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: SaleItem[];
+  stats: CollectionStats;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"OUTSTANDING" | "SETTLED" | "ALL">("OUTSTANDING");
@@ -137,33 +152,37 @@ export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; sta
       <Link
         href="/m/sales/new"
         className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.75rem] font-bold press mb-2.5"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         <Plus className="size-3.5" />
         New Sale
       </Link>
 
-      {/* ── Filter chips ── */}
-      <div className="mb-2.5">
-        <MobileFilterChips
-          chips={FILTERS as FilterChip<"OUTSTANDING" | "SETTLED" | "ALL">[]}
-          active={filter}
-          onChange={setFilter}
-        />
-      </div>
-
-      {/* ── Search ── */}
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+      {/* ── Search + filter + export ── */}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
         placeholder="Search customer, sale no, or asset…"
-        className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] mb-3 outline-none"
-        style={{
-          borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-          color: "var(--color-ink-950)",
-        }}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTERS.map((f) => ({ label: f.label, value: f.value }))}
+              active={filter}
+              defaultValue="OUTSTANDING"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query || filter !== "OUTSTANDING"}
+        onClear={() => { setQuery(""); setFilter("OUTSTANDING"); }}
       />
 
       {/* ── Outstanding deals ── */}

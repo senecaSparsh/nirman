@@ -11,7 +11,6 @@ import {
   MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmployeesList } from "./MobileEmployeesList";
 import { MobileEmployeesFab } from "./MobileEmployeesFab";
@@ -95,10 +94,11 @@ async function MobileEmployeesContent() {
         <MobileStatCard label="Trades" value={String(trades.length)} icon={Users} />
       </div>
 
-      <MobileExportShareBar
-        title="Employees"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileEmployeesList
+        items={serialized}
+        exportTitle="Employees"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "name", label: "Name" },
           { key: "trade", label: "Trade" },
           { key: "wageType", label: "Wage Type" },
@@ -106,10 +106,8 @@ async function MobileEmployeesContent() {
           { key: "dailyRate", label: "Daily Rate", format: "currency" },
           { key: "monthlySalary", label: "Monthly Salary", format: "currency" },
         ] as MobileColumnSpec[]}
-        summary={`${serialized.length} employees`}
+        exportSummary={`${serialized.length} employees`}
       />
-
-      <MobileEmployeesList items={serialized} />
 
       {/* FAB: New Employee */}
       {canManage && (

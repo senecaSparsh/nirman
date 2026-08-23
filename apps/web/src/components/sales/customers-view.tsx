@@ -9,19 +9,25 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { GenericCsvImportDialog } from "@/components/csv-import-dialog";
 import { CustomerFormDialog } from "./customer-form-dialog";
-import type { CustomerRow } from "@/lib/types";
+import { CustomerDetailDialog } from "./customer-detail-dialog";
+import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 
 export function CustomersView({
   customers,
+  sales,
   permissions,
+  onSelectSale,
 }: {
   customers: CustomerRow[];
+  sales?: AssetSaleRow[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean };
+  onSelectSale?: (sale: AssetSaleRow) => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [deleting, setDeleting] = useState<CustomerRow | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [detail, setDetail] = useState<CustomerRow | null>(null);
   const router = useRouter();
 
   function openNew() { setEditing(null); setFormOpen(true); }
@@ -148,6 +154,7 @@ export function CustomersView({
             sumColumns={["activeSales"]}
             totalFormat={(key, sum) => sum.toLocaleString("en-IN")}
             rowTone={(c) => (c.activeSales > 0 ? "success" : null)}
+            onRowClick={(c) => setDetail(c)}
             onAddRow={canCreate ? openNew : undefined}
             addRowLabel="New Customer"
             toolbarTrailing={
@@ -189,6 +196,16 @@ export function CustomersView({
         }}
         onSuccess={() => router.refresh()}
       />
+
+      {sales && (
+        <CustomerDetailDialog
+          customer={detail}
+          sales={sales}
+          open={detail != null}
+          onOpenChange={(o) => !o && setDetail(null)}
+          onSelectSale={onSelectSale}
+        />
+      )}
     </div>
   );
 }

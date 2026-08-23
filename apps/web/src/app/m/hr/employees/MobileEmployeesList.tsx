@@ -10,9 +10,10 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type WageTypeFilter = "ALL" | "DAILY" | "MONTHLY";
 
@@ -47,8 +48,16 @@ const FILTER_CHIPS: { label: string; value: WageTypeFilter }[] = [
  */
 export function MobileEmployeesList({
   items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: EmployeeListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [wageFilter, setWageFilter] = useState<WageTypeFilter>("ALL");
@@ -83,15 +92,26 @@ export function MobileEmployeesList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={wageFilter}
-            onChange={setWageFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={wageFilter}
+              defaultValue="ALL"
+              onChange={(v) => setWageFilter(v as WageTypeFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        showClear={!!query || wageFilter !== "ALL"}
+        onClear={() => { setQuery(""); setWageFilter("ALL"); }}
       />
 
       {isFiltering ? (

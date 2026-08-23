@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 interface TeamMember {
   id: string;
@@ -55,6 +56,10 @@ export function MobileTeamList({
   currentRole: _currentRole,
   roleCounts,
   assignableRoles,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   team: TeamMember[];
   canManage: boolean;
@@ -62,6 +67,10 @@ export function MobileTeamList({
   currentRole: string;
   roleCounts: Record<string, number>;
   assignableRoles: AssignableRole[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -169,9 +178,33 @@ export function MobileTeamList({
         query={search}
         onQueryChange={setSearch}
         placeholder="Search by name or email…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!search}
+        onClear={() => setSearch("")}
       />
 
       {/* ── Team list ── */}
+      {search && sorted.length > 0 && (
+        <div className="flex items-center justify-end mb-1.5">
+          <span
+            className="text-[0.625rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {sorted.length} member{sorted.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         {sorted.map((member) => (
           <MemberCard
@@ -771,7 +804,7 @@ function AddMemberDialog({
             type="submit"
             disabled={submitting}
             className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 mt-1"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -1015,7 +1048,7 @@ function EditMemberDialog({
               type="submit"
               disabled={saving}
               className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               {saving ? "Saving…" : "Save Changes"}

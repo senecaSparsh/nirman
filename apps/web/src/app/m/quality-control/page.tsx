@@ -9,7 +9,6 @@ import {
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { MobileNcrList } from "./MobileNcrList";
@@ -87,10 +86,11 @@ async function MobileQualityControlContent() {
         <MobileStatCard label="Closed" value={String(closed)} icon={ClipboardCheck} tone={closed > 0 ? "go" : "neutral"} />
       </div>
 
-      <MobileExportShareBar
-        title="Quality Control — NCRs"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileNcrList
+        items={serialized}
+        exportTitle="Quality Control — NCRs"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "ncrNumber", label: "NCR Number" },
           { key: "title", label: "Title" },
           { key: "projectName", label: "Project" },
@@ -98,10 +98,8 @@ async function MobileQualityControlContent() {
           { key: "status", label: "Status" },
           { key: "category", label: "Category" },
         ] as MobileColumnSpec[]}
-        summary={`${serialized.length} NCRs`}
+        exportSummary={`${serialized.length} NCRs`}
       />
-
-      <MobileNcrList items={serialized} />
 
       {ncrs.length === 0 && (
         <MobileEmptyState

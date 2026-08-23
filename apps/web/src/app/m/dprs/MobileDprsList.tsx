@@ -11,11 +11,12 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileHeaderAction,
   MobileNoResults,
   MobileDashedCreateButton,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type DprApprovalFilter =
   | "ALL"
@@ -54,9 +55,17 @@ const STATUS_INFO: Record<string, { color: string; label: string; step: number }
 export function MobileDprsList({
   items,
   canSubmit,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: DprListItem[];
   canSubmit?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DprApprovalFilter>("ALL");
@@ -126,13 +135,24 @@ export function MobileDprsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search project, submitter…"
-        action={canSubmit ? <MobileHeaderAction href="/m/site/dpr">Today</MobileHeaderAction> : undefined}
-        filterChips={
-          <MobileFilterChips<DprApprovalFilter>
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={(v) => setStatusFilter(v as DprApprovalFilter)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+            {canSubmit && <MobileHeaderAction href="/m/site/dpr">Today</MobileHeaderAction>}
+          </div>
         }
         showClear={statusFilter !== "ALL" || query !== ""}
         onClear={() => {

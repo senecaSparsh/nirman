@@ -80,32 +80,55 @@ export function MobilePoActions({
 
   return (
     <div className="space-y-2 px-4 pb-6 pt-3">
-      {showApprove && (
-        <ActionButton
-          onClick={() => approveAction.execute()}
-          busy={approveAction.isPending}
-          icon={CheckCircle2}
-          label="Approve"
-          variant="primary"
-        />
-      )}
-      {showOrder && (
-        <ActionButton
-          onClick={() => orderAction.execute()}
-          busy={orderAction.isPending}
-          icon={Truck}
-          label="Mark as ordered"
-          variant="primary"
-        />
-      )}
-      {showCancel && (
-        <ActionButton
-          onClick={() => cancelAction.execute()}
-          busy={cancelAction.isPending}
-          icon={XCircle}
-          label="Cancel PO"
-          variant="outline"
-        />
+      {showApprove && showCancel ? (
+        <div className="flex gap-2">
+          <ActionButton
+            onClick={() => approveAction.execute()}
+            busy={approveAction.isPending}
+            icon={CheckCircle2}
+            label="Approve"
+            variant="primary"
+            className="flex-1"
+          />
+          <ActionButton
+            onClick={() => cancelAction.execute()}
+            busy={cancelAction.isPending}
+            icon={XCircle}
+            label="Cancel PO"
+            variant="outline"
+            className="flex-1"
+          />
+        </div>
+      ) : (
+        <>
+          {showApprove && (
+            <ActionButton
+              onClick={() => approveAction.execute()}
+              busy={approveAction.isPending}
+              icon={CheckCircle2}
+              label="Approve"
+              variant="primary"
+            />
+          )}
+          {showOrder && (
+            <ActionButton
+              onClick={() => orderAction.execute()}
+              busy={orderAction.isPending}
+              icon={Truck}
+              label="Mark as ordered"
+              variant="primary"
+            />
+          )}
+          {showCancel && (
+            <ActionButton
+              onClick={() => cancelAction.execute()}
+              busy={cancelAction.isPending}
+              icon={XCircle}
+              label="Cancel PO"
+              variant="outline"
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -117,12 +140,14 @@ function ActionButton({
   icon: Icon,
   label,
   variant,
+  className,
 }: {
   onClick: () => void;
   busy: boolean;
   icon: typeof CheckCircle2;
   label: string;
   variant: "primary" | "outline";
+  className?: string;
 }) {
   return (
     <button
@@ -134,6 +159,7 @@ function ActionButton({
         variant === "primary"
           ? "bg-primary text-primary-foreground shadow-raised"
           : "border border-border bg-card text-foreground",
+        className,
       )}
     >
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}

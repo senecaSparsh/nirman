@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileRequisitionsList } from "./MobileRequisitionsList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileRequisitionsPage() {
@@ -62,15 +61,14 @@ async function MobileRequisitionsContent() {
 
   return (
     <div>
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Material Requisitions"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serialized.length} requisitions`}
-        />
-      </div>
-      <MobileRequisitionsList items={serialized} canCreate={canCreate} />
+      <MobileRequisitionsList
+        items={serialized}
+        canCreate={canCreate}
+        exportTitle="Material Requisitions"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} requisitions`}
+      />
     </div>
   );
 }

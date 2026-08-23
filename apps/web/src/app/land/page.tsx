@@ -152,6 +152,9 @@ async function LandContent() {
       tokenAmount: lp.tokenAmount ? toNum(lp.tokenAmount) : null,
       tokenPaymentDate: lp.tokenPaymentDate ? lp.tokenPaymentDate.toISOString() : null,
       tokenPaymentMode: lp.tokenPaymentMode,
+      // Possession
+      isPossessed: lp.isPossessed,
+      possessionDate: lp.possessionDate?.toISOString() ?? null,
       // Documents
       atsDocumentUrl: lp.atsDocumentUrl,
       atsDocumentName: lp.atsDocumentName,

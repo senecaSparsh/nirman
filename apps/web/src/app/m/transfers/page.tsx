@@ -5,7 +5,6 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileTransfersList } from "./MobileTransfersList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -78,15 +77,15 @@ async function TransfersContent() {
 
   return (
     <>
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Stock Transfers"
-          rows={items as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${items.length} transfers`}
-        />
-      </div>
-      <MobileTransfersList items={items} canCreate={canTransfer} currentCompanyId={company.id} />
+      <MobileTransfersList
+        items={items}
+        canCreate={canTransfer}
+        currentCompanyId={company.id}
+        exportTitle="Stock Transfers"
+        exportRows={items as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${items.length} transfers`}
+      />
     </>
   );
 }

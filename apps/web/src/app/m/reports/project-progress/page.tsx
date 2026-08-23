@@ -14,7 +14,7 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobileReportHeader, MobileReportSummary, MobileBarChart } from "@/components/mobile/v2/report-ui";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -136,7 +136,7 @@ async function MobileProjectProgressContent() {
       />
 
       <div className="mb-4">
-        <MobileExportShareBar
+        <MobileExportShareIcons
           title="Project Progress Report"
           rows={rows as unknown as Record<string, unknown>[]}
           columns={csvColumns}

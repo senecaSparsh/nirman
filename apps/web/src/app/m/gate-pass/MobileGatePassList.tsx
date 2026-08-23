@@ -27,6 +27,7 @@ import {
   MobileSearchHeader,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type GatePassRow = {
   id: string;
@@ -97,12 +98,20 @@ export function MobileGatePassList({
   canExit,
   canCreate,
   canManage,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   gatePasses: GatePassRow[];
   canApprove: boolean;
   canExit: boolean;
   canCreate: boolean;
   canManage: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -180,6 +189,20 @@ export function MobileGatePassList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search by GP no, vehicle, driver…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query}
+        onClear={() => setQuery("")}
       />
 
       {sorted.length === 0 && query && (

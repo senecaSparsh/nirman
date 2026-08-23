@@ -9,16 +9,23 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 export function ProjectDetailActions({
   projectId,
   initial,
+  editOpen,
+  setEditOpen,
 }: {
   projectId: string;
   initial: ProjectFormValues;
+  editOpen?: boolean;
+  setEditOpen?: (open: boolean) => void;
 }) {
-  const [editOpen, setEditOpen] = useState(false);
+  const [internalEditOpen, setInternalEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  const isEditControlled = editOpen !== undefined && setEditOpen !== undefined;
+  const open = isEditControlled ? editOpen : internalEditOpen;
+  const onOpenChange = isEditControlled ? setEditOpen : setInternalEditOpen;
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => onOpenChange(true)}>
         <Pencil className="h-4 w-4" />
         Edit
       </Button>
@@ -26,7 +33,7 @@ export function ProjectDetailActions({
         <Trash2 className="h-4 w-4" />
         Delete
       </Button>
-      <ProjectFormDialog open={editOpen} onOpenChange={setEditOpen} projectId={projectId} initial={initial} />
+      <ProjectFormDialog open={open} onOpenChange={onOpenChange} projectId={projectId} initial={initial} />
       <ConfirmDelete
         open={delOpen}
         onOpenChange={setDelOpen}

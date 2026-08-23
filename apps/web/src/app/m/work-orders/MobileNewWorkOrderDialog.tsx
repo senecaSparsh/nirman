@@ -330,7 +330,7 @@ export function MobileNewWorkOrderDialog({
             </div>
 
             {/* Next button */}
-            <button type="submit" className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button type="submit" className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               Next: Select Scope
               <ChevronRight className="size-4" />
             </button>
@@ -401,7 +401,7 @@ export function MobileNewWorkOrderDialog({
               <button type="button" onClick={() => setStep(1)} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
                 Back
               </button>
-              <button type="submit" disabled={saving || selectedLines.length === 0} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+              <button type="submit" disabled={saving || selectedLines.length === 0} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
                 {saving ? <Loader2 className="size-4 animate-spin" /> : null}
                 {saving ? "Issuing…" : "Issue Work Order"}
               </button>

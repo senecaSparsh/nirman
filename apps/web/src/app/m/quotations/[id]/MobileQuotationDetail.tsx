@@ -375,7 +375,7 @@ export function MobileQuotationDetail({
           <button
             onClick={() => setShowAddQuote(true)}
             className="flex items-center gap-1 h-7 px-2.5 rounded text-[0.625rem] font-bold whitespace-nowrap press active:scale-95"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <Plus className="size-3" />
             Add Quote
@@ -2374,7 +2374,7 @@ function AddQuoteDialog({
           onClick={onSubmit}
           disabled={saving || uploading}
           className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
           {saving ? "Saving…" : "Add Quote"}

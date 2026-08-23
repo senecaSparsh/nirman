@@ -6,10 +6,9 @@ import { formatNumber, formatCurrency } from "@/lib/utils";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
   MobileNoResults,
-  type FilterChip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export type MaterialItem = {
   id: string;
@@ -39,9 +38,17 @@ type SortMode = "default" | "stock-low" | "stock-high" | "name";
 export function MobileMaterialsList({
   items,
   initialCategory,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: MaterialItem[];
   initialCategory?: string;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(
@@ -95,13 +102,6 @@ export function MobileMaterialsList({
     name: "Name A-Z",
   };
 
-  // Build filter chips: "All" + categories
-  const categoryChips: FilterChip<string>[] = [
-    { label: "All", value: "__all__" },
-    ...categories.map((c) => ({ label: c, value: c })),
-  ];
-  const activeChipValue = activeCategory ?? "__all__";
-
   return (
     <div>
       {/* ── Sticky search header ── */}
@@ -109,15 +109,24 @@ export function MobileMaterialsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search materials…"
-        action={<SortDropdown sort={sort} setSort={setSort} sortLabel={sortLabel} />}
-        filterChips={
-          <MobileFilterChips
-            chips={categoryChips}
-            active={activeChipValue}
-            onChange={(v) => setActiveCategory(v === "__all__" ? null : v)}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <FilterDropdown
+              categories={categories}
+              activeCategory={activeCategory}
+              onChange={(v) => setActiveCategory(v)}
+            />
+            <SortDropdown sort={sort} setSort={setSort} sortLabel={sortLabel} />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
-        resultCount={`${filtered.length} item${filtered.length !== 1 ? "s" : ""}`}
         showClear={(!!activeCategory || !!query) && filtered.length > 0}
         onClear={() => { setQuery(""); setActiveCategory(null); }}
       />
@@ -129,35 +138,57 @@ export function MobileMaterialsList({
           query={query || undefined}
           hint="No materials match the selected filters."
         />
-      ) : sort === "default" ? (
-        /* Grouped by category */
-        groupedCategories.map((category) => (
-          <section key={category} className="mb-4">
-            <h2
-              className="text-[0.8125rem] font-bold mb-1.5"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {category}
-              <span
-                className="text-[0.625rem] font-normal ml-1.5"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                {grouped[category]!.length}
-              </span>
-            </h2>
-            <div className="grid grid-cols-3 gap-1.5">
-              {grouped[category]!.map((m) => (
-                <MaterialCard key={m.id} material={m} />
-              ))}
-            </div>
-          </section>
-        ))
       ) : (
-        /* Sorted: flat grid */
-        <div className="grid grid-cols-3 gap-1.5">
-          {filtered.map((m) => (
-            <MaterialCard key={m.id} material={m} />
-          ))}
+        <div>
+          {sort === "default" ? (
+            /* Grouped by category */
+            groupedCategories.map((category, idx) => (
+              <section key={category} className="mb-4">
+                <h2
+                  className="text-[0.8125rem] font-bold mb-1.5 flex items-center gap-1.5"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {category}
+                  <span
+                    className="text-[0.625rem] font-normal"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {grouped[category]!.length}
+                  </span>
+                  {idx === 0 && (
+                    <span
+                      className="ml-auto text-[0.625rem] font-semibold"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </h2>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {grouped[category]!.map((m) => (
+                    <MaterialCard key={m.id} material={m} />
+                  ))}
+                </div>
+              </section>
+            ))
+          ) : (
+            /* Sorted: flat grid */
+            <div>
+              <div className="flex items-center justify-end mb-1.5">
+                <span
+                  className="text-[0.625rem] font-semibold"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {filtered.map((m) => (
+                  <MaterialCard key={m.id} material={m} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -245,6 +276,80 @@ function MaterialCard({ material }: { material: MaterialItem }) {
   );
 }
 
+/* ── Filter dropdown (icon button + menu) ── */
+function FilterDropdown({
+  categories,
+  activeCategory,
+  onChange,
+}: {
+  categories: string[];
+  activeCategory: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasFilter = activeCategory !== null;
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-label="Filter"
+        className="grid place-items-center size-8 rounded-[0.5rem] border press relative"
+        style={{
+          borderColor: hasFilter || open ? "var(--color-ink-950)" : "var(--color-line)",
+          backgroundColor: hasFilter || open ? "var(--color-concrete)" : "var(--color-paper)",
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M3 4h18l-7 8v7l-4 2v-9L3 4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {hasFilter && (
+          <span
+            className="absolute -top-0.5 -right-0.5 size-2 rounded-full"
+            style={{ backgroundColor: "var(--color-signal)" }}
+          />
+        )}
+      </button>
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="absolute top-full right-0 z-20 mt-1 w-48 rounded-[0.625rem] border shadow-lg overflow-hidden max-h-[60vh] overflow-y-auto"
+            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+          >
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              className="press w-full text-left px-3 py-2 text-[0.75rem]"
+              style={{
+                fontWeight: !hasFilter ? 600 : 400,
+                color: !hasFilter ? "var(--color-ink-950)" : "var(--color-ink-700)",
+                backgroundColor: !hasFilter ? "var(--color-concrete)" : "transparent",
+              }}
+            >
+              All categories
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => { onChange(c); setOpen(false); }}
+                className="press w-full text-left px-3 py-2 text-[0.75rem] border-t"
+                style={{
+                  borderColor: "var(--color-line)",
+                  fontWeight: activeCategory === c ? 600 : 400,
+                  color: activeCategory === c ? "var(--color-ink-950)" : "var(--color-ink-700)",
+                  backgroundColor: activeCategory === c ? "var(--color-concrete)" : "transparent",
+                }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 /* ── Sort dropdown ── */
 function SortDropdown({
   sort,
@@ -261,24 +366,23 @@ function SortDropdown({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpen(!open)}
-        className="press flex items-center gap-1.5 h-9 px-3 rounded-[0.625rem] border text-[0.75rem] whitespace-nowrap"
+        aria-label="Sort"
+        className="grid place-items-center size-8 rounded-[0.5rem] border press"
         style={{
-          borderColor: sort !== "default" ? "var(--color-ink-950)" : "var(--color-line)",
-          backgroundColor: sort !== "default" ? "var(--color-concrete)" : "var(--color-paper)",
+          borderColor: sort !== "default" || open ? "var(--color-ink-950)" : "var(--color-line)",
+          backgroundColor: sort !== "default" || open ? "var(--color-concrete)" : "var(--color-paper)",
           color: sort !== "default" ? "var(--color-ink-950)" : "var(--color-ink-700)",
-          fontWeight: sort !== "default" ? 600 : 400,
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M7 4v16m0 0l-3-3m3 3l3-3M17 20V4m0 0l-3 3m3-3l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <span>{sort === "default" ? "Sort" : sortLabel[sort].split(":")[0]}</span>
       </button>
       {open ? (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border-2 shadow-lg overflow-hidden"
+            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border shadow-lg overflow-hidden"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",

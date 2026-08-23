@@ -33,7 +33,7 @@ const EVENT_TYPES = [
   // Inventory (5)
   { value: "STOCK_TRANSFER_CREATED", label: "Stock Transfer Created", group: "Inventory" },
   { value: "STOCK_ISSUE_CREATED", label: "Stock Issue Created", group: "Inventory" },
-  { value: "STOCK_COUNT_DUE", label: "Stock Count Due", group: "Inventory" },
+  { value: "STOCK_COUNT_DUE", label: "Stock Inventory Due", group: "Inventory" },
   { value: "SCRAP_GENERATED", label: "Scrap Generated", group: "Inventory" },
   { value: "MATERIAL_PRICE_CHANGE", label: "Material Price Change", group: "Inventory" },
   // HR/DPR (5)

@@ -124,7 +124,7 @@ export function CompanySwitcher({
                 className="grid place-items-center w-6 h-6 rounded-[0.25rem] text-[0.5rem] font-bold shrink-0"
                 style={{
                   backgroundColor: "var(--color-ink-950)",
-                  color: "#fff",
+                  color: "var(--color-paper)",
                 }}
               >
                 {c.name.slice(0, 2).toUpperCase()}

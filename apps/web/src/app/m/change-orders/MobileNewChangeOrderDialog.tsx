@@ -376,7 +376,7 @@ export function MobileNewChangeOrderDialog({
               onClick={onSave}
               disabled={saving}
               className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               {saving ? "Creating…" : "Create"}

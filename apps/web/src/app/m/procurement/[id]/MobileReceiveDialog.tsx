@@ -698,7 +698,7 @@ export function MobileReceiveDialog({
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-colors"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Printer className="size-4" />
               Print GRN / Delivery Challan
@@ -758,7 +758,7 @@ export function MobileReceiveDialog({
           type="button"
           onClick={() => { haptic(5); setMode("receive"); setOpen(true); }}
           className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-colors"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           <ScanLine className="size-4" />
           Receive materials
@@ -1223,7 +1223,7 @@ export function MobileReceiveDialog({
               {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Review rejection</>)}
             </button>
           ) : (
-            <button type="button" onClick={prepareReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button type="button" onClick={prepareReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               <CheckCircle2 className="size-4" />
               Review receipt
             </button>

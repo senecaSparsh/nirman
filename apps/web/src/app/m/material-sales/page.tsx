@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/material-sales — mobile material/scrap sales. Shows recent sales with
@@ -65,6 +66,17 @@ async function MobileMaterialSalesContent() {
     lineCount: s.lines.length,
   }));
 
+  const csvColumns: MobileColumnSpec[] = [
+    { key: "saleNumber", label: "Sale #" },
+    { key: "customerName", label: "Customer" },
+    { key: "projectName", label: "Project" },
+    { key: "status", label: "Status" },
+    { key: "paymentStatus", label: "Payment" },
+    { key: "totalAmount", label: "Amount", format: "currency" },
+    { key: "grossProfit", label: "Profit", format: "currency" },
+    { key: "saleDate", label: "Date", format: "date" },
+  ];
+
   return (
     <MobileMaterialSalesList
       items={serialized}
@@ -72,6 +84,10 @@ async function MobileMaterialSalesContent() {
       totalProfit={totalProfit}
       pendingCount={pendingPayment.length}
       canCreate={canCreate}
+      exportTitle="Material Sales"
+      exportRows={serialized as unknown as Record<string, unknown>[]}
+      exportColumns={csvColumns}
+      exportSummary={`${serialized.length} sales`}
     />
   );
 }

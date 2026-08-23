@@ -6,13 +6,14 @@ import { Phone } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSearchHeader,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   MobileCardGrid,
   MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type DuesFilter = "ALL" | "DUE" | "CLEAR";
 
@@ -40,11 +41,19 @@ export function MobileSuppliersList({
   totalOwed,
   withDuesCount,
   canCreate,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: SupplierListItem[];
   totalOwed: number;
   withDuesCount: number;
   canCreate?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [duesFilter, setDuesFilter] = useState<DuesFilter>("ALL");
@@ -91,12 +100,22 @@ export function MobileSuppliersList({
         onQueryChange={setQuery}
         placeholder="Search supplier, GSTIN, phone…"
         action={
-          <MobileFilterDropdown
-            label="All"
-            options={FILTER_OPTIONS}
-            active={duesFilter}
-            onChange={setDuesFilter}
-          />
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_OPTIONS}
+              active={duesFilter}
+              defaultValue="ALL"
+              onChange={setDuesFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
         showClear={duesFilter !== "ALL" || !!query}
         onClear={() => { setQuery(""); setDuesFilter("ALL"); }}

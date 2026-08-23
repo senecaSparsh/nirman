@@ -117,7 +117,7 @@ export function MobileGeneratePayrollDialog({
             <button type="button" onClick={onClose} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button type="submit" disabled={saving} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               {saving ? "Generating…" : "Generate Payroll"}
             </button>
@@ -142,7 +142,7 @@ export function MobilePayrollFab() {
         style={{
           bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
           backgroundColor: "var(--color-ink-950)",
-          color: "#fff",
+          color: "var(--color-paper)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         }}
         aria-label="Generate payroll"

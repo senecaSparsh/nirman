@@ -56,10 +56,13 @@ export function attendanceWeight(status: string): number {
   switch (status) {
     case "PRESENT":
     case "OVERTIME":
+    case "LATE": // late counts as full day (but tracked separately for half-day deduction rule)
       return 1;
     case "HALF_DAY":
       return 0.5;
-    default: // ABSENT, LEAVE
+    case "PAID_LEAVE":
+      return 1; // paid leave counts as a paid day
+    default: // ABSENT, LEAVE, NON_PAID_LEAVE
       return 0;
   }
 }
@@ -79,11 +82,77 @@ export function computeOvertimeHours(
   attendances: { status: string; hoursWorked?: Decimal | number | string | null }[],
 ): Decimal {
   return attendances.reduce((sum, a) => {
-    if (a.status === "ABSENT" || a.status === "LEAVE") return sum;
+    if (a.status === "ABSENT" || a.status === "LEAVE" || a.status === "PAID_LEAVE" || a.status === "NON_PAID_LEAVE") return sum;
     const hrs = a.hoursWorked != null ? new Decimal(a.hoursWorked) : new Decimal(0);
     const ot = hrs.minus(STANDARD_HOURS_PER_DAY);
     return ot.gt(0) ? sum.plus(ot) : sum;
   }, new Decimal(0));
+}
+
+// ───────────────────────────────────────────────────────────
+//  Late tracking & half-day deduction rule
+//  Per the user's policy: 4 lates in a month → 1 half-day deducted.
+//  "Late" = arrived at 85-100% of working hours.
+//  Below 85% = half-day (handled as HALF_DAY status directly).
+// ───────────────────────────────────────────────────────────
+
+/** Count the number of LATE days in an attendance list. */
+export function countLateDays(
+  attendances: { status: string }[],
+): number {
+  return attendances.filter((a) => a.status === "LATE").length;
+}
+
+/**
+ * Compute half-day deductions from the late rule.
+ * 4 lates in a month → 1 half-day deducted.
+ * Returns the number of half-days to deduct from payroll.
+ */
+export function computeLateHalfDayDeductions(
+  attendances: { status: string }[],
+): number {
+  const lateCount = countLateDays(attendances);
+  return Math.floor(lateCount / 4);
+}
+
+// ───────────────────────────────────────────────────────────
+//  Three-tier attendance status (RED / YELLOW / GREEN)
+//  RED    = absent (not at reporting location)
+//  YELLOW = at location but DPR not approved yet
+//  GREEN  = at location + DPR approved by manager
+// ───────────────────────────────────────────────────────────
+
+export type AttendanceTier = "RED" | "YELLOW" | "GREEN";
+
+/**
+ * Compute the three-tier attendance status for a single attendance record.
+ * - If status is ABSENT, NON_PAID_LEAVE, or LEAVE → RED
+ * - If at location (has checkInLat/Lng) but DPR not approved → YELLOW
+ * - If at location + DPR approved → GREEN
+ * - If PAID_LEAVE → GREEN (authorized leave)
+ * - If no GPS data, falls back to status-based logic
+ */
+export function computeAttendanceTier(input: {
+  status: string;
+  hasGpsCheckIn?: boolean;
+  dprApproved?: boolean;
+}): AttendanceTier {
+  // Authorized leave counts as green
+  if (input.status === "PAID_LEAVE") return "GREEN";
+  // Absent / unpaid leave → red
+  if (input.status === "ABSENT" || input.status === "NON_PAID_LEAVE" || input.status === "LEAVE") return "RED";
+  // Present / late / overtime / half-day → check DPR approval
+  if (input.status === "PRESENT" || input.status === "LATE" || input.status === "OVERTIME" || input.status === "HALF_DAY") {
+    // If we have GPS data, use the three-tier logic
+    if (input.hasGpsCheckIn !== undefined) {
+      if (!input.hasGpsCheckIn) return "RED"; // not at location
+      if (input.dprApproved) return "GREEN";
+      return "YELLOW";
+    }
+    // No GPS data — fall back to status-only
+    return "GREEN"; // present is green by default
+  }
+  return "RED";
 }
 
 /** Count working days (Mon–Sat, excluding Sunday) in a date range. */
@@ -327,6 +396,8 @@ export interface CreateEmployeeInput {
   crewId?: string;
   activeProjectId?: string;
   active?: boolean;
+  reportingLocationId?: string;
+  hierarchyLevel?: number;
   userId?: string;
 }
 
@@ -358,6 +429,8 @@ export async function createEmployee(input: CreateEmployeeInput) {
         crewId: input.crewId || null,
         activeProjectId: input.activeProjectId || null,
         active: input.active ?? true,
+        reportingLocationId: input.reportingLocationId || null,
+        hierarchyLevel: input.hierarchyLevel ?? null,
         companyId: input.companyId,
       },
     });
@@ -387,6 +460,8 @@ export interface UpdateEmployeeInput {
   crewId?: string | null;
   activeProjectId?: string | null;
   active?: boolean;
+  reportingLocationId?: string | null;
+  hierarchyLevel?: number | null;
   userId?: string;
 }
 
@@ -422,6 +497,8 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.joinDate !== undefined) data.joinDate = input.joinDate;
     if (input.crewId !== undefined) data.crew = input.crewId ? { connect: { id: input.crewId } } : { disconnect: true };
     if (input.activeProjectId !== undefined) data.activeProject = input.activeProjectId ? { connect: { id: input.activeProjectId } } : { disconnect: true };
+    if (input.reportingLocationId !== undefined) data.reportingLocation = input.reportingLocationId ? { connect: { id: input.reportingLocationId } } : { disconnect: true };
+    if (input.hierarchyLevel !== undefined) data.hierarchyLevel = input.hierarchyLevel;
     if (input.active !== undefined) data.active = input.active;
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
@@ -449,7 +526,7 @@ export interface LogAttendanceInput {
   checkIn?: Date;
   checkOut?: Date;
   hoursWorked?: Decimal | number | string;
-  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE";
+  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
   notes?: string;
   recordedById?: string;
   // GPS coordinates from mobile check-in/check-out
@@ -526,7 +603,7 @@ export async function recordAttendance(input: LogAttendanceInput) {
 
 export interface BulkAttendanceRecord {
   employeeId: string;
-  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE";
+  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
   hoursWorked?: number;
   checkIn?: string;
   checkOut?: string;
@@ -1070,6 +1147,30 @@ export async function submitDPR(input: SubmitDprInput) {
           taskDescription: l.taskDescription,
         })),
       });
+    }
+
+    // Auto-populate labor lines from attendance records for this project+date.
+    // If no explicit labor lines were provided, fetch attendance for the project
+    // on this date and create labor lines with check-in/out times and hours worked.
+    if (!input.laborLines?.length || input.laborLines.length === 0) {
+      const attendances = await tx.workerAttendance.findMany({
+        where: {
+          projectId: input.projectId,
+          date: dateOnly,
+          status: { in: ["PRESENT", "OVERTIME", "LATE", "HALF_DAY"] },
+        },
+        include: { employee: { select: { id: true, name: true, trade: true } } },
+      });
+      if (attendances.length > 0) {
+        await tx.dPRLaborLine.createMany({
+          data: attendances.map((a) => ({
+            dprId: dpr.id,
+            employeeId: a.employeeId,
+            hoursWorked: a.hoursWorked ?? new Decimal(8),
+            taskDescription: `${a.employee?.trade ?? "Labor"} — auto-populated from attendance (in: ${a.checkIn?.toISOString().slice(11, 16) ?? "N/A"}, out: ${a.checkOut?.toISOString().slice(11, 16) ?? "N/A"})`,
+          })),
+        });
+      }
     }
 
     await logAction(tx, {

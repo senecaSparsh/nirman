@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Truck,
   ScanLine,
@@ -43,7 +44,7 @@ const RAW_MATERIAL_ACTIONS: QuickAction[] = [
   { href: "/m/site/issue", icon: Send, label: "Issue" },
   { href: "/m/transfers", icon: ArrowLeftRight, label: "Transfers" },
   { href: "/m/materials", icon: PackagePlus, label: "Materials" },
-  { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Counts" },
+  { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Inventory" },
   { href: "/m/material-sales", icon: TrendingUp, label: "Material Sales" },
 ];
 
@@ -81,9 +82,45 @@ const CATEGORIES: {
 ];
 
 export function InventoryInteractive() {
-  const [activeTab, setActiveTab] = React.useState<CategoryId>("raw-material");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Read the tab from the URL (?tab=real-estate) so the selection survives
+  // refresh and back/forward navigation. Falls back to "raw-material".
+  const paramTab = searchParams.get("tab");
+  const initialTab: CategoryId =
+    paramTab === "real-estate" || paramTab === "raw-material"
+      ? paramTab
+      : "raw-material";
+  const [activeTab, setActiveTab] = React.useState<CategoryId>(initialTab);
+
+  // Keep state in sync if the URL changes (e.g. browser back/forward).
+  React.useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "real-estate" || t === "raw-material") {
+      setActiveTab(t);
+    } else {
+      setActiveTab("raw-material");
+    }
+  }, [searchParams]);
 
   const active = CATEGORIES.find((c) => c.id === activeTab)!;
+
+  function selectTab(id: CategoryId) {
+    setActiveTab(id);
+    // Shallow-update the URL without scrolling so the choice is bookmarkable
+    // and survives refresh / back navigation.
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "raw-material") {
+      params.delete("tab"); // default — keep URL clean
+    } else {
+      params.set("tab", id);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/m/inventory?${qs}` : "/m/inventory", {
+      scroll: false,
+    });
+  }
 
   return (
     <>
@@ -100,13 +137,13 @@ export function InventoryInteractive() {
           return (
             <button
               key={cat.id}
-              onClick={() => setActiveTab(cat.id)}
+              onClick={() => selectTab(cat.id)}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 press transition-colors"
               style={{
                 backgroundColor: isActive
                   ? "var(--color-ink-950)"
                   : "transparent",
-                color: isActive ? "#fff" : "var(--color-ink-500)",
+                color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               <span className="text-[0.875rem]">{cat.icon}</span>

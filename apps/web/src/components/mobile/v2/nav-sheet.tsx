@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Settings, type LucideIcon } from "lucide-react";
-import { NAV_GROUPS, type NavLink } from "@/lib/mobile-nav-v2";
+import { NAV_GROUPS, MOBILE_TABS, type NavLink } from "@/lib/mobile-nav-v2";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV PANEL — 3-dot overflow side panel (compact)
@@ -118,6 +118,44 @@ export function NavSheet({ open, onClose, moduleId }: NavSheetProps) {
 
         {/* Scrollable link list — tight spacing */}
         <div className="overflow-y-auto flex-1 px-1.5 py-2 pb-safe">
+          {/* Module switcher — quick jump to any module's pages */}
+          <div className="mb-3">
+            <h3
+              className="text-[0.5rem] uppercase tracking-wide font-semibold mb-1.5"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Modules
+            </h3>
+            <div className="grid grid-cols-5 gap-1">
+              {MOBILE_TABS.map((tab) => {
+                const Icon = tab.icon as LucideIcon;
+                const active = moduleId === tab.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    href={tab.href}
+                    onClick={onClose}
+                    className="flex flex-col items-center gap-0.5 rounded-[0.375rem] py-1.5 press"
+                    style={{
+                      backgroundColor: active ? "var(--color-signal-wash)" : "var(--color-concrete)",
+                    }}
+                  >
+                    <Icon
+                      className="size-3.5 shrink-0"
+                      style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}
+                    />
+                    <span
+                      className="text-[0.4375rem] font-semibold leading-tight"
+                      style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-700)" }}
+                    >
+                      {tab.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
           {groups.map((group) => (
             <div key={group.title} className="mb-3">
               <h3

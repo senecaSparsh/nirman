@@ -514,6 +514,8 @@ async function main() {
   });
   await approvePurchaseOrder(po1.id, "OWNER");
   await orderPurchaseOrder(po1.id);
+  // Backdate orderDate so "Age" column shows realistic elapsed time
+  await prisma.purchaseOrder.update({ where: { id: po1.id }, data: { orderDate: new Date("2024-03-05"), createdAt: new Date("2024-03-01") } });
   // Mark the requisition as converted to this PO
   await prisma.materialRequisition.update({ where: { id: req1.id }, data: { status: "CONVERTED", convertedPoId: po1.id } });
 
@@ -532,6 +534,7 @@ async function main() {
   });
   await approvePurchaseOrder(po2.id, "OWNER");
   await orderPurchaseOrder(po2.id);
+  await prisma.purchaseOrder.update({ where: { id: po2.id }, data: { orderDate: new Date("2024-03-08"), createdAt: new Date("2024-03-05") } });
 
   // PO-3: COMPANY scope → warehouse (bricks + blocks), still DRAFT (badge fodder)
   await createPurchaseOrder({
@@ -563,6 +566,7 @@ async function main() {
   });
   await approvePurchaseOrder(po4.id, "OWNER");
   await orderPurchaseOrder(po4.id);
+  await prisma.purchaseOrder.update({ where: { id: po4.id }, data: { orderDate: new Date("2024-05-03"), createdAt: new Date("2024-04-28") } });
 
   // PO-5: PROJECT scope → Greenfield site (paint + primer for finishing)
   const po5 = await createPurchaseOrder({
@@ -580,6 +584,7 @@ async function main() {
   });
   await approvePurchaseOrder(po5.id, "OWNER");
   await orderPurchaseOrder(po5.id);
+  await prisma.purchaseOrder.update({ where: { id: po5.id }, data: { orderDate: new Date("2024-05-20"), createdAt: new Date("2024-05-15") } });
 
   // PO-6: COMPANY scope → warehouse (safety helmets restock)
   const po6 = await createPurchaseOrder({
@@ -595,6 +600,7 @@ async function main() {
   });
   await approvePurchaseOrder(po6.id, "OWNER");
   await orderPurchaseOrder(po6.id);
+  await prisma.purchaseOrder.update({ where: { id: po6.id }, data: { orderDate: new Date("2024-05-15"), createdAt: new Date("2024-05-10") } });
 
   // PO-7: PROJECT scope → Greenfield site (plumbing pipes)
   const po7 = await createPurchaseOrder({
@@ -611,6 +617,7 @@ async function main() {
   });
   await approvePurchaseOrder(po7.id, "OWNER");
   await orderPurchaseOrder(po7.id);
+  await prisma.purchaseOrder.update({ where: { id: po7.id }, data: { orderDate: new Date("2024-05-10"), createdAt: new Date("2024-05-05") } });
 
   // PO-8: COMPANY scope → warehouse (formwork plywood from new supplier)
   const po8 = await createPurchaseOrder({
@@ -626,6 +633,7 @@ async function main() {
   });
   await approvePurchaseOrder(po8.id, "OWNER");
   await orderPurchaseOrder(po8.id);
+  await prisma.purchaseOrder.update({ where: { id: po8.id }, data: { orderDate: new Date("2024-05-28"), createdAt: new Date("2024-05-25") } });
 
   // PO-9: COMPANY scope → warehouse (Ambuja cement — alternate supplier)
   await createPurchaseOrder({
@@ -656,6 +664,7 @@ async function main() {
   });
   await approvePurchaseOrder(po10.id, "OWNER");
   await orderPurchaseOrder(po10.id);
+  await prisma.purchaseOrder.update({ where: { id: po10.id }, data: { orderDate: new Date("2024-06-05"), createdAt: new Date("2024-06-01") } });
 
   // PO-11: COMPANY scope → warehouse (sand + aggregate restock from Bharat Sand)
   await createPurchaseOrder({
@@ -875,11 +884,11 @@ async function main() {
   // Created BEFORE material issues so reallocateProjectCosts has sellable area.
   const unitDefs: { phase: string; type: "BHK_2" | "BHK_3" | "SHOP"; unitNumber: string; floor: number; wing?: string; area: number; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD"; askingPrice?: number; currentValuation: number }[] = [];
   for (let f = 1; f <= 4; f++) {
-    unitDefs.push({ phase: "Tower A", type: "BHK_2", unitNumber: `A-${f}01`, floor: f, wing: "A", area: 850, status: f === 2 ? "UNDER_CONSTRUCTION" : "AVAILABLE", askingPrice: 6500000, currentValuation: 6500000 });
-    unitDefs.push({ phase: "Tower A", type: "BHK_3", unitNumber: `A-${f}02`, floor: f, wing: "A", area: 1200, status: f <= 1 ? "AVAILABLE" : "PLANNED", askingPrice: 9200000, currentValuation: 9200000 });
+    unitDefs.push({ phase: "Tower A", type: "BHK_2", unitNumber: `A-${f}01`, floor: f, wing: "A", area: 850, status: f === 2 ? "UNDER_CONSTRUCTION" : "AVAILABLE", askingPrice: 15000000, currentValuation: 15000000 });
+    unitDefs.push({ phase: "Tower A", type: "BHK_3", unitNumber: `A-${f}02`, floor: f, wing: "A", area: 1200, status: f <= 2 ? "AVAILABLE" : f === 3 ? "UNDER_CONSTRUCTION" : "PLANNED", askingPrice: 21000000, currentValuation: 21000000 });
   }
-  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-01", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
-  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-02", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 4500000, currentValuation: 4500000 });
+  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-01", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 8000000, currentValuation: 8000000 });
+  unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-02", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 8000000, currentValuation: 8000000 });
   unitDefs.push({ phase: "Tower B", type: "BHK_2", unitNumber: "B-101", floor: 1, wing: "B", area: 850, status: "PLANNED", currentValuation: 0 });
   unitDefs.push({ phase: "Tower B", type: "BHK_3", unitNumber: "B-102", floor: 1, wing: "B", area: 1200, status: "PLANNED", currentValuation: 0 });
 
@@ -905,8 +914,8 @@ async function main() {
   // has sellable area for cost-per-sqft allocation (material receipts from PO-10).
   const hillviewUnits: { unitNumber: string; floor: number; area: number; type: "BHK_2" | "BHK_3" | "SHOP"; status: "PLANNED" | "UNDER_CONSTRUCTION"; currentValuation: number }[] = [];
   for (let f = 1; f <= 3; f++) {
-    hillviewUnits.push({ unitNumber: `H-${f}01`, floor: f, area: 1500, type: "SHOP", status: "PLANNED", currentValuation: 0 });
-    hillviewUnits.push({ unitNumber: `H-${f}02`, floor: f, area: 2000, type: "SHOP", status: "PLANNED", currentValuation: 0 });
+    hillviewUnits.push({ unitNumber: `H-${f}01`, floor: f, area: 1500, type: "SHOP", status: f === 1 ? "UNDER_CONSTRUCTION" : "PLANNED", currentValuation: 0 });
+    hillviewUnits.push({ unitNumber: `H-${f}02`, floor: f, area: 2000, type: "SHOP", status: f === 1 ? "UNDER_CONSTRUCTION" : "PLANNED", currentValuation: 0 });
   }
   await prisma.builtUnit.createMany({
     data: hillviewUnits.map((u) => ({
@@ -1145,12 +1154,12 @@ async function main() {
     builtUnitId: unitA101.id,
     customerId: customerMap["Rajesh Sharma"],
     companyId: company.id,
-    salePrice: 6500000,
+    salePrice: 15000000,
     paymentMode: "Home Loan (SBI)",
     notes: "Booking amount + first installment received",
   });
-  await recordPayment({ assetSaleId: sale1.id, amount: 650000, mode: "RTGS", reference: "UTR123456" });
-  await recordPayment({ assetSaleId: sale1.id, amount: 1300000, mode: "Cheque", reference: "CHQ-789" });
+  await recordPayment({ assetSaleId: sale1.id, amount: 1500000, mode: "RTGS", reference: "UTR123456" });
+  await recordPayment({ assetSaleId: sale1.id, amount: 3000000, mode: "Cheque", reference: "CHQ-789" });
 
   // Sale 2: Built unit S-01 (shop) sold to Mohit Enterprises — fully paid
   const unitS01 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: project1.id, unitNumber: "S-01" } });
@@ -1159,11 +1168,11 @@ async function main() {
     builtUnitId: unitS01.id,
     customerId: customerMap["Mohit Enterprises"],
     companyId: company.id,
-    salePrice: 4500000,
+    salePrice: 8000000,
     paymentMode: "Bank Transfer",
     notes: "Full payment — commercial purchase",
   });
-  await recordPayment({ assetSaleId: sale2.id, amount: 4500000, mode: "NEFT", reference: "NEFT-456789" });
+  await recordPayment({ assetSaleId: sale2.id, amount: 8000000, mode: "NEFT", reference: "NEFT-456789" });
 
   // Sale 3: Land parcel PLOT-1A sold to Verma Traders — partial payment
   const parcel1A = await prisma.landParcel.findFirstOrThrow({ where: { landPurchaseId: land.id, number: "PLOT-1A" } });
@@ -1191,6 +1200,15 @@ async function main() {
   // ── 25b. Vendor quotes (comparative quote engine) ───────────
   // Three quotes against REQ-2024-0003 (electrical rough-in) so the
   // comparative quote panel has data to show cheapest vs selected.
+  // Helper: compute line-level fields the service would normally set.
+  const computeQuoteLineFields = (qty: number, unitPrice: number, gstRate = 18) => {
+    const taxableValue = qty * unitPrice;
+    const gstAmount = (taxableValue * gstRate) / 100;
+    const lineSubtotal = taxableValue;
+    const lineTotal = taxableValue + gstAmount;
+    const unitLandedCost = lineTotal / qty;
+    return { taxableValue, gstAmount, lineSubtotal, lineTotal, unitLandedCost, gstRate };
+  };
   const req3 = await prisma.materialRequisition.findFirstOrThrow({ where: { reqNumber: "REQ-2024-0003" } });
   const quoteData = [
     { supplier: "Anand Electricals & Wiring", lines: [{ material: "ELC-WIRE25", qty: 3000, unitPrice: 18 }, { material: "ELC-CONDUIT", qty: 800, unitPrice: 32 }], validUntil: new Date("2024-05-25") },
@@ -1198,7 +1216,10 @@ async function main() {
     { supplier: "Maha Lakshmi Hardware", lines: [{ material: "ELC-WIRE25", qty: 3000, unitPrice: 17.5 }, { material: "ELC-CONDUIT", qty: 800, unitPrice: 35 }], validUntil: new Date("2024-05-20") },
   ];
   for (const qd of quoteData) {
-    const landedTotal = qd.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+    const lineFields = qd.lines.map((l) => computeQuoteLineFields(l.qty, l.unitPrice));
+    const subtotal = lineFields.reduce((s, f) => s + f.lineSubtotal, 0);
+    const gstTotal = lineFields.reduce((s, f) => s + f.gstAmount, 0);
+    const landedTotal = subtotal + gstTotal;
     const vq = await prisma.vendorQuote.create({
       data: {
         requisitionId: req3.id,
@@ -1207,16 +1228,23 @@ async function main() {
         fileName: `Quote-${qd.supplier.replace(/\s+/g, "-")}.pdf`,
         mimeType: "application/pdf",
         landedTotal: new Decimal(landedTotal),
+        subtotal: new Decimal(subtotal),
+        gstTotal: new Decimal(gstTotal),
         validUntil: qd.validUntil,
         submittedById: U.manager,
         notes: `Quote from ${qd.supplier} for electrical rough-in`,
         status: "PENDING",
         lines: {
-          create: qd.lines.map((l) => ({
+          create: qd.lines.map((l, i) => ({
             materialId: matMap[l.material],
             qty: new Decimal(l.qty),
             unitPrice: new Decimal(l.unitPrice),
-            lineTotal: new Decimal(l.qty * l.unitPrice),
+            gstRate: new Decimal(lineFields[i].gstRate),
+            gstAmount: new Decimal(lineFields[i].gstAmount),
+            taxableValue: new Decimal(lineFields[i].taxableValue),
+            lineSubtotal: new Decimal(lineFields[i].lineSubtotal),
+            unitLandedCost: new Decimal(lineFields[i].unitLandedCost),
+            lineTotal: new Decimal(lineFields[i].lineTotal),
           })),
         },
       },
@@ -1241,7 +1269,10 @@ async function main() {
     { supplier: "Maha Lakshmi Hardware", lines: [{ material: "PNT-ACPRM", qty: 150, unitPrice: 125 }, { material: "PNT-EMULSION", qty: 100, unitPrice: 185 }], validUntil: new Date("2024-06-05") },
   ];
   for (const qd of paintQuotes) {
-    const landedTotal = qd.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+    const lineFields = qd.lines.map((l) => computeQuoteLineFields(l.qty, l.unitPrice));
+    const subtotal = lineFields.reduce((s, f) => s + f.lineSubtotal, 0);
+    const gstTotal = lineFields.reduce((s, f) => s + f.gstAmount, 0);
+    const landedTotal = subtotal + gstTotal;
     const vq = await prisma.vendorQuote.create({
       data: {
         requisitionId: req5.id,
@@ -1250,16 +1281,23 @@ async function main() {
         fileName: `Quote-Paint-${qd.supplier.replace(/\s+/g, "-")}.pdf`,
         mimeType: "application/pdf",
         landedTotal: new Decimal(landedTotal),
+        subtotal: new Decimal(subtotal),
+        gstTotal: new Decimal(gstTotal),
         validUntil: qd.validUntil,
         submittedById: U.manager,
         notes: `Paint quote from ${qd.supplier}`,
         status: "PENDING",
         lines: {
-          create: qd.lines.map((l) => ({
+          create: qd.lines.map((l, i) => ({
             materialId: matMap[l.material],
             qty: new Decimal(l.qty),
             unitPrice: new Decimal(l.unitPrice),
-            lineTotal: new Decimal(l.qty * l.unitPrice),
+            gstRate: new Decimal(lineFields[i].gstRate),
+            gstAmount: new Decimal(lineFields[i].gstAmount),
+            taxableValue: new Decimal(lineFields[i].taxableValue),
+            lineSubtotal: new Decimal(lineFields[i].lineSubtotal),
+            unitLandedCost: new Decimal(lineFields[i].unitLandedCost),
+            lineTotal: new Decimal(lineFields[i].lineTotal),
           })),
         },
       },

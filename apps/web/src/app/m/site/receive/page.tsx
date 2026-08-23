@@ -12,6 +12,7 @@ import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileReceiveList } from "./MobileReceiveList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /** Field → Receive tab: in-transit POs + jump into barcode receiving. */
 export default function SiteReceivePage() {
@@ -74,7 +75,20 @@ async function SiteReceiveContent() {
         </p>
       </div>
 
-      <MobileReceiveList items={serialized} />
+      <MobileReceiveList
+        items={serialized}
+        exportTitle="In-Transit POs"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
+          { key: "poNumber", label: "PO Number" },
+          { key: "supplierName", label: "Supplier" },
+          { key: "status", label: "Status" },
+          { key: "qtyOrdered", label: "Qty Ordered" },
+          { key: "qtyReceived", label: "Qty Received" },
+          { key: "expectedDate", label: "Expected Date", format: "date" },
+        ] as MobileColumnSpec[]}
+        exportSummary={`${serialized.length} in-transit POs · ${overdue} overdue`}
+      />
 
       {inTransit.length === 0 && (
         <>

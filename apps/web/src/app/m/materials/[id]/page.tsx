@@ -14,6 +14,7 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/materials/[id] — material detail page.
@@ -89,6 +90,9 @@ async function MobileMaterialDetailContent({
 
   const totalQty = stockItems.reduce((s, i) => s + toNum(i.qty), 0);
   const totalValue = stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
+  // Aggregate MAC = weighted average across all locations (qty-weighted).
+  // Falls back to material.currentCost only when no stock exists.
+  const aggregateMac = totalQty > 0 ? totalValue / totalQty : toNum(material.currentCost);
   const minStock = material.minStock ? toNum(material.minStock) : null;
   const reorderPoint = material.reorderPoint ? toNum(material.reorderPoint) : null;
   const isOut = totalQty <= 0;
@@ -169,7 +173,7 @@ async function MobileMaterialDetailContent({
           <div className="space-y-1.5">
             <KpiRow label="Stock value" value={formatCurrency(totalValue)} />
             <KpiRow label="Standard cost" value={formatCurrency(toNum(material.standardCost))} />
-            <KpiRow label="Moving Average Cost" value={formatCurrency(toNum(material.currentCost))} />
+            <KpiRow label="Moving Average Cost" value={formatCurrency(aggregateMac)} />
             <KpiRow label="Locations" value={String(stockItems.length)} sub="sites" />
             <KpiRow label="Movements" value={String(movements.length)} sub="recent" />
           </div>
@@ -284,6 +288,11 @@ async function MobileMaterialDetailContent({
           Full movement ledger
         </MobileCta>
       </div>
+
+      {/* ── Edit FAB (managers only) ── */}
+      {hasPermission(role, PERM.INVENTORY_MANAGE) && (
+        <MobileFab href={`/m/materials/${material.id}/edit`} label="Edit material" />
+      )}
     </div>
   );
 }

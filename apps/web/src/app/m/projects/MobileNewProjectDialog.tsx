@@ -411,7 +411,7 @@ export function MobileNewProjectDialog({
                 style={{
                   borderColor: !form.isATS ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: !form.isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: !form.isATS ? "#fff" : "var(--color-ink-500)",
+                  color: !form.isATS ? "var(--color-paper)" : "var(--color-ink-500)",
                 }}>
                 No ATS
               </button>
@@ -420,7 +420,7 @@ export function MobileNewProjectDialog({
                 style={{
                   borderColor: form.isATS ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: form.isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.isATS ? "#fff" : "var(--color-ink-500)",
+                  color: form.isATS ? "var(--color-paper)" : "var(--color-ink-500)",
                 }}>
                 Yes, ATS
               </button>
@@ -478,7 +478,7 @@ export function MobileNewProjectDialog({
               className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
-                color: "#fff",
+                color: "var(--color-paper)",
               }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}

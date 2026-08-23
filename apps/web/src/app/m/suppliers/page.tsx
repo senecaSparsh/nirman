@@ -4,8 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
-import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileSuppliersList, type SupplierListItem } from "./MobileSuppliersList";
 
 /**
@@ -52,24 +51,24 @@ async function MobileSuppliersContent() {
   const totalOwed = rows.reduce((s, sup) => s + sup.balanceOwed, 0);
   const withDues = rows.filter((s) => s.balanceOwed > 0);
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "name", label: "Name" },
+    { key: "phone", label: "Phone" },
+    { key: "poCount", label: "PO Count" },
+    { key: "balanceOwed", label: "Balance", format: "currency" },
+  ];
+
   return (
     <div>
-      <MobileExportShareBar
-        title="Suppliers"
-        rows={rows as unknown as Record<string, unknown>[]}
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "phone", label: "Phone" },
-          { key: "poCount", label: "PO Count" },
-          { key: "balanceOwed", label: "Balance", format: "currency" },
-        ] as MobileColumnSpec[]}
-        summary={`${rows.length} suppliers · ${withDues.length} with dues`}
-      />
       <MobileSuppliersList
         items={rows}
         totalOwed={totalOwed}
         withDuesCount={withDues.length}
         canCreate={canCreate}
+        exportTitle="Suppliers"
+        exportRows={rows as unknown as Record<string, unknown>[]}
+        exportColumns={exportColumns}
+        exportSummary={`${rows.length} suppliers · ${withDues.length} with dues`}
       />
     </div>
   );

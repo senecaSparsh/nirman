@@ -133,7 +133,7 @@ export function SelectWithCreate({
             : (options ?? []).map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
-          <option value={CREATE_SENTINEL} disabled>
+          <option value={CREATE_SENTINEL}>
             + Create new {createLabel}…
           </option>
         </select>

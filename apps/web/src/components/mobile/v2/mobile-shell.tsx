@@ -398,7 +398,7 @@ function MobileShellInner({
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper-2)" }}>
+    <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper)" }}>
       <CommandPalette userRole={companyInfo.role as string} />
 
       {/* ── Offline banner ── */}
@@ -436,8 +436,7 @@ function MobileShellInner({
         className="sticky top-0 z-30 border-b px-4 py-2.5"
         style={{
           borderColor: "var(--color-line)",
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          backdropFilter: "blur(8px)",
+          backgroundColor: "var(--color-paper)",
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -753,7 +752,7 @@ function pageTitleFromPath(pathname: string): string {
     "supplier-returns": "Supplier Returns",
     materials: "Materials",
     stock: "Stock Ledger",
-    "stock-counts": "Stock Counts",
+    "stock-counts": "Stock Inventory",
     transfers: "Transfers",
     vehicles: "Vehicles",
     equipment: "Equipment",

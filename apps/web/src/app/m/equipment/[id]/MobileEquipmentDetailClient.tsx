@@ -282,7 +282,7 @@ export function MobileEquipmentDetailClient({
                   onClick={() => handleAction("return")}
                   disabled={acting !== null}
                   className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-[0.5625rem] font-bold press disabled:opacity-50"
-                  style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+                  style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
                 >
                   {acting === "return" ? <Loader2 className="size-3 animate-spin" /> : "Return"}
                 </button>
@@ -359,7 +359,7 @@ export function MobileEquipmentDetailClient({
               onClick={() => setShowAssign(true)}
               disabled={acting !== null}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <MapPin className="size-4" />
               <span>Assign to Project</span>
@@ -417,7 +417,7 @@ export function MobileEquipmentDetailClient({
           onClick={() => handleAction("unretire")}
           disabled={acting !== null}
           className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 w-full"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {acting === "unretire" ? (
             <Loader2 className="size-4 animate-spin" />
@@ -689,7 +689,7 @@ function AssignModal({
               onClick={handleSubmit}
               disabled={submitting}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {submitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -918,7 +918,7 @@ function MaintenanceModal({
                     className="rounded-[0.375rem] py-1.5 text-[0.5625rem] font-bold press"
                     style={
                       active
-                        ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+                        ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                         : { backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
                     }
                   >
@@ -983,7 +983,7 @@ function MaintenanceModal({
             onClick={handleSubmit}
             disabled={submitting}
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

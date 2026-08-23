@@ -93,7 +93,7 @@ export default function MobileNewEquipmentClient() {
               router.push(`/m/equipment/${success.id}`);
             }}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Equipment
           </button>
@@ -261,7 +261,7 @@ export default function MobileNewEquipmentClient() {
             onClick={handleSubmit}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

@@ -32,7 +32,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   const data: Record<string, unknown> = { ...parsed.data };
-  if (parsed.data.standardCost != null) data.currentCost = parsed.data.standardCost;
+  // Note: do NOT overwrite currentCost here — it's the Moving Average Cost
+  // managed by refreshMaterialCurrentCost() after stock movements. Only set
+  // currentCost on material creation (when there's no stock yet).
   try {
     const updated = await prisma.$transaction(async (tx) => {
       // Optimistic locking: check version if provided

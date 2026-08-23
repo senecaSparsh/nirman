@@ -10,11 +10,15 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 
 interface SupplierItem { id: string; name: string; }
 interface LocationItem { id: string; name: string; type: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; }
 interface PurchaseOrderItem { id: string; poNumber: string; supplierId: string; }
+interface CategoryItem { id: string; name: string; unit: string; }
 
 interface ReturnLine {
   materialId: string;
@@ -26,19 +30,27 @@ interface ReturnLine {
 const REASONS = ["Defective", "Excess", "Wrong item", "Damaged", "Other"] as const;
 
 export default function MobileNewSupplierReturnClient({
-  suppliers,
-  locations,
-  materials,
+  suppliers: initialSuppliers,
+  locations: initialLocations,
+  materials: initialMaterials,
   purchaseOrders,
+  categories,
 }: {
   suppliers: SupplierItem[];
   locations: LocationItem[];
   materials: MaterialItem[];
   purchaseOrders: PurchaseOrderItem[];
+  categories: CategoryItem[];
 }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const [submitting, setSubmitting] = useState(false);
+
+  // Mutable copies so inline-created entities appear without a full reload
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>(initialSuppliers);
+  const [locations, setLocations] = useState<LocationItem[]>(initialLocations);
+  const [materials, setMaterials] = useState<MaterialItem[]>(initialMaterials);
+  const [guardDialog, setGuardDialog] = useState<"supplier" | "material" | "location" | null>(null);
 
   const [supplierId, setSupplierId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -175,7 +187,7 @@ export default function MobileNewSupplierReturnClient({
                 router.push("/m/supplier-returns");
               }}
               className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View All Returns
             </button>
@@ -197,7 +209,7 @@ export default function MobileNewSupplierReturnClient({
     );
   }
 
-  /* ── Empty-data guard — with action buttons to create prerequisites ── */
+  /* ── Empty-data guard — with inline dialogs to create prerequisites ── */
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -207,24 +219,59 @@ export default function MobileNewSupplierReturnClient({
         </p>
         <div className="flex flex-col gap-2 w-full max-w-xs">
           {suppliers.length === 0 && (
-            <Link href="/m/suppliers/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              onClick={() => setGuardDialog("supplier")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Supplier
-            </Link>
+            </button>
           )}
           {materials.length === 0 && (
-            <Link href="/m/materials/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              onClick={() => setGuardDialog("material")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Material
-            </Link>
+            </button>
           )}
           {locations.length === 0 && (
-            <Link href="/m/stock-locations/new" className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press" style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}>
+            <button
+              onClick={() => setGuardDialog("location")}
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
               <Plus className="size-3.5" /> Add a Stock Location
-            </Link>
+            </button>
           )}
         </div>
         <Link href="/m/supplier-returns" className="mt-4 text-[0.6875rem] font-semibold press" style={{ color: "var(--color-ink-500)" }}>
           Back to Returns
         </Link>
+
+        {guardDialog === "supplier" ? (
+          <MobileNewSupplierDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            onCreated={(s) => { setSuppliers((p) => [...p, { id: s.id, name: s.name }]); setGuardDialog(null); }}
+          />
+        ) : null}
+        {guardDialog === "material" ? (
+          <MobileNewMaterialDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            categories={categories}
+            onCreated={(m) => { setMaterials((p) => [...p, { id: m.id, name: m.name, code: m.code, unit: m.unit }]); setGuardDialog(null); }}
+          />
+        ) : null}
+        {guardDialog === "location" ? (
+          <MobileNewStockLocationDialog
+            open
+            onClose={() => setGuardDialog(null)}
+            onCreated={(l) => { setLocations((p) => [...p, { id: l.id, name: l.name, type: l.type }]); setGuardDialog(null); }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -450,7 +497,7 @@ function ReturnForm({
                             className="rounded-[0.375rem] px-1.5 py-0.5 text-[0.4375rem] font-semibold press transition-colors"
                             style={
                               active
-                                ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
+                                ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                                 : { backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
                             }
                           >
@@ -527,7 +574,7 @@ function ReturnForm({
             onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={submitting}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

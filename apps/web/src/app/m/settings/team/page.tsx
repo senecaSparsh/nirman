@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, getUserRole } from "@/lib/server";
 import { hasPermission, PERM, ROLES, assignableRoles as getAssignableRoles, type Role } from "@/lib/roles";
 import { MobileTeamList } from "./MobileTeamList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/settings/team — Team & Permissions.
@@ -75,6 +76,17 @@ async function TeamContent() {
     ? getAssignableRoles(role).map((r) => ({ key: r, label: ROLES[r].label }))
     : [];
 
+  const activeCount = team.filter((m) => m.active).length;
+
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "name", label: "Name" },
+    { key: "email", label: "Email" },
+    { key: "role", label: "Role" },
+    { key: "designation", label: "Designation" },
+    { key: "department", label: "Department" },
+    { key: "employeeCode", label: "Employee Code" },
+  ];
+
   return (
     <MobileTeamList
       team={team}
@@ -83,6 +95,10 @@ async function TeamContent() {
       currentRole={role}
       roleCounts={roleCounts}
       assignableRoles={assignableRoles}
+      exportTitle="Team"
+      exportRows={team as unknown as Record<string, unknown>[]}
+      exportColumns={exportColumns}
+      exportSummary={`${team.length} members · ${activeCount} active`}
     />
   );
 }

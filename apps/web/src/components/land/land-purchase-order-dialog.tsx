@@ -71,6 +71,7 @@ export function LandPurchaseOrderDialog({
   });
   const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
   const [atsDocUrl, setAtsDocUrl] = useState("");
+  const [partialRegistry, setPartialRegistry] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors<FormValues>>({});
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -146,6 +147,7 @@ export function LandPurchaseOrderDialog({
           tokenChequePhotoUrl: cheque.chequePhotoUrl || undefined,
         } : {}),
         atsDocumentUrl: atsDocUrl || undefined,
+        partialRegistryAllowed: partialRegistry || undefined,
       };
 
       const res = await fetch("/api/land-purchases", {
@@ -324,6 +326,19 @@ export function LandPurchaseOrderDialog({
             Upload the signed ATS now, or later from the land purchase detail. The registry document is required to complete the purchase.
           </p>
         </div>
+
+        {/* Partial registry toggle */}
+        <label className="flex items-center gap-2 rounded-md border border-border p-3">
+          <input
+            type="checkbox"
+            checked={partialRegistry}
+            onChange={(e) => setPartialRegistry(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <span className="text-sm text-muted-foreground">
+            Allow registry before full payment — permit completion with balance due
+          </span>
+        </label>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>

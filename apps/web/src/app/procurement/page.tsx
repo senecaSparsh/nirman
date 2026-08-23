@@ -57,8 +57,8 @@ async function ProcurementContent() {
       },
     }),
     prisma.supplier.findMany({
-      // Supplier has no companyId — scope to suppliers with POs in this company.
-      where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } },
+      // All non-deleted suppliers in this company — not just those with existing POs.
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
         _count: {

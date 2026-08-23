@@ -33,6 +33,9 @@ import {
   PieChart,
   FileSpreadsheet,
   GitBranch,
+  HardHat,
+  Sun,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 
@@ -96,12 +99,64 @@ export interface NavGroup {
 }
 
 export const NAV_GROUPS: Record<string, NavGroup[]> = {
+  home: [
+    {
+      title: "Dashboards",
+      links: [
+        { href: "/m/pulse", icon: Sun, label: "Executive Dashboard", subtitle: "Portfolio KPIs, project health, approvals" },
+        { href: "/m/site", icon: MapPin, label: "Field Dashboard", subtitle: "Tasks, DPR, in-transit, attendance" },
+      ],
+    },
+    {
+      title: "Attention",
+      links: [
+        { href: "/m/pulse/attention", icon: AlertTriangle, label: "Attention Queue", subtitle: "All alerts in one place" },
+        { href: "/m/pulse/approvals", icon: ClipboardCheck, label: "Approvals", subtitle: "POs, requisitions awaiting sign-off" },
+      ],
+    },
+    {
+      title: "Quick Access",
+      links: [
+        { href: "/m/inventory", icon: Boxes, label: "Inventory", subtitle: "Raw material + real estate" },
+        { href: "/m/hr", icon: Users, label: "People", subtitle: "Attendance, DPR, employees" },
+        { href: "/m/accounts", icon: BookOpen, label: "Accounts", subtitle: "Finance, GL, receipts" },
+        { href: "/m/settings", icon: Settings, label: "Settings", subtitle: "Profile, team, company" },
+      ],
+    },
+    {
+      title: "Projects & Real Estate",
+      links: [
+        { href: "/m/projects", icon: Building2, label: "Projects", subtitle: "Active developments" },
+        { href: "/m/land", icon: LandPlot, label: "Land & Parcels", subtitle: "Plots, partitions, valuation" },
+        { href: "/m/sales", icon: ShoppingCart, label: "Sales & CRM", subtitle: "Leads, bookings, collections" },
+        { href: "/m/rentals", icon: Building2, label: "Rentals", subtitle: "Rented units, agreements" },
+        { href: "/m/customers", icon: Users, label: "Customers", subtitle: "Buyers, contacts" },
+      ],
+    },
+    {
+      title: "Inventory & Procurement",
+      links: [
+        { href: "/m/materials", icon: Boxes, label: "Materials Catalogue", subtitle: "All materials, categories" },
+        { href: "/m/stock", icon: Package, label: "Stock Ledger", subtitle: "Current stock by location" },
+        { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, received" },
+        { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, balances" },
+        { href: "/m/equipment", icon: Wrench, label: "Equipment", subtitle: "Tools, assignments" },
+      ],
+    },
+    {
+      title: "Reports",
+      links: [
+        { href: "/m/reports", icon: FileSpreadsheet, label: "All Reports", subtitle: "Complete report hub" },
+      ],
+    },
+  ],
   inventory: [
     {
       title: "Procurement",
       links: [
         { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, received" },
-        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site requests to purchase orders" },
+        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site needs → approve → convert to PO" },
+        { href: "/m/quotations", icon: FileText, label: "Quotation Requests", subtitle: "Compare vendor prices, auto-create PO" },
         { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, ratings, balances" },
         { href: "/m/rate-contracts", icon: FileText, label: "Rate Contracts", subtitle: "Fixed-rate supplier agreements" },
         { href: "/m/supplier-returns", icon: AlertTriangle, label: "Supplier Returns", subtitle: "Return to vendor" },
@@ -116,7 +171,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/site/stock", icon: Package, label: "Site Stock", subtitle: "Stock by site + movements" },
         { href: "/m/transfers", icon: ArrowLeftRight, label: "Stock Transfers", subtitle: "Move stock between locations" },
         { href: "/m/vehicles", icon: Truck, label: "Vehicles", subtitle: "Auto-built vehicle master + trip log" },
-        { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Counts", subtitle: "Cycle counts, reconciliation" },
+        { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Inventory", subtitle: "Cycle counts, reconciliation" },
         { href: "/m/scrap-generations", icon: Wrench, label: "Scrap / Create", subtitle: "Internally generated material" },
         { href: "/m/material-sales", icon: TrendingUp, label: "Material Sales", subtitle: "Sell raw material directly" },
         { href: "/m/gate-pass", icon: ShieldCheck, label: "Gate Pass", subtitle: "Approve items leaving the gate" },
@@ -149,6 +204,19 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/project-control", icon: Gauge, label: "Project Control", subtitle: "Earned value: CPI, SPI, EAC" },
         { href: "/m/standard-consumptions", icon: Beaker, label: "Standard Consumptions", subtitle: "Material consumption benchmarks" },
         { href: "/m/material-reconciliation", icon: Package, label: "Material Reconciliation", subtitle: "Required vs issued vs consumed" },
+      ],
+    },
+    {
+      title: "Safety",
+      links: [
+        { href: "/m/safety", icon: HardHat, label: "Safety Management", subtitle: "Hazards, incidents, inspections" },
+      ],
+    },
+    {
+      title: "Dashboards",
+      links: [
+        { href: "/m/pulse", icon: Sun, label: "Executive Dashboard", subtitle: "Portfolio KPIs, project health, approvals" },
+        { href: "/m/site", icon: MapPin, label: "Field Dashboard", subtitle: "Tasks, DPR, in-transit, attendance" },
       ],
     },
     {
@@ -213,7 +281,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
     {
       title: "Books",
       links: [
-        { href: "/m/books", icon: Receipt, label: "Finance Home", subtitle: "GL, receipts, payroll overview" },
+        { href: "/m/accounts", icon: Receipt, label: "Finance Home", subtitle: "GL, receipts, payroll overview" },
         { href: "/m/books/finance", icon: Wallet, label: "Finance", subtitle: "Expenses & project costs" },
         { href: "/m/books/receipts", icon: Receipt, label: "Receipts", subtitle: "Payment receipts" },
         { href: "/m/books/payroll", icon: Wallet, label: "Payroll", subtitle: "Salary processing" },
@@ -249,11 +317,13 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       links: [
         { href: "/m/me", icon: User, label: "My Profile", subtitle: "Account, role, preferences" },
         { href: "/m/settings", icon: Building2, label: "Company Portfolio", subtitle: "Company overview, activity, dues" },
+        { href: "/m/queue", icon: ClipboardList, label: "Offline Queue", subtitle: "Pending sync items & recent actions" },
       ],
     },
     {
       title: "Administration",
       links: [
+        { href: "/m/settings/company", icon: Building2, label: "Company Details", subtitle: "Name, GSTIN, PAN, address, phone" },
         { href: "/m/settings/team", icon: Users, label: "Team & Permissions", subtitle: "Users, roles, access control" },
         { href: "/m/settings/export", icon: FileText, label: "Bulk Export", subtitle: "CSV/PDF data export" },
         { href: "/m/settings/notifications", icon: AlertTriangle, label: "Notifications", subtitle: "Alerts, templates, delivery" },

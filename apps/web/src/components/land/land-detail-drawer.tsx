@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { X, ArrowRight, MapPin, FileText } from "lucide-react";
+import { X, ArrowRight, MapPin, FileText, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
+import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
 import type { LandPurchaseRow } from "@/lib/types";
@@ -54,6 +55,19 @@ export function LandDetailDrawer({
                 <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{purchase.registryNo}</span>
               )}
             </div>
+            {(purchase.purchaseStage === "BOOKED" || purchase.isPossessed) && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                {purchase.purchaseStage === "BOOKED" && (
+                  <Badge variant="warning">BOOKED</Badge>
+                )}
+                {purchase.isPossessed && (
+                  <Badge variant="success">
+                    <KeyRound className="mr-1 h-3 w-3" />Possessed
+                    {purchase.possessionDate ? ` · ${formatDate(purchase.possessionDate)}` : ""}
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
           <button
             className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

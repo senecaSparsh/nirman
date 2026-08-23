@@ -311,7 +311,7 @@ async function CommandCenterContent() {
     }),
   });
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
-    key: "stock-count", title: "Stock counts to process",
+    key: "stock-count", title: "Stock inventories to process",
     consequence: "Confirm counts and reconcile variances to keep stock accurate",
     count: pendingStockCounts.length, href: "/stock?tab=counts", cta: "Process", urgency: "soon", icon: "clipboardCheck",
     items: pendingStockCounts.map((c) => ({ label: c.location.name, sub: c.status === "DRAFT" ? "Awaiting confirmation" : "Awaiting reconciliation" })),
@@ -335,7 +335,7 @@ async function CommandCenterContent() {
   if (canApproveReq && approvedReqs.length > 0) pendingActions.push({ label: "Ready to order", value: approvedReqs.length });
   if (canApprovePO && approvedPOs.length > 0) pendingActions.push({ label: "Ready to send", value: approvedPOs.length });
   if (canSeeSales && salesWithBalance.length > 0) pendingActions.push({ label: "Sales dues", value: salesWithBalance.length });
-  if (canManageStock && pendingStockCounts.length > 0) pendingActions.push({ label: "Stock counts", value: pendingStockCounts.length });
+  if (canManageStock && pendingStockCounts.length > 0) pendingActions.push({ label: "Stock inventories", value: pendingStockCounts.length });
 
   // ── Role + permissions for Access tab ────────────────────────────
   const roleDef = ROLES[role];

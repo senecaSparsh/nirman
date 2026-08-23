@@ -238,7 +238,7 @@ export function MobileNcrDetailClient({
           <button
             onClick={() => setShowCapa(true)}
             className="w-full h-10 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <ShieldCheck className="size-4" /> Create CAPA
           </button>
@@ -332,7 +332,7 @@ export function MobileNcrDetailClient({
               }}
               disabled={acting === "review"}
               className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "review" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               Submit Review
@@ -398,7 +398,7 @@ export function MobileNcrDetailClient({
                 <input type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
               </div>
             </div>
-            <button onClick={createCapa} disabled={acting === "create_capa"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}>
+            <button onClick={createCapa} disabled={acting === "create_capa"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "create_capa" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
               Create CAPA
             </button>
@@ -510,7 +510,7 @@ function TimelineRow({ label, date, name }: { label: string; date: string; name?
 
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" },
+    primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },

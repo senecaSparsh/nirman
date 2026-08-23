@@ -223,7 +223,7 @@ export default function MobileNewTransferClient() {
           <button
             onClick={() => router.push("/m/transfers")}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Transfers
           </button>
@@ -269,7 +269,7 @@ export default function MobileNewTransferClient() {
             style={{
               borderColor: transferType === "inHouse" ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: transferType === "inHouse" ? "var(--color-ink-950)" : "var(--color-paper)",
-              color: transferType === "inHouse" ? "#fff" : "var(--color-ink-700)",
+              color: transferType === "inHouse" ? "var(--color-paper)" : "var(--color-ink-700)",
             }}
           >
             <Package className="size-4" />
@@ -288,7 +288,7 @@ export default function MobileNewTransferClient() {
             style={{
               borderColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-line)",
               backgroundColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-paper)",
-              color: transferType === "C to C" ? "#fff" : "var(--color-ink-700)",
+              color: transferType === "C to C" ? "var(--color-paper)" : "var(--color-ink-700)",
             }}
           >
             <ArrowRight className="size-4" />
@@ -512,7 +512,7 @@ export default function MobileNewTransferClient() {
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
             style={{
               backgroundColor: transferType === "C to C" ? "var(--color-signal)" : "var(--color-ink-950)",
-              color: "#fff",
+              color: "var(--color-paper)",
             }}
           >
             {submitting ? (

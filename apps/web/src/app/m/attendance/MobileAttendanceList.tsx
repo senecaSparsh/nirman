@@ -10,16 +10,20 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
-  MobileFilterChips,
+  MobileFilterIcon,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type AttendanceStatusFilter =
   | "ALL"
   | "PRESENT"
+  | "LATE"
   | "ABSENT"
   | "HALF_DAY"
-  | "LEAVE";
+  | "LEAVE"
+  | "PAID_LEAVE"
+  | "NON_PAID_LEAVE";
 
 export type AttendanceListItem = {
   id: string;
@@ -28,6 +32,8 @@ export type AttendanceListItem = {
   projectId: string | null;
   date: string;
   status: string;
+  checkIn: string | null;
+  checkOut: string | null;
 };
 
 export type ProjectOption = {
@@ -38,9 +44,12 @@ export type ProjectOption = {
 const FILTER_CHIPS: { label: string; value: AttendanceStatusFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Present", value: "PRESENT" },
+  { label: "Late", value: "LATE" },
   { label: "Absent", value: "ABSENT" },
   { label: "Half Day", value: "HALF_DAY" },
   { label: "Leave", value: "LEAVE" },
+  { label: "PL", value: "PAID_LEAVE" },
+  { label: "NPL", value: "NON_PAID_LEAVE" },
 ];
 
 /**
@@ -55,9 +64,17 @@ const FILTER_CHIPS: { label: string; value: AttendanceStatusFilter }[] = [
 export function MobileAttendanceList({
   items,
   projects = [],
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   items: AttendanceListItem[];
   projects?: ProjectOption[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] =
@@ -95,15 +112,26 @@ export function MobileAttendanceList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search..."
-        filterChips={
-          <MobileFilterChips
-            chips={FILTER_CHIPS}
-            active={statusFilter}
-            onChange={setStatusFilter}
-          />
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={setStatusFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
         }
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        showClear={!!query || statusFilter !== "ALL" || !!dateFilter || !!projectFilter}
+        onClear={() => { setQuery(""); setStatusFilter("ALL"); setDateFilter(""); setProjectFilter(""); }}
       />
 
       {/* ── Date + project filters ── */}
@@ -147,10 +175,21 @@ export function MobileAttendanceList({
         ) : null}
       </div>
 
-      <MobileSectionTitle>
+      <MobileSectionTitle
+        right={
+          (statusFilter !== "ALL" || query.trim() !== "" || dateFilter || projectFilter) ? (
+            <span
+              className="text-[0.625rem] font-semibold"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {filtered.length} record{filtered.length !== 1 ? "s" : ""}
+            </span>
+          ) : undefined
+        }
+      >
         {statusFilter === "ALL" && query.trim() === "" && !dateFilter && !projectFilter
           ? "Recent"
-          : `Results (${filtered.length})`}
+          : "Results"}
       </MobileSectionTitle>
 
       {filtered.length === 0 ? (
@@ -162,7 +201,7 @@ export function MobileAttendanceList({
               key={r.id}
               icon={CalendarCheck}
               title={r.employeeName ?? "Worker"}
-              subtitle={`${r.projectName ?? "—"} · ${formatDate(r.date)}`}
+              subtitle={`${r.projectName ?? "—"} · ${formatDate(r.date)}${r.checkIn ? ` · ${r.checkIn}${r.checkOut ? `–${r.checkOut}` : ""}` : ""}`}
               meta=""
               badge={<MobileStatusBadge status={r.status} />}
             />

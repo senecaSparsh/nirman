@@ -24,7 +24,7 @@ type ButtonVariant = "primary" | "signal" | "secondary" | "ghost" | "danger";
 type ButtonSize = "md" | "lg" | "xl";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
-  primary: { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" },
+  primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
   signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "#e09a10", fontWeight: 700 },
   secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
   ghost: { backgroundColor: "transparent", color: "var(--color-ink-700)", borderColor: "transparent" },
@@ -386,7 +386,7 @@ export function MobileCta({
   variant?: "primary" | "signal" | "secondary" | "danger";
 }) {
   const styles: Record<string, React.CSSProperties> = {
-    primary: { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" },
+    primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "#e09a10" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
     danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
@@ -430,6 +430,15 @@ export function MobileStatusBadge({ status, label }: { status: string; label?: s
     NOT_REQUIRED: "neutral",
     EXPIRED: "stop",
     RENEWAL_DUE: "signal",
+    // Attendance statuses
+    PRESENT: "go",
+    LATE: "signal",
+    ABSENT: "stop",
+    HALF_DAY: "signal",
+    OVERTIME: "signal",
+    LEAVE: "neutral",
+    PAID_LEAVE: "neutral",
+    NON_PAID_LEAVE: "stop",
   };
   const tone = toneMap[status] ?? "neutral";
   return <Badge tone={tone}>{label ?? status}</Badge>;

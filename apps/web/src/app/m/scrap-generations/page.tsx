@@ -4,7 +4,9 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { formatCurrency } from "@/lib/utils";
 import { MobileScrapGenerationsList } from "./MobileScrapGenerationsList";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/scrap-generations — mobile scrap generation list. Supervisors and
@@ -65,11 +67,24 @@ async function MobileScrapGenerationsContent() {
     materials: sc.lines.map((l) => l.material.name).slice(0, 2),
   }));
 
+  const exportColumns: MobileColumnSpec[] = [
+    { key: "scrapNumber", label: "Slip No" },
+    { key: "toLocationName", label: "Location" },
+    { key: "projectName", label: "Project" },
+    { key: "generationDate", label: "Date", format: "date" },
+    { key: "lineCount", label: "Items" },
+    { key: "totalValue", label: "Value", format: "currency" },
+  ];
+
   return (
     <MobileScrapGenerationsList
       items={serialized}
       totalValue={totalValue}
       canCreate={canCreate}
+      exportTitle="Scrap Generations"
+      exportRows={serialized as unknown as Record<string, unknown>[]}
+      exportColumns={exportColumns}
+      exportSummary={`${serialized.length} slips · ${formatCurrency(totalValue)}`}
     />
   );
 }

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { MobileSearchHeader, MobileNoResults, MobileSummaryStrip, MobileCardGrid } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /* ── Time helper ── */
 function formatTime(iso: string): string {
@@ -96,11 +97,19 @@ export function MobileSiteStockList({
   movements,
   totalItems,
   totalUnits,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
 }: {
   locations: StockLocationItem[];
   movements: StockMovementItem[];
   totalItems: number;
   totalUnits: number;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -185,6 +194,18 @@ export function MobileSiteStockList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search location or material…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
         showClear={!!query}
         onClear={() => setQuery("")}
       />
@@ -209,6 +230,16 @@ export function MobileSiteStockList({
         )
       ) : (
         <div className="mb-4">
+          {query && (
+            <div className="flex items-center justify-end mb-1.5">
+              <span
+                className="text-[0.625rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {filteredLocations.length} location{filteredLocations.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
           <MobileCardGrid>
             {filteredLocations.map((loc) => (
               <LocationBinCard key={loc.id} loc={loc} />

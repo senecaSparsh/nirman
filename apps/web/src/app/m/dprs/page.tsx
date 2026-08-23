@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileDprsList } from "./MobileDprsList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileDprsPage() {
@@ -54,15 +53,14 @@ async function MobileDprsContent() {
 
   return (
     <div>
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Daily Progress Reports"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${serialized.length} DPRs`}
-        />
-      </div>
-      <MobileDprsList items={serialized} canSubmit={canSubmit} />
+      <MobileDprsList
+        items={serialized}
+        canSubmit={canSubmit}
+        exportTitle="Daily Progress Reports"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} DPRs`}
+      />
     </div>
   );
 }

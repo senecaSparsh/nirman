@@ -494,8 +494,8 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       select: { type: true, lat: true, lng: true, geoRadius: true },
     });
     if (destLocation) {
-      if (po.procurementScope === "COMPANY" && destLocation.type !== "COMPANY_WAREHOUSE") {
-        throw new ServiceError("COMPANY-scope PO must be received into a COMPANY_WAREHOUSE location");
+      if (po.procurementScope === "COMPANY" && destLocation.type !== "COMPANY_WAREHOUSE" && destLocation.type !== "CENTRAL_WAREHOUSE") {
+        throw new ServiceError("COMPANY-scope PO must be received into a COMPANY_WAREHOUSE or CENTRAL_WAREHOUSE location");
       }
       if (po.procurementScope === "PROJECT" && destLocation.type !== "PROJECT_SITE") {
         throw new ServiceError("PROJECT-scope PO must be received into a PROJECT_SITE location");
@@ -549,6 +549,17 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       await tx.purchaseOrderLine.update({
         where: { id: line.purchaseOrderLineId },
         data: { qtyReceived: cumulative },
+      });
+
+      // 4. Auto-populate standardCost from the last purchase price.
+      // The standardCost is updated to the unit cost from this receipt,
+      // so it always reflects the most recent purchase price.
+      await tx.material.update({
+        where: { id: line.materialId },
+        data: {
+          standardCost: recvCost,
+          currentCost: recvCost,
+        },
       });
     }
 

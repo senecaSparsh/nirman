@@ -153,7 +153,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                       style={{
                         borderColor: isActive ? "var(--color-ink-950)" : "var(--color-line)",
                         backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
-                        color: isActive ? "#fff" : "var(--color-ink-500)",
+                        color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
                       }}
                     >
                       {chip.label}
@@ -436,7 +436,7 @@ function ActionButton({
     variant === "success"
       ? { backgroundColor: "var(--color-go)", color: "#fff", borderColor: "var(--color-go)" }
       : variant === "primary"
-        ? { backgroundColor: "var(--color-ink-950)", color: "#fff", borderColor: "var(--color-ink-950)" }
+        ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" }
         : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" };
 
   return (

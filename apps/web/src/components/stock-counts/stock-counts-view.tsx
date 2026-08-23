@@ -209,9 +209,9 @@ export function StockCountsView({
       {filteredCounts.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck className="h-5 w-5" />}
-          title={counts.length === 0 ? "No stock counts yet" : "No counts match the filter"}
-          description="Create a stock count to reconcile physical inventory against system quantities."
-          action={canCreate ? <Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> New Stock Count</Button> : undefined}
+          title={counts.length === 0 ? "No stock inventories yet" : "No inventories match the filter"}
+          description="Create a stock inventory to reconcile physical inventory against system quantities."
+          action={canCreate ? <Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> New Stock Inventory</Button> : undefined}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border/60">
@@ -224,7 +224,7 @@ export function StockCountsView({
             hideable
             pageSize={50}
             onAddRow={canCreate ? () => setFormOpen(true) : undefined}
-            addRowLabel="New Stock Count"
+            addRowLabel="New Stock Inventory"
             toolbarLeading={statusSelect}
           />
         </div>
@@ -251,9 +251,9 @@ export function StockCountsView({
           open={delTarget !== null}
           onOpenChange={(o) => { if (!o) setDelTarget(null); }}
           endpoint={`/api/stock-counts/${delTarget.id}`}
-          title="Delete draft stock count"
-          description={`Delete the draft stock count for ${delTarget.locationName}? Only draft counts can be deleted.`}
-          successMessage="Stock count deleted"
+          title="Delete draft stock inventory"
+          description={`Delete the draft stock inventory for ${delTarget.locationName}? Only draft inventories can be deleted.`}
+          successMessage="Stock inventory deleted"
           onSuccess={() => { setDelTarget(null); }}
         />
       )}
@@ -263,7 +263,7 @@ export function StockCountsView({
           <GlPreviewPanel
             lines={previewLines}
             title="GL Impact — Stock Reconciliation"
-            description="These journal entries will be posted when you reconcile the stock count."
+            description="These journal entries will be posted when you reconcile the stock inventory."
             defaultOpen
           />
         </div>
@@ -379,8 +379,8 @@ function StockCountFormDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create stock count");
-      toast.success("Stock count created", {
+      if (!res.ok) throw new Error(data.error ?? "Failed to create stock inventory");
+      toast.success("Stock inventory created", {
         description: "Review the counted quantities, then confirm to lock them in.",
       });
       onOpenChange(false);
@@ -399,7 +399,7 @@ function StockCountFormDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => { onOpenChange(o); if (!o) { setLocationId(""); setNotes(""); setLines([]); } }}
-      title="New Stock Count"
+      title="New Stock Inventory"
       description="Count the physical stock at a location. System quantities are snapshotted for variance comparison."
       className="max-w-3xl"
     >
@@ -479,7 +479,7 @@ function StockCountDetailDialog({
     <Dialog
       open={!!count}
       onOpenChange={onOpenChange}
-      title={`Stock Count · ${count.locationName}`}
+      title={`Stock Inventory · ${count.locationName}`}
       description={`${formatDate(count.countDate)} · ${count.status}`}
       className="max-w-3xl"
     >

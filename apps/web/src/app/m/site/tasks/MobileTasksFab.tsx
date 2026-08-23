@@ -23,7 +23,7 @@ export function MobileTasksFab({
         style={{
           bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
           backgroundColor: "var(--color-ink-950)",
-          color: "#fff",
+          color: "var(--color-paper)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         }}
         aria-label="Assign new task"

@@ -5,7 +5,6 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileLandList } from "./MobileLandList";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 
@@ -48,6 +47,7 @@ async function MobileLandContent() {
           id: true, number: true, status: true, area: true, purpose: true,
           acquisitionCost: true, currentValuation: true,
           askingPrice: true, parentParcelId: true,
+          sale: { select: { salePrice: true, saleNumber: true, saleStage: true, status: true } },
           _count: { select: { children: true } },
         },
       },
@@ -70,27 +70,32 @@ async function MobileLandContent() {
       ])
     : [[], []];
 
-  // Build portfolio stats
+  // Build portfolio stats — a parcel is "sold" if it has a sale record,
+  // regardless of whether the DB status field was synced to SOLD.
   const allParcels = purchases.flatMap((p) => p.parcels);
   const sellable = allParcels.filter((p) => p.status !== "PARTITIONED");
-  const available = sellable.filter((p) => p.status === "AVAILABLE");
-  const hold = sellable.filter((p) => p.status === "HOLD");
-  const sold = sellable.filter((p) => p.status === "SOLD");
+  const hasSale = (p: (typeof allParcels)[number]) => p.sale != null && p.sale.status !== "CANCELLED";
+  const sold = sellable.filter((p) => p.status === "SOLD" || hasSale(p));
+  const available = sellable.filter((p) => p.status === "AVAILABLE" && !hasSale(p));
+  const hold = sellable.filter((p) => p.status === "HOLD" && !hasSale(p));
   const partitioned = allParcels.filter((p) => p.status === "PARTITIONED");
   const totalArea = purchases.reduce((s, p) => s + toNum(p.totalArea), 0);
-  const unsoldValue = sellable.reduce((s, p) => s + toNum(p.currentValuation), 0);
-  const costBasis = sellable.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
+  const unsold = [...available, ...hold];
+  const unsoldValue = unsold.reduce((s, p) => s + toNum(p.currentValuation), 0);
+  const costBasis = unsold.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
   const availableArea = available.reduce((s, p) => s + toNum(p.area), 0);
 
   const serialized = purchases.map((lp) => {
     const parcels = lp.parcels;
     const sellableP = parcels.filter((p) => p.status !== "PARTITIONED");
-    const availP = sellableP.filter((p) => p.status === "AVAILABLE");
-    const holdP = sellableP.filter((p) => p.status === "HOLD");
-    const soldP = sellableP.filter((p) => p.status === "SOLD");
+    const hasSaleP = (p: (typeof parcels)[number]) => p.sale != null && p.sale.status !== "CANCELLED";
+    const soldP = sellableP.filter((p) => p.status === "SOLD" || hasSaleP(p));
+    const availP = sellableP.filter((p) => p.status === "AVAILABLE" && !hasSaleP(p));
+    const holdP = sellableP.filter((p) => p.status === "HOLD" && !hasSaleP(p));
     const partP = parcels.filter((p) => p.status === "PARTITIONED");
-    const unsoldVal = sellableP.reduce((s, p) => s + toNum(p.currentValuation), 0);
-    const costBasis = sellableP.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
+    const unsoldP = [...availP, ...holdP];
+    const unsoldVal = unsoldP.reduce((s, p) => s + toNum(p.currentValuation), 0);
+    const costBasis = unsoldP.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
 
     return {
       id: lp.id,
@@ -106,6 +111,8 @@ async function MobileLandContent() {
       projectName: lp.project?.name ?? null,
       mode: lp.mode,
       landType: lp.landType,
+      purchaseStage: lp.purchaseStage,
+      isPossessed: lp.isPossessed,
       parcelCount: sellableP.length,
       availableCount: availP.length,
       holdCount: holdP.length,
@@ -143,16 +150,12 @@ async function MobileLandContent() {
 
   return (
     <>
-      <div className="mb-4">
-        <MobileExportShareBar
-          title="Land & Parcels"
-          rows={serialized as unknown as Record<string, unknown>[]}
-          columns={csvColumns}
-          summary={`${purchases.length} land purchases · ${sellable.length} parcels · Valuation: ${formatCurrency(unsoldValue)}`}
-        />
-      </div>
       <MobileLandList
         items={serialized}
+        exportTitle="Land & Parcels"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${purchases.length} land purchases · ${sellable.length} parcels · Valuation: ${formatCurrency(unsoldValue)}`}
         portfolio={{
           purchaseCount: purchases.length,
           totalArea,

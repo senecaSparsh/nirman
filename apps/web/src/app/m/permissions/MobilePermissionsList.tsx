@@ -8,7 +8,7 @@ import {
 import {
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { formatDate } from "@/lib/utils";
 import {
   STAGE_LABELS, STAGE_ORDER, daysUntilExpiry, getExpiryStatus,
@@ -111,20 +111,24 @@ export function MobilePermissionsList({
         query={search}
         onQueryChange={setSearch}
         placeholder="Search by title, doc no, authority, project…"
-        filterChips={
-          <div className="space-y-1.5">
-            <MobileFilterChips
-              chips={STATUS_CHIPS}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={STATUS_CHIPS}
               active={statusFilter}
+              defaultValue="ALL"
               onChange={setStatusFilter}
             />
-            <MobileFilterChips
-              chips={CONTEXT_CHIPS}
+            <MobileFilterIcon
+              options={CONTEXT_CHIPS}
               active={contextFilter}
+              defaultValue="ALL"
               onChange={setContextFilter}
             />
           </div>
         }
+        showClear={search !== "" || statusFilter !== "ALL" || contextFilter !== "ALL"}
+        onClear={() => { setSearch(""); setStatusFilter("ALL"); setContextFilter("ALL"); }}
       />
 
       {/* ── Grouped list ── */}

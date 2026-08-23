@@ -13,7 +13,7 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobileReportHeader, MobileReportSummary, MobileBarChart } from "@/components/mobile/v2/report-ui";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
+import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type AgingBucket = "current" | "1-30d" | "31-60d" | "61-90d" | ">90d";
@@ -120,7 +120,7 @@ async function MobilePendingPaymentsContent() {
       />
 
       <div className="mb-4">
-        <MobileExportShareBar
+        <MobileExportShareIcons
           title="Pending Payments Report"
           rows={exportRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}

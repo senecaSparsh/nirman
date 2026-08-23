@@ -9,7 +9,8 @@ import {
   MobileStatusBadge,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 type ReceiveFilter = "ALL" | "ORDERED" | "PARTIAL";
 
@@ -37,7 +38,19 @@ const FILTER_CHIPS: { label: string; value: ReceiveFilter }[] = [
  * active, POs are shown grouped: Overdue first, then the rest. When
  * a filter or search is active, a flat result list is shown instead.
  */
-export function MobileReceiveList({ items }: { items: ReceiveListItem[] }) {
+export function MobileReceiveList({
+  items,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: {
+  items: ReceiveListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReceiveFilter>("ALL");
 
@@ -67,9 +80,26 @@ export function MobileReceiveList({ items }: { items: ReceiveListItem[] }) {
         query={query}
         onQueryChange={setQuery}
         placeholder="Search by PO no, supplier…"
-        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={statusFilter} onChange={setStatusFilter} />}
-        showClear={!!query}
-        onClear={() => setQuery("")}
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={setStatusFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={!!query || statusFilter !== "ALL"}
+        onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
 
       {isFiltering ? (
@@ -92,7 +122,18 @@ function FlatList({ items }: { items: ReceiveListItem[] }) {
   }
   return (
     <div>
-      <MobileSectionTitle>Results ({items.length})</MobileSectionTitle>
+      <MobileSectionTitle
+        right={
+          <span
+            className="text-[0.625rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {items.length} PO{items.length !== 1 ? "s" : ""}
+          </span>
+        }
+      >
+        Results
+      </MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         {items.map((po) => (
           <MobileRow

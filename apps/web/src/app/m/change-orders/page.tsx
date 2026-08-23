@@ -10,7 +10,6 @@ import {
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileChangeOrdersList } from "./MobileChangeOrdersList";
 import { MobileChangeOrdersFab } from "./MobileChangeOrdersFab";
@@ -80,10 +79,11 @@ async function MobileChangeOrdersContent() {
         <MobileStatCard label="Approved" value={String(approved)} icon={GitBranch} tone={approved > 0 ? "go" : "neutral"} />
       </div>
 
-      <MobileExportShareBar
-        title="Change Orders"
-        rows={serialized as unknown as Record<string, unknown>[]}
-        columns={[
+      <MobileChangeOrdersList
+        items={serialized}
+        exportTitle="Change Orders"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={[
           { key: "changeOrderNo", label: "CO Number" },
           { key: "title", label: "Title" },
           { key: "projectName", label: "Project" },
@@ -91,10 +91,8 @@ async function MobileChangeOrdersContent() {
           { key: "status", label: "Status" },
           { key: "costDelta", label: "Cost Delta", format: "currency" },
         ] as MobileColumnSpec[]}
-        summary={`${serialized.length} change orders`}
+        exportSummary={`${serialized.length} change orders`}
       />
-
-      <MobileChangeOrdersList items={serialized} />
 
       {changeOrders.length === 0 && (
         <MobileEmptyState

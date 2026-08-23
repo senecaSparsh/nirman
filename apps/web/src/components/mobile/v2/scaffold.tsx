@@ -51,35 +51,51 @@ export function MobileSearchHeader({
   showClear?: boolean;
   onClear?: () => void;
 }) {
+  const [searchFocused, setSearchFocused] = React.useState(false);
+
   return (
     <div
-      className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
+      className="sticky top-0 z-20 -mx-3.5 px-3.5 pt-1 pb-2 mb-1"
       style={{
-        backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-        borderColor: "var(--color-line)",
+        backgroundColor: "var(--color-paper)",
       }}
     >
-      {/* Search + action row */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="relative flex-1">
+      {/* Search + action row — search expands to full width on focus */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <div
+          className="relative transition-all duration-200 ease-out"
+          style={{ flex: searchFocused ? "1 1 100%" : "1 1 auto" }}
+        >
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
             style={{ color: "var(--color-ink-500)" }}
           />
           <input
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             placeholder={placeholder}
-            className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
+            className="w-full h-8 rounded-[0.5rem] border-2 pl-8 pr-3 text-[0.75rem] focus:outline-none"
             style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
+              borderColor: query || searchFocused ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: "var(--color-paper)",
               color: "var(--color-ink-950)",
             }}
           />
         </div>
-        {action}
+        {/* Action icons — collapse when search is focused */}
+        <div
+          className="flex items-center gap-1 shrink-0 transition-all duration-200 ease-out"
+          style={{
+            opacity: searchFocused ? 0 : 1,
+            maxWidth: searchFocused ? 0 : "200px",
+            pointerEvents: searchFocused ? "none" : "auto",
+          }}
+        >
+          {action}
+        </div>
       </div>
 
       {/* Filter chips */}
@@ -146,7 +162,7 @@ export function MobileFilterChips<T extends string>({
               className="press rounded-full px-2.5 py-1 shrink-0 text-[0.6875rem] font-semibold border transition-colors flex items-center gap-1"
               style={
                 isActive
-                  ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
+                  ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                   : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
               }
             >
@@ -237,6 +253,77 @@ export function MobileFilterDropdown<T extends string>({
   );
 }
 
+// ─── Filter Icon (compact icon-only filter button + dropdown) ──────────────
+
+/**
+ * Icon-only filter button that opens a dropdown — fits in the search
+ * action row alongside Sort, Export, Share icons. Shows a dot badge
+ * when a non-default filter is active.
+ */
+export function MobileFilterIcon<T extends string>({
+  options,
+  active,
+  defaultValue,
+  onChange,
+}: {
+  options: { label: string; value: T }[];
+  active: T;
+  defaultValue: T;
+  onChange: (v: T) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const hasFilter = active !== defaultValue;
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Filter"
+        className="grid place-items-center size-8 rounded-[0.5rem] border press relative"
+        style={{
+          borderColor: hasFilter || open ? "var(--color-ink-950)" : "var(--color-line)",
+          backgroundColor: hasFilter || open ? "var(--color-concrete)" : "var(--color-paper)",
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M3 4h18l-7 8v7l-4 2v-9L3 4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {hasFilter && (
+          <span
+            className="absolute -top-0.5 -right-0.5 size-2 rounded-full"
+            style={{ backgroundColor: "var(--color-signal)" }}
+          />
+        )}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border shadow-lg overflow-hidden"
+            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+          >
+            {options.map((opt, i) => (
+              <button
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className="press w-full text-left px-3 py-2 text-[0.75rem]"
+                style={{
+                  fontWeight: active === opt.value ? 600 : 400,
+                  color: active === opt.value ? "var(--color-ink-950)" : "var(--color-ink-700)",
+                  backgroundColor: active === opt.value ? "var(--color-concrete)" : "transparent",
+                  ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}),
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Inline Action Button (for search header) ──────────────────────────────
 
 /**
@@ -258,7 +345,7 @@ export function MobileHeaderAction({
     "flex items-center gap-1 h-9 px-3 rounded-[0.625rem] text-[0.75rem] font-bold whitespace-nowrap press active:scale-95 shrink-0";
   const style: React.CSSProperties = {
     backgroundColor: "var(--color-ink-950)",
-    color: "#fff",
+    color: "var(--color-paper)",
   };
   if (href) {
     return (
@@ -321,7 +408,7 @@ export function MobileFab({
       style={{
         bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
         backgroundColor: "var(--color-ink-950)",
-        color: "#fff",
+        color: "var(--color-paper)",
         boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
       }}
     >
