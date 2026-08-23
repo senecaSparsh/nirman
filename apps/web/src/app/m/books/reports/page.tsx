@@ -98,8 +98,8 @@ async function MobileReportsContent() {
     <div>
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <MobileStatCard label="Inventory Value" value={formatCurrency(inventoryValue)} icon={Package} href="/m/inventory" />
-        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="go" href="/m/sales" />
-        <MobileStatCard label="Sales Booked" value={formatCurrency(salesBooked)} icon={ShoppingCart} href="/m/sales" />
+        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="go" href="/m/sales?tab=collections" />
+        <MobileStatCard label="Sales Booked" value={formatCurrency(salesBooked)} icon={ShoppingCart} href="/m/sales?tab=collections" />
         <MobileStatCard label="Purchase Spend" value={formatCurrency(purchaseSpend)} icon={Truck} href="/m/procurement" />
         <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} href="/m/books/finance" />
         <MobileStatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={Wallet} href="/m/books/finance" />

@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill, statusColor } from "@/components/page";
 import { LandPurchaseFormDialog } from "./land-purchase-form-dialog";
 import { LandPurchaseWizardDialog } from "./land-purchase-wizard-dialog";
+import { LandPurchaseOrderDialog } from "./land-purchase-order-dialog";
 import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
 import { ParcelValuationDialog } from "./parcel-valuation-dialog";
@@ -210,6 +211,7 @@ export function LandView({
 
   const [formOpen, setFormOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
   const [editing, setEditing] = useState<LandPurchaseRowType | null>(null);
   // Track whether the form was opened from the "Add sub-divided purchase" button.
   // If so, after saving we skip the "Subdivide this land?" prompt and go straight
@@ -266,6 +268,9 @@ export function LandView({
             <div className="flex gap-2">
               <Button size="sm" onClick={() => { setEditing(null); setWizardOpen(true); }}>
                 <Plus className="h-4 w-4" /> Record Land Purchase
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setEditing(null); setOrderOpen(true); }}>
+                Book Land (Token)
               </Button>
               <Button size="sm" variant="outline" onClick={() => { setEditing(null); setFormOpen(true); }}>
                 Quick Add
@@ -449,6 +454,15 @@ export function LandView({
         onCreated={() => {
           // The wizard handles everything (parcels + projects + partition) in one
           // atomic transaction, so we just refresh — no post-creation prompt needed.
+          router.refresh();
+        }}
+      />
+      <LandPurchaseOrderDialog
+        open={orderOpen}
+        onOpenChange={setOrderOpen}
+        projects={projects}
+        sellers={sellers ?? []}
+        onCreated={() => {
           router.refresh();
         }}
       />

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { Wallet, Printer, Building2, User, FileText, IndianRupee, CalendarDays, Hash } from "lucide-react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { prisma } from "@nirman/db";
 import { amountInWords } from "@nirman/services";
@@ -28,7 +28,7 @@ export default function MobileReceiptDetailPage({
   searchParams: Promise<{ kind?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobileReceiptDetailContent params={params} searchParams={searchParams} />
     </Suspense>
   );

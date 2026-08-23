@@ -48,7 +48,7 @@ const RAW_MATERIAL_ACTIONS: QuickAction[] = [
 ];
 
 const REAL_ESTATE_ACTIONS: QuickAction[] = [
-  { href: "/m/sales", icon: ShoppingCart, label: "Sales" },
+  { href: "/m/sales?tab=collections", icon: ShoppingCart, label: "Sales" },
   { href: "/m/projects", icon: Building2, label: "Projects" },
   { href: "/m/units", icon: Package, label: "Units" },
   { href: "/m/land", icon: LandPlot, label: "Land" },

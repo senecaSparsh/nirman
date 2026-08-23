@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postJournalEntry, postSecurityDepositReceived, postSecurityDepositRefunded, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
 
 /**
@@ -34,7 +35,12 @@ export interface CreateTenancyInput {
   monthlyRent: Decimal | number | string;
   securityDeposit?: Decimal | number | string;
   rentAgreementNo?: string;
+  rentAgreementDocumentUrl?: string;
+  rentAgreementDocumentName?: string;
   sacCode?: string; // SAC code for GST on rental income (default 997313)
+  // ── Yearly escalation ──
+  escalationPercent?: Decimal | number | string;
+  escalationIntervalMonths?: number;
   notes?: string;
   userId?: string;
 }
@@ -105,9 +111,17 @@ export async function createTenancy(input: CreateTenancyInput) {
         startDate,
         endDate,
         monthlyRent,
+        baseRent: monthlyRent,
         securityDeposit: new Decimal(input.securityDeposit ?? 0),
         rentAgreementNo: input.rentAgreementNo ?? null,
+        rentAgreementDocumentUrl: input.rentAgreementDocumentUrl ?? null,
+        rentAgreementDocumentName: input.rentAgreementDocumentName ?? null,
         sacCode: input.sacCode ?? "997313", // default: construction equipment rental
+        escalationPercent: input.escalationPercent != null ? new Decimal(input.escalationPercent) : null,
+        escalationIntervalMonths: input.escalationIntervalMonths ?? 12,
+        nextEscalationDate: input.escalationPercent != null
+          ? new Date(startDate.getTime() + (input.escalationIntervalMonths ?? 12) * 30 * 86400000)
+          : null,
         status: "PENDING",
         notes: input.notes ?? null,
         createdById: input.userId ?? null,
@@ -153,8 +167,11 @@ export interface UpdateTenancyInput {
   monthlyRent?: Decimal | number | string;
   securityDeposit?: Decimal | number | string;
   rentAgreementNo?: string | null;
+  rentAgreementDocumentUrl?: string | null;
+  rentAgreementDocumentName?: string | null;
   notes?: string | null;
   customerId?: string | null;
+  escalationPercent?: Decimal | number | string | null;
   userId?: string;
 }
 
@@ -259,6 +276,24 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
       before.rentAgreementNo = t.rentAgreementNo;
       after.rentAgreementNo = input.rentAgreementNo;
     }
+    if (input.rentAgreementDocumentUrl !== undefined && input.rentAgreementDocumentUrl !== t.rentAgreementDocumentUrl) {
+      data.rentAgreementDocumentUrl = input.rentAgreementDocumentUrl ?? null;
+      before.rentAgreementDocumentUrl = t.rentAgreementDocumentUrl;
+      after.rentAgreementDocumentUrl = input.rentAgreementDocumentUrl;
+    }
+    if (input.rentAgreementDocumentName !== undefined && input.rentAgreementDocumentName !== t.rentAgreementDocumentName) {
+      data.rentAgreementDocumentName = input.rentAgreementDocumentName ?? null;
+    }
+    if (input.escalationPercent !== undefined) {
+      const escPct = input.escalationPercent == null ? null : new Decimal(input.escalationPercent);
+      if (escPct && escPct.lt(0)) throw new ServiceError("Escalation percent cannot be negative");
+      const currentEsc = t.escalationPercent ? new Decimal(t.escalationPercent) : null;
+      if ((escPct && !currentEsc) || (escPct && currentEsc && !escPct.eq(currentEsc)) || (!escPct && currentEsc)) {
+        data.escalationPercent = escPct;
+        before.escalationPercent = t.escalationPercent?.toString() ?? null;
+        after.escalationPercent = escPct?.toString() ?? null;
+      }
+    }
     if (input.notes !== undefined && input.notes !== t.notes) {
       data.notes = input.notes ?? null;
       before.notes = t.notes;
@@ -351,7 +386,10 @@ export async function terminateTenancy(tenancyId: string, companyId: string, use
     const updated = await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
 
     // Refund the security deposit: Dr Security Deposits Payable, Cr Cash.
-    if (new Decimal(t.securityDeposit).gt(0)) {
+    // Only refund if the tenancy was ACTIVE (deposit was posted at activation).
+    // PENDING tenancies never had the deposit posted to GL, so there's nothing
+    // to refund — refunding would create an orphan Dr Security Deposits / Cr Cash.
+    if (t.status === "ACTIVE" && new Decimal(t.securityDeposit).gt(0)) {
       await postSecurityDepositRefunded(tx, {
         companyId: t.companyId,
         tenancyId: t.id,
@@ -395,18 +433,34 @@ export interface RecordRentInput {
   dueDate?: string | Date;
   mode: string;
   reference?: string;
+  // ── TDS tracking ──
+  tdsAmount?: Decimal | number | string;
+  tdsCertificateNo?: string;
+  // ── Rent period ──
+  periodStart?: string | Date;
+  periodEnd?: string | Date;
   userId?: string;
 }
 
 export async function recordRentPayment(input: RecordRentInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
+    if (t.status !== "ACTIVE" && t.status !== "PENDING") {
+      throw new ServiceError(`Cannot record rent payment on a ${t.status} tenancy. Tenancy must be ACTIVE or PENDING.`);
+    }
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Amount must be > 0");
 
+    const tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : new Decimal(0);
+    if (tdsAmount.lt(0)) throw new ServiceError("TDS amount cannot be negative");
+    if (tdsAmount.gt(amount)) throw new ServiceError("TDS amount cannot exceed rent amount");
+    const netReceived = amount.minus(tdsAmount);
+
     const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
     const dueDate = input.dueDate ? new Date(input.dueDate) : paymentDate;
+    const periodStart = input.periodStart ? new Date(input.periodStart) : null;
+    const periodEnd = input.periodEnd ? new Date(input.periodEnd) : null;
 
     // Guard against duplicate payments for the same tenancy + payment date
     const existingPayment = await tx.rentalPayment.findFirst({
@@ -438,19 +492,35 @@ export async function recordRentPayment(input: RecordRentInput) {
       data: {
         tenancyId: t.id,
         amount,
+        tdsAmount,
+        tdsCertificateNo: input.tdsCertificateNo ?? null,
+        netReceived,
         paymentDate,
         dueDate,
         mode: input.mode,
         reference: input.reference ?? null,
         status: "RECEIVED",
+        periodStart,
+        periodEnd,
       },
     });
 
-    // GL: Dr Cash, Cr Sales Revenue (rent income), Cr Output GST
+    // GL: Dr Cash (net received), Dr TDS Receivable (TDS deducted), Cr Sales Revenue (rent income), Cr Output GST
     const glLines: { accountCode: string; debit: Decimal | number; credit: Decimal | number; entityType: string; entityId: string; memo: string }[] = [
-      { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "Tenancy", entityId: t.id, memo: "Rent received" },
+      { accountCode: ACCT.CASH, debit: netReceived, credit: 0, entityType: "Tenancy", entityId: t.id, memo: "Rent received (net of TDS)" },
       { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: revenueAmount, entityType: "Tenancy", entityId: t.id, memo: "Rental income" },
     ];
+    if (tdsAmount.gt(0)) {
+      // TDS deducted by tenant — debited to TDS Receivable (will be claimed from IT department)
+      glLines.push({
+        accountCode: ACCT.TDS_RECEIVABLE,
+        debit: tdsAmount,
+        credit: 0,
+        entityType: "Tenancy",
+        entityId: t.id,
+        memo: `TDS deducted on rent${input.tdsCertificateNo ? ` (Cert: ${input.tdsCertificateNo})` : ""}`,
+      });
+    }
     if (gstAmount.gt(0)) {
       glLines.push({
         accountCode: ACCT.OUTPUT_GST,
@@ -476,10 +546,423 @@ export async function recordRentPayment(input: RecordRentInput) {
         action: "RENT_PAYMENT_RECORD",
         entityType: "RentalPayment",
         entityId: payment.id,
-        after: { tenancyId: t.id, amount: amount.toString(), mode: input.mode, gstRate: gstRate.toString(), gstAmount: gstAmount.toString() },
+        after: { tenancyId: t.id, amount: amount.toString(), tdsAmount: tdsAmount.toString(), netReceived: netReceived.toString(), mode: input.mode, gstRate: gstRate.toString(), gstAmount: gstAmount.toString() },
       });
     }
 
     return payment;
   }, { isolationLevel: "Serializable" });
+
+  return result;
+}
+
+// ───────────────────────────────────────────────────────────
+//  RENT ESCALATION — apply yearly rent increase
+// ───────────────────────────────────────────────────────────
+
+export interface ApplyEscalationInput {
+  tenancyId: string;
+  companyId: string;
+  userId?: string;
+}
+
+/**
+ * Apply the yearly rent escalation for a tenancy.
+ * Increases monthlyRent by escalationPercent, updates nextEscalationDate,
+ * and logs the change. Returns the updated tenancy.
+ */
+export async function applyRentEscalation(input: ApplyEscalationInput) {
+  const result = await prisma.$transaction(async (tx) => {
+    const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
+    if (!t) throw new ServiceError("Tenancy not found", 404);
+    if (t.status !== "ACTIVE") {
+      throw new ServiceError(`Cannot escalate rent on a ${t.status} tenancy. Tenancy must be ACTIVE.`);
+    }
+    if (!t.escalationPercent) {
+      throw new ServiceError("This tenancy has no escalation clause configured");
+    }
+
+    const oldRent = new Decimal(t.monthlyRent);
+    const escPct = new Decimal(t.escalationPercent);
+    const increase = oldRent.mul(escPct).div(100);
+    const newRent = oldRent.plus(increase).toDecimalPlaces(2);
+
+    // Compute next escalation date
+    const intervalMs = t.escalationIntervalMonths * 30 * 86400000;
+    const nextDate = new Date(Date.now() + intervalMs);
+
+    const updated = await tx.tenancy.update({
+      where: { id: t.id },
+      data: {
+        monthlyRent: newRent,
+        lastEscalatedAt: new Date(),
+        nextEscalationDate: nextDate,
+      },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "RENT_ESCALATION_APPLIED",
+        entityType: "Tenancy",
+        entityId: t.id,
+        before: { monthlyRent: oldRent.toString() },
+        after: { monthlyRent: newRent.toString(), escalationPercent: escPct.toString(), nextEscalationDate: nextDate.toISOString() },
+      });
+    }
+
+    return { tenancy: updated, oldRent, newRent, increase };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.RENT_ESCALATION_APPLIED,
+    companyId: input.companyId,
+    entityType: "Tenancy",
+    entityId: input.tenancyId,
+    variables: {
+      tenantName: result.tenancy.tenantName,
+      oldRent: result.oldRent.toString(),
+      newRent: result.newRent.toString(),
+      increase: result.increase.toString(),
+    },
+    timestamp: new Date(),
+  });
+
+  return result;
+}
+
+/**
+ * Check all active tenancies for due escalations and apply them.
+ * Called by a cron job or manual trigger. Returns count of escalated tenancies.
+ */
+export async function processDueEscalations(companyId?: string) {
+  const now = new Date();
+  const dueTenancies = await prisma.tenancy.findMany({
+    where: {
+      status: "ACTIVE",
+      escalationPercent: { not: null },
+      nextEscalationDate: { lte: now },
+      ...(companyId ? { companyId } : {}),
+    },
+  });
+
+  let count = 0;
+  for (const t of dueTenancies) {
+    try {
+      await applyRentEscalation({ tenancyId: t.id, companyId: t.companyId });
+      count++;
+    } catch {
+      // Skip failures — will retry on next cron run
+    }
+  }
+  return { checked: dueTenancies.length, escalated: count };
+}
+
+// ───────────────────────────────────────────────────────────
+//  TENANT CHANGE — replace tenant on an active tenancy
+// ───────────────────────────────────────────────────────────
+
+export interface ChangeTenantInput {
+  tenancyId: string;
+  companyId: string;
+  newTenantName: string;
+  newTenantPhone?: string;
+  newTenantEmail?: string;
+  newCustomerId?: string;
+  newMonthlyRent?: Decimal | number | string;
+  newRentAgreementNo?: string;
+  newRentAgreementDocumentUrl?: string;
+  newRentAgreementDocumentName?: string;
+  newStartDate?: string | Date;
+  newEndDate?: string | Date;
+  newSecurityDeposit?: Decimal | number | string;
+  notes?: string;
+  userId?: string;
+}
+
+/**
+ * Change the tenant on a tenancy. This terminates the current tenant
+ * and creates a new tenancy record for the same asset with the new tenant.
+ * The old tenancy is marked TERMINATED; a new ACTIVE tenancy is created.
+ */
+export async function changeTenant(input: ChangeTenantInput) {
+  return prisma.$transaction(async (tx) => {
+    const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
+    if (!t) throw new ServiceError("Tenancy not found", 404);
+    if (t.status !== "ACTIVE" && t.status !== "EXPIRED") {
+      throw new ServiceError(`Cannot change tenant on a ${t.status} tenancy. Must be ACTIVE or EXPIRED.`);
+    }
+    if (!input.newTenantName.trim()) throw new ServiceError("New tenant name is required");
+
+    // Validate new customer if provided
+    if (input.newCustomerId) {
+      const customer = await tx.customer.findFirst({
+        where: { id: input.newCustomerId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!customer) throw new ServiceError("New customer not found or deleted", 404);
+    }
+
+    // Terminate the old tenancy
+    if (t.assetType === "LAND" && t.landParcelId) {
+      await tx.landParcel.update({ where: { id: t.landParcelId }, data: { status: "AVAILABLE" } });
+    } else if (t.builtUnitId) {
+      await tx.builtUnit.update({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
+    }
+    await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
+
+    // Refund old security deposit if was ACTIVE
+    if (t.status === "ACTIVE" && new Decimal(t.securityDeposit).gt(0)) {
+      await postSecurityDepositRefunded(tx, {
+        companyId: t.companyId,
+        tenancyId: t.id,
+        amount: t.securityDeposit,
+        postedById: input.userId,
+      });
+    }
+
+    // Create new tenancy
+    const newRent = input.newMonthlyRent != null ? new Decimal(input.newMonthlyRent) : new Decimal(t.monthlyRent);
+    const newDeposit = input.newSecurityDeposit != null ? new Decimal(input.newSecurityDeposit) : new Decimal(t.securityDeposit);
+    const newStart = input.newStartDate ? new Date(input.newStartDate) : new Date();
+    const newEnd = input.newEndDate ? new Date(input.newEndDate) : new Date(t.endDate);
+
+    // Mark asset as RENTED again
+    if (t.assetType === "LAND" && t.landParcelId) {
+      await tx.landParcel.update({ where: { id: t.landParcelId }, data: { status: "RENTED" } });
+    } else if (t.builtUnitId) {
+      await tx.builtUnit.update({ where: { id: t.builtUnitId }, data: { status: "RENTED" } });
+    }
+
+    const newTenancy = await tx.tenancy.create({
+      data: {
+        companyId: t.companyId,
+        assetType: t.assetType,
+        landParcelId: t.landParcelId,
+        builtUnitId: t.builtUnitId,
+        customerId: input.newCustomerId ?? null,
+        projectId: t.projectId,
+        tenantName: input.newTenantName.trim(),
+        tenantPhone: input.newTenantPhone ?? null,
+        tenantEmail: input.newTenantEmail ?? null,
+        startDate: newStart,
+        endDate: newEnd,
+        monthlyRent: newRent,
+        baseRent: newRent,
+        securityDeposit: newDeposit,
+        rentAgreementNo: input.newRentAgreementNo ?? null,
+        rentAgreementDocumentUrl: input.newRentAgreementDocumentUrl ?? null,
+        rentAgreementDocumentName: input.newRentAgreementDocumentName ?? null,
+        sacCode: t.sacCode,
+        escalationPercent: t.escalationPercent,
+        escalationIntervalMonths: t.escalationIntervalMonths,
+        nextEscalationDate: t.escalationPercent
+          ? new Date(newStart.getTime() + t.escalationIntervalMonths * 30 * 86400000)
+          : null,
+        status: "ACTIVE",
+        notes: input.notes ?? `Tenant changed from ${t.tenantName}`,
+        createdById: input.userId ?? null,
+      },
+    });
+
+    // Post new security deposit to GL
+    if (newDeposit.gt(0)) {
+      await postSecurityDepositReceived(tx, {
+        companyId: t.companyId,
+        tenancyId: newTenancy.id,
+        amount: newDeposit,
+        postedById: input.userId,
+      });
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "TENANT_CHANGE",
+        entityType: "Tenancy",
+        entityId: newTenancy.id,
+        before: { oldTenancyId: t.id, oldTenantName: t.tenantName },
+        after: { newTenantName: input.newTenantName, newMonthlyRent: newRent.toString() },
+      });
+    }
+
+    return { oldTenancyId: t.id, newTenancy };
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  RENT SCHEDULE — generate monthly rent due records
+// ───────────────────────────────────────────────────────────
+
+export interface GenerateRentScheduleInput {
+  tenancyId: string;
+  companyId: string;
+  monthsAhead?: number; // default 12
+  userId?: string;
+}
+
+/**
+ * Generate monthly rent due records (RentalPayment with status PENDING)
+ * for the next N months. These act as rent invoices — when the tenant
+ * pays, the record is updated to RECEIVED via recordRentPayment.
+ */
+export async function generateRentSchedule(input: GenerateRentScheduleInput) {
+  const monthsAhead = input.monthsAhead ?? 12;
+  return prisma.$transaction(async (tx) => {
+    const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
+    if (!t) throw new ServiceError("Tenancy not found", 404);
+    if (t.status !== "ACTIVE") {
+      throw new ServiceError(`Cannot generate rent schedule on a ${t.status} tenancy. Must be ACTIVE.`);
+    }
+
+    const rent = new Decimal(t.monthlyRent);
+    const start = new Date(t.startDate);
+    const end = new Date(t.endDate);
+    const now = new Date();
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    for (let i = 0; i < monthsAhead; i++) {
+      // Due date = same day of month as start, for the next N months from now
+      const dueDate = new Date(now.getFullYear(), now.getMonth() + i, start.getDate());
+      if (dueDate > end) break;
+
+      const periodStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+      const periodEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+
+      // Check if a payment already exists for this period
+      const existing = await tx.rentalPayment.findFirst({
+        where: {
+          tenancyId: t.id,
+          periodStart,
+        },
+      });
+      if (existing) {
+        skipped.push(periodStart.toISOString().slice(0, 10));
+        continue;
+      }
+
+      const payment = await tx.rentalPayment.create({
+        data: {
+          tenancyId: t.id,
+          amount: rent,
+          tdsAmount: new Decimal(0),
+          netReceived: new Decimal(0),
+          paymentDate: dueDate, // placeholder — updated when payment is received
+          dueDate,
+          mode: "PENDING",
+          reference: null,
+          status: dueDate <= now ? "OVERDUE" : "PENDING",
+          periodStart,
+          periodEnd,
+        },
+      });
+      created.push(payment.id);
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "RENT_SCHEDULE_GENERATE",
+        entityType: "Tenancy",
+        entityId: t.id,
+        after: { monthsAhead, created: created.length, skipped: skipped.length },
+      });
+    }
+
+    return { created: created.length, skipped: skipped.length, createdIds: created };
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  RENT DUE REMINDERS — send notifications for overdue rent
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Check all active tenancies for overdue rent and send reminders.
+ * Called by a cron job or manual trigger.
+ */
+export async function sendRentDueReminders(companyId?: string) {
+  const now = new Date();
+  const overduePayments = await prisma.rentalPayment.findMany({
+    where: {
+      status: "OVERDUE",
+      paymentDate: { lte: now },
+      tenancy: {
+        status: "ACTIVE",
+        ...(companyId ? { companyId } : {}),
+      },
+    },
+    include: {
+      tenancy: { select: { tenantName: true, tenantPhone: true, tenantEmail: true, monthlyRent: true, companyId: true } },
+    },
+    take: 100,
+  });
+
+  let sent = 0;
+  for (const p of overduePayments) {
+    try {
+      const recipient = p.tenancy.tenantPhone ?? p.tenancy.tenantEmail;
+      if (!recipient) continue;
+
+      await sendNotification({
+        companyId: p.tenancy.companyId,
+        eventType: "RENT_DUE_REMINDER",
+        channel: p.tenancy.tenantPhone ? "WHATSAPP" : "EMAIL",
+        recipient,
+        recipientName: p.tenancy.tenantName,
+        message: `Dear ${p.tenancy.tenantName}, your rent of ${p.amount} is overdue (due date: ${p.dueDate.toISOString().slice(0, 10)}). Please make the payment at the earliest. — Nirman Inventory`,
+        metadata: { tenancyId: p.tenancyId, paymentId: p.id, amount: p.amount.toString() },
+      });
+
+      // Mark as reminded (change status from OVERDUE to PENDING so we don't re-send)
+      await prisma.rentalPayment.update({
+        where: { id: p.id },
+        data: { status: "PENDING" },
+      });
+      sent++;
+    } catch {
+      // Skip failures
+    }
+  }
+  return { checked: overduePayments.length, sent };
+}
+
+// ───────────────────────────────────────────────────────────
+//  UPLOAD RENT AGREEMENT DOCUMENT
+// ───────────────────────────────────────────────────────────
+
+export interface UploadAgreementInput {
+  tenancyId: string;
+  companyId: string;
+  documentUrl: string;
+  documentName?: string;
+  userId?: string;
+}
+
+export async function uploadRentAgreement(input: UploadAgreementInput) {
+  return prisma.$transaction(async (tx) => {
+    const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
+    if (!t) throw new ServiceError("Tenancy not found", 404);
+
+    const updated = await tx.tenancy.update({
+      where: { id: t.id },
+      data: {
+        rentAgreementDocumentUrl: input.documentUrl,
+        rentAgreementDocumentName: input.documentName ?? null,
+      },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        action: "RENT_AGREEMENT_UPLOAD",
+        entityType: "Tenancy",
+        entityId: t.id,
+        after: { documentUrl: input.documentUrl, documentName: input.documentName ?? null },
+      });
+    }
+
+    return updated;
+  });
 }

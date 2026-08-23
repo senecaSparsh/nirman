@@ -66,6 +66,8 @@ export enum NotificationEventType {
   TENANCY_TERMINATED = "TENANCY_TERMINATED",
   RENOVATION_COMPLETED = "RENOVATION_COMPLETED",
   LEASE_EXPIRY_WARNING = "LEASE_EXPIRY_WARNING",
+  RENT_DUE_REMINDER = "RENT_DUE_REMINDER",
+  RENT_ESCALATION_APPLIED = "RENT_ESCALATION_APPLIED",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -125,6 +127,8 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.TENANCY_TERMINATED]: "DAILY",
   [NotificationEventType.RENOVATION_COMPLETED]: "DAILY",
   [NotificationEventType.LEASE_EXPIRY_WARNING]: "IMMEDIATE",
+  [NotificationEventType.RENT_DUE_REMINDER]: "IMMEDIATE",
+  [NotificationEventType.RENT_ESCALATION_APPLIED]: "DAILY",
 };
 
 export interface NotificationEvent {
@@ -310,6 +314,8 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
     NotificationEventType.TENANCY_TERMINATED,
     NotificationEventType.RENOVATION_COMPLETED,
     NotificationEventType.LEASE_EXPIRY_WARNING,
+    NotificationEventType.RENT_DUE_REMINDER,
+    NotificationEventType.RENT_ESCALATION_APPLIED,
   ]);
 
   if (role === "OWNER" || role === "ADMIN") return true;

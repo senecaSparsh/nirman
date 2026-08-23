@@ -273,6 +273,9 @@ export {
   createSalePaymentSchedule,
   autoGenerateScheduleItems,
   payBrokerCommission,
+  clearCheque,
+  bounceCheque,
+  uploadSaleDocument,
   getPrintableSaleData,
 } from "./sale";
 export type {
@@ -285,6 +288,7 @@ export type {
   SaleTermInput,
   PaymentScheduleInput,
   PaymentScheduleItemInput,
+  UploadSaleDocumentInput,
 } from "./sale";
 
 // Material Sale — sell inventory items to customers
@@ -314,7 +318,28 @@ export {
 } from "./renovation";
 
 // Land — land purchases
-export { recordLandPurchase, recordLandPurchaseWithPlan } from "./land";
+export {
+  recordLandPurchase,
+  recordLandPurchaseWithPlan,
+  recordLandPurchaseOrder,
+  recordLandPurchasePayment,
+  uploadLandPurchaseDocument,
+  completeLandPurchase,
+  clearLandPurchaseCheque,
+  bounceLandPurchaseCheque,
+  createLandPaymentSchedule,
+  getLandPaymentSchedule,
+  markPossession,
+} from "./land";
+export type {
+  LandPurchaseOrderInput,
+  RecordLandPurchasePaymentInput,
+  UploadLandPurchaseDocumentInput,
+  CompleteLandPurchaseInput,
+  CreateLandPaymentScheduleInput,
+  LandPaymentScheduleItemInput,
+  MarkPossessionInput,
+} from "./land";
 
 // Built Units — sellable units within projects
 export {
@@ -456,12 +481,13 @@ export {
   type VehicleTripInput,
 } from "./vehicle";
 
-// Alerts & Reporting — low-stock, aging, NRV write-downs
+// Alerts & Reporting — low-stock, aging, NRV write-downs, lease expiry
 export {
   lowStockAlerts,
   inventoryAgingReport,
   flagNrvWriteDowns,
   computeNrvWriteDown,
+  leaseExpiryAlerts,
 } from "./alerts";
 
 // General Ledger — double-entry bookkeeping + GST posting
@@ -618,9 +644,19 @@ export {
   activateTenancy,
   terminateTenancy,
   recordRentPayment,
+  applyRentEscalation,
+  processDueEscalations,
+  changeTenant,
+  generateRentSchedule,
+  sendRentDueReminders,
+  uploadRentAgreement,
   type CreateTenancyInput,
   type UpdateTenancyInput,
   type RecordRentInput,
+  type ApplyEscalationInput,
+  type ChangeTenantInput,
+  type GenerateRentScheduleInput,
+  type UploadAgreementInput,
 } from "./tenancy";
 
 // Daily Report — site operations log (separate from DPR)

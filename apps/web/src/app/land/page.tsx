@@ -55,6 +55,7 @@ async function LandContent() {
             parentParcelId: true, _count: { select: { children: true } },
           },
         },
+        payments: { select: { id: true, amount: true, paymentMode: true, chequeStatus: true } },
       },
     }),
     prisma.landParcel.findMany({
@@ -146,6 +147,19 @@ async function LandContent() {
       location: lp.location,
       documentUrl: lp.documentUrl,
       mode: lp.mode,
+      // Staged purchase
+      purchaseStage: lp.purchaseStage,
+      tokenAmount: lp.tokenAmount ? toNum(lp.tokenAmount) : null,
+      tokenPaymentDate: lp.tokenPaymentDate ? lp.tokenPaymentDate.toISOString() : null,
+      tokenPaymentMode: lp.tokenPaymentMode,
+      // Documents
+      atsDocumentUrl: lp.atsDocumentUrl,
+      atsDocumentName: lp.atsDocumentName,
+      registryDocumentUrl: lp.registryDocumentUrl,
+      registryDocumentName: lp.registryDocumentName,
+      // Payments
+      totalPaid: (lp.payments ?? []).reduce((s, p) => s + toNum(p.amount), 0),
+      paymentCount: (lp.payments ?? []).length,
       parcelCount: parcelSummaries.length,
       availableArea: unsold
         .filter((p) => p.status === "AVAILABLE")

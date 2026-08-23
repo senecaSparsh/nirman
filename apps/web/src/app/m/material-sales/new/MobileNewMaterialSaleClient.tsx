@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { haptic } from "@/lib/haptic";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
@@ -38,6 +39,7 @@ interface PaymentSplit {
   id: string;
   amount: string;
   mode: PaymentMode;
+  cheque?: MobileChequeState;
 }
 
 interface SaleDraft {
@@ -282,6 +284,12 @@ export default function MobileNewMaterialSaleClient() {
           body: JSON.stringify({
             amount: Number(split.amount),
             paymentMode: split.mode,
+            ...(split.mode === "CHEQUE" && split.cheque ? {
+              chequeNo: split.cheque.chequeNo.trim() || undefined,
+              chequeDate: split.cheque.chequeDate || undefined,
+              chequeBank: split.cheque.chequeBank.trim() || undefined,
+              chequePhotoUrl: split.cheque.chequePhotoUrl || undefined,
+            } : {}),
           }),
         });
         if (!payRes.ok) {
@@ -772,7 +780,7 @@ function SaleForm({
                           type="button"
                           onClick={() =>
                             setPaymentSplits((prev) =>
-                              prev.map((s) => s.id === split.id ? { ...s, mode } : s),
+                              prev.map((s) => s.id === split.id ? { ...s, mode, ...(mode !== "CHEQUE" ? { cheque: undefined } : !s.cheque ? { cheque: EMPTY_MOBILE_CHEQUE } : {}) } : s),
                             )
                           }
                           className="rounded-[0.375rem] py-1 text-[0.5rem] font-bold transition-colors press"
@@ -787,6 +795,18 @@ function SaleForm({
                       );
                     })}
                   </div>
+
+                  {/* Cheque fields when CHEQUE mode selected */}
+                  {split.mode === "CHEQUE" && (
+                    <MobileChequeFields
+                      value={split.cheque ?? EMPTY_MOBILE_CHEQUE}
+                      onChange={(v) =>
+                        setPaymentSplits((prev) =>
+                          prev.map((s) => s.id === split.id ? { ...s, cheque: v } : s),
+                        )
+                      }
+                    />
+                  )}
                 </div>
               );
             })}

@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { activateTenancy, terminateTenancy, updateTenancy } from "@nirman/services";
-import { apiHandler, getCompany, json, editTenancySchema, requirePermission } from "@/lib/server";
+import {
+  activateTenancy, terminateTenancy, updateTenancy,
+  applyRentEscalation, changeTenant, generateRentSchedule,
+  uploadRentAgreement,
+} from "@nirman/services";
+import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-// POST /api/tenancies/[id] — activate or terminate a tenancy
+// POST /api/tenancies/[id] — action dispatcher for tenancy lifecycle
+//   body: { action: "activate" | "terminate" | "escalate" | "changeTenant" | "generateSchedule" | "uploadAgreement", ...payload }
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
@@ -14,14 +19,78 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   try {
     if (action === "activate") {
       const t = await activateTenancy(id, company.id, user.id);
-      revalidatePath("/m/rentals");
-      return json({ ok: true, id: t.id, status: t.status });
-    } else if (action === "terminate") {
-      const t = await terminateTenancy(id, company.id, user.id);
+      revalidatePath("/rentals");
       revalidatePath("/m/rentals");
       return json({ ok: true, id: t.id, status: t.status });
     }
-    return json({ error: "Unknown action. Use 'activate' or 'terminate'." }, { status: 400 });
+    if (action === "terminate") {
+      const t = await terminateTenancy(id, company.id, user.id);
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, id: t.id, status: t.status });
+    }
+    if (action === "escalate") {
+      const result = await applyRentEscalation({ tenancyId: id, companyId: company.id, userId: user.id });
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, oldRent: result.oldRent.toString(), newRent: result.newRent.toString() });
+    }
+    if (action === "changeTenant") {
+      const parsed = changeTenantSchema.safeParse(body);
+      if (!parsed.success) {
+        return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+      }
+      const result = await changeTenant({
+        tenancyId: id,
+        companyId: company.id,
+        newTenantName: parsed.data.newTenantName,
+        newTenantPhone: parsed.data.newTenantPhone ?? undefined,
+        newTenantEmail: parsed.data.newTenantEmail ?? undefined,
+        newCustomerId: parsed.data.newCustomerId ?? undefined,
+        newMonthlyRent: parsed.data.newMonthlyRent ?? undefined,
+        newRentAgreementNo: parsed.data.newRentAgreementNo ?? undefined,
+        newRentAgreementDocumentUrl: parsed.data.newRentAgreementDocumentUrl ?? undefined,
+        newRentAgreementDocumentName: parsed.data.newRentAgreementDocumentName ?? undefined,
+        newStartDate: parsed.data.newStartDate ?? undefined,
+        newEndDate: parsed.data.newEndDate ?? undefined,
+        newSecurityDeposit: parsed.data.newSecurityDeposit ?? undefined,
+        notes: parsed.data.notes ?? undefined,
+        userId: user.id,
+      });
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, oldTenancyId: result.oldTenancyId, newTenancyId: result.newTenancy.id }, { status: 201 });
+    }
+    if (action === "generateSchedule") {
+      const parsed = rentScheduleSchema.safeParse(body);
+      if (!parsed.success) {
+        return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+      }
+      const result = await generateRentSchedule({
+        tenancyId: id,
+        companyId: company.id,
+        monthsAhead: parsed.data.monthsAhead,
+        userId: user.id,
+      });
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, ...result }, { status: 201 });
+    }
+    if (action === "uploadAgreement") {
+      const documentUrl = body?.documentUrl as string;
+      if (!documentUrl) return json({ error: "documentUrl is required" }, { status: 400 });
+      const t = await uploadRentAgreement({
+        tenancyId: id,
+        companyId: company.id,
+        documentUrl,
+        documentName: body?.documentName,
+        userId: user.id,
+      });
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, id: t.id });
+    }
+    return json({ error: "Unknown action. Use activate, terminate, escalate, changeTenant, generateSchedule, or uploadAgreement." }, { status: 400 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update tenancy") }, { status: 400 });
   }
@@ -48,10 +117,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       monthlyRent: parsed.data.monthlyRent,
       securityDeposit: parsed.data.securityDeposit ?? 0,
       rentAgreementNo: parsed.data.rentAgreementNo ?? null,
+      rentAgreementDocumentUrl: parsed.data.rentAgreementDocumentUrl ?? null,
+      rentAgreementDocumentName: parsed.data.rentAgreementDocumentName ?? null,
       notes: parsed.data.notes ?? null,
       customerId: parsed.data.customerId ?? null,
+      escalationPercent: parsed.data.escalationPercent ?? null,
       userId: user.id,
     });
+    revalidatePath("/rentals");
     revalidatePath("/m/rentals");
     return json({ ok: true, id: t.id, status: t.status });
   } catch (err: unknown) {

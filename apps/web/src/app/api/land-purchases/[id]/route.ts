@@ -17,9 +17,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
         orderBy: { number: "asc" },
         include: { _count: { select: { children: true } }, project: { select: { name: true } }, parentParcel: { select: { number: true } } },
       },
+      payments: { orderBy: { paymentDate: "asc" } },
     },
   });
   if (!lp) return json({ error: "Land purchase not found" }, { status: 404 });
+  const totalPaid = lp.payments.reduce((s, p) => s + toNum(p.amount), 0);
   return json({
     id: lp.id,
     projectId: lp.projectId,
@@ -33,6 +35,34 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     registryNo: lp.registryNo,
     location: lp.location,
     documentUrl: lp.documentUrl,
+    // Staged purchase
+    purchaseStage: lp.purchaseStage,
+    tokenAmount: lp.tokenAmount ? toNum(lp.tokenAmount) : null,
+    tokenPaymentDate: lp.tokenPaymentDate ? lp.tokenPaymentDate.toISOString() : null,
+    tokenPaymentMode: lp.tokenPaymentMode,
+    // Documents
+    atsDocumentUrl: lp.atsDocumentUrl,
+    atsDocumentName: lp.atsDocumentName,
+    registryDocumentUrl: lp.registryDocumentUrl,
+    registryDocumentName: lp.registryDocumentName,
+    // Payments
+    totalPaid,
+    balanceDue: toNum(lp.totalCost) - totalPaid,
+    payments: lp.payments.map((p) => ({
+      id: p.id,
+      amount: toNum(p.amount),
+      paymentDate: p.paymentDate.toISOString(),
+      paymentMode: p.paymentMode,
+      referenceNo: p.referenceNo,
+      notes: p.notes,
+      chequeNo: p.chequeNo,
+      chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
+      chequeBank: p.chequeBank,
+      chequePhotoUrl: p.chequePhotoUrl,
+      chequeStatus: p.chequeStatus,
+      chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
+      chequeBounceReason: p.chequeBounceReason,
+    })),
     // Cost breakup
     baseCost: lp.baseCost ? toNum(lp.baseCost) : null,
     leaseRentPercent: lp.leaseRentPercent ? toNum(lp.leaseRentPercent) : null,

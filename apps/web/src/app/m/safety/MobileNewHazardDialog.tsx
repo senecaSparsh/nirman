@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Plus, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { computeRiskLevel } from "@nirman/services";
+import { computeRiskLevel } from "@nirman/services/safety";
 
 export function MobileNewHazardDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
   const router = useRouter();

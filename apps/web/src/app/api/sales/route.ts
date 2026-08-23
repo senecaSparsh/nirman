@@ -79,6 +79,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
         finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
         saleDeedNo: s.saleDeedNo,
         expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+        // Document uploads
+        atsDocumentUrl: s.atsDocumentUrl,
+        atsDocumentName: s.atsDocumentName,
+        bbaDocumentUrl: s.bbaDocumentUrl,
+        bbaDocumentName: s.bbaDocumentName,
+        registryDocumentUrl: s.registryDocumentUrl,
+        registryDocumentName: s.registryDocumentName,
+        allotmentDocumentUrl: s.allotmentDocumentUrl,
+        allotmentDocumentName: s.allotmentDocumentName,
         // Sale compliance documents
         allotmentLetterNo: s.allotmentLetterNo,
         allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
@@ -202,6 +211,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
       commissionIsPartOfDeal: parsed.data.commissionIsPartOfDeal ?? undefined,
       // Payment schedule
       paymentSchedule: parsed.data.paymentSchedule ?? undefined,
+      // Cheque details for initial payment
+      initialChequeNo: parsed.data.initialChequeNo ?? undefined,
+      initialChequeDate: parsed.data.initialChequeDate ?? undefined,
+      initialChequeBank: parsed.data.initialChequeBank ?? undefined,
+      initialChequePhotoUrl: parsed.data.initialChequePhotoUrl ?? undefined,
+      // ATS document upload
+      atsDocumentUrl: parsed.data.atsDocumentUrl ?? undefined,
+      atsDocumentName: parsed.data.atsDocumentName ?? undefined,
       // Audit logging
       userId: user.id,
     });

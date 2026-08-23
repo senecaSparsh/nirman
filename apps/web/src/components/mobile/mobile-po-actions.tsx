@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Truck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useOptimisticAction } from "@/lib/use-optimistic-action";
 
 interface PoPayload {
   id: string;
@@ -20,7 +20,10 @@ interface PoPayload {
  *   DRAFT     → approve (if po.approve) / cancel (if procurement.manage)
  *   APPROVED  → order (if procurement.manage)
  *   ORDERED/PARTIAL → (receiving is a separate CTA above)
- * Each action hits the existing PATCH /api/purchase-orders/[id] endpoint.
+ *
+ * Uses optimistic updates — the status pill changes the instant you tap,
+ * before the server round-trip completes. If the server rejects, it
+ * reverts and shows the error.
  */
 export function MobilePoActions({
   po,
@@ -33,32 +36,45 @@ export function MobilePoActions({
   canManage: boolean;
   backHref: string;
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState<string | null>(null);
+  // Track the visible status — updated optimistically, reverted on error.
+  const [visibleStatus, setVisibleStatus] = useState(po.status);
 
-  async function act(action: "approve" | "order" | "cancel", label: string) {
-    haptic(10);
-    setBusy(action);
-    try {
-      const res = await fetch(`/api/purchase-orders/${po.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `Failed to ${action} PO`);
-      toast.success(label);
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const approveAction = useOptimisticAction({
+    endpoint: `/api/purchase-orders/${po.id}`,
+    method: "PATCH",
+    body: { action: "approve" },
+    optimisticUpdate: () => setVisibleStatus("APPROVED"),
+    revert: () => setVisibleStatus("DRAFT"),
+    successMessage: `PO ${po.poNumber} approved`,
+    hapticOnSuccess: [10, 30, 10],
+  });
 
-  const showApprove = po.status === "DRAFT" && canApprove;
-  const showOrder = po.status === "APPROVED" && canManage;
-  const showCancel = po.status === "DRAFT" && canManage;
+  const orderAction = useOptimisticAction({
+    endpoint: `/api/purchase-orders/${po.id}`,
+    method: "PATCH",
+    body: { action: "order" },
+    optimisticUpdate: () => setVisibleStatus("ORDERED"),
+    revert: () => setVisibleStatus("APPROVED"),
+    successMessage: `PO ${po.poNumber} ordered`,
+    successDescription: "The supplier has been sent the order.",
+    hapticOnSuccess: [10, 30, 10],
+  });
+
+  const cancelAction = useOptimisticAction({
+    endpoint: `/api/purchase-orders/${po.id}`,
+    method: "PATCH",
+    body: { action: "cancel" },
+    optimisticUpdate: () => setVisibleStatus("CANCELLED"),
+    revert: () => setVisibleStatus("DRAFT"),
+    successMessage: `PO ${po.poNumber} cancelled`,
+    hapticOnSuccess: 30,
+  });
+
+  // Use the optimistic status for button visibility so the action bar
+  // updates immediately — no flash of the old buttons.
+  const showApprove = visibleStatus === "DRAFT" && canApprove;
+  const showOrder = visibleStatus === "APPROVED" && canManage;
+  const showCancel = visibleStatus === "DRAFT" && canManage;
 
   if (!showApprove && !showOrder && !showCancel) return null;
 
@@ -66,8 +82,8 @@ export function MobilePoActions({
     <div className="space-y-2 px-4 pb-6 pt-3">
       {showApprove && (
         <ActionButton
-          onClick={() => act("approve", `PO ${po.poNumber} approved`)}
-          busy={busy === "approve"}
+          onClick={() => approveAction.execute()}
+          busy={approveAction.isPending}
           icon={CheckCircle2}
           label="Approve"
           variant="primary"
@@ -75,8 +91,8 @@ export function MobilePoActions({
       )}
       {showOrder && (
         <ActionButton
-          onClick={() => act("order", `PO ${po.poNumber} ordered`)}
-          busy={busy === "order"}
+          onClick={() => orderAction.execute()}
+          busy={orderAction.isPending}
           icon={Truck}
           label="Mark as ordered"
           variant="primary"
@@ -84,8 +100,8 @@ export function MobilePoActions({
       )}
       {showCancel && (
         <ActionButton
-          onClick={() => act("cancel", `PO ${po.poNumber} cancelled`)}
-          busy={busy === "cancel"}
+          onClick={() => cancelAction.execute()}
+          busy={cancelAction.isPending}
           icon={XCircle}
           label="Cancel PO"
           variant="outline"

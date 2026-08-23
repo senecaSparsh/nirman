@@ -69,6 +69,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     // Sale deed / registry tracking
     saleDeedNo: s.saleDeedNo,
     expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+    // Document uploads
+    atsDocumentUrl: s.atsDocumentUrl,
+    atsDocumentName: s.atsDocumentName,
+    bbaDocumentUrl: s.bbaDocumentUrl,
+    bbaDocumentName: s.bbaDocumentName,
+    registryDocumentUrl: s.registryDocumentUrl,
+    registryDocumentName: s.registryDocumentName,
+    allotmentDocumentUrl: s.allotmentDocumentUrl,
+    allotmentDocumentName: s.allotmentDocumentName,
     // Sale compliance documents
     allotmentLetterNo: s.allotmentLetterNo,
     allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
@@ -138,6 +147,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       mode: p.mode,
       reference: p.reference,
       status: p.status,
+      // Cheque details
+      chequeNo: p.chequeNo,
+      chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
+      chequeBank: p.chequeBank,
+      chequePhotoUrl: p.chequePhotoUrl,
+      chequeStatus: p.chequeStatus,
+      chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
+      chequeBounceReason: p.chequeBounceReason,
     })),
   });
 });
@@ -233,6 +250,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         paymentMode: parsed.data.paymentMode,
         reference: parsed.data.reference ?? undefined,
         userId: user.id,
+        // Cheque details
+        chequeNo: parsed.data.chequeNo ?? undefined,
+        chequeDate: parsed.data.chequeDate ?? undefined,
+        chequeBank: parsed.data.chequeBank ?? undefined,
+        chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(user.companyId ?? "", id, "deposit", parsed.data.depositAmount, parsed.data.reference ?? undefined);
@@ -267,6 +289,14 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         homeLoanAmount: parsed.data.homeLoanAmount ?? undefined,
         homeLoanSanctionNo: parsed.data.homeLoanSanctionNo ?? undefined,
         homeLoanSanctionDate: parsed.data.homeLoanSanctionDate ?? undefined,
+        // Cheque details
+        chequeNo: parsed.data.chequeNo ?? undefined,
+        chequeDate: parsed.data.chequeDate ?? undefined,
+        chequeBank: parsed.data.chequeBank ?? undefined,
+        chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
+        // Registry document
+        registryDocumentUrl: parsed.data.registryDocumentUrl ?? undefined,
+        registryDocumentName: parsed.data.registryDocumentName ?? undefined,
         userId: user.id,
       });
       // Send WhatsApp payment confirmation to the customer
@@ -290,6 +320,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         mode: parsed.data.mode,
         reference: parsed.data.reference ?? undefined,
         userId: user.id,
+        // Cheque details
+        chequeNo: parsed.data.chequeNo ?? undefined,
+        chequeDate: parsed.data.chequeDate ?? undefined,
+        chequeBank: parsed.data.chequeBank ?? undefined,
+        chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(user.companyId ?? "", id, "payment", parsed.data.amount, parsed.data.reference ?? undefined);

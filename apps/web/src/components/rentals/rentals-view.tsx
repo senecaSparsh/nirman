@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX } from "lucide-react";
+import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserSwitch, TrendingUp, CalendarClock, FileText, ExternalLink, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -21,10 +22,26 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 const paymentColumns: Column<TenancyRow["payments"][number]>[] = [
   {
     key: "amount",
-    label: "Amount",
+    label: "Gross Rent",
     align: "right",
     sortable: true,
     render: (p) => <span className="tnum font-medium text-foreground">{formatCurrency(p.amount)}</span>,
+  },
+  {
+    key: "tdsAmount",
+    label: "TDS",
+    align: "right",
+    sortable: true,
+    render: (p) => p.tdsAmount > 0
+      ? <span className="tnum text-warning">-{formatCurrency(p.tdsAmount)}</span>
+      : <span className="text-muted-foreground">—</span>,
+  },
+  {
+    key: "netReceived",
+    label: "Net Received",
+    align: "right",
+    sortable: true,
+    render: (p) => <span className="tnum text-success">{formatCurrency(p.netReceived)}</span>,
   },
   {
     key: "mode",
@@ -65,8 +82,16 @@ export type TenancyRow = {
   startDate: string;
   endDate: string;
   monthlyRent: number;
+  baseRent: number;
   securityDeposit: number;
   rentAgreementNo: string | null;
+  rentAgreementDocumentUrl: string | null;
+  rentAgreementDocumentName: string | null;
+  sacCode: string | null;
+  escalationPercent: number | null;
+  escalationIntervalMonths: number;
+  nextEscalationDate: string | null;
+  lastEscalatedAt: string | null;
   status: string;
   notes: string | null;
   totalReceived: number;
@@ -74,11 +99,16 @@ export type TenancyRow = {
   payments: {
     id: string;
     amount: number;
+    tdsAmount: number;
+    tdsCertificateNo: string | null;
+    netReceived: number;
     paymentDate: string;
     dueDate: string;
     mode: string;
     reference: string | null;
     status: string;
+    periodStart: string | null;
+    periodEnd: string | null;
   }[];
 };
 
@@ -142,6 +172,32 @@ export function RentalsView({
   const [pMode, setPMode] = useState("BANK");
   const [pDate, setPDate] = useState("");
   const [pRef, setPRef] = useState("");
+  const [pTds, setPTds] = useState("");
+  const [pTdsCert, setPTdsCert] = useState("");
+
+  // Escalation
+  const [escalateTarget, setEscalateTarget] = useState<TenancyRow | null>(null);
+  const [confirmEscalateOpen, setConfirmEscalateOpen] = useState(false);
+
+  // Change tenant
+  const [changeTenantTarget, setChangeTenantTarget] = useState<TenancyRow | null>(null);
+  const [ctName, setCtName] = useState("");
+  const [ctPhone, setCtPhone] = useState("");
+  const [ctEmail, setCtEmail] = useState("");
+  const [ctCustomer, setCtCustomer] = useState("");
+  const [ctRent, setCtRent] = useState("");
+  const [ctDeposit, setCtDeposit] = useState("");
+  const [ctAgreementNo, setCtAgreementNo] = useState("");
+  const [ctStart, setCtStart] = useState("");
+  const [ctEnd, setCtEnd] = useState("");
+  const [ctNotes, setCtNotes] = useState("");
+
+  // Create form — escalation
+  const [fEscalationPct, setFEscalationPct] = useState("");
+  const [fEscalationInterval, setFEscalationInterval] = useState("12");
+
+  // Edit form — escalation
+  const [eEscalationPct, setEEscalationPct] = useState("");
 
   // Local copy of customers so freshly created ones appear without a refresh
   const [localCustomers, setLocalCustomers] = useState(customers);
@@ -171,6 +227,8 @@ export function RentalsView({
           monthlyRent: Number(fRent),
           securityDeposit: Number(fDeposit) || 0,
           rentAgreementNo: fAgreementNo || null,
+          escalationPercent: fEscalationPct ? Number(fEscalationPct) : null,
+          escalationIntervalMonths: Number(fEscalationInterval) || 12,
           notes: fNotes || null,
         }),
       });
@@ -178,7 +236,7 @@ export function RentalsView({
       if (!res.ok) throw new Error(data.error ?? "Failed to create tenancy");
       toast.success("Tenancy created");
       setFormOpen(false);
-      setFAssetId(""); setFTenantName(""); setFTenantPhone(""); setFStart(""); setFEnd(""); setFRent(""); setFDeposit(""); setFAgreementNo(""); setFNotes("");
+      setFAssetId(""); setFTenantName(""); setFTenantPhone(""); setFStart(""); setFEnd(""); setFRent(""); setFDeposit(""); setFAgreementNo(""); setFNotes(""); setFEscalationPct(""); setFEscalationInterval("12");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -244,6 +302,7 @@ export function RentalsView({
     setEDeposit(String(t.securityDeposit));
     setEAgreementNo(t.rentAgreementNo ?? "");
     setENotes(t.notes ?? "");
+    setEEscalationPct(t.escalationPercent != null ? String(t.escalationPercent) : "");
   }
 
   async function submitEdit() {
@@ -266,6 +325,7 @@ export function RentalsView({
           securityDeposit: Number(eDeposit) || 0,
           rentAgreementNo: eAgreementNo || null,
           notes: eNotes || null,
+          escalationPercent: eEscalationPct ? Number(eEscalationPct) : null,
         }),
       });
       const data = await res.json();
@@ -293,13 +353,133 @@ export function RentalsView({
           mode: pMode,
           paymentDate: pDate || undefined,
           reference: pRef || null,
+          tdsAmount: pTds ? Number(pTds) : undefined,
+          tdsCertificateNo: pTdsCert || null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       toast.success("Rent payment recorded");
       setPayTarget(null);
-      setPAmount(""); setPDate(""); setPRef("");
+      setPAmount(""); setPDate(""); setPRef(""); setPTds(""); setPTdsCert("");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function requestEscalate(t: TenancyRow) {
+    setEscalateTarget(t);
+    setConfirmEscalateOpen(true);
+  }
+
+  async function confirmEscalate() {
+    if (!escalateTarget) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenancies/${escalateTarget.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "escalate" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to apply escalation");
+      toast.success("Rent escalated", {
+        description: `${formatCurrency(Number(data.oldRent))} → ${formatCurrency(Number(data.newRent))}`,
+      });
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+      setEscalateTarget(null);
+    }
+  }
+
+  function openChangeTenant(t: TenancyRow) {
+    setChangeTenantTarget(t);
+    setCtName(""); setCtPhone(""); setCtEmail(""); setCtCustomer("");
+    setCtRent(String(t.monthlyRent)); setCtDeposit(String(t.securityDeposit));
+    setCtAgreementNo(""); setCtStart(""); setCtEnd(""); setCtNotes("");
+  }
+
+  async function submitChangeTenant() {
+    if (!changeTenantTarget) return;
+    if (!ctName.trim()) return toast.error("New tenant name is required");
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenancies/${changeTenantTarget.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "changeTenant",
+          newTenantName: ctName,
+          newTenantPhone: ctPhone || null,
+          newTenantEmail: ctEmail || null,
+          newCustomerId: ctCustomer || null,
+          newMonthlyRent: ctRent ? Number(ctRent) : undefined,
+          newSecurityDeposit: ctDeposit ? Number(ctDeposit) : undefined,
+          newRentAgreementNo: ctAgreementNo || null,
+          newStartDate: ctStart || undefined,
+          newEndDate: ctEnd || undefined,
+          notes: ctNotes || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to change tenant");
+      toast.success("Tenant changed", {
+        description: `New tenancy created for ${ctName}`,
+      });
+      setChangeTenantTarget(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function generateSchedule(t: TenancyRow) {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenancies/${t.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generateSchedule", monthsAhead: 12 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate schedule");
+      toast.success("Rent schedule generated", {
+        description: `${data.created} created, ${data.skipped} already existed`,
+      });
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function uploadAgreement(t: TenancyRow, photos: { url: string; fileName?: string }[]) {
+    if (photos.length === 0) return;
+    const photo = photos[0];
+    if (!photo) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenancies/${t.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "uploadAgreement",
+          documentUrl: photo.url,
+          documentName: photo.fileName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to upload agreement");
+      toast.success("Rent agreement uploaded");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -419,8 +599,16 @@ export function RentalsView({
         )}
         {canManage && t.status === "ACTIVE" && (
           <>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPayTarget(t); setPAmount(String(t.monthlyRent)); setPDate(""); setPRef(""); }} title="Record payment">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPayTarget(t); setPAmount(String(t.monthlyRent)); setPDate(""); setPRef(""); setPTds(""); setPTdsCert(""); }} title="Record payment">
               <Banknote className="h-3.5 w-3.5" />
+            </Button>
+            {t.escalationPercent != null && t.nextEscalationDate && new Date(t.nextEscalationDate) <= new Date() && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-warning" onClick={(e) => { e.stopPropagation(); requestEscalate(t); }} disabled={submitting} title="Apply rent escalation">
+                <TrendingUp className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openChangeTenant(t); }} disabled={submitting} title="Change tenant">
+              <UserSwitch className="h-3.5 w-3.5" />
             </Button>
             {canTerminate && (
               <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); requestTerminate(t); }} disabled={submitting} title="Terminate">
@@ -495,8 +683,12 @@ export function RentalsView({
           onClose={() => setDetailTarget(null)}
           onEdit={() => { openEdit(detailTarget); setDetailTarget(null); }}
           onActivate={() => { activateTenancy(detailTarget.id); setDetailTarget(null); }}
-          onPay={() => { setPayTarget(detailTarget); setPAmount(String(detailTarget.monthlyRent)); setPDate(""); setPRef(""); setDetailTarget(null); }}
+          onPay={() => { setPayTarget(detailTarget); setPAmount(String(detailTarget.monthlyRent)); setPDate(""); setPRef(""); setPTds(""); setPTdsCert(""); setDetailTarget(null); }}
           onTerminate={() => { requestTerminate(detailTarget); setDetailTarget(null); }}
+          onEscalate={() => { requestEscalate(detailTarget); setDetailTarget(null); }}
+          onChangeTenant={() => { openChangeTenant(detailTarget); setDetailTarget(null); }}
+          onGenerateSchedule={() => { generateSchedule(detailTarget); setDetailTarget(null); }}
+          onUploadAgreement={(photos) => uploadAgreement(detailTarget, photos)}
           canManage={canManage}
           canTerminate={canTerminate}
           submitting={submitting}
@@ -574,6 +766,16 @@ export function RentalsView({
             <Label>Rent agreement no. (optional)</Label>
             <Input value={fAgreementNo} onChange={(e) => setFAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Yearly escalation % (optional)</Label>
+              <Input type="number" value={fEscalationPct} onChange={(e) => setFEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
+            </div>
+            <div>
+              <Label>Escalation interval (months)</Label>
+              <Input type="number" value={fEscalationInterval} onChange={(e) => setFEscalationInterval(e.target.value)} placeholder="12" />
+            </div>
+          </div>
           <div>
             <Label>Notes (optional)</Label>
             <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
@@ -618,6 +820,22 @@ export function RentalsView({
             <Label>Reference (optional)</Label>
             <Input value={pRef} onChange={(e) => setPRef(e.target.value)} placeholder="UTR / cheque no." />
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>TDS deducted (₹, optional)</Label>
+              <Input type="number" value={pTds} onChange={(e) => setPTds(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <Label>TDS certificate no. (optional)</Label>
+              <Input value={pTdsCert} onChange={(e) => setPTdsCert(e.target.value)} placeholder="Form 16C no." />
+            </div>
+          </div>
+          {pTds && Number(pTds) > 0 && pAmount && (
+            <div className="rounded-md border border-info/30 bg-info-soft/20 p-2 text-caption text-muted-foreground">
+              Net received: <strong className="text-foreground">{formatCurrency(Number(pAmount) - Number(pTds))}</strong>
+              {" "}(Gross {formatCurrency(Number(pAmount))} − TDS {formatCurrency(Number(pTds))})
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setPayTarget(null)}>Cancel</Button>
             <Button onClick={recordPayment} disabled={submitting}>
@@ -635,6 +853,90 @@ export function RentalsView({
         confirmLabel="Terminate"
         onConfirm={confirmTerminateTenancy}
       />
+
+      {/* Escalation confirm dialog */}
+      <ConfirmDialog
+        open={confirmEscalateOpen}
+        onOpenChange={setConfirmEscalateOpen}
+        title="Apply rent escalation?"
+        description={escalateTarget
+          ? `Rent will increase by ${escalateTarget.escalationPercent}% from ${formatCurrency(escalateTarget.monthlyRent)} to ${formatCurrency(escalateTarget.monthlyRent * (1 + (escalateTarget.escalationPercent ?? 0) / 100))}.`
+          : ""}
+        confirmLabel="Apply Escalation"
+        onConfirm={confirmEscalate}
+      />
+
+      {/* Change tenant dialog */}
+      <Dialog
+        open={!!changeTenantTarget}
+        onOpenChange={(o) => { if (!o) setChangeTenantTarget(null); }}
+        title="Change Tenant"
+        description={changeTenantTarget ? `Replacing ${changeTenantTarget.tenantName} — old tenancy will be terminated` : ""}
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>New tenant name</Label>
+              <Input value={ctName} onChange={(e) => setCtName(e.target.value)} placeholder="Tenant / company name" />
+            </div>
+            <div>
+              <Label>New tenant phone</Label>
+              <Input value={ctPhone} onChange={(e) => setCtPhone(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div>
+            <Label>New tenant email (optional)</Label>
+            <Input type="email" value={ctEmail} onChange={(e) => setCtEmail(e.target.value)} placeholder="Optional" />
+          </div>
+          <div>
+            <Label>Link to customer (optional)</Label>
+            <SelectWithCreate
+              value={ctCustomer}
+              onChange={setCtCustomer}
+              placeholder="None"
+              createLabel="customer"
+              options={localCustomers.map((c) => ({ value: c.id, label: c.phone ? `${c.name} · ${c.phone}` : c.name }))}
+              renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                <CustomerFormDialog open={o} onOpenChange={onClose} customer={null} onCreated={(e) => { setLocalCustomers((p) => [...p, { id: e.id, name: e.label ?? "", phone: null }]); onCreated(e); }} />
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>New monthly rent (₹)</Label>
+              <Input type="number" value={ctRent} onChange={(e) => setCtRent(e.target.value)} />
+            </div>
+            <div>
+              <Label>New security deposit (₹)</Label>
+              <Input type="number" value={ctDeposit} onChange={(e) => setCtDeposit(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>New rent agreement no. (optional)</Label>
+            <Input value={ctAgreementNo} onChange={(e) => setCtAgreementNo(e.target.value)} placeholder="e.g. RA-2026-002" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>New start date (optional)</Label>
+              <Input type="date" value={ctStart} onChange={(e) => setCtStart(e.target.value)} />
+            </div>
+            <div>
+              <Label>New end date (optional)</Label>
+              <Input type="date" value={ctEnd} onChange={(e) => setCtEnd(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>Notes (optional)</Label>
+            <Textarea value={ctNotes} onChange={(e) => setCtNotes(e.target.value)} rows={2} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setChangeTenantTarget(null)}>Cancel</Button>
+            <Button onClick={submitChangeTenant} disabled={submitting}>
+              {submitting ? "Changing…" : "Change Tenant"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Edit tenancy dialog */}
       <Dialog
@@ -692,6 +994,10 @@ export function RentalsView({
             <Input value={eAgreementNo} onChange={(e) => setEAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
           </div>
           <div>
+            <Label>Yearly escalation % (optional)</Label>
+            <Input type="number" value={eEscalationPct} onChange={(e) => setEEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
+          </div>
+          <div>
             <Label>Notes (optional)</Label>
             <Textarea value={eNotes} onChange={(e) => setENotes(e.target.value)} rows={2} />
           </div>
@@ -718,6 +1024,10 @@ function TenancyDetailDialog({
   onActivate,
   onPay,
   onTerminate,
+  onEscalate,
+  onChangeTenant,
+  onGenerateSchedule,
+  onUploadAgreement,
   canManage,
   canTerminate,
   submitting,
@@ -728,10 +1038,18 @@ function TenancyDetailDialog({
   onActivate: () => void;
   onPay: () => void;
   onTerminate: () => void;
+  onEscalate: () => void;
+  onChangeTenant: () => void;
+  onGenerateSchedule: () => void;
+  onUploadAgreement: (photos: { url: string; fileName?: string }[]) => void;
   canManage: boolean;
   canTerminate: boolean;
   submitting: boolean;
 }) {
+  const escalationDue = tenancy.escalationPercent != null
+    && tenancy.nextEscalationDate
+    && new Date(tenancy.nextEscalationDate) <= new Date()
+    && tenancy.status === "ACTIVE";
   return (
     <Dialog
       open
@@ -762,6 +1080,9 @@ function TenancyDetailDialog({
           <div>
             <div className="text-label text-muted-foreground">Monthly Rent</div>
             <div className="text-body font-semibold tnum">{formatCurrency(tenancy.monthlyRent)}</div>
+            {tenancy.escalationPercent != null && tenancy.baseRent > 0 && tenancy.baseRent !== tenancy.monthlyRent && (
+              <div className="text-micro text-muted-foreground line-through">{formatCurrency(tenancy.baseRent)}</div>
+            )}
           </div>
           <div>
             <div className="text-label text-muted-foreground">Deposit</div>
@@ -775,6 +1096,53 @@ function TenancyDetailDialog({
             <div className="text-label text-muted-foreground">Payments</div>
             <div className="text-body font-semibold tnum">{tenancy.paymentCount}</div>
           </div>
+        </div>
+
+        {/* Escalation info */}
+        {tenancy.escalationPercent != null && (
+          <div className={`flex items-center gap-3 rounded-lg border p-3 ${escalationDue ? "border-warning/30 bg-warning-soft/30" : "border-border/60 bg-muted/20"}`}>
+            <TrendingUp className={`h-4 w-4 shrink-0 ${escalationDue ? "text-warning" : "text-muted-foreground"}`} />
+            <div className="min-w-0 flex-1">
+              <p className="text-body font-medium text-foreground">
+                {tenancy.escalationPercent}% escalation every {tenancy.escalationIntervalMonths} months
+              </p>
+              <p className="text-caption text-muted-foreground">
+                {tenancy.nextEscalationDate
+                  ? `Next escalation: ${formatDate(tenancy.nextEscalationDate)}${escalationDue ? " — DUE NOW" : ""}`
+                  : "No scheduled escalation"}
+                {tenancy.lastEscalatedAt && ` · Last: ${formatDate(tenancy.lastEscalatedAt)}`}
+              </p>
+            </div>
+            {escalationDue && canManage && (
+              <Button size="sm" variant="outline" onClick={onEscalate} disabled={submitting}>
+                <TrendingUp className="h-3.5 w-3.5" /> Apply Now
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Rent agreement document */}
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <p className="text-label text-muted-foreground">Rent Agreement</p>
+          </div>
+          {tenancy.rentAgreementDocumentUrl ? (
+            <a href={tenancy.rentAgreementDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+              <ExternalLink className="h-3 w-3" /> {tenancy.rentAgreementDocumentName ?? "View agreement"}
+            </a>
+          ) : (
+            <p className="text-micro text-muted-foreground">Not uploaded</p>
+          )}
+          {canManage && tenancy.status !== "TERMINATED" && (
+            <PhotoUploader
+              photos={[]}
+              onChange={onUploadAgreement}
+              maxPhotos={1}
+              label="Upload Agreement"
+              className="mt-1"
+            />
+          )}
         </div>
 
         {/* Tenancy details */}
@@ -808,7 +1176,7 @@ function TenancyDetailDialog({
 
         {/* Actions */}
         {canManage && (
-          <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
             {tenancy.status === "PENDING" && (
               <Button size="sm" onClick={onActivate} disabled={submitting}>
                 <Play className="h-3.5 w-3.5" /> Activate
@@ -818,6 +1186,12 @@ function TenancyDetailDialog({
               <>
                 <Button size="sm" onClick={onPay}>
                   <Banknote className="h-3.5 w-3.5" /> Record Payment
+                </Button>
+                <Button size="sm" variant="outline" onClick={onGenerateSchedule} disabled={submitting}>
+                  <CalendarClock className="h-3.5 w-3.5" /> Generate Schedule
+                </Button>
+                <Button size="sm" variant="outline" onClick={onChangeTenant} disabled={submitting}>
+                  <UserSwitch className="h-3.5 w-3.5" /> Change Tenant
                 </Button>
                 {canTerminate && (
                   <Button size="sm" variant="outline" className="text-danger" onClick={onTerminate} disabled={submitting}>

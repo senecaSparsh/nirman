@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { postNrvWriteDown } from "./gl-posting";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Alerts & Reporting Service — low-stock alerts, inventory aging, NRV flagging.
@@ -299,6 +300,7 @@ export async function leaseExpiryAlerts(companyId?: string) {
 
     alerts.push({
       landPurchaseId: lp.id,
+      companyId: lp.companyId,
       sellerName: lp.sellerName,
       location: lp.location,
       registryNo: lp.registryNo,
@@ -314,6 +316,25 @@ export async function leaseExpiryAlerts(companyId?: string) {
 
   // Sort: expired first, then by days until expiry ascending
   alerts.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+
+  // Emit LEASE_EXPIRY_WARNING notifications for each alert (best-effort)
+  for (const alert of alerts) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.LEASE_EXPIRY_WARNING,
+      companyId: alert.companyId,
+      entityType: "LandPurchase",
+      entityId: alert.landPurchaseId,
+      variables: {
+        sellerName: alert.sellerName,
+        location: alert.location ?? "",
+        daysUntilExpiry: String(alert.daysUntilExpiry),
+        severity: alert.severity,
+        leaseEndDate: alert.leaseEndDate.toISOString(),
+      },
+      timestamp: new Date(),
+    });
+  }
+
   return alerts;
 }
 

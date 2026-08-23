@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
@@ -18,7 +18,7 @@ export default function MobileStockCountDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobileStockCountDetailContent params={params} />
     </Suspense>
   );

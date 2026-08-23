@@ -348,6 +348,7 @@ model User {
   createdBrokers       Broker[]                @relation("BrokerCreator")
   supplierPayments     SupplierPayment[]       @relation("SupplierPaymentCreator")
   salePayments         MaterialSalePayment[]   @relation("SalePaymentCreator")
+  landPurchasePayments LandPurchasePayment[]   @relation("LandPurchasePaymentCreator")
   receivedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceReceiver")
   approvedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceApprover")
   // Notification system — preferences + in-app notifications
@@ -478,6 +479,12 @@ model Project {
   reraRegistrationDate DateTime? // date of RERA registration
   reraValidityDate    DateTime?  // RERA registration validity expiry (typically 5 years or project completion)
   reraWebsiteUrl      String?    // RERA project page URL (for buyer verification)
+  // ── Possession tracking ──
+  // For built-unit projects: tracks whether possession has been handed over
+  // to buyers / the company has taken possession of the constructed units.
+  isPossessed          Boolean  @default(false)
+  possessionDate       DateTime?  // when possession was taken/handed over
+  possessionNotes      String?
   // Optimistic locking — see Material.version comment
   version      Int           @default(0)
   createdAt   DateTime      @default(now())
@@ -1816,6 +1823,7 @@ enum AreaUnit {
 enum LandPurchaseMode {
   WHOLE       // single parcel covering the full area
   SUBDIVIDED  // multiple sections created at purchase time
+  BOOKED      // staged purchase order — booked with token, completed when registry doc uploaded
 }
 
 // Freehold = indefinite ownership (outright purchase)
@@ -1898,6 +1906,35 @@ model LandPurchase {
   brokerageAmount    Decimal? @db.Decimal(14, 2) // broker commission (typically 1-2% of baseCost)
   legalFees          Decimal? @db.Decimal(14, 2) // lawyer / due diligence / title search fees
   otherCharges       Decimal? @db.Decimal(14, 2) // misc acquisition costs (EDC/IDC, conversion, etc.)
+  // ── Staged purchase (Purchase Order flow) ──
+  // Like a sales order, a land purchase can be staged: book with a token
+  // amount, create a payment schedule for the balance, and complete only
+  // when all documents are uploaded + payment settled.
+  // COMPLETED = registry done + registry document uploaded.
+  purchaseStage      String   @default("COMPLETED") // "BOOKED" | "COMPLETED" | "CANCELLED"
+  tokenAmount        Decimal? @db.Decimal(14, 2)    // initial booking amount paid
+  tokenPaymentDate   DateTime?                       // when token was paid
+  tokenPaymentMode   String?                         // how token was paid
+  tokenChequePhotoUrl String?                        // cheque photo if token paid by cheque
+  // ── Document uploads (gated completion) ──
+  // Purchase is not "complete" until the registry document is uploaded.
+  // ATS (Agreement to Sell) and BBA are optional intermediate stages.
+  atsDocumentUrl       String?    // Agreement to Sell — uploaded PDF/image
+  atsDocumentName      String?    // original filename
+  registryDocumentUrl  String?    // Sale deed / registry document — REQUIRED for completion
+  registryDocumentName String?    // original filename
+  // ── Possession tracking ──
+  // Possession (कब्जा) is separate from registry — you can take possession
+  // of the land before or after the registry is done. This tracks whether
+  // the company has physical possession of the land.
+  isPossessed          Boolean  @default(false)
+  possessionDate       DateTime?  // when possession was taken
+  possessionNotes      String?    // notes about possession (e.g. "keys handed over", "boundary wall done")
+  // ── Partial payment registry ──
+  // Normally registry requires full payment. But sometimes registry happens
+  // before full payment (e.g. seller insists on registry, balance paid later).
+  // When true, completeLandPurchase allows completion even with balance due.
+  partialRegistryAllowed Boolean @default(false)
   createdById  String?
   createdAt    DateTime @default(now())
   deletedAt    DateTime?
@@ -1908,11 +1945,94 @@ model LandPurchase {
   seller  LandSeller?  @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   parcels LandParcel[]
   legalDocuments LegalDocument[] @relation("LegalDocsLand")
+  payments LandPurchasePayment[]
+  paymentSchedule LandPurchasePaymentSchedule?
 
   @@index([companyId])
   @@index([projectId])
   @@index([createdById])
   @@index([sellerId])
+  @@index([purchaseStage])
+}
+
+// ───────────────────────────────────────────────────────────
+//  LAND PURCHASE PAYMENTS — track payments made for a land purchase.
+//  For staged purchases: token at booking, balance per payment schedule.
+//  Includes cheque tracking (cheques can bounce).
+// ───────────────────────────────────────────────────────────
+
+model LandPurchasePayment {
+  id             String   @id @default(cuid())
+  landPurchaseId String
+  amount         Decimal  @db.Decimal(14, 2)
+  paymentDate    DateTime @default(now())
+  paymentMode    String   // "CASH" | "BANK_TRANSFER" | "CHEQUE" | "UPI" | "OTHER"
+  referenceNo    String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  // ── Cheque tracking ──
+  chequeNo        String?
+  chequeDate      DateTime?
+  chequeBank      String?
+  chequePhotoUrl  String?
+  chequeStatus    String?    // "PENDING" | "CLEARED" | "BOUNCED"
+  chequeClearDate DateTime?
+  chequeBounceReason String?
+
+  landPurchase LandPurchase @relation(fields: [landPurchaseId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("LandPurchasePaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([landPurchaseId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  LAND PURCHASE PAYMENT SCHEDULE — structured payment plan
+//  for staged land purchases. Like the sale PaymentSchedule,
+//  but for purchases: token at booking, balance per schedule.
+//  Each item has a due date, percentage of total, and amount.
+// ───────────────────────────────────────────────────────────
+
+enum LandPaymentScheduleItemStatus {
+  PENDING       // not yet due
+  DUE           // due date passed, awaiting payment
+  PARTIAL       // partially paid
+  PAID          // fully paid
+  WAIVED        // waived
+}
+
+model LandPurchasePaymentSchedule {
+  id              String   @id @default(cuid())
+  landPurchaseId  String   @unique  // one schedule per land purchase
+  totalAmount     Decimal  @db.Decimal(14, 2)  // total cost (excluding token)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  landPurchase LandPurchase                    @relation(fields: [landPurchaseId], references: [id], onDelete: Cascade)
+  items        LandPurchasePaymentScheduleItem[]
+
+  @@index([landPurchaseId])
+}
+
+model LandPurchasePaymentScheduleItem {
+  id              String                          @id @default(cuid())
+  paymentScheduleId String
+  installmentNo   Int                             // 1, 2, 3...
+  description     String                          // e.g. "Token", "On ATS", "On Registry", "Balance"
+  percentage      Decimal                         @db.Decimal(5, 2)  // % of totalAmount
+  amount          Decimal                         @db.Decimal(14, 2)  // calculated amount
+  dueDate         DateTime?                       // when this payment is due
+  status          LandPaymentScheduleItemStatus   @default(PENDING)
+  paidAmount      Decimal  @default(0)            @db.Decimal(14, 2)
+  paidAt          DateTime?
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+
+  paymentSchedule LandPurchasePaymentSchedule @relation(fields: [paymentScheduleId], references: [id], onDelete: Cascade)
+
+  @@index([paymentScheduleId])
+  @@index([status])
 }
 
 enum LandParcelStatus {
@@ -2910,6 +3030,19 @@ model AssetSale {
   allotmentDate      DateTime?  // date allotment letter was issued
   bbaNo              String?    // Builder-Buyer Agreement number (RERA mandates within 45 days of booking)
   bbaDate            DateTime?  // date BBA was executed
+  // ── Document uploads (PDF/image for each executed document) ──
+  // The sale lifecycle: Sale Order → ATS/BBA (optional) → Registry (final).
+  // Each stage can have its document uploaded. Sale completion is gated on
+  // the registry document being uploaded (saleStage → COMPLETED only when
+  // registryDocumentUrl is set).
+  atsDocumentUrl       String?    // Agreement to Sell — uploaded PDF/image
+  atsDocumentName      String?    // original filename for display
+  bbaDocumentUrl       String?    // Builder-Buyer Agreement — uploaded PDF/image
+  bbaDocumentName      String?    // original filename for display
+  registryDocumentUrl  String?    // Sale deed / registry document — uploaded PDF/image (REQUIRED for completion)
+  registryDocumentName String?    // original filename for display
+  allotmentDocumentUrl String?    // Allotment letter — uploaded PDF/image
+  allotmentDocumentName String?   // original filename for display
   // ── TDS tracking (sales > ₹50L, buyer deducts 1% TDS) ──
   tdsAmount          Decimal?   @db.Decimal(14, 2)  // TDS amount deducted by buyer
   tdsCertificateNo   String?    // TDS certificate number (Form 16B)
@@ -2966,6 +3099,16 @@ model AssetSalePayment {
   mode        String
   reference   String?
   status      String   @default("RECEIVED")
+  // ── Cheque tracking ──
+  // A cheque is not concrete — it can bounce. Until it clears the bank,
+  // the payment is provisional. chequeStatus tracks the lifecycle.
+  chequeNo        String?    // cheque number (extracted from reference or entered separately)
+  chequeDate      DateTime?  // date on the cheque
+  chequeBank      String?    // bank name on the cheque
+  chequePhotoUrl  String?    // uploaded photo/scan of the cheque
+  chequeStatus    String?    // "PENDING" | "CLEARED" | "BOUNCED" (null for non-cheque payments)
+  chequeClearDate DateTime?  // when the cheque cleared the bank
+  chequeBounceReason String? // reason for bounce (if any)
 
   assetSale AssetSale @relation(fields: [assetSaleId], references: [id], onDelete: Cascade)
 
@@ -3651,14 +3794,29 @@ model Tenancy {
   tenantEmail   String?
   startDate     DateTime       @db.Date
   endDate       DateTime       @db.Date
-  monthlyRent   Decimal        @db.Decimal(14, 2)
+  monthlyRent   Decimal        @db.Decimal(14, 2)  // current effective rent (after escalations)
+  baseRent      Decimal        @default(0) @db.Decimal(14, 2)  // original rent at tenancy start
   securityDeposit Decimal      @default(0) @db.Decimal(14, 2)
   rentAgreementNo String?
+  // ── Rent agreement document upload ──
+  // The registered rent agreement PDF/image is uploaded and stored.
+  rentAgreementDocumentUrl  String?  // uploaded PDF/image of the registered rent agreement
+  rentAgreementDocumentName String?  // original filename for display
   // SAC code for GST on rental income. Renting out equipment, machinery, or
   // property is a SERVICE supply under GST (not goods → no HSN, uses SAC).
   // Default: 997313 (leasing/rental of construction machinery & equipment, 18%).
   // For property rent: 997212 (non-residential, 18%) or 997211 (residential, exempt).
   sacCode       String?  // e.g. "997313", "997212", "997211"
+  // ── Yearly rent escalation ──
+  // Rent agreements typically include an annual escalation clause.
+  // escalationPercent = % increase per interval (e.g. 5 for 5% yearly).
+  // escalationIntervalMonths = how often the increase kicks in (default 12 = yearly).
+  // nextEscalationDate = when the next rent increase is due.
+  // lastEscalatedAt = when the last increase was applied.
+  escalationPercent       Decimal?  @db.Decimal(5, 2)
+  escalationIntervalMonths Int      @default(12)
+  nextEscalationDate      DateTime? @db.Date
+  lastEscalatedAt         DateTime? @db.Date
   status        TenancyStatus  @default(PENDING)
   notes         String?
   createdById   String?
@@ -3676,17 +3834,27 @@ model Tenancy {
   @@index([status])
   @@index([builtUnitId])
   @@index([landParcelId])
+  @@index([nextEscalationDate])
 }
 
 model RentalPayment {
   id          String   @id @default(cuid())
   tenancyId   String
-  amount      Decimal  @db.Decimal(14, 2)
+  amount      Decimal  @db.Decimal(14, 2)  // gross rent billed for the period
+  // ── TDS / bill deduction tracking ──
+  // Tenants deduct TDS on rent (e.g. 10% for individual, 2% for company).
+  // tdsAmount = TDS deducted by tenant; netReceived = what actually hit the bank.
+  tdsAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  tdsCertificateNo String?  // TDS certificate number (Form 16C for rent)
+  netReceived Decimal  @default(0) @db.Decimal(14, 2)  // amount - tdsAmount
   paymentDate DateTime @default(now())
   dueDate     DateTime @db.Date
   mode        String   // CASH, BANK, UPI, CHEQUE
   reference   String?
   status      String   @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
+  // ── Rent period this payment covers ──
+  periodStart DateTime? @db.Date  // first day of the billing month
+  periodEnd   DateTime?  @db.Date  // last day of the billing month
   createdAt   DateTime @default(now())
 
   tenancy Tenancy @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
@@ -3786,6 +3954,14 @@ model MaterialSalePayment {
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // ── Cheque tracking ──
+  chequeNo        String?
+  chequeDate      DateTime?
+  chequeBank      String?
+  chequePhotoUrl  String?
+  chequeStatus    String?    // "PENDING" | "CLEARED" | "BOUNCED"
+  chequeClearDate DateTime?
+  chequeBounceReason String?
 
   sale       MaterialSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
   createdBy  User?        @relation("SalePaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)

@@ -88,7 +88,9 @@ async function SalesContent() {
       ? `${s.builtUnit.unitNumber} · ${s.builtUnit.project.name}`
       : s.assetType === "LAND"
         ? `Land${s.project ? ` · ${s.project.name}` : ""}`
-        : (s.project?.name ?? "Sale");
+        : s.assetType === "PROJECT"
+          ? `Project · ${s.project?.name ?? "—"}`
+          : (s.project?.name ?? "Sale");
     return {
       id: s.id,
       saleNumber: s.saleNumber,

@@ -110,11 +110,11 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
 
     case "Customer": {
       const [activeSales, activeMaterialSales, activeTenancies] = await Promise.all([
-        prisma.assetSale.count({ where: { customerId: entityId, status: "ACTIVE" } }),
+        prisma.assetSale.count({ where: { customerId: entityId, status: { in: ["ACTIVE", "PENDING"] } } }),
         prisma.materialSale.count({ where: { customerId: entityId, status: "ACTIVE" } }),
         prisma.tenancy.count({ where: { customerId: entityId, status: { in: ["PENDING", "ACTIVE"] } } }),
       ]);
-      if (activeSales > 0) throw new ServiceError("Cannot delete customer with active asset sales.");
+      if (activeSales > 0) throw new ServiceError("Cannot delete customer with active or pending asset sales.");
       if (activeMaterialSales > 0) throw new ServiceError("Cannot delete customer with active material sales.");
       if (activeTenancies > 0) throw new ServiceError("Cannot delete customer with active or pending tenancies.");
       break;
@@ -131,6 +131,9 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       }
       if (parcel.status === "RENTED") {
         throw new ServiceError("Cannot delete a RENTED parcel — terminate the tenancy first.");
+      }
+      if (parcel.status === "PARTITIONED") {
+        throw new ServiceError("Cannot delete a PARTITIONED parcel — unpartition (merge children) first.");
       }
       // Check for active sales even if status was manually changed
       const activeSales = await prisma.assetSale.count({
@@ -159,10 +162,10 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         where: {
           landPurchaseId: entityId,
           deletedAt: null,
-          status: { in: ["AVAILABLE", "HOLD", "RESERVED", "RENTED"] },
+          status: { in: ["AVAILABLE", "HOLD", "RESERVED", "RENTED", "PARTITIONED"] },
         },
       });
-      if (parcels > 0) throw new ServiceError("Cannot delete land purchase with unsold, reserved, or rented parcels. Sell, partition, or terminate tenancies first.");
+      if (parcels > 0) throw new ServiceError("Cannot delete land purchase with unsold, reserved, rented, or partitioned parcels. Sell, unpartition, or terminate tenancies first.");
       break;
     }
 

@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "@/components/sales/cheque-fields";
 import { formatCurrency } from "@/lib/utils";
 
 export function MaterialSalePaymentFormDialog({
@@ -32,8 +33,10 @@ export function MaterialSalePaymentFormDialog({
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
 
   const parsedAmount = Number(amount) || 0;
+  const isCheque = paymentMode === "CHEQUE";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +45,7 @@ export function MaterialSalePaymentFormDialog({
       toast.error(`Amount exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
       return;
     }
+    if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/material-sales/${saleId}/payments`, {
@@ -53,6 +57,12 @@ export function MaterialSalePaymentFormDialog({
           paymentMode,
           referenceNo: referenceNo || undefined,
           notes: notes || undefined,
+          ...(isCheque ? {
+            chequeNo: cheque.chequeNo.trim() || undefined,
+            chequeDate: cheque.chequeDate || undefined,
+            chequeBank: cheque.chequeBank.trim() || undefined,
+            chequePhotoUrl: cheque.chequePhotoUrl || undefined,
+          } : {}),
         }),
       });
       const data = await res.json();
@@ -134,6 +144,8 @@ export function MaterialSalePaymentFormDialog({
             rows={2}
           />
         </Field>
+
+        {isCheque && <ChequeFields value={cheque} onChange={setCheque} />}
 
         <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
           Sale total: <span className="tnum font-medium text-foreground">{formatCurrency(totalAmount)}</span>

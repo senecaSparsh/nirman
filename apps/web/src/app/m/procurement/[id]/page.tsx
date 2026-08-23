@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
@@ -27,7 +27,7 @@ export default function MobilePoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobilePoDetailContent params={params} />
     </Suspense>
   );

@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
+import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "./cheque-fields";
 import type { AssetSaleRow } from "@/lib/types";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -29,6 +30,7 @@ export function DepositDialog({
     paymentMode: "BANK_TRANSFER",
     reference: "",
   });
+  const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -37,12 +39,14 @@ export function DepositDialog({
   if (!sale) return null;
 
   const amountNum = Number(form.depositAmount) || 0;
+  const isCheque = form.paymentMode === "CHEQUE";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (amountNum <= 0) { toast.error("Deposit amount must be greater than 0"); return; }
     const maxAmount = sale!.salePrice + (sale!.gstAmount ?? 0);
     if (amountNum > maxAmount) { toast.error(`Deposit cannot exceed total (${formatCurrency(maxAmount)})`); return; }
+    if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/sales/${sale!.id}`, {
@@ -53,6 +57,12 @@ export function DepositDialog({
           depositAmount: amountNum,
           paymentMode: form.paymentMode,
           reference: form.reference.trim() || null,
+          ...(isCheque ? {
+            chequeNo: cheque.chequeNo.trim() || null,
+            chequeDate: cheque.chequeDate || null,
+            chequeBank: cheque.chequeBank.trim() || null,
+            chequePhotoUrl: cheque.chequePhotoUrl || null,
+          } : {}),
         }),
       });
       const data = await res.json();
@@ -120,6 +130,7 @@ export function DepositDialog({
           <Label htmlFor="d-ref">Reference</Label>
           <Input id="d-ref" value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="Cheque no, UTR, etc." />
         </div>
+        {isCheque && <ChequeFields value={cheque} onChange={setCheque} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

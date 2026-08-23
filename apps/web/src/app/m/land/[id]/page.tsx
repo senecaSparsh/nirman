@@ -43,6 +43,8 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
           _count: { select: { children: true } },
         },
       },
+      payments: { orderBy: { paymentDate: "desc" } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
     },
   });
 
@@ -178,6 +180,57 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
     otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
     costPerUnit,
     parcels,
+    // Staged purchase
+    purchaseStage: purchase.purchaseStage,
+    tokenAmount: purchase.tokenAmount ? toNum(purchase.tokenAmount) : null,
+    tokenPaymentDate: purchase.tokenPaymentDate ? purchase.tokenPaymentDate.toISOString() : null,
+    tokenPaymentMode: purchase.tokenPaymentMode,
+    // Documents
+    atsDocumentUrl: purchase.atsDocumentUrl,
+    atsDocumentName: purchase.atsDocumentName,
+    registryDocumentUrl: purchase.registryDocumentUrl,
+    registryDocumentName: purchase.registryDocumentName,
+    // Possession
+    isPossessed: purchase.isPossessed,
+    possessionDate: purchase.possessionDate ? purchase.possessionDate.toISOString() : null,
+    possessionNotes: purchase.possessionNotes,
+    // Partial registry
+    partialRegistryAllowed: purchase.partialRegistryAllowed,
+    // Payments
+    totalPaid: purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
+    // Payment schedule (if any)
+    paymentSchedule: purchase.paymentSchedule
+      ? {
+          id: purchase.paymentSchedule.id,
+          totalAmount: toNum(purchase.paymentSchedule.totalAmount),
+          items: purchase.paymentSchedule.items.map((item) => ({
+            id: item.id,
+            installmentNo: item.installmentNo,
+            description: item.description,
+            percentage: toNum(item.percentage),
+            amount: toNum(item.amount),
+            dueDate: item.dueDate ? item.dueDate.toISOString() : null,
+            status: item.status,
+            paidAmount: toNum(item.paidAmount),
+            paidAt: item.paidAt ? item.paidAt.toISOString() : null,
+          })),
+        }
+      : null,
+    payments: purchase.payments.map((p) => ({
+      id: p.id,
+      amount: toNum(p.amount),
+      paymentDate: p.paymentDate.toISOString(),
+      paymentMode: p.paymentMode,
+      referenceNo: p.referenceNo,
+      notes: p.notes,
+      chequeNo: p.chequeNo,
+      chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
+      chequeBank: p.chequeBank,
+      chequePhotoUrl: p.chequePhotoUrl,
+      chequeStatus: p.chequeStatus,
+      chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
+      chequeBounceReason: p.chequeBounceReason,
+    })),
     sales: landSales.map((s) => ({
       id: s.id,
       saleNumber: s.saleNumber,

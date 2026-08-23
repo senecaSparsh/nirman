@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
-import { computeRiskLevel } from "@nirman/services";
+import { computeRiskLevel } from "@nirman/services/safety";
 
 type Tab = "incidents" | "hazards" | "inspections";
 

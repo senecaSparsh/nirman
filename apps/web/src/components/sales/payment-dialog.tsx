@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
+import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "./cheque-fields";
 import type { AssetSaleRow } from "@/lib/types";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -29,6 +30,7 @@ export function PaymentDialog({
     mode: "BANK_TRANSFER",
     reference: "",
   });
+  const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -38,11 +40,13 @@ export function PaymentDialog({
 
   const balanceDue = sale.balanceDue;
   const amountNum = Number(form.amount) || 0;
+  const isCheque = form.mode === "CHEQUE";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (amountNum <= 0) { toast.error("Amount must be greater than 0"); return; }
     if (amountNum > balanceDue) { toast.error(`Amount cannot exceed balance due (${formatCurrency(balanceDue)})`); return; }
+    if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/sales/${sale!.id}`, {
@@ -52,22 +56,30 @@ export function PaymentDialog({
           amount: amountNum,
           mode: form.mode,
           reference: form.reference.trim() || null,
+          ...(isCheque ? {
+            chequeNo: cheque.chequeNo.trim() || null,
+            chequeDate: cheque.chequeDate || null,
+            chequeBank: cheque.chequeBank.trim() || null,
+            chequePhotoUrl: cheque.chequePhotoUrl || null,
+          } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       const remaining = balanceDue - amountNum;
-      toast.success("Payment received", {
-        description: remaining > 0
-          ? `Remaining balance: ${formatCurrency(remaining)}`
-          : "Sale fully paid — GL entry posted.",
-        action: remaining > 0 ? {
+      toast.success(isCheque ? "Cheque payment recorded (pending clearance)" : "Payment received", {
+        description: isCheque
+          ? "Cheque must be cleared before the sale is marked as paid."
+          : remaining > 0
+            ? `Remaining balance: ${formatCurrency(remaining)}`
+            : "Sale fully paid — GL entry posted.",
+        action: !isCheque && remaining > 0 ? {
           label: "Record Next Payment",
           onClick: () => router.push(`/sales?sale=${sale!.id}`),
-        } : {
+        } : !isCheque ? {
           label: "View GL Entry",
           onClick: () => router.push("/gl"),
-        },
+        } : undefined,
       });
       onOpenChange(false);
       onSuccess?.();
@@ -134,6 +146,7 @@ export function PaymentDialog({
           <Label htmlFor="p-ref">Reference</Label>
           <Input id="p-ref" value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="Cheque no, UTR, etc." />
         </div>
+        {isCheque && <ChequeFields value={cheque} onChange={setCheque} />}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

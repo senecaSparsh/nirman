@@ -16,6 +16,8 @@ import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { SaleExpenseGrid, type SaleExpenseRow } from "@/components/sales/sale-expense-grid";
 import { SaleTermsEditor, type SaleTermRow } from "@/components/sales/sale-terms-editor";
 import { PaymentPlanEditor, type PaymentPlanItem } from "@/components/sales/payment-plan-editor";
+import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "./cheque-fields";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { formatCurrency, cn } from "@/lib/utils";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { AssetType, SellableAssetRow } from "@/lib/types";
@@ -34,6 +36,8 @@ type CustomerOption = { id: string; name: string };
 type BrokerOption = { id: string; name: string; phone?: string | null; agency?: string | null; defaultCommissionPercent?: number | null };
 
 type SectionKey = "party" | "asset" | "deal" | "payment" | "expenses" | "terms" | "broker" | "compliance";
+
+const SECTION_ORDER: SectionKey[] = ["party", "asset", "deal", "payment", "expenses", "terms", "broker", "compliance"];
 
 export function SellAssetDialog({
   open,
@@ -100,6 +104,10 @@ export function SellAssetDialog({
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlanItem[]>([]);
   const [scheduleType, setScheduleType] = useState<"TLP" | "DPP" | "CLP">("TLP");
   const [errors, setErrors] = useState<ValidationErrors<SaleFormValues>>({});
+  // Cheque details for initial payment (if mode = CHEQUE)
+  const [initialCheque, setInitialCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
+  // ATS document upload (optional at booking)
+  const [atsDocUrl, setAtsDocUrl] = useState("");
 
   function validateField(key: keyof SaleFormValues): string | undefined {
     if (key === "assetType") return required(form.assetType, "Asset type");
@@ -321,6 +329,22 @@ export function SellAssetDialog({
       if (initialPaymentNum > 0) {
         payload.initialPayment = initialPaymentNum;
         payload.initialPaymentMode = form.initialPaymentMode;
+        // Cheque details
+        if (form.initialPaymentMode === "CHEQUE") {
+          if (!initialCheque.chequeNo.trim()) {
+            toast.error("Cheque number is required for cheque payments");
+            setSaving(false);
+            return;
+          }
+          payload.initialChequeNo = initialCheque.chequeNo.trim();
+          payload.initialChequeDate = initialCheque.chequeDate || undefined;
+          payload.initialChequeBank = initialCheque.chequeBank.trim() || undefined;
+          payload.initialChequePhotoUrl = initialCheque.chequePhotoUrl || undefined;
+        }
+      }
+      // ATS document upload (optional at booking)
+      if (atsDocUrl) {
+        payload.atsDocumentUrl = atsDocUrl;
       }
 
       const res = await fetch("/api/sales", {
@@ -338,7 +362,7 @@ export function SellAssetDialog({
           : "Fully paid — sale complete.",
         action: {
           label: balanceAfter > 0 ? "Record Deposit" : "Print Form",
-          onClick: () => router.push(`/sales?sale=${saleId}`),
+          onClick: () => router.push(balanceAfter > 0 ? `/sales?sale=${saleId}` : `/sales/${saleId}/print`),
         },
       });
       onSold?.(form.assetId || form.projectId, saleId);
@@ -389,6 +413,24 @@ export function SellAssetDialog({
     );
   }
 
+  function NextSectionButton({ current }: { current: SectionKey }) {
+    const idx = SECTION_ORDER.indexOf(current);
+    const next = SECTION_ORDER[idx + 1];
+    if (!next) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSection(next)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-caption font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+      >
+        Continue to {next === "payment" ? "Payment Plan" : next === "expenses" ? "Expense Heads" : next === "terms" ? "Terms & Conditions" : next === "broker" ? "Deal Source" : next.charAt(0).toUpperCase() + next.slice(1)}
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    );
+  }
+
   return (
     <Dialog
       open={open}
@@ -401,6 +443,7 @@ export function SellAssetDialog({
         {/* ── Section: Party ── */}
         <SectionHeader icon={UserCircle} title="Party" subtitle="Who are you selling to?" sectionKey="party" required />
         {expandedSection === "party" && (
+          <>
           <div className="space-y-3 px-1 pb-2">
             <div className="space-y-1.5">
               <Label htmlFor="sa-customer" className={errors.customerId ? "text-danger" : undefined}>Customer *</Label>
@@ -423,11 +466,14 @@ export function SellAssetDialog({
               )}
             </div>
           </div>
+          <NextSectionButton current="party" />
+          </>
         )}
 
         {/* ── Section: Asset ── */}
         <SectionHeader icon={Building2} title="Asset" subtitle="What are you selling?" sectionKey="asset" required />
         {expandedSection === "asset" && (
+          <>
           <div className="space-y-3 px-1 pb-2">
             {isPreset ? (
               <div className="space-y-1.5">
@@ -507,11 +553,14 @@ export function SellAssetDialog({
               </div>
             )}
           </div>
+          <NextSectionButton current="asset" />
+          </>
         )}
 
         {/* ── Section: Deal ── */}
         <SectionHeader icon={IndianRupee} title="Deal" subtitle="Price, advance, and timeline" sectionKey="deal" required />
         {expandedSection === "deal" && (
+          <>
           <div className="space-y-3 px-1 pb-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -567,6 +616,22 @@ export function SellAssetDialog({
                 </div>
               )}
             </div>
+            {initialPaymentNum > 0 && form.initialPaymentMode === "CHEQUE" && (
+              <ChequeFields value={initialCheque} onChange={setInitialCheque} />
+            )}
+            {/* ATS document upload (optional at booking) */}
+            <div className="space-y-1.5">
+              <Label>Agreement to Sell (ATS) — optional</Label>
+              <PhotoUploader
+                photos={atsDocUrl ? [{ url: atsDocUrl }] : []}
+                onChange={(photos) => setAtsDocUrl(photos[0]?.url ?? "")}
+                maxPhotos={1}
+                label="Upload ATS Document"
+              />
+              <p className="text-caption text-muted-foreground">
+                Upload the signed Agreement to Sell. The Builder-Buyer Agreement and Registry document can be uploaded later from the sale detail.
+              </p>
+            </div>
 
             {/* Deal maturity + payment cycle */}
             <div className="grid grid-cols-2 gap-3">
@@ -580,11 +645,14 @@ export function SellAssetDialog({
               </div>
             </div>
           </div>
+          <NextSectionButton current="deal" />
+          </>
         )}
 
         {/* ── Section: Payment Plan ── */}
         <SectionHeader icon={CalendarClock} title="Payment Plan" subtitle="Installment schedule" sectionKey="payment" />
         {expandedSection === "payment" && (
+          <>
           <div className="px-1 pb-2">
             <PaymentPlanEditor
               items={paymentPlan}
@@ -597,27 +665,36 @@ export function SellAssetDialog({
               dealMaturityMonths={dealMaturityNum}
             />
           </div>
+          <NextSectionButton current="payment" />
+          </>
         )}
 
         {/* ── Section: Expenses ── */}
         <SectionHeader icon={ScrollText} title="Expense Heads" subtitle="Registry, stamp duty, transfer, etc." sectionKey="expenses" />
         {expandedSection === "expenses" && (
+          <>
           <div className="px-1 pb-2">
             <SaleExpenseGrid expenses={expenses} onChange={setExpenses} />
           </div>
+          <NextSectionButton current="expenses" />
+          </>
         )}
 
         {/* ── Section: Terms & Conditions ── */}
         <SectionHeader icon={FileText} title="Terms & Conditions" subtitle="Custom conditions (NOC, possession, etc.)" sectionKey="terms" />
         {expandedSection === "terms" && (
+          <>
           <div className="px-1 pb-2">
             <SaleTermsEditor terms={terms} onChange={setTerms} />
           </div>
+          <NextSectionButton current="terms" />
+          </>
         )}
 
         {/* ── Section: Broker ── */}
         <SectionHeader icon={Users} title="Deal Source" subtitle="Broker or direct sale + commission" sectionKey="broker" />
         {expandedSection === "broker" && (
+          <>
           <div className="space-y-3 px-1 pb-2">
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -685,6 +762,8 @@ export function SellAssetDialog({
               </>
             )}
           </div>
+          <NextSectionButton current="broker" />
+          </>
         )}
 
         {/* ── Section: Compliance ── */}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Loader2, RotateCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { useOptimisticAction } from "@/lib/use-optimistic-action";
 
 /**
  * Sticky bottom action bar for DPR approval actions.
@@ -13,7 +13,8 @@ import { haptic } from "@/lib/haptic";
  *   SUB_ADMIN_APPROVED → Admin Approve / Reject (if canApproveAdmin)
  *   REJECTED           → Resubmit (if canResubmit)
  *
- * Reject shows a confirmation modal before executing.
+ * Uses optimistic updates — the action bar disappears the instant you
+ * tap (because the visible status changes), giving immediate feedback.
  */
 export function MobileDprActions({
   dprId,
@@ -28,38 +29,59 @@ export function MobileDprActions({
   canApproveAdmin: boolean;
   canResubmit: boolean;
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState<string | null>(null);
+  const [visibleStatus, setVisibleStatus] = useState(status);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
-  const showSubAdmin = status === "SUBMITTED" && canApproveSubAdmin;
-  const showAdmin = status === "SUB_ADMIN_APPROVED" && canApproveAdmin;
-  const showResubmit = status === "REJECTED" && canResubmit;
+  const approveAction = useOptimisticAction({
+    endpoint: `/api/dprs/${dprId}`,
+    method: "PATCH",
+    body: { action: "subAdminApprove" },
+    optimisticUpdate: () => setVisibleStatus("SUB_ADMIN_APPROVED"),
+    revert: () => setVisibleStatus("SUBMITTED"),
+    successMessage: "Sub-Admin Approved",
+    hapticOnSuccess: [10, 30, 10],
+  });
+
+  const adminApproveAction = useOptimisticAction({
+    endpoint: `/api/dprs/${dprId}`,
+    method: "PATCH",
+    body: { action: "adminApprove" },
+    optimisticUpdate: () => setVisibleStatus("APPROVED"),
+    revert: () => setVisibleStatus("SUB_ADMIN_APPROVED"),
+    successMessage: "Admin Approved",
+    hapticOnSuccess: [10, 30, 10],
+  });
+
+  const rejectAction = useOptimisticAction({
+    endpoint: `/api/dprs/${dprId}`,
+    method: "PATCH",
+    body: { action: "reject" },
+    optimisticUpdate: () => setVisibleStatus("REJECTED"),
+    revert: () => setVisibleStatus("SUBMITTED"),
+    successMessage: "Rejected",
+    hapticOnSuccess: 30,
+  });
+
+  const resubmitAction = useOptimisticAction({
+    endpoint: `/api/dprs/${dprId}`,
+    method: "PATCH",
+    body: { action: "resubmit" },
+    optimisticUpdate: () => setVisibleStatus("SUBMITTED"),
+    revert: () => setVisibleStatus("REJECTED"),
+    successMessage: "Resubmitted",
+    hapticOnSuccess: 20,
+  });
+
+  const showSubAdmin = visibleStatus === "SUBMITTED" && canApproveSubAdmin;
+  const showAdmin = visibleStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin;
+  const showResubmit = visibleStatus === "REJECTED" && canResubmit;
 
   if (!showSubAdmin && !showAdmin && !showResubmit) return null;
 
-  async function act(action: "subAdminApprove" | "adminApprove" | "reject" | "resubmit", label: string) {
-    haptic(10);
-    setBusy(action);
-    try {
-      const res = await fetch(`/api/dprs/${dprId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
-      toast.success(label);
-      router.refresh();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Action failed");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const approveAction = showSubAdmin ? "subAdminApprove" : "adminApprove";
-  const approveLabel = showSubAdmin ? "Sub-Admin Approve" : "Admin Approve";
+  const isSubAdmin = showSubAdmin;
+  const approveLabel = isSubAdmin ? "Sub-Admin Approve" : "Admin Approve";
+  const approveHandler = isSubAdmin ? approveAction : adminApproveAction;
+  const approveBusy = approveHandler.isPending;
 
   return (
     <>
@@ -74,15 +96,15 @@ export function MobileDprActions({
         <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe flex items-center gap-2">
           {showResubmit ? (
             <button
-              onClick={() => void act("resubmit", "Resubmitted")}
-              disabled={busy !== null}
+              onClick={() => resubmitAction.execute()}
+              disabled={resubmitAction.isPending}
               className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50"
               style={{
                 backgroundColor: "var(--color-signal)",
                 color: "var(--color-ink-950)",
               }}
             >
-              {busy === "resubmit" ? (
+              {resubmitAction.isPending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <RotateCw className="size-4" />
@@ -93,7 +115,7 @@ export function MobileDprActions({
             <>
               <button
                 onClick={() => setShowRejectConfirm(true)}
-                disabled={busy !== null}
+                disabled={rejectAction.isPending}
                 className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50"
                 style={{
                   borderColor: "var(--color-stop)",
@@ -101,7 +123,7 @@ export function MobileDprActions({
                   backgroundColor: "transparent",
                 }}
               >
-                {busy === "reject" ? (
+                {rejectAction.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <XCircle className="size-4" />
@@ -109,15 +131,15 @@ export function MobileDprActions({
                 Reject
               </button>
               <button
-                onClick={() => void act(approveAction, approveLabel)}
-                disabled={busy !== null}
+                onClick={() => approveHandler.execute()}
+                disabled={approveBusy}
                 className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50"
                 style={{
                   backgroundColor: "var(--color-go)",
                   color: "#fff",
                 }}
               >
-                {busy === approveAction ? (
+                {approveBusy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <CheckCircle2 className="size-4" />
@@ -156,7 +178,7 @@ export function MobileDprActions({
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRejectConfirm(false)}
-                disabled={busy !== null}
+                disabled={rejectAction.isPending}
                 className="flex-1 h-10 rounded-[0.5rem] border font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
               >
@@ -165,13 +187,13 @@ export function MobileDprActions({
               <button
                 onClick={() => {
                   setShowRejectConfirm(false);
-                  void act("reject", "Rejected");
+                  rejectAction.execute();
                 }}
-                disabled={busy !== null}
+                disabled={rejectAction.isPending}
                 className="flex-1 h-10 rounded-[0.5rem] font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
               >
-                {busy === "reject" ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Reject"}
+                {rejectAction.isPending ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Reject"}
               </button>
             </div>
           </div>

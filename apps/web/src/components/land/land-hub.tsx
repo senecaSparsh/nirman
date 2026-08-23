@@ -6,16 +6,20 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, Home,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
 import { StatusPill } from "@/components/page";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { LandPurchaseFormDialog, type LandPurchaseEditInitial } from "./land-purchase-form-dialog";
+import { LandPurchasePaymentDialog } from "./land-purchase-payment-dialog";
+import { CompleteLandPurchaseDialog } from "./complete-land-purchase-dialog";
 import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
 import { ParcelValuationDialog } from "./parcel-valuation-dialog";
@@ -41,7 +45,7 @@ export type LandHubData = {
     documentUrl: string | null;
     projectId: string | null;
     projectName: string | null;
-    mode?: "WHOLE" | "SUBDIVIDED" | null;
+    mode?: "WHOLE" | "SUBDIVIDED" | "BOOKED" | null;
     // Land type & lease
     landType?: "FREEHOLD" | "LEASEHOLD" | null;
     leaseType?: "ONE_TIME" | "YEARLY" | null;
@@ -61,6 +65,27 @@ export type LandHubData = {
     brokerageAmount?: number | null;
     legalFees?: number | null;
     otherCharges?: number | null;
+    // ── Staged purchase ──
+    purchaseStage?: string | null;
+    tokenAmount?: number | null;
+    tokenPaymentDate?: string | null;
+    tokenPaymentMode?: string | null;
+    // ── Documents ──
+    atsDocumentUrl?: string | null;
+    atsDocumentName?: string | null;
+    registryDocumentUrl?: string | null;
+    registryDocumentName?: string | null;
+    // ── Possession ──
+    isPossessed?: boolean;
+    possessionDate?: string | null;
+    possessionNotes?: string | null;
+    // ── Partial registry ──
+    partialRegistryAllowed?: boolean;
+    // ── Payments ──
+    totalPaid?: number;
+    balanceDue?: number;
+    payments?: LandPurchasePaymentRow[];
+    paymentSchedule?: LandPaymentScheduleRow | null;
   };
   parcels: LandParcelRow[];
   parcelSummaries: LandParcelSummary[];
@@ -115,6 +140,40 @@ export type ParcelBuiltUnitRow = {
   projectName: string;
 };
 
+export type LandPurchasePaymentRow = {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+  referenceNo: string | null;
+  notes: string | null;
+  chequeNo: string | null;
+  chequeDate: string | null;
+  chequeBank: string | null;
+  chequePhotoUrl: string | null;
+  chequeStatus: string | null;
+  chequeClearDate: string | null;
+  chequeBounceReason: string | null;
+};
+
+export type LandPaymentScheduleItemRow = {
+  id: string;
+  installmentNo: number;
+  description: string;
+  percentage: number;
+  amount: number;
+  dueDate: string | null;
+  status: string;
+  paidAmount: number;
+  paidAt: string | null;
+};
+
+export type LandPaymentScheduleRow = {
+  id: string;
+  totalAmount: number;
+  items: LandPaymentScheduleItemRow[];
+};
+
 const PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
   PARTIAL: "warning",
@@ -143,7 +202,65 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
   const [deleteParcel, setDeleteParcel] = useState<LandParcelRow | null>(null);
   const [unpartitionParcel, setUnpartitionParcel] = useState<LandParcelRow | null>(null);
+  // Staged purchase dialogs
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
+  const [possessionSubmitting, setPossessionSubmitting] = useState(false);
   const router = useRouter();
+
+  const isBooked = purchase.purchaseStage === "BOOKED";
+  const isCompleted = purchase.purchaseStage === "COMPLETED";
+  const totalPaid = purchase.totalPaid ?? 0;
+  const balanceDue = purchase.balanceDue ?? 0;
+  const payments = purchase.payments ?? [];
+
+  async function uploadLandDocument(documentType: "ATS" | "REGISTRY", photos: { url: string; fileName?: string }[]) {
+    if (photos.length === 0) return;
+    const photo = photos[0];
+    if (!photo) return;
+    setDocUploading(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${purchase.id}/document`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentType,
+          documentUrl: photo.url,
+          documentName: photo.fileName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      toast.success(`${documentType} document uploaded`);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setDocUploading(false);
+    }
+  }
+
+  async function handleTogglePossession() {
+    setPossessionSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${purchase.id}/possession`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPossessed: !purchase.isPossessed }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to update possession");
+      }
+      toast.success(purchase.isPossessed ? "Possession revoked" : "Possession marked");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update possession");
+    } finally {
+      setPossessionSubmitting(false);
+    }
+  }
 
   async function handleUnpartition(p: LandParcelRow) {
     if (!confirm(`Un-divide this parcel? This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`)) return;
@@ -240,12 +357,27 @@ export function LandHub({ data }: { data: LandHubData }) {
                 )}
                 {purchase.mode && (
                   <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-caption text-muted-foreground">
-                    {purchase.mode === "WHOLE" ? "Whole Plot" : "Sub-divided"}
+                    {purchase.mode === "WHOLE" ? "Whole Plot" : purchase.mode === "BOOKED" ? "Booked (Order)" : "Sub-divided"}
+                  </span>
+                )}
+                {isBooked && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-caption font-medium text-warning">
+                    Booked — awaiting registry
+                  </span>
+                )}
+                {isCompleted && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-success/40 bg-success/10 px-1.5 py-0.5 text-caption font-medium text-success">
+                    <CheckCircle2 className="h-3 w-3" /> Completed
                   </span>
                 )}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              {isBooked && permissions.canEdit && (
+                <Button size="sm" onClick={() => setCompleteOpen(true)}>
+                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                </Button>
+              )}
               {permissions.canEdit && (
                 <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
@@ -258,6 +390,82 @@ export function LandHub({ data }: { data: LandHubData }) {
               )}
             </div>
           </div>
+
+          {/* Staged purchase banner — shows payment progress + document status */}
+          {(isBooked || payments.length > 0) && (
+            <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-border bg-subtle/40 p-3 sm:grid-cols-4">
+              <div>
+                <p className="text-caption text-muted-foreground">Total Cost</p>
+                <p className="tnum text-body font-semibold">{formatCurrency(purchase.totalCost)}</p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Total Paid</p>
+                <p className="tnum text-body font-semibold">{formatCurrency(totalPaid)}</p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Balance Due</p>
+                <p className="tnum text-body font-semibold text-warning">{formatCurrency(balanceDue)}</p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Registry Document</p>
+                {purchase.registryDocumentUrl ? (
+                  <a href={purchase.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                    <ExternalLink className="h-3 w-3" /> Uploaded
+                  </a>
+                ) : (
+                  <p className="text-caption text-warning">Required to complete</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Possession status badge */}
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-medium"
+              style={{
+                backgroundColor: purchase.isPossessed ? "color-mix(in srgb, var(--color-go, #22c55e) 10%, transparent)" : "color-mix(in srgb, var(--color-signal, #f59e0b) 10%, transparent)",
+                color: purchase.isPossessed ? "var(--color-go, #22c55e)" : "var(--color-signal, #f59e0b)",
+              }}
+            >
+              {purchase.isPossessed ? "Possession Taken" : "Possession Pending"}
+              {purchase.possessionDate ? ` · ${formatDate(purchase.possessionDate)}` : ""}
+            </span>
+            {permissions.canEdit && (
+              <button
+                onClick={() => handleTogglePossession()}
+                disabled={possessionSubmitting}
+                className="text-caption text-muted-foreground hover:text-foreground"
+              >
+                {purchase.isPossessed ? "Revoke" : "Mark Possessed"}
+              </button>
+            )}
+          </div>
+
+          {/* Payment schedule display */}
+          {purchase.paymentSchedule && purchase.paymentSchedule.items.length > 0 && (
+            <div className="mt-3 rounded-lg border border-border bg-subtle/40 p-3">
+              <p className="text-caption font-semibold text-muted-foreground mb-2">Payment Plan</p>
+              <div className="space-y-1.5">
+                {purchase.paymentSchedule.items.map((item) => {
+                  const variant = item.status === "PAID" ? "success" : item.status === "PARTIAL" ? "warning" : item.status === "DUE" ? "danger" : "default";
+                  return (
+                    <div key={item.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="tnum text-caption text-muted-foreground w-6">#{item.installmentNo}</span>
+                        <span className="text-body">{item.description}</span>
+                        {item.dueDate && <span className="text-caption text-muted-foreground">· Due {formatDate(item.dueDate)}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={variant}>{item.status}</Badge>
+                        <span className="tnum text-body font-semibold">{formatCurrency(item.amount)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Field grid — structured key/value columns like a property record sheet */}
           <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-3 border-t border-border/70 pt-3">
@@ -403,6 +611,11 @@ export function LandHub({ data }: { data: LandHubData }) {
               <TabsTrigger value="legal">
                 <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Legal <CountBadge n={data.legalDocs?.length ?? 0} /></span>
               </TabsTrigger>
+              {(isBooked || payments.length > 0) && (
+                <TabsTrigger value="payments">
+                  <span className="flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Payments <CountBadge n={payments.length} /></span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="parcels">
@@ -512,6 +725,111 @@ export function LandHub({ data }: { data: LandHubData }) {
                 context="LAND"
               />
             </TabsContent>
+
+            {(isBooked || payments.length > 0) && (
+              <TabsContent value="payments">
+                <div className="space-y-4">
+                  {/* Payment summary + actions */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-body">
+                      <span className="text-muted-foreground">Paid: </span>
+                      <strong className="tnum">{formatCurrency(totalPaid)}</strong>
+                      <span className="text-muted-foreground"> / {formatCurrency(purchase.totalCost)}</span>
+                      {balanceDue > 0 && <span className="ml-2 text-warning">· Balance: {formatCurrency(balanceDue)}</span>}
+                    </div>
+                    {permissions.canEdit && balanceDue > 0 && (
+                      <Button size="sm" onClick={() => setPaymentOpen(true)}>
+                        <Banknote className="mr-1 h-3.5 w-3.5" /> Record Payment
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Payments table */}
+                  {payments.length === 0 ? (
+                    <EmptyState
+                      icon={<Banknote className="h-5 w-5" />}
+                      title="No payments yet"
+                      description="Record the first payment against this land purchase."
+                    />
+                  ) : (
+                    <div className="rounded-md border border-border">
+                      <Table>
+                        <THead>
+                          <TR className="hover:bg-transparent">
+                            <TH>Date</TH>
+                            <TH className="text-right">Amount</TH>
+                            <TH>Mode</TH>
+                            <TH>Reference</TH>
+                            <TH>Cheque Status</TH>
+                          </TR>
+                        </THead>
+                        <TBody>
+                          {payments.map((p) => (
+                            <TR key={p.id}>
+                              <TD>{formatDate(p.paymentDate)}</TD>
+                              <TD className="tnum text-right font-medium">{formatCurrency(p.amount)}</TD>
+                              <TD>{p.paymentMode.replace("_", " ")}</TD>
+                              <TD className="text-muted-foreground">{p.referenceNo ?? "—"}</TD>
+                              <TD>
+                                {p.chequeStatus === "PENDING" && (
+                                  <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">Pending</span>
+                                )}
+                                {p.chequeStatus === "CLEARED" && (
+                                  <span className="inline-flex items-center rounded bg-green-100 px-1.5 py-0.5 text-micro font-medium text-green-700 dark:bg-green-950 dark:text-green-300">Cleared</span>
+                                )}
+                                {p.chequeStatus === "BOUNCED" && (
+                                  <span className="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-micro font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Bounced</span>
+                                )}
+                                {!p.chequeStatus && <span className="text-muted-foreground">—</span>}
+                              </TD>
+                            </TR>
+                          ))}
+                        </TBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* Document uploads — ATS + Registry */}
+                  <div className="rounded-lg border p-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-label text-muted-foreground">Purchase Documents</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* ATS */}
+                      <div className="space-y-1.5">
+                        <p className="text-caption font-medium">Agreement to Sell (ATS)</p>
+                        {purchase.atsDocumentUrl ? (
+                          <a href={purchase.atsDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                            <ExternalLink className="h-3 w-3" /> {purchase.atsDocumentName ?? "View ATS"}
+                          </a>
+                        ) : (
+                          <p className="text-micro text-muted-foreground">Not uploaded</p>
+                        )}
+                        {permissions.canEdit && (
+                          <PhotoUploader photos={[]} onChange={(photos) => uploadLandDocument("ATS", photos)} maxPhotos={1} label="Upload ATS" className="mt-1" />
+                        )}
+                      </div>
+                      {/* Registry */}
+                      <div className="space-y-1.5">
+                        <p className="text-caption font-medium">Registry Document</p>
+                        {purchase.registryDocumentUrl ? (
+                          <a href={purchase.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                            <ExternalLink className="h-3 w-3" /> {purchase.registryDocumentName ?? "View Registry"}
+                          </a>
+                        ) : (
+                          <p className="text-micro text-warning">Required for completion</p>
+                        )}
+                        {permissions.canEdit && (
+                          <PhotoUploader photos={[]} onChange={(photos) => uploadLandDocument("REGISTRY", photos)} maxPhotos={1} label="Upload Registry" className="mt-1" />
+                        )}
+                      </div>
+                    </div>
+                    {docUploading && <p className="text-micro text-muted-foreground">Uploading…</p>}
+                  </div>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
@@ -577,6 +895,25 @@ export function LandHub({ data }: { data: LandHubData }) {
         title="Delete parcel?"
         description={deleteParcel ? `Parcel ${deleteParcel.number} will be deleted. This is only possible for AVAILABLE or HOLD parcels with no sales.` : ""}
         successMessage="Parcel deleted"
+      />
+
+      {/* Staged purchase dialogs */}
+      <LandPurchasePaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        landPurchaseId={purchase.id}
+        totalCost={purchase.totalCost}
+        totalPaid={totalPaid}
+        onSuccess={() => router.refresh()}
+      />
+      <CompleteLandPurchaseDialog
+        open={completeOpen}
+        onOpenChange={setCompleteOpen}
+        landPurchaseId={purchase.id}
+        existingRegistryDocUrl={purchase.registryDocumentUrl}
+        existingRegistryNo={purchase.registryNo}
+        balanceDue={balanceDue}
+        onSuccess={() => router.refresh()}
       />
     </div>
   );

@@ -45,6 +45,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
   { code: "1950", name: "Inter-Company Receivable", type: "ASSET" as const },
+  { code: "1960", name: "TDS Receivable - Rent", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
   { code: "2050", name: "Inter-Company Payable", type: "LIABILITY" as const },
   { code: "2100", name: "Output GST", type: "LIABILITY" as const },
@@ -80,6 +81,7 @@ export const ACCT = {
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
   IC_RECEIVABLE: "1950",
+  TDS_RECEIVABLE: "1960",
   AP: "2000",
   IC_PAYABLE: "2050",
   OUTPUT_GST: "2100",
@@ -955,10 +957,20 @@ export async function postSupplierPayment(
 }
 
 /**
- * Land Purchase: capitalise the land as an unsold asset, credit cash/AP.
+ * Land Purchase: capitalise the land as an unsold asset, credit cash and/or AP.
  *
+ * For immediate purchases (full payment at creation):
  *   Dr Unsold Assets - Land   (totalCost)
  *   Cr Cash / Bank             (totalCost)
+ *
+ * For staged purchases (BOOKED with token amount, balance paid later):
+ *   Dr Unsold Assets - Land   (totalCost)
+ *   Cr Cash / Bank             (cashPaid)      — token amount paid now
+ *   Cr Accounts Payable        (totalCost − cashPaid) — balance owed to seller
+ *
+ * Subsequent payments via recordLandPurchasePayment() post:
+ *   Dr Accounts Payable        (paymentAmount)
+ *   Cr Cash / Bank             (paymentAmount)
  */
 export async function postLandPurchase(
   tx: Prisma.TransactionClient,
@@ -966,19 +978,28 @@ export async function postLandPurchase(
     companyId: string;
     landPurchaseId: string;
     totalCost: Decimal;
+    cashPaid?: Decimal;
     postedById?: string;
   },
 ) {
+  const cashPaid = opts.cashPaid ?? opts.totalCost;
+  const payable = new Decimal(opts.totalCost).minus(new Decimal(cashPaid));
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.LAND_ASSET, debit: new Decimal(opts.totalCost), credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Land acquisition capitalised" },
+    { accountCode: ACCT.CASH, debit: 0, credit: new Decimal(cashPaid), entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Cash paid for land" },
+  ];
+  if (payable.gt(0)) {
+    lines.push({ accountCode: ACCT.AP, debit: 0, credit: payable, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Balance payable to seller (staged purchase)" });
+  }
+
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "LAND_PURCHASE",
     sourceId: opts.landPurchaseId,
-    memo: "Land acquisition capitalised",
+    memo: payable.gt(0) ? "Land acquisition capitalised (staged — token paid, balance on AP)" : "Land acquisition capitalised",
     postedById: opts.postedById,
-    lines: [
-      { accountCode: ACCT.LAND_ASSET, debit: opts.totalCost, credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId },
-      { accountCode: ACCT.CASH, debit: 0, credit: opts.totalCost, entityType: "LandPurchase", entityId: opts.landPurchaseId },
-    ],
+    lines,
   });
 }
 

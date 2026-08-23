@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
@@ -12,7 +12,7 @@ export default function MobileSaleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobileSaleDetailContent params={params} />
     </Suspense>
   );
@@ -39,8 +39,13 @@ async function MobileSaleDetailContent({
         select: {
           id: true, amount: true, paymentDate: true,
           mode: true, reference: true, status: true,
+          chequeStatus: true,
         },
       },
+      expenses: { orderBy: { sortOrder: "asc" } },
+      terms: { orderBy: { sortOrder: "asc" } },
+      broker: { select: { id: true, name: true, phone: true, agency: true } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
     },
   });
 
@@ -89,6 +94,25 @@ async function MobileSaleDetailContent({
         asset={null}
         payments={[]}
         canManage={false}
+        dealSource={null}
+        brokerName={null}
+        brokerPhone={null}
+        brokerAgency={null}
+        commissionAmount={null}
+        commissionStatus={null}
+        dealMaturityMonths={null}
+        paymentCycle={null}
+        expenses={[]}
+        terms={[]}
+        paymentSchedule={null}
+        atsDocumentUrl={null}
+        atsDocumentName={null}
+        bbaDocumentUrl={null}
+        bbaDocumentName={null}
+        registryDocumentUrl={null}
+        registryDocumentName={null}
+        allotmentDocumentUrl={null}
+        allotmentDocumentName={null}
       />
     );
   }
@@ -160,8 +184,55 @@ async function MobileSaleDetailContent({
         mode: p.mode,
         reference: p.reference,
         status: p.status,
+        chequeStatus: p.chequeStatus,
       }))}
       canManage={canManage}
+      // New sales-module fields
+      dealSource={sale.dealSource}
+      brokerName={sale.broker?.name ?? null}
+      brokerPhone={sale.broker?.phone ?? null}
+      brokerAgency={sale.broker?.agency ?? null}
+      commissionAmount={sale.commissionAmount ? toNum(sale.commissionAmount) : null}
+      commissionStatus={sale.commissionPaid ? "PAID" : "PENDING"}
+      dealMaturityMonths={sale.dealMaturityMonths}
+      paymentCycle={sale.paymentCycle}
+      expenses={sale.expenses.map((e) => ({
+        id: e.id,
+        head: e.head,
+        amount: toNum(e.amount),
+        borneBy: e.borneBy,
+        isIncluded: e.isIncluded,
+      }))}
+      terms={sale.terms.map((t) => ({
+        id: t.id,
+        description: t.description,
+        extraAmount: t.extraAmount ? toNum(t.extraAmount) : null,
+        isIncluded: t.isIncluded,
+      }))}
+      paymentSchedule={sale.paymentSchedule
+        ? {
+            type: sale.paymentSchedule.type,
+            items: sale.paymentSchedule.items.map((it) => ({
+              id: it.id,
+              installmentNo: it.installmentNo,
+              description: it.description,
+              percentage: toNum(it.percentage),
+              amount: toNum(it.amount),
+              dueDate: it.dueDate ? it.dueDate.toISOString() : null,
+              paidAmount: toNum(it.paidAmount),
+              status: it.status,
+            })),
+          }
+        : null}
+      // Document URLs
+      atsDocumentUrl={sale.atsDocumentUrl}
+      atsDocumentName={sale.atsDocumentName}
+      bbaDocumentUrl={sale.bbaDocumentUrl}
+      bbaDocumentName={sale.bbaDocumentName}
+      registryDocumentUrl={sale.registryDocumentUrl}
+      registryDocumentName={sale.registryDocumentName}
+      allotmentDocumentUrl={sale.allotmentDocumentUrl}
+      allotmentDocumentName={sale.allotmentDocumentName}
     />
   );
 }

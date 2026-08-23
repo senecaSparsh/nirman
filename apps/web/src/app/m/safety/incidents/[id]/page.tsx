@@ -4,13 +4,13 @@ import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileIncidentDetailClient } from "./MobileIncidentDetailClient";
 
 export default async function MobileIncidentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobileIncidentDetailContent id={id} />
     </Suspense>
   );

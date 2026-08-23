@@ -1,8 +1,8 @@
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postLandPurchase } from "./gl-posting";
+import { postLandPurchase, postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 
@@ -280,7 +280,7 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Validate company
     const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
     if (!company) throw new ServiceError("Company not found or deleted", 404);
@@ -544,5 +544,685 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
       parentParcel,
       parcels: createdParcels,
     };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.LAND_PURCHASE_CREATED,
+    companyId: input.companyId,
+    entityType: "LandPurchase",
+    entityId: result.landPurchase.id,
+    variables: {
+      sellerName: input.sellerName,
+      totalArea: totalArea.toString(),
+      totalCost: totalCost.toString(),
+      location: input.location ?? "",
+      mode: input.mode,
+    },
+    timestamp: new Date(),
+  });
+
+  return result;
+}
+
+// ───────────────────────────────────────────────────────────
+//  Staged Land Purchase — book with token, pay balance per schedule,
+//  complete when registry document uploaded.
+// ───────────────────────────────────────────────────────────
+
+export interface LandPurchaseOrderInput {
+  companyId: string;
+  projectId?: string;
+  sellerId?: string;
+  sellerName: string;
+  sellerContact?: string;
+  purchaseDate?: Date;
+  totalArea: Decimal | number | string;
+  areaUnit?: "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
+  totalCost: Decimal | number | string;
+  registryNo?: string;
+  location?: string;
+  documentUrl?: string;
+  // Token payment
+  tokenAmount?: Decimal | number | string;
+  tokenPaymentMode?: string;
+  tokenChequeNo?: string;
+  tokenChequeDate?: string;
+  tokenChequeBank?: string;
+  tokenChequePhotoUrl?: string;
+  // ATS document (optional at booking)
+  atsDocumentUrl?: string;
+  atsDocumentName?: string;
+  createdById?: string;
+}
+
+/**
+ * Record a land purchase ORDER (booking).
+ * Like a sales order, this books the land with a token amount and
+ * creates a payment schedule for the balance. The purchase is not
+ * "complete" until the registry document is uploaded.
+ *
+ * Lifecycle: BOOKED → COMPLETED (registry doc uploaded + payment settled)
+ */
+export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
+  const totalArea = new Decimal(input.totalArea);
+  const totalCost = new Decimal(input.totalCost);
+  const tokenAmount = input.tokenAmount ? new Decimal(input.tokenAmount) : new Decimal(0);
+
+  if (!totalArea.gt(0)) throw new ServiceError("Total area must be > 0");
+  if (!totalCost.gt(0)) throw new ServiceError("Total cost must be > 0");
+  if (tokenAmount.gt(totalCost)) {
+    throw new ServiceError(`Token amount ${tokenAmount} exceeds total cost ${totalCost}`);
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
+    if (!company) throw new ServiceError("Company not found or deleted", 404);
+
+    if (input.projectId) {
+      const project = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
+    }
+
+    if (input.sellerId) {
+      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, deletedAt: null } });
+      if (!seller) throw new ServiceError("Land seller not found or deleted", 404);
+    }
+
+    // Create land purchase in BOOKED stage
+    const landPurchase = await tx.landPurchase.create({
+      data: {
+        companyId: input.companyId,
+        projectId: input.projectId ?? null,
+        sellerId: input.sellerId ?? null,
+        sellerName: input.sellerName,
+        sellerContact: input.sellerContact,
+        purchaseDate: input.purchaseDate ?? new Date(),
+        totalArea,
+        areaUnit: input.areaUnit ?? "SQFT",
+        totalCost,
+        registryNo: input.registryNo,
+        location: input.location,
+        documentUrl: input.documentUrl,
+        mode: "WHOLE",
+        purchaseStage: "BOOKED",
+        tokenAmount: tokenAmount.gt(0) ? tokenAmount : null,
+        tokenPaymentDate: tokenAmount.gt(0) ? new Date() : null,
+        tokenPaymentMode: tokenAmount.gt(0) ? (input.tokenPaymentMode ?? "BANK_TRANSFER") : null,
+        tokenChequePhotoUrl: input.tokenChequePhotoUrl ?? null,
+        atsDocumentUrl: input.atsDocumentUrl ?? null,
+        atsDocumentName: input.atsDocumentName ?? null,
+      },
+    });
+
+    // Create initial parcel (the whole plot) — HOLD status during BOOKED
+    const parcel = await tx.landParcel.create({
+      data: {
+        landPurchaseId: landPurchase.id,
+        number: "PLOT-1",
+        area: totalArea,
+        areaUnit: input.areaUnit ?? "SQFT",
+        status: "HOLD",
+        purpose: input.projectId ? "PROJECT" : "HOLD",
+        acquisitionCost: totalCost,
+        currentValuation: totalCost,
+        projectId: input.projectId,
+      },
+    });
+
+    // Record token payment if provided
+    if (tokenAmount.gt(0)) {
+      await tx.landPurchasePayment.create({
+        data: {
+          landPurchaseId: landPurchase.id,
+          amount: tokenAmount,
+          paymentMode: input.tokenPaymentMode ?? "BANK_TRANSFER",
+          chequeNo: input.tokenChequeNo ?? null,
+          chequeDate: input.tokenChequeDate ? new Date(input.tokenChequeDate) : null,
+          chequeBank: input.tokenChequeBank ?? null,
+          chequePhotoUrl: input.tokenChequePhotoUrl ?? null,
+          chequeStatus: (input.tokenPaymentMode === "CHEQUE") ? "PENDING" : null,
+        },
+      });
+    }
+
+    // Post the land purchase to GL — for staged (BOOKED) purchases, only the
+    // token amount is paid in cash; the balance is credited to Accounts Payable.
+    await postLandPurchase(tx, {
+      companyId: input.companyId,
+      landPurchaseId: landPurchase.id,
+      totalCost,
+      cashPaid: tokenAmount,
+      postedById: input.createdById,
+    });
+
+    if (input.createdById) {
+      await logAction(tx, {
+        userId: input.createdById,
+        action: "LAND_PURCHASE_ORDER",
+        entityType: "LandPurchase",
+        entityId: landPurchase.id,
+        after: {
+          sellerName: input.sellerName,
+          totalArea: totalArea.toString(),
+          totalCost: totalCost.toString(),
+          tokenAmount: tokenAmount.toString(),
+          purchaseStage: "BOOKED",
+        },
+      });
+    }
+
+    return { landPurchase, parcel };
+  }, { isolationLevel: "Serializable" });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.LAND_PURCHASE_CREATED,
+    companyId: input.companyId,
+    entityType: "LandPurchase",
+    entityId: result.landPurchase.id,
+    variables: {
+      sellerName: input.sellerName,
+      totalArea: totalArea.toString(),
+      totalCost: totalCost.toString(),
+      location: input.location ?? "",
+      mode: "BOOKED",
+    },
+    timestamp: new Date(),
+  });
+
+  return result;
+}
+
+// ───────────────────────────────────────────────────────────
+//  Land purchase payment — record a payment against a land purchase
+// ───────────────────────────────────────────────────────────
+
+export interface RecordLandPurchasePaymentInput {
+  landPurchaseId: string;
+  amount: Decimal | number | string;
+  paymentMode: string;
+  referenceNo?: string;
+  notes?: string;
+  userId?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeBank?: string;
+  chequePhotoUrl?: string;
+}
+
+export async function recordLandPurchasePayment(input: RecordLandPurchasePaymentInput) {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.landPurchase.findUnique({
+      where: { id: input.landPurchaseId },
+      include: { payments: true },
+    });
+    if (!lp) throw new ServiceError("Land purchase not found", 404);
+    if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
+    if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
+    if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot record payment on a cancelled purchase");
+
+    const amount = new Decimal(input.amount);
+    if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
+
+    const totalPaid = lp.payments.reduce(
+      (sum, p) => sum.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+    const totalCost = new Decimal(lp.totalCost);
+    if (totalPaid.plus(amount).gt(totalCost)) {
+      throw new ServiceError(`Overpayment: cumulative ${totalPaid.plus(amount)} > total cost ${totalCost}`);
+    }
+
+    const payment = await tx.landPurchasePayment.create({
+      data: {
+        landPurchaseId: input.landPurchaseId,
+        amount,
+        paymentMode: input.paymentMode,
+        referenceNo: input.referenceNo ?? null,
+        notes: input.notes ?? null,
+        chequeNo: input.chequeNo ?? null,
+        chequeDate: input.chequeDate ? new Date(input.chequeDate) : null,
+        chequeBank: input.chequeBank ?? null,
+        chequePhotoUrl: input.chequePhotoUrl ?? null,
+        chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
+      },
+    });
+
+    // Post GL entry: Dr Accounts Payable / Cr Cash
+    // For cheque payments, the GL is deferred until the cheque clears
+    // (clearLandPurchaseCheque posts the entry at that point).
+    if (input.paymentMode !== "CHEQUE") {
+      await postJournalEntry(tx, {
+        companyId: lp.companyId,
+        sourceType: "LAND_PURCHASE_PAYMENT",
+        sourceId: payment.id,
+        memo: `Land purchase payment — ${input.paymentMode}`,
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.AP, debit: amount, credit: 0, entityType: "LandPurchase", entityId: input.landPurchaseId, memo: "Payable paid down" },
+          { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "LandPurchase", entityId: input.landPurchaseId, memo: "Cash paid for land" },
+        ],
+      });
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: lp.companyId,
+        action: "LAND_PURCHASE_PAYMENT",
+        entityType: "LandPurchase",
+        entityId: input.landPurchaseId,
+        after: { amount: amount.toString(), paymentMode: input.paymentMode },
+      });
+    }
+
+    return { payment };
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Land purchase document upload — ATS, Registry documents
+// ───────────────────────────────────────────────────────────
+
+export interface UploadLandPurchaseDocumentInput {
+  landPurchaseId: string;
+  userId?: string;
+  documentType: "ATS" | "REGISTRY";
+  documentUrl: string;
+  documentName?: string;
+  registryNo?: string;
+}
+
+export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocumentInput) {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.landPurchase.findUnique({ where: { id: input.landPurchaseId } });
+    if (!lp) throw new ServiceError("Land purchase not found", 404);
+    if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
+
+    const data: Prisma.LandPurchaseUpdateInput = {};
+    if (input.documentType === "ATS") {
+      data.atsDocumentUrl = input.documentUrl;
+      data.atsDocumentName = input.documentName ?? null;
+    } else if (input.documentType === "REGISTRY") {
+      data.registryDocumentUrl = input.documentUrl;
+      data.registryDocumentName = input.documentName ?? null;
+      if (input.registryNo) data.registryNo = input.registryNo;
+    }
+
+    const updated = await tx.landPurchase.update({ where: { id: input.landPurchaseId }, data });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: lp.companyId,
+        action: "LAND_PURCHASE_DOCUMENT_UPLOAD",
+        entityType: "LandPurchase",
+        entityId: input.landPurchaseId,
+        after: { documentType: input.documentType, documentName: input.documentName },
+      });
+    }
+
+    return updated;
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Complete land purchase — mark COMPLETED when registry doc uploaded
+// ───────────────────────────────────────────────────────────
+
+export interface CompleteLandPurchaseInput {
+  landPurchaseId: string;
+  userId?: string;
+  registryDocumentUrl?: string;
+  registryDocumentName?: string;
+  registryNo?: string;
+  partialRegistryAllowed?: boolean; // allow completion with balance due
+}
+
+export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.landPurchase.findUnique({
+      where: { id: input.landPurchaseId },
+      include: { payments: true, parcels: true },
+    });
+    if (!lp) throw new ServiceError("Land purchase not found", 404);
+    if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
+    if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
+    if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot complete a cancelled purchase");
+
+    // Registry document is REQUIRED for completion
+    const registryDocUrl = input.registryDocumentUrl ?? lp.registryDocumentUrl;
+    if (!registryDocUrl) {
+      throw new ServiceError(
+        "Land purchase cannot be completed without uploading the registry document. Please upload the registry document first.",
+      );
+    }
+
+    // Payment check: unless partialRegistryAllowed, full payment is required
+    const allowPartial = lp.partialRegistryAllowed || input.partialRegistryAllowed;
+    if (!allowPartial) {
+      const totalPaid = lp.payments.reduce((s, p) => s.plus(p.amount), new Decimal(0));
+      const balance = new Decimal(lp.totalCost).minus(totalPaid);
+      if (balance.gt(0)) {
+        throw new ServiceError(
+          `Land purchase has a balance of ₹${balance.toFixed(2)}. Full payment is required before completion, or enable "Partial Registry" option.`,
+        );
+      }
+    }
+
+    const data: Prisma.LandPurchaseUpdateInput = { purchaseStage: "COMPLETED" };
+    if (input.registryDocumentUrl) {
+      data.registryDocumentUrl = input.registryDocumentUrl;
+      data.registryDocumentName = input.registryDocumentName ?? null;
+    }
+    if (input.registryNo) data.registryNo = input.registryNo;
+    if (input.partialRegistryAllowed !== undefined) data.partialRegistryAllowed = input.partialRegistryAllowed;
+
+    const updated = await tx.landPurchase.update({ where: { id: input.landPurchaseId }, data });
+
+    // Mark parcels as AVAILABLE (they were HOLD during BOOKED stage)
+    await tx.landParcel.updateMany({
+      where: { landPurchaseId: input.landPurchaseId, deletedAt: null },
+      data: { status: "AVAILABLE" },
+    });
+
+    // If linked to a project, trigger cost reallocation
+    if (lp.projectId) {
+      await reallocateProjectCosts(tx, lp.projectId);
+    }
+
+    // Auto-create OWNERSHIP_CERTIFICATE legal doc if registry number provided
+    const registryNo = input.registryNo ?? lp.registryNo;
+    if (registryNo && registryNo.trim()) {
+      const existing = await tx.legalDocument.findFirst({
+        where: { landPurchaseId: input.landPurchaseId, type: "OWNERSHIP_CERTIFICATE" },
+      });
+      if (!existing) {
+        await tx.legalDocument.create({
+          data: {
+            companyId: lp.companyId,
+            landPurchaseId: input.landPurchaseId,
+            projectId: lp.projectId ?? null,
+            type: "OWNERSHIP_CERTIFICATE",
+            title: "Ownership Certificate / Sale Deed",
+            authority: "Sub-Registrar / Revenue Department",
+            status: "APPROVED",
+            appliesTo: "BOTH",
+            sortOrder: 0,
+            prerequisiteType: null,
+            obtained: true,
+            docNumber: registryNo.trim(),
+            documentUrl: registryDocUrl,
+            documentName: input.registryDocumentName ?? null,
+            notes: "Auto-created from land purchase completion — registry completed.",
+            createdById: input.userId ?? null,
+          },
+        });
+      }
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: lp.companyId,
+        action: "LAND_PURCHASE_COMPLETE",
+        entityType: "LandPurchase",
+        entityId: input.landPurchaseId,
+        before: { purchaseStage: lp.purchaseStage },
+        after: { purchaseStage: "COMPLETED", registryNo: registryNo ?? null },
+      });
+    }
+
+    return updated;
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Land purchase cheque management — clear or bounce
+// ───────────────────────────────────────────────────────────
+
+export async function clearLandPurchaseCheque(paymentId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.landPurchasePayment.findUnique({
+      where: { id: paymentId },
+      include: { landPurchase: true },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "processed"}`);
+    }
+
+    await tx.landPurchasePayment.update({
+      where: { id: paymentId },
+      data: { chequeStatus: "CLEARED", chequeClearDate: new Date() },
+    });
+
+    // Post the GL entry now that the cheque has cleared:
+    // Dr Accounts Payable / Cr Cash (the payment was deferred at record time)
+    const amount = new Decimal(payment.amount);
+    await postJournalEntry(tx, {
+      companyId: payment.landPurchase.companyId,
+      sourceType: "LAND_PURCHASE_PAYMENT",
+      sourceId: paymentId,
+      memo: `Land purchase cheque cleared — ${payment.chequeNo ?? ""}`,
+      postedById: userId,
+      lines: [
+        { accountCode: ACCT.AP, debit: amount, credit: 0, entityType: "LandPurchase", entityId: payment.landPurchaseId, memo: "Payable paid down (cheque cleared)" },
+        { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "LandPurchase", entityId: payment.landPurchaseId, memo: "Cash paid for land (cheque cleared)" },
+      ],
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: payment.landPurchase.companyId,
+        action: "LAND_PURCHASE_CHEQUE_CLEARED",
+        entityType: "LandPurchasePayment",
+        entityId: paymentId,
+        after: { chequeStatus: "CLEARED" },
+      });
+    }
+
+    return { chequeStatus: "CLEARED" as const };
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function bounceLandPurchaseCheque(paymentId: string, userId?: string, bounceReason?: string) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.landPurchasePayment.findUnique({
+      where: { id: paymentId },
+      include: { landPurchase: true },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "processed"}`);
+    }
+
+    await tx.landPurchasePayment.update({
+      where: { id: paymentId },
+      data: { chequeStatus: "BOUNCED", chequeBounceReason: bounceReason ?? null },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: payment.landPurchase.companyId,
+        action: "LAND_PURCHASE_CHEQUE_BOUNCED",
+        entityType: "LandPurchasePayment",
+        entityId: paymentId,
+        after: { chequeStatus: "BOUNCED", bounceReason: bounceReason ?? null },
+      });
+    }
+
+    return { chequeStatus: "BOUNCED" as const };
+  }, { isolationLevel: "Serializable" });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Land Purchase Payment Schedule — structured payment plan
+//  for staged purchases. Token at booking, balance per schedule.
+// ───────────────────────────────────────────────────────────
+
+export interface LandPaymentScheduleItemInput {
+  installmentNo: number;
+  description: string;
+  percentage: number;  // % of totalAmount
+  dueDate?: string | null;
+}
+
+export interface CreateLandPaymentScheduleInput {
+  landPurchaseId: string;
+  items: LandPaymentScheduleItemInput[];
+  userId?: string;
+}
+
+export async function createLandPaymentSchedule(input: CreateLandPaymentScheduleInput) {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.landPurchase.findUnique({
+      where: { id: input.landPurchaseId },
+      include: { payments: true },
+    });
+    if (!lp) throw new ServiceError("Land purchase not found", 404);
+
+    // Calculate balance after token
+    const totalPaid = lp.payments.reduce((s, p) => s.plus(p.amount), new Decimal(0));
+    const balance = new Decimal(lp.totalCost).minus(totalPaid);
+
+    // Delete existing schedule if any
+    const existing = await tx.landPurchasePaymentSchedule.findUnique({
+      where: { landPurchaseId: input.landPurchaseId },
+    });
+    if (existing) {
+      await tx.landPurchasePaymentScheduleItem.deleteMany({
+        where: { paymentScheduleId: existing.id },
+      });
+      await tx.landPurchasePaymentSchedule.delete({
+        where: { id: existing.id },
+      });
+    }
+
+    // Validate percentages sum to 100
+    const totalPct = input.items.reduce((s, i) => s + i.percentage, 0);
+    if (Math.abs(totalPct - 100) > 0.01) {
+      throw new ServiceError(`Payment schedule percentages must sum to 100%, got ${totalPct}%`);
+    }
+
+    // Create schedule + items
+    const schedule = await tx.landPurchasePaymentSchedule.create({
+      data: {
+        landPurchaseId: input.landPurchaseId,
+        totalAmount: balance,
+        items: {
+          create: input.items.map((item) => ({
+            installmentNo: item.installmentNo,
+            description: item.description,
+            percentage: new Decimal(item.percentage),
+            amount: balance.mul(item.percentage).div(100).toDecimalPlaces(2),
+            dueDate: item.dueDate ? new Date(item.dueDate) : null,
+            status: "PENDING" as const,
+          })),
+        },
+      },
+      include: { items: { orderBy: { installmentNo: "asc" } } },
+    });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: lp.companyId,
+        action: "LAND_PAYMENT_SCHEDULE_CREATED",
+        entityType: "LandPurchase",
+        entityId: input.landPurchaseId,
+        before: null,
+        after: { itemCount: input.items.length, totalAmount: balance.toString() },
+      });
+    }
+
+    return schedule;
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function getLandPaymentSchedule(landPurchaseId: string) {
+  return prisma.landPurchasePaymentSchedule.findUnique({
+    where: { landPurchaseId },
+    include: { items: { orderBy: { installmentNo: "asc" } } },
+  });
+}
+
+// ───────────────────────────────────────────────────────────
+//  Possession tracking — mark land/project as possessed
+// ───────────────────────────────────────────────────────────
+
+export interface MarkPossessionInput {
+  landPurchaseId?: string;
+  projectId?: string;
+  isPossessed: boolean;
+  possessionDate?: string;
+  notes?: string;
+  userId?: string;
+}
+
+export async function markPossession(input: MarkPossessionInput) {
+  return prisma.$transaction(async (tx) => {
+    if (input.landPurchaseId) {
+      const lp = await tx.landPurchase.findUnique({ where: { id: input.landPurchaseId } });
+      if (!lp) throw new ServiceError("Land purchase not found", 404);
+
+      const updated = await tx.landPurchase.update({
+        where: { id: input.landPurchaseId },
+        data: {
+          isPossessed: input.isPossessed,
+          possessionDate: input.isPossessed
+            ? (input.possessionDate ? new Date(input.possessionDate) : new Date())
+            : null,
+          possessionNotes: input.notes ?? null,
+        },
+      });
+
+      if (input.userId) {
+        await logAction(tx, {
+          userId: input.userId,
+          companyId: lp.companyId,
+          action: "LAND_POSSESSION_MARKED",
+          entityType: "LandPurchase",
+          entityId: input.landPurchaseId,
+          before: { isPossessed: lp.isPossessed },
+          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate },
+        });
+      }
+      return updated;
+    }
+
+    if (input.projectId) {
+      const proj = await tx.project.findUnique({ where: { id: input.projectId } });
+      if (!proj) throw new ServiceError("Project not found", 404);
+
+      const updated = await tx.project.update({
+        where: { id: input.projectId },
+        data: {
+          isPossessed: input.isPossessed,
+          possessionDate: input.isPossessed
+            ? (input.possessionDate ? new Date(input.possessionDate) : new Date())
+            : null,
+          possessionNotes: input.notes ?? null,
+        },
+      });
+
+      if (input.userId) {
+        await logAction(tx, {
+          userId: input.userId,
+          companyId: proj.companyId,
+          action: "PROJECT_POSSESSION_MARKED",
+          entityType: "Project",
+          entityId: input.projectId,
+          before: { isPossessed: proj.isPossessed },
+          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate },
+        });
+      }
+      return updated;
+    }
+
+    throw new ServiceError("Either landPurchaseId or projectId is required");
   }, { isolationLevel: "Serializable" });
 }

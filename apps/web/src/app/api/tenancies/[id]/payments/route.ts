@@ -22,8 +22,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       dueDate: parsed.data.dueDate,
       mode: parsed.data.mode,
       reference: parsed.data.reference ?? undefined,
+      tdsAmount: parsed.data.tdsAmount ?? undefined,
+      tdsCertificateNo: parsed.data.tdsCertificateNo ?? undefined,
+      periodStart: parsed.data.periodStart ?? undefined,
+      periodEnd: parsed.data.periodEnd ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/rentals");
     revalidatePath("/m/rentals");
     return json({ ok: true, id: payment.id }, { status: 201 });
   } catch (err: unknown) {

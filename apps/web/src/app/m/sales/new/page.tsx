@@ -56,7 +56,7 @@ async function MobileNewSaleContent({
     );
   }
 
-  const [units, parcels, customers, projects] = await Promise.all([
+  const [units, parcels, customers, projects, allProjectsForSale] = await Promise.all([
     prisma.builtUnit.findMany({
       where: {
         deletedAt: null,
@@ -83,7 +83,28 @@ async function MobileNewSaleContent({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    // Sellable projects: PLANNED/ACTIVE, all units AVAILABLE/HOLD with no sale
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+      select: {
+        id: true,
+        name: true,
+        builtUnits: { where: { deletedAt: null }, select: { id: true, status: true, saleId: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  // Filter to only projects where ALL units are sellable (AVAILABLE/HOLD, no sale)
+  const sellableProjects = allProjectsForSale
+    .filter((p) => {
+      const unitList = p.builtUnits;
+      if (unitList.length === 0) return false;
+      return unitList.every((u) =>
+        (u.status === "AVAILABLE" || u.status === "HOLD") && u.saleId === null,
+      );
+    })
+    .map((p) => ({ id: p.id, name: p.name }));
 
   const unitItems = units.map((u) => ({
     id: u.id,
@@ -132,6 +153,7 @@ async function MobileNewSaleContent({
           parcels={parcelItems}
           customers={customerItems}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          sellableProjects={sellableProjects}
           initialBuiltUnitId={builtUnitId}
           initialLandParcelId={landParcelId}
           initialCustomerId={customerId}

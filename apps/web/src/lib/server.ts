@@ -714,6 +714,14 @@ export const sellAssetSchema = z.object({
       wbsNodeId: z.string().optional().nullable(),
     })).min(1, "At least one installment is required"),
   }).optional(),
+  // Cheque details for initial payment
+  initialChequeNo: z.string().max(200).optional().nullable(),
+  initialChequeDate: z.string().optional().nullable(),
+  initialChequeBank: z.string().max(200).optional().nullable(),
+  initialChequePhotoUrl: z.string().optional().nullable(),
+  // ATS document upload (optional at booking)
+  atsDocumentUrl: z.string().optional().nullable(),
+  atsDocumentName: z.string().optional().nullable(),
 });
 
 export const paymentScheduleSchema = z.object({
@@ -740,12 +748,22 @@ export const paymentSchema = z.object({
   amount: z.coerce.number().finite().positive("Amount must be > 0"),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
+  // Cheque details
+  chequeNo: z.string().max(200).optional().nullable(),
+  chequeDate: z.string().optional().nullable(),
+  chequeBank: z.string().max(200).optional().nullable(),
+  chequePhotoUrl: z.string().optional().nullable(),
 });
 
 export const depositSchema = z.object({
   depositAmount: z.coerce.number().finite().positive("Deposit amount must be > 0"),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
+  // Cheque details
+  chequeNo: z.string().max(200).optional().nullable(),
+  chequeDate: z.string().optional().nullable(),
+  chequeBank: z.string().max(200).optional().nullable(),
+  chequePhotoUrl: z.string().optional().nullable(),
 });
 
 export const completeSaleSchema = z.object({
@@ -765,6 +783,14 @@ export const completeSaleSchema = z.object({
   homeLoanAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   homeLoanSanctionNo: z.string().max(200).optional().nullable(),
   homeLoanSanctionDate: z.string().optional().nullable(),
+  // Cheque details
+  chequeNo: z.string().max(200).optional().nullable(),
+  chequeDate: z.string().optional().nullable(),
+  chequeBank: z.string().max(200).optional().nullable(),
+  chequePhotoUrl: z.string().optional().nullable(),
+  // Registry document upload
+  registryDocumentUrl: z.string().optional().nullable(),
+  registryDocumentName: z.string().optional().nullable(),
 });
 
 // ── Material Sales ──
@@ -840,7 +866,11 @@ export const tenancySchema = z.object({
   monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
   securityDeposit: z.coerce.number().finite().nonnegative().optional(),
   rentAgreementNo: z.string().optional().nullable(),
+  rentAgreementDocumentUrl: z.string().optional().nullable(),
+  rentAgreementDocumentName: z.string().optional().nullable(),
   sacCode: z.string().optional().nullable(),
+  escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  escalationIntervalMonths: z.coerce.number().int().positive().optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -853,8 +883,11 @@ export const editTenancySchema = z.object({
   monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
   securityDeposit: z.coerce.number().finite().nonnegative().optional(),
   rentAgreementNo: z.string().optional().nullable(),
+  rentAgreementDocumentUrl: z.string().optional().nullable(),
+  rentAgreementDocumentName: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
+  escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
 });
 
 export const rentPaymentSchema = z.object({
@@ -863,6 +896,29 @@ export const rentPaymentSchema = z.object({
   dueDate: z.string().optional(),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
+  tdsAmount: z.coerce.number().finite().nonnegative().optional(),
+  tdsCertificateNo: z.string().optional().nullable(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+});
+
+export const changeTenantSchema = z.object({
+  newTenantName: z.string().min(1, "New tenant name is required"),
+  newTenantPhone: z.string().optional().nullable(),
+  newTenantEmail: z.string().email("Invalid email").optional().nullable(),
+  newCustomerId: z.string().optional().nullable(),
+  newMonthlyRent: z.coerce.number().finite().positive().optional(),
+  newRentAgreementNo: z.string().optional().nullable(),
+  newRentAgreementDocumentUrl: z.string().optional().nullable(),
+  newRentAgreementDocumentName: z.string().optional().nullable(),
+  newStartDate: z.string().optional(),
+  newEndDate: z.string().optional(),
+  newSecurityDeposit: z.coerce.number().finite().nonnegative().optional(),
+  notes: z.string().optional().nullable(),
+});
+
+export const rentScheduleSchema = z.object({
+  monthsAhead: z.coerce.number().int().positive().max(60).optional(),
 });
 
 // ── Daily Reports ──

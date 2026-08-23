@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarClock, ContactRound, Flame, Phone, Plus, Search, UserRoundCheck } from "lucide-react";
 import { MobileExportShareBar, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -36,7 +37,9 @@ export function MobileSalesHub({
   assignees: { id: string; name: string }[];
   canManage: boolean;
 }) {
-  const [view, setView] = useState<"pipeline" | "collections">("pipeline");
+  const searchParams = useSearchParams();
+  const initialView = searchParams.get("tab") === "collections" ? "collections" : "pipeline";
+  const [view, setView] = useState<"pipeline" | "collections">(initialView);
   const csvColumns: MobileColumnSpec[] = [
     { key: "saleNumber", label: "Sale #" },
     { key: "customerName", label: "Customer" },

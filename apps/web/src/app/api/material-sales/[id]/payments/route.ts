@@ -72,6 +72,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
       referenceNo: body.referenceNo,
       notes: body.notes,
       userId: user.id,
+      // Cheque details
+      chequeNo: body.chequeNo,
+      chequeDate: body.chequeDate,
+      chequeBank: body.chequeBank,
+      chequePhotoUrl: body.chequePhotoUrl,
     });
 
     revalidatePath("/m/material-sales");

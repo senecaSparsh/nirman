@@ -90,6 +90,20 @@ export interface SellAssetInput {
   commissionIsPartOfDeal?: boolean;
   // ── Payment schedule (optional at creation) ──
   paymentSchedule?: PaymentScheduleInput;
+  // ── Cheque details (if initial payment is by cheque) ──
+  initialChequeNo?: string;
+  initialChequeDate?: string; // ISO date
+  initialChequeBank?: string;
+  initialChequePhotoUrl?: string;
+  // ── Document uploads (at creation time — optional) ──
+  atsDocumentUrl?: string;
+  atsDocumentName?: string;
+  bbaDocumentUrl?: string;
+  bbaDocumentName?: string;
+  registryDocumentUrl?: string;
+  registryDocumentName?: string;
+  allotmentDocumentUrl?: string;
+  allotmentDocumentName?: string;
 }
 
 export interface SaleExpenseInput {
@@ -314,6 +328,15 @@ export async function sellAsset(input: SellAssetInput) {
         brokerPhone: input.brokerPhone ?? null,
         commissionAmount: input.commissionAmount ? new Decimal(input.commissionAmount) : null,
         commissionIsPartOfDeal: input.commissionIsPartOfDeal ?? false,
+        // Document uploads
+        atsDocumentUrl: input.atsDocumentUrl ?? null,
+        atsDocumentName: input.atsDocumentName ?? null,
+        bbaDocumentUrl: input.bbaDocumentUrl ?? null,
+        bbaDocumentName: input.bbaDocumentName ?? null,
+        registryDocumentUrl: input.registryDocumentUrl ?? null,
+        registryDocumentName: input.registryDocumentName ?? null,
+        allotmentDocumentUrl: input.allotmentDocumentUrl ?? null,
+        allotmentDocumentName: input.allotmentDocumentName ?? null,
       },
     });
 
@@ -429,35 +452,59 @@ export async function sellAsset(input: SellAssetInput) {
           assetSaleId: sale.id,
           amount: initAmount,
           mode: input.initialPaymentMode ?? "BANK_TRANSFER",
+          // Cheque details
+          chequeNo: input.initialChequeNo ?? null,
+          chequeDate: input.initialChequeDate ? new Date(input.initialChequeDate) : null,
+          chequeBank: input.initialChequeBank ?? null,
+          chequePhotoUrl: input.initialChequePhotoUrl ?? null,
+          chequeStatus: (input.initialPaymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
 
+      // For immediate full payment with CHEQUE mode, don't mark COMPLETED
+      // until the cheque clears. Keep as DEPOSIT_RECEIVED with PAID status.
+      const isChequePayment = input.initialPaymentMode === "CHEQUE";
       await tx.assetSale.update({
         where: { id: sale.id },
-        data: { paymentStatus: "PAID", saleStage: "COMPLETED", finalSaleDate: new Date() },
+        data: {
+          paymentStatus: "PAID",
+          saleStage: isChequePayment ? "DEPOSIT_RECEIVED" : "COMPLETED",
+          finalSaleDate: isChequePayment ? null : new Date(),
+        },
       });
 
-      // Post revenue + COGS
-      await postAssetSale(tx, {
-        companyId,
-        assetSaleId: sale.id,
-        assetType: input.assetType,
-        salePrice,
-        costBasis,
-        gstAmount,
-        postedById: input.userId,
-      });
-
-      // Post the cash payment (settles the receivable)
-      const payment = await tx.assetSalePayment.findFirst({
-        where: { assetSaleId: sale.id },
-        orderBy: { paymentDate: "desc" },
-      });
-      if (payment) {
-        await postPaymentReceived(tx, {
+      // Post revenue + COGS (only for non-cheque immediate full payment;
+      // cheque payments are provisional until cleared)
+      if (!isChequePayment) {
+        await postAssetSale(tx, {
           companyId,
           assetSaleId: sale.id,
-          paymentId: payment.id,
+          assetType: input.assetType,
+          salePrice,
+          costBasis,
+          gstAmount,
+          postedById: input.userId,
+        });
+
+        // Post the cash payment (settles the receivable)
+        const payment = await tx.assetSalePayment.findFirst({
+          where: { assetSaleId: sale.id },
+          orderBy: { paymentDate: "desc" },
+        });
+        if (payment) {
+          await postPaymentReceived(tx, {
+            companyId,
+            assetSaleId: sale.id,
+            paymentId: payment.id,
+            amount: initAmount,
+            postedById: input.userId,
+          });
+        }
+      } else {
+        // Cheque payment: post as deposit liability (not revenue)
+        await postDepositReceived(tx, {
+          companyId,
+          assetSaleId: sale.id,
           amount: initAmount,
           postedById: input.userId,
         });
@@ -471,6 +518,12 @@ export async function sellAsset(input: SellAssetInput) {
           assetSaleId: sale.id,
           amount: initAmount,
           mode: input.initialPaymentMode ?? "BANK_TRANSFER",
+          // Cheque details
+          chequeNo: input.initialChequeNo ?? null,
+          chequeDate: input.initialChequeDate ? new Date(input.initialChequeDate) : null,
+          chequeBank: input.initialChequeBank ?? null,
+          chequePhotoUrl: input.initialChequePhotoUrl ?? null,
+          chequeStatus: (input.initialPaymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
 
@@ -550,6 +603,11 @@ export interface RecordDepositInput {
   paymentMode?: string;
   reference?: string;
   userId?: string;
+  // Cheque details
+  chequeNo?: string;
+  chequeDate?: string; // ISO date
+  chequeBank?: string;
+  chequePhotoUrl?: string;
 }
 
 export async function recordDeposit(input: RecordDepositInput) {
@@ -583,6 +641,12 @@ export async function recordDeposit(input: RecordDepositInput) {
         amount: depositAmount,
         mode: input.paymentMode ?? "BANK_TRANSFER",
         reference: input.reference,
+        // Cheque details
+        chequeNo: input.chequeNo ?? null,
+        chequeDate: input.chequeDate ? new Date(input.chequeDate) : null,
+        chequeBank: input.chequeBank ?? null,
+        chequePhotoUrl: input.chequePhotoUrl ?? null,
+        chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
       },
     });
 
@@ -647,6 +711,14 @@ export interface CompleteSaleInput {
   homeLoanAmount?: Decimal | number | string;
   homeLoanSanctionNo?: string;
   homeLoanSanctionDate?: string;
+  // Cheque details (if final payment is by cheque)
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeBank?: string;
+  chequePhotoUrl?: string;
+  // Registry document upload — REQUIRED for completion
+  registryDocumentUrl?: string;
+  registryDocumentName?: string;
 }
 
 export async function completeSale(input: CompleteSaleInput) {
@@ -658,6 +730,17 @@ export async function completeSale(input: CompleteSaleInput) {
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot complete a cancelled sale");
     if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
+
+    // ── Registry document gating ──
+    // Sale completion = registry done + registry document uploaded.
+    // The registry document can be provided here OR was already uploaded
+    // via a separate document upload action.
+    const registryDocUrl = input.registryDocumentUrl ?? sale.registryDocumentUrl;
+    if (!registryDocUrl) {
+      throw new ServiceError(
+        "Sale cannot be completed without uploading the registry document. Please upload the sale deed / registry document first.",
+      );
+    }
 
     const salePrice = new Decimal(sale.salePrice);
     const gstAmount = new Decimal(sale.gstAmount);
@@ -685,6 +768,12 @@ export async function completeSale(input: CompleteSaleInput) {
           amount: finalPayment,
           mode: input.paymentMode ?? "BANK_TRANSFER",
           reference: input.reference,
+          // Cheque details
+          chequeNo: input.chequeNo ?? null,
+          chequeDate: input.chequeDate ? new Date(input.chequeDate) : null,
+          chequeBank: input.chequeBank ?? null,
+          chequePhotoUrl: input.chequePhotoUrl ?? null,
+          chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
     }
@@ -701,6 +790,8 @@ export async function completeSale(input: CompleteSaleInput) {
         finalSaleDate: new Date(),
         paymentStatus: "PAID",
         ...(input.saleDeedNo ? { saleDeedNo: input.saleDeedNo } : {}),
+        // Registry document
+        ...(input.registryDocumentUrl ? { registryDocumentUrl: input.registryDocumentUrl, registryDocumentName: input.registryDocumentName ?? null } : {}),
         // Compliance fields captured at completion
         ...(input.allotmentLetterNo ? { allotmentLetterNo: input.allotmentLetterNo } : {}),
         ...(input.allotmentDate ? { allotmentDate: new Date(input.allotmentDate) } : {}),
@@ -728,19 +819,24 @@ export async function completeSale(input: CompleteSaleInput) {
       postedById: input.userId,
     });
 
-    // 2. Reverse the deposit liability into the receivable (the deposit was
-    //    Dr Cash / Cr Customer_Deposit; now we Dr Customer_Deposit / Cr AR to
-    //    settle the receivable that was just created by postAssetSale).
-    if (depositAmount.gt(0)) {
+    // 2. Reverse all pre-completion payments (deposits + schedule installments)
+    //    from the Customer Deposit liability into the receivable. Both
+    //    recordDeposit() and recordSchedulePayment() (pre-completion) post
+    //    Dr Cash / Cr Customer_Deposit. Now we Dr Customer_Deposit / Cr AR to
+    //    settle the receivable that was just created by postAssetSale.
+    //    totalPaidSoFar includes all payments made before the final payment.
+    //    The final payment (if any) is posted as Dr Cash / Cr AR in step 3.
+    const preCompletionPayments = totalPaidSoFar;
+    if (preCompletionPayments.gt(0)) {
       await postJournalEntry(tx, {
         companyId: sale.companyId,
         sourceType: "ASSET_SALE_DEPOSIT_SETTLE",
         sourceId: input.saleId,
-        memo: "Settle customer deposit against receivable on sale completion",
+        memo: "Settle customer deposits + schedule payments against receivable on sale completion",
         postedById: input.userId,
         lines: [
-          { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: depositAmount, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "Reverse deposit liability" },
-          { accountCode: ACCT.AR, debit: 0, credit: depositAmount, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable with deposit" },
+          { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: preCompletionPayments, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "Reverse deposit liability (deposits + schedule installments)" },
+          { accountCode: ACCT.AR, debit: 0, credit: preCompletionPayments, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable with pre-completion payments" },
         ],
       });
     }
@@ -788,6 +884,11 @@ export interface RecordPaymentInput {
   mode: string;
   reference?: string;
   userId?: string;
+  // Cheque details
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeBank?: string;
+  chequePhotoUrl?: string;
 }
 
 export async function recordPayment(input: RecordPaymentInput) {
@@ -821,6 +922,12 @@ export async function recordPayment(input: RecordPaymentInput) {
         amount,
         mode: input.mode,
         reference: input.reference,
+        // Cheque details
+        chequeNo: input.chequeNo ?? null,
+        chequeDate: input.chequeDate ? new Date(input.chequeDate) : null,
+        chequeBank: input.chequeBank ?? null,
+        chequePhotoUrl: input.chequePhotoUrl ?? null,
+        chequeStatus: (input.mode === "CHEQUE") ? "PENDING" : null,
       },
     });
 
@@ -838,6 +945,30 @@ export async function recordPayment(input: RecordPaymentInput) {
       where: { id: input.assetSaleId },
       data: { paymentStatus },
     });
+
+    // ── Allocate payment to schedule items (FIFO by installmentNo) ──
+    const schedule = await tx.paymentSchedule.findFirst({
+      where: { assetSaleId: input.assetSaleId },
+      include: { items: { orderBy: { installmentNo: "asc" } } },
+    });
+    if (schedule) {
+      let remaining = amount;
+      for (const item of schedule.items) {
+        if (remaining.lte(0)) break;
+        const itemAmount = new Decimal(item.amount);
+        const alreadyPaid = new Decimal(item.paidAmount);
+        const itemBalance = itemAmount.minus(alreadyPaid);
+        if (itemBalance.lte(0)) continue;
+        const allocation = remaining.lt(itemBalance) ? remaining : itemBalance;
+        const newPaid = alreadyPaid.plus(allocation);
+        const newItemStatus = newPaid.gte(itemAmount) ? "PAID" : newPaid.gt(0) ? "PARTIAL" : "PENDING";
+        await tx.paymentScheduleItem.update({
+          where: { id: item.id },
+          data: { paidAmount: newPaid, status: newItemStatus },
+        });
+        remaining = remaining.minus(allocation);
+      }
+    }
 
     // Post the payment to the General Ledger: cash settles the receivable.
     await postPaymentReceived(tx, {
@@ -912,6 +1043,15 @@ export interface UpdateSaleInput {
   expectedRegistryDate?: string | null;
   dealMaturityMonths?: number | null;
   paymentCycle?: string | null;
+  // Document uploads
+  atsDocumentUrl?: string | null;
+  atsDocumentName?: string | null;
+  bbaDocumentUrl?: string | null;
+  bbaDocumentName?: string | null;
+  registryDocumentUrl?: string | null;
+  registryDocumentName?: string | null;
+  allotmentDocumentUrl?: string | null;
+  allotmentDocumentName?: string | null;
 }
 
 /**
@@ -988,6 +1128,11 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.expectedRegistryDate !== undefined) data.expectedRegistryDate = input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null;
     if (input.dealMaturityMonths !== undefined) data.dealMaturityMonths = input.dealMaturityMonths;
     if (input.paymentCycle !== undefined) data.paymentCycle = input.paymentCycle ?? null;
+    // Document uploads
+    if (input.atsDocumentUrl !== undefined) { data.atsDocumentUrl = input.atsDocumentUrl; data.atsDocumentName = input.atsDocumentName ?? null; }
+    if (input.bbaDocumentUrl !== undefined) { data.bbaDocumentUrl = input.bbaDocumentUrl; data.bbaDocumentName = input.bbaDocumentName ?? null; }
+    if (input.registryDocumentUrl !== undefined) { data.registryDocumentUrl = input.registryDocumentUrl; data.registryDocumentName = input.registryDocumentName ?? null; }
+    if (input.allotmentDocumentUrl !== undefined) { data.allotmentDocumentUrl = input.allotmentDocumentUrl; data.allotmentDocumentName = input.allotmentDocumentName ?? null; }
 
     const updated = await tx.assetSale.update({
       where: { id: input.saleId },
@@ -1039,12 +1184,18 @@ export async function cancelSale(saleId: string, userId?: string) {
     }
 
     // Reverse GL entries based on the sale stage
-    if (sale.saleStage === "DEPOSIT_RECEIVED" && depositAmount.gt(0)) {
-      // Refund the deposit: Dr Customer_Deposit, Cr Cash
+    // Pre-completion payments (deposits + schedule installments) were all
+    // posted as Dr Cash / Cr Customer_Deposit (liability). On cancellation,
+    // reverse them all: Dr Customer_Deposit / Cr Cash.
+    const totalPreCompletionPayments = sale.payments.reduce(
+      (sum, p) => sum.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+    if (sale.saleStage !== "PENDING" && totalPreCompletionPayments.gt(0)) {
       await postDepositRefund(tx, {
         companyId: sale.companyId,
         assetSaleId: saleId,
-        amount: depositAmount,
+        amount: totalPreCompletionPayments,
         postedById: userId,
       });
     } else if (sale.saleStage === "PENDING") {
@@ -1083,6 +1234,18 @@ export async function cancelSale(saleId: string, userId?: string) {
     // Standalone land sales (no project) have nothing to reallocate.
     if (sale.projectId) {
       await reallocateProjectCosts(tx, sale.projectId);
+    }
+
+    // Reset payment schedule items on cancellation
+    const schedule = await tx.paymentSchedule.findFirst({
+      where: { assetSaleId: saleId },
+      select: { id: true },
+    });
+    if (schedule) {
+      await tx.paymentScheduleItem.updateMany({
+        where: { paymentScheduleId: schedule.id },
+        data: { paidAmount: 0, status: "PENDING" },
+      });
     }
 
     const updated = await tx.assetSale.update({
@@ -1188,6 +1351,7 @@ export async function createSalePaymentSchedule(
     const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
+    if (sale.saleStage === "COMPLETED") throw new ServiceError("Cannot create or replace a schedule on a completed sale — payments are already recorded");
 
     if (schedule.items.length === 0) {
       throw new ServiceError("Payment schedule must have at least one installment");
@@ -1362,6 +1526,58 @@ export async function payBrokerCommission(saleId: string, userId?: string) {
 }
 
 // ───────────────────────────────────────────────────────────
+//  Sale document upload — ATS, BBA, Registry, Allotment documents
+// ───────────────────────────────────────────────────────────
+
+export interface UploadSaleDocumentInput {
+  saleId: string;
+  userId?: string;
+  documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT";
+  documentUrl: string;
+  documentName?: string;
+}
+
+/** Upload a document (ATS, BBA, Registry, or Allotment) for a sale.
+ *  The registry document is REQUIRED before the sale can be completed. */
+export async function uploadSaleDocument(input: UploadSaleDocumentInput) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({ where: { id: input.saleId } });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot upload documents for a cancelled sale");
+
+    const data: Prisma.AssetSaleUpdateInput = {};
+    if (input.documentType === "ATS") {
+      data.atsDocumentUrl = input.documentUrl;
+      data.atsDocumentName = input.documentName ?? null;
+    } else if (input.documentType === "BBA") {
+      data.bbaDocumentUrl = input.documentUrl;
+      data.bbaDocumentName = input.documentName ?? null;
+    } else if (input.documentType === "REGISTRY") {
+      data.registryDocumentUrl = input.documentUrl;
+      data.registryDocumentName = input.documentName ?? null;
+    } else if (input.documentType === "ALLOTMENT") {
+      data.allotmentDocumentUrl = input.documentUrl;
+      data.allotmentDocumentName = input.documentName ?? null;
+    }
+
+    const updated = await tx.assetSale.update({ where: { id: input.saleId }, data });
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: sale.companyId,
+        action: "SALE_DOCUMENT_UPLOAD",
+        entityType: "AssetSale",
+        entityId: input.saleId,
+        after: { documentType: input.documentType, documentName: input.documentName },
+      });
+    }
+
+    return updated;
+  });
+}
+
+// ───────────────────────────────────────────────────────────
 //  Printable sale form data — fetch all data needed for the printable receipt
 // ───────────────────────────────────────────────────────────
 
@@ -1397,4 +1613,192 @@ export async function getPrintableSaleData(saleId: string, companyId?: string) {
   }
 
   return { sale, landParcel, projectUnits };
+}
+
+// ───────────────────────────────────────────────────────────
+//  Cheque clearing — mark a cheque-mode payment as cleared or bounced
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Clear a cheque payment. When a cheque clears, the sale proceeds to
+ * completion: revenue + COGS are recognised, the asset is marked SOLD,
+ * and the receivable is settled.
+ *
+ * Only applicable to payments with chequeStatus = "PENDING".
+ */
+export async function clearCheque(paymentId: string, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.assetSalePayment.findUnique({
+      where: { id: paymentId },
+      include: { assetSale: true },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "not pending"}`);
+    }
+
+    // Mark cheque as cleared
+    await tx.assetSalePayment.update({
+      where: { id: paymentId },
+      data: { chequeStatus: "CLEARED", chequeClearDate: new Date() },
+    });
+
+    const sale = payment.assetSale;
+    if (sale.saleStage === "DEPOSIT_RECEIVED" && sale.paymentStatus === "PAID") {
+      // This was an immediate full payment by cheque — now complete the sale
+      // BUT only if the registry document has been uploaded (gated completion)
+      if (!sale.registryDocumentUrl) {
+        // Cheque cleared but registry doc not yet uploaded — keep as DEPOSIT_RECEIVED
+        // The sale will be completed when the registry document is uploaded
+        if (userId) {
+          await logAction(tx, {
+            userId,
+            companyId: sale.companyId,
+            action: "CHEQUE_CLEARED",
+            entityType: "AssetSalePayment",
+            entityId: paymentId,
+            after: { chequeStatus: "CLEARED", note: "Registry document pending — sale not yet completed" },
+          });
+        }
+        return { ok: true, saleStage: "DEPOSIT_RECEIVED" as const, note: "Registry document required to complete sale" };
+      }
+
+      await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD", sale.projectId);
+      await delistPortalListings(tx, sale.builtUnitId, sale.projectId);
+
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: {
+          saleStage: "COMPLETED",
+          finalSaleDate: new Date(),
+        },
+      });
+
+      // Post revenue + COGS
+      await postAssetSale(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        assetType: sale.assetType,
+        salePrice: new Decimal(sale.salePrice),
+        costBasis: new Decimal(sale.costBasis),
+        gstAmount: new Decimal(sale.gstAmount),
+        postedById: userId,
+      });
+
+      // Settle the deposit liability against the receivable
+      const totalPaid = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+      if (totalPaid.gt(0)) {
+        await postJournalEntry(tx, {
+          companyId: sale.companyId,
+          sourceType: "ASSET_SALE_DEPOSIT_SETTLE",
+          sourceId: sale.id,
+          memo: "Settle cheque deposit against receivable on cheque clearance",
+          postedById: userId,
+          lines: [
+            { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: totalPaid, credit: 0, entityType: "AssetSale", entityId: sale.id, memo: "Reverse deposit liability" },
+            { accountCode: ACCT.AR, debit: 0, credit: totalPaid, entityType: "AssetSale", entityId: sale.id, memo: "Settle receivable with cleared cheque" },
+          ],
+        });
+      }
+    }
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "CHEQUE_CLEARED",
+        entityType: "AssetSalePayment",
+        entityId: paymentId,
+        after: { chequeStatus: "CLEARED", saleStage: "COMPLETED" },
+      });
+    }
+
+    return { ok: true, saleStage: "COMPLETED" as const };
+  }, { isolationLevel: "Serializable" });
+}
+
+/**
+ * Bounce a cheque payment. The payment is reversed, the sale reverts to
+ * its pre-payment state (PENDING if no other payments, or back to
+ * DEPOSIT_RECEIVED with adjusted amounts).
+ */
+export async function bounceCheque(paymentId: string, userId?: string, bounceReason?: string) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.assetSalePayment.findUnique({
+      where: { id: paymentId },
+      include: { assetSale: { include: { payments: true } } },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "not pending"}`);
+    }
+
+    const sale = payment.assetSale;
+
+    // Mark cheque as bounced
+    await tx.assetSalePayment.update({
+      where: { id: paymentId },
+      data: { chequeStatus: "BOUNCED", chequeBounceReason: bounceReason ?? null },
+    });
+
+    // Reverse the deposit GL entry for this payment (Dr Customer Deposit, Cr Cash)
+    const amount = new Decimal(payment.amount);
+    if (amount.gt(0)) {
+      await postDepositRefund(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        amount,
+        postedById: userId,
+      });
+    }
+
+    // Recompute sale stage based on remaining valid payments
+    const validPayments = sale.payments.filter(
+      (p) => p.id !== paymentId && p.chequeStatus !== "BOUNCED",
+    );
+    const totalRemaining = validPayments.reduce(
+      (sum, p) => sum.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+
+    if (totalRemaining.gt(0)) {
+      // Still has some valid payments — keep as DEPOSIT_RECEIVED
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: {
+          depositAmount: totalRemaining,
+          paymentStatus: "PARTIAL",
+        },
+      });
+    } else {
+      // No valid payments — revert to PENDING
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: {
+          saleStage: "PENDING",
+          depositAmount: null,
+          depositDate: null,
+          paymentStatus: "PENDING",
+        },
+      });
+      // Release the asset from RESERVED back to AVAILABLE
+      await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE", sale.projectId);
+    }
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "CHEQUE_BOUNCED",
+        entityType: "AssetSalePayment",
+        entityId: paymentId,
+        after: {
+          chequeStatus: "BOUNCED",
+          saleStage: totalRemaining.gt(0) ? "DEPOSIT_RECEIVED" : "PENDING",
+        },
+      });
+    }
+
+    return { ok: true, saleStage: totalRemaining.gt(0) ? "DEPOSIT_RECEIVED" as const : "PENDING" as const };
+  }, { isolationLevel: "Serializable" });
 }

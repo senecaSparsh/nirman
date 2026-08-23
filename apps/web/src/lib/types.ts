@@ -483,7 +483,21 @@ export type LandPurchaseRow = {
   registryNo: string | null;
   location: string | null;
   documentUrl: string | null;
-  mode?: "WHOLE" | "SUBDIVIDED" | null;
+  mode?: "WHOLE" | "SUBDIVIDED" | "BOOKED" | null;
+  // ── Staged purchase ──
+  purchaseStage?: string | null;
+  tokenAmount?: number | null;
+  tokenPaymentDate?: string | null;
+  tokenPaymentMode?: string | null;
+  // ── Documents ──
+  atsDocumentUrl?: string | null;
+  atsDocumentName?: string | null;
+  registryDocumentUrl?: string | null;
+  registryDocumentName?: string | null;
+  // ── Payments ──
+  totalPaid?: number;
+  balanceDue?: number;
+  paymentCount?: number;
   parcelCount: number;
   availableArea: number;
   // ── Aggregates for the rich card + portfolio ──
@@ -767,6 +781,15 @@ export type AssetSaleRow = {
   totalPaid: number;
   balanceDue: number;
   paymentCount: number;
+  // Document uploads
+  atsDocumentUrl: string | null;
+  atsDocumentName: string | null;
+  bbaDocumentUrl: string | null;
+  bbaDocumentName: string | null;
+  registryDocumentUrl: string | null;
+  registryDocumentName: string | null;
+  allotmentDocumentUrl: string | null;
+  allotmentDocumentName: string | null;
 };
 
 export type AssetSaleDetail = AssetSaleRow & {
@@ -777,6 +800,13 @@ export type AssetSaleDetail = AssetSaleRow & {
     mode: string;
     reference: string | null;
     status: string;
+    chequeStatus: string | null;
+    chequeNo: string | null;
+    chequeDate: string | null;
+    chequeBank: string | null;
+    chequePhotoUrl: string | null;
+    chequeClearDate: string | null;
+    chequeBounceReason: string | null;
   }[];
 };
 

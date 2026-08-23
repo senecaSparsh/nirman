@@ -208,6 +208,15 @@ async function SalesContent() {
       totalPaid,
       balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
       paymentCount: s.payments.length,
+      // Document uploads
+      atsDocumentUrl: s.atsDocumentUrl,
+      atsDocumentName: s.atsDocumentName,
+      bbaDocumentUrl: s.bbaDocumentUrl,
+      bbaDocumentName: s.bbaDocumentName,
+      registryDocumentUrl: s.registryDocumentUrl,
+      registryDocumentName: s.registryDocumentName,
+      allotmentDocumentUrl: s.allotmentDocumentUrl,
+      allotmentDocumentName: s.allotmentDocumentName,
     };
   });
 

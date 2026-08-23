@@ -9,9 +9,12 @@ import {
   IndianRupee, Maximize, Trash2, Pencil, X, Search, ChevronRight,
   Plus, Loader2, AlertCircle, Home, DollarSign, Tag,
   Phone, FileText, ExternalLink, Building2, Hammer, Ban, ZoomIn,
+  Banknote, KeyRound, CalendarClock,
 } from "lucide-react";
 import { MobileLandEditForm } from "./MobileLandEditForm";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
+import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
+import { MobileDocUploader } from "../../MobileDocUploader";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
@@ -85,7 +88,7 @@ interface LandData {
   documentUrl: string | null;
   projectId: string | null;
   projectName: string | null;
-  mode?: "WHOLE" | "SUBDIVIDED" | null;
+  mode?: "WHOLE" | "SUBDIVIDED" | "BOOKED" | null;
   // Land type & lease
   landType?: "FREEHOLD" | "LEASEHOLD" | null;
   leaseType?: "ONE_TIME" | "YEARLY" | null;
@@ -110,6 +113,26 @@ interface LandData {
   sales: Sale[];
   builtUnits: BuiltUnit[];
   legalDocs?: import("@/components/legal/legal-docs-section").LegalDocRow[];
+  // Staged purchase
+  purchaseStage?: string | null;
+  tokenAmount?: number | null;
+  tokenPaymentDate?: string | null;
+  tokenPaymentMode?: string | null;
+  // Documents
+  atsDocumentUrl?: string | null;
+  atsDocumentName?: string | null;
+  registryDocumentUrl?: string | null;
+  registryDocumentName?: string | null;
+  // Possession
+  isPossessed?: boolean;
+  possessionDate?: string | null;
+  possessionNotes?: string | null;
+  // Partial registry
+  partialRegistryAllowed?: boolean;
+  // Payments
+  totalPaid?: number;
+  paymentSchedule?: LandPaymentSchedule | null;
+  payments?: LandPayment[];
   stats: {
     parcelCount: number;
     availableCount: number;
@@ -126,6 +149,40 @@ interface LandData {
 }
 
 interface Customer { id: string; name: string; }
+
+interface LandPayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+  referenceNo: string | null;
+  notes: string | null;
+  chequeNo: string | null;
+  chequeDate: string | null;
+  chequeBank: string | null;
+  chequePhotoUrl: string | null;
+  chequeStatus: string | null;
+  chequeClearDate: string | null;
+  chequeBounceReason: string | null;
+}
+
+interface LandPaymentScheduleItem {
+  id: string;
+  installmentNo: number;
+  description: string;
+  percentage: number;
+  amount: number;
+  dueDate: string | null;
+  status: string;
+  paidAmount: number;
+  paidAt: string | null;
+}
+
+interface LandPaymentSchedule {
+  id: string;
+  totalAmount: number;
+  items: LandPaymentScheduleItem[];
+}
 
 const AREA_UNIT_SHORT: Record<string, string> = {
   SQFT: "sqft", SQM: "sqm", SQYD: "sqyd", ACRE: "acre",
@@ -184,6 +241,159 @@ export function MobileLandDetailClient({
   const [view, setView] = useState<"parcels" | "units">("parcels");
   const [cadastreZoom, setCadastreZoom] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+
+  // Staged purchase state
+  const [showPayment, setShowPayment] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
+
+  // Payment form state
+  const [payAmount, setPayAmount] = useState("");
+  const [payMode, setPayMode] = useState("BANK_TRANSFER");
+  const [payRef, setPayRef] = useState("");
+  const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
+
+  // Complete form state
+  const [compRegistryNo, setCompRegistryNo] = useState("");
+  const [compRegistryDocUrl, setCompRegistryDocUrl] = useState("");
+  const [compPartialRegistry, setCompPartialRegistry] = useState(false);
+
+  const isBooked = data?.purchaseStage === "BOOKED";
+  const isCompleted = data?.purchaseStage === "COMPLETED";
+  const totalPaid = data?.totalPaid ?? 0;
+  const totalCost = data?.totalCost ?? 0;
+  const balanceDue = Math.max(0, totalCost - totalPaid);
+  const payments = data?.payments ?? [];
+
+  async function handlePayment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!data) return;
+    const amount = Number(payAmount);
+    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
+    if (amount > balanceDue) { toast.error(`Amount cannot exceed balance (${formatCurrency(balanceDue)})`); return; }
+    if (payMode === "CHEQUE" && !payCheque.chequeNo.trim()) { toast.error("Cheque number is required"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${data.id}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          paymentMode: payMode,
+          referenceNo: payRef || undefined,
+          ...(payMode === "CHEQUE" ? {
+            chequeNo: payCheque.chequeNo.trim() || undefined,
+            chequeDate: payCheque.chequeDate || undefined,
+            chequeBank: payCheque.chequeBank.trim() || undefined,
+            chequePhotoUrl: payCheque.chequePhotoUrl || undefined,
+          } : {}),
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Failed to record payment");
+      toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending)" : "Payment recorded");
+      setShowPayment(false);
+      setPayAmount(""); setPayRef(""); setPayCheque(EMPTY_MOBILE_CHEQUE);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleComplete(e: React.FormEvent) {
+    e.preventDefault();
+    if (!data) return;
+    const hasRegistryDoc = !!(data.registryDocumentUrl || compRegistryDocUrl);
+    if (!hasRegistryDoc) { toast.error("Registry document is required to complete"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${data.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          registryDocumentUrl: compRegistryDocUrl || undefined,
+          registryNo: compRegistryNo || undefined,
+          partialRegistryAllowed: compPartialRegistry || undefined,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Failed to complete");
+      toast.success("Land purchase completed");
+      setShowComplete(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function uploadLandDocument(documentType: "ATS" | "REGISTRY", url: string, fileName?: string) {
+    if (!data) return;
+    setDocUploading(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${data.id}/document`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentType, documentUrl: url, documentName: fileName }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Upload failed");
+      toast.success(`${documentType} document uploaded`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setDocUploading(false);
+    }
+  }
+
+  async function handleChequeAction(paymentId: string, action: "clear" | "bounce") {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/payments/${paymentId}/cheque`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Failed to ${action} cheque`);
+      }
+      toast.success(action === "clear" ? "Cheque cleared" : "Cheque bounced");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleTogglePossession() {
+    if (!data) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${data.id}/possession`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPossessed: !data.isPossessed }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to update possession");
+      }
+      toast.success(data.isPossessed ? "Possession revoked" : "Possession marked");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update possession");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   // Sort parcels: PARTITIONED parents last, then by number
   const sortedParcels = useMemo(() => {
@@ -244,12 +454,200 @@ export function MobileLandDetailClient({
                 className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
                 style={{ color: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}
               >
-                {MODE_META[data.mode]?.label ?? data.mode}
+                {data.mode === "BOOKED" ? "Booked" : MODE_META[data.mode]?.label ?? data.mode}
               </span>
             ) : null}
+            {isBooked && (
+              <span
+                className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                style={{ color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
+              >
+                Awaiting Registry
+              </span>
+            )}
+            {isCompleted && (
+              <span
+                className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+              >
+                Completed
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ── Staged purchase banner — payment progress + document status ── */}
+      {(isBooked || payments.length > 0) && (
+        <div
+          className="rounded-[0.5rem] border px-3 py-2.5 mb-3"
+          style={{
+            borderColor: isBooked ? "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))" : "var(--color-line)",
+            backgroundColor: isBooked ? "color-mix(in srgb, var(--color-signal) 5%, var(--color-paper))" : "var(--color-paper)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Payment Progress
+            </p>
+            {isBooked && canManage && balanceDue > 0 && (
+              <button
+                onClick={() => setShowPayment(true)}
+                className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-0.5 press"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                + Payment
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
+              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(totalCost)}</p>
+            </div>
+            <div>
+              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
+              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
+            </div>
+            <div>
+              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
+              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: balanceDue > 0 ? "var(--color-signal)" : "var(--color-go)" }}>{formatCurrencyCompact(balanceDue)}</p>
+            </div>
+          </div>
+          {/* Progress bar */}
+          {totalCost > 0 && (
+            <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-line)" }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, (totalPaid / totalCost) * 100)}%`, backgroundColor: "var(--color-go)" }}
+              />
+            </div>
+          )}
+          {/* Registry doc status */}
+          <div className="mt-2 pt-1.5 flex items-center justify-between" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <span className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Registry Document</span>
+            {data.registryDocumentUrl ? (
+              <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] font-bold press" style={{ color: "var(--color-go)" }}>
+                <ExternalLink className="size-2.5" /> Uploaded
+              </a>
+            ) : (
+              <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-signal)" }}>Required to complete</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Possession tracking banner ── */}
+      <div
+        className="rounded-[0.5rem] border px-3 py-2.5 mb-3"
+        style={{
+          borderColor: data.isPossessed ? "color-mix(in srgb, var(--color-go) 30%, var(--color-line))" : "var(--color-line)",
+          backgroundColor: data.isPossessed ? "color-mix(in srgb, var(--color-go) 5%, var(--color-paper))" : "var(--color-paper)",
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="size-3.5" style={{ color: data.isPossessed ? "var(--color-go)" : "var(--color-ink-400)" }} />
+            <div>
+              <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                {data.isPossessed ? "Possession Taken" : "Possession Pending"}
+              </p>
+              {data.possessionDate && (
+                <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                  {formatDate(data.possessionDate)}
+                  {data.possessionNotes ? ` · ${data.possessionNotes}` : ""}
+                </p>
+              )}
+            </div>
+          </div>
+          {canManage && (
+            <button
+              onClick={() => handleTogglePossession()}
+              disabled={submitting}
+              className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-1 press disabled:opacity-50"
+              style={{
+                backgroundColor: data.isPossessed ? "var(--color-line)" : "var(--color-ink-950)",
+                color: data.isPossessed ? "var(--color-ink-600)" : "var(--color-paper)",
+              }}
+            >
+              {data.isPossessed ? "Revoke" : "Mark Possessed"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Payment Schedule (if exists) ── */}
+      {data.paymentSchedule && data.paymentSchedule.items.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+              Payment Plan
+            </p>
+            {canManage && isBooked && (
+              <button
+                onClick={() => setShowSchedule(true)}
+                className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-0.5 press"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                Edit Plan
+              </button>
+            )}
+          </div>
+          <div
+            className="rounded-[0.5rem] border overflow-hidden"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            {data.paymentSchedule.items.map((item, i) => {
+              const statusColor =
+                item.status === "PAID" ? "var(--color-go)" :
+                item.status === "PARTIAL" ? "var(--color-signal)" :
+                item.status === "DUE" ? "var(--color-stop)" :
+                "var(--color-ink-400)";
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2 px-2.5 py-2"
+                  style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                >
+                  <span
+                    className="grid place-items-center size-6 rounded-full shrink-0 text-[0.5rem] font-bold"
+                    style={{ backgroundColor: `color-mix(in srgb, ${statusColor} 12%, transparent)`, color: statusColor }}
+                  >
+                    {item.installmentNo}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                      {item.description}
+                    </p>
+                    <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                      {item.percentage}% of total
+                      {item.dueDate ? ` · Due ${formatDate(item.dueDate)}` : ""}
+                      {item.status === "PAID" && <span style={{ color: "var(--color-go)" }}> · Paid</span>}
+                      {item.status === "PARTIAL" && <span style={{ color: "var(--color-signal)" }}> · Partial ({formatCurrencyCompact(item.paidAmount)})</span>}
+                      {item.status === "DUE" && <span style={{ color: "var(--color-stop)" }}> · Due</span>}
+                    </p>
+                  </div>
+                  <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: statusColor }}>
+                    {formatCurrencyCompact(item.amount)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Create Payment Plan button (BOOKED + no schedule + canManage) ── */}
+      {isBooked && canManage && !data.paymentSchedule && balanceDue > 0 && (
+        <button
+          onClick={() => setShowSchedule(true)}
+          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2 mb-3 press"
+          style={{ border: "1px dashed var(--color-line)", color: "var(--color-ink-600)" }}
+        >
+          <CalendarClock className="size-3.5" />
+          <span className="text-[0.625rem] font-bold">Create Payment Plan</span>
+        </button>
+      )}
 
       {/* ── Registry record card — cadastre thumb on left, info on right, full-width bottom ── */}
       <div
@@ -688,6 +1086,150 @@ export function MobileLandDetailClient({
         </div>
       ) : null}
 
+      {/* ── Payments + Documents section (staged purchase) ── */}
+      {(isBooked || payments.length > 0) && (
+        <div className="mb-4">
+          {/* Payments list */}
+          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+            Payments ({payments.length})
+          </p>
+          {payments.length > 0 && (
+            <div
+              className="rounded-[0.5rem] border overflow-hidden mb-3"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              {payments.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 px-2.5 py-2"
+                  style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                >
+                  <span
+                    className="grid place-items-center size-6 rounded-full shrink-0"
+                    style={{ backgroundColor: p.chequeStatus === "BOUNCED" ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : p.chequeStatus === "PENDING" ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+                  >
+                    <Banknote className="size-3" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                      {p.paymentMode.replace("_", " ")}
+                      {p.referenceNo ? ` · ${p.referenceNo}` : ""}
+                    </p>
+                    <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                      {formatDate(p.paymentDate)}
+                      {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
+                      {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cleared</span>}
+                      {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Bounced</span>}
+                    </p>
+                  </div>
+                  <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
+                    {formatCurrencyCompact(p.amount)}
+                  </p>
+                  {canManage && p.chequeStatus === "PENDING" && (
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => handleChequeAction(p.id, "clear")}
+                        disabled={submitting}
+                        className="rounded-[0.25rem] px-1.5 py-1 text-[0.5rem] font-bold press disabled:opacity-50"
+                        style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => handleChequeAction(p.id, "bounce")}
+                        disabled={submitting}
+                        className="rounded-[0.25rem] px-1.5 py-1 text-[0.5rem] font-bold press disabled:opacity-50"
+                        style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                      >
+                        Bounce
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Document uploads — ATS + Registry */}
+          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+            Purchase Documents
+          </p>
+          <div
+            className="rounded-[0.5rem] border overflow-hidden mb-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            {/* ATS */}
+            <div className="px-2.5 py-2" style={{ borderBottom: "1px solid var(--color-line)" }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  Agreement to Sell (ATS)
+                </span>
+                {data.atsDocumentUrl ? (
+                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
+                ) : (
+                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
+                )}
+              </div>
+              {data.atsDocumentUrl ? (
+                <a href={data.atsDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] press" style={{ color: "var(--color-ink-600)" }}>
+                  <ExternalLink className="size-2.5" />
+                  <span className="truncate">{data.atsDocumentName || "View ATS"}</span>
+                </a>
+              ) : canManage ? (
+                <MobileDocUploader
+                  url=""
+                  label="Upload ATS"
+                  onUpload={(url, name) => uploadLandDocument("ATS", url, name)}
+                />
+              ) : (
+                <p className="text-[0.5rem]" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
+              )}
+            </div>
+            {/* Registry */}
+            <div className="px-2.5 py-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  Registry Document
+                </span>
+                {data.registryDocumentUrl ? (
+                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
+                ) : (
+                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-signal)" }}>Required</span>
+                )}
+              </div>
+              {data.registryDocumentUrl ? (
+                <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] press" style={{ color: "var(--color-ink-600)" }}>
+                  <ExternalLink className="size-2.5" />
+                  <span className="truncate">{data.registryDocumentName || "View Registry"}</span>
+                </a>
+              ) : canManage ? (
+                <MobileDocUploader
+                  url=""
+                  label="Upload Registry Document"
+                  required
+                  onUpload={(url, name) => uploadLandDocument("REGISTRY", url, name)}
+                />
+              ) : (
+                <p className="text-[0.5rem]" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
+              )}
+            </div>
+          </div>
+          {docUploading && <p className="text-[0.4375rem] mb-2" style={{ color: "var(--color-ink-500)" }}>Uploading…</p>}
+
+          {/* Complete action */}
+          {isBooked && canManage && (
+            <button
+              onClick={() => setShowComplete(true)}
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 mb-2 press"
+              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+            >
+              <CheckCircle2 className="size-3.5" />
+              <span className="text-[0.6875rem] font-bold">Complete Purchase</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Legal documents section ── */}
       <div className="mb-4">
         <MobileLegalDocsSection
@@ -782,7 +1324,172 @@ export function MobileLandDetailClient({
         />
       ) : null}
 
+      {/* ── Payment modal ── */}
+      {showPayment ? (
+        <LandModal onClose={() => setShowPayment(false)} title="Record Payment">
+          <form onSubmit={handlePayment} className="space-y-3">
+            <div className="grid grid-cols-3 gap-2 rounded-[0.375rem] border p-2" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
+                <p className="text-[0.625rem] font-bold tabular-nums">{formatCurrencyCompact(totalCost)}</p>
+              </div>
+              <div>
+                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
+                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
+              </div>
+              <div>
+                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
+                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>{formatCurrencyCompact(balanceDue)}</p>
+              </div>
+            </div>
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
+              <input
+                type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
+                value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                placeholder={balanceDue.toFixed(2)} required autoFocus
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.875rem] font-bold tabular-nums outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Mode</label>
+              <select
+                value={payMode} onChange={(e) => setPayMode(e.target.value)}
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
+                  <option key={m} value={m}>{m.replace("_", " ")}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reference</label>
+              <input
+                type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                placeholder="Cheque / UTR no."
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+            {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setShowPayment(false)}
+                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting}
+                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
+              </button>
+            </div>
+          </form>
+        </LandModal>
+      ) : null}
+
+      {/* ── Complete purchase modal ── */}
+      {showComplete ? (
+        <LandModal onClose={() => setShowComplete(false)} title="Complete Land Purchase">
+          <form onSubmit={handleComplete} className="space-y-3">
+            <p className="text-[0.5625rem] rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
+              Completing the purchase marks all parcels as AVAILABLE and creates an ownership certificate.
+            </p>
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Registry No.</label>
+              <input
+                type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
+                placeholder="e.g. SR-1234/2025"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
+                Registry Document — required *
+              </label>
+              <MobileDocUploader
+                url={data.registryDocumentUrl || compRegistryDocUrl}
+                fileName={data.registryDocumentName}
+                label="Upload Registry Document"
+                required
+                onUpload={(url) => setCompRegistryDocUrl(url)}
+                onRemove={() => setCompRegistryDocUrl("")}
+              />
+              {!data.registryDocumentUrl && !compRegistryDocUrl && (
+                <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-signal)" }}>
+                  Purchase cannot be completed without the registry document.
+                </p>
+              )}
+            </div>
+            {balanceDue > 0 && (
+              <label className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
+                <input
+                  type="checkbox"
+                  checked={compPartialRegistry}
+                  onChange={(e) => setCompPartialRegistry(e.target.checked)}
+                  className="size-3.5"
+                />
+                <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
+                  Allow partial registry — complete with ₹{formatCurrencyCompact(balanceDue)} balance due
+                </span>
+              </label>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setShowComplete(false)}
+                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting}
+                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Complete"}
+              </button>
+            </div>
+          </form>
+        </LandModal>
+      ) : null}
+
+      {/* ── Payment Schedule modal ── */}
+      {showSchedule && data ? (
+        <LandPaymentScheduleModal
+          landPurchaseId={data.id}
+          balanceDue={balanceDue}
+          existingSchedule={data.paymentSchedule}
+          onClose={() => setShowSchedule(false)}
+          onSaved={() => { setShowSchedule(false); router.refresh(); }}
+        />
+      ) : null}
+
       {confirmDialog}
+    </div>
+  );
+}
+
+/* ─── Land Modal (bottom sheet) ─── */
+function LandModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="press">
+            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+          </button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -1308,7 +2015,7 @@ function SaleCard({ sale: s }: { sale: Sale }) {
   const profitPositive = s.profit >= 0;
   return (
     <Link
-      href="/m/sales"
+      href="/m/sales?tab=collections"
       className="block rounded-[0.5rem] border p-2.5 press active:scale-[0.99] transition-transform"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
@@ -2028,5 +2735,189 @@ function MobileCadastrePlan({ parcels }: { parcels: Parcel[] }) {
         );
       })}
     </svg>
+  );
+}
+
+/* ─── Payment Schedule Modal — create/edit a structured payment plan ─── */
+function LandPaymentScheduleModal({
+  landPurchaseId,
+  balanceDue,
+  existingSchedule,
+  onClose,
+  onSaved,
+}: {
+  landPurchaseId: string;
+  balanceDue: number;
+  existingSchedule: LandPaymentSchedule | null | undefined;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [items, setItems] = useState<{ description: string; percentage: string; dueDate: string }[]>(
+    existingSchedule
+      ? existingSchedule.items.map((i) => ({
+          description: i.description,
+          percentage: String(i.percentage),
+          dueDate: i.dueDate ? i.dueDate.split("T")[0]! : "",
+        }))
+      : [
+          { description: "On ATS", percentage: "30", dueDate: "" },
+          { description: "On Registry", percentage: "50", dueDate: "" },
+          { description: "Balance", percentage: "20", dueDate: "" },
+        ],
+  );
+  const [saving, setSaving] = useState(false);
+
+  const totalPct = items.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0);
+  const pctValid = Math.abs(totalPct - 100) < 0.01;
+
+  function updateItem(idx: number, field: "description" | "percentage" | "dueDate", value: string) {
+    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
+  }
+
+  function addItem() {
+    setItems((prev) => [...prev, { description: "", percentage: "0", dueDate: "" }]);
+  }
+
+  function removeItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleSave() {
+    if (!pctValid) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${landPurchaseId}/payment-schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((it, i) => ({
+            installmentNo: i + 1,
+            description: it.description || `Installment ${i + 1}`,
+            percentage: parseFloat(it.percentage) || 0,
+            dueDate: it.dueDate || null,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to save payment plan");
+      }
+      toast.success("Payment plan saved");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save payment plan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Payment Plan</h2>
+          <button onClick={onClose} className="press">
+            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+          </button>
+        </div>
+
+        <p className="text-[0.5rem] mb-3 rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
+          Balance to schedule: <span className="font-bold">{formatCurrency(balanceDue)}</span>. Add installments with their percentage of the balance and optional due dates.
+        </p>
+
+        <div className="space-y-2 mb-3">
+          {items.map((item, idx) => {
+            const amount = (balanceDue * (parseFloat(item.percentage) || 0)) / 100;
+            return (
+              <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
+                  <button onClick={() => removeItem(idx)} className="press">
+                    <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={item.description}
+                  onChange={(e) => updateItem(idx, "description", e.target.value)}
+                  placeholder="Description (e.g. On ATS, On Registry)"
+                  className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem] mb-1.5"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                />
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
+                    <input
+                      type="number"
+                      value={item.percentage}
+                      onChange={(e) => updateItem(idx, "percentage", e.target.value)}
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem] tabular-nums"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
+                    <input
+                      type="date"
+                      value={item.dueDate}
+                      onChange={(e) => updateItem(idx, "dueDate", e.target.value)}
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem]"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    />
+                  </div>
+                </div>
+                <p className="text-[0.5rem] mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                  = {formatCurrency(amount)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={addItem}
+          className="w-full rounded-[0.5rem] border border-dashed py-2 text-[0.625rem] font-bold press mb-3"
+          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+        >
+          + Add Installment
+        </button>
+
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
+          <span
+            className="text-[0.625rem] font-bold tabular-nums"
+            style={{ color: pctValid ? "var(--color-go)" : "var(--color-stop)" }}
+          >
+            {totalPct.toFixed(2)}% {pctValid ? "✓" : "(must be 100%)"}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !pctValid}
+            className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Save Plan"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

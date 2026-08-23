@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
+import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -95,6 +96,7 @@ export function MobileMaterialSaleDetailClient({
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState("CASH");
   const [payRef, setPayRef] = useState("");
+  const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
 
   if (notFound) {
     return (
@@ -158,6 +160,10 @@ export function MobileMaterialSaleDetailClient({
       toast.error("Enter a valid amount");
       return;
     }
+    if (payMode === "CHEQUE" && !payCheque.chequeNo.trim()) {
+      toast.error("Cheque number is required");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`/api/material-sales/${saleId}/payments`, {
@@ -167,16 +173,23 @@ export function MobileMaterialSaleDetailClient({
           amount,
           paymentMode: payMode,
           referenceNo: payRef || undefined,
+          ...(payMode === "CHEQUE" ? {
+            chequeNo: payCheque.chequeNo.trim() || undefined,
+            chequeDate: payCheque.chequeDate || undefined,
+            chequeBank: payCheque.chequeBank.trim() || undefined,
+            chequePhotoUrl: payCheque.chequePhotoUrl || undefined,
+          } : {}),
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to record payment");
       }
-      toast.success("Payment recorded");
+      toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending clearance)" : "Payment recorded");
       setShowPayment(false);
       setPayAmount("");
       setPayRef("");
+      setPayCheque(EMPTY_MOBILE_CHEQUE);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to record payment");
@@ -620,6 +633,7 @@ export function MobileMaterialSaleDetailClient({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </FormField>
+            {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             <div className="flex gap-2">
               <button
                 type="button"

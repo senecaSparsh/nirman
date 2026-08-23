@@ -108,3 +108,47 @@ export function MobileSkeletonForm({ fields = 4 }: { fields?: number }) {
     </div>
   );
 }
+
+/** Detail page skeleton — hero card + key-value grid + action bar */
+export function MobileSkeletonDetail({ sections = 3 }: { sections?: number }) {
+  return (
+    <div>
+      {/* Hero card */}
+      <div className="animate-pulse px-4 py-4 border-b border-border/50">
+        <div className="flex items-start gap-3">
+          <SkeletonLine className="h-11 w-11 shrink-0 rounded-[0.625rem]" />
+          <div className="flex-1 space-y-2">
+            <SkeletonLine className="h-5 w-2/3" />
+            <SkeletonLine className="h-3 w-1/2" />
+            <SkeletonLine className="h-3 w-1/3" />
+          </div>
+        </div>
+      </div>
+
+      {/* Key-value grid */}
+      <div className="grid grid-cols-2 gap-px bg-border/30">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="animate-pulse bg-card p-3 space-y-1.5">
+            <SkeletonLine className="h-2.5 w-12" />
+            <SkeletonLine className="h-4 w-20" />
+          </div>
+        ))}
+      </div>
+
+      {/* Content sections */}
+      {Array.from({ length: sections }).map((_, i) => (
+        <div key={i} className="animate-pulse px-4 py-3 border-t border-border/50 space-y-2">
+          <SkeletonLine className="h-4 w-24" />
+          <SkeletonLine className="h-3 w-full" />
+          <SkeletonLine className="h-3 w-5/6" />
+          <SkeletonLine className="h-3 w-3/4" />
+        </div>
+      ))}
+
+      {/* Action bar placeholder */}
+      <div className="animate-pulse px-4 py-3 mt-4 border-t border-border/50">
+        <SkeletonLine className="h-11 w-full rounded-[0.625rem]" />
+      </div>
+    </div>
+  );
+}

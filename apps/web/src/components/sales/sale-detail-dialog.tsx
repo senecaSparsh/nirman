@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Banknote, X, Printer, CheckCircle2, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle } from "lucide-react";
+import { Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Upload } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
 import { DepositDialog } from "./deposit-dialog";
@@ -40,7 +41,36 @@ export function SaleDetailDialog({
   const [scheduleEditOpen, setScheduleEditOpen] = useState(false);
   const [saleEditOpen, setSaleEditOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const [chequeActionLoading, setChequeActionLoading] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
   const trackRecent = useTrackRecent();
+
+  async function uploadDocument(documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT", photos: { url: string; fileName?: string }[]) {
+    if (!sale || photos.length === 0) return;
+    const photo = photos[0];
+    if (!photo) return;
+    setDocUploading(true);
+    try {
+      const res = await fetch(`/api/sales/${sale.id}/document`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentType,
+          documentUrl: photo.url,
+          documentName: photo.fileName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      toast.success(`${documentType} document uploaded`);
+      refreshDetail();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setDocUploading(false);
+    }
+  }
 
   useEffect(() => {
     if (open && sale) {
@@ -104,6 +134,33 @@ export function SaleDetailDialog({
       });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send confirmation");
+    }
+  }
+
+  async function handleChequeAction(paymentId: string, action: "clear" | "bounce") {
+    setChequeActionLoading(true);
+    try {
+      const res = await fetch(`/api/sales/payments/${paymentId}/cheque`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Failed to ${action} cheque`);
+      toast.success(action === "clear" ? "Cheque cleared — sale completed" : "Cheque bounced");
+      router.refresh();
+      // Refresh the detail
+      if (sale) {
+        const detailRes = await fetch(`/api/sales/${sale.id}`);
+        if (detailRes.ok) {
+          const fresh = await detailRes.json();
+          setDetail(fresh);
+        }
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);
+    } finally {
+      setChequeActionLoading(false);
     }
   }
 
@@ -308,6 +365,77 @@ export function SaleDetailDialog({
                 </div>
               </div>
             )}
+
+            {/* Document uploads — ATS, BBA, Registry */}
+            <div className="rounded-lg border p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <p className="text-label text-muted-foreground">Sale Documents</p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {/* ATS */}
+                <div className="space-y-1.5">
+                  <p className="text-caption font-medium">Agreement to Sell (ATS)</p>
+                  {sale.atsDocumentUrl ? (
+                    <a href={sale.atsDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> {sale.atsDocumentName ?? "View ATS"}
+                    </a>
+                  ) : (
+                    <p className="text-micro text-muted-foreground">Not uploaded</p>
+                  )}
+                  {canManage && (
+                    <PhotoUploader
+                      photos={[]}
+                      onChange={(photos) => uploadDocument("ATS", photos)}
+                      maxPhotos={1}
+                      label="Upload ATS"
+                      className="mt-1"
+                    />
+                  )}
+                </div>
+                {/* BBA */}
+                <div className="space-y-1.5">
+                  <p className="text-caption font-medium">Builder-Buyer Agreement (BBA)</p>
+                  {sale.bbaDocumentUrl ? (
+                    <a href={sale.bbaDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> {sale.bbaDocumentName ?? "View BBA"}
+                    </a>
+                  ) : (
+                    <p className="text-micro text-muted-foreground">Not uploaded</p>
+                  )}
+                  {canManage && (
+                    <PhotoUploader
+                      photos={[]}
+                      onChange={(photos) => uploadDocument("BBA", photos)}
+                      maxPhotos={1}
+                      label="Upload BBA"
+                      className="mt-1"
+                    />
+                  )}
+                </div>
+                {/* Registry */}
+                <div className="space-y-1.5">
+                  <p className="text-caption font-medium">Registry Document</p>
+                  {sale.registryDocumentUrl ? (
+                    <a href={sale.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> {sale.registryDocumentName ?? "View Registry"}
+                    </a>
+                  ) : (
+                    <p className="text-micro text-warning">Required for completion</p>
+                  )}
+                  {canManage && (
+                    <PhotoUploader
+                      photos={[]}
+                      onChange={(photos) => uploadDocument("REGISTRY", photos)}
+                      maxPhotos={1}
+                      label="Upload Registry"
+                      className="mt-1"
+                    />
+                  )}
+                </div>
+              </div>
+              {docUploading && <p className="text-micro text-muted-foreground">Uploading…</p>}
+            </div>
 
             {/* Deal terms */}
             {(sale.dealMaturityMonths || sale.paymentCycle) && (
@@ -591,6 +719,21 @@ export function SaleDetailDialog({
                           <TD className="text-muted-foreground">{p.reference ?? "—"}</TD>
                           <TD>
                             <StatusPill status={p.status} />
+                            {p.chequeStatus === "PENDING" && (
+                              <span className="ml-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-micro font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                Cheque Pending
+                              </span>
+                            )}
+                            {p.chequeStatus === "CLEARED" && (
+                              <span className="ml-1 inline-flex items-center rounded bg-green-100 px-1.5 py-0.5 text-micro font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
+                                Cheque Cleared
+                              </span>
+                            )}
+                            {p.chequeStatus === "BOUNCED" && (
+                              <span className="ml-1 inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-micro font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
+                                Cheque Bounced
+                              </span>
+                            )}
                           </TD>
                           <TD>
                             <div className="flex items-center gap-2">
@@ -610,6 +753,26 @@ export function SaleDetailDialog({
                               >
                                 <MessageCircle className="h-3 w-3" />
                               </button>
+                              {p.chequeStatus === "PENDING" && (
+                                <>
+                                  <button
+                                    onClick={() => handleChequeAction(p.id, "clear")}
+                                    disabled={chequeActionLoading}
+                                    className="inline-flex items-center gap-1 text-micro font-medium text-green-600 hover:text-green-700 disabled:opacity-50"
+                                    title="Mark cheque as cleared"
+                                  >
+                                    <CheckCircle2 className="h-3 w-3" /> Clear
+                                  </button>
+                                  <button
+                                    onClick={() => handleChequeAction(p.id, "bounce")}
+                                    disabled={chequeActionLoading}
+                                    className="inline-flex items-center gap-1 text-micro font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                                    title="Mark cheque as bounced"
+                                  >
+                                    <XCircle className="h-3 w-3" /> Bounce
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </TD>
                         </TR>

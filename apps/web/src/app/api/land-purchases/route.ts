@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { recordLandPurchase, recordLandPurchaseWithPlan } from "@nirman/services";
+import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder } from "@nirman/services";
 import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -13,6 +13,7 @@ export const GET = apiHandler(async () => {
     include: {
       project: { select: { name: true } },
       parcels: { where: { deletedAt: null }, select: { id: true, area: true, status: true, purpose: true } },
+      payments: { select: { id: true, amount: true, paymentMode: true, chequeStatus: true } },
     },
   });
   return json(
@@ -30,6 +31,17 @@ export const GET = apiHandler(async () => {
       location: lp.location,
       documentUrl: lp.documentUrl,
       mode: lp.mode,
+      // Staged purchase
+      purchaseStage: lp.purchaseStage,
+      tokenAmount: lp.tokenAmount ? toNum(lp.tokenAmount) : null,
+      tokenPaymentDate: lp.tokenPaymentDate ? lp.tokenPaymentDate.toISOString() : null,
+      tokenPaymentMode: lp.tokenPaymentMode,
+      // Documents
+      atsDocumentUrl: lp.atsDocumentUrl,
+      registryDocumentUrl: lp.registryDocumentUrl,
+      // Payments
+      totalPaid: lp.payments.reduce((s, p) => s + toNum(p.amount), 0),
+      paymentCount: lp.payments.length,
       parcelCount: lp.parcels.length,
       availableArea: lp.parcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),
     })),
@@ -97,6 +109,47 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase") }, { status: 400 });
+    }
+  }
+
+  // ── Staged purchase order (BOOKED mode) ──
+  // Body has `mode: "BOOKED"` — book land with token, complete later when registry doc uploaded.
+  if (body?.mode === "BOOKED") {
+    try {
+      const result = await recordLandPurchaseOrder({
+        companyId: company.id,
+        sellerId: body.sellerId ?? undefined,
+        sellerName: body.sellerName,
+        sellerContact: body.sellerContact ?? undefined,
+        purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : undefined,
+        totalArea: body.totalArea,
+        areaUnit: body.areaUnit ?? "SQFT",
+        totalCost: body.totalCost,
+        registryNo: body.registryNo ?? undefined,
+        location: body.location ?? undefined,
+        documentUrl: body.documentUrl ?? undefined,
+        projectId: body.projectId ?? undefined,
+        tokenAmount: body.tokenAmount ?? undefined,
+        tokenPaymentMode: body.tokenPaymentMode ?? undefined,
+        tokenChequeNo: body.tokenChequeNo ?? undefined,
+        tokenChequeDate: body.tokenChequeDate ?? undefined,
+        tokenChequeBank: body.tokenChequeBank ?? undefined,
+        tokenChequePhotoUrl: body.tokenChequePhotoUrl ?? undefined,
+        atsDocumentUrl: body.atsDocumentUrl ?? undefined,
+        atsDocumentName: body.atsDocumentName ?? undefined,
+        createdById: user.id,
+      });
+      return json({
+        id: result.landPurchase.id,
+        purchaseStage: result.landPurchase.purchaseStage,
+        rootParcelId: result.parcel.id,
+        rootParcelNumber: result.parcel.number,
+        rootParcelArea: toNum(result.parcel.area),
+        rootParcelAreaUnit: result.parcel.areaUnit,
+        rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost),
+      }, { status: 201 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase order") }, { status: 400 });
     }
   }
 

@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNcrDetailClient } from "./MobileNcrDetailClient";
 
 export default async function MobileNcrDetailPage({
@@ -14,7 +14,7 @@ export default async function MobileNcrDetailPage({
 }) {
   const { id } = await params;
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
+    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
       <MobileNcrDetailContent id={id} />
     </Suspense>
   );

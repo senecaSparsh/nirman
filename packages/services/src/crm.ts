@@ -1,7 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postPaymentReceived } from "./gl-posting";
+import { postPaymentReceived, postDepositReceived } from "./gl-posting";
 import { ServiceError } from "./errors";
 
 /**
@@ -651,14 +651,27 @@ export async function recordSchedulePayment(
       },
     });
 
-    // Post GL entry: Dr Cash, Cr AR (reduces the receivable created by postAssetSale)
-    await postPaymentReceived(tx, {
-      companyId: sale.companyId,
-      assetSaleId: sale.id,
-      paymentId: payment.id,
-      amount: payAmount,
-      postedById: userId,
-    });
+    // Post GL entry based on sale stage:
+    // - Pre-completion (PENDING/DEPOSIT_RECEIVED): Dr Cash, Cr Customer Deposit (liability)
+    //   Revenue hasn't been recognised yet, so there's no AR to credit. The payment
+    //   is treated as an advance/deposit until completion.
+    // - Post-completion: Dr Cash, Cr AR (reduces the receivable created by postAssetSale)
+    if (sale.saleStage === "COMPLETED") {
+      await postPaymentReceived(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        paymentId: payment.id,
+        amount: payAmount,
+        postedById: userId,
+      });
+    } else {
+      await postDepositReceived(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        amount: payAmount,
+        postedById: userId,
+      });
+    }
 
     // Update sale payment status
     const allItems = await tx.paymentScheduleItem.findMany({

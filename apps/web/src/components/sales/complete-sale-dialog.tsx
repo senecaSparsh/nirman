@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
+import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "./cheque-fields";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import type { AssetSaleRow } from "@/lib/types";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -43,6 +45,8 @@ export function CompleteSaleDialog({
     homeLoanSanctionNo: "",
     homeLoanSanctionDate: "",
   });
+  const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
+  const [registryDocUrl, setRegistryDocUrl] = useState("");
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -52,9 +56,15 @@ export function CompleteSaleDialog({
 
   // Default the final payment to the remaining balance
   const amountNum = form.finalPaymentAmount ? Number(form.finalPaymentAmount) : remainingBalance;
+  const isCheque = form.paymentMode === "CHEQUE";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
+    if (!registryDocUrl && !sale?.registryDocumentUrl) {
+      toast.error("Registry document upload is required to complete the sale");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/sales/${sale!.id}`, {
@@ -78,6 +88,15 @@ export function CompleteSaleDialog({
           homeLoanAmount: form.homeLoanAmount ? Number(form.homeLoanAmount) : undefined,
           homeLoanSanctionNo: form.homeLoanSanctionNo.trim() || null,
           homeLoanSanctionDate: form.homeLoanSanctionDate || null,
+          // Cheque details
+          ...(isCheque ? {
+            chequeNo: cheque.chequeNo.trim() || null,
+            chequeDate: cheque.chequeDate || null,
+            chequeBank: cheque.chequeBank.trim() || null,
+            chequePhotoUrl: cheque.chequePhotoUrl || null,
+          } : {}),
+          // Registry document
+          registryDocumentUrl: registryDocUrl || sale?.registryDocumentUrl || null,
         }),
       });
       const data = await res.json();
@@ -151,11 +170,29 @@ export function CompleteSaleDialog({
           <Label htmlFor="c-ref">Reference</Label>
           <Input id="c-ref" value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="Cheque no, UTR, etc." />
         </div>
+        {isCheque && <ChequeFields value={cheque} onChange={setCheque} />}
         <div className="space-y-1.5">
           <Label htmlFor="c-deed">Sale Deed / Registry No.</Label>
           <Input id="c-deed" value={form.saleDeedNo} onChange={(e) => set("saleDeedNo", e.target.value)} placeholder="e.g. SR-1234/2025" />
           <p className="text-caption text-muted-foreground">
             The registered sale deed number from the sub-registrar. Captured at completion when the title is transferred.
+          </p>
+        </div>
+        <div className="space-y-1.5 rounded-md border border-dashed border-warning/40 bg-warning/5 p-3">
+          <Label>Registry Document Upload *</Label>
+          {sale?.registryDocumentUrl && !registryDocUrl ? (
+            <p className="text-caption text-muted-foreground">
+              Registry document already uploaded. You can re-upload to replace it.
+            </p>
+          ) : null}
+          <PhotoUploader
+            photos={registryDocUrl ? [{ url: registryDocUrl }] : (sale?.registryDocumentUrl ? [{ url: sale.registryDocumentUrl }] : [])}
+            onChange={(photos) => setRegistryDocUrl(photos[0]?.url ?? "")}
+            maxPhotos={1}
+            label="Upload Registry Document (PDF/Image)"
+          />
+          <p className="text-caption text-muted-foreground">
+            The signed & registered sale deed is required to complete the sale and transfer title.
           </p>
         </div>
 

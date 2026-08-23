@@ -25,6 +25,11 @@ export async function createMaterialSalePayment(input: {
   referenceNo?: string;
   notes?: string;
   userId?: string;
+  // Cheque details
+  chequeNo?: string;
+  chequeDate?: string; // ISO date
+  chequeBank?: string;
+  chequePhotoUrl?: string;
 }) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
@@ -67,6 +72,12 @@ export async function createMaterialSalePayment(input: {
         referenceNo: input.referenceNo,
         notes: input.notes,
         createdById: input.userId,
+        // Cheque details
+        chequeNo: input.chequeNo ?? null,
+        chequeDate: input.chequeDate ? new Date(input.chequeDate) : null,
+        chequeBank: input.chequeBank ?? null,
+        chequePhotoUrl: input.chequePhotoUrl ?? null,
+        chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
       },
     });
 
