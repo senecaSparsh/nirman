@@ -3,7 +3,6 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Package, Plus } from "lucide-react";
-import Link from "next/link";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileExportShareBar } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileMaterialsList } from "./MobileMaterialsList";
 
 /**
@@ -131,19 +131,7 @@ async function MobileMaterialsContent({
 
       {/* Floating add button */}
       {canManage && rows.length > 0 && (
-        <Link
-          href="/m/materials/new"
-          className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-          style={{
-            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-            backgroundColor: "var(--color-ink-950)",
-            color: "#fff",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          }}
-          aria-label="Add new material"
-        >
-          <Plus className="size-5" />
-        </Link>
+        <MobileFab href="/m/materials/new" label="Add new material" />
       )}
     </div>
   );

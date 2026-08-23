@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
+import {
+  MobileSearchHeader,
+  MobileFilterChips,
+  MobileNoResults,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 export type MaterialItem = {
   id: string;
@@ -90,117 +95,40 @@ export function MobileMaterialsList({
     name: "Name A-Z",
   };
 
+  // Build filter chips: "All" + categories
+  const categoryChips: FilterChip<string>[] = [
+    { label: "All", value: "__all__" },
+    ...categories.map((c) => ({ label: c, value: c })),
+  ];
+  const activeChipValue = activeCategory ?? "__all__";
+
   return (
     <div>
       {/* ── Sticky search header ── */}
-      <div
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Search + sort row */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="relative flex-1">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search materials…"
-              className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-          <SortDropdown sort={sort} setSort={setSort} sortLabel={sortLabel} />
-        </div>
-
-        {/* Category chips */}
-        <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1.5 w-max items-center">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className="press rounded-full px-3 py-1.5 shrink-0 text-[0.75rem] font-semibold border transition-colors"
-              style={
-                !activeCategory
-                  ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
-                  : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
-              }
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                className="press rounded-full px-3 py-1.5 shrink-0 text-[0.75rem] font-semibold border transition-colors"
-                style={
-                  activeCategory === cat
-                    ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
-                    : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
-                }
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Result count + clear filters */}
-        <div className="flex items-center justify-between mt-2">
-          <span
-            className="text-[0.6875rem] font-semibold"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {filtered.length} item{filtered.length !== 1 ? "s" : ""}
-          </span>
-          {(activeCategory || query) && filtered.length > 0 ? (
-            <button
-              onClick={() => {
-                setQuery("");
-                setActiveCategory(null);
-              }}
-              className="text-[0.6875rem] font-semibold flex items-center gap-1"
-              style={{ color: "var(--color-steel)" }}
-            >
-              <X className="size-3" /> Clear
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search materials…"
+        action={<SortDropdown sort={sort} setSort={setSort} sortLabel={sortLabel} />}
+        filterChips={
+          <MobileFilterChips
+            chips={categoryChips}
+            active={activeChipValue}
+            onChange={(v) => setActiveCategory(v === "__all__" ? null : v)}
+          />
+        }
+        resultCount={`${filtered.length} item${filtered.length !== 1 ? "s" : ""}`}
+        showClear={(!!activeCategory || !!query) && filtered.length > 0}
+        onClear={() => { setQuery(""); setActiveCategory(null); }}
+      />
 
       {/* ── Results ── */}
       {filtered.length === 0 ? (
-        <div
-          className="rounded-[0.875rem] border p-5 text-center"
-          style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-          }}
-        >
-          <p
-            className="font-semibold text-[0.875rem]"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            No materials found
-          </p>
-          <p
-            className="text-[0.6875rem] mt-1"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {query
-              ? `Nothing matches "${query}"`
-              : "No materials match the selected filters."}
-          </p>
-        </div>
+        <MobileNoResults
+          title="No materials found"
+          query={query || undefined}
+          hint="No materials match the selected filters."
+        />
       ) : sort === "default" ? (
         /* Grouped by category */
         groupedCategories.map((category) => (

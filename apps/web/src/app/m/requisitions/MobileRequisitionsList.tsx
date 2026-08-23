@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import { Search, X, Plus, CheckCircle2, ShoppingCart } from "lucide-react";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { CheckCircle2, ShoppingCart } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import {
+  MobileSearchHeader,
+  MobileFilterChips,
+  MobileHeaderAction,
+  MobileCardGrid,
+  MobileNoResults,
+  MobileDashedCreateButton,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 type ReqStatus =
   | "ALL"
@@ -79,16 +88,9 @@ export function MobileRequisitionsList({
     return (
       <div>
         {canCreate ? (
-          <div className="mb-3">
-            <Link
-              href="/m/requisitions/new"
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
-              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-            >
-              <Plus className="size-3.5" />
-              New Material Indent
-            </Link>
-          </div>
+          <MobileDashedCreateButton href="/m/requisitions/new">
+            New Material Indent
+          </MobileDashedCreateButton>
         ) : null}
         <MobileEmptyState
           icon={ShoppingCart}
@@ -99,127 +101,41 @@ export function MobileRequisitionsList({
     );
   }
 
+  const filterChips: FilterChip<ReqStatus>[] = FILTER_CHIPS;
+
   return (
     <div>
       {/* ── Sticky search header ── */}
-      <div
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Search + New Req row */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="relative flex-1">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search req no, project…"
-              className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-          {canCreate ? (
-            <Link
-              href="/m/requisitions/new"
-              className="flex items-center gap-1 h-9 px-3 rounded-[0.625rem] text-[0.75rem] font-bold whitespace-nowrap press active:scale-95 shrink-0"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "#fff",
-              }}
-            >
-              <Plus className="size-3.5" />
-              New Requisition
-            </Link>
-          ) : null}
-        </div>
-
-        {/* Filter chips */}
-        <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1.5 w-max items-center">
-            {FILTER_CHIPS.map((chip) => {
-              const active = statusFilter === chip.value;
-              return (
-                <button
-                  key={chip.value}
-                  onClick={() => setStatusFilter(chip.value)}
-                  className="press rounded-full px-2.5 py-1 shrink-0 text-[0.6875rem] font-semibold border transition-colors"
-                  style={
-                    active
-                      ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
-                      : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
-                  }
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Result count + clear */}
-        <div className="flex items-center justify-between mt-2">
-          <span
-            className="text-[0.6875rem] font-semibold"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {filtered.length} requisition{filtered.length !== 1 ? "s" : ""}
-          </span>
-          {(statusFilter !== "ALL" || query) && filtered.length > 0 ? (
-            <button
-              onClick={() => {
-                setQuery("");
-                setStatusFilter("ALL");
-              }}
-              className="text-[0.6875rem] font-semibold flex items-center gap-1"
-              style={{ color: "var(--color-steel)" }}
-            >
-              <X className="size-3" /> Clear
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search req no, project…"
+        action={canCreate ? <MobileHeaderAction href="/m/requisitions/new">New Req</MobileHeaderAction> : undefined}
+        filterChips={
+          <MobileFilterChips
+            chips={filterChips}
+            active={statusFilter}
+            onChange={setStatusFilter}
+          />
+        }
+        resultCount={`${filtered.length} requisition${filtered.length !== 1 ? "s" : ""}`}
+        showClear={(statusFilter !== "ALL" || !!query) && filtered.length > 0}
+        onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
+      />
 
       {/* ── Results ── */}
       {filtered.length === 0 ? (
-        <div
-          className="rounded-[0.875rem] border p-5 text-center"
-          style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-          }}
-        >
-          <p
-            className="font-semibold text-[0.875rem]"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            No requisitions found
-          </p>
-          <p
-            className="text-[0.6875rem] mt-1"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {query
-              ? `Nothing matches "${query}"`
-              : "No requisitions match the selected filter."}
-          </p>
-        </div>
+        <MobileNoResults
+          title="No requisitions found"
+          query={query || undefined}
+          hint="No requisitions match the selected filter."
+        />
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <MobileCardGrid cols={2}>
           {filtered.map((r) => (
             <ReqCard key={r.id} req={r} />
           ))}
-        </div>
+        </MobileCardGrid>
       )}
     </div>
   );

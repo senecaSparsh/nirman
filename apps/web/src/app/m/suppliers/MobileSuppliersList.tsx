@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
-import { Search, X, ChevronDown, Truck, Phone, Plus } from "lucide-react";
+import { useState, useMemo } from "react";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { Phone } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileFilterDropdown,
+  MobileCardGrid,
+  MobileFab,
+  MobileNoResults,
+  MobileSummaryStrip,
+  type SummaryStat,
+} from "@/components/mobile/v2/scaffold";
 
 type DuesFilter = "ALL" | "DUE" | "CLEAR";
 
@@ -39,19 +48,6 @@ export function MobileSuppliersList({
 }) {
   const [query, setQuery] = useState("");
   const [duesFilter, setDuesFilter] = useState<DuesFilter>("ALL");
-  const [showFilter, setShowFilter] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showFilter) return;
-    const handler = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setShowFilter(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showFilter]);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -78,162 +74,55 @@ export function MobileSuppliersList({
     });
   }, [items, query, duesFilter]);
 
+  const summaryStats: SummaryStat[] = [
+    { label: "Total Owed", value: formatCurrency(totalOwed), tone: totalOwed > 0 ? "stop" : "default" },
+    { label: "With Dues", value: String(withDuesCount) },
+    { label: "Suppliers", value: String(items.length) },
+  ];
+
   return (
     <div>
       {/* ── Summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Total Owed
-          </p>
-          <p
-            className="text-[0.875rem] font-bold tabular-nums"
-            style={{ color: totalOwed > 0 ? "var(--color-stop)" : "var(--color-ink-950)" }}
-          >
-            {formatCurrency(totalOwed)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            With Dues
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {withDuesCount}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Suppliers
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {items.length}
-          </p>
-        </div>
-      </div>
+      <MobileSummaryStrip stats={summaryStats} />
 
       {/* ── Sticky search header ── */}
-      <div
-        ref={headerRef}
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-1.5 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          {/* Search */}
-          <div className="relative flex-1 min-w-0">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search supplier, GSTIN, phone…"
-              className="w-full h-8 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Dues filter selector */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowFilter(v => !v)}
-              className="h-8 rounded-[0.5rem] border pl-2 pr-5 text-[0.625rem] font-semibold focus:outline-none cursor-pointer truncate max-w-[5rem] flex items-center"
-              style={{
-                borderColor: duesFilter !== "ALL" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <span className="truncate">
-                {FILTER_OPTIONS.find(f => f.value === duesFilter)?.label ?? "All"}
-              </span>
-            </button>
-            <ChevronDown
-              className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 size-3"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            {showFilter ? (
-              <div
-                className="absolute top-9 right-0 z-30 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[7rem]"
-                style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-              >
-                {FILTER_OPTIONS.map((opt, i) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { setDuesFilter(opt.value); setShowFilter(false); }}
-                    className="w-full text-left px-2.5 py-1.5 text-[0.625rem] font-semibold"
-                    style={
-                      duesFilter === opt.value
-                        ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
-                        : { color: "var(--color-ink-700)", ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}) }
-                    }
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Clear button */}
-        {(duesFilter !== "ALL" || query) ? (
-          <button
-            onClick={() => { setQuery(""); setDuesFilter("ALL"); }}
-            className="text-[0.625rem] font-semibold flex items-center gap-1 mt-1"
-            style={{ color: "var(--color-steel)" }}
-          >
-            <X className="size-2.5" /> Clear
-          </button>
-        ) : null}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search supplier, GSTIN, phone…"
+        action={
+          <MobileFilterDropdown
+            label="All"
+            options={FILTER_OPTIONS}
+            active={duesFilter}
+            onChange={setDuesFilter}
+          />
+        }
+        showClear={duesFilter !== "ALL" || !!query}
+        onClear={() => { setQuery(""); setDuesFilter("ALL"); }}
+      />
 
       {/* ── Supplier cards grid ── */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Truck className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query || duesFilter !== "ALL" ? "No matching suppliers" : "No suppliers"}
-          </p>
-          <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query || duesFilter !== "ALL"
-              ? "Try a different search or filter"
-              : canCreate
-                ? "Tap + to add your first supplier"
-                : "Suppliers will appear here once added"}
-          </p>
-        </div>
+        <MobileNoResults
+          title={query || duesFilter !== "ALL" ? "No matching suppliers" : "No suppliers"}
+          hint={query || duesFilter !== "ALL"
+            ? "Try a different search or filter"
+            : canCreate
+              ? "Tap + to add your first supplier"
+              : "Suppliers will appear here once added"}
+        />
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <MobileCardGrid cols={2}>
           {filtered.map((s) => (
             <SupplierCard key={s.id} s={s} />
           ))}
-        </div>
+        </MobileCardGrid>
       )}
 
       {/* ── New supplier FAB ── */}
       {canCreate ? (
-        <Link
-          href="/m/suppliers/new"
-          className="fixed bottom-20 right-4 z-30 flex items-center justify-center size-12 rounded-full shadow-lg press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-        >
-          <Plus className="size-5" />
-        </Link>
+        <MobileFab href="/m/suppliers/new" label="Add supplier" />
       ) : null}
     </div>
   );

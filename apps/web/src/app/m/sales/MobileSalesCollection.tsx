@@ -2,13 +2,18 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  Plus, Wallet, TrendingUp, CheckCircle2,
+  Plus, TrendingUp, CheckCircle2,
   IndianRupee, Loader2, Phone, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {
+  MobileFilterChips,
+  MobileNoResults,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 export interface SaleItem {
   id: string;
@@ -81,10 +86,10 @@ export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; sta
     <div className="pb-6">
       {/* ── Collection banner ── */}
       <div
-        className="rounded-[0.625rem] border p-3 mb-3"
+        className="rounded-[0.5rem] border p-2.5 mb-2.5"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1.5">
           <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Total Outstanding
           </p>
@@ -98,13 +103,13 @@ export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; sta
             {stats.collectionPct}% collected
           </span>
         </div>
-        <p className="text-[1.25rem] font-bold tabular-nums mb-2" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-[1.125rem] font-bold tabular-nums mb-1.5" style={{ color: "var(--color-ink-950)" }}>
           {formatCurrency(stats.totalOutstanding)}
         </p>
 
         {/* Progress bar */}
         <div
-          className="h-1.5 rounded-full overflow-hidden mb-2"
+          className="h-1.5 rounded-full overflow-hidden mb-1.5"
           style={{ backgroundColor: "var(--color-concrete)" }}
         >
           <div
@@ -131,42 +136,31 @@ export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; sta
       {/* ── New sale button ── */}
       <Link
         href="/m/sales/new"
-        className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.6875rem] font-bold press mb-3"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.75rem] font-bold press mb-2.5"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
       >
         <Plus className="size-3.5" />
         New Sale
       </Link>
 
       {/* ── Filter chips ── */}
-      <div className="flex gap-1.5 mb-3">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[0.5rem] font-bold press"
-            style={{
-              color: filter === f.value ? "var(--color-paper)" : "var(--color-ink-600)",
-              backgroundColor: filter === f.value ? "var(--color-ink-950)" : "var(--color-concrete)",
-            }}
-          >
-            {f.label}
-            <span className="text-[0.4375rem] tabular-nums" style={{ opacity: 0.6 }}>
-              {f.count}
-            </span>
-          </button>
-        ))}
+      <div className="mb-2.5">
+        <MobileFilterChips
+          chips={FILTERS as FilterChip<"OUTSTANDING" | "SETTLED" | "ALL">[]}
+          active={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {/* ── Search ── */}
       <input
-        type="text"
+        type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search customer, sale no, or asset…"
-        className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.6875rem] mb-3 outline-none"
+        className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] mb-3 outline-none"
         style={{
-          borderColor: "var(--color-line)",
+          borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
           backgroundColor: "var(--color-paper)",
           color: "var(--color-ink-950)",
         }}
@@ -209,20 +203,12 @@ export function MobileSalesCollection({ items, stats }: { items: SaleItem[]; sta
 
       {/* ── Empty state ── */}
       {filtered.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.625rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Wallet className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-            {items.length === 0 ? "No sales yet" : "No matches"}
-          </p>
-          <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-            {items.length === 0
-              ? "Create your first sale to start tracking collections"
-              : "Try a different search or filter"}
-          </p>
-        </div>
+        <MobileNoResults
+          title={items.length === 0 ? "No sales yet" : "No matches"}
+          hint={items.length === 0
+            ? "Create your first sale to start tracking collections"
+            : "Try a different search or filter"}
+        />
       )}
     </div>
   );
@@ -288,7 +274,7 @@ function OutstandingCard({
         disabled={submitting}
         className="w-full text-left p-2.5 active:scale-[0.99] transition-transform"
       >
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-0.5">
           <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {sale.customerName}
           </p>
@@ -299,7 +285,7 @@ function OutstandingCard({
             {meta.label}
           </span>
         </div>
-        <p className="text-[0.5rem] truncate mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
           {sale.assetLabel} · {sale.saleNumber}
         </p>
 
@@ -325,7 +311,7 @@ function OutstandingCard({
 
         {/* Mini progress bar */}
         <div
-          className="h-1 rounded-full overflow-hidden mt-2"
+          className="h-1 rounded-full overflow-hidden mt-1.5"
           style={{ backgroundColor: "var(--color-concrete)" }}
         >
           <div
@@ -337,11 +323,11 @@ function OutstandingCard({
           />
         </div>
 
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-1.5">
           <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
             {formatDate(sale.saleDate)}
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {sale.customerPhone ? (
               <a
                 href={`tel:${sale.customerPhone}`}
@@ -360,15 +346,6 @@ function OutstandingCard({
               style={{ color: "var(--color-ink-600)" }}
             >
               Details
-              <ArrowRight className="size-2.5" />
-            </Link>
-            <Link
-              href={`/m/customers/${sale.customerId}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
-              style={{ color: "var(--color-ink-600)" }}
-            >
-              Profile
               <ArrowRight className="size-2.5" />
             </Link>
           </div>

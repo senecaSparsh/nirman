@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  Search, X, Users, Phone,
+  Users, Phone,
   UserPlus,
   AlertCircle, ChevronRight,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import {
+  MobileFilterChips,
+  MobileNoResults,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 /* ─── Types ─── */
 
@@ -121,63 +126,52 @@ export function MobileCustomersList({
       </div>
 
       {/* ── New Customer button ── */}
-      <Link
-        href="/m/customers/new"
-        className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] mb-3 text-[0.625rem] font-bold press"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-      >
-        <UserPlus className="size-3.5" />
-        New Customer
-      </Link>
+      {canCreate ? (
+        <Link
+          href="/m/customers/new"
+          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.625rem] mb-3 text-[0.75rem] font-bold press"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
+        >
+          <UserPlus className="size-3.5" />
+          New Customer
+        </Link>
+      ) : null}
 
       {/* ── Search ── */}
       <div className="mb-2.5">
-        <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-            style={{ color: "var(--color-ink-500)" }}
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, phone, GSTIN…"
-            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
-            style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {query ? (
-            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 press">
-              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          ) : null}
-        </div>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search name, phone, GSTIN…"
+          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] outline-none"
+          style={{
+            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-950)",
+          }}
+        />
       </div>
 
       {/* ── Filter chips ── */}
-      <div className="flex items-center gap-1 mb-3">
-        <FilterChip active={filter === "all"} onClick={() => setFilter("all")} label="All" count={items.length} />
-        <FilterChip active={filter === "dues"} onClick={() => setFilter("dues")} label="Dues" count={duesCount} color="var(--color-signal)" />
-        <FilterChip active={filter === "clear"} onClick={() => setFilter("clear")} label="Clear" count={clearCount} color="var(--color-go)" />
+      <div className="mb-3">
+        <MobileFilterChips
+          chips={[
+            { label: "All", value: "all", count: items.length },
+            { label: "Dues", value: "dues", count: duesCount },
+            { label: "Clear", value: "clear", count: clearCount },
+          ] as FilterChip<Filter>[]}
+          active={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {/* ── Customer cards ── */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-10 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Users className="size-7 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query ? "No matching customers" : filter === "dues" ? "No customers with dues" : filter === "clear" ? "No clear customers" : "No customers yet"}
-          </p>
-          <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : "Create a customer to start booking sales"}
-          </p>
-        </div>
+        <MobileNoResults
+          title={query ? "No matching customers" : filter === "dues" ? "No customers with dues" : filter === "clear" ? "No clear customers" : "No customers yet"}
+          hint={query ? "Try a different search" : "Create a customer to start booking sales"}
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((c) => (
@@ -186,34 +180,6 @@ export function MobileCustomersList({
         </div>
       )}
     </div>
-  );
-}
-
-/* ─── Filter chip ─── */
-function FilterChip({
-  active, onClick, label, count, color,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  color?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[0.5625rem] font-bold transition-colors press"
-      style={{
-        backgroundColor: active ? (color ?? "var(--color-ink-950)") : "var(--color-paper-2)",
-        color: active ? "var(--color-paper)" : "var(--color-ink-500)",
-        border: `1px solid ${active ? (color ?? "var(--color-ink-950)") : "var(--color-line)"}`,
-      }}
-    >
-      {label}
-      <span className="text-[0.4375rem] tabular-nums" style={{ opacity: active ? 0.7 : 0.5 }}>
-        {count}
-      </span>
-    </button>
   );
 }
 

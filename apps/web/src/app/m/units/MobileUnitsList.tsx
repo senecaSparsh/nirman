@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Home, Search, X } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import {
-  MobileEmptyState,
-} from "@/components/mobile/v2/primitives";
+  MobileFilterChips,
+  MobileCardGrid,
+  MobileNoResults,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 type UnitStatusFilter =
   | "ALL"
@@ -102,45 +104,27 @@ export function MobileUnitsList({
     <div>
       {/* Search bar */}
       <div className="mb-2.5">
-        <div
-          className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        >
-          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={projectFiltered ? "Search unit number..." : "Search unit or project..."}
-            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
-            style={{ color: "var(--color-ink-900)" }}
-          />
-          {query ? (
-            <button onClick={() => setQuery("")} className="press">
-              <X className="size-4" style={{ color: "var(--color-ink-300)" }} />
-            </button>
-          ) : null}
-        </div>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={projectFiltered ? "Search unit number..." : "Search unit or project..."}
+          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] focus:outline-none"
+          style={{
+            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-950)",
+          }}
+        />
       </div>
 
       {/* Filter chips */}
-      <div className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {FILTER_CHIPS.map((chip) => {
-          const active = statusFilter === chip.value;
-          return (
-            <button
-              key={chip.value}
-              onClick={() => setStatusFilter(chip.value)}
-              className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold whitespace-nowrap transition-colors"
-              style={{
-                backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
-                color: active ? "#fff" : "var(--color-ink-500)",
-              }}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
+      <div className="mb-3">
+        <MobileFilterChips
+          chips={FILTER_CHIPS as FilterChip<UnitStatusFilter>[]}
+          active={statusFilter}
+          onChange={setStatusFilter}
+        />
       </div>
 
       {isFiltering ? (
@@ -203,8 +187,7 @@ function UnitCard({ u, showProject }: { u: UnitListItem; showProject: boolean })
 function FlatList({ items, projectFiltered }: { items: UnitListItem[]; projectFiltered: boolean }) {
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Home}
+      <MobileNoResults
         title="No matching units"
         hint="Try a different search or filter"
       />
@@ -215,11 +198,11 @@ function FlatList({ items, projectFiltered }: { items: UnitListItem[]; projectFi
       <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         Results ({items.length})
       </h3>
-      <div className="grid grid-cols-2 gap-2">
+      <MobileCardGrid cols={2}>
         {items.map((u) => (
           <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
         ))}
-      </div>
+      </MobileCardGrid>
     </div>
   );
 }
@@ -247,11 +230,11 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
           <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sellable ({pipeline.length})
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <MobileCardGrid cols={2}>
             {pipeline.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
             ))}
-          </div>
+          </MobileCardGrid>
         </div>
       ) : null}
 
@@ -261,11 +244,11 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
           <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sold ({sold.length})
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <MobileCardGrid cols={2}>
             {sold.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
             ))}
-          </div>
+          </MobileCardGrid>
         </div>
       ) : null}
 
@@ -275,11 +258,11 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
           <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Reserved ({reserved.length})
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <MobileCardGrid cols={2}>
             {reserved.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
             ))}
-          </div>
+          </MobileCardGrid>
         </div>
       ) : null}
 
@@ -289,11 +272,11 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
           <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             On Hold ({hold.length})
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <MobileCardGrid cols={2}>
             {hold.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
             ))}
-          </div>
+          </MobileCardGrid>
         </div>
       ) : null}
 
@@ -303,11 +286,11 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
           <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Rented ({rented.length})
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <MobileCardGrid cols={2}>
             {rented.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
             ))}
-          </div>
+          </MobileCardGrid>
         </div>
       ) : null}
     </div>

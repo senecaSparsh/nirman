@@ -3,12 +3,17 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Plus, Search, Package,
-  CheckCircle2, Clock, AlertTriangle, X,
+  ArrowRight, Plus, Package,
+  CheckCircle2, Clock, AlertTriangle,
   ArrowDownToLine, ArrowUpFromLine,
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import {
+  MobileFilterChips,
+  MobileDashedCreateButton,
+  type FilterChip,
+} from "@/components/mobile/v2/scaffold";
 
 export interface TransferItem {
   id: string;
@@ -120,89 +125,45 @@ export function MobileTransfersList({
 
       {/* ── Create button ── */}
       {canCreate && (
-        <Link
-          href="/m/transfers/new"
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press mb-3"
-          style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-        >
-          <Plus className="size-3.5" />
-          New Stock Transfer
-        </Link>
+        <div className="mb-3">
+          <MobileDashedCreateButton href="/m/transfers/new">
+            New Stock Transfer
+          </MobileDashedCreateButton>
+        </div>
       )}
 
       {/* ── Search ── */}
       <div className="relative mb-3">
-        <Search
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-          style={{ color: "var(--color-ink-400)" }}
-        />
         <input
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by location or material…"
-          className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-[0.6875rem] outline-none"
+          className="w-full h-9 rounded-[0.625rem] border-2 px-3 text-[0.8125rem] outline-none"
           style={{
-            borderColor: "var(--color-line)",
+            borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
             backgroundColor: "var(--color-paper)",
             color: "var(--color-ink-950)",
           }}
         />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--color-ink-400)" }}
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
       </div>
 
       {/* ── Direction filter chips ── */}
-      <div className="flex gap-1.5 mb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {DIRECTION_FILTERS.map((f) => {
-          const active = dirFilter === f.value;
-          return (
-            <button
-              key={f.value}
-              onClick={() => setDirFilter(f.value)}
-              className="shrink-0 h-7 px-2.5 rounded-full text-[0.5625rem] font-semibold press flex items-center gap-1"
-              style={{
-                color: active ? "#fff" : "var(--color-ink-600)",
-                backgroundColor: active
-                  ? f.value === "OUTGOING" ? "var(--color-signal-dark)" : f.value === "INCOMING" ? "var(--color-go)" : "var(--color-ink-950)"
-                  : "var(--color-paper)",
-                border: active ? "none" : "1px solid var(--color-line)",
-              }}
-            >
-              {f.value === "OUTGOING" && <ArrowUpFromLine className="size-2.5" />}
-              {f.value === "INCOMING" && <ArrowDownToLine className="size-2.5" />}
-              {f.label}
-            </button>
-          );
-        })}
+      <div className="mb-2">
+        <MobileFilterChips
+          chips={DIRECTION_FILTERS as FilterChip<DirectionFilter>[]}
+          active={dirFilter}
+          onChange={setDirFilter}
+        />
       </div>
 
       {/* ── Status filter chips ── */}
-      <div className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {FILTERS.map((f) => {
-          const active = filter === f.value;
-          return (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className="shrink-0 h-7 px-2.5 rounded-full text-[0.5625rem] font-semibold press"
-              style={{
-                color: active ? "#fff" : "var(--color-ink-600)",
-                backgroundColor: active ? "var(--color-ink-950)" : "var(--color-paper)",
-                border: active ? "none" : "1px solid var(--color-line)",
-              }}
-            >
-              {f.label}
-            </button>
-          );
-        })}
+      <div className="mb-3">
+        <MobileFilterChips
+          chips={FILTERS as FilterChip<TransferFilter>[]}
+          active={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {/* ── Transfer cards ── */}

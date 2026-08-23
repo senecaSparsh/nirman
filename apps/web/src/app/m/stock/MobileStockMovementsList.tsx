@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
-  Search, X, ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileFilterDropdown,
+  MobileSummaryStrip,
+  MobileNoResults,
+  type SummaryStat,
+} from "@/components/mobile/v2/scaffold";
 
 export type StockLocation = {
   id: string;
@@ -104,19 +110,6 @@ export function MobileStockMovementsList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MovementFilter>("ALL");
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showTypeDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setShowTypeDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showTypeDropdown]);
 
   const filtered = useMemo(() => {
     let result = movements;
@@ -154,30 +147,15 @@ export function MobileStockMovementsList({
     return groups;
   }, [filtered]);
 
+  const summaryStats: SummaryStat[] = [
+    { label: "Inventory Value", value: formatCurrency(totalInventoryValue) },
+    { label: "Locations", value: String(locations.length) },
+  ];
+
   return (
     <div>
       {/* ── Inventory summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Inventory Value
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrency(totalInventoryValue)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Locations
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {locations.length}
-          </p>
-        </div>
-      </div>
+      <MobileSummaryStrip stats={summaryStats} />
 
       {/* ── Material filter label (when deep-linked) ── */}
       {filterMaterialName ? (
@@ -219,103 +197,30 @@ export function MobileStockMovementsList({
       ) : null}
 
       {/* ── Sticky search header ── */}
-      <div
-        ref={headerRef}
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-1.5 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Search + type selector in one row */}
-        <div className="flex items-center gap-1.5">
-          {/* Search */}
-          <div className="relative flex-1 min-w-0">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search material, type, location…"
-              className="w-full h-8 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Type selector */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowTypeDropdown(v => !v)}
-              className="h-8 rounded-[0.5rem] border pl-2 pr-5 text-[0.625rem] font-semibold focus:outline-none cursor-pointer truncate max-w-[5rem] flex items-center"
-              style={{
-                borderColor: filter !== "ALL" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <span className="truncate">{FILTER_CHIPS.find(c => c.value === filter)?.label ?? "All"}</span>
-            </button>
-            <ChevronDown
-              className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 size-3"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            {showTypeDropdown ? (
-              <div
-                className="absolute top-9 right-0 z-30 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[7rem]"
-                style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-              >
-                {FILTER_CHIPS.map((chip, i) => (
-                  <button
-                    key={chip.value}
-                    onClick={() => { setFilter(chip.value); setShowTypeDropdown(false); }}
-                    className="w-full text-left px-2.5 py-1.5 text-[0.625rem] font-semibold"
-                    style={filter === chip.value ? { backgroundColor: "var(--color-ink-950)", color: "#fff" } : { color: "var(--color-ink-700)", ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}) }}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Clear button */}
-        {(filter !== "ALL" || query) ? (
-          <button
-            onClick={() => {
-              setQuery("");
-              setFilter("ALL");
-            }}
-            className="text-[0.625rem] font-semibold flex items-center gap-1 mt-1"
-            style={{ color: "var(--color-steel)" }}
-          >
-            <X className="size-2.5" /> Clear
-          </button>
-        ) : null}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search material, type, location…"
+        action={
+          <MobileFilterDropdown
+            label="All"
+            options={FILTER_CHIPS}
+            active={filter}
+            onChange={setFilter}
+          />
+        }
+        showClear={filter !== "ALL" || !!query}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
+      />
 
       {/* ── Movement ledger ── */}
       {filtered.length === 0 ? (
-        <div
-          className="rounded-[0.625rem] border p-4 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <p className="text-[0.8125rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-            No movements
-          </p>
-          <p className="text-[0.6875rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {query || filter !== "ALL"
-              ? "Try a different search or filter"
-              : "Receipts, issues and transfers appear here"}
-          </p>
-        </div>
+        <MobileNoResults
+          title="No movements"
+          hint={query || filter !== "ALL"
+            ? "Try a different search or filter"
+            : "Receipts, issues and transfers appear here"}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {grouped.map((group) => (
