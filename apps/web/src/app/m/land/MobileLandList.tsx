@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  Search, X, MapPin, TrendingUp, Plus,
+  TrendingUp, Plus,
   CheckCircle2, PauseCircle, Split, Maximize, DollarSign, Building2,
+  Banknote,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileNoResults,
+} from "@/components/mobile/v2/scaffold";
 import { MobileNewLandDialog } from "./MobileNewLandDialog";
 import { MobileLandWizard } from "./MobileLandWizard";
+import { MobileLandPurchaseOrderDialog } from "./MobileLandPurchaseOrderDialog";
 
 interface ParcelItem {
   id: string;
@@ -34,7 +40,7 @@ interface LandPurchaseItem {
   location: string | null;
   projectId: string | null;
   projectName: string | null;
-  mode?: "WHOLE" | "SUBDIVIDED" | null;
+  mode?: "WHOLE" | "SUBDIVIDED" | "BOOKED" | null;
   landType?: "FREEHOLD" | "LEASEHOLD" | null;
   parcelCount: number;
   availableCount: number;
@@ -96,6 +102,7 @@ export function MobileLandList({
   const [query, setQuery] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [showBook, setShowBook] = useState(false);
 
   // A purchase is "sub-divided" if it has been partitioned (root split into
   // sub-parcels) OR has more than 1 sellable parcel. "Whole" = single parcel.
@@ -176,46 +183,20 @@ export function MobileLandList({
       ) : null}
 
       {/* ── Search ── */}
-      <div className="mb-3">
-        <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-            style={{ color: "var(--color-ink-500)" }}
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search seller, location, project…"
-            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
-            style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {query ? (
-            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 press">
-              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search seller, location, project…"
+        showClear={query !== ""}
+        onClear={() => setQuery("")}
+      />
 
       {/* ── Two vertical columns: Whole | Sub-divided (matches desktop) ── */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-10 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <MapPin className="size-7 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query ? "No matching land" : "No land purchases"}
-          </p>
-          <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : canManage ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
-          </p>
-        </div>
+        <MobileNoResults
+          title={query ? "No matching land" : "No land purchases"}
+          hint={query ? "Try a different search" : canManage ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-2.5 items-start">
           {/* ── Left column: Whole ── */}
@@ -258,19 +239,38 @@ export function MobileLandList({
 
       {/* ── FAB: New Land Purchase (opens guided wizard) ── */}
       {canManage && (
-        <button
-          onClick={() => setShowWizard(true)}
-          className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-          style={{
-            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-            backgroundColor: "var(--color-ink-950)",
-            color: "#fff",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          }}
-          aria-label="Record new land purchase"
+        <div
+          className="fixed right-3 z-30 flex flex-col gap-2"
+          style={{ bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)" }}
         >
-          <Plus className="size-5" />
-        </button>
+          {/* Book Land (Token) — secondary action */}
+          <button
+            onClick={() => setShowBook(true)}
+            className="flex items-center gap-1.5 rounded-full shadow-lg press pl-3 pr-4 py-2.5"
+            style={{
+              backgroundColor: "var(--color-signal)",
+              color: "#fff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            }}
+            aria-label="Book land with token"
+          >
+            <Banknote className="size-4" />
+            <span className="text-[0.5625rem] font-bold">Book Land</span>
+          </button>
+          {/* New Land Purchase — primary FAB */}
+          <button
+            onClick={() => setShowWizard(true)}
+            className="grid place-items-center size-12 rounded-full shadow-lg press self-end"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "#fff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            }}
+            aria-label="Record new land purchase"
+          >
+            <Plus className="size-5" />
+          </button>
+        </div>
       )}
 
       {/* ── Guided Land Purchase Wizard (primary) ── */}
@@ -290,6 +290,16 @@ export function MobileLandList({
           open={showNew}
           onClose={() => setShowNew(false)}
           projects={projects}
+        />
+      )}
+
+      {/* ── Book Land Purchase (token) dialog ── */}
+      {showBook && (
+        <MobileLandPurchaseOrderDialog
+          open={showBook}
+          onClose={() => setShowBook(false)}
+          projects={projects}
+          sellers={sellers ?? []}
         />
       )}
     </div>

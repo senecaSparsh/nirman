@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building2, Search, X, Plus, ShieldCheck } from "lucide-react";
+import { Building2, Plus, ShieldCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -9,6 +9,11 @@ import {
   MobileStatusBadge,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import {
+  MobileSearchHeader,
+  MobileFilterChips,
+  MobileNoResults,
+} from "@/components/mobile/v2/scaffold";
 import { MobileNewProjectDialog } from "./MobileNewProjectDialog";
 
 type ProjectStatusFilter =
@@ -99,48 +104,24 @@ export function MobileProjectsList({
         />
       ) : (
         <>
-          {/* ── Warm search bar ───────────────────────────────────── */}
-          <div className="mb-4">
-            <div
-              className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
-              style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-            >
-              <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by project name…"
-                className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
-                style={{ color: "var(--color-ink-900)" }}
+          {/* ── Search + filter chips ─────────────────────────── */}
+          <MobileSearchHeader
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Search by project name…"
+            filterChips={
+              <MobileFilterChips<ProjectStatusFilter>
+                chips={FILTER_CHIPS}
+                active={statusFilter}
+                onChange={setStatusFilter}
               />
-              {query && (
-                <button onClick={() => setQuery("")} className="press">
-                  <X className="size-4" style={{ color: "var(--color-ink-300)" }} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* ── Filter chips (warm style) ─────────────────────────── */}
-          <div className="flex gap-1.5 mb-4">
-            {FILTER_CHIPS.map((chip) => {
-              const active = statusFilter === chip.value;
-              return (
-                <button
-                  key={chip.value}
-                  onClick={() => setStatusFilter(chip.value)}
-                  className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold transition-colors"
-                  style={{
-                    backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
-                    color: active ? "#fff" : "var(--color-ink-500)",
-                  }}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
+            }
+            showClear={query !== "" || statusFilter !== "ALL"}
+            onClear={() => {
+              setQuery("");
+              setStatusFilter("ALL");
+            }}
+          />
 
           {isFiltering ? (
             <FlatList items={filtered} />
@@ -159,8 +140,7 @@ export function MobileProjectsList({
 function FlatList({ items }: { items: ProjectListItem[] }) {
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Building2}
+      <MobileNoResults
         title="No matching projects"
         hint="Try a different search or filter"
       />

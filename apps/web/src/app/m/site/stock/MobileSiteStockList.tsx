@@ -3,12 +3,13 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  Package, Search, X,
+  Package,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   ArrowRight, Truck,
   type LucideIcon,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import { MobileSearchHeader, MobileNoResults, MobileSummaryStrip, MobileCardGrid } from "@/components/mobile/v2/scaffold";
 
 /* ── Time helper ── */
 function formatTime(iso: string): string {
@@ -127,35 +128,13 @@ export function MobileSiteStockList({
   return (
     <div>
       {/* ── Summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Locations
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatNumber(locations.length, 0)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Items
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatNumber(totalItems, 0)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Units
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatNumber(totalUnits, 0)}
-          </p>
-        </div>
-      </div>
+      <MobileSummaryStrip
+        stats={[
+          { label: "Locations", value: formatNumber(locations.length, 0) },
+          { label: "Items", value: formatNumber(totalItems, 0) },
+          { label: "Units", value: formatNumber(totalUnits, 0) },
+        ]}
+      />
 
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -202,60 +181,39 @@ export function MobileSiteStockList({
       </div>
 
       {/* ── Sticky search header ── */}
-      <div
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-1.5 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-            style={{ color: "var(--color-ink-500)" }}
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search location or material…"
-            className="w-full h-8 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] focus:outline-none"
-            style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {query ? (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-5"
-            >
-              <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search location or material…"
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       {/* ── Location bin cards ── */}
       {filteredLocations.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query.trim() ? "No matching locations" : "No stock locations"}
-          </p>
-          <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query.trim() ? "Try a different search" : "Stock locations will appear here"}
-          </p>
-        </div>
+        query.trim() ? (
+          <MobileNoResults title="No matching locations" hint="Try a different search" />
+        ) : (
+          <div
+            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          >
+            <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
+            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              No stock locations
+            </p>
+            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+              Stock locations will appear here
+            </p>
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {filteredLocations.map((loc) => (
-            <LocationBinCard key={loc.id} loc={loc} />
-          ))}
+        <div className="mb-4">
+          <MobileCardGrid>
+            {filteredLocations.map((loc) => (
+              <LocationBinCard key={loc.id} loc={loc} />
+            ))}
+          </MobileCardGrid>
         </div>
       )}
 

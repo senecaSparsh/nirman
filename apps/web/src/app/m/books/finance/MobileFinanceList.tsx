@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Wallet, Building2, Search, X } from "lucide-react";
+import { Wallet, Building2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
+import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 export type ExpenseListItem = {
   id: string;
@@ -60,21 +61,17 @@ export function MobileFinanceList({
 
   return (
     <div>
-      <div className="mb-4">
-        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
-          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
-            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
-            style={{ color: "var(--color-ink-900)" }} />
-          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search..."
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       <MobileSectionTitle>Recent Expenses ({filteredExpenses.length})</MobileSectionTitle>
       {filteredExpenses.length === 0 ? (
-        <MobileEmptyState icon={Wallet} title="No matching expenses" hint="Try a different search" />
+        <MobileNoResults title="No matching expenses" hint="Try a different search" />
       ) : (
         <div className="flex flex-col gap-2.5">
           {filteredExpenses.slice(0, 15).map((e) => (
@@ -91,7 +88,7 @@ export function MobileFinanceList({
 
       <MobileSectionTitle>Recent Project Costs ({filteredProjectCosts.length})</MobileSectionTitle>
       {filteredProjectCosts.length === 0 ? (
-        <MobileEmptyState icon={Building2} title="No matching project costs" hint="Try a different search" />
+        <MobileNoResults title="No matching project costs" hint="Try a different search" />
       ) : (
         <div className="flex flex-col gap-2.5">
           {filteredProjectCosts.slice(0, 15).map((c) => (

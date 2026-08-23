@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { AlertTriangle, Search, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import type { IncidentListItem } from "./MobileSafetyContent";
 
 type Filter = "ALL" | "REPORTED" | "UNDER_INVESTIGATION" | "INVESTIGATED" | "CLOSED";
@@ -48,18 +49,16 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
 
   return (
     <div>
-      <div className="mb-3 relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search incidents…" className="w-full h-9 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none" style={{ borderColor: query ? "var(--color-ink-950)" : "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-        {query && <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 press"><X className="size-3.5" style={{ color: "var(--color-ink-500)" }} /></button>}
-      </div>
-      <div className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {FILTER_CHIPS.map((c) => (
-          <button key={c.value} onClick={() => setFilter(c.value)} className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold whitespace-nowrap" style={{ backgroundColor: filter === c.value ? "var(--color-ink-950)" : "var(--color-concrete)", color: filter === c.value ? "#fff" : "var(--color-ink-500)" }}>{c.label}</button>
-        ))}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search incidents…"
+        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />}
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
       {filtered.length === 0 ? (
-        <MobileEmptyState icon={AlertTriangle} title="No matching incidents" hint="Try a different filter" />
+        <MobileNoResults title="No matching incidents" hint="Try a different filter" />
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((i) => (

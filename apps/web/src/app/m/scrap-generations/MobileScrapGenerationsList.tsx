@@ -2,8 +2,15 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Recycle, Search, X, Plus, Zap, Hand } from "lucide-react";
+import { Recycle, Zap, Hand } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileHeaderAction,
+  MobileCardGrid,
+  MobileNoResults,
+  MobileSummaryStrip,
+} from "@/components/mobile/v2/scaffold";
 
 export type ScrapGenerationItem = {
   id: string;
@@ -47,106 +54,48 @@ export function MobileScrapGenerationsList({
   return (
     <div>
       {/* ── Summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Scrap Value
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-            {formatCurrency(totalValue)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Slips
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {items.length}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Auto
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {items.filter((s) => s.isAuto).length}
-          </p>
-        </div>
-      </div>
+      <MobileSummaryStrip
+        stats={[
+          { label: "Scrap Value", value: formatCurrency(totalValue), tone: "go" },
+          { label: "Slips", value: String(items.length), tone: "default" },
+          { label: "Auto", value: String(items.filter((s) => s.isAuto).length), tone: "default" },
+        ]}
+      />
 
       {/* ── Sticky search header ── */}
-      <div
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-1.5 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex-1 min-w-0">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search slip, location, material…"
-              className="w-full h-8 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-          {canCreate ? (
-            <Link
-              href="/m/scrap-generations/new"
-              className="h-8 shrink-0 rounded-[0.5rem] px-2.5 flex items-center gap-1 text-[0.625rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-            >
-              <Plus className="size-3" />
-              New
-            </Link>
-          ) : null}
-        </div>
-
-        {query ? (
-          <button
-            onClick={() => setQuery("")}
-            className="text-[0.625rem] font-semibold flex items-center gap-1 mt-1"
-            style={{ color: "var(--color-steel)" }}
-          >
-            <X className="size-2.5" /> Clear
-          </button>
-        ) : null}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search slip, location, material…"
+        action={canCreate ? <MobileHeaderAction href="/m/scrap-generations/new">New</MobileHeaderAction> : undefined}
+        showClear={query !== ""}
+        onClear={() => setQuery("")}
+      />
 
       {/* ── Scrap cards grid ── */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Recycle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query ? "No matching scrap slips" : "No scrap generated"}
-          </p>
-          <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "Try a different search" : "Auto-detected from Daily Progress Report variance or added manually"}
-          </p>
-        </div>
+        query ? (
+          <MobileNoResults title="No matching scrap slips" hint="Try a different search" />
+        ) : (
+          <div
+            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          >
+            <Recycle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
+            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              No scrap generated
+            </p>
+            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+              Auto-detected from Daily Progress Report variance or added manually
+            </p>
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <MobileCardGrid>
           {filtered.map((sc) => (
             <ScrapCard key={sc.id} sc={sc} />
           ))}
-        </div>
+        </MobileCardGrid>
       )}
     </div>
   );

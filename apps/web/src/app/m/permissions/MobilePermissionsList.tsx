@@ -3,14 +3,13 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  FileText, CheckCircle2, Clock, AlertTriangle, XCircle, RefreshCw,
-  ChevronRight, MapPin, Building2, ExternalLink, Search, Filter,
+  ChevronRight, MapPin, Building2, ExternalLink,
 } from "lucide-react";
 import {
   MobileStatusBadge,
-  Badge,
 } from "@/components/mobile/v2/primitives";
-import { formatDate, cn } from "@/lib/utils";
+import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { formatDate } from "@/lib/utils";
 import {
   STAGE_LABELS, STAGE_ORDER, daysUntilExpiry, getExpiryStatus,
 } from "@/lib/legal-doc-flow";
@@ -44,6 +43,20 @@ const STATUS_CONFIG: Record<LegalDocStatus, { label: string; tone: "neutral" | "
   EXPIRED: { label: "Expired", tone: "stop" },
   RENEWAL_DUE: { label: "Renewal Due", tone: "signal" },
 };
+
+const STATUS_CHIPS: { label: string; value: string }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Pending", value: "PENDING" },
+  { label: "Approved", value: "APPROVED" },
+  { label: "Expired", value: "EXPIRED" },
+  { label: "Renewal", value: "RENEWAL_DUE" },
+];
+
+const CONTEXT_CHIPS: { label: string; value: string }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Land", value: "LAND" },
+  { label: "Project", value: "PROJECT" },
+];
 
 /**
  * MobilePermissionsList — filterable list of legal documents.
@@ -91,86 +104,32 @@ export function MobilePermissionsList({
     return groups;
   }, [filtered]);
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
-  };
-
   return (
     <div>
       {/* ── Search + Filters ── */}
-      <div className="space-y-2 mb-3">
-        <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-            style={{ color: "var(--color-ink-300)" }}
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title, doc no, authority, project…"
-            className={cn(inputClass, "pl-8")}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Status filter chips */}
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-          <FilterChip
-            label="All"
-            active={statusFilter === "ALL"}
-            onClick={() => setStatusFilter("ALL")}
-          />
-          <FilterChip
-            label="Pending"
-            active={statusFilter === "PENDING"}
-            onClick={() => setStatusFilter("PENDING")}
-          />
-          <FilterChip
-            label="Approved"
-            active={statusFilter === "APPROVED"}
-            onClick={() => setStatusFilter("APPROVED")}
-          />
-          <FilterChip
-            label="Expired"
-            active={statusFilter === "EXPIRED"}
-            onClick={() => setStatusFilter("EXPIRED")}
-          />
-          <FilterChip
-            label="Renewal"
-            active={statusFilter === "RENEWAL_DUE"}
-            onClick={() => setStatusFilter("RENEWAL_DUE")}
-          />
-        </div>
-
-        {/* Context filter chips */}
-        <div className="flex gap-1.5">
-          <FilterChip
-            label="All"
-            active={contextFilter === "ALL"}
-            onClick={() => setContextFilter("ALL")}
-          />
-          <FilterChip
-            label="Land"
-            active={contextFilter === "LAND"}
-            onClick={() => setContextFilter("LAND")}
-          />
-          <FilterChip
-            label="Project"
-            active={contextFilter === "PROJECT"}
-            onClick={() => setContextFilter("PROJECT")}
-          />
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={search}
+        onQueryChange={setSearch}
+        placeholder="Search by title, doc no, authority, project…"
+        filterChips={
+          <div className="space-y-1.5">
+            <MobileFilterChips
+              chips={STATUS_CHIPS}
+              active={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <MobileFilterChips
+              chips={CONTEXT_CHIPS}
+              active={contextFilter}
+              onChange={setContextFilter}
+            />
+          </div>
+        }
+      />
 
       {/* ── Grouped list ── */}
       {filtered.length === 0 ? (
-        <p className="text-center text-[0.6875rem] py-6" style={{ color: "var(--color-ink-500)" }}>
-          No documents match your filters
-        </p>
+        <MobileNoResults title="No documents match your filters" />
       ) : (
         <div className="space-y-4">
           {STAGE_ORDER.map((stage) => {
@@ -200,7 +159,7 @@ export function MobilePermissionsList({
 
 // ── Single permission card ──────────────────────────────────────────────────
 
-function PermissionCard({ doc, canManage }: { doc: MobilePermissionRow; canManage: boolean }) {
+function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean }) {
   const statusConfig = STATUS_CONFIG[doc.status];
   const expiryStatus = getExpiryStatus(doc.validTill);
   const days = daysUntilExpiry(doc.validTill);
@@ -302,34 +261,6 @@ function PermissionCard({ doc, canManage }: { doc: MobilePermissionRow; canManag
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Filter chip ─────────────────────────────────────────────────────────────
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "shrink-0 px-2.5 py-1 rounded-full text-[0.5625rem] font-semibold border press transition-colors",
-      )}
-      style={{
-        backgroundColor: active ? "var(--color-ink-950)" : "transparent",
-        color: active ? "#fff" : "var(--color-ink-500)",
-        borderColor: active ? "var(--color-ink-950)" : "var(--color-line)",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 

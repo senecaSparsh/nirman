@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users, Search, X } from "lucide-react";
+import { Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileStatusBadge,
-  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import {
+  MobileSearchHeader,
+  MobileFilterChips,
+  MobileNoResults,
+} from "@/components/mobile/v2/scaffold";
 
 type WageTypeFilter = "ALL" | "DAILY" | "MONTHLY";
 
@@ -75,28 +79,20 @@ export function MobileEmployeesList({
 
   return (
     <div>
-      <div className="mb-4">
-        <div className="flex items-center gap-2 rounded-[0.625rem] border px-3 h-10"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
-          <Search className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
-            className="flex-1 bg-transparent text-[0.875rem] outline-none placeholder:text-[var(--color-ink-300)]"
-            style={{ color: "var(--color-ink-900)" }} />
-          {query && <button onClick={() => setQuery("")} className="press"><X className="size-4" style={{ color: "var(--color-ink-300)" }} /></button>}
-        </div>
-      </div>
-
-      <div className="flex gap-1.5 mb-4 overflow-x-auto">
-        {FILTER_CHIPS.map((chip) => {
-          const active = wageFilter === chip.value;
-          return <button key={chip.value} onClick={() => setWageFilter(chip.value)}
-          className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold whitespace-nowrap transition-colors"
-          style={{ backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)", color: active ? "#fff" : "var(--color-ink-500)" }}>
-          {chip.label}
-        </button>;
-        })}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search..."
+        filterChips={
+          <MobileFilterChips
+            chips={FILTER_CHIPS}
+            active={wageFilter}
+            onChange={setWageFilter}
+          />
+        }
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       {isFiltering ? (
         <FlatList items={filtered} />
@@ -113,11 +109,7 @@ export function MobileEmployeesList({
 function FlatList({ items }: { items: EmployeeListItem[] }) {
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Users}
-        title="No matching employees"
-        hint="Try a different search or filter"
-      />
+      <MobileNoResults title="No matching employees" hint="Try a different search or filter" />
     );
   }
   return (

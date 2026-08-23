@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Beaker, Search, X } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 export type StandardConsumptionListItem = {
   id: string;
@@ -36,32 +35,16 @@ export function MobileStandardConsumptionsList({ items }: { items: StandardConsu
 
   return (
     <div>
-      {/* Search */}
-      <div className="mb-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search work type or material…"
-            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
-            style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {query && (
-            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 press">
-              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          )}
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search work type or material…"
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       {filtered.length === 0 ? (
-        <MobileEmptyState icon={Beaker} title="No matching benchmarks" hint="Try a different search" />
+        <MobileNoResults title="No matching benchmarks" hint="Try a different search" />
       ) : (
         <div className="flex flex-col gap-3">
           {workTypes.map((wt) => {

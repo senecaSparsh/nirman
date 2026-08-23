@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
+import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 interface TeamMember {
   id: string;
@@ -164,17 +165,10 @@ export function MobileTeamList({
       )}
 
       {/* ── Search ── */}
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+      <MobileSearchHeader
+        query={search}
+        onQueryChange={setSearch}
         placeholder="Search by name or email…"
-        className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.6875rem] mb-3 outline-none"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-          color: "var(--color-ink-950)",
-        }}
       />
 
       {/* ── Team list ── */}
@@ -197,13 +191,7 @@ export function MobileTeamList({
       </div>
 
       {sorted.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.625rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Shield className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>No members found</p>
-        </div>
+        <MobileNoResults title="No members found" />
       )}
 
       {/* ── Role reference ── */}

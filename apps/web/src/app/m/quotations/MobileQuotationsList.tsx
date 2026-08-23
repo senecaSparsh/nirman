@@ -2,9 +2,15 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
+import { X, Plus, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import {
+  MobileSearchHeader,
+  MobileFilterChips,
+  MobileHeaderAction,
+  MobileNoResults,
+} from "@/components/mobile/v2/scaffold";
 import { MobileNewQuotationClient } from "./new/MobileNewQuotationClient";
 import { MobileQuotationDetail } from "./[id]/MobileQuotationDetail";
 
@@ -32,12 +38,6 @@ type Catalog = {
 };
 
 type TabKey = "all" | "mine" | "pending";
-
-const TABS: { label: string; value: TabKey }[] = [
-  { label: "All", value: "all" },
-  { label: "Mine", value: "mine" },
-  { label: "Pending Approval", value: "pending" },
-];
 
 const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   OPEN: { color: "var(--color-ink-400)", label: "Open" },
@@ -134,109 +134,36 @@ export function MobileQuotationsList({
         </div>
       ) : (
         <>
-          <div
-            className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-2 mb-2"
-            style={{
-              backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-              borderColor: "var(--color-line)",
+          <MobileSearchHeader
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Search quote no, title, project…"
+            action={canCreate ? <MobileHeaderAction onClick={openNew}>New</MobileHeaderAction> : undefined}
+            filterChips={
+              <MobileFilterChips<TabKey>
+                chips={[
+                  { label: "All", value: "all" },
+                  { label: "Mine", value: "mine" },
+                  { label: "Pending Approval", value: "pending", count: pendingCount > 0 ? pendingCount : undefined },
+                ]}
+                active={tab}
+                onChange={setTab}
+              />
+            }
+            resultCount={`${filtered.length} request${filtered.length !== 1 ? "s" : ""}`}
+            showClear={query !== "" || tab !== "all"}
+            onClear={() => {
+              setQuery("");
+              setTab("all");
             }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="relative flex-1">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
-                  style={{ color: "var(--color-ink-500)" }}
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search quote no, title, project…"
-                  className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
-                  style={{
-                    borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                    color: "var(--color-ink-950)",
-                  }}
-                />
-              </div>
-              {canCreate ? (
-                <button
-                  type="button"
-                  onClick={openNew}
-                  className="flex items-center gap-1 h-9 px-3 rounded-[0.625rem] text-[0.75rem] font-bold whitespace-nowrap press active:scale-95 shrink-0"
-                  style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-                >
-                  <Plus className="size-3.5" />
-                  New
-                </button>
-              ) : null}
-            </div>
-
-            <div className="flex gap-1.5">
-              {TABS.map((t) => {
-                const active = tab === t.value;
-                const showBadge = t.value === "pending" && pendingCount > 0;
-                return (
-                  <button
-                    key={t.value}
-                    onClick={() => setTab(t.value)}
-                    className="flex items-center gap-1.5 press rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold border transition-colors"
-                    style={
-                      active
-                        ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "#fff" }
-                        : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
-                    }
-                  >
-                    {t.label}
-                    {showBadge ? (
-                      <span
-                        className="text-[0.5625rem] font-bold tabular-nums px-1.5 rounded-full"
-                        style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
-                      >
-                        {pendingCount}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
-                {filtered.length} request{filtered.length !== 1 ? "s" : ""}
-              </span>
-              {(query || tab !== "all") && filtered.length > 0 ? (
-                <button
-                  onClick={() => {
-                    setQuery("");
-                    setTab("all");
-                  }}
-                  className="text-[0.6875rem] font-semibold flex items-center gap-1"
-                  style={{ color: "var(--color-steel)" }}
-                >
-                  <X className="size-3" /> Clear
-                </button>
-              ) : null}
-            </div>
-          </div>
+          />
 
           {filtered.length === 0 ? (
-            <div
-              className="rounded-[0.875rem] border p-5 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            >
-              <p className="font-semibold text-[0.875rem]" style={{ color: "var(--color-ink-950)" }}>
-                {tab === "pending" ? "No pending approvals" : "No quotation requests found"}
-              </p>
-              <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-                {tab === "pending"
-                  ? "You have no quotation requests awaiting your approval"
-                  : query
-                    ? `Nothing matches "${query}"`
-                    : "Try a different filter."}
-              </p>
-            </div>
+            <MobileNoResults
+              title={tab === "pending" ? "No pending approvals" : "No quotation requests found"}
+              query={query || undefined}
+              hint={tab === "pending" ? "You have no quotation requests awaiting your approval" : "Try a different filter."}
+            />
           ) : (
             <div className="space-y-2">
               {filtered.map((r) => (

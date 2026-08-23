@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Search, X, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
+import { AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileSearchHeader, MobileFilterChips, MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 export type NcrListItem = {
   id: string;
@@ -77,52 +78,17 @@ export function MobileNcrList({ items }: { items: NcrListItem[] }) {
 
   return (
     <div>
-      {/* Search */}
-      <div className="mb-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search NCR…"
-            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
-            style={{
-              borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {query && (
-            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 press">
-              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter chips */}
-      <div className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {FILTER_CHIPS.map((chip) => {
-          const active = filter === chip.value;
-          return (
-            <button
-              key={chip.value}
-              onClick={() => setFilter(chip.value)}
-              className="press rounded-[0.375rem] px-3 py-1 text-[0.6875rem] font-semibold whitespace-nowrap transition-colors"
-              style={{
-                backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
-                color: active ? "#fff" : "var(--color-ink-500)",
-              }}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search NCR…"
+        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />}
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       {filtered.length === 0 ? (
-        <MobileEmptyState icon={ClipboardCheck} title="No matching NCRs" hint="Try a different search or filter" />
+        <MobileNoResults title="No matching NCRs" hint="Try a different search or filter" />
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((n) => (

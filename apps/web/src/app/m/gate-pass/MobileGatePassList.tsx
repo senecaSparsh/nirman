@@ -11,7 +11,6 @@ import {
   Printer,
   ChevronDown,
   ChevronUp,
-  Search,
   RotateCcw,
   Send,
   Trash2,
@@ -24,6 +23,10 @@ import {
   X,
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileNoResults,
+} from "@/components/mobile/v2/scaffold";
 
 type GatePassRow = {
   id: string;
@@ -173,19 +176,14 @@ export function MobileGatePassList({
   return (
     <div className="space-y-3">
       {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by GP no, vehicle, driver…"
-          className="w-full rounded-md border border-border bg-card py-2 pl-8 pr-3 text-caption text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand"
-        />
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search by GP no, vehicle, driver…"
+      />
 
       {sorted.length === 0 && query && (
-        <div className="py-6 text-center text-caption text-muted-foreground">No gate passes match &quot;{query}&quot;</div>
+        <MobileNoResults title="No gate passes found" query={query} />
       )}
 
       {sorted.map((gp) => {

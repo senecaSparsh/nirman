@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, X, Plus, ChevronDown, ScanLine, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { ScanLine, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
+import {
+  MobileSearchHeader,
+  MobileFilterDropdown,
+  MobileHeaderAction,
+  MobileCardGrid,
+  MobileNoResults,
+  MobileSummaryStrip,
+} from "@/components/mobile/v2/scaffold";
 
 type CountFilter = "ALL" | "DRAFT" | "COUNTED" | "RECONCILED";
 
@@ -44,19 +52,6 @@ export function MobileStockCountsList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CountFilter>("ALL");
-  const [showFilter, setShowFilter] = useState(false);
-  const headerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showFilter) return;
-    const handler = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setShowFilter(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showFilter]);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -81,161 +76,59 @@ export function MobileStockCountsList({
   return (
     <div>
       {/* ── Summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Pending
-          </p>
-          <p
-            className="text-[0.875rem] font-bold tabular-nums"
-            style={{ color: counts.draft + counts.counted > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}
-          >
-            {counts.draft + counts.counted}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Drafts
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: counts.draft > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}>
-            {counts.draft}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Reconciled
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-            {counts.reconciled}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Total
-          </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {counts.total}
-          </p>
-        </div>
-      </div>
+      <MobileSummaryStrip
+        stats={[
+          { label: "Pending", value: String(counts.draft + counts.counted), tone: "signal" },
+          { label: "Drafts", value: String(counts.draft), tone: "signal" },
+          { label: "Reconciled", value: String(counts.reconciled), tone: "go" },
+          { label: "Total", value: String(counts.total), tone: "default" },
+        ]}
+      />
 
       {/* ── Sticky search header ── */}
-      <div
-        ref={headerRef}
-        className="sticky top-0 z-20 border-b backdrop-blur-sm -mx-3.5 px-3.5 py-1.5 mb-2"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex-1 min-w-0">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search location…"
+        action={
+          <>
+            <MobileFilterDropdown
+              label="All"
+              options={FILTER_OPTIONS}
+              active={filter}
+              onChange={setFilter}
             />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search location…"
-              className="w-full h-8 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] focus:outline-none"
-              style={{
-                borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Filter selector */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowFilter(v => !v)}
-              className="h-8 rounded-[0.5rem] border pl-2 pr-5 text-[0.625rem] font-semibold focus:outline-none cursor-pointer truncate max-w-[5.5rem] flex items-center"
-              style={{
-                borderColor: filter !== "ALL" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <span className="truncate">
-                {FILTER_OPTIONS.find(f => f.value === filter)?.label ?? "All"}
-              </span>
-            </button>
-            <ChevronDown
-              className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 size-3"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            {showFilter ? (
-              <div
-                className="absolute top-9 right-0 z-30 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[7rem]"
-                style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-              >
-                {FILTER_OPTIONS.map((opt, i) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { setFilter(opt.value); setShowFilter(false); }}
-                    className="w-full text-left px-2.5 py-1.5 text-[0.625rem] font-semibold"
-                    style={
-                      filter === opt.value
-                        ? { backgroundColor: "var(--color-ink-950)", color: "#fff" }
-                        : { color: "var(--color-ink-700)", ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}) }
-                    }
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          {canCreate ? (
-            <Link
-              href="/m/stock-counts/new"
-              className="h-8 shrink-0 rounded-[0.5rem] px-2.5 flex items-center gap-1 text-[0.625rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "#fff" }}
-            >
-              <Plus className="size-3" />
-              New
-            </Link>
-          ) : null}
-        </div>
-
-        {(filter !== "ALL" || query) ? (
-          <button
-            onClick={() => { setQuery(""); setFilter("ALL"); }}
-            className="text-[0.625rem] font-semibold flex items-center gap-1 mt-1"
-            style={{ color: "var(--color-steel)" }}
-          >
-            <X className="size-2.5" /> Clear
-          </button>
-        ) : null}
-      </div>
+            {canCreate && <MobileHeaderAction href="/m/stock-counts/new">New</MobileHeaderAction>}
+          </>
+        }
+        showClear={filter !== "ALL" || query !== ""}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
+      />
 
       {/* ── Count cards grid ── */}
       {filtered.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            {query || filter !== "ALL" ? "No matching counts" : "No stock counts"}
-          </p>
-          <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
-            {query || filter !== "ALL" ? "Try a different search or filter" : "Start a physical verification"}
-          </p>
-        </div>
+        (query || filter !== "ALL") ? (
+          <MobileNoResults title="No matching counts" hint="Try a different search or filter" />
+        ) : (
+          <div
+            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          >
+            <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
+            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              No stock counts
+            </p>
+            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+              Start a physical verification
+            </p>
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <MobileCardGrid>
           {filtered.map((c) => (
             <CountCard key={c.id} c={c} />
           ))}
-        </div>
+        </MobileCardGrid>
       )}
     </div>
   );
