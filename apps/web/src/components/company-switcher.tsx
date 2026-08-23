@@ -41,6 +41,13 @@ export function CompanySwitcher({
   const current = initial.find((c) => c.isCurrent) ?? initial[0]!;
 
   async function switchTo(id: string) {
+    const target = initial.find((c) => c.id === id);
+    if (!target || target.isCurrent) {
+      setOpen(false);
+      return;
+    }
+    // Optimistic — close dropdown immediately
+    setOpen(false);
     setSwitching(id);
     try {
       const res = await fetch("/api/companies/switch", {
@@ -49,12 +56,6 @@ export function CompanySwitcher({
         body: JSON.stringify({ companyId: id }),
       });
       if (res.ok) {
-        setOpen(false);
-        // Notify all client-side components (AppShell, MobileShell) that
-        // the active company changed so they can re-fetch the company
-        // name and update the document title + brand mark. router.refresh()
-        // alone only re-renders server components — client-side state like
-        // companyName in AppShell wouldn't update without this event.
         window.dispatchEvent(new CustomEvent("nirman-company-switched"));
         router.refresh();
       }

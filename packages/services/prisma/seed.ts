@@ -128,13 +128,10 @@ async function main() {
   // ── 1. Company ──────────────────────────────────────────────
   const company = await ensure<{ id: string; name: string }>(
     "company",
-    { deletedAt: null, name: "Nirman Constructions" },
+    { deletedAt: null, name: "My Company" },
     {
-      name: "Nirman Constructions",
-      gstin: "27AAACN1234F1Z5",
-      pan: "AAACN1234F",
+      name: "My Company",
       currency: "INR",
-      address: "4th Floor, Phoenix Plaza, FC Road, Pune 411005",
     },
   );
 

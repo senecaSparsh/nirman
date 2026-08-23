@@ -161,10 +161,17 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
 
   // ── Switch company ───────────────────────────────────────
   async function switchCompany(id: string) {
-    if (id === companies.find((c) => c.isCurrent)?.id) {
+    const target = companies.find((c) => c.id === id);
+    if (!target || target.isCurrent) {
       setCompanySwitcherOpen(false);
       return;
     }
+    // Optimistic update — close dropdown + update name instantly
+    setCompanySwitcherOpen(false);
+    setCompanyInfo((prev) => ({ ...prev, name: target.name }));
+    setCompanies((prev) => prev.map((c) => ({ ...c, isCurrent: c.id === id })));
+    const newTitle = target.name !== "Nirman" ? `${target.name} · Nirman OS` : "Nirman Inventory OS";
+    document.title = newTitle;
     setSwitchingCompanyId(id);
     try {
       const res = await fetch("/api/company/switch", {
@@ -173,27 +180,12 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ companyId: id }),
       });
       if (res.ok) {
-        setCompanySwitcherOpen(false);
-        // Fetch the new company name and update state + title BEFORE
-        // router.refresh(), which re-applies Next.js static metadata
-        // and would overwrite document.title.
-        const c = await fetch("/api/company").then((r) => r.json()).catch(() => null);
-        if (c?.name) {
-          setCompanyInfo((prev) => ({ ...prev, name: c.name }));
-          if (Array.isArray(c?.companies)) setCompanies(c.companies);
-          // Set the title now — router.refresh() may override it, so
-          // we re-apply it after the refresh too.
-          const newTitle = c.name !== "Nirman" ? `${c.name} · Nirman OS` : "Nirman Inventory OS";
-          document.title = newTitle;
-        }
         window.dispatchEvent(new CustomEvent("nirman-company-switched"));
         router.refresh();
         // Re-apply title after router.refresh() re-applies metadata.
-        setTimeout(() => {
-          if (c?.name && c.name !== "Nirman") {
-            document.title = `${c.name} · Nirman OS`;
-          }
-        }, 300);
+        requestAnimationFrame(() => {
+          document.title = newTitle;
+        });
       }
     } finally {
       setSwitchingCompanyId(null);

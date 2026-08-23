@@ -59,9 +59,10 @@ export async function getCompany() {
 
   // No company found — create a default one and add the user as a member.
   // This only happens for the very first user or in dev-bypass with an empty DB.
+  // The user should rename this via Settings → Company details.
   return prisma.company.create({
     data: {
-      name: "Nirman Constructions",
+      name: "My Company",
       currency: "INR",
       ...(user && !isDevBypass
         ? { userMemberships: { create: { userId: user.id, role: user.role } } }

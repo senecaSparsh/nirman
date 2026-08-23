@@ -1684,3 +1684,6 @@ ALTER TABLE "LegalDocument" ADD CONSTRAINT "LegalDocument_projectId_fkey" FOREIG
 -- AddForeignKey
 ALTER TABLE "LegalDocument" ADD CONSTRAINT "LegalDocument_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+
+-- Rename auto-created "Nirman Constructions" to "My Company" placeholder
+UPDATE "Company" SET name = 'My Company', "gstin" = NULL, pan = NULL, address = NULL WHERE name = 'Nirman Constructions';
