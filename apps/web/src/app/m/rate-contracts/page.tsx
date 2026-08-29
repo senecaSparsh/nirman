@@ -95,7 +95,7 @@ async function MobileRateContractsContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="Active" value={String(active)} icon={FileText} tone="go" />
         <MobileStatCard label="Total" value={String(contracts.length)} icon={FileText} />
         <MobileStatCard label="Expired" value={String(expired)} icon={FileText} tone={expired > 0 ? "stop" : "neutral"} />

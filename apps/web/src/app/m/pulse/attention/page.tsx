@@ -128,10 +128,10 @@ async function AttentionContent() {
         >
           <CheckCircle2 className="size-6" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           All clear
         </p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>
           No approvals, overruns, or low stock. You&apos;re up to date.
         </p>
       </div>
@@ -153,10 +153,10 @@ async function AttentionContent() {
             <AlertTriangle className="size-4" style={{ color: "var(--color-signal)" }} />
           </div>
           <div>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {totalAlerts} {totalAlerts === 1 ? "thing" : "things"} need you
             </p>
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               Triage by urgency below — approvals and overdues first
             </p>
           </div>
@@ -196,7 +196,7 @@ async function AttentionContent() {
           {/* PO approvals */}
           {draftPOs.length > 0 ? (
             <div className="mb-2">
-              <p className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1.5 px-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-1" style={{ color: "var(--color-ink-500)" }}>
                 Purchase Orders ({draftPOs.length})
               </p>
               <div className="flex flex-col gap-1.5">
@@ -214,7 +214,7 @@ async function AttentionContent() {
                 {draftPOs.length > 5 ? (
                   <Link
                     href="/m/pulse/approvals"
-                    className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                    className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                     style={{ color: "var(--color-ink-600)" }}
                   >
                     +{draftPOs.length - 5} more draft POs
@@ -227,7 +227,7 @@ async function AttentionContent() {
           {/* Requisition approvals */}
           {pendingReqs.length > 0 ? (
             <div>
-              <p className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1.5 px-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-1" style={{ color: "var(--color-ink-500)" }}>
                 Requisitions ({pendingReqs.length})
               </p>
               <div className="flex flex-col gap-1.5">
@@ -245,7 +245,7 @@ async function AttentionContent() {
                 {pendingReqs.length > 5 ? (
                   <Link
                     href="/m/pulse/approvals"
-                    className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                    className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                     style={{ color: "var(--color-ink-600)" }}
                   >
                     +{pendingReqs.length - 5} more requisitions
@@ -258,7 +258,7 @@ async function AttentionContent() {
           {/* Single link to full approvals page */}
           <Link
             href="/m/pulse/approvals"
-            className="flex items-center justify-center gap-1 h-8 rounded-[0.5rem] text-[0.5625rem] font-bold press mt-2"
+            className="flex items-center justify-center gap-1 h-8 rounded-[0.5rem] text-m-caption font-bold text-m-body press mt-2"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             Go to approvals queue
@@ -297,7 +297,7 @@ async function AttentionContent() {
             {overduePOs.length > 10 ? (
               <Link
                 href="/m/procurement"
-                className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 +{overduePOs.length - 10} more overdue POs
@@ -332,7 +332,7 @@ async function AttentionContent() {
             {lowStock.length > 10 ? (
               <Link
                 href="/m/materials"
-                className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 +{lowStock.length - 10} more low-stock items
@@ -363,7 +363,7 @@ async function AttentionContent() {
                 icon={<Building2 className="size-3" />}
                 borderAccent="var(--color-stop)"
                 extra={
-                  <p className="text-[0.4375rem] font-semibold tabular-nums" style={{ color: "var(--color-stop)" }}>
+                  <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-stop)" }}>
                     {formatCurrencyCompact(p.overrun)} over budget
                   </p>
                 }
@@ -372,7 +372,7 @@ async function AttentionContent() {
             {overBudget.length > 10 ? (
               <Link
                 href="/m/projects"
-                className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 +{overBudget.length - 10} more over budget
@@ -435,7 +435,7 @@ async function AttentionContent() {
             {leaseExpiry.length > 10 ? (
               <Link
                 href="/m/alerts/lease-expiry"
-                className="text-[0.5rem] font-semibold text-center py-1.5 press"
+                className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 +{leaseExpiry.length - 10} more leases
@@ -469,10 +469,10 @@ function Section({
           <span style={{ color }}>{icon}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[0.625rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
             {title} <span style={{ color }}>({count})</span>
           </p>
-          <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
             {subtitle}
           </p>
         </div>
@@ -486,11 +486,11 @@ function Section({
 function CategoryPill({ label, count, color }: { label: string; count: number; color: string }) {
   return (
     <span
-      className="flex items-center gap-1 h-6 px-2 rounded-full text-[0.5rem] font-bold"
+      className="flex items-center gap-1 h-6 px-2 rounded-full text-m-caption font-bold"
       style={{ color, backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)` }}
     >
       {label}
-      <span className="text-[0.4375rem] tabular-nums" style={{ opacity: 0.7 }}>
+      <span className="text-m-caption tabular-nums" style={{ opacity: 0.7 }}>
         {count}
       </span>
     </span>
@@ -527,16 +527,16 @@ function AlertCard({
           <span style={{ color: "var(--color-ink-500)" }}>{icon}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[0.6875rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {title}
           </p>
-          <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
             {subtitle}
           </p>
           {extra}
         </div>
         <div className="text-right shrink-0">
-          <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: metaColor }}>
+          <p className="text-m-caption font-bold tabular-nums" style={{ color: metaColor }}>
             {meta}
           </p>
           <ChevronRight className="size-3 ml-auto mt-0.5" style={{ color: "var(--color-ink-300)" }} />

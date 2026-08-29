@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import Link from "next/link";
+import { Receipt, Plus } from "lucide-react";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -11,6 +13,7 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type ExpenseListItem = {
   id: string;
@@ -85,10 +88,31 @@ export function MobileExpensesList({
   }, [items, query, categoryFilter]);
 
   const summaryStats: SummaryStat[] = [
-    { label: "Total Spent", value: formatCurrency(totalAmount), tone: totalAmount > 0 ? "stop" : "default" },
+    { label: "Total Spent", value: formatCurrencyCompact(totalAmount), tone: totalAmount > 0 ? "stop" : "default" },
     { label: "Expenses", value: String(items.length) },
     { label: "Categories", value: String(categoryCount) },
   ];
+
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={Receipt}
+        title="No expenses yet"
+        hint="Record an expense to track spending"
+        action={
+          canCreate ? (
+            <Link
+              href="/m/books/gl"
+              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-3.5" /> Record Expense
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
 
   return (
     <div>
@@ -147,7 +171,7 @@ export function MobileExpensesList({
 function ExpenseCard({ e }: { e: ExpenseListItem }) {
   return (
     <div
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -159,11 +183,11 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Category + amount */}
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {e.category}
           </p>
           <span
-            className="text-[0.5625rem] font-bold tabular-nums shrink-0"
+            className="text-m-caption font-bold tabular-nums shrink-0"
             style={{ color: "var(--color-stop)" }}
           >
             {formatCurrencyCompact(e.amount)}
@@ -171,13 +195,13 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
         </div>
 
         {/* Row 2: Date */}
-        <span className="text-[0.5rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
           {formatDate(e.date)}
         </span>
 
         {/* Row 3: Project name */}
         {e.projectName ? (
-          <span className="text-[0.5rem] font-semibold truncate" style={{ color: "var(--color-steel)" }}>
+          <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-steel)" }}>
             {e.projectName}
           </span>
         ) : null}
@@ -185,7 +209,7 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
         {/* Row 4: Notes (truncated) */}
         <div className="mt-auto pt-1 min-h-[0.875rem] flex items-center">
           {e.notes ? (
-            <span className="text-[0.4375rem] leading-tight line-clamp-2" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption leading-tight line-clamp-2" style={{ color: "var(--color-ink-500)" }}>
               {e.notes}
             </span>
           ) : null}

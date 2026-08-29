@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, landSellerSchema, requirePermission } from "@/lib/server";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
@@ -65,7 +66,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "A seller with this name and phone already exists", id: existing.id }, { status: 409 });
   }
 
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const seller = await tx.landSeller.create({
       data: { ...parsed.data, companyId: company.id },
     });

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, Plus, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -136,7 +136,7 @@ export function MobileQuotationsList({
               <button
                 type="button"
                 onClick={openNew}
-                className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+                className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
                 style={{
                   borderColor: "var(--color-signal)",
                   color: "var(--color-signal-dark)",
@@ -214,7 +214,7 @@ export function MobileQuotationsList({
               {(query || tab !== "all") && (
                 <div className="flex items-center justify-end mb-1.5">
                   <span
-                    className="text-[0.625rem] font-semibold"
+                    className="text-m-label font-semibold"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     {filtered.length} request{filtered.length !== 1 ? "s" : ""}
@@ -294,7 +294,7 @@ function QuotationCard({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full text-left rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex w-full text-left rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform press"
       style={{
         borderColor: req.isPendingMyApproval
           ? "var(--color-signal)"
@@ -306,26 +306,26 @@ function QuotationCard({
       <div className="p-2.5 flex flex-col gap-1 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.5625rem] font-mono font-bold truncate"
+            className="text-m-caption font-mono font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {req.requestNumber}
           </span>
           <span
-            className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
             style={{ backgroundColor: accentColor, color: "#fff" }}
           >
             {style.label}
           </span>
         </div>
         <p
-          className="text-[0.6875rem] font-bold leading-tight truncate"
+          className="text-m-body font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {req.title}
         </p>
         <span
-          className="text-[0.5625rem] truncate"
+          className="text-m-caption truncate"
           style={{ color: "var(--color-ink-500)" }}
         >
           {req.projectName ?? "No project"} · {req.submittedByName}
@@ -333,7 +333,7 @@ function QuotationCard({
         <div className="flex items-center justify-between gap-1 mt-0.5">
           <div className="flex items-center gap-1.5">
             <span
-              className="text-[0.5rem] font-bold tabular-nums px-1.5 py-0.5 rounded-[0.25rem]"
+              className="text-m-caption font-bold tabular-nums px-1.5 py-0.5 rounded-[0.25rem]"
               style={{
                 backgroundColor: req.quotesMet
                   ? "var(--color-go-wash)"
@@ -347,7 +347,7 @@ function QuotationCard({
             </span>
             {req.isPendingMyApproval ? (
               <span
-                className="text-[0.5rem] font-bold px-1.5 py-0.5 rounded-[0.25rem]"
+                className="text-m-caption font-bold px-1.5 py-0.5 rounded-[0.25rem]"
                 style={{
                   backgroundColor: "var(--color-signal-wash)",
                   color: "var(--color-signal-dark)",
@@ -358,14 +358,14 @@ function QuotationCard({
             ) : null}
             {req.convertedPo ? (
               <span
-                className="flex items-center gap-0.5 text-[0.5rem] font-bold"
+                className="flex items-center gap-0.5 text-m-caption font-bold"
                 style={{ color: "var(--color-go)" }}
               >
                 <Trophy className="size-2.5" /> {req.convertedPo.poNumber}
               </span>
             ) : req.selectedQuoteId ? (
               <span
-                className="flex items-center gap-0.5 text-[0.5rem] font-bold"
+                className="flex items-center gap-0.5 text-m-caption font-bold"
                 style={{ color: "var(--color-go)" }}
               >
                 <Trophy className="size-2.5" /> Winner
@@ -374,10 +374,10 @@ function QuotationCard({
           </div>
           {req.cheapestLandedTotal != null ? (
             <span
-              className="text-[0.5625rem] font-bold tabular-nums"
+              className="text-m-caption font-bold tabular-nums"
               style={{ color: "var(--color-ink-700)" }}
             >
-              {formatCurrency(req.cheapestLandedTotal)}
+              {formatCurrencyCompact(req.cheapestLandedTotal)}
             </span>
           ) : null}
         </div>
@@ -598,13 +598,13 @@ function QuotationAnalysisOverlay({
           <button
             type="button"
             onClick={onClose}
-            className="p-1"
+            className="p-1 press"
             style={{ color: "var(--color-ink-700)" }}
           >
             <X className="size-5" />
           </button>
           <p
-            className="text-[0.8125rem] font-semibold"
+            className="text-m-section font-semibold"
             style={{ color: "var(--color-stop)" }}
           >
             {error}

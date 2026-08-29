@@ -6,13 +6,14 @@ import { prisma } from "@nirman/db";
 import { Undo2, FileText, Building2, MapPin, ShieldCheck } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileEmptyState,
   MobileStatCard,
   MobileStatusBadge,
+  ActionBar,
 } from "@/components/mobile/v2/primitives";
 import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
 
@@ -126,13 +127,13 @@ async function MobileSupplierReturnDetailContent({
     : [];
 
   return (
-    <div>
+    <div className="pb-20">
       <div className="flex items-center justify-between gap-2 mb-4">
         <MobileStatusBadge status={ret.status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <MobileStatCard label="Credit Value" value={formatCurrency(totalValue)} icon={Undo2} tone="signal" />
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
+        <MobileStatCard label="Credit Value" value={formatCurrencyCompact(totalValue)} icon={Undo2} tone="signal" />
         <MobileStatCard label="Line Items" value={String(ret.lines.length)} icon={Undo2} />
       </div>
 
@@ -164,13 +165,13 @@ async function MobileSupplierReturnDetailContent({
                 <Undo2 className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.material.name}</div>
-                <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.material.name}</div>
+                <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {l.material.code}
                   {l.reason ? ` · ${l.reason}` : ""} · {formatCurrency(toNum(l.unitCost))}/{l.material.unit}
                 </div>
               </div>
-              <span className="shrink-0 text-[0.75rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <span className="shrink-0 text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatNumber(toNum(l.qty), 0)} {l.material.unit}
               </span>
             </Link>
@@ -192,21 +193,23 @@ async function MobileSupplierReturnDetailContent({
             color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
               ? "var(--color-go)" : "var(--color-signal-dark)",
           }} />
-          <span className="text-[0.5625rem] flex-1" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption flex-1" style={{ color: "var(--color-ink-700)" }}>
             Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
             {gatePass.status === "PENDING" ? "awaiting approval. Completion blocked until approved." :
              gatePass.status === "APPROVED" ? "approved — ready to complete." :
              gatePass.status === "REJECTED" ? "rejected — resubmit or cancel the gate pass." :
              `${gatePass.status}`}
           </span>
-          <Link href="/m/gate-pass" className="text-[0.5625rem] font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
+          <Link href="/m/gate-pass" className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
             View →
           </Link>
         </div>
       )}
 
       {/* ── Inline actions ────────────────────────────────────── */}
-      <MobileDetailActions actions={actions} />
+      <ActionBar>
+        <MobileDetailActions actions={actions} />
+      </ActionBar>
     </div>
   );
 }

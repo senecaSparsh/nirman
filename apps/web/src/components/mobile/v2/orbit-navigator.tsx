@@ -284,7 +284,7 @@ export function OrbitNavigator({
         {breadcrumb.length > 1 ? (
           <button
             onClick={handleBack}
-            className="touch grid place-items-center rounded-[0.375rem] press shrink-0"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
             <ChevronLeft className="size-4" />
@@ -303,7 +303,7 @@ export function OrbitNavigator({
                 )}
                 <button
                   onClick={() => handleBreadcrumbTap(step, i)}
-                  className="text-[0.5625rem] font-semibold whitespace-nowrap press"
+                  className="text-m-caption font-semibold whitespace-nowrap text-m-body press"
                   style={{
                     color:
                       i === breadcrumb.length - 1
@@ -321,7 +321,7 @@ export function OrbitNavigator({
         {!inline && onClose ? (
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press shrink-0"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
             <X className="size-4" />
@@ -376,7 +376,7 @@ export function OrbitNavigator({
                         key={chip.id}
                         onClick={() => handleChipTap(chip)}
                         disabled={isEmpty || cardExpanded}
-                        className="absolute z-20 flex flex-col items-center gap-0.5 press transition-all duration-300"
+                        className="absolute z-20 flex flex-col items-center gap-0.5 text-m-body press transition-all duration-300"
                         style={{
                           left: `${x}%`,
                           top: `${y}%`,
@@ -403,18 +403,18 @@ export function OrbitNavigator({
                               : "none",
                           }}
                         >
-                          <span className="text-[1rem] leading-none">
+                          <span className="text-m-section leading-none">
                             {CATEGORY_ICONS[chip.id] ?? "📍"}
                           </span>
                         </div>
                         <span
-                          className="text-[0.5rem] font-bold text-center leading-tight whitespace-nowrap"
+                          className="text-m-caption font-bold text-center leading-tight whitespace-nowrap"
                           style={{ color: "var(--color-ink-950)" }}
                         >
                           {chip.label}
                         </span>
                         <span
-                          className="text-[0.4375rem] font-semibold tabular-nums"
+                          className="text-m-caption font-semibold tabular-nums"
                           style={{ color: "var(--color-ink-500)" }}
                         >
                           {chip.count}
@@ -436,7 +436,7 @@ export function OrbitNavigator({
               >
                 <button
                   onClick={() => setCardExpanded((v) => !v)}
-                  className="block w-full h-full text-left press"
+                  className="block w-full h-full text-left text-m-body press"
                 >
                   <CenterCard node={node} expanded={cardExpanded} />
                 </button>
@@ -447,7 +447,7 @@ export function OrbitNavigator({
             {chipCount === 0 ? (
               <div className="mt-4 text-center">
                 <p
-                  className="text-[0.625rem]"
+                  className="text-m-label"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   End of the line — no further details to explore
@@ -455,7 +455,7 @@ export function OrbitNavigator({
                 {node.href ? (
                   <a
                     href={node.href}
-                    className="mt-2 inline-flex items-center gap-1 text-[0.625rem] font-semibold underline"
+                    className="mt-2 inline-flex items-center gap-1 text-m-label font-semibold underline"
                     style={{ color: "var(--color-steel)" }}
                   >
                     View full page →
@@ -469,7 +469,7 @@ export function OrbitNavigator({
               <div className="mt-5 w-full" style={{ maxWidth: "22rem" }}>
                 <div className="flex items-center justify-between mb-2">
                   <p
-                    className="text-[0.625rem] font-bold uppercase tracking-wide"
+                    className="text-m-label font-bold uppercase tracking-wide"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {node.orbits.find((o) => o.id === activeChip)?.label ??
@@ -480,7 +480,7 @@ export function OrbitNavigator({
                       setActiveChip(null);
                       setChildren(null);
                     }}
-                    className="text-[0.5625rem] font-semibold press"
+                    className="text-m-caption font-semibold text-m-body press"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     Close list
@@ -506,7 +506,7 @@ export function OrbitNavigator({
                   </div>
                 ) : children && children.length === 0 ? (
                   <p
-                    className="text-center text-[0.5625rem] py-4"
+                    className="text-center text-m-caption py-4"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     No items found
@@ -570,26 +570,26 @@ function CenterCard({
       }}
     >
       <div
-        className="grid place-items-center w-10 h-10 rounded-[0.5rem] mx-auto mb-1 text-[1.5rem]"
+        className="grid place-items-center w-10 h-10 rounded-[0.5rem] mx-auto mb-1 text-m-section"
         style={{ backgroundColor: "var(--color-concrete)" }}
       >
         {icon}
       </div>
       <p
-        className="font-bold text-[0.6875rem] leading-tight line-clamp-2"
+        className="font-bold text-m-body leading-tight line-clamp-2"
         style={{ color: "var(--color-ink-950)" }}
       >
         {node.title}
       </p>
       <p
-        className="text-[0.5rem] mt-0.5 line-clamp-1"
+        className="text-m-caption mt-0.5 line-clamp-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {node.subtitle}
       </p>
       {node.meta ? (
         <p
-          className="text-[0.5625rem] font-bold mt-1 tabular-nums"
+          className="text-m-caption font-bold mt-1 tabular-nums"
           style={{ color: "var(--color-steel)" }}
         >
           {node.meta}
@@ -608,13 +608,13 @@ function CenterCard({
               className="flex items-baseline justify-between gap-1 min-w-0"
             >
               <span
-                className="text-[0.4375rem] shrink-0"
+                className="text-m-caption shrink-0"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {d.label}
               </span>
               <span
-                className="text-[0.4375rem] font-semibold truncate tabular-nums"
+                className="text-m-caption font-semibold truncate tabular-nums"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {d.value}
@@ -628,7 +628,7 @@ function CenterCard({
       {node.href ? (
         <a
           href={node.href}
-          className="mt-2 inline-flex items-center gap-1 text-[0.5rem] font-semibold underline"
+          className="mt-2 inline-flex items-center gap-1 text-m-caption font-semibold underline"
           style={{ color: "var(--color-steel)" }}
         >
           <ExternalLink className="size-2.5" />
@@ -650,7 +650,7 @@ function ChildCard({
   const icon = TYPE_ICONS[child.type] ?? "📍";
   return (
     <div
-      className="flex flex-col rounded-[0.5rem] border p-2 press"
+      className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -658,7 +658,7 @@ function ChildCard({
     >
       {/* Top row: icon + title + actions */}
       <div className="flex items-start gap-1.5">
-        <span className="text-[0.75rem] leading-none shrink-0 mt-0.5">
+        <span className="text-m-section leading-none shrink-0 mt-0.5">
           {icon}
         </span>
         <button
@@ -668,7 +668,7 @@ function ChildCard({
           style={{ cursor: child.hasChildren ? "pointer" : "default" }}
         >
           <p
-            className="text-[0.5625rem] font-semibold leading-tight line-clamp-2"
+            className="text-m-caption font-semibold leading-tight line-clamp-2"
             style={{ color: "var(--color-ink-950)" }}
           >
             {child.title}
@@ -699,7 +699,7 @@ function ChildCard({
 
       {/* Subtitle */}
       <p
-        className="text-[0.4375rem] mt-1 truncate"
+        className="text-m-caption mt-1 truncate"
         style={{ color: "var(--color-ink-500)" }}
       >
         {child.subtitle}
@@ -708,7 +708,7 @@ function ChildCard({
       {/* Meta (price/value) */}
       {child.meta ? (
         <p
-          className="text-[0.5rem] font-bold mt-0.5 truncate tabular-nums"
+          className="text-m-caption font-bold mt-0.5 truncate tabular-nums"
           style={{ color: "var(--color-steel)" }}
         >
           {child.meta}
@@ -727,13 +727,13 @@ function ChildCard({
               className="flex items-baseline justify-between gap-1 min-w-0"
             >
               <span
-                className="text-[0.4375rem] shrink-0"
+                className="text-m-caption shrink-0"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {d.label}
               </span>
               <span
-                className="text-[0.4375rem] font-semibold truncate tabular-nums text-right"
+                className="text-m-caption font-semibold truncate tabular-nums text-right"
                 style={{ color: "var(--color-ink-700)" }}
               >
                 {d.value}

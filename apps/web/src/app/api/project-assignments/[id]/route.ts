@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.USERS_MANAGE);
@@ -20,7 +21,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { scopedRole } = body;
   if (!scopedRole) return json({ error: "scopedRole is required" }, { status: 400 });
   try {
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       const pa = await tx.projectAssignment.update({
         where: { id },
         data: { scopedRole },
@@ -53,7 +54,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Assignment not found" }, { status: 404 });
   }
   try {
-    await prisma.$transaction(async (tx) => {
+    await withSerializableTransaction(async (tx) => {
       await tx.projectAssignment.delete({ where: { id } });
       await logAction(tx, {
         userId: user.id,

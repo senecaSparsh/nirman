@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Wallet, TrendingUp, Clock, CalendarDays, Calendar } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -139,9 +139,9 @@ async function MobilePayrollExpenseContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Total Gross", value: formatCurrency(totalGross) },
-          { label: "Total Net", value: formatCurrency(totalNet), tone: "go" },
-          { label: "Total Overtime", value: formatCurrency(totalOvertime), tone: "signal" },
+          { label: "Total Gross", value: formatCurrencyCompact(totalGross) },
+          { label: "Total Net", value: formatCurrencyCompact(totalNet), tone: "go" },
+          { label: "Total Overtime", value: formatCurrencyCompact(totalOvertime), tone: "signal" },
           { label: "Periods", value: String(periods.length) },
         ]}
       />
@@ -151,7 +151,7 @@ async function MobilePayrollExpenseContent() {
           title="Payroll Expense Report"
           rows={monthly as unknown as Record<string, unknown>[]}
           columns={monthlyCsvColumns}
-          summary={`Gross: ${formatCurrency(totalGross)} · Net: ${formatCurrency(totalNet)} · OT: ${formatCurrency(totalOvertime)}`}
+          summary={`Gross: ${formatCurrencyCompact(totalGross)} · Net: ${formatCurrencyCompact(totalNet)} · OT: ${formatCurrencyCompact(totalOvertime)}`}
         />
       </div>
 
@@ -164,7 +164,7 @@ async function MobilePayrollExpenseContent() {
             value: m.gross,
             tone: "signal" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -177,7 +177,7 @@ async function MobilePayrollExpenseContent() {
             icon={CalendarDays}
             title={m.label}
             subtitle={`${m.employees} employees · Net ${formatCurrency(m.net)}`}
-            meta={formatCurrency(m.gross)}
+            meta={formatCurrencyCompact(m.gross)}
             metaSub={m.overtime > 0 ? `OT ${formatCurrency(m.overtime)}` : undefined}
             tone="default"
           />
@@ -203,7 +203,7 @@ async function MobilePayrollExpenseContent() {
                 icon={Wallet}
                 title={t.trade}
                 subtitle={`${t.employees} employee${t.employees > 1 ? "s" : ""} · Net ${formatCurrency(t.net)}`}
-                meta={formatCurrency(t.gross)}
+                meta={formatCurrencyCompact(t.gross)}
                 tone="success"
               />
             ))}
@@ -222,7 +222,7 @@ async function MobilePayrollExpenseContent() {
                 icon={Wallet}
                 title={c.crew}
                 subtitle={`${c.employees} employee${c.employees > 1 ? "s" : ""} · Net ${formatCurrency(c.net)}`}
-                meta={formatCurrency(c.gross)}
+                meta={formatCurrencyCompact(c.gross)}
                 tone="default"
               />
             ))}

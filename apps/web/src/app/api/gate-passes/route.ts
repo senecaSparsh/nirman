@@ -53,7 +53,7 @@ const lineSchema = z.object({
   materialCode: z.string().optional().nullable(),
   materialName: z.string().optional().nullable(),
   unit: z.string().optional().nullable(),
-  qty: z.union([z.number(), z.string()]),
+  qty: z.coerce.number().positive("Quantity must be greater than 0"),
   description: z.string().optional().nullable(),
 });
 

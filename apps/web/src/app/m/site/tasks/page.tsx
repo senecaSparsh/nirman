@@ -65,7 +65,7 @@ async function SiteTasksContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="Pending" value={String(pending)} icon={CheckSquare} tone={pending > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="In Progress" value={String(inProgress)} icon={CheckSquare} tone={inProgress > 0 ? "go" : "neutral"} />
         <MobileStatCard label="Blocked" value={String(blocked)} icon={CheckSquare} tone={blocked > 0 ? "stop" : "neutral"} />

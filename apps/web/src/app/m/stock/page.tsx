@@ -84,7 +84,7 @@ async function MobileStockContent({
     if (!location) {
       return (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Location not found
           </p>
         </div>

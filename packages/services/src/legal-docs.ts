@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { reallocateProjectCosts } from "./valuation";
 import { postProjectCost, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Legal Documents Service — permissions, licenses, NOCs, certificates,
@@ -42,7 +43,7 @@ export interface CreateLegalDocInput {
   issueDate?: Date | null;
   validFrom?: Date | null;
   validTill?: Date | null;
-  amount?: number | null;
+  amount?: string | number | Decimal | null;
   expectedRegistryDate?: Date | null;
   documentUrl?: string | null;
   documentName?: string | null;
@@ -64,7 +65,7 @@ export interface UpdateLegalDocInput {
   issueDate?: Date | null;
   validFrom?: Date | null;
   validTill?: Date | null;
-  amount?: number | null;
+  amount?: string | number | Decimal | null;
   expectedRegistryDate?: Date | null;
   documentUrl?: string | null;
   documentName?: string | null;
@@ -97,7 +98,7 @@ export async function createLegalDoc(input: CreateLegalDocInput) {
     if (!p) throw new ServiceError("Project not found");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const doc = await tx.legalDocument.create({
       data: {
         companyId: input.companyId,
@@ -116,7 +117,7 @@ export async function createLegalDoc(input: CreateLegalDocInput) {
         issueDate: input.issueDate ?? null,
         validFrom: input.validFrom ?? null,
         validTill: input.validTill ?? null,
-        amount: input.amount ?? null,
+        amount: input.amount != null ? new Decimal(input.amount) : null,
         expectedRegistryDate: input.expectedRegistryDate ?? null,
         documentUrl: input.documentUrl ?? null,
         documentName: input.documentName ?? null,
@@ -169,13 +170,13 @@ export async function updateLegalDoc(id: string, companyId: string, input: Updat
   if (input.issueDate !== undefined) data.issueDate = input.issueDate;
   if (input.validFrom !== undefined) data.validFrom = input.validFrom;
   if (input.validTill !== undefined) data.validTill = input.validTill;
-  if (input.amount !== undefined) data.amount = input.amount;
+  if (input.amount !== undefined) data.amount = input.amount != null ? new Decimal(input.amount) : null;
   if (input.expectedRegistryDate !== undefined) data.expectedRegistryDate = input.expectedRegistryDate;
   if (input.documentUrl !== undefined) data.documentUrl = input.documentUrl;
   if (input.documentName !== undefined) data.documentName = input.documentName;
   if (input.notes !== undefined) data.notes = input.notes;
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const doc = await tx.legalDocument.update({
       where: { id },
       data,
@@ -209,7 +210,7 @@ export async function deleteLegalDoc(id: string, companyId: string, userId?: str
   });
   if (!existing) throw new ServiceError("Legal document not found");
 
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     // Remove the linked transfer-duty cost line first (reverses GL entry).
     await removeLinkedTransferDutyCost(tx, id, userId);
 
@@ -338,7 +339,7 @@ async function syncTransferDutyCost(
         },
       });
       const project = await tx.project.findFirst({
-        where: { id: doc.projectId },
+        where: { id: doc.projectId, deletedAt: null },
         select: { companyId: true },
       });
       if (project) {

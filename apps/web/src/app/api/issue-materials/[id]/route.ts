@@ -1,7 +1,30 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { cancelMaterialIssue } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+
+/** GET /api/issue-materials/[id] — fetch a single material issue by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const issue = await prisma.materialIssue.findFirst({
+    where: { id, project: { companyId: company.id } },
+    include: {
+      project: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true, code: true } },
+      fromLocation: { select: { id: true, name: true } },
+      subcontractor: { select: { id: true, name: true } },
+      issuedBy: { select: { id: true, name: true } },
+      lines: {
+        include: { material: { select: { id: true, code: true, name: true, unit: true } } },
+      },
+    },
+  });
+  if (!issue) return json({ error: "Material issue not found" }, { status: 404 });
+  return json(issue);
+});
 
 /**
  * PATCH /api/issue-materials/[id] — cancel a material issue.
@@ -10,7 +33,7 @@ import { PERM } from "@/lib/roles";
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.STOCK_ISSUE);
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json();
   const action = body?.action as string;
 
   if (action === "cancel") {

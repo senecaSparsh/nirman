@@ -220,8 +220,8 @@ export async function evaluateRequisitionRouting(
   // S_lead from the chosen supplier, if any
   let supplierLeadTimeDays = new Decimal(0);
   if (opts.supplierId) {
-    const supplier = await prisma.supplier.findUnique({
-      where: { id: opts.supplierId },
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: opts.supplierId, deletedAt: null },
       select: { leadTimeDays: true },
     });
     supplierLeadTimeDays = new Decimal(supplier?.leadTimeDays ?? 0);
@@ -232,7 +232,7 @@ export async function evaluateRequisitionRouting(
   // Material-level LCI inputs
   const materialIds = req.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds } },
+    where: { id: { in: materialIds }, deletedAt: null },
     select: {
       id: true,
       volumetricDensity: true,

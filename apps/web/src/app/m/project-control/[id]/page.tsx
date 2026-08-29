@@ -7,7 +7,7 @@ import { getEvmMetrics } from "@nirman/services";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileNoAccess,
   MobileEmptyState,
@@ -94,18 +94,18 @@ async function MobileProjectControlDetailContent({
         className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <p className="text-[0.625rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
           Earned Value Analysis
         </p>
-        <p className="text-[0.875rem] font-bold leading-tight mb-2" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight mb-2" style={{ color: "var(--color-ink-950)" }}>
           {project.name}
         </p>
         {/* % Complete hero */}
         <div className="text-center mt-2">
-          <p className="text-[0.5625rem] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
             Project Completion
           </p>
-          <p className="text-[2rem] font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
             {formatNumber(pctComplete, 1)}%
           </p>
           <div className="h-2 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-concrete)" }}>
@@ -120,27 +120,27 @@ async function MobileProjectControlDetailContent({
       {/* EVM Triple Constraint */}
       <div>
         <SectionHead title="Triple Constraint" />
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard label="PV" sublabel="Planned" value={formatCurrency(pv)} icon={Target} />
-          <StatCard label="EV" sublabel="Earned" value={formatCurrency(ev)} icon={TrendingUp} tone="go" />
-          <StatCard label="AC" sublabel="Actual" value={formatCurrency(ac)} icon={DollarSign} tone="signal" />
+        <div className="grid grid-cols-4 gap-1.5">
+          <StatCard label="PV" sublabel="Planned" value={formatCurrencyCompact(pv)} icon={Target} />
+          <StatCard label="EV" sublabel="Earned" value={formatCurrencyCompact(ev)} icon={TrendingUp} tone="go" />
+          <StatCard label="AC" sublabel="Actual" value={formatCurrencyCompact(ac)} icon={DollarSign} tone="signal" />
         </div>
       </div>
 
       {/* Variances */}
       <div>
         <SectionHead title="Variances" />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <VarianceCard
             label="Cost Variance (CV)"
-            value={formatCurrency(cv)}
+            value={formatCurrencyCompact(cv)}
             sublabel={cv >= 0 ? "Under budget" : "Over budget"}
             color={cvColor}
             icon={cv >= 0 ? TrendingDown : AlertTriangle}
           />
           <VarianceCard
             label="Schedule Variance (SV)"
-            value={formatCurrency(sv)}
+            value={formatCurrencyCompact(sv)}
             sublabel={sv >= 0 ? "Ahead of schedule" : "Behind schedule"}
             color={svColor}
             icon={sv >= 0 ? TrendingUp : AlertTriangle}
@@ -151,7 +151,7 @@ async function MobileProjectControlDetailContent({
       {/* Performance Indices */}
       <div>
         <SectionHead title="Performance Indices" />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <IndexCard label="CPI" sublabel="Cost Performance" value={formatNumber(cpi, 2)} color={cpiColor} hint={cpi >= 1 ? "Efficient" : "Over budget"} />
           <IndexCard label="SPI" sublabel="Schedule Performance" value={formatNumber(spi, 2)} color={spiColor} hint={spi >= 1 ? "On time" : "Behind"} />
         </div>
@@ -164,10 +164,10 @@ async function MobileProjectControlDetailContent({
           className="rounded-[0.5rem] border divide-y"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <DetailRow label="EAC (Estimate at Completion)" value={formatCurrency(eac)} />
-          <DetailRow label="VAC (Variance at Completion)" value={formatCurrency(vac)} />
+          <DetailRow label="EAC (Estimate at Completion)" value={formatCurrencyCompact(eac)} />
+          <DetailRow label="VAC (Variance at Completion)" value={formatCurrencyCompact(vac)} />
           {project.totalBudget && (
-            <DetailRow label="Original Budget" value={formatCurrency(toNum(project.totalBudget))} />
+            <DetailRow label="Original Budget" value={formatCurrencyCompact(toNum(project.totalBudget))} />
           )}
         </div>
       </div>
@@ -175,12 +175,12 @@ async function MobileProjectControlDetailContent({
       {/* Project link */}
       <Link
         href={`/m/projects/${project.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Project</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{project.name}</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Project</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{project.name}</p>
         </div>
       </Link>
     </div>
@@ -214,10 +214,10 @@ function StatCard({
     >
       <div className="flex items-center gap-1 mb-1">
         {Icon && <Icon className="size-3" style={{ color: toneColor }} />}
-        <p className="text-[0.5625rem] font-bold" style={{ color: toneColor }}>{label}</p>
+        <p className="text-m-caption font-bold" style={{ color: toneColor }}>{label}</p>
       </div>
-      <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
-      <p className="text-[0.6875rem] font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-body font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-950)" }}>
         {value}
       </p>
     </div>
@@ -239,15 +239,15 @@ function VarianceCard({
 }) {
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center gap-1 mb-1">
         <Icon className="size-3" style={{ color }} />
-        <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
+        <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
       </div>
-      <p className="text-[0.75rem] font-bold tabular-nums" style={{ color }}>{value}</p>
-      <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-section font-bold tabular-nums truncate" style={{ color }}>{value}</p>
+      <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
     </div>
   );
 }
@@ -267,14 +267,14 @@ function IndexCard({
 }) {
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
-      <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
       <div className="flex items-baseline gap-1.5 mt-1">
-        <p className="text-[1rem] font-bold tabular-nums" style={{ color }}>{value}</p>
-        <p className="text-[0.4375rem] font-semibold" style={{ color }}>{hint}</p>
+        <p className="text-m-section font-bold tabular-nums" style={{ color }}>{value}</p>
+        <p className="text-m-caption font-semibold" style={{ color }}>{hint}</p>
       </div>
     </div>
   );
@@ -289,8 +289,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
-      <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-[0.625rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+      <p className="text-m-label font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { ShoppingCart, TrendingUp, Wallet, Building2 } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileStatCard,
@@ -114,9 +114,9 @@ async function MobileSalesRevenueContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Sales Value", value: formatCurrency(totalSales) },
-          { label: "Collected", value: formatCurrency(totalCollected), tone: "go" },
-          { label: "Outstanding", value: formatCurrency(totalOutstanding), tone: totalOutstanding > 0 ? "signal" : "default" },
+          { label: "Sales Value", value: formatCurrencyCompact(totalSales) },
+          { label: "Collected", value: formatCurrencyCompact(totalCollected), tone: "go" },
+          { label: "Outstanding", value: formatCurrencyCompact(totalOutstanding), tone: totalOutstanding > 0 ? "signal" : "default" },
           { label: "Deals", value: String(records.length) },
         ]}
       />
@@ -127,7 +127,7 @@ async function MobileSalesRevenueContent() {
           rows={records as unknown as Record<string, unknown>[]}
           columns={csvColumns}
           exportType="sales-revenue"
-          summary={`Sales: ${formatCurrency(totalSales)} · Collected: ${formatCurrency(totalCollected)} · Outstanding: ${formatCurrency(totalOutstanding)} · ${records.length} deals`}
+          summary={`Sales: ${formatCurrencyCompact(totalSales)} · Collected: ${formatCurrencyCompact(totalCollected)} · Outstanding: ${formatCurrencyCompact(totalOutstanding)} · ${records.length} deals`}
         />
       </div>
 
@@ -136,7 +136,7 @@ async function MobileSalesRevenueContent() {
       <div className="mb-4">
         <MobileBarChart
           data={projectRows.map((p) => ({ label: p.name, value: p.value, tone: "go" as const }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
           maxItems={8}
         />
       </div>
@@ -150,7 +150,7 @@ async function MobileSalesRevenueContent() {
             icon={Building2}
             title={p.name}
             subtitle={`${p.count} deal${p.count > 1 ? "s" : ""} · Collected ${formatCurrency(p.collected)}`}
-            meta={formatCurrency(p.value)}
+            meta={formatCurrencyCompact(p.value)}
             tone="success"
           />
         ))}
@@ -165,13 +165,13 @@ async function MobileSalesRevenueContent() {
             icon={ShoppingCart}
             title={r.customer}
             subtitle={`${r.saleNumber} · ${formatDate(r.saleDate)}${r.unitType ? ` · ${r.unitType}` : ""}`}
-            meta={formatCurrency(r.salePrice)}
+            meta={formatCurrencyCompact(r.salePrice)}
             metaSub={r.outstanding > 0 ? `${formatCurrency(r.outstanding)} due` : "Fully paid"}
             tone={r.outstanding > 0 ? "warning" : "success"}
           />
         ))}
         {records.length > 30 && (
-          <p className="text-center text-[0.625rem] py-2" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-center text-m-label py-2" style={{ color: "var(--color-ink-500)" }}>
             Showing 30 of {records.length} sales · Export for full list
           </p>
         )}

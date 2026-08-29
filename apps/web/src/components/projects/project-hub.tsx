@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/data-table";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { statusColor, StatusPill } from "@/components/page";
@@ -682,7 +683,18 @@ function ProcurementTab({ data }: { data: ProjectHubData }) {
 // ───────────────────────────────────────────────────────────
 
 function StockTab({ data }: { data: ProjectHubData }) {
-  const [view, setView] = useState<"issues" | "movements">("issues");
+  const [view, setView] = useState<"issues" | "movements" | "valuation">("issues");
+  const [valuation, setValuation] = useState<{ locationName: string; totalValue: number; items: { materialName: string; materialCode: string; qty: number; mac: number; value: number }[] }[] | null>(null);
+  const [valuationLoading, setValuationLoading] = useState(false);
+
+  async function loadValuation() {
+    if (valuation) return;
+    setValuationLoading(true);
+    try {
+      const res = await fetch(`/api/site-stock-valuation?projectId=${data.project.id}`);
+      if (res.ok) setValuation(await res.json());
+    } catch { /* ignore */ } finally { setValuationLoading(false); }
+  }
 
   const toggle = (
     <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
@@ -701,6 +713,14 @@ function StockTab({ data }: { data: ProjectHubData }) {
         }`}
       >
         Movements <span className="tnum">({data.stockMovements.length})</span>
+      </button>
+      <button
+        onClick={() => { setView("valuation"); loadValuation(); }}
+        className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
+          view === "valuation" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Valuation
       </button>
     </div>
   );
@@ -799,7 +819,7 @@ function StockTab({ data }: { data: ProjectHubData }) {
             ]}
           />
         </div>
-      ) : (
+      ) : view === "movements" ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable
             data={data.stockMovements}
@@ -868,6 +888,51 @@ function StockTab({ data }: { data: ProjectHubData }) {
               },
             ]}
           />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {toggle}
+          {valuationLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading stock valuation…</div>
+          ) : !valuation || valuation.length === 0 ? (
+            <EmptyState icon={<Package className="h-5 w-5" />} title="No stock at site" description="Stock received at this project's locations will show here with its moving average cost valuation." />
+          ) : (
+            valuation.map((loc) => (
+              <div key={loc.locationName} className="rounded-lg border border-border bg-card shadow-raised overflow-hidden">
+                <div className="border-b border-border px-4 py-2.5 flex items-center justify-between">
+                  <span className="font-medium">{loc.locationName}</span>
+                  <span className="tnum text-body font-bold">{formatCurrency(loc.totalValue)}</span>
+                </div>
+                {loc.items.length > 0 ? (
+                  <Table>
+                    <THead>
+                      <TR className="hover:bg-transparent">
+                        <TH>Material</TH>
+                        <TH className="text-right">Qty</TH>
+                        <TH className="text-right">MAC</TH>
+                        <TH className="text-right">Value</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {loc.items.map((item) => (
+                        <TR key={item.materialCode}>
+                          <TD>
+                            <div className="font-medium">{item.materialName}</div>
+                            <div className="font-mono text-caption text-muted-foreground">{item.materialCode}</div>
+                          </TD>
+                          <TD className="tnum text-right">{formatNumber(item.qty, 3)}</TD>
+                          <TD className="tnum text-right text-muted-foreground">{formatCurrency(item.mac)}</TD>
+                          <TD className="tnum text-right font-medium">{formatCurrency(item.value)}</TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                ) : (
+                  <div className="py-4 text-center text-caption text-muted-foreground">No items in stock</div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

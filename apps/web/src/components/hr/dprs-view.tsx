@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet } from "lucide-react";
+import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -19,6 +19,10 @@ import { EmployeeQuickCreateDialog } from "@/components/hr/employee-quick-create
 import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
 
 export type DprApprovalStatus = "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED";
+
+// Rough labor rate for estimated cost display — not a configurable setting yet.
+// TODO: make this a project/company-level setting when the schema supports it.
+const LABOR_RATE_ESTIMATE = 250;
 
 const APPROVAL_LABELS: Record<DprApprovalStatus, string> = {
   SUBMITTED: "Pending",
@@ -159,6 +163,20 @@ export function DprsView({
   const [rejectTarget, setRejectTarget] = useState<DprRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approving, setApproving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const canApprove = canSubAdminApprove || canAdminApprove;
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const filteredDprs = useMemo(
+    () => dprs.filter((d) => {
+      if (dateFrom && d.date < dateFrom) return false;
+      if (dateTo && d.date > dateTo) return false;
+      return true;
+    }),
+    [dprs, dateFrom, dateTo],
+  );
 
   function openCreate() {
     setEditTarget(null);
@@ -190,7 +208,7 @@ export function DprsView({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(action === "subAdminApprove" ? "Sub-Admin approved" : action === "adminApprove" ? "Admin approved" : action === "reject" ? "DPR rejected" : "DPR resubmitted");
+      toast.success(action === "subAdminApprove" ? "Sub-Admin approved" : action === "adminApprove" ? "Admin approved" : action === "reject" ? "DPR rejected" : action === "markCostPosted" ? "Cost posted" : "DPR resubmitted");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -205,6 +223,34 @@ export function DprsView({
     await approvalAction(rejectTarget.id, "reject", { reason: rejectReason.trim() });
     setRejectTarget(null);
     setRejectReason("");
+  }
+
+  /** Loop through selected DPRs and call an approval action for each. */
+  async function bulkAction(rows: DprRow[], action: string) {
+    if (rows.length === 0) return;
+    setBulkApproving(true);
+    let success = 0;
+    let failed = 0;
+    for (const d of rows) {
+      try {
+        const res = await fetch(`/api/dprs/${d.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed");
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    const label = action === "subAdminApprove" ? "sub-admin approved" : action === "adminApprove" ? "admin approved" : "rejected";
+    if (success > 0) toast.success(`${success} DPR${success === 1 ? "" : "s"} ${label}`);
+    if (failed > 0) toast.error(`${failed} DPR${failed === 1 ? "" : "s"} failed to process`);
+    setBulkApproving(false);
+    setSelectedIds(new Set());
+    router.refresh();
   }
 
   const dprColumns: Column<DprRow>[] = [
@@ -315,6 +361,11 @@ export function DprsView({
   function dprRowActions(d: DprRow) {
     return (
       <>
+        {d.approvalStatus === "APPROVED" && (
+          <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "markCostPosted"); }}>
+            <Wallet className="mr-1 h-3.5 w-3.5" /> Mark Cost Posted
+          </Button>
+        )}
         {canSubAdminApprove && d.approvalStatus === "SUBMITTED" && (
           <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "subAdminApprove"); }}>
             <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin
@@ -345,6 +396,16 @@ export function DprsView({
             </Button>
           </>
         )}
+        <a
+          href={`/api/dprs/${d.id}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+          title="Print DPR"
+        >
+          <Printer className="h-3.5 w-3.5" />
+        </a>
       </>
     );
   }
@@ -367,7 +428,7 @@ export function DprsView({
   return (
     <div className="space-y-4">
       {/* Summary stats bar */}
-      <DprStatsBar dprs={dprs} />
+      <DprStatsBar dprs={filteredDprs} />
 
       {/* DPR list */}
       {dprs.length === 0 ? (
@@ -384,7 +445,7 @@ export function DprsView({
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable
-            data={dprs}
+            data={filteredDprs}
             columns={dprColumns}
             storageKey="dprs"
             hideable
@@ -393,6 +454,24 @@ export function DprsView({
             onRowClick={(d) => setDetailTarget(d)}
             searchable
             searchPlaceholder="Search project, submitter, work type…"
+            toolbarLeading={
+              <div className="flex w-fit shrink-0 items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+                  title="Filter from date"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+                  title="Filter to date"
+                />
+              </div>
+            }
             toolbarTrailing={trailingButtons}
             rowActions={dprRowActions}
             rowTone={(d) => {
@@ -401,6 +480,46 @@ export function DprsView({
             }}
             pageSize={50}
             emptyState={noMatch}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            bulkActions={(selected) => (
+              <>
+                {canSubAdminApprove && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bulkApproving}
+                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUBMITTED"), "subAdminApprove")}
+                  >
+                    {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                    Sub-Admin Approve
+                  </Button>
+                )}
+                {canAdminApprove && (
+                  <Button
+                    size="sm"
+                    disabled={bulkApproving}
+                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED"), "adminApprove")}
+                  >
+                    {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Admin Approve
+                  </Button>
+                )}
+                {canApprove && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-danger"
+                    disabled={bulkApproving}
+                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED"), "reject")}
+                  >
+                    {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                    Reject
+                  </Button>
+                )}
+              </>
+            )}
           />
         </div>
       )}
@@ -927,10 +1046,10 @@ function DprDetailDialog({
                     <div className="text-micro text-muted-foreground">Est. Labor Cost*</div>
                     <div className="tnum text-body font-semibold">
                       {formatCurrency(
-                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0) * 250,
+                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0) * LABOR_RATE_ESTIMATE,
                       )}
                     </div>
-                    <div className="text-micro text-muted-foreground">*₹250/hr estimate</div>
+                    <div className="text-micro text-muted-foreground">*{formatCurrency(LABOR_RATE_ESTIMATE)}/hr estimate</div>
                   </div>
                 </div>
                 <p className="mt-2 text-micro text-muted-foreground">

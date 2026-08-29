@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { recordMovement, refreshMaterialCurrentCost, withStockTransaction } from "./stock-ledger";
 import { postMaterialSale, reverseJournalEntry } from "./gl-posting";
@@ -338,7 +339,7 @@ export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) 
   const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
   const grossProfit = subtotal.minus(totalCost);
 
-  const sale = await prisma.$transaction(async (tx) => {
+  const sale = await withSerializableTransaction(async (tx) => {
     const sale = await tx.materialSale.create({
       data: {
         saleNumber: await generateMaterialSaleNumber(tx),

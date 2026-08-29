@@ -271,7 +271,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
           <>
             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
               <div>
-                <Label className="text-[11px]">Gate Entry No.</Label>
+                <Label className="text-m-body">Gate Entry No.</Label>
                 <Input
                   placeholder="e.g. GE-2026-081"
                   value={gateEntryNumber}
@@ -280,7 +280,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                 />
               </div>
               <div>
-                <Label className="text-[11px]">Challan No.</Label>
+                <Label className="text-m-body">Challan No.</Label>
                 <Input
                   placeholder="Supplier dispatch no."
                   value={challanNumber}
@@ -300,7 +300,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
               <Truck className="size-3.5" />
               Delivery details
               {(deliveryMode || vehicle.vehicleNumber || photos.length > 0 || wbTicketNo) ? (
-                <span className="ml-1 text-[10px] font-bold text-success">✓ filled</span>
+                <span className="ml-1 text-m-label font-bold text-success">✓ filled</span>
               ) : null}
             </button>
 
@@ -317,7 +317,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                 {/* Vehicle — hidden for hand carry */}
                 {deliveryMode && deliveryMode !== "HAND_CARRY" && (
                   <div>
-                    <Label className="text-[11px] mb-1.5 block">Vehicle / Transport</Label>
+                    <Label className="text-m-body mb-1.5 block">Vehicle / Transport</Label>
                     <VehicleCapture value={vehicle} onChange={setVehicle} compact />
                   </div>
                 )}
@@ -335,8 +335,8 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                 <div>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Scale className="size-3 text-muted-foreground" />
-                    <Label className="text-[11px]">Weighbridge (Kanta Parchi)</Label>
-                    <span className="text-[10px] text-muted-foreground">— for bulk materials</span>
+                    <Label className="text-m-body">Weighbridge (Kanta Parchi)</Label>
+                    <span className="text-m-label text-muted-foreground">— for bulk materials</span>
                   </div>
                   <WeighbridgeFields
                     ticketNo={wbTicketNo}
@@ -354,7 +354,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
 
             {/* Receipt remarks */}
             <div>
-              <Label className="text-[11px]">Receipt Remarks</Label>
+              <Label className="text-m-body">Receipt Remarks</Label>
               <Input
                 placeholder="Any additional notes"
                 value={receiptNotes}

@@ -1,9 +1,9 @@
 "use client";
 
-import { type ComponentProps } from "react";
+import { type ComponentProps, Fragment, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
-import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck } from "lucide-react";
+import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck, Building2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OnHandTab } from "./on-hand-tab";
 import { TransfersTab } from "./transfers-tab";
@@ -32,7 +32,7 @@ type ScrapMaterial = ComponentProps<typeof ScrapGenerationsView>["materials"];
 type ScrapProject = ComponentProps<typeof ScrapGenerationsView>["projects"];
 type CountLocation = ComponentProps<typeof StockCountsView>["locations"];
 
-const TABS = ["on-hand", "movements", "transfers", "issues", "scrap", "counts"] as const;
+const TABS = ["on-hand", "movements", "transfers", "issues", "scrap", "counts", "cross-company"] as const;
 type TabValue = (typeof TABS)[number];
 
 export function StockHubView({
@@ -54,6 +54,7 @@ export function StockHubView({
   countLocations,
   categories,
   permissions,
+  hasChildren = false,
 }: {
   stock: StockRow[];
   locations: StockLocationRow[];
@@ -78,6 +79,7 @@ export function StockHubView({
     canIssue: boolean;
     canManage: boolean;
   };
+  hasChildren?: boolean;
 }) {
   const searchParams = useSearchParams();
 
@@ -126,6 +128,13 @@ export function StockHubView({
             <ClipboardCheck className="h-3.5 w-3.5" /> Counts
           </span>
         </TabsTrigger>
+        {hasChildren && (
+          <TabsTrigger value="cross-company">
+            <span className="flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" /> Cross-Company
+            </span>
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="on-hand">
@@ -173,6 +182,149 @@ export function StockHubView({
           permissions={{ canCreate: permissions.canManage, canManage: permissions.canManage }}
         />
       </TabsContent>
+      {hasChildren && (
+        <TabsContent value="cross-company">
+          <CrossCompanyTab />
+        </TabsContent>
+      )}
     </Tabs>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * Cross-Company tab — aggregated stock across child companies.
+ * Fetches from /api/inventory/cross-company (parent-only).
+ * ════════════════════════════════════════════════════════════ */
+function CrossCompanyTab() {
+  const [data, setData] = useState<{
+    companies: { id: string; name: string }[];
+    materials: {
+      materialId: string;
+      materialName: string;
+      materialCode: string | null;
+      unit: string;
+      categoryName: string | null;
+      totalQty: number;
+      totalValue: number;
+      companies: { companyId: string; companyName: string; qty: number; value: number }[];
+    }[];
+    summary: { totalMaterials: number; totalValue: number; totalQty: number };
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    fetch(`/api/inventory/cross-company?${params.toString()}`)
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Failed to load");
+        return json;
+      })
+      .then((d) => setData(d))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"))
+      .finally(() => setLoading(false));
+  }, [search]);
+
+  if (loading) {
+    return <div className="py-8 text-center text-sm text-muted-foreground">Loading cross-company inventory…</div>;
+  }
+  if (error) {
+    return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
+  }
+  if (!data || data.materials.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        No stock found across child companies.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Summary */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-b border-border pb-2">
+        <span><strong className="text-foreground tabular-nums">{data.summary.totalMaterials}</strong> materials</span>
+        <span className="text-border">·</span>
+        <span><strong className="text-foreground tabular-nums">{data.companies.length}</strong> child companies</span>
+        <span className="text-border">·</span>
+        <span><strong className="text-foreground tabular-nums">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(data.summary.totalValue)}</strong> total value</span>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-xs">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search material…"
+          className="h-8 w-full px-3 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/50">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium text-muted-foreground">Material</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">Category</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground text-right">Total Qty</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground text-right">Total Value</th>
+              <th className="px-3 py-2 font-medium text-muted-foreground">Companies</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.materials.map((m) => {
+              const isExpanded = expanded.has(m.materialId);
+              return (
+                <Fragment key={m.materialId}>
+                  <tr
+                    className="border-t border-border hover:bg-muted/30 cursor-pointer"
+                    onClick={() => {
+                      setExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(m.materialId)) next.delete(m.materialId);
+                        else next.add(m.materialId);
+                        return next;
+                      });
+                    }}
+                  >
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-foreground">{m.materialName}</div>
+                      {m.materialCode && <div className="font-mono text-[10px] text-muted-foreground">{m.materialCode}</div>}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{m.categoryName ?? "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{m.totalQty.toLocaleString("en-IN")} {m.unit}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(m.totalValue)}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{m.companies.length}</td>
+                  </tr>
+                  {isExpanded && (
+                    <tr className="border-t border-border bg-muted/20">
+                      <td colSpan={5} className="px-6 py-2">
+                        <div className="space-y-1">
+                          {m.companies.map((c) => (
+                            <div key={c.companyId} className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">{c.companyName}</span>
+                              <span className="tabular-nums">
+                                {c.qty.toLocaleString("en-IN")} {m.unit} · {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(c.value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

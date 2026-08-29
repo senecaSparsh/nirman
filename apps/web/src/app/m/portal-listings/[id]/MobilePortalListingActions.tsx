@@ -2,28 +2,58 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { RefreshCw, XCircle, Loader2, AlertTriangle, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { ActionBar } from "@/components/mobile/v2/primitives";
+
+interface ListingData {
+  title: string;
+  description: string | null;
+  askingPrice: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  furnishing: string | null;
+}
 
 /**
- * Sticky bottom action bar for portal listing sync/delist actions.
+ * Sticky bottom action bar for portal listing sync/delist/edit/delete actions.
  * Sync pushes the listing to the portal; Delist removes it.
- * Delist shows a confirmation modal before executing.
+ * Edit opens a form sheet (only when NOT LISTED).
+ * Delete removes the listing record (only DRAFT, SYNC_FAILED, or DELISTED).
  */
 export function MobilePortalListingActions({
   listingId,
   status,
+  title,
+  description,
+  askingPrice,
+  bedrooms,
+  bathrooms,
+  furnishing,
 }: {
   listingId: string;
   status: string;
-}) {
+} & ListingData) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [showDelistConfirm, setShowDelistConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
-  // Hide actions for already-delisted listings (nothing to sync/delist)
-  if (status === "DELISTED") return null;
+  // Edit form state
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDesc, setEditDesc] = useState(description ?? "");
+  const [editPrice, setEditPrice] = useState(String(askingPrice));
+  const [editBeds, setEditBeds] = useState(bedrooms != null ? String(bedrooms) : "");
+  const [editBaths, setEditBaths] = useState(bathrooms != null ? String(bathrooms) : "");
+  const [editFurnishing, setEditFurnishing] = useState(furnishing ?? "");
+
+  const canEdit = status !== "LISTED";
+  const canDelete = status === "DRAFT" || status === "SYNC_FAILED" || status === "DELISTED";
+
+  // Hide all actions for delisted listings that can't be re-synced
+  if (status === "DELISTED" && !canDelete) return null;
 
   async function act(action: "sync" | "delist", label: string) {
     haptic(10);
@@ -44,21 +74,93 @@ export function MobilePortalListingActions({
     }
   }
 
+  async function saveEdit() {
+    setBusy("edit");
+    try {
+      const body: Record<string, unknown> = {
+        title: editTitle.trim(),
+        description: editDesc.trim() || null,
+        askingPrice: Number(editPrice) || 0,
+      };
+      if (editBeds !== "") body.bedrooms = Number(editBeds);
+      else body.bedrooms = null;
+      if (editBaths !== "") body.bathrooms = Number(editBaths);
+      else body.bathrooms = null;
+      if (editFurnishing.trim()) body.furnishing = editFurnishing.trim();
+      else body.furnishing = null;
+
+      const res = await fetch(`/api/portal-listings/${listingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      toast.success("Listing updated");
+      setShowEdit(false);
+      router.refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDelete() {
+    setBusy("delete");
+    try {
+      const res = await fetch(`/api/portal-listings/${listingId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      toast.success("Listing deleted");
+      setShowDelete(false);
+      router.push("/m/portal-listings");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
+  const labelClass = "text-m-caption font-semibold block mb-1";
+  const labelStyle = { color: "var(--color-ink-500)" };
+
   return (
     <>
-      <div
-        className="sticky bottom-0 z-20 border-t mt-4"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-          borderColor: "var(--color-line)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe flex items-center gap-2">
+      {/* Edit / Delete buttons (above the sticky bar) */}
+      <div className="flex gap-2 mt-4 mb-2">
+        {canEdit ? (
+          <button
+            onClick={() => setShowEdit(true)}
+            disabled={busy !== null}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press disabled:opacity-50"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          >
+            <Pencil className="size-3" />
+            Edit
+          </button>
+        ) : null}
+        {canDelete ? (
+          <button
+            onClick={() => setShowDelete(true)}
+            disabled={busy !== null}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press disabled:opacity-50"
+            style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
+          >
+            <Trash2 className="size-3" />
+            Delete
+          </button>
+        ) : null}
+      </div>
+
+      <ActionBar>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowDelistConfirm(true)}
             disabled={busy !== null || status !== "LISTED"}
-            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{
               borderColor: "var(--color-stop)",
               color: "var(--color-stop)",
@@ -75,7 +177,7 @@ export function MobilePortalListingActions({
           <button
             onClick={() => void act("sync", "Synced to portal")}
             disabled={busy !== null}
-            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -89,13 +191,13 @@ export function MobilePortalListingActions({
             Sync
           </button>
         </div>
-      </div>
+      </ActionBar>
 
       {/* Delist confirmation modal */}
       {showDelistConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowDelistConfirm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center " style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={() => setShowDelistConfirm(false)}>
           <div
-            className="w-full max-w-sm mx-4 rounded-[0.75rem] border p-5 shadow-xl"
+            className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
             style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -107,19 +209,19 @@ export function MobilePortalListingActions({
                 <AlertTriangle className="size-5" style={{ color: "var(--color-stop)" }} />
               </div>
               <div>
-                <h3 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <h3 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                   Delist this property?
                 </h3>
-                <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
                   The listing will be removed from the portal. You can sync it again later.
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowDelistConfirm(false)}
                 disabled={busy !== null}
-                className="flex-1 h-10 rounded-[0.5rem] border font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
+                className="flex-1 h-10 rounded-[0.5rem] border font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
               >
                 Cancel
@@ -130,11 +232,106 @@ export function MobilePortalListingActions({
                   void act("delist", "Delisted from portal");
                 }}
                 disabled={busy !== null}
-                className="flex-1 h-10 rounded-[0.5rem] font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
+                className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
               >
                 {busy === "delist" ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Delist"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Edit sheet */}
+      {showEdit ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          onClick={() => setShowEdit(false)}
+        >
+          <div
+            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-3 pb-2">
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Listing</p>
+              <button onClick={() => setShowEdit(false)} className="text-m-body press p-1">
+                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            </div>
+            <div className="px-3 pb-4 flex flex-col gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>Title *</label>
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Description</label>
+                <textarea rows={3} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Asking Price (₹) *</label>
+                <input type="number" min="0" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelClass} style={labelStyle}>Bedrooms</label>
+                  <input type="number" min="0" max="10" inputMode="numeric" value={editBeds} onChange={(e) => setEditBeds(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Bathrooms</label>
+                  <input type="number" min="0" max="10" inputMode="numeric" value={editBaths} onChange={(e) => setEditBaths(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Furnishing</label>
+                <input value={editFurnishing} onChange={(e) => setEditFurnishing(e.target.value)} placeholder="e.g. Semi-furnished" className={inputClass} style={inputStyle} />
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <button onClick={() => setShowEdit(false)} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
+                <button onClick={saveEdit} disabled={busy !== null || !editTitle.trim()} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: busy !== null || !editTitle.trim() ? 0.5 : 1 }}>
+                  {busy === "edit" ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Delete confirmation */}
+      {showDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          onClick={() => setShowDelete(false)}
+        >
+          <div
+            className="w-full rounded-t-[1rem] mx-auto max-w-md"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-3 pb-2">
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete Listing?</p>
+              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
+                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            </div>
+            <div className="px-3 pb-4">
+              <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
+                This will permanently delete this portal listing record. This cannot be undone.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => setShowDelete(false)} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
+                <button onClick={handleDelete} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
+                  {busy === "delete" ? <Loader2 className="size-3.5 animate-spin" /> : "Delete"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { listTdsSubcontractors } from "@nirman/services";
 import { FileText, Receipt, Users } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -92,8 +92,8 @@ async function MobileTdsCertificatesContent({
 
       <MobileReportSummary
         items={[
-          { label: "Total Gross", value: formatCurrency(totalGross) },
-          { label: "Total TDS", value: formatCurrency(totalTds), tone: "stop" },
+          { label: "Total Gross", value: formatCurrencyCompact(totalGross) },
+          { label: "Total TDS", value: formatCurrencyCompact(totalTds), tone: "stop" },
           { label: "Subcontractors", value: String(list.length) },
           { label: "Bills", value: String(totalBills) },
         ]}
@@ -104,7 +104,7 @@ async function MobileTdsCertificatesContent({
           title="TDS Certificates Report"
           rows={csvRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`FY ${fy} · Subcontractors: ${list.length} · Bills: ${totalBills} · Gross: ${formatCurrency(totalGross)} · TDS: ${formatCurrency(totalTds)}`}
+          summary={`FY ${fy} · Subcontractors: ${list.length} · Bills: ${totalBills} · Gross: ${formatCurrencyCompact(totalGross)} · TDS: ${formatCurrencyCompact(totalTds)}`}
         />
       </div>
 
@@ -117,7 +117,7 @@ async function MobileTdsCertificatesContent({
             value: Number(r.totalTds),
             tone: "stop" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -130,7 +130,7 @@ async function MobileTdsCertificatesContent({
             icon={Users}
             title={r.subcontractorName}
             subtitle={`${r.trade ?? "—"} · PAN ${r.pan ?? "—"} · ${r.billCount} bill${r.billCount !== 1 ? "s" : ""}`}
-            meta={formatCurrency(Number(r.totalTds))}
+            meta={formatCurrencyCompact(Number(r.totalTds))}
             metaSub={`Gross ${formatCurrency(Number(r.totalGross))}`}
             tone="danger"
           />

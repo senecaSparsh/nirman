@@ -5,6 +5,7 @@ import { postPaymentReceived, postDepositReceived } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
 import { createSalePaymentSchedule, type PaymentScheduleItemInput } from "./sale";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Real Estate CRM + Sales Workflow Service.
@@ -105,7 +106,7 @@ export function isLeadStageTransitionAllowed(from: LeadStage, to: LeadStage): bo
  * field — a lead becomes a customer when they book a unit.
  */
 export async function createLead(input: CreateLeadInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const phone = input.phone.trim();
     if (!phone) throw new ServiceError("Phone number is required", 400);
 
@@ -211,7 +212,7 @@ export interface RecordLeadActivityInput {
 }
 
 export async function recordLeadActivity(input: RecordLeadActivityInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lead = await tx.lead.findFirst({
       where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
       include: { activities: { select: { type: true } } },
@@ -277,7 +278,7 @@ export interface UpdateLeadStageInput {
 }
 
 export async function updateLeadStage(input: UpdateLeadStageInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lead = await tx.lead.findFirst({
       where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
     });
@@ -334,13 +335,13 @@ export interface ConvertLeadInput {
 }
 
 export async function convertLeadToCustomer(input: ConvertLeadInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lead = await tx.lead.findFirst({
       where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
     });
     if (!lead) throw new ServiceError("Lead not found", 404);
     if (lead.stage === "BOOKED" && lead.convertedCustomerId) {
-      const customer = await tx.customer.findUnique({ where: { id: lead.convertedCustomerId } });
+      const customer = await tx.customer.findFirst({ where: { id: lead.convertedCustomerId, deletedAt: null } });
       if (!customer) throw new ServiceError("Converted customer not found", 404);
       return { lead, customer };
     }
@@ -407,7 +408,7 @@ export async function convertLeadToCustomer(input: ConvertLeadInput) {
 }
 
 export async function deleteLead(input: { leadId: string; companyId: string; userId?: string }) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lead = await tx.lead.findFirst({
       where: { id: input.leadId, companyId: input.companyId, deletedAt: null },
     });
@@ -495,8 +496,8 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
   // For commercial: full price is taxable at 18%
   // Standalone land sales (no project) default to commercial-rate GST.
   const project = sale.projectId
-    ? await prisma.project.findUnique({
-        where: { id: sale.projectId },
+    ? await prisma.project.findFirst({
+        where: { id: sale.projectId, deletedAt: null },
         select: { type: true },
       })
     : null;
@@ -538,7 +539,7 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
  * mark the item as DUE.
  */
 export async function checkMilestonePayments(projectId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Find all CLP payment schedule items linked to WBS nodes in this project
     const items = await tx.paymentScheduleItem.findMany({
       where: {
@@ -581,7 +582,7 @@ export async function recordSchedulePayment(
   paymentMode?: string,
   userId?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const item = await tx.paymentScheduleItem.findUnique({
       where: { id: scheduleItemId },
       include: {

@@ -114,13 +114,13 @@ export function MobileNewLeadClient({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
@@ -129,18 +129,18 @@ export function MobileNewLeadClient({
       <div className="flex items-center gap-2 mb-3">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] press"
+          className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
           <ArrowLeft className="size-3.5" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             New Lead
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <ContactRound className="size-2.5" />
@@ -318,7 +318,7 @@ export function MobileNewLeadClient({
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             placeholder="Any context about this lead…"
-            className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.75rem] resize-none outline-none"
+            className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none"
             style={inputStyle}
           />
         </div>
@@ -329,7 +329,7 @@ export function MobileNewLeadClient({
             type="button"
             onClick={() => router.back()}
             disabled={saving}
-            className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+            className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             Cancel
@@ -337,7 +337,7 @@ export function MobileNewLeadClient({
           <button
             type="submit"
             disabled={saving || !form.name.trim() || !form.phone.trim()}
-            className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press"
+            className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

@@ -5,7 +5,7 @@ import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
   TrendingUp, Plus,
   CheckCircle2, PauseCircle, Split, Maximize, DollarSign, Building2,
-  Banknote,
+  Banknote, MapPin,
 } from "lucide-react";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -14,6 +14,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNewLandDialog } from "./MobileNewLandDialog";
 import { MobileLandWizard } from "./MobileLandWizard";
 import { MobileLandPurchaseOrderDialog } from "./MobileLandPurchaseOrderDialog";
@@ -146,6 +147,27 @@ export function MobileLandList({
   const unitShort = AREA_UNIT_SHORT[portfolio.areaUnit] ?? portfolio.areaUnit.toLowerCase();
   const totalParcels = portfolio.parcelCount + portfolio.partitionedCount;
 
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={MapPin}
+        title="No land purchases yet"
+        hint="Record a land purchase to start development"
+        action={
+          canManage ? (
+            <Link
+              href="/land"
+              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-3.5" /> Add Land Purchase
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
     <div>
       {/* ── Portfolio summary — 4-column compact strip ── */}
@@ -190,7 +212,7 @@ export function MobileLandList({
               <div style={{ width: `${(portfolio.partitionedCount / totalParcels) * 100}%`, backgroundColor: "var(--color-steel)" }} />
             ) : null}
           </div>
-          <div className="flex items-center gap-2.5 text-[0.5625rem] font-semibold">
+          <div className="flex items-center gap-2.5 text-m-caption font-semibold">
             <LegendDot color="var(--color-go)" label={`${portfolio.availableCount} avail`} />
             <LegendDot color="var(--color-signal)" label={`${portfolio.holdCount} hold`} />
             <LegendDot color="var(--color-stop)" label={`${portfolio.soldCount} sold`} />
@@ -244,7 +266,7 @@ export function MobileLandList({
           {(query || filter !== "all") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} purchase{filtered.length !== 1 ? "s" : ""}
@@ -300,7 +322,7 @@ export function MobileLandList({
           {/* Book Land (Token) — secondary action */}
           <button
             onClick={() => setShowBook(true)}
-            className="flex items-center gap-1.5 rounded-full shadow-lg press pl-3 pr-4 py-2.5"
+            className="flex items-center gap-1.5 rounded-full shadow-lg text-m-body press pl-3 pr-4 py-2.5"
             style={{
               backgroundColor: "var(--color-signal)",
               color: "#fff",
@@ -309,7 +331,7 @@ export function MobileLandList({
             aria-label="Book land with token"
           >
             <Banknote className="size-4" />
-            <span className="text-[0.5625rem] font-bold">Book Land</span>
+            <span className="text-m-caption font-bold">Book Land</span>
           </button>
           {/* New Land Purchase — primary FAB */}
           <button
@@ -367,12 +389,12 @@ function SummaryStat({ label, value, unit }: { label: string; value: string; uni
       className="rounded-[0.375rem] border px-1.5 py-1.5"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <p className="text-[0.375rem] font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption font-semibold uppercase tracking-wide mb-0.5" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
-      <p className="text-[0.5625rem] font-bold tabular-nums leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-caption font-bold tabular-nums leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
         {value}
-        {unit ? <span className="text-[0.4375rem] font-medium ml-0.5" style={{ color: "var(--color-ink-500)" }}>{unit}</span> : null}
+        {unit ? <span className="text-m-caption font-medium ml-0.5" style={{ color: "var(--color-ink-500)" }}>{unit}</span> : null}
       </p>
     </div>
   );
@@ -405,13 +427,13 @@ function ColumnHeader({
   return (
     <div className="flex items-center gap-1 mb-0.5">
       <Icon className="size-3 shrink-0" style={{ color }} />
-      <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
+      <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
         {label}
       </span>
-      <span className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
         ({count})
       </span>
-      <span className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-400)" }}>
+      <span className="text-m-caption truncate" style={{ color: "var(--color-ink-400)" }}>
         · {hint}
       </span>
     </div>
@@ -426,7 +448,7 @@ function ColumnEmpty({ icon: Icon, label }: { icon: typeof Maximize; label: stri
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
     >
       <Icon className="size-4 mb-1" style={{ color: "var(--color-ink-300)" }} />
-      <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
     </div>
@@ -462,11 +484,11 @@ function PurchaseCard({
       {/* 1. Name row — location (left) + Freehold/Leasehold (rightmost) */}
       <div className="px-2 pt-2">
         <div className="flex items-start justify-between gap-1.5">
-          <p className="text-[0.625rem] font-bold leading-tight line-clamp-2 flex-1 min-w-0" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight line-clamp-2 flex-1 min-w-0" style={{ color: "var(--color-ink-950)" }}>
             {p.location ?? p.sellerName}
           </p>
           <span
-            className="shrink-0 inline-flex items-center gap-0.5 text-[0.4375rem] font-semibold leading-none mt-px"
+            className="shrink-0 inline-flex items-center gap-0.5 text-m-caption font-semibold leading-none mt-px"
             style={{ color: isLeasehold ? "var(--color-signal-dark)" : "var(--color-go)" }}
             title={isLeasehold ? "Leasehold" : "Freehold"}
           >
@@ -478,7 +500,7 @@ function PurchaseCard({
         <div className="flex items-center gap-1 mt-1">
           {p.purchaseStage === "BOOKED" && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.375rem] font-bold"
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
               style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal)" }}
             >
               BOOKED
@@ -486,7 +508,7 @@ function PurchaseCard({
           )}
           {p.isPossessed && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.375rem] font-bold"
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
               style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
             >
               POSSESSED
@@ -497,7 +519,7 @@ function PurchaseCard({
 
       {/* 2. Meta line — seller · project (merged, subtle) */}
       <div className="px-2 pt-0.5 min-h-[0.75rem]">
-        <div className="flex items-center gap-1 text-[0.5rem] min-w-0" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center gap-1 text-m-caption min-w-0" style={{ color: "var(--color-ink-500)" }}>
           <span className="truncate">{p.sellerName}</span>
           {p.projectName ? (
             <>
@@ -514,19 +536,19 @@ function PurchaseCard({
       {/* 3. Metrics — Area | Value (plain text, no boxes) */}
       <div className="px-2 pt-1.5 pb-1.5 flex items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[0.375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Area
           </p>
-          <p className="text-[0.5625rem] font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
             {formatNumber(p.totalArea, 0)}
-            <span className="text-[0.4375rem] font-medium ml-0.5" style={{ color: "var(--color-ink-500)" }}>{unitShort}</span>
+            <span className="text-m-caption font-medium ml-0.5" style={{ color: "var(--color-ink-500)" }}>{unitShort}</span>
           </p>
         </div>
         <div className="text-right min-w-0">
-          <p className="text-[0.375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Value
           </p>
-          <p className="text-[0.5625rem] font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(p.unsoldValue)}
           </p>
         </div>
@@ -538,25 +560,25 @@ function PurchaseCard({
         style={{ borderTop: "1px solid var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         {p.availableCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-go)" }} title={`${p.availableCount} Available`}>
+          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-go)" }} title={`${p.availableCount} Available`}>
             <CheckCircle2 className="size-1.5" />
             {p.availableCount} Avail
           </span>
         ) : null}
         {p.holdCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }} title={`${p.holdCount} Hold`}>
+          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-signal)" }} title={`${p.holdCount} Hold`}>
             <PauseCircle className="size-1.5" />
             {p.holdCount} Hold
           </span>
         ) : null}
         {p.soldCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-stop)" }} title={`${p.soldCount} Sold`}>
+          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-stop)" }} title={`${p.soldCount} Sold`}>
             <DollarSign className="size-1.5" />
             {p.soldCount} Sold
           </span>
         ) : null}
         {p.partitionedCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-steel)" }} title={`${p.partitionedCount} Partitioned`}>
+          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-steel)" }} title={`${p.partitionedCount} Partitioned`}>
             <Split className="size-1.5" />
             {p.partitionedCount} Part
           </span>
@@ -564,7 +586,7 @@ function PurchaseCard({
 
         {/* Gain */}
         <span
-          className="ml-auto flex items-center gap-0.5 text-[0.4375rem] font-bold tabular-nums"
+          className="ml-auto flex items-center gap-0.5 text-m-caption font-bold tabular-nums"
           style={{ color: gainPositive ? "var(--color-go)" : "var(--color-stop)" }}
         >
           <TrendingUp className="size-1.5" style={{ transform: gainPositive ? "none" : "scaleY(-1)" }} />

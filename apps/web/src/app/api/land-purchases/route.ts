@@ -1,8 +1,33 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder } from "@nirman/services";
+import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { z } from "zod";
+
+const bookedSchema = z.object({
+  mode: z.literal("BOOKED"),
+  sellerId: z.string().optional().nullable(),
+  sellerName: z.string().min(1, "Seller name is required"),
+  sellerContact: z.string().optional().nullable(),
+  purchaseDate: z.string().optional().nullable(),
+  totalArea: z.coerce.number().positive("Total area must be greater than 0"),
+  areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).optional(),
+  totalCost: z.coerce.number().positive("Total cost must be greater than 0"),
+  registryNo: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  documentUrl: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  tokenAmount: z.coerce.number().min(0).optional(),
+  tokenPaymentMode: z.string().optional().nullable(),
+  tokenChequeNo: z.string().optional().nullable(),
+  tokenChequeDate: z.string().optional().nullable(),
+  tokenChequeBank: z.string().optional().nullable(),
+  tokenChequePhotoUrl: z.string().optional().nullable(),
+  atsDocumentUrl: z.string().optional().nullable(),
+  atsDocumentName: z.string().optional().nullable(),
+  partialRegistryAllowed: z.boolean().optional(),
+});
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.ASSETS_VIEW);
@@ -108,36 +133,44 @@ export const POST = apiHandler(async (req: NextRequest) => {
         parcelCount: result.parcels.length,
       }, { status: 201 });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase") }, { status: 400 });
+      if (err instanceof ServiceError) {
+        return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      return json({ error: "Failed to record land purchase" }, { status: 400 });
     }
   }
 
   // ── Staged purchase order (BOOKED mode) ──
   // Body has `mode: "BOOKED"` — book land with token, complete later when registry doc uploaded.
   if (body?.mode === "BOOKED") {
+    const parsed = bookedSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    const d = parsed.data;
     try {
       const result = await recordLandPurchaseOrder({
         companyId: company.id,
-        sellerId: body.sellerId ?? undefined,
-        sellerName: body.sellerName,
-        sellerContact: body.sellerContact ?? undefined,
-        purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : undefined,
-        totalArea: body.totalArea,
-        areaUnit: body.areaUnit ?? "SQFT",
-        totalCost: body.totalCost,
-        registryNo: body.registryNo ?? undefined,
-        location: body.location ?? undefined,
-        documentUrl: body.documentUrl ?? undefined,
-        projectId: body.projectId ?? undefined,
-        tokenAmount: body.tokenAmount ?? undefined,
-        tokenPaymentMode: body.tokenPaymentMode ?? undefined,
-        tokenChequeNo: body.tokenChequeNo ?? undefined,
-        tokenChequeDate: body.tokenChequeDate ?? undefined,
-        tokenChequeBank: body.tokenChequeBank ?? undefined,
-        tokenChequePhotoUrl: body.tokenChequePhotoUrl ?? undefined,
-        atsDocumentUrl: body.atsDocumentUrl ?? undefined,
-        atsDocumentName: body.atsDocumentName ?? undefined,
-        partialRegistryAllowed: body.partialRegistryAllowed ?? undefined,
+        sellerId: d.sellerId ?? undefined,
+        sellerName: d.sellerName,
+        sellerContact: d.sellerContact ?? undefined,
+        purchaseDate: d.purchaseDate ? new Date(d.purchaseDate) : undefined,
+        totalArea: d.totalArea,
+        areaUnit: d.areaUnit ?? "SQFT",
+        totalCost: d.totalCost,
+        registryNo: d.registryNo ?? undefined,
+        location: d.location ?? undefined,
+        documentUrl: d.documentUrl ?? undefined,
+        projectId: d.projectId ?? undefined,
+        tokenAmount: d.tokenAmount ?? undefined,
+        tokenPaymentMode: d.tokenPaymentMode ?? undefined,
+        tokenChequeNo: d.tokenChequeNo ?? undefined,
+        tokenChequeDate: d.tokenChequeDate ?? undefined,
+        tokenChequeBank: d.tokenChequeBank ?? undefined,
+        tokenChequePhotoUrl: d.tokenChequePhotoUrl ?? undefined,
+        atsDocumentUrl: d.atsDocumentUrl ?? undefined,
+        atsDocumentName: d.atsDocumentName ?? undefined,
+        partialRegistryAllowed: d.partialRegistryAllowed ?? undefined,
         createdById: user.id,
       });
       return json({
@@ -150,7 +183,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
         rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost),
       }, { status: 201 });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase order") }, { status: 400 });
+      if (err instanceof ServiceError) {
+        return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      return json({ error: "Failed to record land purchase order" }, { status: 400 });
     }
   }
 
@@ -176,6 +212,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json({ id: result.landPurchase.id, rootParcelId: result.parcel.id, rootParcelNumber: result.parcel.number, rootParcelArea: toNum(result.parcel.area), rootParcelAreaUnit: result.parcel.areaUnit, rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost) }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to record land purchase") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to record land purchase" }, { status: 400 });
   }
 });

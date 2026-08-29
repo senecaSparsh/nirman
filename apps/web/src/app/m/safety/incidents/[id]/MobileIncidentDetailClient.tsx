@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Send, Check, Ban, Trash2, AlertTriangle, X } from "lucide-react";
+import { Loader2, Send, Check, Ban, Trash2, AlertTriangle, X, Pencil } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface IncidentDetail {
   id: string; incidentNumber: string; title: string; description: string;
@@ -28,6 +28,17 @@ const TYPE_LABELS: Record<string, string> = {
   STRUCTURAL: "Structural", OTHER: "Other",
 };
 
+const TYPE_OPTIONS = [
+  { value: "ACCIDENT", label: "Accident" }, { value: "NEAR_MISS", label: "Near Miss" }, { value: "INJURY", label: "Injury" },
+  { value: "FATALITY", label: "Fatality" }, { value: "PROPERTY_DAMAGE", label: "Property Damage" }, { value: "ENVIRONMENTAL", label: "Environmental" },
+  { value: "FIRE", label: "Fire" }, { value: "STRUCTURAL", label: "Structural" }, { value: "OTHER", label: "Other" },
+];
+
+const SEVERITY_OPTIONS = [
+  { value: "FIRST_AID", label: "First Aid" }, { value: "LOST_TIME", label: "Lost Time" }, { value: "SERIOUS", label: "Serious" },
+  { value: "FATAL", label: "Fatal" }, { value: "PROPERTY_ONLY", label: "Property Only" },
+];
+
 const SEVERITY_COLORS: Record<string, string> = {
   FIRST_AID: "var(--color-ink-500)", LOST_TIME: "var(--color-signal)",
   SERIOUS: "var(--color-stop)", FATAL: "var(--color-stop)", PROPERTY_ONLY: "var(--color-ink-500)",
@@ -41,6 +52,13 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
   const [investigateForm, setInvestigateForm] = useState({ rootCause: "", correctiveActions: "" });
   const [showClose, setShowClose] = useState(false);
   const [closureNotes, setClosureNotes] = useState("");
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: incident.title, description: incident.description, type: incident.type, severity: incident.severity,
+    incidentDate: incident.incidentDate.slice(0, 10), incidentTime: incident.incidentTime ?? "", location: incident.location ?? "",
+    peopleInvolved: incident.peopleInvolved ?? "", injuredCount: String(incident.injuredCount), fatalities: String(incident.fatalities),
+    propertyDamageEstimate: String(incident.propertyDamageEstimate),
+  });
 
   async function doAction(action: string, extra?: Record<string, unknown>) {
     setActing(action); haptic(20);
@@ -53,30 +71,49 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
     finally { setActing(null); setShowInvestigate(false); setShowClose(false); setInvestigateForm({ rootCause: "", correctiveActions: "" }); setClosureNotes(""); }
   }
 
+  async function saveEdit() {
+    setActing("edit"); haptic(20);
+    try {
+      const res = await fetch(`/api/safety/incidents/${incident.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editForm.title, description: editForm.description, type: editForm.type, severity: editForm.severity,
+          incidentDate: editForm.incidentDate, incidentTime: editForm.incidentTime || null, location: editForm.location || null,
+          peopleInvolved: editForm.peopleInvolved || null, injuredCount: Number(editForm.injuredCount) || 0,
+          fatalities: Number(editForm.fatalities) || 0, propertyDamageEstimate: editForm.propertyDamageEstimate ? Number(editForm.propertyDamageEstimate) : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Incident updated"); router.refresh();
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setActing(null); setShowEdit(false); }
+  }
+
   const sevColor = SEVERITY_COLORS[incident.severity] ?? "var(--color-ink-500)";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       {/* Header */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{incident.incidentNumber}</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{incident.incidentNumber}</p>
           <MobileStatusBadge status={incident.status} />
         </div>
-        <h1 className="text-[0.875rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{incident.title}</h1>
-        <p className="text-[0.625rem]" style={{ color: sevColor, fontWeight: 600 }}>
+        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{incident.title}</h1>
+        <p className="text-m-label" style={{ color: sevColor, fontWeight: 600 }}>
           {incident.severity.replace("_", " ")} · {TYPE_LABELS[incident.type] ?? incident.type}
         </p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>{incident.projectName}</p>
+        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>{incident.projectName}</p>
       </div>
 
       {/* Description */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-[0.625rem] font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
-        <p className="text-[0.75rem] leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{incident.description}</p>
+        <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
+        <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{incident.description}</p>
         {incident.attachments.length > 0 && (
           <div className="mt-2">
-            <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
               Photo Evidence ({incident.attachments.length})
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -105,16 +142,16 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       {/* Investigation */}
       {incident.rootCause && (
         <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-[0.625rem] font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Root Cause</p>
-          <p className="text-[0.75rem]" style={{ color: "var(--color-ink-950)" }}>{incident.rootCause}</p>
-          <p className="text-[0.625rem] font-semibold uppercase mt-2 mb-1" style={{ color: "var(--color-ink-500)" }}>Corrective Actions</p>
-          <p className="text-[0.75rem]" style={{ color: "var(--color-ink-950)" }}>{incident.correctiveActions}</p>
+          <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Root Cause</p>
+          <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{incident.rootCause}</p>
+          <p className="text-m-label font-semibold uppercase mt-2 mb-1" style={{ color: "var(--color-ink-500)" }}>Corrective Actions</p>
+          <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{incident.correctiveActions}</p>
         </div>
       )}
 
       {/* Timeline */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-[0.625rem] font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
+        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
           <TimelineRow label="Reported" date={incident.reportedAt} name={incident.reportedByName} />
           {incident.investigatedAt && <TimelineRow label="Investigated" date={incident.investigatedAt} name={incident.investigatedByName} />}
@@ -122,15 +159,16 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
         </div>
         {incident.closureNotes && (
           <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-950)" }}>{incident.closureNotes}</p>
+            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
+            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{incident.closureNotes}</p>
           </div>
         )}
       </div>
 
       {/* Actions */}
       {canManage && (
-        <div className="flex flex-wrap gap-2">
+        <ActionBar>
+          <ActionButton onClick={() => setShowEdit(true)} loading={false} icon={Pencil} label="Edit" variant="secondary" />
           {(incident.status === "REPORTED" || incident.status === "UNDER_INVESTIGATION") && (
             <ActionButton onClick={() => setShowInvestigate(true)} loading={false} icon={Send} label="Investigate" variant="primary" />
           )}
@@ -143,7 +181,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
           {(incident.status === "REPORTED" || incident.status === "CANCELLED") && (
             <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this incident?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
-        </div>
+        </ActionBar>
       )}
 
       {/* Investigate dialog */}
@@ -151,14 +189,14 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
         <BottomSheet title="Investigate Incident" onClose={() => setShowInvestigate(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Root Cause</label>
-              <textarea value={investigateForm.rootCause} onChange={(e) => setInvestigateForm((f) => ({ ...f, rootCause: e.target.value }))} rows={3} placeholder="Why did the incident happen?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Root Cause</label>
+              <textarea value={investigateForm.rootCause} onChange={(e) => setInvestigateForm((f) => ({ ...f, rootCause: e.target.value }))} rows={3} placeholder="Why did the incident happen?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Actions</label>
-              <textarea value={investigateForm.correctiveActions} onChange={(e) => setInvestigateForm((f) => ({ ...f, correctiveActions: e.target.value }))} rows={3} placeholder="What will prevent recurrence?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Actions</label>
+              <textarea value={investigateForm.correctiveActions} onChange={(e) => setInvestigateForm((f) => ({ ...f, correctiveActions: e.target.value }))} rows={3} placeholder="What will prevent recurrence?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
-            <button onClick={() => { if (!investigateForm.rootCause.trim() || !investigateForm.correctiveActions.trim()) { toast.error("Both fields are required"); return; } doAction("investigate", investigateForm); }} disabled={acting === "investigate"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button onClick={() => { if (!investigateForm.rootCause.trim() || !investigateForm.correctiveActions.trim()) { toast.error("Both fields are required"); return; } doAction("investigate", investigateForm); }} disabled={acting === "investigate"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "investigate" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Submit Investigation
             </button>
           </div>
@@ -170,11 +208,75 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
         <BottomSheet title="Close Incident" onClose={() => setShowClose(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
-              <textarea value={closureNotes} onChange={(e) => setClosureNotes(e.target.value)} rows={3} placeholder="How was the incident resolved?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
+              <textarea value={closureNotes} onChange={(e) => setClosureNotes(e.target.value)} rows={3} placeholder="How was the incident resolved?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
-            <button onClick={() => { if (!closureNotes.trim()) { toast.error("Closure notes required"); return; } doAction("close", { closureNotes }); }} disabled={acting === "close"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
+            <button onClick={() => { if (!closureNotes.trim()) { toast.error("Closure notes required"); return; } doAction("close", { closureNotes }); }} disabled={acting === "close"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
               {acting === "close" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confirm Closure
+            </button>
+          </div>
+        </BottomSheet>
+      )}
+      {/* Edit dialog */}
+      {showEdit && (
+        <BottomSheet title="Edit Incident" onClose={() => setShowEdit(false)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
+              <input value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            </div>
+            <div>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
+              <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
+                <select value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+                  {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
+                <select value={editForm.severity} onChange={(e) => setEditForm((f) => ({ ...f, severity: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+                  {SEVERITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Date</label>
+                <input type="date" value={editForm.incidentDate} onChange={(e) => setEditForm((f) => ({ ...f, incidentDate: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Time</label>
+                <input type="time" value={editForm.incidentTime} onChange={(e) => setEditForm((f) => ({ ...f, incidentTime: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              </div>
+            </div>
+            <div>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
+              <input value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} placeholder="Where did it happen?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            </div>
+            <div>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>People Involved</label>
+              <input value={editForm.peopleInvolved} onChange={(e) => setEditForm((f) => ({ ...f, peopleInvolved: e.target.value }))} placeholder="Names of people involved" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Injured</label>
+                <input type="number" min={0} value={editForm.injuredCount} onChange={(e) => setEditForm((f) => ({ ...f, injuredCount: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fatalities</label>
+                <input type="number" min={0} value={editForm.fatalities} onChange={(e) => setEditForm((f) => ({ ...f, fatalities: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Damage ₹</label>
+                <input type="number" min={0} value={editForm.propertyDamageEstimate} onChange={(e) => setEditForm((f) => ({ ...f, propertyDamageEstimate: e.target.value }))} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              </div>
+            </div>
+            <button onClick={() => { if (!editForm.title.trim() || !editForm.description.trim()) { toast.error("Title and description are required"); return; } saveEdit(); }} disabled={acting === "edit"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+              {acting === "edit" ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />} Save Changes
             </button>
           </div>
         </BottomSheet>
@@ -187,8 +289,8 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-[0.375rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }
@@ -196,8 +298,8 @@ function DetailCard({ label, value }: { label: string; value: string }) {
 function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
   return (
     <div className="flex items-center justify-between">
-      <div><p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>{name && <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}</div>
-      <p className="text-[0.625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
+      <div><p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>{name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}</div>
+      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
     </div>
   );
 }
@@ -210,7 +312,7 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };
   return (
-    <button onClick={onClick} disabled={loading} className="flex-1 min-w-[120px] h-11 rounded-[0.5rem] border text-[0.6875rem] font-bold flex items-center justify-center gap-1.5 press" style={styles[variant]}>
+    <button onClick={onClick} disabled={loading} className="w-full h-11 rounded-[0.5rem] border text-m-body font-bold flex items-center justify-center gap-1.5 text-m-body press" style={styles[variant]}>
       {loading ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}{label}
     </button>
   );
@@ -218,11 +320,11 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
 
 function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
       <div className="mt-auto rounded-t-[1rem] max-h-[80vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
+          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
         </div>
         <div className="p-4">{children}</div>
       </div>

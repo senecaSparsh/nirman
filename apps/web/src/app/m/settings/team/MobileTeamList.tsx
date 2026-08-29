@@ -21,6 +21,7 @@ import { haptic } from "@/lib/haptic";
 import {
   MobileSearchHeader,
   MobileNoResults,
+  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import {
   MobileExportShareIcons,
@@ -179,13 +180,13 @@ export function MobileTeamList({
           </div>
           <div>
             <p
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               {team.length} {team.length === 1 ? "member" : "members"}
             </p>
             <p
-              className="text-[0.5rem]"
+              className="text-m-caption"
               style={{ color: "var(--color-ink-500)" }}
             >
               {activeCount} active · {inactiveCount} inactive
@@ -200,7 +201,7 @@ export function MobileTeamList({
             return (
               <span
                 key={roleKey}
-                className="flex items-center gap-1 h-5 px-1.5 rounded-full text-[0.4375rem] font-bold"
+                className="flex items-center gap-1 h-5 px-1.5 rounded-full text-m-caption font-bold"
                 style={{
                   color: meta.color,
                   backgroundColor: `color-mix(in srgb, ${meta.color} 8%, transparent)`,
@@ -219,7 +220,7 @@ export function MobileTeamList({
       {/* ── Permission notice for non-managers ── */}
       {!canManage && (
         <div
-          className="rounded-[0.5rem] border p-2.5 mb-3 text-[0.5rem]"
+          className="rounded-[0.5rem] border p-2.5 mb-3 text-m-caption"
           style={{
             borderColor: "var(--color-line)",
             backgroundColor: "var(--color-concrete)",
@@ -231,19 +232,9 @@ export function MobileTeamList({
         </div>
       )}
 
-      {/* ── Add member button (managers only) ── */}
+      {/* ── Add member FAB (managers only) ── */}
       {canManage && (
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press mb-3"
-          style={{
-            borderColor: "var(--color-signal)",
-            color: "var(--color-signal-dark)",
-          }}
-        >
-          <UserPlus className="size-3.5" />
-          Add Team Member
-        </button>
+        <MobileFab onClick={() => setShowAddForm(true)} label="Add team member" icon={UserPlus} />
       )}
 
       {/* ── Add member form dialog ── */}
@@ -283,7 +274,7 @@ export function MobileTeamList({
       {search && sorted.length > 0 && (
         <div className="flex items-center justify-end mb-1.5">
           <span
-            className="text-[0.625rem] font-semibold"
+            className="text-m-label font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {sorted.length} member{sorted.length !== 1 ? "s" : ""}
@@ -314,7 +305,7 @@ export function MobileTeamList({
 
       {/* ── Role reference ── */}
       <p
-        className="text-[0.5rem] font-bold uppercase tracking-wide mb-2 mt-5 px-1"
+        className="text-m-caption font-bold uppercase tracking-wide mb-2 mt-5 px-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         Role Permissions
@@ -339,14 +330,14 @@ export function MobileTeamList({
                   style={{ color: meta.color }}
                 />
                 <p
-                  className="text-[0.6875rem] font-bold"
+                  className="text-m-body font-bold"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {meta.label}
                 </p>
                 {count > 0 && (
                   <span
-                    className="text-[0.4375rem] font-bold tabular-nums ml-auto"
+                    className="text-m-caption font-bold tabular-nums ml-auto"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     {count} {count === 1 ? "person" : "people"}
@@ -354,13 +345,13 @@ export function MobileTeamList({
                 )}
               </div>
               <p
-                className="text-[0.5rem] leading-relaxed"
+                className="text-m-caption leading-relaxed"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {r.description}
               </p>
               <p
-                className="text-[0.4375rem] mt-1"
+                className="text-m-caption mt-1"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 {r.permissions === "*"
@@ -452,7 +443,7 @@ function MemberCard({
       <button
         onClick={onToggle}
         disabled={changing}
-        className="w-full text-left p-2.5 active:scale-[0.99] transition-transform"
+        className="w-full text-left p-2.5 active:scale-[0.99] transition-transform press"
       >
         <div className="flex items-center gap-2 mb-1">
           <div
@@ -466,14 +457,14 @@ function MemberCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p
-                className="text-[0.75rem] font-bold truncate"
+                className="text-m-section font-bold truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {member.name}
               </p>
               {member.isSelf && (
                 <span
-                  className="text-[0.4375rem] font-bold px-1 py-0.5 rounded"
+                  className="text-m-caption font-bold px-1 py-0.5 rounded"
                   style={{
                     color: "var(--color-ink-500)",
                     backgroundColor: "var(--color-concrete)",
@@ -484,14 +475,14 @@ function MemberCard({
               )}
             </div>
             <p
-              className="text-[0.5rem] truncate"
+              className="text-m-caption truncate"
               style={{ color: "var(--color-ink-500)" }}
             >
               {member.email}
             </p>
           </div>
           <span
-            className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
             style={{
               color: meta.color,
               backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`,
@@ -504,7 +495,7 @@ function MemberCard({
         {/* Designation + department + employee code */}
         {(member.designation || member.department || member.employeeCode) && (
           <div
-            className="flex items-center gap-2 text-[0.4375rem] mt-1"
+            className="flex items-center gap-2 text-m-caption mt-1"
             style={{ color: "var(--color-ink-500)" }}
           >
             {member.employeeCode && (
@@ -529,14 +520,14 @@ function MemberCard({
 
         {/* Contact + reports to */}
         <div
-          className="flex items-center gap-3 text-[0.4375rem] mt-0.5"
+          className="flex items-center gap-3 text-m-caption mt-0.5"
           style={{ color: "var(--color-ink-500)" }}
         >
           {member.phone && (
             <a
               href={`tel:${member.phone}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-0.5 press"
+              className="flex items-center gap-0.5 text-m-body press"
             >
               <Phone className="size-2.5" />
               {member.phone}
@@ -553,7 +544,7 @@ function MemberCard({
         {(canManage || canEditProfile) && (
           <div className="flex items-center justify-between mt-1.5">
             <span
-              className="text-[0.4375rem] font-semibold"
+              className="text-m-caption font-semibold"
               style={{ color: "var(--color-ink-400)" }}
             >
               {expanded
@@ -586,7 +577,7 @@ function MemberCard({
           {canEditProfile && (
             <button
               onClick={() => setShowEdit(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press mb-2"
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
               style={{
                 color: "var(--color-ink-950)",
                 backgroundColor: "var(--color-concrete)",
@@ -601,7 +592,7 @@ function MemberCard({
           {canManage && (
             <>
               <p
-                className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1.5"
+                className="text-m-caption font-bold uppercase tracking-wide mb-1.5"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Change Role
@@ -615,7 +606,7 @@ function MemberCard({
                       key={r.key}
                       onClick={() => changeRole(r.key)}
                       disabled={changing || isCurrent}
-                      className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-[0.4375rem] font-semibold press disabled:opacity-40"
+                      className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-40"
                       style={{
                         color: isCurrent ? "var(--color-paper)" : rMeta.color,
                         backgroundColor: isCurrent
@@ -634,7 +625,7 @@ function MemberCard({
               <button
                 onClick={toggleActive}
                 disabled={changing}
-                className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press disabled:opacity-50"
                 style={{
                   color: member.active
                     ? "var(--color-stop)"
@@ -733,11 +724,11 @@ function AddMemberDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -747,14 +738,14 @@ function AddMemberDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <p
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             Add Team Member
           </p>
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -766,7 +757,7 @@ function AddMemberDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -779,7 +770,7 @@ function AddMemberDialog({
               autoComplete="name"
               enterKeyHint="next"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -791,7 +782,7 @@ function AddMemberDialog({
           {/* Email */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -803,7 +794,7 @@ function AddMemberDialog({
               placeholder="member@company.com"
               autoComplete="email"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -815,7 +806,7 @@ function AddMemberDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Phone (optional)
@@ -827,7 +818,7 @@ function AddMemberDialog({
               placeholder="98765 43210"
               autoComplete="tel"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -840,7 +831,7 @@ function AddMemberDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Employee Code
@@ -851,7 +842,7 @@ function AddMemberDialog({
                 onChange={(e) => setEmployeeCode(e.target.value)}
                 placeholder="EMP-001"
                 enterKeyHint="next"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none font-mono"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none font-mono"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -861,7 +852,7 @@ function AddMemberDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Designation
@@ -872,7 +863,7 @@ function AddMemberDialog({
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="Site Engineer"
                 enterKeyHint="next"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -886,7 +877,7 @@ function AddMemberDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Department
@@ -894,7 +885,7 @@ function AddMemberDialog({
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -914,7 +905,7 @@ function AddMemberDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Joining Date
@@ -923,7 +914,7 @@ function AddMemberDialog({
                 type="date"
                 value={joiningDate}
                 onChange={(e) => setJoiningDate(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -936,7 +927,7 @@ function AddMemberDialog({
           {/* Role — grouped by category */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Role <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -955,7 +946,7 @@ function AddMemberDialog({
               ).map(([category, roles]) => (
                 <div key={category}>
                   <p
-                    className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1"
+                    className="text-m-caption font-bold uppercase tracking-wide mb-1"
                     style={{ color: "var(--color-ink-400)" }}
                   >
                     {category}
@@ -972,7 +963,7 @@ function AddMemberDialog({
                             setRole(r.key);
                             haptic(10);
                           }}
-                          className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-[0.5625rem] font-semibold press"
+                          className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
                           style={{
                             color: isCurrent ? "#fff" : meta.color,
                             backgroundColor: isCurrent
@@ -997,7 +988,7 @@ function AddMemberDialog({
           {/* Password */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Password (optional)
@@ -1008,7 +999,7 @@ function AddMemberDialog({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Default: nirman123"
               enterKeyHint="done"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -1016,7 +1007,7 @@ function AddMemberDialog({
               }}
             />
             <p
-              className="text-[0.4375rem] mt-1"
+              className="text-m-caption mt-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Leave blank to use the default password. The member can change it
@@ -1028,7 +1019,7 @@ function AddMemberDialog({
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 mt-1"
+            className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 mt-1"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -1106,11 +1097,11 @@ function EditMemberDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -1130,7 +1121,7 @@ function EditMemberDialog({
               />
             </span>
             <p
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               Edit Profile
@@ -1138,7 +1129,7 @@ function EditMemberDialog({
           </div>
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -1150,7 +1141,7 @@ function EditMemberDialog({
           {/* Email (read-only) */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email
@@ -1159,7 +1150,7 @@ function EditMemberDialog({
               type="email"
               value={member.email}
               disabled
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none opacity-60"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none opacity-60"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-concrete)",
@@ -1167,7 +1158,7 @@ function EditMemberDialog({
               }}
             />
             <p
-              className="text-[0.4375rem] mt-1"
+              className="text-m-caption mt-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email cannot be changed.
@@ -1177,7 +1168,7 @@ function EditMemberDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -1190,7 +1181,7 @@ function EditMemberDialog({
               autoComplete="name"
               enterKeyHint="next"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -1202,7 +1193,7 @@ function EditMemberDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Phone (optional)
@@ -1214,7 +1205,7 @@ function EditMemberDialog({
               placeholder="98765 43210"
               autoComplete="tel"
               enterKeyHint="done"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -1227,7 +1218,7 @@ function EditMemberDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Employee Code
@@ -1237,7 +1228,7 @@ function EditMemberDialog({
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
                 placeholder="EMP-001"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none font-mono"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none font-mono"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -1247,7 +1238,7 @@ function EditMemberDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Designation
@@ -1257,7 +1248,7 @@ function EditMemberDialog({
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="Site Engineer"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -1271,7 +1262,7 @@ function EditMemberDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Department
@@ -1279,7 +1270,7 @@ function EditMemberDialog({
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -1299,7 +1290,7 @@ function EditMemberDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Joining Date
@@ -1308,7 +1299,7 @@ function EditMemberDialog({
                 type="date"
                 value={joiningDate}
                 onChange={(e) => setJoiningDate(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -1323,7 +1314,7 @@ function EditMemberDialog({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
               style={{
                 borderColor: "var(--color-line)",
                 color: "var(--color-ink-500)",
@@ -1335,7 +1326,7 @@ function EditMemberDialog({
             <button
               type="submit"
               disabled={saving}
-              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-[2] h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",

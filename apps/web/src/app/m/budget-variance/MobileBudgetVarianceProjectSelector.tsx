@@ -41,7 +41,7 @@ export function MobileBudgetVarianceProjectSelector({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-2 rounded-[0.625rem] border p-2.5 press text-left"
+        className="w-full flex items-center gap-2 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper)",
@@ -55,13 +55,13 @@ export function MobileBudgetVarianceProjectSelector({
         </span>
         <div className="min-w-0 flex-1">
           <p
-            className="text-[0.4375rem] uppercase tracking-wide font-semibold"
+            className="text-m-caption uppercase tracking-wide font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             Project
           </p>
           <p
-            className="text-[0.75rem] font-bold truncate"
+            className="text-m-section font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {selected ? selected.name : "Select a project…"}
@@ -86,10 +86,10 @@ export function MobileBudgetVarianceProjectSelector({
               className="flex items-center justify-between p-3 border-b"
               style={{ borderColor: "var(--color-line)" }}
             >
-              <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Select Project
               </p>
-              <button onClick={() => setOpen(false)} className="press">
+              <button onClick={() => setOpen(false)} className="text-m-body press">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -107,7 +107,7 @@ export function MobileBudgetVarianceProjectSelector({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search projects…"
                   autoFocus
-                  className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
+                  className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -122,7 +122,7 @@ export function MobileBudgetVarianceProjectSelector({
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-                  <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>
                     No results
                   </p>
                 </div>
@@ -133,7 +133,7 @@ export function MobileBudgetVarianceProjectSelector({
                     <button
                       key={p.id}
                       onClick={() => handleSelect(p.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
                       style={{
                         backgroundColor: isSelected
                           ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"
@@ -143,7 +143,7 @@ export function MobileBudgetVarianceProjectSelector({
                     >
                       <div className="min-w-0 flex-1">
                         <p
-                          className="text-[0.75rem] font-bold truncate"
+                          className="text-m-section font-bold truncate"
                           style={{ color: "var(--color-ink-950)" }}
                         >
                           {p.name}

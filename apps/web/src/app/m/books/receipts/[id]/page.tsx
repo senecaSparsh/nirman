@@ -73,8 +73,8 @@ function FieldRow({
     <div className="flex items-start gap-2.5 py-1.5">
       <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
       <div className="min-w-0 flex-1">
-        <div className="text-[0.625rem] font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>{label}</div>
-        <div className={`text-[0.8125rem] font-medium ${mono ? "font-mono" : ""}`} style={{ color: "var(--color-ink-950)" }}>{value}</div>
+        <div className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>{label}</div>
+        <div className={`text-m-section font-medium ${mono ? "font-mono" : ""}`} style={{ color: "var(--color-ink-950)" }}>{value}</div>
       </div>
     </div>
   );
@@ -83,7 +83,7 @@ function FieldRow({
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-[0.75rem] border p-3 mb-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>{title}</div>
+      <div className="mb-1.5 text-m-label font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>{title}</div>
       {children}
     </div>
   );
@@ -92,8 +92,8 @@ function SectionCard({ title, children }: { title: string; children: React.React
 function SummaryRow({ label, value, bold, danger }: { label: string; value: string; bold?: boolean; danger?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-[0.75rem]" style={{ color: bold ? "var(--color-ink-950)" : "var(--color-ink-500)", fontWeight: bold ? 600 : 400 }}>{label}</span>
-      <span className="text-[0.8125rem] tabular-nums font-semibold" style={{ color: danger ? "var(--color-stop)" : "var(--color-ink-950)" }}>{value}</span>
+      <span className="text-m-section" style={{ color: bold ? "var(--color-ink-950)" : "var(--color-ink-500)", fontWeight: bold ? 600 : 400 }}>{label}</span>
+      <span className="text-m-section tabular-nums font-semibold" style={{ color: danger ? "var(--color-stop)" : "var(--color-ink-950)" }}>{value}</span>
     </div>
   );
 }
@@ -115,7 +115,7 @@ function HistoryTable({
 }) {
   return (
     <div className="overflow-hidden rounded-[0.5rem] border" style={{ borderColor: "var(--color-line)" }}>
-      <table className="w-full text-[0.6875rem]">
+      <table className="w-full text-m-body">
         <thead>
           <tr style={{ backgroundColor: "var(--color-concrete)" }}>
             <th className="px-2 py-1.5 text-left font-semibold" style={{ color: "var(--color-ink-500)" }}>Date</th>
@@ -322,7 +322,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
 
       <SectionCard title="Line Items">
         <div className="overflow-hidden rounded-[0.5rem] border" style={{ borderColor: "var(--color-line)" }}>
-          <table className="w-full text-[0.6875rem]">
+          <table className="w-full text-m-body">
             <thead>
               <tr style={{ backgroundColor: "var(--color-concrete)" }}>
                 <th className="px-2 py-1.5 text-left font-semibold" style={{ color: "var(--color-ink-500)" }}>Item</th>
@@ -395,16 +395,16 @@ function DetailShell({
       <div className="rounded-[0.875rem] border p-3.5 mb-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-[0.625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>Receipt No.</div>
-            <div className="font-mono text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{receiptNo}</div>
+            <div className="text-m-label font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>Receipt No.</div>
+            <div className="font-mono text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{receiptNo}</div>
           </div>
-          <span className="rounded-full px-2 py-0.5 text-[0.5625rem] font-semibold uppercase" style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}>{kindLabel}</span>
+          <span className="rounded-full px-2 py-0.5 text-m-caption font-semibold uppercase" style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}>{kindLabel}</span>
         </div>
         <div className="mt-3 flex items-baseline justify-between">
-          <span className="text-[0.625rem] font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>Amount Received</span>
-          <span className="text-[1.5rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(amount)}</span>
+          <span className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>Amount Received</span>
+          <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(amount)}</span>
         </div>
-        <div className="mt-1 text-[0.6875rem] italic" style={{ color: "var(--color-ink-500)" }}>In words: {words} only</div>
+        <div className="mt-1 text-m-body italic" style={{ color: "var(--color-ink-500)" }}>In words: {words} only</div>
       </div>
 
       {children}

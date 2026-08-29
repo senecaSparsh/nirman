@@ -52,6 +52,7 @@ async function MobileMaterialSalesContent() {
 
   const hasMore = sales.length > BATCH_SIZE;
   const batch = hasMore ? sales.slice(0, BATCH_SIZE) : sales;
+  const pendingSaleCount = batch.filter((s) => s.status === "PENDING").length;
   const lastItem = batch[batch.length - 1];
   const nextCursor = hasMore && lastItem
     ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
@@ -97,6 +98,7 @@ async function MobileMaterialSalesContent() {
         totalRevenue={totalRevenue}
         totalProfit={totalProfit}
         pendingCount={pendingPayment.length}
+        pendingSaleCount={pendingSaleCount}
         canCreate={canCreate}
         loadMoreUrl="/api/mobile/list/sales"
         nextCursor={nextCursor}

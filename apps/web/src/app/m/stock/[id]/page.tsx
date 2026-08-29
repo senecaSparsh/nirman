@@ -3,7 +3,8 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Package, MapPin, IndianRupee, AlertTriangle, Layers, TrendingDown } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -11,6 +12,7 @@ import {
   MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
+import { MobileStockDetailActions } from "./MobileStockDetailActions";
 
 export default function MobileStockDetailPage({
   params,
@@ -31,18 +33,27 @@ async function MobileStockDetailContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
   const { id } = await params;
 
-  const material = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
-    include: {
-      category: { select: { id: true, name: true } },
-      stockItems: {
-        where: { location: { companyId: company.id, deletedAt: null } },
-        include: { location: { select: { id: true, name: true, type: true } } },
+  const [material, categories] = await Promise.all([
+    prisma.material.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        category: { select: { id: true, name: true } },
+        stockItems: {
+          where: { location: { companyId: company.id, deletedAt: null } },
+          include: { location: { select: { id: true, name: true, type: true } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   if (!material) {
     return (
@@ -62,6 +73,29 @@ async function MobileStockDetailContent({
       <div className="mb-4">
       </div>
 
+      {canManage ? (
+        <MobileStockDetailActions
+          material={{
+            id: material.id,
+            code: material.code,
+            name: material.name,
+            grade: material.grade,
+            specification: material.specification,
+            categoryId: material.categoryId,
+            unit: material.unit,
+            hsnCode: material.hsnCode,
+            gstRate: toNum(material.gstRate),
+            standardCost: toNum(material.standardCost),
+            reorderPoint: material.reorderPoint ? toNum(material.reorderPoint) : null,
+            economicOrderQty: material.economicOrderQty ? toNum(material.economicOrderQty) : null,
+            description: material.description,
+            version: material.version,
+          }}
+          categories={categories}
+          canManage={canManage}
+        />
+      ) : null}
+
       <MobileSectionTitle>Details</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         <MobileRow icon={Package} title="Category" meta={material.category?.name ?? "—"} />
@@ -75,7 +109,7 @@ async function MobileStockDetailContent({
       </div>
 
       <MobileSectionTitle>Stock Summary</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Total Stock"
           value={`${formatNumber(totalQty)} ${material.unit}`}

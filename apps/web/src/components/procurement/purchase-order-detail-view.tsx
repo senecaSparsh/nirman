@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2 } from "lucide-react";
+import { ArrowRight, Check, X, Package, Printer, Link2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -12,6 +12,7 @@ import { StatusPill } from "@/components/page";
 import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
+import { PoAddLineDialog } from "./po-add-line-dialog";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { PurchaseOrderDetail } from "@/lib/types";
 
@@ -33,6 +34,7 @@ export function PurchaseOrderDetailView({
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail>(po);
   const [recvOpen, setRecvOpen] = useState(false);
+  const [addLineOpen, setAddLineOpen] = useState(false);
   const [acting, setActing] = useState(false);
   const trackRecent = useTrackRecent();
 
@@ -178,6 +180,11 @@ export function PurchaseOrderDetailView({
         {isReceivable && (
           <Button size="sm" onClick={() => setRecvOpen(true)}>
             <Package className="h-4 w-4" /> Receive Goods
+          </Button>
+        )}
+        {isReceivable && (
+          <Button size="sm" variant="outline" onClick={() => setAddLineOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Line
           </Button>
         )}
         {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
@@ -375,6 +382,19 @@ export function PurchaseOrderDetailView({
       )}
 
       <ReceiveGoodsDialog open={recvOpen} onOpenChange={setRecvOpen} po={detail} />
+      <PoAddLineDialog
+        open={addLineOpen}
+        onOpenChange={setAddLineOpen}
+        poId={detail.id}
+        onAdded={async () => {
+          const r2 = await fetch(`/api/purchase-orders/${detail.id}`);
+          if (r2.ok) {
+            const d2 = await r2.json();
+            if (!d2.error) setDetail(d2);
+          }
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

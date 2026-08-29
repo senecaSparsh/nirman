@@ -27,6 +27,7 @@ async function MobileEquipmentContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.ASSETS_MANAGE);
+  const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
 
   const equipment = await prisma.equipment.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -85,6 +86,7 @@ async function MobileEquipmentContent() {
           totalValue,
         }}
         canCreate={canCreate}
+        canEdit={canEdit}
         exportTitle="Equipment"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={

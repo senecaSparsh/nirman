@@ -89,7 +89,7 @@ async function MobileEmployeesContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-4 gap-1.5 mb-4">
         <MobileStatCard label="Daily Workers" value={String(dailyWorkers.length)} icon={Users} />
         <MobileStatCard label="Monthly Staff" value={String(monthlyStaff.length)} icon={Users} />
         <MobileStatCard

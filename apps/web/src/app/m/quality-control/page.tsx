@@ -9,6 +9,8 @@ import {
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { PageLead, NextActionCardView } from "@/components/mobile/v2/guidance";
+import { FLOWS } from "@/lib/flow-map";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { MobileNcrList } from "./MobileNcrList";
@@ -62,6 +64,8 @@ async function MobileQualityControlContent() {
   const open = ncrs.filter((n) => n.status === "OPEN" || n.status === "UNDER_REVIEW").length;
   const capaRequired = ncrs.filter((n) => n.status === "CAPA_REQUIRED").length;
   const closed = ncrs.filter((n) => n.status === "CLOSED").length;
+  const openNcrCount = ncrs.filter((n) => n.status === "OPEN").length;
+  const listNext = FLOWS.ncr.listNext;
 
   const serialized = ncrs.map((n) => ({
     id: n.id,
@@ -80,11 +84,22 @@ async function MobileQualityControlContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="Open" value={String(open)} icon={ClipboardCheck} tone={open > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="CAPA Req" value={String(capaRequired)} icon={ClipboardCheck} tone={capaRequired > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Closed" value={String(closed)} icon={ClipboardCheck} tone={closed > 0 ? "go" : "neutral"} />
       </div>
+
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="ncr" />
+      {listNext && canManage && openNcrCount > 0 ? (
+        <NextActionCardView
+          label={listNext.label(openNcrCount)}
+          reason={listNext.reason}
+          tone="signal"
+          href={`/m/quality-control?status=${listNext.filterChip}`}
+        />
+      ) : null}
 
       <MobileNcrList
         items={serialized}

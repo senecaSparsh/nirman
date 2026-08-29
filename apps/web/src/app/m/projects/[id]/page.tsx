@@ -7,22 +7,28 @@ import {
   Building2, Home, ClipboardList,
   MapPin, Calendar, TrendingUp, PackageCheck,
   FileText, CalendarCheck, ShieldCheck,
+  Truck, Wallet, Wrench,
 } from "lucide-react";
 import { MobileProjectPossession } from "./MobileProjectPossession";
+import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatusBadge,
   SectionHead,
   mobileStatusColor,
+  MobilePipelineStepper,
+  type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
+import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -181,7 +187,7 @@ async function MobileProjectDetailContent({
     attentionBanners.push({
       id: "clear",
       title: "All caught up!",
-      subtitle: `${availableUnits.length} available · ${soldUnits.length} sold · ${formatCurrency(totalProjectCost)} spent · on track`,
+      subtitle: `${availableUnits.length} available · ${soldUnits.length} sold · ${formatCurrencyCompact(totalProjectCost)} spent · on track`,
       href: `/m/projects/${id}`,
       severity: "clear",
       qtyText: "✓",
@@ -197,7 +203,18 @@ async function MobileProjectDetailContent({
 
       {/* ── Back + status ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
+        <MobileBackButton fallback="/m/projects" />
         <MobileStatusBadge status={project.status} />
+      </div>
+
+      {/* ── Lifecycle pipeline ── */}
+      <div className="rounded-[0.5rem] border px-3 py-2 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={[
+          { label: "Planned", state: project.status === "PLANNED" ? "current" : "done" },
+          { label: "Active", state: project.status === "ACTIVE" ? "current" : project.status === "COMPLETED" ? "done" : project.status === "ON_HOLD" ? "done" : "pending" },
+          { label: "On Hold", state: project.status === "ON_HOLD" ? "current" : "pending" },
+          { label: "Completed", state: project.status === "COMPLETED" ? "current" : "pending" },
+        ]} />
       </div>
 
       {/* ── Hero card ── */}
@@ -210,23 +227,23 @@ async function MobileProjectDetailContent({
       >
         <div className="flex items-start gap-2.5">
           <div
-            className="grid place-items-center w-11 h-11 rounded-[0.625rem] shrink-0 text-[1.375rem]"
+            className="grid place-items-center w-11 h-11 rounded-[0.625rem] shrink-0 text-m-section"
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
             <Building2 className="size-5" style={{ color: "var(--color-ink-700)" }} />
           </div>
           <div className="min-w-0 flex-1">
             <h1
-              className="font-bold text-[1.0625rem] leading-tight"
+              className="font-bold text-m-section leading-tight"
               style={{ color: "var(--color-ink-950)" }}
             >
               {project.name}
             </h1>
-            <p className="text-[0.6875rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {typeLabel} · {project.status}
             </p>
             {project.reraNumber && (
-              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.5rem] font-bold"
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold"
                 style={{
                   color: "var(--color-go)",
                   backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
@@ -236,38 +253,44 @@ async function MobileProjectDetailContent({
               </div>
             )}
           </div>
-          {canManage && (
-            <MobileEditProjectButton
-              project={{
-                id: project.id,
-                name: project.name,
-                type: project.type as "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER",
-                status: project.status as "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD",
-                address: project.address,
-                startDate: project.startDate?.toISOString() ?? null,
-                endDate: project.endDate?.toISOString() ?? null,
-                totalBudget: project.totalBudget ? toNum(project.totalBudget) : null,
-                totalSellableArea: project.totalSellableArea ? toNum(project.totalSellableArea) : null,
-                description: project.description,
-                reraNumber: project.reraNumber,
-                reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
-                reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
-                reraWebsiteUrl: project.reraWebsiteUrl,
-                lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
-              }}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            <MobileCheckMilestonesButton projectId={project.id} />
+            {canManage && (
+              <>
+                <MobileEditProjectButton
+                  project={{
+                    id: project.id,
+                    name: project.name,
+                    type: project.type as "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER",
+                    status: project.status as "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD",
+                    address: project.address,
+                    startDate: project.startDate?.toISOString() ?? null,
+                    endDate: project.endDate?.toISOString() ?? null,
+                    totalBudget: project.totalBudget ? toNum(project.totalBudget) : null,
+                    totalSellableArea: project.totalSellableArea ? toNum(project.totalSellableArea) : null,
+                    description: project.description,
+                    reraNumber: project.reraNumber,
+                    reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
+                    reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
+                    reraWebsiteUrl: project.reraWebsiteUrl,
+                    lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
+                  }}
+                />
+                <MobileDeleteProjectButton projectId={project.id} name={project.name} />
+              </>
+            )}
+          </div>
         </div>
 
         {/* Address + dates */}
         <div className="mt-2.5 space-y-1">
           {project.address ? (
-            <div className="flex items-center gap-1.5 text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <div className="flex items-center gap-1.5 text-m-label" style={{ color: "var(--color-ink-500)" }}>
               <MapPin className="size-3 shrink-0" />
               <span className="truncate">{project.address}</span>
             </div>
           ) : null}
-          <div className="flex items-center gap-3 text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <div className="flex items-center gap-3 text-m-label" style={{ color: "var(--color-ink-500)" }}>
             {project.startDate ? (
               <span className="flex items-center gap-1">
                 <Calendar className="size-3" />
@@ -287,14 +310,14 @@ async function MobileProjectDetailContent({
         {totalBudget > 0 ? (
           <div className="mt-3">
             <div className="flex items-baseline justify-between mb-1">
-              <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Budget used
               </span>
               <span
-                className="text-[0.625rem] font-bold tabular-nums"
+                className="text-m-label font-bold tabular-nums"
                 style={{ color: isOverBudget ? "var(--color-stop)" : "var(--color-ink-950)" }}
               >
-                {formatCurrency(totalProjectCost)} / {formatCurrency(totalBudget)}
+                {formatCurrencyCompact(totalProjectCost)} / {formatCurrencyCompact(totalBudget)}
               </span>
             </div>
             <div
@@ -309,8 +332,8 @@ async function MobileProjectDetailContent({
                 }}
               />
             </div>
-            <p className="text-[0.5rem] mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-              {Math.round(budgetUsedPct)}%{isOverBudget ? ` · ${formatCurrency(totalProjectCost - totalBudget)} over` : ""}
+            <p className="text-m-caption mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+              {Math.round(budgetUsedPct)}%{isOverBudget ? ` · ${formatCurrencyCompact(totalProjectCost - totalBudget)} over` : ""}
             </p>
           </div>
         ) : null}
@@ -336,15 +359,15 @@ async function MobileProjectDetailContent({
             >
               <TrendingUp className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
               Overview
             </p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Units" value={formatNumber(units.length, 0)} sub={`${availableUnits.length} avail`} />
             <KpiRow label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
-            <KpiRow label="Cost" value={totalProjectCost ? formatCurrency(totalProjectCost) : "—"} />
-            <KpiRow label="₹/sqft" value={project.costPerSqft ? formatCurrency(toNum(project.costPerSqft)) : "—"} />
+            <KpiRow label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
+            <KpiRow label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
             <KpiRow label="Land" value={landParcels > 0 ? `${landParcels}` : "—"} sub={landParcels > 0 ? "parcels" : undefined} />
             <KpiRow label="Reqs" value={String(requisitions)} sub="pending" tone={requisitions > 0 ? "signal" : undefined} />
           </div>
@@ -365,12 +388,12 @@ async function MobileProjectDetailContent({
             >
               <ClipboardList className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
               Details
             </p>
           </div>
           <div className="space-y-1.5">
-            <KpiRow label="Budget" value={project.totalBudget ? formatCurrency(toNum(project.totalBudget)) : "—"} />
+            <KpiRow label="Budget" value={project.totalBudget ? formatCurrencyCompact(toNum(project.totalBudget)) : "—"} />
             <KpiRow label="Area" value={project.totalSellableArea ? `${formatNumber(toNum(project.totalSellableArea), 0)}` : "—"} sub="sqft" />
             <KpiRow label="Type" value={typeLabel} />
             {project.startDate ? <KpiRow label="Start" value={formatDate(project.startDate)} /> : null}
@@ -394,16 +417,21 @@ async function MobileProjectDetailContent({
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
         <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Requisition" />
         <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
+        <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" />
+        <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" />
+        <QuickActionTile href={`/m/sales/new?project=${id}`} icon={TrendingUp} label="Record a Sale" />
+        <QuickActionTile href={`/m/books/finance?project=${id}`} icon={Wallet} label="Add Project Cost" />
+        <QuickActionTile href="/m/equipment" icon={Wrench} label="Assign Equipment" />
       </div>
 
       {/* ── Units ── */}
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Units ({units.length})
         </h2>
         <Link
           href={`/m/units?project=${id}`}
-          className="text-[0.6875rem] font-semibold"
+          className="text-m-body font-semibold"
           style={{ color: "var(--color-steel)" }}
         >
           View all →
@@ -435,7 +463,7 @@ async function MobileProjectDetailContent({
                 <Link
                   key={dpr.id}
                   href={`/m/dprs/${dpr.id}`}
-                  className="flex flex-col rounded-[0.5rem] border p-1.5 press overflow-hidden"
+                  className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press overflow-hidden"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -443,18 +471,18 @@ async function MobileProjectDetailContent({
                 >
                   {/* Top accent strip */}
                   <div className="h-1 -mx-1.5 -mt-1.5 mb-1" style={{ backgroundColor: dprTone }} />
-                  <p className="text-[0.5rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-caption font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
                     {formatDate(dpr.date)}
                   </p>
-                  <p className="text-[0.4375rem] mb-1 line-clamp-2 leading-tight flex-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mb-1 line-clamp-2 leading-tight flex-1" style={{ color: "var(--color-ink-500)" }}>
                     {dpr.workSummary?.slice(0, 50) ?? "No summary"}
                   </p>
                   {/* Progress bar at bottom */}
                   {pct > 0 ? (
                     <div className="mt-auto">
                       <div className="flex items-baseline justify-between mb-0.5">
-                        <span className="text-[0.375rem]" style={{ color: "var(--color-ink-500)" }}>progress</span>
-                        <span className="text-[0.5rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+                        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>progress</span>
+                        <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                           {formatNumber(pct, 0)}%
                         </span>
                       </div>
@@ -482,7 +510,7 @@ async function MobileProjectDetailContent({
                 <Link
                   key={po.id}
                   href={`/m/procurement/${po.id}`}
-                  className="flex flex-col rounded-[0.5rem] border p-1.5 pl-2 press"
+                  className="flex flex-col rounded-[0.5rem] border p-1.5 pl-2 text-m-body press"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -491,20 +519,20 @@ async function MobileProjectDetailContent({
                   }}
                 >
                   <div className="flex items-center justify-between gap-0.5 mb-0.5">
-                    <p className="text-[0.5rem] font-bold leading-tight truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-caption font-bold leading-tight truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
                       {po.poNumber}
                     </p>
                     <span
-                      className="text-[0.375rem] font-bold uppercase px-1 py-px rounded shrink-0"
+                      className="text-m-caption font-bold uppercase px-1 py-px rounded shrink-0"
                       style={{ backgroundColor: poTone, color: "#fff" }}
                     >
                       {poStatusShort}
                     </span>
                   </div>
-                  <p className="text-[0.4375rem] mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
                     {po.supplier.name}
                   </p>
-                  <p className="text-[0.4375rem] mt-auto" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-auto" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(po.createdAt)}
                   </p>
                 </Link>
@@ -523,7 +551,7 @@ async function MobileProjectDetailContent({
               <Link
                 key={i.id}
                 href="/m/stock-out?mode=issue"
-                className="flex flex-col rounded-[0.5rem] border p-1.5 press"
+                className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper-2)",
@@ -536,14 +564,14 @@ async function MobileProjectDetailContent({
                   >
                     <PackageCheck className="size-2" style={{ color: "var(--color-ink-700)" }} />
                   </span>
-                  <p className="text-[0.5rem] font-bold leading-tight truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-caption font-bold leading-tight truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
                     {i.issueNumber ?? "—"}
                   </p>
                 </div>
-                <p className="text-[0.4375rem] mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
                   {i.fromLocation?.name ?? "—"}
                 </p>
-                <p className="text-[0.4375rem] mt-auto" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mt-auto" style={{ color: "var(--color-ink-500)" }}>
                   {formatDate(i.createdAt)}
                 </p>
               </Link>
@@ -561,19 +589,19 @@ async function MobileProjectDetailContent({
               <Link
                 key={c.id}
                 href="/m/books/finance"
-                className="flex flex-col rounded-[0.5rem] border p-1.5 press"
+                className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-signal-wash)",
                 }}
               >
-                <p className="text-[0.5rem] font-bold tabular-nums leading-tight mb-0.5" style={{ color: "var(--color-signal-dark)" }}>
-                  {formatCurrency(toNum(c.amount))}
+                <p className="text-m-caption font-bold tabular-nums leading-tight mb-0.5" style={{ color: "var(--color-signal-dark)" }}>
+                  {formatCurrencyCompact(toNum(c.amount))}
                 </p>
-                <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-700)" }}>
+                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
                   {c.costType.replace(/_/g, " ").toLowerCase()}
                 </p>
-                <p className="text-[0.4375rem] mt-auto truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mt-auto truncate" style={{ color: "var(--color-ink-500)" }}>
                   {c.vendor ?? "—"}
                 </p>
               </Link>
@@ -591,7 +619,7 @@ async function MobileProjectDetailContent({
               <Link
                 key={a.id}
                 href={`/m/attendance?project=${id}`}
-                className="flex flex-col gap-1 rounded-[0.625rem] border p-2 press"
+                className="flex flex-col gap-1 rounded-[0.625rem] border p-2 text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div className="flex items-center gap-1.5">
@@ -601,15 +629,15 @@ async function MobileProjectDetailContent({
                   >
                     <CalendarCheck className="size-3" style={{ color: "var(--color-ink-700)" }} />
                   </div>
-                  <span className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {a.employee?.name ?? "Worker"}
                   </span>
                 </div>
-                <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {formatDate(a.date)}
                 </span>
                 <span
-                  className="text-[0.5rem] font-bold uppercase"
+                  className="text-m-caption font-bold uppercase"
                   style={{
                     color: a.status === "PRESENT" ? "var(--color-go)" : a.status === "ABSENT" ? "var(--color-stop)" : "var(--color-signal-dark)",
                   }}
@@ -669,14 +697,14 @@ function QuickActionTile({
   return (
     <a
       href={href}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 press"
+      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
       <Icon className="size-4" style={{ color: "var(--color-ink-700)" }} />
-      <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+      <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-950)" }}>
         {label}
       </span>
     </a>
@@ -702,10 +730,10 @@ function KpiRow({
     "var(--color-ink-950)";
   return (
     <div className="flex items-baseline justify-between gap-1">
-      <span className="text-[0.5rem] shrink-0" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </span>
-      <span className="text-[0.5625rem] font-bold text-right tabular-nums truncate" style={{ color }}>
+      <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
         {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
       </span>
@@ -736,7 +764,7 @@ function UnitCard({
   return (
     <Link
       href={`/m/units/${unit.id}`}
-      className="flex flex-col rounded-[0.5rem] border p-1.5 press"
+      className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -746,7 +774,7 @@ function UnitCard({
     >
       {/* Unit number + status dot */}
       <div className="flex items-center justify-between gap-0.5 mb-0.5">
-        <p className="text-[0.5625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-caption font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
           {unit.unitNumber}
         </p>
         <span
@@ -756,22 +784,22 @@ function UnitCard({
       </div>
 
       {/* Type */}
-      <p className="text-[0.4375rem] mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
         {unit.unitType.replace(/_/g, " ").toLowerCase()}
       </p>
 
       {/* Area */}
-      <p className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+      <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
         {formatNumber(toNum(unit.area), 0)} {unit.areaUnit}
       </p>
 
       {/* Price */}
       {unit.askingPrice ? (
-        <p className="text-[0.5rem] font-bold tabular-nums truncate" style={{ color: "var(--color-steel)" }}>
-          {formatCurrency(toNum(unit.askingPrice))}
+        <p className="text-m-caption font-bold tabular-nums truncate" style={{ color: "var(--color-steel)" }}>
+          {formatCurrencyCompact(toNum(unit.askingPrice))}
         </p>
       ) : (
-        <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           no price
         </p>
       )}

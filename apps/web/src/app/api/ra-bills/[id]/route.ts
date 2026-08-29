@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { submitRaBill, approveRaBill, rejectRaBill, payRaBill } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -52,6 +52,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;

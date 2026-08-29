@@ -316,27 +316,27 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isQueued ? "Purchase Order Queued" : "Purchase Order Created"}
         </p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
           {isQueued ? "Pending sync" : success.poNumber}
         </p>
-        <p className="text-[1rem] font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
+        <p className="text-m-section font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.total)}
         </p>
-        <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
           {isQueued
             ? "Will be submitted as DRAFT when back online."
             : "Purchase Order is in DRAFT. Submit for approval from the Purchase Order detail page."}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           {!isQueued && success.poId ? (
             <button
               onClick={() => {
                 router.push(`/m/procurement/${success.poId}`);
               }}
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View {success.poNumber}
@@ -347,7 +347,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
               router.refresh();
               router.push("/m/procurement");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All POs
@@ -360,7 +360,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
               setNotes("");
               setExpectedDate("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Create Another
@@ -374,8 +374,8 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           You need these before creating a purchase order:
         </p>
         <div className="flex flex-col gap-2 w-full max-w-xs">
@@ -383,7 +383,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             <button
               type="button"
               onClick={() => setGuardDialog("supplier")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Supplier
@@ -393,7 +393,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             <button
               type="button"
               onClick={() => setGuardDialog("material")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Material
@@ -403,14 +403,14 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             <button
               type="button"
               onClick={() => setGuardDialog("location")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Stock Location
             </button>
           )}
         </div>
-        <Link href="/m/procurement" className="mt-4 text-[0.6875rem] font-semibold press" style={{ color: "var(--color-ink-500)" }}>
+        <Link href="/m/procurement" className="mt-4 text-m-body font-semibold text-m-body press" style={{ color: "var(--color-ink-500)" }}>
           Back to POs
         </Link>
 
@@ -675,14 +675,14 @@ function PoForm({
                   className="flex items-center justify-between px-2 py-1"
                   style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
                 >
-                  <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Item {idx + 1}
                   </span>
                   {lines.length > 1 ? (
                     <button
                       type="button"
                       onClick={() => onRemoveLine(idx)}
-                      className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+                      className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                       style={{ color: "var(--color-stop)" }}
                     >
                       <Trash2 className="size-2.5" />
@@ -703,7 +703,7 @@ function PoForm({
 
                   <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                     <div>
-                      <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
@@ -713,12 +713,12 @@ function PoForm({
                         value={line.qty}
                         onChange={(e) => onLineChange(idx, "qty", e.target.value)}
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                       />
                     </div>
                     <div>
-                      <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
                         Unit Cost
                       </label>
                       <input
@@ -728,11 +728,11 @@ function PoForm({
                         value={line.unitCost}
                         onChange={(e) => onLineChange(idx, "unitCost", e.target.value)}
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                       />
                       {lastPriceHint[idx] ? (
-                        <p className="text-[0.375rem] mt-0.5" style={{ color: "var(--color-steel)" }}>
+                        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-steel)" }}>
                           From {lastPriceHint[idx]!.poNumber}
                         </p>
                       ) : null}
@@ -740,7 +740,7 @@ function PoForm({
                   </div>
 
                   <div className="mt-1.5">
-                    <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
                       GST Rate %
                     </label>
                     <input
@@ -750,7 +750,7 @@ function PoForm({
                       value={line.gstRate}
                       onChange={(e) => onLineChange(idx, "gstRate", e.target.value)}
                       placeholder="0"
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                     />
                   </div>
@@ -759,15 +759,15 @@ function PoForm({
                     className="flex items-center justify-between rounded-[0.375rem] px-1.5 py-1 mt-auto"
                     style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 6%, transparent)" }}
                   >
-                    <span className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                       Total
                     </span>
                     <div className="flex items-center gap-1">
-                      <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      <span className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                         {formatCurrency(lineTotal + lineGst)}
                       </span>
                       {lineGstRate > 0 ? (
-                        <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                        <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                           +{lineGstRate}%
                         </span>
                       ) : null}
@@ -783,11 +783,11 @@ function PoForm({
           <button
             type="button"
             onClick={onAddLine}
-            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] border border-dashed py-2.5 press"
+            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] border border-dashed py-2.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             <Plus className="size-3.5" />
-            <span className="text-[0.6875rem] font-bold">Add another item</span>
+            <span className="text-m-body font-bold">Add another item</span>
           </button>
           <ScanButton onScan={onScan} label="Scan" />
         </div>
@@ -812,7 +812,7 @@ function PoForm({
                     setCharges(next);
                   }}
                   placeholder="Heading (e.g. Loading, Freight, Fuel Charge)"
-                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-semibold outline-none"
+                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-semibold outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
                 <button
@@ -825,7 +825,7 @@ function PoForm({
                 </button>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
+                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -836,7 +836,7 @@ function PoForm({
                     setCharges(next);
                   }}
                   placeholder="0"
-                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
@@ -846,11 +846,11 @@ function PoForm({
           <button
             type="button"
             onClick={() => setCharges([...charges, { heading: "", amount: "", notes: "" }])}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2 press"
+            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2 text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3" />
-            <span className="text-[0.625rem] font-bold">Add charge (freight, loading, fuel…)</span>
+            <span className="text-m-label font-bold">Add charge (freight, loading, fuel…)</span>
           </button>
         </div>
 
@@ -858,21 +858,21 @@ function PoForm({
         <SectionHeader icon={Calendar} label="Delivery" />
 
         <div>
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Expected Date (optional)
           </label>
           <input
             type="date"
             value={expectedDate}
             onChange={(e) => setExpectedDate(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
 
         {/* Notes */}
         <div>
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Notes (optional)
           </label>
           <textarea
@@ -880,7 +880,7 @@ function PoForm({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Urgent delivery for foundation work"
             rows={2}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
@@ -897,10 +897,10 @@ function PoForm({
       >
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           <div className="shrink-0">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               {formatCurrency(subtotal)} + {formatCurrency(gstTotal)} GST{miscChargesTotal > 0 ? ` + ${formatCurrency(miscChargesTotal)} chg` : ""}
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrency(total)}
             </p>
           </div>
@@ -909,7 +909,7 @@ function PoForm({
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; onSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
@@ -995,7 +995,7 @@ function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ clas
   return (
     <div className="flex items-center gap-1.5 mt-1">
       <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
-      <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+      <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
         {label}
       </span>
       <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -1018,17 +1018,17 @@ function ScopeCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center press transition-colors"
+      className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center text-m-body press transition-colors"
       style={
         active
           ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
           : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
       }
     >
-      <span className="text-[0.6875rem] font-bold">{label}</span>
+      <span className="text-m-body font-bold">{label}</span>
       {sublabel ? (
         <span
-          className="text-[0.4375rem] font-semibold truncate w-full text-center"
+          className="text-m-caption font-semibold truncate w-full text-center"
           style={active ? { color: "color-mix(in srgb, #fff 70%, transparent)" } : { color: "var(--color-ink-500)" }}
         >
           {sublabel}
@@ -1057,7 +1057,7 @@ function SelectorCard({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
       style={{
         borderColor: hasValue ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
         backgroundColor: "var(--color-paper)",
@@ -1073,22 +1073,22 @@ function SelectorCard({
         />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
           {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
         </p>
         {hasValue ? (
           <>
-            <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {value}
             </p>
             {subvalue ? (
-              <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                 {subvalue}
               </p>
             ) : null}
           </>
         ) : (
-          <p className="text-[0.75rem] font-medium" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-section font-medium" style={{ color: "var(--color-ink-500)" }}>
             {placeholder ?? "Tap to select…"}
           </p>
         )}
@@ -1125,15 +1125,15 @@ function SelectorRow({
     >
       <Icon className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`} style={{ color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)" }} />
       <div className="min-w-0 flex-1">
-        <span className={`font-semibold uppercase ${compact ? "text-[0.375rem]" : "text-[0.4375rem]"}`} style={{ color: "var(--color-ink-500)" }}>
+        <span className={`font-semibold uppercase ${compact ? "text-m-caption" : "text-m-caption"}`} style={{ color: "var(--color-ink-500)" }}>
           {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
         </span>
         {hasValue ? (
-          <p className={`font-bold truncate ${compact ? "text-[0.5625rem]" : "text-[0.6875rem]"}`} style={{ color: "var(--color-ink-950)" }}>
+          <p className={`font-bold truncate ${compact ? "text-m-caption" : "text-m-body"}`} style={{ color: "var(--color-ink-950)" }}>
             {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-500)" }}> · {subvalue}</span> : null}
           </p>
         ) : (
-          <p className={`text-[0.5625rem]`} style={{ color: "var(--color-ink-500)" }}>Tap to select…</p>
+          <p className={`text-m-caption`} style={{ color: "var(--color-ink-500)" }}>Tap to select…</p>
         )}
       </div>
       <ChevronRight className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`} style={{ color: "var(--color-ink-500)" }} />
@@ -1179,8 +1179,8 @@ function SelectorModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -1197,7 +1197,7 @@ function SelectorModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
+              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -1207,7 +1207,7 @@ function SelectorModal({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+              <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
             </div>
           ) : (
             filtered.map((item, i) => {
@@ -1216,7 +1216,7 @@ function SelectorModal({
                 <button
                   key={item.id || i}
                   onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
                   style={{
                     backgroundColor: isSelected ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
                     borderBottom: "1px solid var(--color-line)",
@@ -1224,13 +1224,13 @@ function SelectorModal({
                 >
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[0.75rem] font-bold truncate"
+                      className="text-m-section font-bold truncate"
                       style={{ color: isSelected ? "var(--color-ink-950)" : "var(--color-ink-900)" }}
                     >
                       {item.label}
                     </p>
                     {item.sub ? (
-                      <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                         {item.sub}
                       </p>
                     ) : null}
@@ -1250,11 +1250,11 @@ function SelectorModal({
             <button
               type="button"
               onClick={onCreateNew}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-3 press"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-3 text-m-body press"
               style={{ color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-4" />
-              <span className="text-[0.75rem] font-bold">Create new {title.replace("Select ", "").toLowerCase()}</span>
+              <span className="text-m-section font-bold">Create new {title.replace("Select ", "").toLowerCase()}</span>
             </button>
           </div>
         ) : null}

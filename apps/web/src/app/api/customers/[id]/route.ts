@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
 import { apiHandler, getCompany, json, customerSchema, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
@@ -30,7 +31,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       const existing = await tx.customer.findFirst({ where: { id, companyId: company.id } });
       if (!existing) throw new Error("Customer not found");
       if (expectedVersion !== undefined && existing.version !== expectedVersion) {

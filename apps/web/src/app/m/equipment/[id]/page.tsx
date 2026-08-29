@@ -6,6 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileEquipmentDetailClient } from "./MobileEquipmentDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/equipment/[id] — equipment detail. Shows asset info, valuation,
@@ -56,12 +57,17 @@ async function MobileEquipmentDetailContent({
 
   if (!equipment) {
     return (
-      <MobileEquipmentDetailClient
-        notFound
-        canManage={false}
-        locations={[]}
-        projects={[]}
-      />
+      <>
+        <div className="mb-3">
+          <MobileBackButton fallback="/m/equipment" />
+        </div>
+        <MobileEquipmentDetailClient
+          notFound
+          canManage={false}
+          locations={[]}
+          projects={[]}
+        />
+      </>
     );
   }
 
@@ -124,6 +130,9 @@ async function MobileEquipmentDetailContent({
 
   return (
     <>
+      <div className="mb-3">
+        <MobileBackButton fallback="/m/equipment" />
+      </div>
       <RecordRecentItem type="equipment" id={serialized.id} label={serialized.name} sublabel={serialized.serialNumber ?? undefined} href={`/m/equipment/${serialized.id}`} />
       <MobileEquipmentDetailClient
         equipment={serialized}

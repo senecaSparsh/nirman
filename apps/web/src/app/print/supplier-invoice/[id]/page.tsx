@@ -111,7 +111,7 @@ export default async function SupplierInvoicePrintPage({
         <thead>
           <tr className="border-b border-black">
             <th className="border-r border-gray-300 px-2 py-1.5 text-left font-semibold">Description</th>
-            <th className="px-2 py-1.5 text-right font-semibold">Amount (₹)</th>
+            <th className="px-2 py-1.5 text-right font-semibold">Amount</th>
           </tr>
         </thead>
         <tbody>

@@ -7,6 +7,7 @@ import {
   MobileSectionTitle,
   MobileRow,
   MobileStatusBadge,
+  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -107,7 +108,15 @@ export function MobileAttendanceList({
     return result;
   }, [items, query, statusFilter, dateFilter, projectFilter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={CalendarCheck}
+        title="No attendance records"
+        hint="Attendance records will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -143,7 +152,7 @@ export function MobileAttendanceList({
           type="date"
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
-          className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-[0.6875rem] font-medium outline-none"
+          className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-m-body font-medium outline-none"
           style={{
             borderColor: dateFilter ? "var(--color-ink-950)" : "var(--color-line)",
             backgroundColor: "var(--color-paper)",
@@ -154,7 +163,7 @@ export function MobileAttendanceList({
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-[0.6875rem] font-medium outline-none"
+            className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-m-body font-medium outline-none"
             style={{
               borderColor: projectFilter ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -170,7 +179,7 @@ export function MobileAttendanceList({
         {(dateFilter || projectFilter) ? (
           <button
             onClick={() => { setDateFilter(""); setProjectFilter(""); }}
-            className="press rounded-[0.375rem] px-2.5 py-1.5 text-[0.625rem] font-semibold"
+            className="text-m-body press rounded-[0.375rem] px-2.5 py-1.5 text-m-label font-semibold"
             style={{ color: "var(--color-steel)" }}
           >
             <X className="size-3.5" />
@@ -182,7 +191,7 @@ export function MobileAttendanceList({
         right={
           (statusFilter !== "ALL" || query.trim() !== "" || dateFilter || projectFilter) ? (
             <span
-              className="text-[0.625rem] font-semibold"
+              className="text-m-label font-semibold"
               style={{ color: "var(--color-ink-500)" }}
             >
               {filtered.length} record{filtered.length !== 1 ? "s" : ""}

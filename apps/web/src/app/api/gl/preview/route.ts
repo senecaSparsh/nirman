@@ -22,8 +22,8 @@ import { PERM } from "@/lib/roles";
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
-  const body = await req.json();
-  const { type } = body as { type: string };
+  const body = await req.json().catch(() => ({}));
+  const type = typeof body?.type === "string" ? body.type : "";
 
   let lines: GlPreviewLine[];
 
@@ -42,7 +42,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       break;
     case "materialIssue":
       lines = previewMaterialIssueGl(
-        (body.lines as { qty: number; unitCost: number }[]) ?? [],
+        Array.isArray(body.lines) ? body.lines : [],
       );
       break;
     case "assetSale":
@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       break;
     case "stockAdjustment":
       lines = previewStockAdjustmentGl(
-        (body.lines as { variance: number; unitCost: number }[]) ?? [],
+        Array.isArray(body.lines) ? body.lines : [],
       );
       break;
     case "payroll":

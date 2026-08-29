@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileEmployeeDetailPage({
   params,
@@ -52,7 +53,12 @@ async function MobileEmployeeDetailContent({
 
   if (!employee) {
     return (
-      <MobileEmployeeDetailClient notFound canManage={canManage} projects={projects} stockLocations={stockLocations} />
+      <>
+        <div className="mb-3">
+          <MobileBackButton fallback="/m/hr/employees" />
+        </div>
+        <MobileEmployeeDetailClient notFound canManage={canManage} projects={projects} stockLocations={stockLocations} />
+      </>
     );
   }
 
@@ -78,11 +84,16 @@ async function MobileEmployeeDetailContent({
   };
 
   return (
-    <MobileEmployeeDetailClient
-      employee={data}
-      canManage={canManage}
-      projects={projects}
-      stockLocations={stockLocations}
-    />
+    <>
+      <div className="mb-3">
+        <MobileBackButton fallback="/m/hr/employees" />
+      </div>
+      <MobileEmployeeDetailClient
+        employee={data}
+        canManage={canManage}
+        projects={projects}
+        stockLocations={stockLocations}
+      />
+    </>
   );
 }

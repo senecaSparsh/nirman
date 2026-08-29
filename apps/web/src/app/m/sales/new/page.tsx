@@ -122,12 +122,12 @@ async function MobileNewSaleContent({
     <div className="pb-32">
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             New Sale
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <ShoppingCart className="size-2.5" />

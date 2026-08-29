@@ -45,7 +45,7 @@ export function MobileRateContractsEmptyState({
             !hasSuppliers ? (
               <button
                 onClick={() => setShowSupplier(true)}
-                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-[0.6875rem] font-bold press"
+                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-m-body font-bold text-m-body press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 <Plus className="size-3.5" /> Add Supplier
@@ -53,7 +53,7 @@ export function MobileRateContractsEmptyState({
             ) : !hasMaterials ? (
               <button
                 onClick={() => setShowMaterial(true)}
-                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-[0.6875rem] font-bold press"
+                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-m-body font-bold text-m-body press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 <Plus className="size-3.5" /> Add Material

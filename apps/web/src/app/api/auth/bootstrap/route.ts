@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * POST /api/auth/bootstrap — one-time first owner + company setup.
@@ -79,7 +80,7 @@ export const POST = async (req: NextRequest) => {
   const hashed = await hashPassword(ownerPassword);
 
   // ── Create company + owner + account in one transaction ──
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // 1. Company
     const company = await tx.company.create({
       data: {

@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
@@ -59,7 +60,7 @@ interface PartitionInput {
 }
 
 export async function partitionLandParcel(input: PartitionInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // 1. Lock + validate parent
     const parent = await tx.landParcel.findFirst({
       where: { id: input.parentParcelId, deletedAt: null },
@@ -234,7 +235,7 @@ export async function partitionLandParcel(input: PartitionInput) {
     });
 
     return { parent, children: childParcels };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.LAND_PARTITIONED,
@@ -267,7 +268,7 @@ export async function partitionLandParcel(input: PartitionInput) {
  * Only OWNER/ADMIN should be allowed to call this (enforced at the API layer).
  */
 export async function unpartitionLandParcel(parentParcelId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // 1. Lock + validate parent
     const parent = await tx.landParcel.findFirst({
       where: { id: parentParcelId, deletedAt: null },
@@ -377,7 +378,7 @@ export async function unpartitionLandParcel(parentParcelId: string, userId?: str
     });
 
     return { parent, removedChildren: childIds.length };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -395,7 +396,7 @@ export async function updateParcelValuation(
   if (parcel.status === "SOLD") throw new ServiceError("Cannot update valuation of a SOLD parcel");
   if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot update valuation of a PARTITIONED parcel");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.landParcel.update({
       where: { id: parcelId },
       data: {
@@ -449,7 +450,7 @@ export async function updateParcelValuation(
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -498,7 +499,7 @@ export async function updateParcelDetails(
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.landParcel.update({
       where: { id: parcelId },
       data: {
@@ -544,7 +545,7 @@ export async function updateParcelDetails(
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -557,7 +558,7 @@ export async function setParcelStatus(parcelId: string, status: "AVAILABLE" | "H
   if (parcel.status === "SOLD") throw new ServiceError("Cannot change status of a SOLD parcel");
   if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot change status of a PARTITIONED parcel");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.landParcel.update({ where: { id: parcelId }, data: { status } });
     await logAction(tx, {
       userId,

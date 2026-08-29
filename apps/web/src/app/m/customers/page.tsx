@@ -30,6 +30,8 @@ async function MobileCustomersContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.SALES_MANAGE);
+  const canEdit = hasPermission(role, PERM.SALES_MANAGE);
+  const canDelete = hasPermission(role, PERM.SALES_MANAGE);
 
   // Fetch ALL customers for this company (not just those with asset sales)
   const [customers, leads] = await Promise.all([
@@ -145,6 +147,8 @@ async function MobileCustomersContent() {
         customers={rows}
         leads={leadRows}
         canCreate={canCreate}
+        canEdit={canEdit}
+        canDelete={canDelete}
         customerStats={{
           customerCount: rows.length,
           withDues: withDues.length,

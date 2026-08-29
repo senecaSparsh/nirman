@@ -4,6 +4,7 @@ import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postProjectCost, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Project Cost Service — labour, overhead, equipment, contractor, permit costs.
@@ -26,7 +27,7 @@ export async function addProjectCost(input: AddProjectCostInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Cost amount must be > 0");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
     });
@@ -69,7 +70,7 @@ export async function addProjectCost(input: AddProjectCostInput) {
 }
 
 export async function deleteProjectCost(costId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const cost = await tx.projectCost.findUnique({ where: { id: costId } });
     if (!cost) throw new ServiceError("Project cost not found", 404);
 

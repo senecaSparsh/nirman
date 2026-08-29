@@ -8,7 +8,7 @@ import { getBudgetVariance } from "@nirman/services";
 import { TrendingUp, TrendingDown, AlertTriangle, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileBudgetVarianceProjectSelector } from "./MobileBudgetVarianceProjectSelector";
 
@@ -86,7 +86,7 @@ async function MobileBudgetVarianceContent({
     <div>
       {/* ── Page title ── */}
       <h1
-        className="text-[0.875rem] font-bold mb-2"
+        className="text-m-section font-bold mb-2"
         style={{ color: "var(--color-ink-950)" }}
       >
         Budget Variance
@@ -104,11 +104,11 @@ async function MobileBudgetVarianceContent({
       {selectedProject && (
         <Link
           href={`/m/budget-variance/${selectedProject.id}`}
-          className="rounded-[0.5rem] border p-2.5 press flex items-center justify-between mb-3"
+          className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center justify-between mb-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>→</p>
+          <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>→</p>
         </Link>
       )}
 
@@ -150,21 +150,21 @@ async function MobileBudgetVarianceContent({
               </span>
               <div className="min-w-0 flex-1">
                 <p
-                  className="text-[0.4375rem] uppercase tracking-wide font-semibold"
+                  className="text-m-caption uppercase tracking-wide font-semibold"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Total Variance
                 </p>
                 <p
-                  className="text-[0.9375rem] font-bold tabular-nums leading-none"
+                  className="text-m-section font-bold tabular-nums leading-none"
                   style={{ color: varianceColor }}
                 >
                   {totalVariance >= 0 ? "+" : ""}
-                  {formatCurrency(totalVariance)}
+                  {formatCurrencyCompact(totalVariance)}
                 </p>
               </div>
               <span
-                className="text-[0.5625rem] font-semibold tabular-nums px-2 py-0.5 rounded-[0.375rem]"
+                className="text-m-caption font-semibold tabular-nums px-2 py-0.5 rounded-[0.375rem]"
                 style={{
                   backgroundColor: isOverBudget
                     ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
@@ -178,9 +178,9 @@ async function MobileBudgetVarianceContent({
 
             {/* Budget / Actual / split */}
             <div className="flex items-center justify-between gap-2">
-              <SummaryStat label="Budget" value={formatCurrency(totalBudget)} />
+              <SummaryStat label="Budget" value={formatCurrencyCompact(totalBudget)} />
               <Divider />
-              <SummaryStat label="Actual" value={formatCurrency(totalActual)} />
+              <SummaryStat label="Actual" value={formatCurrencyCompact(totalActual)} />
               <Divider />
               <SummaryStat
                 label="Bill of Quantities / Other"
@@ -231,13 +231,13 @@ async function MobileBudgetVarianceContent({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p
-                        className="text-[0.75rem] font-semibold leading-tight truncate"
+                        className="text-m-section font-semibold leading-tight truncate"
                         style={{ color: "var(--color-ink-950)" }}
                       >
                         {item.description}
                       </p>
                       <p
-                        className="text-[0.5625rem] mt-0.5 truncate"
+                        className="text-m-caption mt-0.5 truncate"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         {item.category}
@@ -245,7 +245,7 @@ async function MobileBudgetVarianceContent({
                       </p>
                     </div>
                     <span
-                      className="shrink-0 text-[0.5rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-[0.375rem]"
+                      className="shrink-0 text-m-caption font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-[0.375rem]"
                       style={{
                         backgroundColor: "color-mix(in srgb, var(--color-concrete) 60%, transparent)",
                         color: statusTone,
@@ -259,48 +259,48 @@ async function MobileBudgetVarianceContent({
                   <div className="flex items-center justify-between gap-2 pl-8">
                     <div className="flex flex-col min-w-0">
                       <span
-                        className="text-[0.4375rem] uppercase tracking-wide"
+                        className="text-m-caption uppercase tracking-wide"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Budget
                       </span>
                       <span
-                        className="text-[0.6875rem] font-bold tabular-nums"
+                        className="text-m-body font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
-                        {item.budgetedAmount > 0 ? formatCurrency(item.budgetedAmount) : "—"}
+                        {item.budgetedAmount > 0 ? formatCurrencyCompact(item.budgetedAmount) : "—"}
                       </span>
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span
-                        className="text-[0.4375rem] uppercase tracking-wide"
+                        className="text-m-caption uppercase tracking-wide"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Actual
                       </span>
                       <span
-                        className="text-[0.6875rem] font-bold tabular-nums"
+                        className="text-m-body font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
-                        {formatCurrency(item.actualAmount)}
+                        {formatCurrencyCompact(item.actualAmount)}
                       </span>
                     </div>
                     <div className="flex flex-col items-end min-w-0">
                       <span
-                        className="text-[0.4375rem] uppercase tracking-wide"
+                        className="text-m-caption uppercase tracking-wide"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Variance
                       </span>
                       <span
-                        className="text-[0.6875rem] font-bold tabular-nums"
+                        className="text-m-body font-bold tabular-nums"
                         style={{ color: itemColor }}
                       >
                         {item.variance >= 0 ? "+" : ""}
-                        {formatCurrency(item.variance)}
+                        {formatCurrencyCompact(item.variance)}
                       </span>
                       <span
-                        className="text-[0.5rem] tabular-nums"
+                        className="text-m-caption tabular-nums"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         {item.budgetedAmount > 0
@@ -325,13 +325,13 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col items-center min-w-0">
       <span
-        className="text-[0.4375rem] uppercase tracking-wide"
+        className="text-m-caption uppercase tracking-wide"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
       </span>
       <span
-        className="text-[0.625rem] font-bold tabular-nums truncate"
+        className="text-m-label font-bold tabular-nums truncate"
         style={{ color: "var(--color-ink-950)" }}
       >
         {value}

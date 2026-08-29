@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -47,7 +48,15 @@ export function MobileRateContractsList({
     );
   }, [items, query]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={FileText}
+        title="No rate contracts"
+        hint="Rate contracts will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -79,7 +88,7 @@ export function MobileRateContractsList({
           {query && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} contract{filtered.length !== 1 ? "s" : ""}
@@ -101,7 +110,7 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
   return (
     <Link
       href={`/m/rate-contracts/${c.id}`}
-      className="rounded-[0.5rem] border p-2.5 press block"
+      className="rounded-[0.5rem] border p-2.5 text-m-body press block"
       style={{
         borderColor: c.isExpired ? "var(--color-line)" : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -109,31 +118,31 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
       }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
           {c.supplierName}
         </p>
         <MobileStatusBadge status={c.isActive ? "ACTIVE" : c.isExpired ? "CANCELLED" : "PENDING"} />
       </div>
-      <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {c.materialName}
       </p>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Rate</p>
-          <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Rate</p>
+          <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrency(c.agreedRate)}/{c.materialUnit}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Valid</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Valid</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(c.validFrom)} → {formatDate(c.validTo)}
           </p>
         </div>
       </div>
       {(c.minQty || c.maxQty) && (
-        <p className="text-[0.4375rem] mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
           {c.minQty ? `Min: ${c.minQty} ${c.materialUnit}` : ""}
           {c.minQty && c.maxQty ? " · " : ""}
           {c.maxQty ? `Max: ${c.maxQty} ${c.materialUnit}` : ""}

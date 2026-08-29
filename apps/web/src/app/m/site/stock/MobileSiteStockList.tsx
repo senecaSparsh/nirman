@@ -149,7 +149,7 @@ export function MobileSiteStockList({
       <div className="grid grid-cols-2 gap-2 mb-3">
         <Link
           href="/m/stock-out?mode=issue"
-          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 press"
+          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <span
@@ -159,17 +159,17 @@ export function MobileSiteStockList({
             <ArrowUpFromLine className="size-3.5" style={{ color: "var(--color-stop)" }} />
           </span>
           <div className="min-w-0">
-            <p className="text-[0.6875rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
               Issue Material
             </p>
-            <p className="text-[0.5rem] leading-tight" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption leading-tight" style={{ color: "var(--color-ink-500)" }}>
               Material challan out
             </p>
           </div>
         </Link>
         <Link
           href="/m/site/receive"
-          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 press"
+          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <span
@@ -179,10 +179,10 @@ export function MobileSiteStockList({
             <Truck className="size-3.5" style={{ color: "var(--color-go)" }} />
           </span>
           <div className="min-w-0">
-            <p className="text-[0.6875rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
               Receive Stock
             </p>
-            <p className="text-[0.5rem] leading-tight" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption leading-tight" style={{ color: "var(--color-ink-500)" }}>
               PO / gate entry
             </p>
           </div>
@@ -220,10 +220,10 @@ export function MobileSiteStockList({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
           >
             <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
               No stock locations
             </p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
               Stock locations will appear here
             </p>
           </div>
@@ -233,7 +233,7 @@ export function MobileSiteStockList({
           {query && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filteredLocations.length} location{filteredLocations.length !== 1 ? "s" : ""}
@@ -252,12 +252,12 @@ export function MobileSiteStockList({
       {filteredMovements.length > 0 ? (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Recent Activity
             </span>
             <Link
               href="/m/stock"
-              className="flex items-center gap-0.5 text-[0.5625rem] font-semibold"
+              className="flex items-center gap-0.5 text-m-caption font-semibold"
               style={{ color: "var(--color-ink-500)" }}
             >
               View ledger <ArrowRight className="size-2.5" />
@@ -283,18 +283,18 @@ export function MobileSiteStockList({
                     <Icon className="size-3" style={{ color }} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {formatNumber(m.qty, 0)} {m.materialUnit} {m.materialName}
                     </p>
-                    <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                       {m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[0.5rem] font-semibold" style={{ color }}>
+                    <p className="text-m-caption font-semibold" style={{ color }}>
                       {movementLabel(m.movementType)}
                     </p>
-                    <p className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                       {formatTime(m.timestamp)}
                     </p>
                   </div>
@@ -317,7 +317,7 @@ function LocationBinCard({ loc }: { loc: StockLocationItem }) {
   return (
     <Link
       href={`/m/stock?locationId=${loc.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -329,11 +329,11 @@ function LocationBinCard({ loc }: { loc: StockLocationItem }) {
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Location name + type label */}
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {loc.name}
           </p>
           <span
-            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             {typeLabel(loc.type)}
@@ -345,10 +345,10 @@ function LocationBinCard({ loc }: { loc: StockLocationItem }) {
           {visibleItems.length > 0 ? (
             visibleItems.map((item) => (
               <div key={item.materialId} className="flex items-baseline justify-between gap-1">
-                <span className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-700)" }}>
+                <span className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
                   {item.materialName}
                 </span>
-                <span className="text-[0.5625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-caption font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(item.qty, 0)}
                   <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>
                     {item.unit}
@@ -357,7 +357,7 @@ function LocationBinCard({ loc }: { loc: StockLocationItem }) {
               </div>
             ))
           ) : (
-            <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               Empty
             </p>
           )}
@@ -366,11 +366,11 @@ function LocationBinCard({ loc }: { loc: StockLocationItem }) {
         {/* Row 3: Bottom area — fixed height for equal card sizes */}
         <div className="mt-auto pt-1 h-[0.875rem] flex items-center">
           {remaining > 0 ? (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               +{remaining} more item{remaining > 1 ? "s" : ""}
             </span>
           ) : loc.items.length > 0 ? (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               {loc.itemCount} item{loc.itemCount !== 1 ? "s" : ""} · {formatNumber(loc.totalQty, 0)} units
             </span>
           ) : null}

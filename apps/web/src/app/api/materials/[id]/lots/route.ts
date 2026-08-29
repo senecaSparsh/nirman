@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { getLotHistory, logAction } from "@nirman/services";
+import { getLotHistory, logAction, withSerializableTransaction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -75,9 +76,15 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   }
 
   const receivedDate = new Date(parsed.data.receivedDate);
+  if (isNaN(receivedDate.getTime())) {
+    return json({ error: "Invalid date format" }, { status: 400 });
+  }
   const expiryDate = parsed.data.expiryDate ? new Date(parsed.data.expiryDate) : null;
+  if (expiryDate && isNaN(expiryDate.getTime())) {
+    return json({ error: "Invalid date format" }, { status: 400 });
+  }
 
-  const lot = await prisma.$transaction(async (tx) => {
+  const lot = await withSerializableTransaction(async (tx) => {
     // Restore if soft-deleted, otherwise create
     if (existing?.deletedAt) {
       const restored = await tx.materialLot.update({
@@ -88,7 +95,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
           expiryDate,
           initialQty: parsed.data.initialQty,
           currentQty: parsed.data.initialQty,
-          unitCost: parsed.data.unitCost,
+          unitCost: String(parsed.data.unitCost),
           supplierId: parsed.data.supplierId ?? null,
           notes: parsed.data.notes ?? null,
           deletedAt: null,
@@ -114,7 +121,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         expiryDate,
         initialQty: parsed.data.initialQty,
         currentQty: parsed.data.initialQty,
-        unitCost: parsed.data.unitCost,
+        unitCost: String(parsed.data.unitCost),
         supplierId: parsed.data.supplierId ?? null,
         notes: parsed.data.notes ?? null,
       },
@@ -129,5 +136,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return created;
   });
 
+  revalidatePath("/materials");
+  revalidatePath("/m/materials");
   return json(lot, { status: 201 });
 });

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock,
-  Pencil, X, Loader2,
+  Pencil, X, Loader2, Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -64,9 +64,29 @@ export function MobileEmployeeDetailClient({
 }) {
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (notFound || !employee) {
     return <MobileEmptyState icon={User} title="Employee not found" />;
+  }
+
+  const employeeId = employee.id;
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      toast.success("Employee archived");
+      setShowDelete(false);
+      router.push("/m/hr/employees");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const presentDays = employee.attendances.filter((a) => a.status === "PRESENT").length;
@@ -77,11 +97,11 @@ export function MobileEmployeeDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-4">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {employee.name}
           </p>
           {employee.designation ? (
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {employee.designation}
             </p>
           ) : null}
@@ -89,7 +109,7 @@ export function MobileEmployeeDetailClient({
         {canManage ? (
           <button
             onClick={() => setShowEdit(true)}
-            className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] press"
+            className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
             style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
           >
             <Pencil className="size-3.5" />
@@ -121,7 +141,7 @@ export function MobileEmployeeDetailClient({
       </div>
 
       <MobileSectionTitle>Salary</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label={employee.wageType === "DAILY" ? "Daily Rate" : "Monthly Salary"}
           value={formatCurrency(employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) : (employee.monthlySalary ?? 0))}
@@ -151,6 +171,28 @@ export function MobileEmployeeDetailClient({
         </>
       )}
 
+      {/* ── Edit + Archive buttons (managers only) ── */}
+      {canManage ? (
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setShowEdit(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+          >
+            <Pencil className="size-3.5" />
+            Edit Details
+          </button>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
+            style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
+          >
+            <Trash2 className="size-3.5" />
+            Archive
+          </button>
+        </div>
+      ) : null}
+
       {/* ── Edit sheet ── */}
       {showEdit ? (
         <EmployeeEditSheet
@@ -163,6 +205,42 @@ export function MobileEmployeeDetailClient({
             router.refresh();
           }}
         />
+      ) : null}
+
+      {/* ── Delete confirmation ── */}
+      {showDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          onClick={() => setShowDelete(false)}
+        >
+          <div
+            className="w-full rounded-t-[1rem] mx-auto max-w-md"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-3 pb-2">
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Archive Employee?</p>
+              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
+                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            </div>
+            <div className="px-3 pb-4">
+              <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
+                This will archive <span className="font-bold">{employee.name}</span>. The employee record will be hidden but historical attendance and DPR references are preserved. This cannot be undone.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => setShowDelete(false)} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
+                <button onClick={handleDelete} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
+                  {deleting ? <Loader2 className="size-3.5 animate-spin" /> : "Archive"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -229,23 +307,23 @@ function EmployeeEditSheet({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -253,10 +331,10 @@ function EmployeeEditSheet({
           <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
         </div>
         <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Edit Employee
           </p>
-          <button onClick={onClose} className="press p-1">
+          <button onClick={onClose} className="text-m-body press p-1">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -265,7 +343,7 @@ function EmployeeEditSheet({
             <label className={labelClass} style={labelStyle}>Name *</label>
             <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <div>
               <label className={labelClass} style={labelStyle}>Trade</label>
               <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Mason" className={inputClass} style={inputStyle} />
@@ -275,7 +353,7 @@ function EmployeeEditSheet({
               <input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" className={inputClass} style={inputStyle} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <div>
               <label className={labelClass} style={labelStyle}>Phone</label>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
@@ -295,7 +373,7 @@ function EmployeeEditSheet({
                   key={w}
                   type="button"
                   onClick={() => setWageType(w)}
-                  className="flex-1 h-9 rounded-[0.5rem] border-2 text-[0.5625rem] font-bold press"
+                  className="flex-1 h-9 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
                   style={{
                     borderColor: wageType === w ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: wageType === w ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -321,7 +399,7 @@ function EmployeeEditSheet({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <div>
               <label className={labelClass} style={labelStyle}>Join Date</label>
               <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
@@ -360,11 +438,11 @@ function EmployeeEditSheet({
             </select>
           </div>
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               onClick={onClose}
               disabled={saving}
-              className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               Cancel
@@ -372,7 +450,7 @@ function EmployeeEditSheet({
             <button
               onClick={save}
               disabled={saving || !name.trim()}
-              className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press flex items-center justify-center gap-1"
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: saving || !name.trim() ? 0.5 : 1 }}
             >
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save Changes"}

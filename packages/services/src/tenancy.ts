@@ -1,4 +1,5 @@
 import { prisma, type Prisma, type AssetType, type TenancyStatus } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postJournalEntry, postSecurityDepositReceived, postSecurityDepositRefunded, ACCT } from "./gl-posting";
@@ -53,7 +54,7 @@ export interface CreateTenancyInput {
 }
 
 export async function createTenancy(input: CreateTenancyInput) {
-  const tenancy = await prisma.$transaction(async (tx) => {
+  const tenancy = await withSerializableTransaction(async (tx) => {
     const monthlyRent = new Decimal(input.monthlyRent);
     if (!monthlyRent.gt(0)) throw new ServiceError("Monthly rent must be > 0");
 
@@ -153,7 +154,7 @@ export async function createTenancy(input: CreateTenancyInput) {
     }
 
     return tenancy;
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.TENANCY_CREATED,
@@ -195,7 +196,7 @@ export interface UpdateTenancyInput {
 }
 
 export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "PENDING") {
@@ -347,11 +348,11 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
       });
     }
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function activateTenancy(tenancyId: string, companyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: tenancyId, companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "PENDING" && t.status !== "ACTIVE") {
@@ -426,11 +427,11 @@ export async function activateTenancy(tenancyId: string, companyId: string, user
       });
     }
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function terminateTenancy(tenancyId: string, companyId: string, userId?: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: tenancyId, companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE" && t.status !== "PENDING") {
@@ -468,7 +469,7 @@ export async function terminateTenancy(tenancyId: string, companyId: string, use
       });
     }
     return { updated, tenantName: t.tenantName };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.TENANCY_TERMINATED,
@@ -502,7 +503,7 @@ export interface RecordRentInput {
 }
 
 export async function recordRentPayment(input: RecordRentInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE" && t.status !== "PENDING") {
@@ -610,7 +611,7 @@ export async function recordRentPayment(input: RecordRentInput) {
     }
 
     return payment;
-  }, { isolationLevel: "Serializable" });
+  });
 
   return result;
 }
@@ -631,7 +632,7 @@ export interface ApplyEscalationInput {
  * and logs the change. Returns the updated tenancy.
  */
 export async function applyRentEscalation(input: ApplyEscalationInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE") {
@@ -671,7 +672,7 @@ export async function applyRentEscalation(input: ApplyEscalationInput) {
     }
 
     return { tenancy: updated, oldRent, newRent, increase };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.RENT_ESCALATION_APPLIED,
@@ -745,7 +746,7 @@ export interface ChangeTenantInput {
  * The old tenancy is marked TERMINATED; a new ACTIVE tenancy is created.
  */
 export async function changeTenant(input: ChangeTenantInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE" && t.status !== "EXPIRED") {
@@ -845,7 +846,7 @@ export async function changeTenant(input: ChangeTenantInput) {
     }
 
     return { oldTenancyId: t.id, newTenancy };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -866,7 +867,7 @@ export interface GenerateRentScheduleInput {
  */
 export async function generateRentSchedule(input: GenerateRentScheduleInput) {
   const monthsAhead = input.monthsAhead ?? 12;
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
     if (t.status !== "ACTIVE") {
@@ -930,7 +931,7 @@ export async function generateRentSchedule(input: GenerateRentScheduleInput) {
     }
 
     return { created: created.length, skipped: skipped.length, createdIds: created };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -1061,7 +1062,7 @@ export interface UploadAgreementInput {
 }
 
 export async function uploadRentAgreement(input: UploadAgreementInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
 
@@ -1104,7 +1105,7 @@ export interface UploadDraftInput {
 }
 
 export async function uploadDraft(input: UploadDraftInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const t = await tx.tenancy.findFirst({ where: { id: input.tenancyId, companyId: input.companyId } });
     if (!t) throw new ServiceError("Tenancy not found", 404);
 

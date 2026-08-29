@@ -6,7 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileSmsIngest } from "./MobileSmsIngest";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { MessageSquare, Plus, Link2, Check, AlertCircle } from "lucide-react";
 
 export const metadata = { title: "Bank SMS · Nirman" };
@@ -31,7 +31,7 @@ async function MobileSmsContent() {
   if (!hasPermission(role, PERM.SALES_VIEW)) {
     return (
       <div className="p-4 text-center">
-        <p className="text-sm text-muted-foreground">You don&apos;t have access to the SMS log.</p>
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>You don&apos;t have access to the SMS log.</p>
       </div>
     );
   }
@@ -61,7 +61,7 @@ async function MobileSmsContent() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <MessageSquare className="size-4" style={{ color: "var(--color-ink-600)" }} />
-        <h1 className="text-base font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Bank SMS
         </h1>
         {canCreate && <MobileSmsIngest />}
@@ -73,27 +73,27 @@ async function MobileSmsContent() {
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div>
-          <p className="text-[0.5rem] uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
             Matched
           </p>
-          <p className="text-sm font-bold" style={{ color: "var(--color-go)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-go)" }}>
             {matchedCount}
           </p>
         </div>
         <div>
-          <p className="text-[0.5rem] uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
             Unmatched
           </p>
-          <p className="text-sm font-bold" style={{ color: "var(--color-signal)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-signal)" }}>
             {unmatchedCount}
           </p>
         </div>
         <div>
-          <p className="text-[0.5rem] uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
             Collected
           </p>
-          <p className="text-sm font-bold" style={{ color: "var(--color-ink-950)" }}>
-            {totalMatched ? formatCurrency(toNum(totalMatched)) : "₹0"}
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+            {totalMatched ? formatCurrencyCompact(toNum(totalMatched)) : "₹0"}
           </p>
         </div>
       </div>
@@ -105,10 +105,10 @@ async function MobileSmsContent() {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <MessageSquare className="size-6" style={{ color: "var(--color-ink-400)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No SMS yet
           </p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Forward bank payment SMS to auto-create entries.
           </p>
         </div>
@@ -142,13 +142,13 @@ async function MobileSmsContent() {
                     {/* Amount + bank */}
                     <div className="flex items-center gap-2">
                       {sms.amount && (
-                        <span className="text-[0.75rem] font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
-                          {formatCurrency(toNum(sms.amount))}
+                        <span className="text-m-section font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
+                          {formatCurrencyCompact(toNum(sms.amount))}
                         </span>
                       )}
                       {sms.bankName && (
                         <span
-                          className="rounded px-1 py-0.5 text-[0.5rem] font-medium"
+                          className="rounded px-1 py-0.5 text-m-caption font-medium"
                           style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-600)" }}
                         >
                           {sms.bankName}
@@ -157,14 +157,14 @@ async function MobileSmsContent() {
                     </div>
                     {/* Message */}
                     <p
-                      className="mt-1 text-[0.5625rem] line-clamp-2"
+                      className="mt-1 text-m-caption line-clamp-2"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       {sms.message}
                     </p>
                     {/* Meta */}
                     <div
-                      className="mt-1 flex items-center gap-2 text-[0.5rem]"
+                      className="mt-1 flex items-center gap-2 text-m-caption"
                       style={{ color: "var(--color-ink-400)" }}
                     >
                       <span>{sms.sender}</span>
@@ -174,7 +174,7 @@ async function MobileSmsContent() {
                     {/* Match reason */}
                     {sms.matchReason && (
                       <p
-                        className="mt-1 text-[0.5rem] italic"
+                        className="mt-1 text-m-caption italic"
                         style={{ color: "var(--color-ink-400)" }}
                       >
                         {sms.matchReason}
@@ -184,7 +184,7 @@ async function MobileSmsContent() {
                     {isUnmatched && sms.amount && canCreate && (
                       <Link
                         href={`/m/sms?match=${sms.id}`}
-                        className="mt-1.5 inline-flex items-center gap-1 text-[0.5625rem] font-semibold"
+                        className="mt-1.5 inline-flex items-center gap-1 text-m-caption font-semibold"
                         style={{ color: "var(--color-brand)" }}
                       >
                         <Link2 className="size-3" /> Match to sale

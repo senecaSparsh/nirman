@@ -81,7 +81,7 @@ export function InventoryHierarchy({ tree }: { tree: InventoryTreeData }) {
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         {tree.companies.length === 0 ? (
-          <p className="py-4 text-center text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="py-4 text-center text-m-label" style={{ color: "var(--color-ink-500)" }}>
             No stock locations
           </p>
         ) : (
@@ -368,7 +368,7 @@ function TreeRow({
       {/* ── Chevron (or spacer) ── */}
       <div className="shrink-0 w-4 flex items-center justify-center">
         {chevron ? (
-          <button type="button" onClick={onChevronClick} className="press">
+          <button type="button" onClick={onChevronClick} className="text-m-body press">
             <ChevronRight
               className="size-3 transition-transform"
               style={{
@@ -393,13 +393,13 @@ function TreeRow({
         <Link
           href={nameHref}
           onClick={nameOnClick}
-          className={`min-w-0 flex-1 truncate press ml-1.5 ${nameBold ? "text-[0.6875rem] font-bold" : "text-[0.625rem] font-semibold"}`}
+          className={`min-w-0 flex-1 truncate press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           {name}
           {badge ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-[0.375rem] font-bold uppercase align-middle"
+              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle"
               style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
             >
               {badge}
@@ -410,13 +410,13 @@ function TreeRow({
         <button
           type="button"
           onClick={nameOnClick}
-          className={`min-w-0 flex-1 truncate text-left press ml-1.5 ${nameBold ? "text-[0.6875rem] font-bold" : "text-[0.625rem] font-semibold"}`}
+          className={`min-w-0 flex-1 truncate text-left press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           {name}
           {badge ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-[0.375rem] font-bold uppercase align-middle"
+              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle"
               style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
             >
               {badge}
@@ -427,13 +427,13 @@ function TreeRow({
 
       {/* ── Sub-label ── */}
       {sub ? (
-        <span className="text-[0.4375rem] shrink-0 ml-1" style={{ color: "var(--color-ink-400)" }}>
+        <span className="text-m-caption shrink-0 ml-1" style={{ color: "var(--color-ink-400)" }}>
           {sub}
         </span>
       ) : null}
 
       {/* ── Value ── */}
-      <p className="numeric text-[0.5625rem] font-bold shrink-0 ml-2" style={{ color: "var(--color-ink-950)" }}>
+      <p className="numeric text-m-caption font-bold shrink-0 ml-2" style={{ color: "var(--color-ink-950)" }}>
         {formatCurrency(value)}
       </p>
     </div>

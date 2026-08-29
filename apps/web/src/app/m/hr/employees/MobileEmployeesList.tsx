@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users } from "lucide-react";
+import { Users, HardHat } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileStatusBadge,
+  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -84,7 +85,15 @@ export function MobileEmployeesList({
 
   const isFiltering = query.trim() !== "" || wageFilter !== "ALL";
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={HardHat}
+        title="No employees"
+        hint="Employees will appear here once added"
+      />
+    );
+  }
 
   return (
     <div>
@@ -158,7 +167,7 @@ function GroupedList({ items }: { items: EmployeeListItem[] }) {
         return (
           <div key={trade}>
             <div
-              className="pb-1 pt-2 text-[0.5625rem] font-bold uppercase tracking-wide"
+              className="pb-1 pt-2 text-m-caption font-bold uppercase tracking-wide"
               style={{ color: "var(--color-ink-500)" }}
             >
               {trade} ({tradeWorkers.length})

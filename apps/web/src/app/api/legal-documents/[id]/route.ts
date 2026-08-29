@@ -35,7 +35,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       issueDate: issueDate ? new Date(issueDate) : issueDate === null ? null : undefined,
       validFrom: validFrom ? new Date(validFrom) : validFrom === null ? null : undefined,
       validTill: validTill ? new Date(validTill) : validTill === null ? null : undefined,
-      amount: amount !== undefined ? Number(amount) : undefined,
+      amount: amount !== undefined && amount !== "" ? Number(amount) : undefined,
       expectedRegistryDate: expectedRegistryDate ? new Date(expectedRegistryDate) : expectedRegistryDate === null ? null : undefined,
       documentUrl: documentUrl ?? undefined,
       documentName: documentName ?? undefined,

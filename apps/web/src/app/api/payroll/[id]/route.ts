@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { processPayroll, payPayroll } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -60,6 +61,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body.action;
@@ -68,6 +70,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
     try {
       await processPayroll({ payrollPeriodId: id, userId: user.id });
+      revalidatePath("/payroll");
+      revalidatePath("/m/hr");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to process payroll") }, { status: 400 });
@@ -78,6 +82,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
     try {
       await payPayroll({ payrollPeriodId: id, userId: user.id });
+      revalidatePath("/payroll");
+      revalidatePath("/m/hr");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to settle payroll") }, { status: 400 });

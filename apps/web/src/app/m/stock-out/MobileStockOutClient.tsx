@@ -47,7 +47,7 @@ interface StockOutDraft {
 }
 
 const inputClass =
-  "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+  "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -405,7 +405,7 @@ export function MobileStockOutClient({
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
       </div>
     );
   }
@@ -443,10 +443,10 @@ export function MobileStockOutClient({
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {isQueued
             ? "Will sync when back online."
             : isGatePass
@@ -459,7 +459,7 @@ export function MobileStockOutClient({
           {!isQueued && !isGatePass && isTransfer && success.id !== "QUEUED" ? (
             <button
               onClick={() => router.push(`/m/transfers/${success.id}`)}
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               Dispatch This Transfer
@@ -470,7 +470,7 @@ export function MobileStockOutClient({
               href={`/print/issue/${success.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Printer className="size-3.5 inline mr-1" />
@@ -480,7 +480,7 @@ export function MobileStockOutClient({
           {isGatePass ? (
             <a
               href="/m/gate-pass"
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View Gate Passes
@@ -492,7 +492,7 @@ export function MobileStockOutClient({
               setLines([{ materialId: materials[0]?.id ?? "", qty: "" }]);
               setNotes("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             {isTransfer ? "Add Another Transfer" : "Issue More Materials"}
@@ -544,7 +544,7 @@ export function MobileStockOutClient({
               onPointerLeave={cancelLongPress}
               onPointerCancel={cancelLongPress}
               onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 press transition-colors select-none"
+              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-m-body press transition-colors select-none"
               style={{
                 borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -553,11 +553,11 @@ export function MobileStockOutClient({
               }}
             >
               <ArrowLeftRight className="size-4" />
-              <span className="text-[0.6875rem] font-bold">Transfer</span>
-              <span className="text-[0.4375rem] font-medium" style={{ opacity: 0.7 }}>
+              <span className="text-m-body font-bold">Transfer</span>
+              <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
                 Location → Location
               </span>
-              <span className="text-[0.375rem] font-normal" style={{ opacity: 0.5 }}>
+              <span className="text-m-caption font-normal" style={{ opacity: 0.5 }}>
                 Hold for list
               </span>
             </button>
@@ -569,7 +569,7 @@ export function MobileStockOutClient({
               onPointerLeave={cancelLongPress}
               onPointerCancel={cancelLongPress}
               onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 press transition-colors select-none"
+              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-m-body press transition-colors select-none"
               style={{
                 borderColor: mode === "issue" ? "var(--color-signal)" : "var(--color-line)",
                 backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-paper)",
@@ -578,11 +578,11 @@ export function MobileStockOutClient({
               }}
             >
               <Package className="size-4" />
-              <span className="text-[0.6875rem] font-bold">Issue</span>
-              <span className="text-[0.4375rem] font-medium" style={{ opacity: 0.7 }}>
+              <span className="text-m-body font-bold">Issue</span>
+              <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
                 Location → Project
               </span>
-              <span className="text-[0.375rem] font-normal" style={{ opacity: 0.5 }}>
+              <span className="text-m-caption font-normal" style={{ opacity: 0.5 }}>
                 Hold for list
               </span>
             </button>
@@ -600,7 +600,7 @@ export function MobileStockOutClient({
             ) : (
               <Package className="size-4" style={{ color: "var(--color-paper)" }} />
             )}
-            <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-paper)" }}>
+            <span className="text-m-body font-bold" style={{ color: "var(--color-paper)" }}>
               {mode === "transfer" ? "Stock Transfer" : "Material Issue"}
             </span>
           </div>
@@ -613,11 +613,11 @@ export function MobileStockOutClient({
         >
           <div className="flex-1 min-w-0 text-center">
             <MapPin className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-            <p className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {fromLoc?.name ?? "Select source"}
             </p>
             {fromLoc?.companyName ? (
-              <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                 {fromLoc.companyName}
               </p>
             ) : null}
@@ -627,11 +627,11 @@ export function MobileStockOutClient({
             {mode === "transfer" ? (
               <>
                 <MapPin className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {toLoc?.name ?? "Select destination"}
                 </p>
                 {toLoc?.companyName ? (
-                  <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {toLoc.companyName}
                   </p>
                 ) : null}
@@ -639,7 +639,7 @@ export function MobileStockOutClient({
             ) : (
               <>
                 <Building2 className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-[0.5625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {proj?.name ?? "Select project"}
                 </p>
               </>
@@ -658,7 +658,7 @@ export function MobileStockOutClient({
               value: l.id,
               label: l.companyName ? `${l.name} · ${l.companyName}` : l.name,
             }))}
-            inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+            inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             inputStyle={inputStyle}
             renderDialog={({ open, onClose, onCreated }) => (
               <MobileNewStockLocationDialog
@@ -683,7 +683,7 @@ export function MobileStockOutClient({
                   value: l.id,
                   label: l.companyName ? `${l.name} · ${l.companyName}` : l.name,
                 }))}
-                inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 inputStyle={inputStyle}
                 renderDialog={({ open, onClose, onCreated }) => (
                   <MobileNewStockLocationDialog
@@ -697,7 +697,7 @@ export function MobileStockOutClient({
               {/* Inter-company indicator */}
               {fromLoc?.companyId && toLoc?.companyId && fromLoc.companyId !== toLoc.companyId ? (
                 <div
-                  className="rounded-[0.5rem] px-2.5 py-2 text-[0.5625rem] font-semibold flex items-center gap-1.5"
+                  className="rounded-[0.5rem] px-2.5 py-2 text-m-caption font-semibold flex items-center gap-1.5"
                   style={{
                     backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
                     color: "var(--color-signal-dark, var(--color-signal))",
@@ -720,7 +720,7 @@ export function MobileStockOutClient({
                   style={{ borderColor: "var(--color-line)" }}
                 >
                   <Building2 className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Destination
                   </span>
                 </div>
@@ -744,7 +744,7 @@ export function MobileStockOutClient({
 
                 {units.length > 0 ? (
                   <div>
-                    <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
                       Built unit (optional)
                     </label>
                     <select
@@ -774,13 +774,13 @@ export function MobileStockOutClient({
                   style={{ borderColor: "var(--color-line)" }}
                 >
                   <User className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Receiver
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
                       Name
                     </label>
                     <input
@@ -793,7 +793,7 @@ export function MobileStockOutClient({
                     />
                   </div>
                   <div>
-                    <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
                       Mobile
                     </label>
                     <input
@@ -815,7 +815,7 @@ export function MobileStockOutClient({
                   style={{ borderColor: "var(--color-line)" }}
                 >
                   <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Vehicle / Carrier
                   </span>
                 </div>
@@ -827,7 +827,7 @@ export function MobileStockOutClient({
           {/* ── Material lines (shared) ── */}
           <div className="flex items-center gap-1.5 mt-1">
             <Package className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Items
             </span>
             <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -846,14 +846,14 @@ export function MobileStockOutClient({
                     className="flex items-center justify-between px-2 py-1"
                     style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
                   >
-                    <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                       Item {idx + 1}
                     </span>
                     {lines.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveLine(idx)}
-                        className="press"
+                        className="text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-2.5" />
@@ -866,7 +866,7 @@ export function MobileStockOutClient({
                       value={line.materialId}
                       onChange={(val) => handleLineChange(idx, "materialId", val)}
                       options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
-                      inputClass="w-full h-9 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none"
+                      inputClass="w-full h-9 rounded-[0.375rem] border px-2 text-m-body outline-none"
                       inputStyle={inputStyle}
                       labelClass="hidden"
                       renderDialog={({ open, onClose, onCreated }) => (
@@ -886,11 +886,11 @@ export function MobileStockOutClient({
                         value={line.qty}
                         onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
                         placeholder="Qty"
-                        className="flex-1 h-9 rounded-[0.375rem] border px-2 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="flex-1 h-9 rounded-[0.375rem] border px-2 text-m-body font-bold tabular-nums outline-none"
                         style={inputStyle}
                       />
                       {mat && (
-                        <span className="text-[0.5625rem] font-semibold shrink-0" style={{ color: "var(--color-ink-500)" }}>
+                        <span className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-ink-500)" }}>
                           {mat.unit}
                         </span>
                       )}
@@ -905,16 +905,16 @@ export function MobileStockOutClient({
           <button
             type="button"
             onClick={handleAddLine}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 press"
+            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             <Plus className="size-3.5" />
-            <span className="text-[0.6875rem] font-bold">Add another item</span>
+            <span className="text-m-body font-bold">Add another item</span>
           </button>
 
           {/* Notes (shared) */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Notes (optional)
             </label>
             <textarea
@@ -924,7 +924,7 @@ export function MobileStockOutClient({
                 ? "e.g. Moving excess cement to Site B"
                 : "e.g. Issued for Tower A foundation concreting"}
               rows={2}
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none resize-none"
+              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none resize-none"
               style={inputStyle}
             />
           </div>
@@ -942,10 +942,10 @@ export function MobileStockOutClient({
       >
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           <div className="shrink-0">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               {lines.filter((l) => Number(l.qty) > 0).length} items
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(lines.reduce((s, l) => s + (Number(l.qty) || 0), 0), 2)} units
             </p>
           </div>
@@ -954,7 +954,7 @@ export function MobileStockOutClient({
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
             style={{
               backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-ink-950)",
               color: "var(--color-paper)",

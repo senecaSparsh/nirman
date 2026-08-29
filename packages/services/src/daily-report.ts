@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Daily Report Service — site operations log (separate from DPR).
@@ -24,7 +25,7 @@ export interface CreateDailyReportInput {
 }
 
 export async function createDailyReport(input: CreateDailyReportInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const date = input.date instanceof Date ? input.date : new Date(input.date);
     if (isNaN(date.getTime())) throw new ServiceError("Invalid date");
 
@@ -70,7 +71,7 @@ export async function updateDailyReport(
   patch: Partial<Omit<CreateDailyReportInput, "companyId" | "userId">>,
   userId?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.dailyReport.findFirst({ where: { id, companyId } });
     if (!existing) throw new ServiceError("Daily report not found", 404);
 
@@ -113,7 +114,7 @@ export async function updateDailyReport(
 }
 
 export async function deleteDailyReport(id: string, companyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.dailyReport.findFirst({ where: { id, companyId } });
     if (!existing) throw new ServiceError("Daily report not found", 404);
     await tx.dailyReport.delete({ where: { id } });

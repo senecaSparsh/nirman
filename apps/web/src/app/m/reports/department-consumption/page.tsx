@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Building2, Boxes, Package, ClipboardList, PieChart } from "lucide-react";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -186,7 +186,7 @@ async function MobileDepartmentConsumptionContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Grand Total", value: formatCurrency(grandTotal), tone: "go" },
+          { label: "Grand Total", value: formatCurrencyCompact(grandTotal), tone: "go" },
           { label: "Departments", value: String(departments.length) },
           { label: "Materials", value: String(materialIds.size), tone: "signal" },
           { label: "Issues", value: String(issueCount) },
@@ -207,7 +207,7 @@ async function MobileDepartmentConsumptionContent() {
       <div className="mb-4">
         <MobileBarChart
           data={chartData}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -220,7 +220,7 @@ async function MobileDepartmentConsumptionContent() {
               icon={Building2}
               title={`${d.code} — ${d.name}`}
               subtitle={`${d.materials.length} material${d.materials.length > 1 ? "s" : ""}`}
-              meta={formatCurrency(d.total)}
+              meta={formatCurrencyCompact(d.total)}
               metaSub="Total cost"
               tone="success"
             />
@@ -232,12 +232,12 @@ async function MobileDepartmentConsumptionContent() {
                   icon={Package}
                   title={m.name}
                   subtitle={`${m.qty} ${m.unit} · ${m.categoryName}`}
-                  meta={formatCurrency(m.cost)}
+                  meta={formatCurrencyCompact(m.cost)}
                   tone="default"
                 />
               ))}
               {d.materials.length > 3 && (
-                <p className="text-[0.625rem] pl-1" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-label pl-1" style={{ color: "var(--color-ink-500)" }}>
                   +{d.materials.length - 3} more material{d.materials.length - 3 > 1 ? "s" : ""}
                 </p>
               )}

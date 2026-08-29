@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { generateAutoRequisition, notifyLowStock } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -95,6 +96,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }
     } catch { /* best-effort */ }
 
+    revalidatePath("/requisitions");
+    revalidatePath("/m/requisitions");
     return json(
       {
         ok: true,

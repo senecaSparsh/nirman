@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Globe, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 interface UnitOption {
@@ -101,9 +101,9 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   if (units.length === 0) {
@@ -114,15 +114,15 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Globe className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No available units
           </p>
-          <p className="text-[0.6875rem] mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
             Units with status &quot;Available&quot; can be listed on portals
           </p>
           <Link
             href="/m/units"
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-[0.6875rem] font-bold press"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
@@ -141,8 +141,8 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           <Globe className="size-4" style={{ color: "var(--color-ink-600)" }} />
         </span>
         <div>
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>New Portal Listing</p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>List a unit on a property portal</p>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>New Portal Listing</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>List a unit on a property portal</p>
         </div>
       </div>
 
@@ -157,7 +157,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             {units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.unitNumber} · {u.unitType} · {u.projectName} · {u.area} {u.areaUnit}
-                {u.askingPrice ? ` · ${formatCurrency(u.askingPrice)}` : ""}
+                {u.askingPrice ? ` · ${formatCurrencyCompact(u.askingPrice)}` : ""}
               </option>
             ))}
           </select>
@@ -166,13 +166,13 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
         {/* Portal selector */}
         <div>
           <label className={labelClass} style={labelStyle}>Portal</label>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
             {PORTAL_OPTIONS.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => { set("portalName", p); haptic(10); }}
-                className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.5625rem] font-bold press"
+                className="flex-1 h-10 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
                 style={{
                   borderColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -210,7 +210,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             onChange={(e) => set("description", e.target.value)}
             rows={3}
             placeholder="Describe the property…"
-            className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+            className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
             style={inputStyle}
           />
         </div>
@@ -291,7 +291,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             type="button"
             onClick={() => router.push("/m/portal-listings")}
             disabled={saving}
-            className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+            className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}
           >
             Cancel
@@ -299,7 +299,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           <button
             type="submit"
             disabled={saving}
-            className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="flex-[2] h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}

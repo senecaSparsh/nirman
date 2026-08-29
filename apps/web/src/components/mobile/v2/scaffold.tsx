@@ -14,8 +14,8 @@ import { Search, X, Plus, ChevronDown, type LucideIcon } from "lucide-react";
 
    Standard dimensions (chosen from the most common values across the
    existing pages):
-     - Search input:  h-9, rounded-[0.625rem], border-2, text-[0.8125rem]
-     - Filter chips:  px-2.5 py-1, text-[0.6875rem], rounded-full, border
+     - Search input:  h-9, rounded-[0.625rem], border-2, text-m-section
+     - Filter chips:  px-2.5 py-1, text-m-body, rounded-full, border
      - Card grid:     2-col gap-2 (transactional) / 3-col gap-1.5 (catalog)
      - Card:          rounded-[0.625rem], border, p-2
      - FAB:           size-12, right-4, bottom = tab bar + safe area
@@ -57,7 +57,12 @@ export function MobileSearchHeader({
     <div
       className="sticky top-0 z-20 -mx-3.5 px-3.5 pt-1 pb-2 mb-1"
       style={{
-        backgroundColor: "var(--color-paper)",
+        /* Apple §12 — translucent material so content scrolls underneath.
+           Blur + saturate conveys hierarchy without a hard divider. */
+        backgroundColor: "color-mix(in srgb, var(--color-paper) 92%, transparent)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        boxShadow: "0 4px 8px -6px color-mix(in srgb, var(--color-ink-950) 18%, transparent)",
       }}
     >
       {/* Search + action row — search expands to full width on focus */}
@@ -142,7 +147,7 @@ export interface FilterChip<T extends string> {
 
 /**
  * Horizontal scrollable filter chips. Standard dimensions: px-2.5 py-1,
- * text-[0.6875rem], rounded-full, border.
+ * text-m-body, rounded-full, border.
  */
 export function MobileFilterChips<T extends string>({
   chips,
@@ -162,7 +167,7 @@ export function MobileFilterChips<T extends string>({
             <button
               key={chip.value}
               onClick={() => onChange(chip.value)}
-              className="press rounded-full px-3.5 min-h-11 shrink-0 text-m-caption font-semibold border transition-colors flex items-center gap-1.5"
+              className="text-m-body press rounded-full px-3.5 min-h-11 shrink-0 text-m-caption font-semibold border transition-colors flex items-center gap-1.5"
               style={
                 isActive
                   ? {
@@ -247,10 +252,11 @@ export function MobileFilterDropdown<T extends string>({
       />
       {open && (
         <div
-          className="absolute top-10 right-0 z-30 rounded-[0.625rem] border-2 shadow-lg overflow-hidden min-w-[8rem]"
+          className="absolute top-10 right-0 z-30 rounded-[0.625rem] border-2 shadow-lg overflow-hidden min-w-[8rem] overlay-in"
           style={{
             backgroundColor: "var(--color-paper)",
             borderColor: "var(--color-line)",
+            transformOrigin: "top right",
           }}
         >
           {options.map((opt, i) => (
@@ -260,7 +266,7 @@ export function MobileFilterDropdown<T extends string>({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className="touch w-full text-left px-3 py-2 text-m-body font-semibold press"
+              className="touch w-full text-left px-3 py-2 text-m-body font-semibold text-m-body press"
               style={{
                 fontWeight: active === opt.value ? 700 : 500,
                 color:
@@ -309,7 +315,7 @@ export function MobileFilterIcon<T extends string>({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Filter"
-        className="grid place-items-center size-9 rounded-[0.5rem] border press relative"
+        className="grid place-items-center size-9 rounded-[0.5rem] border text-m-body press relative"
         style={{
           borderColor:
             hasFilter || open ? "var(--color-ink-950)" : "var(--color-line)",
@@ -341,10 +347,11 @@ export function MobileFilterIcon<T extends string>({
             aria-hidden
           />
           <div
-            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border shadow-lg overflow-hidden"
+            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border shadow-lg overflow-hidden overlay-in"
             style={{
               backgroundColor: "var(--color-paper)",
               borderColor: "var(--color-line)",
+              transformOrigin: "top right",
             }}
           >
             {options.map((opt, i) => (
@@ -354,7 +361,7 @@ export function MobileFilterIcon<T extends string>({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className="touch press w-full text-left px-3 py-2 text-m-body"
+                className="touch text-m-body press w-full text-left px-3 py-2 text-m-body"
                 style={{
                   fontWeight: active === opt.value ? 600 : 400,
                   color:
@@ -422,23 +429,39 @@ export function MobileHeaderAction({
 // ─── Card Grid ─────────────────────────────────────────────────────────────
 
 /**
- * Card grid wrapper. Use `cols="2"` for transactional records (POs, sales,
- * requisitions) and `cols="3"` for catalog items (materials, units).
+ * Card grid wrapper. Defaults to 4-col for stat cards (the standard
+ * across all /m/* pages). Use `cols="2"` for transactional record
+ * cards (POs, sales) and `cols="3"` for catalog items (materials, units).
  */
 export function MobileCardGrid({
-  cols = 2,
+  cols = 4,
   children,
 }: {
-  cols?: 2 | 3;
+  cols?: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
   return (
     <div
       className={
-        cols === 3 ? "grid grid-cols-3 gap-1.5" : "grid grid-cols-2 gap-2"
+        cols === 4
+          ? "grid grid-cols-4 gap-1.5"
+          : cols === 3
+            ? "grid grid-cols-3 gap-1.5"
+            : "grid grid-cols-2 gap-2"
       }
     >
-      {children}
+      {/* emil-design-eng: stagger only on transactional 2-col cards
+         (occasional browsing). 4-col stat cards are seen 100+ times/day
+         = no animation per the frequency principle. */}
+      {cols === 2
+        ? Array.isArray(children)
+          ? children.map((child, i) => (
+              <div key={i} className="stagger-in" style={{ animationDelay: `${Math.min(i, 7) * 40}ms` }}>
+                {child}
+              </div>
+            ))
+          : children
+        : children}
     </div>
   );
 }
@@ -451,25 +474,41 @@ export function MobileCardGrid({
  */
 export function MobileFab({
   href,
+  onClick,
   icon: Icon = Plus,
   label,
 }: {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   icon?: LucideIcon;
   label?: string;
 }) {
+  const className = "fixed right-4 z-30 grid place-items-center size-14 rounded-full text-m-body shadow-lg press";
+  const style: React.CSSProperties = {
+    bottom:
+      "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+    backgroundColor: "var(--color-ink-950)",
+    color: "var(--color-paper)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+  };
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        aria-label={label ?? "Create"}
+        className={className}
+        style={style}
+      >
+        <Icon className="size-6" />
+      </button>
+    );
+  }
   return (
     <Link
-      href={href}
+      href={href ?? "#"}
       aria-label={label ?? "Create"}
-      className="fixed right-4 z-30 grid place-items-center size-14 rounded-full shadow-lg press"
-      style={{
-        bottom:
-          "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-        backgroundColor: "var(--color-ink-950)",
-        color: "var(--color-paper)",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-      }}
+      className={className}
+      style={style}
     >
       <Icon className="size-6" />
     </Link>
@@ -525,7 +564,7 @@ export interface SummaryStat {
 
 /**
  * Compact KPI strip for list pages. Standard: rounded-[0.625rem], border,
- * p-3, mb-3. Renders 2-4 stats in a row.
+ * p-2.5, mb-3. Renders stats in a 4-col grid (or fewer if < 4 stats).
  */
 export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
   const toneColor = (tone?: SummaryStat["tone"]) =>
@@ -537,38 +576,22 @@ export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
           ? "var(--color-signal-dark)"
           : "var(--color-ink-950)";
 
+  const cols = stats.length >= 4 ? "grid-cols-4" : stats.length === 3 ? "grid-cols-3" : "grid-cols-2";
+
   return (
     <div
-      className="flex items-center justify-between rounded-[0.625rem] border p-3 mb-3"
+      className={`grid ${cols} gap-1.5 rounded-[0.625rem] border p-2.5 mb-3`}
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
-      {stats.map((s, i) => (
-        <div
-          key={s.label}
-          className={
-            i === 0
-              ? "text-left flex-1"
-              : i === stats.length - 1
-                ? "text-right flex-1"
-                : "text-center flex-1"
-          }
-          style={
-            i > 0
-              ? {
-                  borderLeft: "1px solid var(--color-line)",
-                  paddingLeft: "0.75rem",
-                  marginLeft: "0.75rem",
-                }
-              : undefined
-          }
-        >
-          <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
+      {stats.map((s) => (
+        <div key={s.label} className="text-center overflow-hidden min-w-0">
+          <p className="text-m-label truncate" style={{ color: "var(--color-ink-500)" }}>
             {s.label}
           </p>
-          <p className="text-m-figure" style={{ color: toneColor(s.tone) }}>
+          <p className="text-m-figure truncate" style={{ color: toneColor(s.tone) }}>
             {s.value}
           </p>
         </div>
@@ -596,7 +619,7 @@ export function MobileDashedCreateButton({
     <div className="mb-3">
       <Link
         href={href}
-        className="touch-lg flex items-center justify-center gap-2 w-full rounded-[0.625rem] border-2 border-dashed text-m-body font-bold press"
+        className="touch-lg flex items-center justify-center gap-2 w-full rounded-[0.625rem] border-2 border-dashed text-m-body font-bold text-m-body press"
         style={{
           borderColor: "var(--color-signal)",
           color: "var(--color-signal-dark)",

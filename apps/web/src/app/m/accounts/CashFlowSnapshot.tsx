@@ -54,14 +54,14 @@ export function CashFlowSnapshot({
       >
         <div className="flex items-baseline justify-between mb-2">
           <h3
-            className="text-[0.6875rem] font-bold uppercase tracking-wide"
+            className="text-m-body font-bold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Cash Flow
           </h3>
           <Link
             href="/m/reports/cash-flow"
-            className="text-[0.625rem] font-semibold press"
+            className="text-m-label font-semibold text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
             Forecast →
@@ -80,7 +80,7 @@ export function CashFlowSnapshot({
             />
           </span>
           <span
-            className="w-12 shrink-0 text-[0.625rem] font-medium"
+            className="w-12 shrink-0 text-m-label font-medium"
             style={{ color: "var(--color-ink-700)" }}
           >
             Inflow
@@ -99,7 +99,7 @@ export function CashFlowSnapshot({
             />
           </div>
           <span
-            className="tabular-nums text-[0.625rem] font-bold shrink-0"
+            className="tabular-nums text-m-label font-bold shrink-0"
             style={{ color: "var(--color-ink-950)" }}
           >
             {formatCurrency(inflow)}
@@ -118,7 +118,7 @@ export function CashFlowSnapshot({
             />
           </span>
           <span
-            className="w-12 shrink-0 text-[0.625rem] font-medium"
+            className="w-12 shrink-0 text-m-label font-medium"
             style={{ color: "var(--color-ink-700)" }}
           >
             Outflow
@@ -137,7 +137,7 @@ export function CashFlowSnapshot({
             />
           </div>
           <span
-            className="tabular-nums text-[0.625rem] font-bold shrink-0"
+            className="tabular-nums text-m-label font-bold shrink-0"
             style={{ color: "var(--color-ink-950)" }}
           >
             {formatCurrency(outflow)}
@@ -152,7 +152,7 @@ export function CashFlowSnapshot({
           }}
         >
           <span
-            className="text-[0.625rem] font-semibold uppercase tracking-wide"
+            className="text-m-label font-semibold uppercase tracking-wide"
             style={{
               color: net >= 0 ? "var(--color-go)" : "var(--color-stop)",
             }}
@@ -160,7 +160,7 @@ export function CashFlowSnapshot({
             Net Position
           </span>
           <span
-            className="tabular-nums text-[0.75rem] font-bold"
+            className="tabular-nums text-m-section font-bold"
             style={{
               color: net >= 0 ? "var(--color-go)" : "var(--color-stop)",
             }}
@@ -181,14 +181,14 @@ export function CashFlowSnapshot({
       >
         <div className="flex items-baseline justify-between mb-2">
           <h3
-            className="text-[0.6875rem] font-bold uppercase tracking-wide"
+            className="text-m-body font-bold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Top Payables
           </h3>
           <Link
             href="/m/suppliers"
-            className="text-[0.625rem] font-semibold press"
+            className="text-m-label font-semibold text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
             All →
@@ -197,7 +197,7 @@ export function CashFlowSnapshot({
 
         {sortedPayables.length === 0 ? (
           <p
-            className="py-3 text-center text-[0.6875rem]"
+            className="py-3 text-center text-m-body"
             style={{ color: "var(--color-ink-300)" }}
           >
             No outstanding payables
@@ -210,10 +210,10 @@ export function CashFlowSnapshot({
                 <Link
                   key={p.supplierId}
                   href="/m/suppliers"
-                  className="flex items-center gap-2 press rounded-[0.25rem] py-0.5"
+                  className="flex items-center gap-2 text-m-body press text-m-body rounded-[0.25rem] py-0.5"
                 >
                   <span
-                    className="flex-1 truncate text-[0.625rem] font-medium"
+                    className="flex-1 truncate text-m-label font-medium"
                     style={{ color: "var(--color-ink-700)" }}
                   >
                     {p.name}
@@ -232,7 +232,7 @@ export function CashFlowSnapshot({
                     />
                   </div>
                   <span
-                    className="tabular-nums text-[0.625rem] font-bold shrink-0"
+                    className="tabular-nums text-m-label font-bold shrink-0"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {formatCurrency(p.balanceOwed)}

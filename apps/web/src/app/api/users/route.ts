@@ -3,6 +3,7 @@ import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * GET /api/users — list users scoped to the active company (for task
@@ -115,7 +116,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // ── Create new user + membership + account in one transaction ──
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         email: normalizedEmail,

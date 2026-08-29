@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { Users, TrendingUp, Wallet } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { getPurchaserPerformance } from "@nirman/services";
 import {
   MobileSectionTitle,
@@ -88,8 +88,8 @@ async function MobilePurchaserPerformanceContent({
         items={[
           { label: "Purchasers", value: String(mapped.length) },
           { label: "Quotes", value: String(totalQuotes) },
-          { label: "Total Spend", value: formatCurrency(totalSpend) },
-          { label: "Savings", value: formatCurrency(totalSavings), tone: "go" },
+          { label: "Total Spend", value: formatCurrencyCompact(totalSpend) },
+          { label: "Savings", value: formatCurrencyCompact(totalSavings), tone: "go" },
         ]}
       />
 
@@ -98,7 +98,7 @@ async function MobilePurchaserPerformanceContent({
           title="Purchaser Performance Report"
           rows={mapped as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Purchasers: ${mapped.length} · Quotes: ${totalQuotes} · Total Spend: ${formatCurrency(totalSpend)} · Savings: ${formatCurrency(totalSavings)}`}
+          summary={`Purchasers: ${mapped.length} · Quotes: ${totalQuotes} · Total Spend: ${formatCurrencyCompact(totalSpend)} · Savings: ${formatCurrencyCompact(totalSavings)}`}
         />
       </div>
 
@@ -111,7 +111,7 @@ async function MobilePurchaserPerformanceContent({
             value: r.totalSpend,
             tone: "signal" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -124,7 +124,7 @@ async function MobilePurchaserPerformanceContent({
             icon={Users}
             title={r.userName}
             subtitle={`${r.quotesUploaded} quotes · ${r.requisitionsHandled} reqs`}
-            meta={formatCurrency(r.totalSpend)}
+            meta={formatCurrencyCompact(r.totalSpend)}
             metaSub={`Saved ${formatCurrency(r.potentialSavings)}`}
             tone="default"
           />

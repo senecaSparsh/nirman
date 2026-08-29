@@ -1,6 +1,8 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
+import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Project Scheduling + EVM Service.
@@ -26,7 +28,7 @@ import { ServiceError } from "./errors";
  * For FF deps: EF = EF(pred) + lag → ES = EF - duration
  * For SF deps (rare): ES = EF(pred) + lag (inverted)
  */
-export async function computeSchedule(projectId: string) {
+export async function computeSchedule(projectId: string, userId?: string) {
   const nodes = await prisma.wbsNode.findMany({
     where: { projectId },
     include: {
@@ -225,7 +227,7 @@ export async function computeSchedule(projectId: string) {
   const projectDuration = Math.round((projectEnd.getTime() - (es.get(sorted[0]!)?.getTime() ?? projectEnd.getTime())) / (1000 * 60 * 60 * 24));
 
   // Persist computed schedule back to WBS nodes
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     for (const r of results) {
       await tx.wbsNode.update({
         where: { id: r.id },
@@ -233,6 +235,15 @@ export async function computeSchedule(projectId: string) {
           isCritical: r.isCritical,
           totalFloat: r.totalFloat,
         },
+      });
+    }
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "SCHEDULE_COMPUTED",
+        entityType: "Project",
+        entityId: projectId,
+        after: { projectId, nodesUpdated: results.length, criticalPathLength: criticalPath.length },
       });
     }
   });

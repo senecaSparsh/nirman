@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileLeadDetailClient } from "./MobileLeadDetailClient";
 
 /**
@@ -103,11 +104,26 @@ async function MobileLeadDetailContent({
     },
   };
 
+  // Lifecycle pipeline: NEW → CONTACTED → SITE_VISIT → NEGOTIATION → BOOKED (or LOST)
+  const leadStages = ["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION", "BOOKED"];
+  const stageIdx = leadStages.indexOf(lead.stage);
+  const isLost = lead.stage === "LOST";
+  const leadPipelineSteps: MobilePipelineStep[] = leadStages.map((s, i) => ({
+    label: s.charAt(0) + s.slice(1).toLowerCase().replace("_", " "),
+    state: isLost ? (i === 0 ? "done" : "skipped") : i < stageIdx ? "done" : i === stageIdx ? "current" : "pending",
+  }));
+  if (isLost) leadPipelineSteps.push({ label: "Lost", state: "current" });
+
   return (
-    <MobileLeadDetailClient
-      data={data}
-      canCreate={canCreate}
-      canManage={canManage}
-    />
+    <>
+      <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={leadPipelineSteps} />
+      </div>
+      <MobileLeadDetailClient
+        data={data}
+        canCreate={canCreate}
+        canManage={canManage}
+      />
+    </>
   );
 }

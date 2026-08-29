@@ -49,10 +49,10 @@ export default async function SaleInvoicePage({
 
   // Fetch land parcel or built unit separately (no direct relation on AssetSale)
   const landParcel = sale.landParcelId
-    ? await prisma.landParcel.findUnique({ where: { id: sale.landParcelId }, select: { number: true, area: true, areaUnit: true } })
+    ? await prisma.landParcel.findFirst({ where: { id: sale.landParcelId, deletedAt: null }, select: { number: true, area: true, areaUnit: true } })
     : null;
   const builtUnit = sale.builtUnitId
-    ? await prisma.builtUnit.findUnique({ where: { id: sale.builtUnitId }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true, carpetArea: true, superBuiltUpArea: true } })
+    ? await prisma.builtUnit.findFirst({ where: { id: sale.builtUnitId, deletedAt: null }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true, carpetArea: true, superBuiltUpArea: true } })
     : null;
 
   const salePrice = toNum(sale.salePrice);

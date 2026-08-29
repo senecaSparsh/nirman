@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, LandPlot, Layers, SplitSquareHorizontal, CircleDollarSign, ArrowRight, MapPin } from "lucide-react";
+import { Plus, LandPlot, Layers, SplitSquareHorizontal, CircleDollarSign, ArrowRight, MapPin, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -232,6 +232,10 @@ export function LandView({
   // Mobile toggle: switch between Whole and Sub-Divided tables.
   const [mobileTab, setMobileTab] = useState<"whole" | "sub">("whole");
 
+  // Status filter: show only purchases that have at least one parcel in the
+  // selected status (AVAILABLE / HOLD / PARTITIONED / SOLD).
+  const [statusFilter, setStatusFilter] = useState("");
+
   // Convert a LandParcelRow into the SellableAssetRow shape for the SellAssetDialog.
   function toSellableAsset(p: LandParcelRow): SellableAssetRow {
     return {
@@ -260,9 +264,18 @@ export function LandView({
     if (root) setPartitionParcel(root);
   }
 
-  // Split purchases into whole (not subdivided) and subdivided
-  const wholePurchases = purchases.filter((p) => !p.hasChildren);
-  const subdividedPurchases = purchases.filter((p) => p.hasChildren);
+  // Split purchases into whole (not subdivided) and subdivided, applying the
+  // optional status filter (a purchase matches if it has ≥1 parcel in that status).
+  const matchesStatus = (p: LandPurchaseRowType) => {
+    if (!statusFilter) return true;
+    if (statusFilter === "AVAILABLE") return p.availableCount > 0;
+    if (statusFilter === "HOLD") return p.holdCount > 0;
+    if (statusFilter === "PARTITIONED") return p.partitionedCount > 0;
+    if (statusFilter === "SOLD") return p.soldCount > 0;
+    return true;
+  };
+  const wholePurchases = purchases.filter((p) => !p.hasChildren && matchesStatus(p));
+  const subdividedPurchases = purchases.filter((p) => p.hasChildren && matchesStatus(p));
 
   return (
     <div className="space-y-6">
@@ -315,6 +328,25 @@ export function LandView({
             </button>
           </div>
 
+          {/* ── Status filter ── */}
+          <div className="flex items-center justify-end gap-2">
+            <div className="relative shrink-0" style={{ width: 150 }}>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ width: 150 }}
+                className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+              >
+                <option value="">All statuses</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="HOLD">Hold</option>
+                <option value="PARTITIONED">Partitioned</option>
+                <option value="SOLD">Sold</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            </div>
+          </div>
+
           {/* ── Active table ── */}
           <div className="flex-1 overflow-hidden rounded-lg border border-border bg-card shadow-raised">
             {mobileTab === "whole" ? (
@@ -345,7 +377,27 @@ export function LandView({
           </div>
         </div>
       ) : (
-        <div className="grid items-stretch gap-6 lg:grid-cols-2">
+        <div className="space-y-3">
+          {/* ── Status filter toolbar ── */}
+          <div className="flex items-center justify-end gap-2">
+            <div className="relative shrink-0" style={{ width: 150 }}>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ width: 150 }}
+                className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+              >
+                <option value="">All statuses</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="HOLD">Hold</option>
+                <option value="PARTITIONED">Partitioned</option>
+                <option value="SOLD">Sold</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+            </div>
+          </div>
+
+          <div className="grid items-stretch gap-6 lg:grid-cols-2">
           {/* ── Whole / Non-Divided ── */}
           <div className="flex flex-col gap-3">
             <div className="flex h-8 items-center gap-2">
@@ -391,6 +443,7 @@ export function LandView({
               />
             </div>
           </div>
+        </div>
         </div>
       )}
 

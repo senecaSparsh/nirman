@@ -29,7 +29,7 @@ export function SnoozeButton({
           haptic(10);
           unsnooze(itemId);
         }}
-        className={`flex items-center gap-1 rounded-[0.375rem] font-semibold press ${size === "sm" ? "px-2 py-1 text-[0.5625rem]" : "px-3 py-1.5 text-[0.6875rem]"}`}
+        className={`flex items-center gap-1 rounded-[0.375rem] font-semibold press ${size === "sm" ? "px-2 py-1 text-m-caption" : "px-3 py-1.5 text-m-body"}`}
         style={{
           backgroundColor: "color-mix(in srgb, var(--color-ink-300) 12%, transparent)",
           color: "var(--color-ink-500)",
@@ -56,7 +56,7 @@ export function SnoozeButton({
           haptic(10);
           setOpen(!open);
         }}
-        className={`flex items-center gap-1 rounded-[0.375rem] font-semibold press ${size === "sm" ? "px-2 py-1 text-[0.5625rem]" : "px-3 py-1.5 text-[0.6875rem]"}`}
+        className={`flex items-center gap-1 rounded-[0.375rem] font-semibold press ${size === "sm" ? "px-2 py-1 text-m-caption" : "px-3 py-1.5 text-m-body"}`}
         style={{
           backgroundColor: "var(--color-concrete)",
           color: "var(--color-ink-700)",
@@ -95,10 +95,10 @@ export function SnoozeButton({
                     snooze(itemId, opt.duration, label);
                     setOpen(false);
                   }}
-                  className="press w-full flex items-center gap-2 px-3 py-2 text-left"
+                  className="text-m-body press w-full flex items-center gap-2 px-3 py-2 text-left"
                 >
                   <Icon className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                  <span className="text-[0.6875rem] font-medium" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-body font-medium" style={{ color: "var(--color-ink-950)" }}>
                     {opt.label}
                   </span>
                 </button>

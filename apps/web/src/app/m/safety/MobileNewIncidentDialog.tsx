@@ -61,88 +61,88 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
       <div className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2"><AlertTriangle className="size-4" style={{ color: "var(--color-stop)" }} /><h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Report Incident</h2></div>
-          <button onClick={onClose} className="press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+          <div className="flex items-center gap-2"><AlertTriangle className="size-4" style={{ color: "var(--color-stop)" }} /><h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Report Incident</h2></div>
+          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
-            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
+            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Worker fell from scaffolding" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
+            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Worker fell from scaffolding" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What happened? Be specific…" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
+            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What happened? Be specific…" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
-              <select value={form.type} onChange={(e) => set("type", e.target.value as IncidentType)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
+              <select value={form.type} onChange={(e) => set("type", e.target.value as IncidentType)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
-              <select value={form.severity} onChange={(e) => set("severity", e.target.value as IncidentSeverity)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
+              <select value={form.severity} onChange={(e) => set("severity", e.target.value as IncidentSeverity)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Date</label>
-              <input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Date</label>
+              <input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Time</label>
-              <input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Time</label>
+              <input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
           </div>
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
-            <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
+            <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
-            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
+            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
               <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
               {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>People Involved</label>
-            <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>People Involved</label>
+            <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Injured</label>
-              <input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Injured</label>
+              <input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fatal</label>
-              <input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fatal</label>
+              <input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Damage ₹</label>
-              <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Damage ₹</label>
+              <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
           </div>
 
           {/* Photo evidence */}
           <div>
-            <label className="text-[0.5625rem] font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
               Photo Evidence
             </label>
             <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
           </div>
 
           <div className="flex gap-2 pt-2">
-            <button onClick={onClose} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
-            <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button onClick={onClose} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
+            <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
             </button>
           </div>

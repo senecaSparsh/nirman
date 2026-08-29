@@ -84,7 +84,7 @@ async function MobilePermissionsContent() {
   return (
     <div>
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Total Docs"
           value={String(total)}

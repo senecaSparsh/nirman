@@ -70,7 +70,7 @@ export function MobileScrapGenerationsList({
         stats={[
           {
             label: "Scrap Value",
-            value: formatCurrency(totalValue),
+            value: formatCurrencyCompact(totalValue),
             tone: "go",
           },
           { label: "Slips", value: String(items.length), tone: "default" },
@@ -123,13 +123,13 @@ export function MobileScrapGenerationsList({
               style={{ color: "var(--color-ink-300)" }}
             />
             <p
-              className="text-[0.75rem] font-semibold"
+              className="text-m-section font-semibold"
               style={{ color: "var(--color-ink-700)" }}
             >
               No scrap generated
             </p>
             <p
-              className="text-[0.625rem]"
+              className="text-m-label"
               style={{ color: "var(--color-ink-500)" }}
             >
               Auto-detected from Daily Progress Report variance or added
@@ -142,7 +142,7 @@ export function MobileScrapGenerationsList({
           {query && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} slip{filtered.length !== 1 ? "s" : ""}
@@ -168,7 +168,7 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
   return (
     <Link
       href={`/m/scrap-generations/${sc.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -181,13 +181,13 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
         {/* Row 1: Slip number + source badge */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.5625rem] font-mono font-bold truncate"
+            className="text-m-caption font-mono font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {sc.scrapNumber}
           </span>
           <span
-            className="flex items-center gap-0.5 text-[0.4375rem] font-bold uppercase shrink-0"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             <SourceIcon className="size-2.5" />
@@ -197,7 +197,7 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
 
         {/* Row 2: Location */}
         <p
-          className="text-[0.5625rem] font-bold leading-tight truncate"
+          className="text-m-caption font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {sc.toLocationName}
@@ -206,7 +206,7 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
         {/* Row 3: Date + project */}
         <div className="flex items-center gap-1">
           <span
-            className="text-[0.5rem] tabular-nums"
+            className="text-m-caption tabular-nums"
             style={{ color: "var(--color-ink-500)" }}
           >
             {formatDate(sc.generationDate)}
@@ -215,7 +215,7 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
             <>
               <span style={{ color: "var(--color-line)" }}>·</span>
               <span
-                className="text-[0.5rem] truncate"
+                className="text-m-caption truncate"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {sc.projectName}
@@ -227,13 +227,13 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
         {/* Row 4: Bottom area — fixed height for equal card sizes */}
         <div className="mt-auto pt-1 h-[1rem] flex items-center justify-between">
           <span
-            className="text-[0.4375rem] font-semibold"
+            className="text-m-caption font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {sc.lineCount} item{sc.lineCount !== 1 ? "s" : ""}
           </span>
           <span
-            className="text-[0.5625rem] font-bold tabular-nums"
+            className="text-m-caption font-bold tabular-nums"
             style={{ color: "var(--color-go)" }}
           >
             {formatCurrencyCompact(sc.totalValue)}

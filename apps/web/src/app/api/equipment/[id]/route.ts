@@ -5,6 +5,7 @@ import { completeMaintenance, retireEquipment, unretireEquipment, softDelete, lo
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 const equipmentUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -120,7 +121,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       select: { id: true },
     });
     if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       const eq = await tx.equipment.update({
         where: { id },
         data: {

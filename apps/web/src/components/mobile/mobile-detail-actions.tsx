@@ -158,15 +158,16 @@ function ActionButton({
       onClick={onClick}
       disabled={busy}
       className={cn(
-        "flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.99] disabled:opacity-60",
+        "flex min-h-11 w-full items-center justify-center gap-2 rounded-[0.625rem] px-4 py-2.5 text-m-section font-semibold transition-colors active:scale-[0.99] disabled:opacity-60",
         variant === "primary"
           ? "bg-primary text-primary-foreground shadow-raised"
           : variant === "danger"
-            ? "border border-danger/30 bg-danger/5 text-danger"
-            : "border border-border bg-card text-foreground",
+            ? "border"
+            : "border text-m-body",
       )}
+      style={variant === "primary" ? undefined : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : Icon ? <Icon className="h-4 w-4" /> : null}
+      {busy ? <Loader2 className="size-4 animate-spin" /> : Icon ? <Icon className="size-4" /> : null}
       {label}
     </button>
   );
@@ -190,15 +191,15 @@ function LinkButton({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors active:scale-[0.99]",
+        "flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-m-section font-semibold transition-colors active:scale-[0.99]",
         variant === "primary"
           ? "bg-primary text-primary-foreground shadow-raised"
           : variant === "danger"
-            ? "border border-danger/30 bg-danger/5 text-danger"
-            : "border border-border bg-card text-foreground",
+            ? "border"
+            : "border text-m-body",
       )}
     >
-      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {Icon ? <Icon className="size-4" /> : null}
       {label}
     </a>
   );

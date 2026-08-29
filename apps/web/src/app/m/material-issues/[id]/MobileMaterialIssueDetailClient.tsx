@@ -6,7 +6,7 @@ import {
   Package, Printer, MapPin, User, Truck, Phone,
   AlertCircle, Loader2, X, Ban, FileText,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -111,15 +111,15 @@ export function MobileMaterialIssueDetailClient({
       >
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="min-w-0">
-            <h1 className="text-[0.875rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
               {issue.issueNumber ?? "Material Issue"}
             </h1>
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {formatDate(issue.issueDate)}
             </p>
           </div>
           <span
-            className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
             style={{
               backgroundColor: isCancelled ? "var(--color-stop)" : "var(--color-go)",
               color: "var(--color-paper)",
@@ -130,7 +130,7 @@ export function MobileMaterialIssueDetailClient({
         </div>
         <div className="flex items-center gap-1.5 mt-1.5">
           <Package className="size-3" style={{ color: "var(--color-steel)" }} />
-          <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
             {targetName}
           </span>
         </div>
@@ -142,33 +142,45 @@ export function MobileMaterialIssueDetailClient({
           className="rounded-[0.5rem] border p-2.5"
           style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}
         >
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-stop)" }}>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-stop)" }}>
             Cancelled
           </p>
           {issue.cancelledAt ? (
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {formatDate(issue.cancelledAt)}{issue.cancelledByName ? ` · ${issue.cancelledByName}` : ""}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {/* ── Print button ── */}
-      {issue.issueNumber ? (
-        <a
-          href={`/print/issue/${issue.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border py-2 text-[0.625rem] font-bold press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-        >
-          <Printer className="size-3.5" />
-          Print Slip
-        </a>
-      ) : null}
+      {/* ── Print + Cancel actions ── */}
+      <div className="flex gap-2">
+        {issue.issueNumber ? (
+          <a
+            href={`/print/issue/${issue.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+          >
+            <Printer className="size-3.5" />
+            Print Slip
+          </a>
+        ) : null}
+        {canCancel && !isCancelled ? (
+          <button
+            onClick={() => setShowCancel(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
+            style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
+          >
+            <Ban className="size-3.5" />
+            Cancel Issue
+          </button>
+        ) : null}
+      </div>
 
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1.5">
         <MobileStatCard
           label="Lines"
           value={String(issue.lines.length)}
@@ -176,13 +188,13 @@ export function MobileMaterialIssueDetailClient({
         />
         <MobileStatCard
           label="Total Cost"
-          value={formatCurrency(issue.totalCost)}
+          value={formatCurrencyCompact(issue.totalCost)}
           icon={Package}
           tone="signal"
         />
         <MobileStatCard
           label="Chargeable"
-          value={formatCurrency(issue.totalAmount)}
+          value={formatCurrencyCompact(issue.totalAmount)}
           icon={Package}
           tone="go"
         />
@@ -255,18 +267,18 @@ export function MobileMaterialIssueDetailClient({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                     {l.materialName}
                   </p>
-                  <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                     {l.materialCode}
                   </p>
                 </div>
-                <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
                   {formatCurrency(l.lineTotal)}
                 </p>
               </div>
-              <div className="flex items-center gap-2 mt-1.5 text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              <div className="flex items-center gap-2 mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 <span className="tabular-nums">{l.qty} {l.materialUnit ?? ""}</span>
                 <span>×</span>
                 <span className="tabular-nums">{formatCurrency(l.unitCost)}/{l.materialUnit ?? "unit"}</span>
@@ -284,34 +296,22 @@ export function MobileMaterialIssueDetailClient({
             className="rounded-[0.5rem] border p-3"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <p className="text-[0.625rem] leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
               {issue.notes}
             </p>
           </div>
         </div>
       ) : null}
 
-      {/* ── Cancel action ── */}
-      {canCancel && !isCancelled ? (
-        <button
-          onClick={() => setShowCancel(true)}
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 text-[0.625rem] font-bold press"
-          style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
-        >
-          <Ban className="size-3.5" />
-          Cancel Issue
-        </button>
-      ) : null}
-
       {/* ── Cancel confirmation ── */}
       {showCancel ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
           onClick={() => setShowCancel(false)}
         >
           <div
-            className="w-full rounded-t-[1rem]"
+            className="w-full rounded-t-[1rem] mx-auto max-w-md"
             style={{ backgroundColor: "var(--color-paper)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -319,22 +319,22 @@ export function MobileMaterialIssueDetailClient({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Cancel Material Issue?
               </p>
-              <button onClick={() => setShowCancel(false)} className="press p-1">
+              <button onClick={() => setShowCancel(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
             <div className="px-3 pb-4">
-              <p className="text-[0.625rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock issue, restore materials to the source location, and reverse GL entries. This cannot be undone.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setShowCancel(false)}
                   disabled={cancelling}
-                  className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+                  className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
                   style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
                 >
                   Keep Issue
@@ -342,7 +342,7 @@ export function MobileMaterialIssueDetailClient({
                 <button
                   onClick={handleCancel}
                   disabled={cancelling}
-                  className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press flex items-center justify-center gap-1"
+                  className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
                   style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
                   {cancelling ? <Loader2 className="size-3.5 animate-spin" /> : "Cancel Issue"}

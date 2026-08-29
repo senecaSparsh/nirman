@@ -80,7 +80,7 @@ async function MobileWorkOrdersContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="Draft" value={String(draft)} icon={Wrench} tone={draft > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Active" value={String(active)} icon={Wrench} tone={active > 0 ? "go" : "neutral"} />
         <MobileStatCard label="Completed" value={String(completed)} icon={Wrench} />

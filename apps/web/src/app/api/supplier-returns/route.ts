@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
 import { createSupplierReturn, recordVehicleTrip } from "@nirman/services";
@@ -102,6 +103,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }).catch(() => { /* best-effort */ });
     }
 
+    revalidatePath("/supplier-returns");
+    revalidatePath("/m/suppliers");
     return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create supplier return") }, { status: 400 });

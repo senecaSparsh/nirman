@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Safety Management Service — incidents, hazards, and inspections.
@@ -131,7 +132,7 @@ async function genInspectionNumber(tx: Prisma.TransactionClient, companyId: stri
 // ── Incident CRUD + Workflow ───────────────────────────────
 
 export async function createIncident(input: CreateIncidentInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim() || !input.description?.trim()) throw new ServiceError("Title and description are required", 400);
@@ -189,8 +190,8 @@ export async function getIncident(id: string) {
   });
 }
 
-export async function updateIncident(id: string, input: UpdateIncidentInput) {
-  return prisma.$transaction(async (tx) => {
+export async function updateIncident(id: string, input: UpdateIncidentInput, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyIncident.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Incident not found", 404);
     if (existing.status !== "REPORTED") throw new ServiceError(`Cannot edit incident in ${existing.status} status`, 400);
@@ -210,12 +211,16 @@ export async function updateIncident(id: string, input: UpdateIncidentInput) {
     if (input.propertyDamageEstimate !== undefined) data.propertyDamageEstimate = input.propertyDamageEstimate;
     if (input.attachments !== undefined) data.attachments = input.attachments;
 
-    return tx.safetyIncident.update({ where: { id }, data });
+    const updated = await tx.safetyIncident.update({ where: { id }, data });
+    if (userId) {
+      await logAction(tx, { userId, action: "SAFETY_INCIDENT_UPDATE", entityType: "SafetyIncident", entityId: id, after: { incidentNumber: existing.incidentNumber, severity: updated.severity } });
+    }
+    return updated;
   });
 }
 
 export async function investigateIncident(id: string, input: InvestigateIncidentInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const incident = await tx.safetyIncident.findUnique({ where: { id } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "REPORTED" && incident.status !== "UNDER_INVESTIGATION") {
@@ -236,7 +241,7 @@ export async function investigateIncident(id: string, input: InvestigateIncident
 }
 
 export async function closeIncident(id: string, userId: string, closureNotes: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const incident = await tx.safetyIncident.findUnique({ where: { id } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "INVESTIGATED") throw new ServiceError(`Cannot close incident in ${incident.status} status — must be INVESTIGATED`, 400);
@@ -249,7 +254,7 @@ export async function closeIncident(id: string, userId: string, closureNotes: st
 }
 
 export async function cancelIncident(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const incident = await tx.safetyIncident.findUnique({ where: { id } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "REPORTED") throw new ServiceError(`Cannot cancel incident in ${incident.status} status`, 400);
@@ -260,7 +265,7 @@ export async function cancelIncident(id: string, userId: string) {
 }
 
 export async function deleteIncident(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyIncident.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Incident not found", 404);
     if (existing.status === "CLOSED") throw new ServiceError("Cannot delete a closed incident", 400);
@@ -273,7 +278,7 @@ export async function deleteIncident(id: string, userId?: string) {
 // ── Hazard CRUD + Workflow ─────────────────────────────────
 
 export async function createHazard(input: CreateHazardInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim() || !input.description?.trim()) throw new ServiceError("Title and description are required", 400);
@@ -332,8 +337,8 @@ export async function getHazard(id: string) {
   });
 }
 
-export async function updateHazard(id: string, input: Partial<CreateHazardInput>) {
-  return prisma.$transaction(async (tx) => {
+export async function updateHazard(id: string, input: Partial<CreateHazardInput>, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyHazard.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Hazard not found", 404);
     if (existing.status === "RESOLVED") throw new ServiceError("Cannot edit a resolved hazard", 400);
@@ -354,12 +359,16 @@ export async function updateHazard(id: string, input: Partial<CreateHazardInput>
       data.riskLevel = computeRiskLevel(lk, sv);
     }
 
-    return tx.safetyHazard.update({ where: { id }, data });
+    const updated = await tx.safetyHazard.update({ where: { id }, data });
+    if (userId) {
+      await logAction(tx, { userId, action: "SAFETY_HAZARD_UPDATE", entityType: "SafetyHazard", entityId: id, after: { hazardNumber: existing.hazardNumber, riskLevel: updated.riskLevel } });
+    }
+    return updated;
   });
 }
 
 export async function startMitigation(id: string, userId: string, mitigationPlan?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const hazard = await tx.safetyHazard.findUnique({ where: { id } });
     if (!hazard) throw new ServiceError("Hazard not found", 404);
     if (hazard.status !== "IDENTIFIED") throw new ServiceError(`Cannot start mitigation in ${hazard.status} status`, 400);
@@ -374,7 +383,7 @@ export async function startMitigation(id: string, userId: string, mitigationPlan
 }
 
 export async function resolveHazard(id: string, userId: string, resolutionNotes: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const hazard = await tx.safetyHazard.findUnique({ where: { id } });
     if (!hazard) throw new ServiceError("Hazard not found", 404);
     if (hazard.status !== "MITIGATING" && hazard.status !== "IDENTIFIED") throw new ServiceError(`Cannot resolve hazard in ${hazard.status} status`, 400);
@@ -390,7 +399,7 @@ export async function resolveHazard(id: string, userId: string, resolutionNotes:
 }
 
 export async function deleteHazard(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyHazard.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Hazard not found", 404);
     if (existing.status === "RESOLVED") throw new ServiceError("Cannot delete a resolved hazard", 400);
@@ -403,7 +412,7 @@ export async function deleteHazard(id: string, userId?: string) {
 // ── Inspection CRUD + Workflow ─────────────────────────────
 
 export async function createInspection(input: CreateInspectionInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim()) throw new ServiceError("Title is required", 400);
@@ -446,8 +455,8 @@ export async function getInspection(id: string) {
   });
 }
 
-export async function updateInspection(id: string, input: { title?: string; scheduledDate?: Date; inspectorName?: string | null; findings?: string; complianceNotes?: string; followUpActions?: string; attachments?: string[] }) {
-  return prisma.$transaction(async (tx) => {
+export async function updateInspection(id: string, input: { title?: string; scheduledDate?: Date; inspectorName?: string | null; findings?: string; complianceNotes?: string; followUpActions?: string; attachments?: string[] }, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyInspection.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Inspection not found", 404);
     if (existing.status === "COMPLETED") throw new ServiceError("Cannot edit a completed inspection", 400);
@@ -461,12 +470,16 @@ export async function updateInspection(id: string, input: { title?: string; sche
     if (input.followUpActions !== undefined) data.followUpActions = input.followUpActions;
     if (input.attachments !== undefined) data.attachments = input.attachments;
 
-    return tx.safetyInspection.update({ where: { id }, data });
+    const updated = await tx.safetyInspection.update({ where: { id }, data });
+    if (userId) {
+      await logAction(tx, { userId, action: "SAFETY_INSPECTION_UPDATE", entityType: "SafetyInspection", entityId: id, after: { inspectionNumber: existing.inspectionNumber } });
+    }
+    return updated;
   });
 }
 
 export async function startInspection(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const insp = await tx.safetyInspection.findUnique({ where: { id } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "SCHEDULED") throw new ServiceError(`Cannot start inspection in ${insp.status} status`, 400);
@@ -477,7 +490,7 @@ export async function startInspection(id: string, userId: string) {
 }
 
 export async function completeInspection(id: string, userId: string, result: InspectionResult, findings: string, complianceNotes?: string, followUpActions?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const insp = await tx.safetyInspection.findUnique({ where: { id } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "IN_PROGRESS" && insp.status !== "SCHEDULED") throw new ServiceError(`Cannot complete inspection in ${insp.status} status`, 400);
@@ -493,7 +506,7 @@ export async function completeInspection(id: string, userId: string, result: Ins
 }
 
 export async function cancelInspection(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const insp = await tx.safetyInspection.findUnique({ where: { id } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "SCHEDULED") throw new ServiceError(`Cannot cancel inspection in ${insp.status} status`, 400);
@@ -504,7 +517,7 @@ export async function cancelInspection(id: string, userId: string) {
 }
 
 export async function deleteInspection(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.safetyInspection.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Inspection not found", 404);
     if (existing.status === "COMPLETED") throw new ServiceError("Cannot delete a completed inspection", 400);

@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postMaterialSalePayment } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Material Sale Payment Service — recording money received from customers
@@ -19,7 +20,7 @@ import { ServiceError } from "./errors";
 export async function createMaterialSalePayment(input: {
   saleId: string;
   companyId: string;
-  amount: number | Decimal;
+  amount: string | number | Decimal;
   paymentDate?: Date;
   paymentMode: string;
   referenceNo?: string;
@@ -34,7 +35,7 @@ export async function createMaterialSalePayment(input: {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // 1. Validate the sale exists and belongs to the company
     const sale = await tx.materialSale.findFirst({
       where: { id: input.saleId, companyId: input.companyId },

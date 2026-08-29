@@ -21,6 +21,7 @@ async function MobileDprsContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
+  const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
 
   const BATCH_SIZE = 40;
   const dprs = await prisma.dailyProgressReport.findMany({
@@ -35,6 +36,7 @@ async function MobileDprsContent() {
 
   const hasMore = dprs.length > BATCH_SIZE;
   const batch = hasMore ? dprs.slice(0, BATCH_SIZE) : dprs;
+  const submittedCount = batch.filter((d) => d.approvalStatus === "SUBMITTED").length;
   const lastItem = batch[batch.length - 1];
   const nextCursor = hasMore && lastItem
     ? `${lastItem.date.toISOString()}|${lastItem.id}`
@@ -65,6 +67,8 @@ async function MobileDprsContent() {
       <MobileDprsList
         items={serialized}
         canSubmit={canSubmit}
+        canApproveSubAdmin={canApproveSubAdmin}
+        submittedCount={submittedCount}
         loadMoreUrl="/api/mobile/list/dprs"
         nextCursor={nextCursor}
         exportTitle="Daily Progress Reports"

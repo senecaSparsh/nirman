@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Building2, Plus, ShieldCheck } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -13,6 +13,7 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
+  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileNewProjectDialog } from "./MobileNewProjectDialog";
@@ -86,16 +87,9 @@ export function MobileProjectsList({
 
   return (
     <div>
-      {/* ── New project button (managers only) ─────────────────── */}
+      {/* ── New project FAB (managers only) ─────────────────── */}
       {canManage && (
-        <button
-          onClick={() => setShowNewProject(true)}
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press mb-3"
-          style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-        >
-          <Plus className="size-3.5" />
-          New Project
-        </button>
+        <MobileFab onClick={() => setShowNewProject(true)} label="New project" />
       )}
       {showNewProject && (
         <MobileNewProjectDialog
@@ -109,7 +103,7 @@ export function MobileProjectsList({
         <MobileEmptyState
           icon={Building2}
           title="No projects yet"
-          hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
+          hint={canManage ? "Tap the + button to create one" : "Ask an admin to create a project"}
         />
       ) : (
         <>
@@ -177,11 +171,11 @@ function FlatList({ items }: { items: ProjectListItem[] }) {
             icon={Building2}
             title={p.name}
             subtitle={`${p.unitCount} units · ${p.type.replace(/_/g, " ").toLowerCase()}`}
-            meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
+            meta={p.totalBudget != null ? formatCurrencyCompact(p.totalBudget) : undefined}
             badge={
               <div className="flex items-center gap-1">
                 {p.reraNumber ? (
-                  <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+                  <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
                     style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
                     <ShieldCheck className="size-2" /> RERA
                   </span>
@@ -213,7 +207,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
         <MobileEmptyState
           icon={Building2}
           title="No active projects"
-          hint={canManage ? "Tap “New Project” above to create one" : "Ask an admin to create a project"}
+          hint={canManage ? "Tap the + button to create one" : "Ask an admin to create a project"}
         />
       ) : (
         <div className="flex flex-col gap-2.5">
@@ -224,7 +218,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
               icon={Building2}
               title={p.name}
               subtitle={`${p.unitCount} units · ${p.type.replace(/_/g, " ").toLowerCase()}`}
-              meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
+              meta={p.totalBudget != null ? formatCurrencyCompact(p.totalBudget) : undefined}
               badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
             />
           ))}
@@ -242,7 +236,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
                 icon={Building2}
                 title={p.name}
                 subtitle={`${p.unitCount} units`}
-                meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
+                meta={p.totalBudget != null ? formatCurrencyCompact(p.totalBudget) : undefined}
                 badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
               />
             ))}
@@ -261,7 +255,7 @@ function GroupedList({ items, canManage = false }: { items: ProjectListItem[]; c
                 icon={Building2}
                 title={p.name}
                 subtitle={`${p.unitCount} units`}
-                meta={p.totalBudget != null ? formatCurrency(p.totalBudget) : undefined}
+                meta={p.totalBudget != null ? formatCurrencyCompact(p.totalBudget) : undefined}
                 badge={<ReraBadge reraNumber={p.reraNumber} status={p.status} />}
               />
             ))}
@@ -280,14 +274,14 @@ function ReraBadge({ reraNumber, status }: { reraNumber: string | null; status: 
     <div className="flex items-center gap-1">
       {reraNumber ? (
         <span
-          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
           style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
         >
           <ShieldCheck className="size-2" /> RERA
         </span>
       ) : (
         <span
-          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold"
+          className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
           style={{ color: "var(--color-signal-dark)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
         >
           <ShieldCheck className="size-2" /> No RERA

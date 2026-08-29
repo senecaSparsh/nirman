@@ -15,7 +15,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
-import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
+import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck, Printer } from "lucide-react";
 
 type BoqItem = { id: string; serialNo: string; description: string; unit: string | null; rate: number | null; estimatedQty: number | null };
 type WbsNode = { id: string; code: string; name: string; boqItemId: string | null };
@@ -113,6 +113,16 @@ function mbColumnsWithActions(onAction: (id: string, action: "verify" | "approve
       align: "right",
       render: (e) => (
         <div className="flex items-center justify-end gap-1" onClick={(ev) => ev.stopPropagation()}>
+          <a
+            href={`/print/measurement-book/${e.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+            title="Print MB entry"
+            aria-label="Print MB entry"
+          >
+            <Printer className="h-4 w-4" />
+          </a>
           {e.status === "DRAFT" && (
             <button onClick={() => onAction(e.id, "verify")} className="text-muted-foreground hover:text-primary" title="Verify">
               <CheckCircle className="h-4 w-4" />

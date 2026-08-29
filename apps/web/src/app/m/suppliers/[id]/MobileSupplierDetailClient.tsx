@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Mail, MapPin, BadgeCheck,
-  FileText, Banknote, Pencil, X, Loader2,
+  FileText, Banknote, Pencil, X, Loader2, Trash2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 
 type PoStatus = "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
 
@@ -80,8 +81,33 @@ export function MobileSupplierDetailClient({
   canManage?: boolean;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [tab, setTab] = useState<"pos" | "payments">("pos");
   const [showEdit, setShowEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `Delete supplier "${name}"?`,
+      description: "This will archive the supplier. Existing POs and GRNs will remain.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/suppliers/${supplierId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      haptic(10);
+      toast.success("Supplier archived");
+      router.push("/m/suppliers");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
   const hasDues = balanceOwed > 0;
   const accentColor = hasDues ? "var(--color-stop)" : "var(--color-go)";
 
@@ -90,18 +116,28 @@ export function MobileSupplierDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {name}
           </p>
         </div>
         {canManage ? (
-          <button
-            onClick={() => setShowEdit(true)}
-            className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] press"
-            style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
-          >
-            <Pencil className="size-3.5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+            >
+              <Pencil className="size-3.5" />
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop)" }}
+            >
+              {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -117,18 +153,18 @@ export function MobileSupplierDetailClient({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Balance Owed
             </p>
             <p
-              className="text-[1rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{ color: hasDues ? "var(--color-stop)" : "var(--color-ink-950)" }}
             >
               {formatCurrency(balanceOwed)}
             </p>
           </div>
           <span
-            className="text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+            className="text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
             style={{
               color: accentColor,
               backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
@@ -144,11 +180,11 @@ export function MobileSupplierDetailClient({
         {phone ? (
           <a
             href={`tel:${phone}`}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Phone className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Call</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Call</span>
           </a>
         ) : (
           <div
@@ -156,17 +192,17 @@ export function MobileSupplierDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", opacity: 0.5 }}
           >
             <Phone className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-300)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-300)" }}>No phone</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>No phone</span>
           </div>
         )}
         {email ? (
           <a
             href={`mailto:${email}`}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Mail className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Email</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Email</span>
           </a>
         ) : (
           <div
@@ -174,16 +210,16 @@ export function MobileSupplierDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", opacity: 0.5 }}
           >
             <Mail className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-300)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-300)" }}>No email</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>No email</span>
           </div>
         )}
         <Link
           href="/m/suppliers"
-          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <FileText className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Orders</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Orders</span>
         </Link>
       </div>
 
@@ -195,8 +231,8 @@ export function MobileSupplierDetailClient({
         {gstin ? (
           <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <BadgeCheck className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>GSTIN</span>
-            <span className="text-[0.625rem] font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>GSTIN</span>
+            <span className="text-m-label font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {gstin}
             </span>
           </div>
@@ -204,8 +240,8 @@ export function MobileSupplierDetailClient({
         {phone ? (
           <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <Phone className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Phone</span>
-            <span className="text-[0.625rem] font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Phone</span>
+            <span className="text-m-label font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {phone}
             </span>
           </div>
@@ -213,8 +249,8 @@ export function MobileSupplierDetailClient({
         {address ? (
           <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <MapPin className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Address</span>
-            <span className="text-[0.625rem] ml-auto truncate text-right" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Address</span>
+            <span className="text-m-label ml-auto truncate text-right" style={{ color: "var(--color-ink-950)" }}>
               {address}
             </span>
           </div>
@@ -227,26 +263,26 @@ export function MobileSupplierDetailClient({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Purchase Order Value
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(totalPoValue)}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Paid
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
             {formatCurrencyCompact(totalPaid)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Owed
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: hasDues ? "var(--color-stop)" : "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: hasDues ? "var(--color-stop)" : "var(--color-ink-950)" }}>
             {formatCurrencyCompact(balanceOwed)}
           </p>
         </div>
@@ -256,7 +292,7 @@ export function MobileSupplierDetailClient({
       <div className="flex gap-1 mb-2">
         <button
           onClick={() => setTab("pos")}
-          className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
           style={
             tab === "pos"
               ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
@@ -267,7 +303,7 @@ export function MobileSupplierDetailClient({
         </button>
         <button
           onClick={() => setTab("payments")}
-          className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
           style={
             tab === "payments"
               ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
@@ -299,6 +335,7 @@ export function MobileSupplierDetailClient({
           }}
         />
       ) : null}
+      {confirmDialog}
     </div>
   );
 }
@@ -312,7 +349,7 @@ function PosTab({ pos }: { pos: PoItem[] }) {
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         <FileText className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
           No purchase orders
         </p>
       </div>
@@ -330,26 +367,26 @@ function PosTab({ pos }: { pos: PoItem[] }) {
           <Link
             key={po.id}
             href={`/m/procurement/${po.id}`}
-            className="flex items-center gap-2 px-2.5 py-2 press"
+            className="flex items-center gap-2 px-2.5 py-2 text-m-body press"
             style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
           >
             {/* Status dot */}
             <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
 
             <div className="min-w-0 flex-1">
-              <p className="text-[0.625rem] font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-label font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                 {po.poNumber}
               </p>
-              <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 {formatDate(po.createdAt)}
               </p>
             </div>
 
             <div className="text-right shrink-0">
-              <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrencyCompact(po.total)}
               </p>
-              <p className="text-[0.5rem] font-semibold" style={{ color }}>
+              <p className="text-m-caption font-semibold" style={{ color }}>
                 {STATUS_LABELS[po.status]}
               </p>
             </div>
@@ -369,7 +406,7 @@ function PaymentsTab({ payments }: { payments: PaymentItem[] }) {
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         <Banknote className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
           No payments recorded
         </p>
       </div>
@@ -395,15 +432,15 @@ function PaymentsTab({ payments }: { payments: PaymentItem[] }) {
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-[0.625rem] font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-label font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {p.paymentNumber}
             </p>
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {formatDate(p.paymentDate)} · {p.paymentMode}
             </p>
           </div>
 
-          <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
+          <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
             {formatCurrencyCompact(p.amount)}
           </p>
         </div>
@@ -473,23 +510,23 @@ function SupplierEditSheet({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -497,10 +534,10 @@ function SupplierEditSheet({
           <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
         </div>
         <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Edit Supplier
           </p>
-          <button onClick={onClose} className="press p-1">
+          <button onClick={onClose} className="text-m-body press p-1">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -531,13 +568,13 @@ function SupplierEditSheet({
           </div>
           <div>
             <label className={labelClass} style={labelStyle}>Address</label>
-            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.75rem] resize-none outline-none" style={inputStyle} />
+            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
           </div>
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               onClick={onClose}
               disabled={saving}
-              className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               Cancel
@@ -545,7 +582,7 @@ function SupplierEditSheet({
             <button
               onClick={save}
               disabled={saving || !name.trim()}
-              className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press flex items-center justify-center gap-1"
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: saving || !name.trim() ? 0.5 : 1 }}
             >
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save Changes"}

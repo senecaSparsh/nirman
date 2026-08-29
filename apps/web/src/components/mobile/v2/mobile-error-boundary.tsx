@@ -27,14 +27,14 @@ export default function MobileErrorBoundary({
       >
         <AlertCircle className="size-7" style={{ color: "var(--color-stop)" }} />
       </div>
-      <h2 className="text-[0.9375rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+      <h2 className="text-m-section font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         Something went wrong
       </h2>
-      <p className="text-[0.6875rem] mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-body mb-1" style={{ color: "var(--color-ink-500)" }}>
         {error.message || "An unexpected error occurred."}
       </p>
       {error.digest ? (
-        <p className="text-[0.5625rem] font-mono mb-4" style={{ color: "var(--color-ink-300)" }}>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-300)" }}>
           {error.digest}
         </p>
       ) : (
@@ -43,7 +43,7 @@ export default function MobileErrorBoundary({
       <div className="flex gap-2">
         <button
           onClick={reset}
-          className="flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+          className="flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           <RotateCw className="size-3.5" />
@@ -51,7 +51,7 @@ export default function MobileErrorBoundary({
         </button>
         <button
           onClick={() => router.push("/m/home")}
-          className="flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+          className="flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         >
           <Home className="size-3.5" />

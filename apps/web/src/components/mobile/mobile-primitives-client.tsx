@@ -39,7 +39,7 @@ export function MobileSearchBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground placeholder:text-faint focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 bg-transparent text-m-section text-foreground placeholder:text-faint focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
         {value && (
           <button
@@ -84,7 +84,7 @@ export function MobileFilterChips<T extends string>({
             aria-pressed={isActive}
             onClick={() => onChange(chip.value)}
             className={cn(
-              "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors",
+              "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-m-section font-semibold transition-colors",
               isActive
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-input bg-card text-muted-foreground active:bg-muted",
@@ -94,7 +94,7 @@ export function MobileFilterChips<T extends string>({
             {chip.count !== undefined && chip.count > 0 && (
               <span
                 className={cn(
-                  "inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums leading-none",
+                  "inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-m-label font-bold tabular-nums leading-none",
                   isActive ? "bg-white/20 text-primary-foreground" : "bg-muted text-muted-foreground",
                 )}
               >
@@ -120,7 +120,8 @@ export function MobileRefreshButton() {
     <button
       type="button"
       onClick={() => router.refresh()}
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground active:bg-muted"
+      className="flex size-11 shrink-0 items-center justify-center rounded-[0.625rem] press"
+      style={{ color: "var(--color-ink-500)" }}
       aria-label="Refresh"
     >
       <RotateCw className="size-[18px]" />

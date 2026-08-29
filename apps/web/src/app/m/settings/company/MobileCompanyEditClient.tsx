@@ -41,13 +41,13 @@ export function MobileCompanyEditClient({
   const [saved, setSaved] = useState(false);
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-medium outline-none";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,10 +102,10 @@ export function MobileCompanyEditClient({
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
         <CheckCircle2 className="size-12 mb-3" style={{ color: "var(--color-go)" }} />
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Company details saved
         </p>
-        <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           These details will appear on all printed bills and invoices.
         </p>
       </div>
@@ -116,7 +116,7 @@ export function MobileCompanyEditClient({
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Company Details
         </p>
       </div>
@@ -129,7 +129,7 @@ export function MobileCompanyEditClient({
           backgroundColor: "var(--color-signal-bg, rgba(245, 158, 11, 0.08))",
         }}
       >
-        <p className="text-[0.5625rem] leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-caption leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
           These details appear on every printed bill, invoice, receipt, and purchase order. Keep
           them accurate for GST compliance.
         </p>
@@ -267,7 +267,7 @@ export function MobileCompanyEditClient({
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 mt-2"
+          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 mt-2"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (

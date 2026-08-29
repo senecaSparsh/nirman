@@ -591,7 +591,7 @@ export function VoiceAgentButton() {
       {/* ── Inline transcript toast (no chat sheet) ── */}
       {phase === "listening" && (
         <div
-          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-[0.6875rem] font-medium shadow-lg"
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-m-body font-medium shadow-lg"
           style={{
             backgroundColor: "var(--color-paper)",
             color: "var(--color-ink-900)",
@@ -607,14 +607,14 @@ export function VoiceAgentButton() {
           </div>
           {hasSpeechStarted ? (
             <div
-              className="mt-1 text-[0.625rem] font-normal"
+              className="mt-1 text-m-label font-normal"
               style={{ color: "var(--color-ink-500)" }}
             >
               Bolte rahiye… ya mic tap karke submit karein
             </div>
           ) : (
             <div
-              className="mt-1 text-[0.625rem] font-normal"
+              className="mt-1 text-m-label font-normal"
               style={{ color: "var(--color-ink-500)" }}
             >
               Boliye… (bolna shuru karein)
@@ -626,7 +626,7 @@ export function VoiceAgentButton() {
       {/* ── Thinking toast ── */}
       {phase === "thinking" && transcript && (
         <div
-          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-[0.6875rem] font-medium shadow-lg"
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 max-w-[90%] rounded-2xl px-3 py-2 text-m-body font-medium shadow-lg"
           style={{
             backgroundColor: "var(--color-paper)",
             color: "var(--color-ink-900)",
@@ -644,7 +644,7 @@ export function VoiceAgentButton() {
       {pendingAction && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
           onClick={() => !executing && setPendingAction(null)}
         >
           <div
@@ -661,7 +661,7 @@ export function VoiceAgentButton() {
 
             {/* Response text (what Sahayak said) */}
             <p
-              className="mb-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap"
+              className="mb-3 text-m-section leading-relaxed whitespace-pre-wrap"
               style={{ color: "var(--color-ink-900)" }}
             >
               {pendingAction.responseText}
@@ -669,13 +669,13 @@ export function VoiceAgentButton() {
 
             {/* Action label */}
             <div
-              className="mb-4 rounded-lg p-3"
+              className="mb-4 rounded-[0.625rem] p-3"
               style={{ backgroundColor: "var(--color-concrete)", border: "1px solid var(--color-line)" }}
             >
-              <p className="text-[0.6875rem] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-body font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
                 {pendingAction.card.type === "link" ? "Open page" : "Execute action"}
               </p>
-              <p className="text-[0.875rem] font-medium" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-medium" style={{ color: "var(--color-ink-950)" }}>
                 {pendingAction.card.label}
               </p>
             </div>
@@ -689,7 +689,7 @@ export function VoiceAgentButton() {
                   contextRef.current = { history: [] };
                 }}
                 disabled={executing}
-                className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold disabled:opacity-50"
+                className="text-m-body press flex-1 flex items-center justify-center gap-1.5 rounded-[0.625rem] py-2.5 text-m-section font-semibold disabled:opacity-50"
                 style={{
                   backgroundColor: "var(--color-concrete)",
                   color: "var(--color-ink-700)",
@@ -702,8 +702,9 @@ export function VoiceAgentButton() {
               <button
                 onClick={() => executeCard(pendingAction.card)}
                 disabled={executing}
-                className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold text-white disabled:opacity-50"
+                className="text-m-body press flex-1 flex items-center justify-center gap-1.5 rounded-[0.625rem] py-2.5 text-m-section font-semibold disabled:opacity-50"
                 style={{
+                  color: "var(--color-paper)",
                   backgroundColor:
                     pendingAction.card.variant === "danger"
                       ? "var(--color-stop)"

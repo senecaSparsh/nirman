@@ -2435,7 +2435,7 @@ model MaterialRequisition {
   requestDate DateTime         @default(now())
   neededByDate DateTime?
   notes       String?
-  convertedPoId String?        // set when converted to a PO
+  convertedPoId String?  @unique  // set when converted to a PO — unique prevents double-conversion
   // Logistics Decision Engine output — computed on submit, used to recommend
   // procurementScope (COMPANY vs PROJECT) at PO conversion. See procurement-routing.ts.
   lciDecision  Json?           // { perLine, recommendedScope, threshold, weights, computedAt, ... }

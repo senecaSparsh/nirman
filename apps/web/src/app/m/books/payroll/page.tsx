@@ -52,7 +52,7 @@ async function BooksPayrollContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
         <MobileStatCard label="Draft" value={formatNumber(draftCount, 0)} icon={CalendarCheck} tone={draftCount > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Paid" value={formatNumber(paidCount, 0)} icon={CalendarCheck} tone={paidCount > 0 ? "go" : "neutral"} />
       </div>

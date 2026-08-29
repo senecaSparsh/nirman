@@ -72,14 +72,14 @@ export function MobileCustomerEditForm({
   };
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
 
   return (
     <BottomSheet title="Edit Customer" onClose={onClose}>
       <div className="space-y-3">
         {/* Name */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Name <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <input
@@ -96,7 +96,7 @@ export function MobileCustomerEditForm({
 
         {/* Phone */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Phone
           </label>
           <input
@@ -113,7 +113,7 @@ export function MobileCustomerEditForm({
 
         {/* Email */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Email
           </label>
           <input
@@ -130,7 +130,7 @@ export function MobileCustomerEditForm({
 
         {/* GSTIN */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             GSTIN
           </label>
           <input
@@ -146,7 +146,7 @@ export function MobileCustomerEditForm({
 
         {/* Address */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Address
           </label>
           <textarea
@@ -163,7 +163,7 @@ export function MobileCustomerEditForm({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (

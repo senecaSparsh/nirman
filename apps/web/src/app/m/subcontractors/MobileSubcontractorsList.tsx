@@ -164,7 +164,7 @@ function SubcontractorCard({ s }: { s: SubcontractorListItem }) {
   return (
     <Link
       href={`/m/subcontractors/${s.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -176,11 +176,11 @@ function SubcontractorCard({ s }: { s: SubcontractorListItem }) {
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Name + trade badge */}
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {s.name}
           </p>
           <span
-            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             {hasWork ? "Active" : "Idle"}
@@ -189,14 +189,14 @@ function SubcontractorCard({ s }: { s: SubcontractorListItem }) {
 
         {/* Row 2: Trade + phone */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[0.5rem] font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
             <Hammer className="size-2" />
             {tradeLabel}
           </span>
           {s.phone ? (
             <>
               <span style={{ color: "var(--color-line)" }}>·</span>
-              <span className="text-[0.5rem] truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
                 <Phone className="size-2" />
                 {s.phone}
               </span>
@@ -207,11 +207,11 @@ function SubcontractorCard({ s }: { s: SubcontractorListItem }) {
         {/* Row 3: Bottom area — fixed height for equal card sizes */}
         <div className="mt-auto pt-1 h-[1rem] flex items-center">
           {hasWork ? (
-            <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {s.workOrderCount} Work Order{s.workOrderCount !== 1 ? "s" : ""}
             </span>
           ) : (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               No work orders yet
             </span>
           )}

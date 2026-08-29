@@ -172,8 +172,8 @@ export function MobileLandEditForm({
   };
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
-  const labelClass = "block text-[0.5625rem] font-semibold mb-1";
+    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+  const labelClass = "block text-m-caption font-semibold mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
 
@@ -313,7 +313,7 @@ export function MobileLandEditForm({
             <button
               type="button"
               onClick={() => setLandType("FREEHOLD")}
-              className={`rounded-[0.375rem] border py-2 text-[0.6875rem] font-semibold press ${landType === "FREEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+              className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "FREEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
               style={landType === "FREEHOLD"
                 ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                 : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
@@ -323,7 +323,7 @@ export function MobileLandEditForm({
             <button
               type="button"
               onClick={() => setLandType("LEASEHOLD")}
-              className={`rounded-[0.375rem] border py-2 text-[0.6875rem] font-semibold press ${landType === "LEASEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+              className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "LEASEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
               style={landType === "LEASEHOLD"
                 ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                 : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
@@ -342,7 +342,7 @@ export function MobileLandEditForm({
                 <button
                   type="button"
                   onClick={() => setLeaseType("ONE_TIME")}
-                  className={`rounded-[0.375rem] border py-2 text-[0.6875rem] font-semibold press ${leaseType === "ONE_TIME" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                  className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "ONE_TIME" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
                   style={leaseType === "ONE_TIME"
                     ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                     : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
@@ -352,7 +352,7 @@ export function MobileLandEditForm({
                 <button
                   type="button"
                   onClick={() => setLeaseType("YEARLY")}
-                  className={`rounded-[0.375rem] border py-2 text-[0.6875rem] font-semibold press ${leaseType === "YEARLY" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                  className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "YEARLY" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
                   style={leaseType === "YEARLY"
                     ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
                     : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
@@ -405,7 +405,7 @@ export function MobileLandEditForm({
           <button
             type="button"
             onClick={() => setShowCostBreakup(!showCostBreakup)}
-            className="flex w-full items-center justify-between text-[0.6875rem] font-bold press"
+            className="flex w-full items-center justify-between text-m-body font-bold text-m-body press"
             style={{ color: "var(--color-ink-950)" }}
           >
             <span>Cost Breakup</span>
@@ -445,7 +445,7 @@ export function MobileLandEditForm({
                   </div>
                   <div>
                     <label className={labelClass} style={labelStyle}>Rent Amount{isYearlyLease ? " /yr" : ""}</label>
-                    <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-[0.75rem] text-muted-foreground font-mono" style={inputStyle}>
+                    <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-m-section font-mono" style={inputStyle}>
                       {leaseRentAmount > 0 ? formatCurrency(leaseRentAmount) : "—"}
                     </div>
                   </div>
@@ -469,7 +469,7 @@ export function MobileLandEditForm({
                   </div>
                   <div>
                     <label className={labelClass} style={labelStyle}>GST Amount</label>
-                    <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-[0.75rem] text-muted-foreground font-mono" style={inputStyle}>
+                    <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-m-section font-mono" style={inputStyle}>
                       {gstAmount > 0 ? formatCurrency(gstAmount) : "—"}
                     </div>
                   </div>
@@ -492,7 +492,7 @@ export function MobileLandEditForm({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Reg. Amount</label>
-                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-[0.75rem] text-muted-foreground font-mono" style={inputStyle}>
+                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-m-section font-mono" style={inputStyle}>
                     {registrationAmount > 0 ? formatCurrency(registrationAmount) : "—"}
                   </div>
                 </div>
@@ -514,7 +514,7 @@ export function MobileLandEditForm({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Stamp Amount</label>
-                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-[0.75rem] text-muted-foreground font-mono" style={inputStyle}>
+                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-m-section font-mono" style={inputStyle}>
                     {stampDutyAmount > 0 ? formatCurrency(stampDutyAmount) : "—"}
                   </div>
                 </div>
@@ -536,7 +536,7 @@ export function MobileLandEditForm({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Transfer Amount</label>
-                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-[0.75rem] text-muted-foreground font-mono" style={inputStyle}>
+                  <div className="flex h-[2.25rem] items-center rounded-[0.375rem] border px-2.5 text-m-section font-mono" style={inputStyle}>
                     {transferDutyAmount > 0 ? formatCurrency(transferDutyAmount) : "—"}
                   </div>
                 </div>
@@ -583,12 +583,12 @@ export function MobileLandEditForm({
               {/* Calculated total */}
               {calculatedTotal > 0 && (
                 <div className="rounded-[0.375rem] border p-2 space-y-0.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)" }}>
-                  <div className="flex justify-between text-[0.5625rem] font-bold">
+                  <div className="flex justify-between text-m-caption font-bold">
                     <span style={{ color: "var(--color-ink-500)" }}>Calculated Total:</span>
                     <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums">{formatCurrency(calculatedTotal)}</strong>
                   </div>
                   {calculatedTotal !== Number(totalCost) && (
-                    <div className="text-[0.5rem]" style={{ color: "var(--color-signal)" }}>
+                    <div className="text-m-caption" style={{ color: "var(--color-signal)" }}>
                       Differs from total cost above — update total to match?
                     </div>
                   )}
@@ -602,7 +602,7 @@ export function MobileLandEditForm({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (

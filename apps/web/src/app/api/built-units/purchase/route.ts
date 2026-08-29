@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { purchaseBuiltUnit } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
@@ -58,6 +59,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: d.notes,
     });
 
+    revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json({
       id: unit.id,
       projectId: unit.projectId,

@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Percent, TrendingDown, TrendingUp, FileText } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -185,9 +185,9 @@ async function MobileGstContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Input GST", value: formatCurrency(totalInput) },
-          { label: "Output GST", value: formatCurrency(totalOutput), tone: "signal" },
-          { label: "Net Payable", value: formatCurrency(Math.max(0, netPayable)), tone: netPayable > 0 ? "signal" : "default" },
+          { label: "Input GST", value: formatCurrencyCompact(totalInput) },
+          { label: "Output GST", value: formatCurrencyCompact(totalOutput), tone: "signal" },
+          { label: "Net Payable", value: formatCurrencyCompact(Math.max(0, netPayable)), tone: netPayable > 0 ? "signal" : "default" },
           { label: "Transactions", value: String(totalTransactions) },
         ]}
       />
@@ -197,7 +197,7 @@ async function MobileGstContent() {
           title="GST Report"
           rows={exportRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Input: ${formatCurrency(totalInput)} · Output: ${formatCurrency(totalOutput)} · Net: ${formatCurrency(netPayable)}`}
+          summary={`Input: ${formatCurrencyCompact(totalInput)} · Output: ${formatCurrencyCompact(totalOutput)} · Net: ${formatCurrency(netPayable)}`}
         />
       </div>
 
@@ -210,7 +210,7 @@ async function MobileGstContent() {
             value: m.outputGst,
             tone: "signal" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -222,7 +222,7 @@ async function MobileGstContent() {
             value: m.inputGst,
             tone: "go" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -235,7 +235,7 @@ async function MobileGstContent() {
             icon={Percent}
             title={m.label}
             subtitle={`In ${formatCurrency(m.inputGst)} · Out ${formatCurrency(m.outputGst)}`}
-            meta={formatCurrency(Math.abs(m.netGst))}
+            meta={formatCurrencyCompact(Math.abs(m.netGst))}
             metaSub={m.netGst > 0 ? "Payable" : m.netGst < 0 ? "Credit" : "Balanced"}
             tone={m.netGst > 0 ? "warning" : m.netGst < 0 ? "success" : "default"}
           />
@@ -253,13 +253,13 @@ async function MobileGstContent() {
                 icon={TrendingDown}
                 title={p.party}
                 subtitle={`${p.number} · ${formatDate(p.date)}`}
-                meta={formatCurrency(p.gst)}
+                meta={formatCurrencyCompact(p.gst)}
                 metaSub={`Taxable ${formatCurrency(p.taxableValue)}`}
                 tone="default"
               />
             ))}
             {poRows.length > 15 && (
-              <p className="text-center text-[0.625rem] py-2" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-center text-m-label py-2" style={{ color: "var(--color-ink-500)" }}>
                 Showing 15 of {poRows.length} POs
               </p>
             )}
@@ -278,13 +278,13 @@ async function MobileGstContent() {
                 icon={TrendingUp}
                 title={s.party}
                 subtitle={`${s.number} · ${formatDate(s.date)}`}
-                meta={formatCurrency(s.gst)}
+                meta={formatCurrencyCompact(s.gst)}
                 metaSub={`Taxable ${formatCurrency(s.taxableValue)}`}
                 tone="success"
               />
             ))}
             {saleRows.length > 15 && (
-              <p className="text-center text-[0.625rem] py-2" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-center text-m-label py-2" style={{ color: "var(--color-ink-500)" }}>
                 Showing 15 of {saleRows.length} sales
               </p>
             )}

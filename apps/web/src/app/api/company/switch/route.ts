@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany } from "@/lib/server";
+import { getCompany, requireUser } from "@/lib/server";
 
 /**
  * POST /api/company/switch
@@ -15,10 +15,7 @@ import { getCurrentUser, getCompany } from "@/lib/server";
  *   - Non-owner/admin users CANNOT switch.
  */
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireUser();
 
   const { companyId } = await req.json();
   if (!companyId || typeof companyId !== "string") {

@@ -7,6 +7,7 @@
   "scripts": {
     "generate": "prisma generate",
     "push": "prisma db push",
+    "push:force": "prisma db push --accept-data-loss",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma db push --accept-data-loss && prisma db execute --file ./prisma/data-fixes.sql --schema ./prisma/schema.prisma",
     "studio": "prisma studio"

@@ -59,11 +59,11 @@ export function MobileProjectPossession({
         <div className="flex items-center gap-2">
           <KeyRound className="size-3.5" style={{ color: isPossessed ? "var(--color-go)" : "var(--color-ink-400)" }} />
           <div>
-            <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
               {isPossessed ? "Possession Taken" : "Possession Pending"}
             </p>
             {possessionDate && (
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 {formatDate(possessionDate)}
                 {possessionNotes ? ` · ${possessionNotes}` : ""}
               </p>
@@ -74,7 +74,7 @@ export function MobileProjectPossession({
           <button
             onClick={toggle}
             disabled={submitting}
-            className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-1 press disabled:opacity-50"
+            className="text-m-caption font-bold rounded-[0.25rem] px-2 py-1 text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: isPossessed ? "var(--color-line)" : "var(--color-ink-950)",
               color: isPossessed ? "var(--color-ink-600)" : "var(--color-paper)",

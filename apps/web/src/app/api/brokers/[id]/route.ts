@@ -3,6 +3,22 @@ import { prisma } from "@nirman/db";
 import { apiHandler, brokerSchema, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
+import { withSerializableTransaction } from "@nirman/services";
+
+/** GET /api/brokers/[id] — fetch a single broker by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.SALES_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const broker = await prisma.broker.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: {
+      _count: { select: { assetSales: true } },
+    },
+  });
+  if (!broker) return json({ error: "Broker not found" }, { status: 404 });
+  return json(broker);
+});
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.SALE_CREATE);
@@ -20,7 +36,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const broker = await tx.broker.update({
       where: { id },
       data: {
@@ -56,7 +72,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (!existing) return json({ error: "Broker not found" }, { status: 404 });
 
   // Soft delete — don't affect past sales that reference this broker
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     await tx.broker.update({
       where: { id },
       data: { deletedAt: new Date() },

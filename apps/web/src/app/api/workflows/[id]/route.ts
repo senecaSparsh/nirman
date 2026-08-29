@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 const workflowUpdateSchema = z.object({
   name: z.string().min(1).max(160).optional(),
@@ -68,7 +69,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (parsed.data.graphJson !== undefined) update.graphJson = parsed.data.graphJson;
   if (parsed.data.status !== undefined) update.status = parsed.data.status;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const wf = await tx.workflow.update({
       where: { id },
       data: update,
@@ -101,7 +102,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Workflow not found" }, { status: 404 });
   }
 
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     await tx.workflow.update({
       where: { id },
       data: { deletedAt: new Date(), status: "ARCHIVED" },

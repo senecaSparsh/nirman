@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createDirectPurchase, listDirectPurchases, recordVehicleTrip } from "@nirman/services";
+import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -15,7 +16,7 @@ const directPurchaseSchema = z.object({
   supplierId: z.string().optional().nullable(),
   supplierName: z.string().min(1, "Supplier name is required"),
   locationId: z.string().min(1, "Receive location is required"),
-  billDate: z.string().optional().nullable(),
+  billDate: z.coerce.date().optional().nullable(),
   // Vehicle — how the goods were brought from the local market
   vehicleNumber: z.string().max(50).optional(),
   vehicleType: z.string().max(50).optional(),
@@ -87,7 +88,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       supplierName: parsed.data.supplierName,
       companyId: company.id,
       locationId: parsed.data.locationId,
-      billDate: parsed.data.billDate ? new Date(parsed.data.billDate) : undefined,
+      billDate: parsed.data.billDate ?? undefined,
       notes: parsed.data.notes ?? undefined,
       createdById: user.id,
       requisitionId: parsed.data.requisitionId ?? undefined,
@@ -122,11 +123,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }).catch(() => { /* best-effort */ });
     }
 
+    revalidatePath("/procurement");
+    revalidatePath("/m/procurement");
     return json(
       { ok: true, id: result.purchase.id, billNumber: result.billNumber, billAmount: toNum(result.billAmount) },
       { status: 201 },
     );
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create direct purchase") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create direct purchase" }, { status: 400 });
   }
 });

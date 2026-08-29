@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * GET /api/leads/dedup — find duplicate leads (same name + phone) in the
@@ -99,7 +100,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const keepLead = leads.find((l) => l.id === keepId);
   if (!keepLead) return json({ error: "Lead to keep not found" }, { status: 404 });
 
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     // Move all activities from duplicate leads to the kept lead
     for (const deleteId of deleteIds) {
       const dupLead = leads.find((l) => l.id === deleteId);

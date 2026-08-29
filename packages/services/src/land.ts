@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
@@ -41,7 +42,7 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
   if (!totalArea.gt(0)) throw new ServiceError("Total area must be > 0");
   if (!totalCost.gt(0)) throw new ServiceError("Total cost must be > 0");
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // Validate company
     const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
     if (!company) throw new ServiceError("Company not found or deleted", 404);
@@ -141,7 +142,7 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
     }
 
     return { landPurchase, parcel };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.LAND_PURCHASE_CREATED,
@@ -283,7 +284,7 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
     }
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // 1. Validate company
     const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
     if (!company) throw new ServiceError("Company not found or deleted", 404);
@@ -549,7 +550,7 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
       parentParcel,
       parcels: createdParcels,
     };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.LAND_PURCHASE_CREATED,
@@ -621,7 +622,7 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
     throw new ServiceError(`Token amount ${tokenAmount} exceeds total cost ${totalCost}`);
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const company = await tx.company.findFirst({ where: { id: input.companyId, deletedAt: null } });
     if (!company) throw new ServiceError("Company not found or deleted", 404);
 
@@ -722,7 +723,7 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
     }
 
     return { landPurchase, parcel };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.LAND_PURCHASE_CREATED,
@@ -760,7 +761,7 @@ export interface RecordLandPurchasePaymentInput {
 }
 
 export async function recordLandPurchasePayment(input: RecordLandPurchasePaymentInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lp = await tx.landPurchase.findUnique({
       where: { id: input.landPurchaseId },
       include: { payments: true },
@@ -826,7 +827,7 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     }
 
     return { payment };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -843,7 +844,7 @@ export interface UploadLandPurchaseDocumentInput {
 }
 
 export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocumentInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lp = await tx.landPurchase.findUnique({ where: { id: input.landPurchaseId } });
     if (!lp) throw new ServiceError("Land purchase not found", 404);
     if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
@@ -889,7 +890,7 @@ export interface CompleteLandPurchaseInput {
 }
 
 export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lp = await tx.landPurchase.findUnique({
       where: { id: input.landPurchaseId },
       include: { payments: true, parcels: true },
@@ -983,7 +984,7 @@ export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -991,7 +992,7 @@ export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
 // ───────────────────────────────────────────────────────────
 
 export async function clearLandPurchaseCheque(paymentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const payment = await tx.landPurchasePayment.findUnique({
       where: { id: paymentId },
       include: { landPurchase: true },
@@ -1033,11 +1034,11 @@ export async function clearLandPurchaseCheque(paymentId: string, userId?: string
     }
 
     return { chequeStatus: "CLEARED" as const };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function bounceLandPurchaseCheque(paymentId: string, userId?: string, bounceReason?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const payment = await tx.landPurchasePayment.findUnique({
       where: { id: paymentId },
       include: { landPurchase: true },
@@ -1064,7 +1065,7 @@ export async function bounceLandPurchaseCheque(paymentId: string, userId?: strin
     }
 
     return { chequeStatus: "BOUNCED" as const };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1086,7 +1087,7 @@ export interface CreateLandPaymentScheduleInput {
 }
 
 export async function createLandPaymentSchedule(input: CreateLandPaymentScheduleInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const lp = await tx.landPurchase.findUnique({
       where: { id: input.landPurchaseId },
       include: { payments: true },
@@ -1148,7 +1149,7 @@ export async function createLandPaymentSchedule(input: CreateLandPaymentSchedule
     }
 
     return schedule;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function getLandPaymentSchedule(landPurchaseId: string) {
@@ -1172,7 +1173,7 @@ export interface MarkPossessionInput {
 }
 
 export async function markPossession(input: MarkPossessionInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     if (input.landPurchaseId) {
       const lp = await tx.landPurchase.findUnique({ where: { id: input.landPurchaseId } });
       if (!lp) throw new ServiceError("Land purchase not found", 404);
@@ -1203,7 +1204,7 @@ export async function markPossession(input: MarkPossessionInput) {
     }
 
     if (input.projectId) {
-      const proj = await tx.project.findUnique({ where: { id: input.projectId } });
+      const proj = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null } });
       if (!proj) throw new ServiceError("Project not found", 404);
 
       const updated = await tx.project.update({
@@ -1232,5 +1233,5 @@ export async function markPossession(input: MarkPossessionInput) {
     }
 
     throw new ServiceError("Either landPurchaseId or projectId is required");
-  }, { isolationLevel: "Serializable" });
+  });
 }

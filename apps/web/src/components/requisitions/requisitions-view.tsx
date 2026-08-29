@@ -138,6 +138,8 @@ export function RequisitionsView({
   const [rejectTarget, setRejectTarget] = useState<RequisitionRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [view, setView] = useState<"list" | "board">("list");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -189,6 +191,34 @@ export function RequisitionsView({
     await action(rejectTarget.id, "reject", { rejectReason: rejectReason.trim() || undefined });
     setRejectTarget(null);
     setRejectReason("");
+  }
+
+  /** Loop through selected requisitions and call an action for each. */
+  async function bulkAction(rows: RequisitionRow[], act: string) {
+    if (rows.length === 0) return;
+    setBulkApproving(true);
+    let success = 0;
+    let failed = 0;
+    for (const r of rows) {
+      try {
+        const res = await fetch(`/api/requisitions/${r.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: act }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed");
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+    const label = act === "approve" ? "approved" : "rejected";
+    if (success > 0) toast.success(`${success} indent${success === 1 ? "" : "s"} ${label}`);
+    if (failed > 0) toast.error(`${failed} indent${failed === 1 ? "" : "s"} failed to process`);
+    setBulkApproving(false);
+    setSelectedIds(new Set());
+    router.refresh();
   }
 
   async function generateAuto() {
@@ -296,6 +326,35 @@ export function RequisitionsView({
                 exportFileName="requisitions"
                 onAddRow={canCreate && projects.length > 0 ? () => setFormOpen(true) : undefined}
                 addRowLabel="New Indent"
+                selectable
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                bulkActions={(selected) => (
+                  <>
+                    {canApprove && (
+                      <Button
+                        size="sm"
+                        disabled={bulkApproving}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED"), "approve")}
+                      >
+                        {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Approve
+                      </Button>
+                    )}
+                    {canApprove && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger"
+                        disabled={bulkApproving}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED"), "reject")}
+                      >
+                        {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                        Reject
+                      </Button>
+                    )}
+                  </>
+                )}
                 toolbarLeading={
                   <div className="flex w-fit shrink-0 items-center gap-2">
                     {viewToggle}

@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Advanced Procurement Service.
@@ -37,8 +38,8 @@ export interface VendorRating {
  * Overall = 40% delivery + 30% quality + 30% price.
  */
 export async function computeVendorRating(supplierId: string): Promise<VendorRating> {
-  const supplier = await prisma.supplier.findUnique({
-    where: { id: supplierId },
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: supplierId, deletedAt: null },
     select: { id: true, name: true },
   });
   if (!supplier) throw new ServiceError("Supplier not found", 404);
@@ -173,7 +174,7 @@ export interface CreateRateContractInput {
 }
 
 export async function createRateContract(input: CreateRateContractInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const supplier = await tx.supplier.findFirst({
       where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
     });
@@ -273,7 +274,7 @@ export async function getRateContracts(companyId: string) {
 }
 
 export async function cancelRateContract(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const contract = await tx.rateContract.findUnique({ where: { id } });
     if (!contract) throw new ServiceError("Rate contract not found", 404);
     if (contract.status === "CANCELLED") {

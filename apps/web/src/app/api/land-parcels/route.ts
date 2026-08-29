@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -71,6 +71,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Body: { action: "partition" | "status" | "valuation", ... }
  */
 export const POST = apiHandler(async (req: NextRequest) => {
+  await requireUser();
   const body = await req.json();
   const action = body?.action as string;
 

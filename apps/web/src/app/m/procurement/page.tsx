@@ -11,7 +11,7 @@ import {
 } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileProcurementList } from "./MobileProcurementList";
+import { MobileProcurementList, type DirectPurchaseListItem } from "./MobileProcurementList";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 export default function MobileProcurementPage() {
@@ -28,6 +28,7 @@ async function MobileProcurementContent() {
   const groupCompanyIds = await getCompanyGroupIds(company);
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+  const canApprove = hasPermission(role, PERM.PO_APPROVE);
 
   // Show POs from the entire company group — quotation-approved POs may
   // be created in a different company (parent/child) than the user's current.
@@ -44,6 +45,7 @@ async function MobileProcurementContent() {
 
   const hasMore = pos.length > BATCH_SIZE;
   const batch = hasMore ? pos.slice(0, BATCH_SIZE) : pos;
+  const draftCount = batch.filter((p) => p.status === "DRAFT").length;
   const lastItem = batch[batch.length - 1];
   const nextCursor = hasMore && lastItem
     ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
@@ -73,11 +75,38 @@ async function MobileProcurementContent() {
     };
   });
 
+  // Fetch direct (cash) purchases for the Cash Purchases tab
+  const directPurchases = await prisma.directPurchase.findMany({
+    where: { companyId: company.id },
+    orderBy: { billDate: "desc" },
+    take: 60,
+    include: {
+      supplier: { select: { name: true } },
+      location: { select: { name: true } },
+      lines: { select: { qty: true } },
+    },
+  });
+
+  const directPurchaseItems: DirectPurchaseListItem[] = directPurchases.map((d) => ({
+    id: d.id,
+    billNumber: d.billNumber,
+    supplierName: d.supplier?.name ?? d.supplierName,
+    locationName: d.location.name,
+    billDate: d.billDate.toISOString(),
+    billAmount: toNum(d.billAmount),
+    status: d.status,
+    lineCount: d.lines.length,
+  }));
+
+  const dpExportRows = directPurchaseItems as unknown as Record<string, unknown>[];
+
   return (
     <div>
       <MobileProcurementList
         items={serialized}
         canCreate={canCreate}
+        canApprove={canApprove}
+        draftCount={draftCount}
         loadMoreUrl="/api/mobile/list/procurement"
         nextCursor={nextCursor}
         exportTitle="Purchase Orders"
@@ -92,6 +121,8 @@ async function MobileProcurementContent() {
           ] as MobileColumnSpec[]
         }
         exportSummary={`${serialized.length} purchase orders`}
+        directPurchases={directPurchaseItems}
+        directPurchaseExportRows={dpExportRows}
       />
       {canCreate && (
         <MobileFab href="/m/procurement/new" label="New purchase order" />

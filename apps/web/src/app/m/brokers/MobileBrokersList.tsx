@@ -32,10 +32,12 @@ export function MobileBrokersList({
   items,
   canCreate,
   canEdit,
+  canDelete = false,
 }: {
   items: BrokerListItem[];
   canCreate?: boolean;
   canEdit?: boolean;
+  canDelete?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<BrokerListItem | null>(null);
@@ -92,6 +94,7 @@ export function MobileBrokersList({
       {editing ? (
         <BrokerEditSheet
           broker={editing}
+          canDelete={canDelete}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -116,44 +119,44 @@ function BrokerCard({
 
   return (
     <div
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
       <button
         onClick={onEdit}
         disabled={!canEdit}
-        className="p-2 flex flex-col gap-1 flex-1 text-left active:scale-[0.98] transition-transform disabled:active:scale-100"
+        className="p-2 flex flex-col gap-1 flex-1 text-left active:scale-[0.98] transition-transform disabled:active:scale-100 press"
       >
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {b.name}
           </p>
           {b.defaultCommissionPercent != null && (
-            <span className="text-[0.4375rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
               {formatNumber(b.defaultCommissionPercent, 2)}%
             </span>
           )}
         </div>
         {b.agency && (
-          <span className="text-[0.5rem] font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
             <Briefcase className="size-2" />
             {b.agency}
           </span>
         )}
         {b.phone && (
-          <span className="text-[0.5rem] truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
             <Phone className="size-2" />
             {b.phone}
           </span>
         )}
         <div className="mt-auto pt-1 h-[1rem] flex items-center">
           {hasDeals ? (
-            <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {b.dealCount} Deal{b.dealCount !== 1 ? "s" : ""}
             </span>
           ) : (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               No deals yet
             </span>
           )}
@@ -166,9 +169,11 @@ function BrokerCard({
 /* ─── Inline edit sheet (bottom sheet style) ─── */
 function BrokerEditSheet({
   broker,
+  canDelete = false,
   onClose,
 }: {
   broker: BrokerListItem;
+  canDelete?: boolean;
   onClose: () => void;
 }) {
   const [name, setName] = useState(broker.name);
@@ -228,23 +233,23 @@ function BrokerEditSheet({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
       onClick={onClose}
     >
       <div
-        className="w-full rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -254,10 +259,10 @@ function BrokerEditSheet({
         </div>
         {/* Header */}
         <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Edit Broker
           </p>
-          <button onClick={onClose} className="press p-1">
+          <button onClick={onClose} className="text-m-body press p-1">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -265,16 +270,16 @@ function BrokerEditSheet({
         <div className="px-3 pb-4 flex flex-col gap-3">
           {confirmDelete ? (
             <div className="rounded-[0.5rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-danger, #dc2626)" }}>
-              <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Delete &quot;{broker.name}&quot;?
               </p>
-              <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 This won&apos;t affect past sales that reference this broker.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="flex-1 h-8 rounded-[0.375rem] border text-[0.5625rem] font-bold press"
+                  className="flex-1 h-8 rounded-[0.375rem] border text-m-caption font-bold text-m-body press"
                   style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
                 >
                   Cancel
@@ -282,7 +287,7 @@ function BrokerEditSheet({
                 <button
                   onClick={del}
                   disabled={saving}
-                  className="flex-1 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press"
+                  className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
                   style={{ backgroundColor: "var(--color-danger, #dc2626)", color: "white" }}
                 >
                   {saving ? "Deleting…" : "Delete"}
@@ -311,21 +316,23 @@ function BrokerEditSheet({
               </div>
               <div>
                 <label className={labelClass} style={labelStyle}>Notes</label>
-                <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.75rem] resize-none outline-none" style={inputStyle} />
+                <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
               </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={saving}
-                  className="h-9 px-3 rounded-[0.5rem] border text-[0.5625rem] font-bold press flex items-center gap-1"
-                  style={{ borderColor: "var(--color-danger, #dc2626)", color: "var(--color-danger, #dc2626)" }}
-                >
-                  <Trash2 className="size-3" /> Delete
-                </button>
+              <div className="flex flex-col gap-2 pt-1">
+                {canDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={saving}
+                    className="h-9 px-3 rounded-[0.5rem] border text-m-caption font-bold text-m-body press flex items-center gap-1"
+                    style={{ borderColor: "var(--color-danger, #dc2626)", color: "var(--color-danger, #dc2626)" }}
+                  >
+                    <Trash2 className="size-3" /> Delete
+                  </button>
+                ) : null}
                 <button
                   onClick={save}
                   disabled={saving || !name.trim()}
-                  className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press"
+                  className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
                   style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: saving || !name.trim() ? 0.5 : 1 }}
                 >
                   {saving ? "Saving…" : "Save Changes"}

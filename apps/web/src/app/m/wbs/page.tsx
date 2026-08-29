@@ -134,7 +134,7 @@ async function MobileWbsContent({
         <>
           {/* ── Summary stats ── */}
           <MobileSectionTitle>Summary</MobileSectionTitle>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <MobileStatCard
               label="Total"
               value={formatNumber(totalNodes, 0)}
@@ -201,7 +201,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
     <div>
       <Link
         href={`/m/wbs/${node.id}`}
-        className="rounded-[0.5rem] border p-2.5 press block"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press block"
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper)",
@@ -222,19 +222,19 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
             />
           )}
           <span
-            className="text-[0.5625rem] font-semibold tabular-nums shrink-0"
+            className="text-m-caption font-semibold tabular-nums shrink-0"
             style={{ color: "var(--color-ink-500)" }}
           >
             {node.code}
           </span>
           <p
-            className="text-[0.75rem] font-semibold truncate flex-1"
+            className="text-m-section font-semibold truncate flex-1"
             style={{ color: "var(--color-ink-950)" }}
           >
             {node.name}
           </p>
           <span
-            className="text-[0.6875rem] font-bold tabular-nums shrink-0"
+            className="text-m-body font-bold tabular-nums shrink-0"
             style={{ color: progressColor }}
           >
             {formatNumber(progress, 0)}%
@@ -252,7 +252,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
               style={{ color: "var(--color-ink-500)" }}
             />
             <span
-              className="text-[0.5625rem] tabular-nums"
+              className="text-m-caption tabular-nums"
               style={{ color: "var(--color-ink-500)" }}
             >
               {formatDate(node.plannedStart)} — {formatDate(node.plannedEnd)}

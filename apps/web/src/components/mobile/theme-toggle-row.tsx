@@ -32,7 +32,7 @@ export function ThemeToggleRow() {
     <button
       type="button"
       onClick={toggle}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <span
@@ -46,15 +46,15 @@ export function ThemeToggleRow() {
         )}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
           {dark ? "Dark mode" : "Light mode"}
         </p>
-        <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           Tap to switch theme
         </p>
       </div>
       <span
-        className="shrink-0 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-1 rounded-[0.375rem]"
+        className="shrink-0 text-m-caption font-bold uppercase tracking-wide px-2 py-1 rounded-[0.375rem]"
         style={{
           backgroundColor: dark ? "var(--color-ink-950)" : "var(--color-concrete)",
           color: dark ? "var(--color-paper)" : "var(--color-ink-500)",

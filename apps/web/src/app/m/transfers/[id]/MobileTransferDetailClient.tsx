@@ -29,8 +29,9 @@ import {
   Weight,
   Navigation,
   ShieldCheck,
+  Check,
 } from "lucide-react";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, ActionBar } from "@/components/mobile/v2/primitives";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -142,9 +143,10 @@ export function MobileTransferDetailClient({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [acting, setActing] = useState<"cancel" | "return" | null>(null);
+  const [acting, setActing] = useState<"cancel" | "return" | "complete" | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
   const [returnReason, setReturnReason] = useState("");
 
   const isDraft = transfer.status === "DRAFT";
@@ -275,20 +277,44 @@ export function MobileTransferDetailClient({
     }
   };
 
+  const handleComplete = async () => {
+    haptic(10);
+    setActing("complete");
+    try {
+      const res = await fetch(`/api/transfers/${transfer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to complete transfer");
+      }
+      toast.success("Transfer completed");
+      setShowComplete(false);
+      router.refresh();
+    } catch (err) {
+      haptic([10, 30, 10]);
+      toast.error(err instanceof Error ? err.message : "Failed to complete transfer");
+    } finally {
+      setActing(null);
+    }
+  };
+
   return (
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
           <p
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             Stock Transfer
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{
             color: accentColor,
             backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
@@ -323,26 +349,26 @@ export function MobileTransferDetailClient({
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <p
-              className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+              className="text-m-caption font-semibold uppercase tracking-wide"
               style={{ color: "var(--color-ink-500)" }}
             >
               From
             </p>
             <p
-              className="text-[0.75rem] font-bold truncate"
+              className="text-m-section font-bold truncate"
               style={{ color: "var(--color-ink-950)" }}
             >
               {transfer.fromLocation.name}
             </p>
             <p
-              className="text-[0.4375rem] truncate"
+              className="text-m-caption truncate"
               style={{ color: "var(--color-ink-500)" }}
             >
               {transfer.fromLocation.type.replace(/_/g, " ").toLowerCase()}
             </p>
             {transfer.isInterCompany && transfer.fromLocation.companyName ? (
               <p
-                className="text-[0.4375rem] truncate"
+                className="text-m-caption truncate"
                 style={{ color: "var(--color-steel)" }}
               >
                 {transfer.fromLocation.companyName}
@@ -350,7 +376,7 @@ export function MobileTransferDetailClient({
             ) : null}
             {transfer.fromLocation.address ? (
               <p
-                className="text-[0.4375rem] truncate mt-0.5"
+                className="text-m-caption truncate mt-0.5"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 {transfer.fromLocation.address}
@@ -368,26 +394,26 @@ export function MobileTransferDetailClient({
           </div>
           <div className="min-w-0 flex-1 text-right">
             <p
-              className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+              className="text-m-caption font-semibold uppercase tracking-wide"
               style={{ color: "var(--color-ink-500)" }}
             >
               To
             </p>
             <p
-              className="text-[0.75rem] font-bold truncate"
+              className="text-m-section font-bold truncate"
               style={{ color: "var(--color-ink-950)" }}
             >
               {transfer.toLocation.name}
             </p>
             <p
-              className="text-[0.4375rem] truncate"
+              className="text-m-caption truncate"
               style={{ color: "var(--color-ink-500)" }}
             >
               {transfer.toLocation.type.replace(/_/g, " ").toLowerCase()}
             </p>
             {transfer.isInterCompany && transfer.toLocation.companyName ? (
               <p
-                className="text-[0.4375rem] truncate"
+                className="text-m-caption truncate"
                 style={{ color: "var(--color-steel)" }}
               >
                 {transfer.toLocation.companyName}
@@ -395,7 +421,7 @@ export function MobileTransferDetailClient({
             ) : null}
             {transfer.toLocation.address ? (
               <p
-                className="text-[0.4375rem] truncate mt-0.5"
+                className="text-m-caption truncate mt-0.5"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 {transfer.toLocation.address}
@@ -413,14 +439,14 @@ export function MobileTransferDetailClient({
               style={{ color: "var(--color-signal-dark)" }}
             />
             <span
-              className="text-[0.5rem] font-semibold"
+              className="text-m-caption font-semibold"
               style={{ color: "var(--color-signal-dark)" }}
             >
               Inter-company STO
             </span>
             {transfer.markupPct > 0 ? (
               <span
-                className="text-[0.5rem] ml-auto"
+                className="text-m-caption ml-auto"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Markup: {transfer.markupPct}%
@@ -440,13 +466,13 @@ export function MobileTransferDetailClient({
       >
         <div>
           <p
-            className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+            className="text-m-caption font-semibold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Items
           </p>
           <p
-            className="text-[1.125rem] font-bold tabular-nums"
+            className="text-m-section font-bold tabular-nums"
             style={{ color: "var(--color-ink-950)" }}
           >
             {transfer.lineCount}
@@ -454,13 +480,13 @@ export function MobileTransferDetailClient({
         </div>
         <div className="text-center">
           <p
-            className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+            className="text-m-caption font-semibold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Total Qty
           </p>
           <p
-            className="text-[1.125rem] font-bold tabular-nums"
+            className="text-m-section font-bold tabular-nums"
             style={{ color: "var(--color-ink-950)" }}
           >
             {formatNumber(transfer.totalQty, 2)}
@@ -468,7 +494,7 @@ export function MobileTransferDetailClient({
         </div>
         <div className="text-right">
           <p
-            className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+            className="text-m-caption font-semibold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Status
@@ -519,7 +545,7 @@ export function MobileTransferDetailClient({
               style={{ color: "var(--color-signal-dark)" }}
             />
             <span
-              className="text-[0.5625rem] font-bold uppercase tracking-wide"
+              className="text-m-caption font-bold uppercase tracking-wide"
               style={{ color: "var(--color-signal-dark)" }}
             >
               Transfer Pricing
@@ -533,13 +559,13 @@ export function MobileTransferDetailClient({
             {transfer.freight > 0 ? (
               <div className="flex items-center justify-between">
                 <span
-                  className="text-[0.5625rem]"
+                  className="text-m-caption"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Freight
                 </span>
                 <span
-                  className="text-[0.5625rem] font-bold tabular-nums"
+                  className="text-m-caption font-bold tabular-nums"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {formatCurrency(transfer.freight)}
@@ -549,13 +575,13 @@ export function MobileTransferDetailClient({
             {transfer.handlingFee > 0 ? (
               <div className="flex items-center justify-between">
                 <span
-                  className="text-[0.5625rem]"
+                  className="text-m-caption"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Handling
                 </span>
                 <span
-                  className="text-[0.5625rem] font-bold tabular-nums"
+                  className="text-m-caption font-bold tabular-nums"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {formatCurrency(transfer.handlingFee)}
@@ -565,13 +591,13 @@ export function MobileTransferDetailClient({
             {transfer.markupPct > 0 ? (
               <div className="flex items-center justify-between">
                 <span
-                  className="text-[0.5625rem]"
+                  className="text-m-caption"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Markup
                 </span>
                 <span
-                  className="text-[0.5625rem] font-bold tabular-nums"
+                  className="text-m-caption font-bold tabular-nums"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {transfer.markupPct}%
@@ -584,13 +610,13 @@ export function MobileTransferDetailClient({
                 style={{ borderColor: "var(--color-line)" }}
               >
                 <span
-                  className="text-[0.5625rem] font-semibold"
+                  className="text-m-caption font-semibold"
                   style={{ color: "var(--color-ink-700)" }}
                 >
                   Transfer Price Total
                 </span>
                 <span
-                  className="text-[0.6875rem] font-bold tabular-nums"
+                  className="text-m-body font-bold tabular-nums"
                   style={{ color: "var(--color-signal-dark)" }}
                 >
                   {formatCurrency(transfer.transferPriceTotal)}
@@ -612,7 +638,7 @@ export function MobileTransferDetailClient({
         <div className="flex items-center gap-1.5 mb-2.5">
           <Truck className="size-3" style={{ color: "var(--color-steel)" }} />
           <span
-            className="text-[0.5625rem] font-bold uppercase tracking-wide"
+            className="text-m-caption font-bold uppercase tracking-wide"
             style={{ color: "var(--color-steel)" }}
           >
             Transport Details
@@ -700,7 +726,7 @@ export function MobileTransferDetailClient({
         <div className="flex items-center gap-1.5 mb-2.5">
           <Weight className="size-3" style={{ color: "var(--color-steel)" }} />
           <span
-            className="text-[0.5625rem] font-bold uppercase tracking-wide"
+            className="text-m-caption font-bold uppercase tracking-wide"
             style={{ color: "var(--color-steel)" }}
           >
             Weighbridge
@@ -787,7 +813,7 @@ export function MobileTransferDetailClient({
             />
           )}
           <span
-            className="text-[0.5625rem] font-bold uppercase tracking-wide"
+            className="text-m-caption font-bold uppercase tracking-wide"
             style={{
               color:
                 transfer.geoFenceOk === true
@@ -853,7 +879,7 @@ export function MobileTransferDetailClient({
           <div className="flex items-center gap-1.5 mb-2">
             <Truck className="size-3" style={{ color: "var(--color-steel)" }} />
             <span
-              className="text-[0.5625rem] font-bold uppercase tracking-wide"
+              className="text-m-caption font-bold uppercase tracking-wide"
               style={{ color: "var(--color-steel)" }}
             >
               Tracking
@@ -912,7 +938,7 @@ export function MobileTransferDetailClient({
           style={{ color: "var(--color-steel)" }}
         />
         <span
-          className="text-[0.5625rem] font-bold uppercase tracking-wide"
+          className="text-m-caption font-bold uppercase tracking-wide"
           style={{ color: "var(--color-steel)" }}
         >
           Transfer Items
@@ -936,7 +962,7 @@ export function MobileTransferDetailClient({
             style={{ color: "var(--color-ink-300)" }}
           />
           <p
-            className="text-[0.6875rem] font-semibold"
+            className="text-m-body font-semibold"
             style={{ color: "var(--color-ink-700)" }}
           >
             No items in this transfer
@@ -965,20 +991,20 @@ export function MobileTransferDetailClient({
                 {/* Row 1: Sr + material name + code */}
                 <div className="flex items-start gap-2">
                   <span
-                    className="text-[0.5rem] font-bold tabular-nums shrink-0 mt-0.5"
+                    className="text-m-caption font-bold tabular-nums shrink-0 mt-0.5"
                     style={{ color: "var(--color-ink-400)" }}
                   >
                     {idx + 1}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[0.6875rem] font-bold truncate"
+                      className="text-m-body font-bold truncate"
                       style={{ color: "var(--color-ink-950)" }}
                     >
                       {l.materialName}
                     </p>
                     <p
-                      className="text-[0.5rem] truncate"
+                      className="text-m-caption truncate"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       {l.materialCode}
@@ -990,18 +1016,18 @@ export function MobileTransferDetailClient({
                 <div className="flex items-center gap-3 mt-1.5 pl-5">
                   <div>
                     <p
-                      className="text-[0.4375rem] font-semibold uppercase"
+                      className="text-m-caption font-semibold uppercase"
                       style={{ color: "var(--color-ink-400)" }}
                     >
                       Sent
                     </p>
                     <p
-                      className="text-[0.625rem] font-bold tabular-nums"
+                      className="text-m-label font-bold tabular-nums"
                       style={{ color: "var(--color-ink-950)" }}
                     >
                       {formatNumber(l.qty, 2)}{" "}
                       <span
-                        className="text-[0.5rem] font-normal"
+                        className="text-m-caption font-normal"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         {l.materialUnit}
@@ -1011,7 +1037,7 @@ export function MobileTransferDetailClient({
                   {isCompleted && l.qtyReceived !== l.qty ? (
                     <div>
                       <p
-                        className="text-[0.4375rem] font-semibold uppercase"
+                        className="text-m-caption font-semibold uppercase"
                         style={{
                           color: hasPartialReceipt
                             ? "var(--color-stop)"
@@ -1021,7 +1047,7 @@ export function MobileTransferDetailClient({
                         Received
                       </p>
                       <p
-                        className="text-[0.625rem] font-bold tabular-nums"
+                        className="text-m-label font-bold tabular-nums"
                         style={{
                           color: hasPartialReceipt
                             ? "var(--color-stop)"
@@ -1030,7 +1056,7 @@ export function MobileTransferDetailClient({
                       >
                         {formatNumber(l.qtyReceived, 2)}{" "}
                         <span
-                          className="text-[0.5rem] font-normal"
+                          className="text-m-caption font-normal"
                           style={{ color: "var(--color-ink-500)" }}
                         >
                           {l.materialUnit}
@@ -1041,7 +1067,7 @@ export function MobileTransferDetailClient({
                   {hasShortage ? (
                     <div className="ml-auto">
                       <span
-                        className="text-[0.5rem] font-bold px-1.5 py-0.5 rounded-full"
+                        className="text-m-caption font-bold px-1.5 py-0.5 rounded-full"
                         style={{
                           color: "var(--color-stop)",
                           backgroundColor:
@@ -1062,13 +1088,13 @@ export function MobileTransferDetailClient({
                     {l.unitCostAtSource != null ? (
                       <div>
                         <p
-                          className="text-[0.4375rem] font-semibold uppercase"
+                          className="text-m-caption font-semibold uppercase"
                           style={{ color: "var(--color-ink-400)" }}
                         >
                           Unit cost
                         </p>
                         <p
-                          className="text-[0.5625rem] font-bold tabular-nums"
+                          className="text-m-caption font-bold tabular-nums"
                           style={{ color: "var(--color-ink-700)" }}
                         >
                           {formatCurrency(l.unitCostAtSource)}
@@ -1078,13 +1104,13 @@ export function MobileTransferDetailClient({
                     {l.unitTransferPrice != null ? (
                       <div>
                         <p
-                          className="text-[0.4375rem] font-semibold uppercase"
+                          className="text-m-caption font-semibold uppercase"
                           style={{ color: "var(--color-ink-400)" }}
                         >
                           Transfer price
                         </p>
                         <p
-                          className="text-[0.5625rem] font-bold tabular-nums"
+                          className="text-m-caption font-bold tabular-nums"
                           style={{ color: "var(--color-signal-dark)" }}
                         >
                           {formatCurrency(l.unitTransferPrice)}
@@ -1094,13 +1120,13 @@ export function MobileTransferDetailClient({
                     {lineValue != null ? (
                       <div className="ml-auto text-right">
                         <p
-                          className="text-[0.4375rem] font-semibold uppercase"
+                          className="text-m-caption font-semibold uppercase"
                           style={{ color: "var(--color-ink-400)" }}
                         >
                           Line value
                         </p>
                         <p
-                          className="text-[0.5625rem] font-bold tabular-nums"
+                          className="text-m-caption font-bold tabular-nums"
                           style={{ color: "var(--color-ink-950)" }}
                         >
                           {formatCurrency(lineValue)}
@@ -1110,13 +1136,13 @@ export function MobileTransferDetailClient({
                     {l.lineTransferTotal != null ? (
                       <div className="ml-auto text-right">
                         <p
-                          className="text-[0.4375rem] font-semibold uppercase"
+                          className="text-m-caption font-semibold uppercase"
                           style={{ color: "var(--color-ink-400)" }}
                         >
                           Transfer total
                         </p>
                         <p
-                          className="text-[0.5625rem] font-bold tabular-nums"
+                          className="text-m-caption font-bold tabular-nums"
                           style={{ color: "var(--color-signal-dark)" }}
                         >
                           {formatCurrency(l.lineTransferTotal)}
@@ -1160,13 +1186,13 @@ export function MobileTransferDetailClient({
                   {totalSourceValue > 0 ? (
                     <div className="flex items-center justify-between">
                       <span
-                        className="text-[0.5625rem]"
+                        className="text-m-caption"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Total source value
                       </span>
                       <span
-                        className="text-[0.6875rem] font-bold tabular-nums"
+                        className="text-m-body font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
                         {formatCurrency(totalSourceValue)}
@@ -1180,13 +1206,13 @@ export function MobileTransferDetailClient({
                       style={{ borderColor: "var(--color-line)" }}
                     >
                       <span
-                        className="text-[0.5625rem] font-semibold"
+                        className="text-m-caption font-semibold"
                         style={{ color: "var(--color-signal-dark)" }}
                       >
                         Total transfer price
                       </span>
                       <span
-                        className="text-[0.75rem] font-bold tabular-nums"
+                        className="text-m-section font-bold tabular-nums"
                         style={{ color: "var(--color-signal-dark)" }}
                       >
                         {formatCurrency(totalTransferValue)}
@@ -1215,7 +1241,7 @@ export function MobileTransferDetailClient({
             style={{ color: "var(--color-go)" }}
           />
           <span
-            className="text-[0.5625rem]"
+            className="text-m-caption"
             style={{ color: "var(--color-ink-700)" }}
           >
             Stock has been moved from source to destination. Stock ledger and
@@ -1240,7 +1266,7 @@ export function MobileTransferDetailClient({
             style={{ color: "var(--color-stop)" }}
           />
           <span
-            className="text-[0.5625rem]"
+            className="text-m-caption"
             style={{ color: "var(--color-ink-700)" }}
           >
             This transfer was cancelled. No stock was moved.
@@ -1264,7 +1290,7 @@ export function MobileTransferDetailClient({
             style={{ color: "var(--color-signal-dark)" }}
           />
           <span
-            className="text-[0.5625rem]"
+            className="text-m-caption"
             style={{ color: "var(--color-ink-700)" }}
           >
             {isSourceCompany && isDraft
@@ -1315,13 +1341,13 @@ export function MobileTransferDetailClient({
                 />
                 <div className="flex-1 min-w-0">
                   <p
-                    className="text-[0.5625rem] font-bold"
+                    className="text-m-caption font-bold"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     Switch to {targetCompany.name} to {targetLabel}
                   </p>
                   <p
-                    className="text-[0.4375rem]"
+                    className="text-m-caption"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     You are logged into{" "}
@@ -1334,7 +1360,7 @@ export function MobileTransferDetailClient({
                 </div>
                 <button
                   onClick={() => switchCompany(targetCompany.id)}
-                  className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-[0.5625rem] font-bold press"
+                  className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                   style={{
                     backgroundColor: "var(--color-signal)",
                     color: "#fff",
@@ -1375,7 +1401,7 @@ export function MobileTransferDetailClient({
             }}
           />
           <span
-            className="text-[0.5625rem] flex-1"
+            className="text-m-caption flex-1"
             style={{ color: "var(--color-ink-700)" }}
           >
             Gate pass{" "}
@@ -1395,7 +1421,7 @@ export function MobileTransferDetailClient({
           </span>
           <a
             href="/m/gate-pass"
-            className="text-[0.5625rem] font-semibold shrink-0"
+            className="text-m-caption font-semibold shrink-0"
             style={{ color: "var(--color-brand)" }}
           >
             View →
@@ -1405,23 +1431,15 @@ export function MobileTransferDetailClient({
 
       {/* ── Sticky action bar — context-aware ── */}
       {canManage && (isDraft || isInTransit) ? (
-        <div
-          className="sticky bottom-0 z-20 border-t mt-4"
-          style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-            borderColor: "var(--color-line)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe flex items-center gap-2">
+        <ActionBar>
+          <div className="flex items-center gap-2">
             {isDraft ? (
               canDispatch ? (
                 <>
                   <button
                     onClick={() => setShowCancel(true)}
                     disabled={acting !== null}
-                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50 px-4"
+                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-4"
                     style={{
                       borderColor: "var(--color-stop)",
                       color: "var(--color-stop)",
@@ -1434,6 +1452,23 @@ export function MobileTransferDetailClient({
                       <XCircle className="size-4" />
                     )}
                     Cancel
+                  </button>
+                  <button
+                    onClick={() => setShowComplete(true)}
+                    disabled={acting !== null}
+                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-3"
+                    style={{
+                      borderColor: "var(--color-go)",
+                      color: "var(--color-go)",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    {acting === "complete" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Check className="size-4" />
+                    )}
+                    Complete
                   </button>
                   <MobileTransferDispatchDialog
                     transferId={transfer.id}
@@ -1453,7 +1488,7 @@ export function MobileTransferDetailClient({
                 </>
               ) : (
                 <div
-                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] text-[0.6875rem] font-semibold"
+                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] text-m-body font-semibold"
                   style={{
                     backgroundColor: "var(--color-paper-2)",
                     color: "var(--color-ink-500)",
@@ -1474,7 +1509,7 @@ export function MobileTransferDetailClient({
                       setShowReturn(true);
                     }}
                     disabled={acting !== null}
-                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-[0.8125rem] press active:scale-95 disabled:opacity-50 px-3"
+                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-3"
                     style={{
                       borderColor: "var(--color-stop)",
                       color: "var(--color-stop)",
@@ -1487,6 +1522,23 @@ export function MobileTransferDetailClient({
                       <RotateCcw className="size-4" />
                     )}
                     Return
+                  </button>
+                  <button
+                    onClick={() => setShowComplete(true)}
+                    disabled={acting !== null}
+                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-3"
+                    style={{
+                      borderColor: "var(--color-go)",
+                      color: "var(--color-go)",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    {acting === "complete" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Check className="size-4" />
+                    )}
+                    Complete
                   </button>
                   <MobileTransferReceiveDialog
                     transferId={transfer.id}
@@ -1509,7 +1561,7 @@ export function MobileTransferDetailClient({
                 </>
               ) : (
                 <div
-                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] text-[0.6875rem] font-semibold"
+                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] text-m-body font-semibold"
                   style={{
                     backgroundColor: "var(--color-paper-2)",
                     color: "var(--color-ink-500)",
@@ -1522,7 +1574,7 @@ export function MobileTransferDetailClient({
               )
             ) : null}
           </div>
-        </div>
+        </ActionBar>
       ) : null}
 
       {/* ── Cancel confirmation modal ── */}
@@ -1545,7 +1597,7 @@ export function MobileTransferDetailClient({
               style={{ borderColor: "var(--color-line)" }}
             >
               <p
-                className="text-[0.75rem] font-bold"
+                className="text-m-section font-bold"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 Cancel this transfer?
@@ -1553,18 +1605,18 @@ export function MobileTransferDetailClient({
             </div>
             <div className="p-3">
               <p
-                className="text-[0.6875rem] mb-3"
+                className="text-m-body mb-3"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 This will cancel the stock transfer from{" "}
                 {transfer.fromLocation.name} to {transfer.toLocation.name}. No
                 stock will be moved. This action cannot be undone.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setShowCancel(false)}
                   disabled={acting !== null}
-                  className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press disabled:opacity-50"
+                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -1576,7 +1628,7 @@ export function MobileTransferDetailClient({
                 <button
                   onClick={() => void handleCancel()}
                   disabled={acting !== null}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{
                     backgroundColor: "var(--color-stop)",
                     color: "#fff",
@@ -1623,14 +1675,14 @@ export function MobileTransferDetailClient({
                 style={{ color: "var(--color-stop)" }}
               />
               <p
-                className="text-[0.75rem] font-bold"
+                className="text-m-section font-bold"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 Return to source?
               </p>
               <button
                 onClick={() => setShowReturn(false)}
-                className="press shrink-0 p-1 ml-auto"
+                className="text-m-body press shrink-0 p-1 ml-auto"
               >
                 <XCircle
                   className="size-4"
@@ -1640,7 +1692,7 @@ export function MobileTransferDetailClient({
             </div>
             <div className="p-3 space-y-3">
               <p
-                className="text-[0.6875rem]"
+                className="text-m-body"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Return this transfer to {transfer.fromLocation.name}? Use this
@@ -1648,7 +1700,7 @@ export function MobileTransferDetailClient({
               </p>
               <div>
                 <label
-                  className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1"
+                  className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Reason <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -1658,7 +1710,7 @@ export function MobileTransferDetailClient({
                   onChange={(e) => setReturnReason(e.target.value)}
                   placeholder="e.g. Goods damaged in transit"
                   rows={3}
-                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.6875rem] outline-none resize-none"
+                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body outline-none resize-none"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper-2)",
@@ -1666,11 +1718,11 @@ export function MobileTransferDetailClient({
                   }}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setShowReturn(false)}
                   disabled={acting !== null}
-                  className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press disabled:opacity-50"
+                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -1682,7 +1734,7 @@ export function MobileTransferDetailClient({
                 <button
                   onClick={() => void handleReturnToSource()}
                   disabled={acting !== null}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{
                     backgroundColor: "var(--color-stop)",
                     color: "#fff",
@@ -1698,6 +1750,74 @@ export function MobileTransferDetailClient({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Complete confirmation modal ── */}
+      {showComplete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          onClick={() => acting === null && setShowComplete(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[1rem] p-4"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center mb-2">
+              <div
+                className="w-10 h-1 rounded-full"
+                style={{ backgroundColor: "var(--color-line)" }}
+              />
+            </div>
+            <h3
+              className="text-m-section font-bold mb-2"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              Complete Transfer?
+            </h3>
+            <p
+              className="text-m-body mb-3"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              This will force-complete the transfer from{" "}
+              {transfer.fromLocation.name} to {transfer.toLocation.name}. Stock
+              will be moved immediately. This action cannot be undone.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setShowComplete(false)}
+                disabled={acting !== null}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "var(--color-paper)",
+                  color: "var(--color-ink-950)",
+                }}
+              >
+                Keep
+              </button>
+              <button
+                onClick={() => void handleComplete()}
+                disabled={acting !== null}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-go)",
+                  color: "#fff",
+                }}
+              >
+                {acting === "complete" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="size-3.5" />
+                    <span>Complete Transfer</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1746,14 +1866,14 @@ function TimelineStep({
       <div className="min-w-0 flex-1 pb-1">
         <div className="flex items-center justify-between gap-2">
           <p
-            className="text-[0.6875rem] font-bold"
+            className="text-m-body font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             {title}
           </p>
           {timestamp ? (
             <span
-              className="text-[0.5rem] tabular-nums shrink-0"
+              className="text-m-caption tabular-nums shrink-0"
               style={{ color: "var(--color-ink-500)" }}
             >
               {new Date(timestamp).toLocaleDateString("en-IN", {
@@ -1768,7 +1888,7 @@ function TimelineStep({
             </span>
           ) : (
             <span
-              className="text-[0.5rem]"
+              className="text-m-caption"
               style={{ color: "var(--color-ink-300)" }}
             >
               Pending
@@ -1777,7 +1897,7 @@ function TimelineStep({
         </div>
         {userName ? (
           <p
-            className="text-[0.5rem] flex items-center gap-1"
+            className="text-m-caption flex items-center gap-1"
             style={{ color: "var(--color-ink-500)" }}
           >
             <User className="size-2.5" /> {userName}
@@ -1788,7 +1908,7 @@ function TimelineStep({
             {details.map((d, i) => (
               <p
                 key={i}
-                className="text-[0.5rem]"
+                className="text-m-caption"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 {d}
@@ -1813,7 +1933,7 @@ function TimelineStep({
         {signature ? (
           <div className="mt-1.5">
             <p
-              className="text-[0.4375rem] font-semibold uppercase mb-0.5"
+              className="text-m-caption font-semibold uppercase mb-0.5"
               style={{ color: "var(--color-ink-400)" }}
             >
               Receiver signature
@@ -1830,7 +1950,7 @@ function TimelineStep({
         {extraSignature ? (
           <div className="mt-1.5">
             <p
-              className="text-[0.4375rem] font-semibold uppercase mb-0.5"
+              className="text-m-caption font-semibold uppercase mb-0.5"
               style={{ color: "var(--color-ink-400)" }}
             >
               Supervisor signature
@@ -1876,13 +1996,13 @@ function InfoRow({
       />
       <div className="min-w-0 flex-1">
         <span
-          className="text-[0.4375rem] font-semibold uppercase block"
+          className="text-m-caption font-semibold uppercase block"
           style={{ color: "var(--color-ink-500)" }}
         >
           {label}
         </span>
         <span
-          className="text-[0.6875rem] font-bold block"
+          className="text-m-body font-bold block"
           style={{ color: "var(--color-ink-950)" }}
         >
           {value}
@@ -1919,13 +2039,13 @@ function TransportField({
       />
       <div className="min-w-0">
         <p
-          className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+          className="text-m-caption font-semibold uppercase tracking-wide"
           style={{ color: "var(--color-ink-400)" }}
         >
           {label}
         </p>
         <p
-          className={`text-[0.625rem] font-bold truncate ${mono ? "font-mono" : ""}`}
+          className={`text-m-label font-bold truncate ${mono ? "font-mono" : ""}`}
           style={{
             color: muted ? "var(--color-ink-400)" : "var(--color-ink-950)",
           }}

@@ -49,14 +49,14 @@ export function WorkforceBreakdown({
       >
         <div className="flex items-baseline justify-between mb-2">
           <h3
-            className="text-[0.6875rem] font-bold uppercase tracking-wide"
+            className="text-m-body font-bold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Headcount by Trade
           </h3>
           <Link
             href="/m/hr/employees"
-            className="text-[0.625rem] font-semibold press"
+            className="text-m-label font-semibold text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
             All →
@@ -65,7 +65,7 @@ export function WorkforceBreakdown({
 
         {sortedTrades.length === 0 ? (
           <p
-            className="py-3 text-center text-[0.6875rem]"
+            className="py-3 text-center text-m-body"
             style={{ color: "var(--color-ink-300)" }}
           >
             No trade data yet
@@ -80,10 +80,10 @@ export function WorkforceBreakdown({
                 <Link
                   key={t.trade}
                   href="/m/hr/employees"
-                  className="flex items-center gap-2 press rounded-[0.25rem] py-0.5"
+                  className="flex items-center gap-2 text-m-body press text-m-body rounded-[0.25rem] py-0.5"
                 >
                   <span
-                    className="w-20 shrink-0 truncate text-[0.625rem] font-medium"
+                    className="w-20 shrink-0 truncate text-m-label font-medium"
                     style={{ color: "var(--color-ink-700)" }}
                   >
                     {t.trade}
@@ -102,13 +102,13 @@ export function WorkforceBreakdown({
                     />
                   </div>
                   <span
-                    className="tabular-nums w-6 text-right text-[0.625rem] font-bold"
+                    className="tabular-nums w-6 text-right text-m-label font-bold"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {t.count}
                   </span>
                   <span
-                    className="tabular-nums w-9 text-right text-[0.5625rem]"
+                    className="tabular-nums w-9 text-right text-m-caption"
                     style={{ color: "var(--color-ink-300)" }}
                   >
                     {sharePct.toFixed(0)}%
@@ -130,14 +130,14 @@ export function WorkforceBreakdown({
       >
         <div className="flex items-baseline justify-between mb-2">
           <h3
-            className="text-[0.6875rem] font-bold uppercase tracking-wide"
+            className="text-m-body font-bold uppercase tracking-wide"
             style={{ color: "var(--color-ink-500)" }}
           >
             Site Presence Today
           </h3>
           <Link
             href="/m/attendance"
-            className="text-[0.625rem] font-semibold press"
+            className="text-m-label font-semibold text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
             Log →
@@ -146,7 +146,7 @@ export function WorkforceBreakdown({
 
         {sitePresence.length === 0 ? (
           <p
-            className="py-3 text-center text-[0.6875rem]"
+            className="py-3 text-center text-m-body"
             style={{ color: "var(--color-ink-300)" }}
           >
             No site attendance logged today
@@ -165,10 +165,10 @@ export function WorkforceBreakdown({
                 <Link
                   key={s.projectName}
                   href="/m/attendance"
-                  className="flex items-center gap-2 press rounded-[0.25rem] py-0.5"
+                  className="flex items-center gap-2 text-m-body press text-m-body rounded-[0.25rem] py-0.5"
                 >
                   <span
-                    className="flex-1 truncate text-[0.625rem] font-medium"
+                    className="flex-1 truncate text-m-label font-medium"
                     style={{ color: "var(--color-ink-700)" }}
                   >
                     {s.projectName}
@@ -183,13 +183,13 @@ export function WorkforceBreakdown({
                     />
                   </div>
                   <span
-                    className="tabular-nums text-[0.625rem] font-bold"
+                    className="tabular-nums text-m-label font-bold"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {s.present}
                   </span>
                   <span
-                    className="tabular-nums text-[0.5625rem]"
+                    className="tabular-nums text-m-caption"
                     style={{ color: "var(--color-ink-300)" }}
                   >
                     /{s.total}

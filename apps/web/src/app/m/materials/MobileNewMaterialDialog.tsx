@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -39,6 +40,7 @@ export function MobileNewMaterialDialog({
   }) => void;
   categories: { id: string; name: string; unit: string }[];
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [code, setCode] = useState("AUTO");
   const [grade, setGrade] = useState("");
@@ -202,6 +204,7 @@ export function MobileNewMaterialDialog({
       toast.success(`${data.name} material created`, {
         description: hsnCode ? `HSN ${hsnCode} · GST ${gstRate}%` : undefined,
       });
+      router.refresh();
       onCreated({
         id: data.id,
         name: data.name,
@@ -238,10 +241,10 @@ export function MobileNewMaterialDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -250,14 +253,14 @@ export function MobileNewMaterialDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Material
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -265,7 +268,7 @@ export function MobileNewMaterialDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           Add a new material to your inventory catalog.
@@ -275,7 +278,7 @@ export function MobileNewMaterialDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -286,7 +289,7 @@ export function MobileNewMaterialDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. OPC Cement 53"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -298,7 +301,7 @@ export function MobileNewMaterialDialog({
           {/* Code */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Code
@@ -308,7 +311,7 @@ export function MobileNewMaterialDialog({
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="AUTO"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -317,7 +320,7 @@ export function MobileNewMaterialDialog({
             />
             {code === "AUTO" && autoCode && (
               <p
-                className="text-[0.5625rem] mt-1"
+                className="text-m-caption mt-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Auto-generated code:{" "}
@@ -332,7 +335,7 @@ export function MobileNewMaterialDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Grade
@@ -342,7 +345,7 @@ export function MobileNewMaterialDialog({
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
                 placeholder="e.g. 53"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -352,7 +355,7 @@ export function MobileNewMaterialDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Specification
@@ -362,7 +365,7 @@ export function MobileNewMaterialDialog({
                 value={specification}
                 onChange={(e) => setSpecification(e.target.value)}
                 placeholder="e.g. IS 269"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -376,7 +379,7 @@ export function MobileNewMaterialDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Category <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -387,7 +390,7 @@ export function MobileNewMaterialDialog({
                   setCategoryId(e.target.value);
                   haptic(10);
                 }}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -404,7 +407,7 @@ export function MobileNewMaterialDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Unit <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -414,7 +417,7 @@ export function MobileNewMaterialDialog({
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 placeholder="e.g. BAG"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -428,7 +431,7 @@ export function MobileNewMaterialDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 HSN Code
@@ -442,7 +445,7 @@ export function MobileNewMaterialDialog({
                     setHsnManuallySet(true);
                   }}
                   placeholder="e.g. 2523"
-                  className="flex-1 h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                  className="flex-1 h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -468,7 +471,7 @@ export function MobileNewMaterialDialog({
             </div>
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 GST Rate (%)
@@ -482,7 +485,7 @@ export function MobileNewMaterialDialog({
                 }}
                 placeholder="0"
                 min={0}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -502,7 +505,7 @@ export function MobileNewMaterialDialog({
               }}
             >
               <p
-                className="text-[0.5rem] font-bold uppercase tracking-wide mb-1"
+                className="text-m-caption font-bold uppercase tracking-wide mb-1"
                 style={{ color: "var(--color-signal-dark)" }}
               >
                 Suggested HSN
@@ -517,22 +520,22 @@ export function MobileNewMaterialDialog({
                     setHsnManuallySet(true);
                     haptic(5);
                   }}
-                  className="flex items-center gap-2 w-full text-left py-0.5 press"
+                  className="flex items-center gap-2 w-full text-left py-0.5 text-m-body press"
                 >
                   <span
-                    className="text-[0.625rem] font-bold tabular-nums shrink-0"
+                    className="text-m-label font-bold tabular-nums shrink-0"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {s.hsnCode}
                   </span>
                   <span
-                    className="text-[0.5rem] truncate flex-1"
+                    className="text-m-caption truncate flex-1"
                     style={{ color: "var(--color-ink-700)" }}
                   >
                     {s.description}
                   </span>
                   <span
-                    className="text-[0.5rem] font-bold shrink-0"
+                    className="text-m-caption font-bold shrink-0"
                     style={{ color: "var(--color-signal-dark)" }}
                   >
                     {s.gstRate}%
@@ -545,7 +548,7 @@ export function MobileNewMaterialDialog({
           {/* Standard Cost */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Standard Cost (₹){" "}
@@ -562,7 +565,7 @@ export function MobileNewMaterialDialog({
               value={standardCost}
               onChange={(e) => setStandardCost(e.target.value)}
               placeholder="0.00"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-bold tabular-nums outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-bold tabular-nums outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -571,7 +574,7 @@ export function MobileNewMaterialDialog({
             />
             {standardCost && Number(standardCost) > 0 ? (
               <p
-                className="text-[0.5rem] mt-1"
+                className="text-m-caption mt-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Cost incl. GST:{" "}
@@ -589,7 +592,7 @@ export function MobileNewMaterialDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -610,11 +613,11 @@ export function MobileNewMaterialDialog({
         {showHsnPicker && (
           <div
             className="fixed inset-0 z-[60] flex items-end justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
             onClick={() => setShowHsnPicker(false)}
           >
             <div
-              className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] flex flex-col"
+              className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] flex flex-col"
               style={{
                 backgroundColor: "var(--color-paper)",
                 borderColor: "var(--color-line)",
@@ -623,7 +626,7 @@ export function MobileNewMaterialDialog({
             >
               <div className="flex items-center justify-between mb-3">
                 <h3
-                  className="text-[0.875rem] font-bold"
+                  className="text-m-section font-bold"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   Search HSN Code
@@ -648,7 +651,7 @@ export function MobileNewMaterialDialog({
                   onChange={(e) => setHsnSearch(e.target.value)}
                   placeholder="Search by code or description…"
                   autoFocus
-                  className="w-full h-10 rounded-[0.5rem] border pl-8 pr-3 text-[0.75rem] outline-none"
+                  className="w-full h-10 rounded-[0.5rem] border pl-8 pr-3 text-m-section outline-none"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
@@ -669,7 +672,7 @@ export function MobileNewMaterialDialog({
                       setShowHsnPicker(false);
                       haptic(10);
                     }}
-                    className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2 text-left press"
+                    className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2 text-left text-m-body press"
                     style={{
                       borderColor: "var(--color-line)",
                       backgroundColor: "var(--color-paper-2)",
@@ -677,7 +680,7 @@ export function MobileNewMaterialDialog({
                   >
                     <div className="min-w-0 flex-1">
                       <p
-                        className="text-[0.6875rem] font-bold tabular-nums"
+                        className="text-m-body font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
                         {s.hsnCode}{" "}
@@ -689,7 +692,7 @@ export function MobileNewMaterialDialog({
                         </span>
                       </p>
                       <p
-                        className="text-[0.5rem] truncate"
+                        className="text-m-caption truncate"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         {s.description}
@@ -705,7 +708,7 @@ export function MobileNewMaterialDialog({
                 ))}
                 {hsnSearchResults.length === 0 && hsnSearch && (
                   <p
-                    className="text-center text-[0.625rem] py-4"
+                    className="text-center text-m-label py-4"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     No HSN codes found. Try a different search.

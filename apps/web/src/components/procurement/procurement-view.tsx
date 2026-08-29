@@ -291,8 +291,9 @@ function PurchaseOrdersTab({
   canApprove: boolean;
   canManagePayments: boolean;
 }) {
-  const [scopeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<PurchaseOrderRow | null>(null);
   const [view, setView] = useState<"list" | "board">("list");
@@ -309,11 +310,13 @@ function PurchaseOrdersTab({
 
   const filtered = useMemo(
     () => purchaseOrders.filter((p) => {
-      if (scopeFilter && p.procurementScope !== scopeFilter) return false;
       if (statusFilter && p.status !== statusFilter) return false;
+      const poDate = p.orderDate ?? p.createdAt;
+      if (dateFrom && poDate < dateFrom) return false;
+      if (dateTo && poDate > dateTo) return false;
       return true;
     }),
-    [purchaseOrders, scopeFilter, statusFilter],
+    [purchaseOrders, statusFilter, dateFrom, dateTo],
   );
 
   // Group by status for the kanban board
@@ -367,6 +370,24 @@ function PurchaseOrdersTab({
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
     </div>
+  );
+  const dateFilters = (
+    <>
+      <input
+        type="date"
+        value={dateFrom}
+        onChange={(e) => setDateFrom(e.target.value)}
+        className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+        title="Filter from date"
+      />
+      <input
+        type="date"
+        value={dateTo}
+        onChange={(e) => setDateTo(e.target.value)}
+        className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+        title="Filter to date"
+      />
+    </>
   );
   const trailingButtons = (
     <>
@@ -442,6 +463,7 @@ function PurchaseOrdersTab({
           <div className="flex items-center gap-2">
             {viewToggle}
             {statusSelect}
+            {dateFilters}
           </div>
           <div className="flex items-center gap-1.5">
             {trailingButtons}
@@ -546,6 +568,7 @@ function PurchaseOrdersTab({
               <div className="flex w-fit shrink-0 items-center gap-2">
                 {viewToggle}
                 {statusSelect}
+                {dateFilters}
               </div>
             }
             toolbarTrailing={trailingButtons}
@@ -749,9 +772,11 @@ function DirectPurchasesTab({
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const totalAmount = directPurchases.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
+  const filtered = directPurchases.filter((p) => !statusFilter || p.status === statusFilter);
+  const totalAmount = filtered.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
 
   const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
 
@@ -822,22 +847,48 @@ function DirectPurchasesTab({
           }
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <DataTable
-            data={directPurchases}
-            initialSort={{ key: "billDate", direction: "desc" }}
-            columns={columnsWithActions}
-            searchable
-            searchPlaceholder="Search by bill no, supplier, location…"
-            showTotals
-            sumColumns={["amount"]}
-            totalFormat={(_k, sum) => formatCurrency(sum)}
-            hideable
-            pageSize={50}
-            onAddRow={canCreate && materials.length > 0 && locations.length > 0 ? () => setFormOpen(true) : undefined}
-            addRowLabel="New Cash Purchase"
-          />
-        </div>
+        <>
+          {/* ── Toolbar: status filter + New Cash Purchase ── */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="relative shrink-0" style={{ width: 150 }}>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ width: 150 }}
+                  className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+                >
+                  <option value="">All statuses</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+              </div>
+            </div>
+            {canCreate && materials.length > 0 && locations.length > 0 && (
+              <Button onClick={() => setFormOpen(true)} size="sm">
+                <Plus className="h-4 w-4" /> New Cash Purchase
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border overflow-hidden">
+            <DataTable
+              data={filtered}
+              initialSort={{ key: "billDate", direction: "desc" }}
+              columns={columnsWithActions}
+              searchable
+              searchPlaceholder="Search by bill no, supplier, location…"
+              showTotals
+              sumColumns={["amount"]}
+              totalFormat={(_k, sum) => formatCurrency(sum)}
+              hideable
+              pageSize={50}
+              onAddRow={canCreate && materials.length > 0 && locations.length > 0 ? () => setFormOpen(true) : undefined}
+              addRowLabel="New Cash Purchase"
+            />
+          </div>
+        </>
       )}
 
       <DirectPurchaseFormDialog

@@ -73,7 +73,7 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} incident{filtered.length !== 1 ? "s" : ""}
@@ -82,36 +82,36 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
           )}
         <div className="flex flex-col gap-2">
           {filtered.map((i) => (
-            <Link key={i.id} href={`/m/safety/incidents/${i.id}`} className="rounded-[0.5rem] border p-2.5 block press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <Link key={i.id} href={`/m/safety/incidents/${i.id}`} className="rounded-[0.5rem] border p-2.5 block text-m-body press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{i.incidentNumber}</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{i.incidentNumber}</p>
                 <MobileStatusBadge status={i.status} />
               </div>
-              <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{i.title}</p>
-              <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{TYPE_LABELS[i.type] ?? i.type} · {i.projectName}{i.location ? ` · ${i.location}` : ""}</p>
+              <p className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{i.title}</p>
+              <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{TYPE_LABELS[i.type] ?? i.type} · {i.projectName}{i.location ? ` · ${i.location}` : ""}</p>
               <div className="flex items-center gap-3">
                 <div>
-                  <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Severity</p>
-                  <p className="text-[0.625rem] font-bold" style={{ color: SEVERITY_COLORS[i.severity] ?? "var(--color-ink-500)" }}>{i.severity.replace("_", " ")}</p>
+                  <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Severity</p>
+                  <p className="text-m-label font-bold" style={{ color: SEVERITY_COLORS[i.severity] ?? "var(--color-ink-500)" }}>{i.severity.replace("_", " ")}</p>
                 </div>
                 {(i.injuredCount > 0 || i.fatalities > 0) && (
                   <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
                 )}
                 {i.injuredCount > 0 && (
                   <div>
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Injured</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>{i.injuredCount}</p>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Injured</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>{i.injuredCount}</p>
                   </div>
                 )}
                 {i.fatalities > 0 && (
                   <div>
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Fatal</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>{i.fatalities}</p>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Fatal</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>{i.fatalities}</p>
                   </div>
                 )}
                 <div className="ml-auto text-right">
-                  <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Date</p>
-                  <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.incidentDate)}</p>
+                  <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Date</p>
+                  <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.incidentDate)}</p>
                 </div>
               </div>
             </Link>

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import { MobileContextMenu, type ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { useLongPress } from "@/lib/use-long-press";
@@ -68,6 +69,8 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 export function MobileRequisitionsList({
   items: initialItems,
   canCreate,
+  canApprove,
+  submittedCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
   exportTitle,
@@ -77,6 +80,8 @@ export function MobileRequisitionsList({
 }: {
   items: RequisitionListItem[];
   canCreate?: boolean;
+  canApprove?: boolean;
+  submittedCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
   exportTitle?: string;
@@ -113,6 +118,7 @@ export function MobileRequisitionsList({
   if (items.length === 0) {
     return (
       <div>
+        <PageLead flow="requisition" />
         <MobileEmptyState
           icon={ShoppingCart}
           title="No material indents"
@@ -158,6 +164,14 @@ export function MobileRequisitionsList({
         }}
       />
 
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="requisition" />
+      <NextActionCard
+        flow="requisition"
+        count={submittedCount}
+        can={(perm) => perm === "REQUISITION_APPROVE" ? !!canApprove : false}
+      />
+
       {/* ── Results ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
@@ -170,7 +184,7 @@ export function MobileRequisitionsList({
           {(query || statusFilter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} requisition{filtered.length !== 1 ? "s" : ""}
@@ -353,14 +367,14 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
         {/* Row 1: Req number + needed-by badge */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.5625rem] font-mono font-bold truncate"
+            className="text-m-caption font-mono font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {req.reqNumber}
           </span>
           {neededText ? (
             <span
-              className="text-[0.5625rem] font-bold tabular-nums px-2 py-0.5 rounded-[0.375rem] shrink-0"
+              className="text-m-caption font-bold tabular-nums px-2 py-0.5 rounded-[0.375rem] shrink-0"
               style={{
                 backgroundColor: neededUrgent
                   ? neededColor
@@ -375,7 +389,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
 
         {/* Row 2: Project name */}
         <p
-          className="text-[0.625rem] font-bold leading-tight truncate"
+          className="text-m-label font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {req.projectName ?? "No project"}
@@ -384,13 +398,13 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
         {/* Row 3: Requester + line count */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.4375rem] truncate"
+            className="text-m-caption truncate"
             style={{ color: "var(--color-ink-500)" }}
           >
             {req.requestedByName ?? "—"}
           </span>
           <span
-            className="text-[0.4375rem] font-semibold tabular-nums shrink-0"
+            className="text-m-caption font-semibold tabular-nums shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
             {req.lineCount} item{req.lineCount !== 1 ? "s" : ""}
@@ -406,7 +420,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                 style={{ backgroundColor: "var(--color-signal)" }}
               />
               <span
-                className="text-[0.375rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-signal)" }}
               >
                 Needs approval
@@ -420,7 +434,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                   style={{ backgroundColor: "var(--color-go)" }}
                 />
                 <span
-                  className="text-[0.375rem] font-semibold"
+                  className="text-m-caption font-semibold"
                   style={{ color: "var(--color-go)" }}
                 >
                   Convert to Purchase Order
@@ -433,7 +447,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                   style={{ backgroundColor: "var(--color-signal)" }}
                 />
                 <span
-                  className="text-[0.375rem] font-semibold"
+                  className="text-m-caption font-semibold"
                   style={{ color: "var(--color-signal)" }}
                 >
                   {req.quoteCount}/{req.minQuotesRequired} quotes
@@ -447,7 +461,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                 style={{ color: "var(--color-go)" }}
               />
               <span
-                className="text-[0.375rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-go)" }}
               >
                 Purchase Order created
@@ -455,14 +469,14 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
             </div>
           ) : req.status === "REJECTED" ? (
             <span
-              className="text-[0.375rem] font-semibold truncate"
+              className="text-m-caption font-semibold truncate"
               style={{ color: "var(--color-stop)" }}
             >
               {req.rejectReason ?? "Rejected"}
             </span>
           ) : req.status === "DRAFT" ? (
             <span
-              className="text-[0.375rem]"
+              className="text-m-caption"
               style={{ color: "var(--color-ink-500)" }}
             >
               {formatDate(req.createdAt)}

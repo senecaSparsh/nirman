@@ -148,7 +148,7 @@ export function MobileNewNcrDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
       <div
         className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}
@@ -157,9 +157,9 @@ export function MobileNewNcrDialog({
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-2">
             <ClipboardCheck className="size-4" style={{ color: "var(--color-ink-950)" }} />
-            <h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Raise NCR</h2>
+            <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Raise NCR</h2>
           </div>
-          <button onClick={onClose} className="press">
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -167,11 +167,11 @@ export function MobileNewNcrDialog({
         <div className="p-4 space-y-4">
           {/* Project */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
             <select
               value={form.projectId}
               onChange={(e) => set("projectId", e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -180,25 +180,25 @@ export function MobileNewNcrDialog({
 
           {/* Title */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
             <input
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
               placeholder="e.g. Uneven plaster in flat 302"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={3}
               placeholder="What is non-conforming? Be specific…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -206,22 +206,22 @@ export function MobileNewNcrDialog({
           {/* Category + Severity */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Category</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Category</label>
               <select
                 value={form.category}
                 onChange={(e) => set("category", e.target.value as NcrCategory)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
               <select
                 value={form.severity}
                 onChange={(e) => set("severity", e.target.value as NcrSeverity)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 {SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -230,18 +230,18 @@ export function MobileNewNcrDialog({
           </div>
 
           {/* Severity description */}
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             {SEVERITIES.find((s) => s.value === form.severity)?.desc}
           </p>
 
           {/* Location */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location (optional)</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location (optional)</label>
             <input
               value={form.location}
               onChange={(e) => set("location", e.target.value)}
               placeholder="e.g. Tower A, 3rd floor, flat 302"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -249,11 +249,11 @@ export function MobileNewNcrDialog({
           {/* WBS Node + BOQ Item */}
           <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
               <select
                 value={form.wbsNodeId}
                 onChange={(e) => set("wbsNodeId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 disabled={wbsOptions.length === 0}
               >
@@ -262,11 +262,11 @@ export function MobileNewNcrDialog({
               </select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>BOQ Item (optional)</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>BOQ Item (optional)</label>
               <select
                 value={form.boqItemId}
                 onChange={(e) => set("boqItemId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 disabled={boqOptions.length === 0}
               >
@@ -279,21 +279,21 @@ export function MobileNewNcrDialog({
           {/* Responsible party + Subcontractor */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Responsible Party</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Responsible Party</label>
               <input
                 value={form.responsibleParty}
                 onChange={(e) => set("responsibleParty", e.target.value)}
                 placeholder="e.g. In-house team"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Subcontractor</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Subcontractor</label>
               <select
                 value={form.subcontractorId}
                 onChange={(e) => set("subcontractorId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 <option value="">— None —</option>
@@ -306,7 +306,7 @@ export function MobileNewNcrDialog({
 
           {/* Photo evidence */}
           <div>
-            <label className="text-[0.5625rem] font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
               Photo Evidence
             </label>
             <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
@@ -316,7 +316,7 @@ export function MobileNewNcrDialog({
           <div className="flex gap-2 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               Cancel
@@ -324,7 +324,7 @@ export function MobileNewNcrDialog({
             <button
               onClick={onSave}
               disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}

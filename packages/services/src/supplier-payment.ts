@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Supplier Payment Service — recording money paid out to suppliers.
@@ -48,7 +49,7 @@ export async function createSupplierPayment(input: {
   if (tdsAmount.gt(amount)) throw new ServiceError("TDS amount cannot exceed payment amount");
   const netPaidAmount = amount.minus(tdsAmount);
 
-  const payment = await prisma.$transaction(async (tx) => {
+  const payment = await withSerializableTransaction(async (tx) => {
     // 1. Validate supplier exists and isn't deleted
     const supplier = await tx.supplier.findFirst({
       where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },

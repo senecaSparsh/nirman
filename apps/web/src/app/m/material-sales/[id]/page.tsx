@@ -4,7 +4,9 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileMaterialSaleDetailClient } from "./MobileMaterialSaleDetailClient";
+import { resolveNextAction } from "@/lib/flow-map";
 
 export default function MobileMaterialSaleDetailPage({
   params,
@@ -92,12 +94,32 @@ async function MobileMaterialSaleDetailContent({
       })
     : null;
 
+  const nextAction = resolveNextAction("materialSale", sale.status, role);
+
+  // Lifecycle pipeline: PENDING → ACTIVE → CANCELLED
+  const msPipelineSteps: MobilePipelineStep[] = sale.status === "CANCELLED"
+    ? [
+        { label: "Pending", state: "done" },
+        { label: "Active", state: "skipped" },
+        { label: "Cancelled", state: "current" },
+      ]
+    : [
+        { label: "Pending", state: sale.status === "PENDING" ? "current" : "done" },
+        { label: "Active", state: sale.status === "ACTIVE" ? "current" : "pending" },
+        { label: "Cancelled", state: "pending" },
+      ];
+
   return (
-    <MobileMaterialSaleDetailClient
-      saleId={sale.id}
+    <>
+      <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={msPipelineSteps} />
+      </div>
+      <MobileMaterialSaleDetailClient
+        saleId={sale.id}
       saleNumber={sale.saleNumber}
       status={sale.status}
       paymentStatus={sale.paymentStatus}
+      nextAction={nextAction ? { label: nextAction.label, reason: nextAction.reason, tone: nextAction.tone ?? "signal", hash: nextAction.action.type === "anchor" ? nextAction.action.hash : undefined, href: nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", sale.id) : undefined } : null}
       saleDate={sale.saleDate.toISOString()}
       subtotal={toNum(sale.subtotal)}
       gstTotal={toNum(sale.gstTotal)}
@@ -141,5 +163,6 @@ async function MobileMaterialSaleDetailContent({
       }))}
       canManage={canManage}
     />
+    </>
   );
 }

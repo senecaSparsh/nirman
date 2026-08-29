@@ -240,7 +240,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   if (process.env.NEXT_PUBLIC_AUTH_BYPASS !== "true" && sessionLoading && !session) {
     return (
       <div className="flex min-h-dvh items-center justify-center" style={{ backgroundColor: "var(--color-paper-2)" }}>
-        <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--color-ink-300)" }} />
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-300)" }} />
       </div>
     );
   }
@@ -437,7 +437,7 @@ function MobileShellInner({
       {/* ── Offline banner — subtle indicator, not an alarm ── */}
       {isOffline && (
         <div
-          className="flex items-center justify-between gap-2 px-3 py-1 text-[0.625rem] font-semibold"
+          className="flex items-center justify-between gap-2 px-3 py-1 text-m-label font-semibold"
           style={{
             backgroundColor: "var(--color-signal-wash)",
             color: "var(--color-signal-dark)",
@@ -453,7 +453,7 @@ function MobileShellInner({
           {offlineQueueCount > 0 && (
             <Link
               href="/m/queue"
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide active:opacity-80"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-m-caption font-bold uppercase tracking-wide active:opacity-80"
               style={{
                 backgroundColor: "var(--color-signal)",
                 color: "var(--color-ink-950)",
@@ -472,10 +472,15 @@ function MobileShellInner({
 
       {/* ══ HEADER — minimal, matches Nirman OS ══ */}
       <header
-        className="sticky top-0 z-30 border-b px-4 py-2.5"
+        className="sticky top-0 z-30 px-4 py-2.5"
         style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
+          /* Apple §12 — translucent material, not an opaque bar. Content
+             scrolls underneath; blur + saturate conveys hierarchy. Bright
+             bottom edge = light catching the material. */
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -485,7 +490,7 @@ function MobileShellInner({
               <button
                 onClick={goBack}
                 aria-label="Back"
-                className="press grid place-items-center size-9 rounded-[0.375rem]"
+                className="press grid place-items-center size-9 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
               >
                 <ChevronLeft className="size-5" />
@@ -502,7 +507,7 @@ function MobileShellInner({
             )}
             {isDrillDown ? (
               <span
-                className="text-[0.6875rem] font-bold truncate"
+                className="text-m-body font-bold truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {activeTab?.label ?? pageTitleFromPath(pathname)}
@@ -511,7 +516,7 @@ function MobileShellInner({
               <div ref={companySwitcherRef} className="relative min-w-0">
                 <button
                   onClick={() => canSwitchCompany && onToggleCompanySwitcher()}
-                  className="flex items-center gap-1 text-[0.6875rem] font-bold truncate press rounded-[0.25rem] px-0.5 py-0.5"
+                  className="flex items-center gap-1 text-m-body font-bold truncate text-m-body press rounded-[0.25rem] px-0.5 py-0.5"
                   style={{ color: "var(--color-ink-950)" }}
                   aria-label="Switch company"
                 >
@@ -540,21 +545,21 @@ function MobileShellInner({
                           key={c.id}
                           onClick={() => onSwitchCompany(c.id)}
                           disabled={switchingCompanyId !== null}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left press disabled:opacity-50"
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
                           style={{
                             backgroundColor: c.isCurrent ? "var(--color-concrete)" : "transparent",
                           }}
                         >
                           <div className="min-w-0 flex-1">
                             <p
-                              className="text-[0.6875rem] font-semibold truncate"
+                              className="text-m-body font-semibold truncate"
                               style={{ color: "var(--color-ink-950)" }}
                             >
                               {c.name}
                             </p>
                             {c.businessType && (
                               <p
-                                className="text-[0.5rem] truncate"
+                                className="text-m-caption truncate"
                                 style={{ color: "var(--color-ink-500)" }}
                               >
                                 {c.businessType}
@@ -594,7 +599,7 @@ function MobileShellInner({
             {/* Pending sync badge */}
             {offlineQueueCount > 0 ? (
               <span
-                className="inline-flex items-center gap-1 rounded-[0.375rem] px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide"
+                className="inline-flex items-center gap-1 rounded-[0.375rem] px-1.5 py-0.5 text-m-caption font-bold uppercase tracking-wide"
                 style={{
                   backgroundColor: "var(--color-signal-wash)",
                   color: "var(--color-signal-dark)",
@@ -658,7 +663,7 @@ function MobileShellInner({
         ) : null}
         {/* Centered content container — matches Nirman OS buyer/ops layout */}
         <div
-          className="mx-auto w-full max-w-[34rem] px-3.5 py-3 fade-in"
+          className="mx-auto w-full max-w-md px-3.5 py-3 overflow-x-hidden fade-in"
           style={swipeOffset > 0 ? { transform: `translateX(${swipeOffset * 0.3}px)` } : undefined}
         >
           {children}
@@ -667,11 +672,16 @@ function MobileShellInner({
 
       {/* ══ BOTTOM NAV — persona-based tabs ══ */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t"
+        className="fixed inset-x-0 bottom-0 z-30"
         style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-          borderColor: "var(--color-line)",
-          backdropFilter: "blur(8px)",
+          /* Apple §12 — translucent material, not an opaque bar. Content
+             scrolls underneath; the blur + saturate conveys hierarchy
+             without stealing focus. Bright top edge = light catching the
+             material (Apple's vibrancy detail). */
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderTop: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
         }}
         aria-label="Module navigation"
       >
@@ -742,7 +752,7 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
         />
         {badge != null && badge > 0 ? (
           <span
-            className="absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-[0.5625rem] font-bold grid place-items-center tabular-nums"
+            className="absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-m-caption font-bold grid place-items-center tabular-nums"
             style={{
               backgroundColor: "var(--color-signal)",
               color: "var(--color-ink-950)",
@@ -755,7 +765,7 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
 
       {/* Label */}
       <span
-        className="text-[0.5rem] font-semibold tracking-wide"
+        className="text-m-caption font-semibold tracking-wide"
         style={{ color: active ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
       >
         {tab.label}
@@ -770,7 +780,7 @@ function SearchTabButton({ tab, onClick }: { tab: ModuleTab; onClick: () => void
   return (
     <button
       onClick={onClick}
-      className="press flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[3rem] relative transition-colors"
+      className="text-m-body press flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[3rem] relative transition-colors"
       style={{ color: "var(--color-ink-500)" }}
       aria-label="Search"
     >
@@ -778,7 +788,7 @@ function SearchTabButton({ tab, onClick }: { tab: ModuleTab; onClick: () => void
         <Icon className="size-[18px]" style={{ color: "var(--color-ink-500)" }} />
       </span>
       <span
-        className="text-[0.5rem] font-semibold tracking-wide"
+        className="text-m-caption font-semibold tracking-wide"
         style={{ color: "var(--color-ink-500)" }}
       >
         {tab.label}

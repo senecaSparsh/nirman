@@ -16,6 +16,7 @@ import {
   Building2,
   Shield,
   Monitor,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
@@ -25,7 +26,7 @@ import {
   getTallySyncStats,
 } from "@nirman/services";
 import { getCompany, getCurrentUser, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate, humanizeAuditAction } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction } from "@/lib/utils";
 import {
   MobileRow,
   Badge,
@@ -181,7 +182,7 @@ async function SettingsContent() {
             <DuesRow
               icon={Receipt}
               label="Pending payables"
-              value={formatCurrency(totalPayables)}
+              value={formatCurrencyCompact(totalPayables)}
               hint={`${payableVendorCount} vendors with dues`}
               tone="stop"
               href="/m/accounts"
@@ -197,7 +198,7 @@ async function SettingsContent() {
             <DuesRow
               icon={TrendingUp}
               label="Portfolio value"
-              value={formatCurrency(toNum(portfolio.totalPortfolioValue))}
+              value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
               hint={`${portfolio.availableUnits} units available`}
               tone="go"
               href="/m/projects"
@@ -260,6 +261,13 @@ async function SettingsContent() {
               meta="Manage"
             />
             <MobileRow
+              href="/m/stock-locations"
+              icon={MapPin}
+              title="Stock locations"
+              subtitle="Warehouses, project sites, departments"
+              meta="Manage"
+            />
+            <MobileRow
               href="/m/permissions"
               icon={Shield}
               title="Permission matrix"
@@ -303,15 +311,15 @@ async function SettingsContent() {
         <InstallAppRow />
         <Link
           href="/?desktop=1"
-          className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 press"
+          className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Monitor className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           <div className="flex-1 min-w-0">
-            <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
               View desktop site
             </p>
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               Switch to the full desktop ERP interface
             </p>
           </div>
@@ -342,13 +350,13 @@ async function SettingsContent() {
                 />
                 <div className="min-w-0 flex-1">
                   <p
-                    className="text-[0.625rem] font-semibold truncate"
+                    className="text-m-label font-semibold truncate"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {humanizeAuditAction(log.action)}
                   </p>
                   <p
-                    className="text-[0.5rem] mt-0.5"
+                    className="text-m-caption mt-0.5"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     {log.user?.name ?? "System"} · {formatDate(log.timestamp)}
@@ -369,7 +377,7 @@ async function SettingsContent() {
       </div>
 
       <p
-        className="text-center text-[0.5rem] mb-4"
+        className="text-center text-m-caption mb-4"
         style={{ color: "var(--color-ink-300)" }}
       >
         Nirman Inventory OS v1.0
@@ -389,7 +397,7 @@ function ZoneDivider({ label }: { label: string }) {
       className="flex items-center gap-2 mb-2 mt-1"
     >
       <span
-        className="text-[0.5625rem] font-bold uppercase tracking-[0.1em]"
+        className="text-m-caption font-bold uppercase tracking-[0.1em]"
         style={{ color: "var(--color-ink-300)" }}
       >
         {label}
@@ -426,7 +434,7 @@ function DuesRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 rounded-[0.625rem] border border-l-4 p-2.5 press"
+      className="flex items-center gap-2.5 rounded-[0.625rem] border border-l-4 p-2.5 text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         borderLeftColor: color,
@@ -441,14 +449,14 @@ function DuesRow({
       </span>
       <div className="min-w-0 flex-1">
         <p
-          className="text-[0.6875rem] font-semibold leading-tight"
+          className="text-m-body font-semibold leading-tight"
           style={{ color: "var(--color-ink-950)" }}
         >
           {label}
         </p>
         {hint ? (
           <p
-            className="text-[0.5rem] mt-0.5"
+            className="text-m-caption mt-0.5"
             style={{ color: "var(--color-ink-500)" }}
           >
             {hint}
@@ -456,7 +464,7 @@ function DuesRow({
         ) : null}
       </div>
       <span
-        className="text-[0.75rem] font-bold tabular-nums shrink-0"
+        className="text-m-section font-bold tabular-nums shrink-0"
         style={{ color }}
       >
         {value}
@@ -475,7 +483,7 @@ function SignOutButton() {
     <form action="/api/auth/sign-out" method="POST">
       <button
         type="submit"
-        className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] border-2 p-2.5 text-[0.75rem] font-semibold press"
+        className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] border-2 p-2.5 text-m-section font-semibold text-m-body press"
         style={{
           borderColor: "var(--color-stop)",
           color: "var(--color-stop)",

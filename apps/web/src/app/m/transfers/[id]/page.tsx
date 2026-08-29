@@ -6,6 +6,8 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { resolveNextAction } from "@/lib/flow-map";
 import { MobileTransferDetailClient } from "./MobileTransferDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
@@ -212,9 +214,23 @@ async function MobileTransferDetailContent({
     pipelineSteps[2] = { label: "Receive", state: "skipped" };
   }
 
+  const nextAction = resolveNextAction("stockTransfer", transfer.status, role);
+
   return (
     <>
       <RecordRecentItem type="transfer" id={serialized.id} label={`${serialized.fromLocation.name} → ${serialized.toLocation.name}`} href={`/m/transfers/${serialized.id}`} />
+
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", serialized.id) : undefined}
+        />
+      ) : null}
+
       <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={pipelineSteps} />
       </div>

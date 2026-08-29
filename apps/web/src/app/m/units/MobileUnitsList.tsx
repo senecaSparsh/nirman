@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { Building } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -107,7 +109,15 @@ export function MobileUnitsList({
 
   const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={Building}
+        title="No units"
+        hint="Built units will appear here once created"
+      />
+    );
+  }
 
   return (
     <div>
@@ -156,32 +166,32 @@ function UnitCard({ u, showProject }: { u: UnitListItem; showProject: boolean })
   return (
     <Link
       href={`/m/units/${u.id}`}
-      className="flex flex-col rounded-[0.5rem] border p-2.5 press overflow-hidden"
+      className="flex flex-col rounded-[0.5rem] border p-2.5 text-m-body press overflow-hidden"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       {/* Top accent strip */}
       <div className="h-0.5 -mx-2.5 -mt-2.5 mb-2" style={{ backgroundColor: tone }} />
       <div className="flex items-start justify-between gap-2 mb-1">
-        <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
           {u.unitNumber}
         </p>
         <span
-          className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+          className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
           style={{ backgroundColor: tone, color: "#fff" }}
         >
           {STATUS_LABEL[u.status] ?? u.status}
         </span>
       </div>
-      <p className="text-[0.5625rem] mb-1.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption mb-1.5 truncate" style={{ color: "var(--color-ink-500)" }}>
         {typeLabel} · {formatNumber(u.area, 0)} {u.areaUnit}
         {showProject ? ` · ${u.projectName}` : ""}
       </p>
       <div className="flex items-baseline justify-between mt-auto">
-        <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           Price
         </span>
         <span
-          className="text-[0.625rem] font-bold tabular-nums"
+          className="text-m-label font-bold tabular-nums"
           style={{ color: u.askingPrice != null ? "var(--color-steel)" : "var(--color-stop)" }}
         >
           {u.askingPrice != null ? formatCurrency(u.askingPrice) : "—"}
@@ -205,7 +215,7 @@ function FlatList({ items, projectFiltered }: { items: UnitListItem[]; projectFi
   }
   return (
     <div>
-      <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+      <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         Results ({items.length})
       </h3>
       <MobileCardGrid cols={2}>
@@ -237,7 +247,7 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Available + pipeline — the sellable units */}
       {pipeline.length > 0 ? (
         <div>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sellable ({pipeline.length})
           </h3>
           <MobileCardGrid cols={2}>
@@ -251,7 +261,7 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Sold */}
       {sold.length > 0 ? (
         <div>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sold ({sold.length})
           </h3>
           <MobileCardGrid cols={2}>
@@ -265,7 +275,7 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Reserved */}
       {reserved.length > 0 ? (
         <div>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Reserved ({reserved.length})
           </h3>
           <MobileCardGrid cols={2}>
@@ -279,7 +289,7 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Hold */}
       {hold.length > 0 ? (
         <div>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             On Hold ({hold.length})
           </h3>
           <MobileCardGrid cols={2}>
@@ -293,7 +303,7 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Rented */}
       {rented.length > 0 ? (
         <div>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Rented ({rented.length})
           </h3>
           <MobileCardGrid cols={2}>

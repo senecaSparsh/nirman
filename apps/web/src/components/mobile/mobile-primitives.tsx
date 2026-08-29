@@ -61,31 +61,45 @@ export function MobilePageHeader({
   stats?: { label: string; value: string; tone?: "default" | "warning" | "danger" | "success" }[];
 }) {
   return (
-    <div className="border-b border-border bg-background">
+    <div
+      className="border-b"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
       <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3.5">
         <div className="min-w-0">
-          <h1 className="truncate text-[19px] font-bold leading-tight tracking-[-0.02em] text-foreground">
+          <h1
+            className="truncate text-m-section font-bold leading-tight tracking-[-0.02em]"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-1 text-meta leading-snug text-muted-foreground">{subtitle}</p>
+            <p className="mt-1 text-m-caption leading-snug" style={{ color: "var(--color-ink-500)" }}>{subtitle}</p>
           )}
         </div>
         {right && <div className="shrink-0">{right}</div>}
       </div>
       {stats && stats.length > 0 && (
-        <dl className="flex items-stretch divide-x divide-border border-t border-border">
-          {stats.map((s) => (
-            <div key={s.label} className="min-w-0 flex-1 px-4 py-2.5">
-              <dt className="truncate text-label text-muted-foreground">{s.label}</dt>
+        <dl
+          className="flex items-stretch border-t"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          {stats.map((s, i) => (
+            <div
+              key={s.label}
+              className="min-w-0 flex-1 px-4 py-2.5"
+              style={i > 0 ? { borderLeft: "1px solid var(--color-line)" } : undefined}
+            >
+              <dt className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{s.label}</dt>
               <dd
-                className={cn(
-                  "mt-1 truncate text-[17px] font-semibold leading-none tnum",
-                  s.tone === "warning" && "text-warning",
-                  s.tone === "danger" && "text-danger",
-                  s.tone === "success" && "text-success",
-                  (!s.tone || s.tone === "default") && "text-foreground",
-                )}
+                className="mt-1 truncate text-m-section font-semibold leading-none tnum"
+                style={{
+                  color:
+                    s.tone === "warning" ? "var(--color-warn)" :
+                    s.tone === "danger" ? "var(--color-stop)" :
+                    s.tone === "success" ? "var(--color-go)" :
+                    "var(--color-ink-950)",
+                }}
               >
                 {s.value}
               </dd>
@@ -124,7 +138,7 @@ export function MobileDetailHeader({
         <ChevronLeft className="size-5" />
       </Link>
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-[17px] font-bold leading-tight tracking-[-0.02em] text-foreground">
+        <h1 className="truncate text-m-section font-bold leading-tight tracking-[-0.02em] text-foreground">
           {title}
         </h1>
         {subtitle && (
@@ -190,7 +204,7 @@ export function MobileStatCard({
         <span className="min-w-0 truncate text-label text-muted-foreground">{label}</span>
         {href && <ChevronRight className="ml-auto size-3.5 shrink-0 text-faint" />}
       </div>
-      <div className={cn("mt-1.5 text-[20px] font-semibold leading-none tnum", toneColor)}>
+      <div className={cn("mt-1.5 text-m-section font-semibold leading-none tnum", toneColor)}>
         {value}
       </div>
       {hint && <div className="mt-1.5 text-caption leading-snug text-muted-foreground">{hint}</div>}
@@ -261,7 +275,7 @@ export function MobileRow({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-semibold leading-snug text-foreground">{title}</div>
+        <div className="truncate text-m-section font-semibold leading-snug text-foreground">{title}</div>
         {subtitle && (
           <div className="mt-0.5 truncate text-caption leading-snug text-muted-foreground">
             {subtitle}
@@ -279,7 +293,7 @@ export function MobileRow({
         ))}
       {meta && (
         <span className="shrink-0 text-right">
-          <span className={cn("block text-[14px] font-semibold leading-tight tnum", metaTone)}>
+          <span className={cn("block text-m-section font-semibold leading-tight tnum", metaTone)}>
             {meta}
           </span>
           {metaSub && (
@@ -341,7 +355,7 @@ export function MobileDataRow({
     <>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-semibold leading-snug text-foreground">
+          <div className="truncate text-m-section font-semibold leading-snug text-foreground">
             {title}
           </div>
           {subtitle && (
@@ -362,12 +376,12 @@ export function MobileDataRow({
       >
         {fields.map((f) => (
           <div key={f.label} className="min-w-0">
-            <dt className="truncate text-[10px] font-semibold uppercase leading-none tracking-wide text-faint">
+            <dt className="truncate text-m-label font-semibold uppercase leading-none tracking-wide text-faint">
               {f.label}
             </dt>
             <dd
               className={cn(
-                "mt-1 truncate text-[13px] font-semibold leading-none tnum",
+                "mt-1 truncate text-m-section font-semibold leading-none tnum",
                 f.tone === "warning" && "text-warning",
                 f.tone === "danger" && "text-danger",
                 f.tone === "success" && "text-success",
@@ -424,7 +438,7 @@ export function MobileInfoRow({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] leading-snug text-foreground">{title}</div>
+        <div className="truncate text-m-section leading-snug text-foreground">{title}</div>
         {subtitle && (
           <div className="mt-0.5 truncate text-caption leading-snug text-muted-foreground">
             {subtitle}
@@ -432,7 +446,7 @@ export function MobileInfoRow({
         )}
       </div>
       {badge != null && badge !== "" && <span className="shrink-0">{badge}</span>}
-      <span className={cn("shrink-0 text-[14px] font-semibold tnum", toneColor)}>{value}</span>
+      <span className={cn("shrink-0 text-m-section font-semibold tnum", toneColor)}>{value}</span>
     </div>
   );
 }
@@ -463,7 +477,7 @@ export function MobileEmptyState({
           <Icon className="size-5" />
         </span>
       )}
-      <p className="text-[15px] font-semibold text-foreground">{title}</p>
+      <p className="text-m-section font-semibold text-foreground">{title}</p>
       {hint && (
         <p className="mt-1.5 max-w-xs text-meta leading-relaxed text-muted-foreground">{hint}</p>
       )}
@@ -491,7 +505,7 @@ export function MobileCta({
   variant?: "primary" | "outline";
 }) {
   const cls = cn(
-    "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-semibold transition-colors",
+    "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 text-m-section font-semibold transition-colors",
     variant === "primary"
       ? "bg-primary text-primary-foreground shadow-raised active:bg-primary/90"
       : "border border-input bg-card text-foreground active:bg-muted",
@@ -600,7 +614,7 @@ export function MobileFab({
       )}
     >
       <Icon className="size-5 shrink-0" />
-      {showLabel && <span className="text-[15px] font-semibold">{label}</span>}
+      {showLabel && <span className="text-m-section font-semibold">{label}</span>}
     </Link>
   );
 }

@@ -7,7 +7,7 @@ import { getEvmMetrics } from "@nirman/services";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -110,11 +110,11 @@ async function MobileProjectControlContent({
       {/* Link to detail page */}
       <Link
         href={`/m/project-control/${projectId}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center justify-between mb-3"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center justify-between mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
-        <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>→</p>
+        <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>→</p>
       </Link>
 
       {/* % Complete Hero */}
@@ -122,10 +122,10 @@ async function MobileProjectControlContent({
         className="rounded-[0.875rem] border p-4 mb-3 text-center"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <p className="text-[0.5625rem] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
           Project Completion
         </p>
-        <p className="text-[2rem] font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
           {formatNumber(pctComplete, 1)}%
         </p>
         <div className="h-2 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-concrete)" }}>
@@ -138,23 +138,23 @@ async function MobileProjectControlContent({
 
       {/* EVM Triple Constraint */}
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <EvmCard label="PV" sublabel="Planned" value={formatCurrency(pv)} icon={Target} />
-        <EvmCard label="EV" sublabel="Earned" value={formatCurrency(ev)} icon={TrendingUp} tone="go" />
-        <EvmCard label="AC" sublabel="Actual" value={formatCurrency(ac)} icon={DollarSign} tone="signal" />
+        <EvmCard label="PV" sublabel="Planned" value={formatCurrencyCompact(pv)} icon={Target} />
+        <EvmCard label="EV" sublabel="Earned" value={formatCurrencyCompact(ev)} icon={TrendingUp} tone="go" />
+        <EvmCard label="AC" sublabel="Actual" value={formatCurrencyCompact(ac)} icon={DollarSign} tone="signal" />
       </div>
 
       {/* Variances */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <VarianceCard
           label="Cost Variance (CV)"
-          value={formatCurrency(cv)}
+          value={formatCurrencyCompact(cv)}
           sublabel={cv >= 0 ? "Under budget" : "Over budget"}
           color={cvColor}
           icon={cv >= 0 ? TrendingDown : AlertTriangle}
         />
         <VarianceCard
           label="Schedule Variance (SV)"
-          value={formatCurrency(sv)}
+          value={formatCurrencyCompact(sv)}
           sublabel={sv >= 0 ? "Ahead of schedule" : "Behind schedule"}
           color={svColor}
           icon={sv >= 0 ? TrendingUp : AlertTriangle}
@@ -172,14 +172,14 @@ async function MobileProjectControlContent({
         className="rounded-[0.625rem] border p-3 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <p className="text-[0.6875rem] font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-body font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
           Forecast
         </p>
         <div className="space-y-1.5">
-          <ForecastRow label="EAC (Estimate at Completion)" value={formatCurrency(eac)} />
-          <ForecastRow label="VAC (Variance at Completion)" value={formatCurrency(vac)} color={vac >= 0 ? "var(--color-go)" : "var(--color-stop)"} />
+          <ForecastRow label="EAC (Estimate at Completion)" value={formatCurrencyCompact(eac)} />
+          <ForecastRow label="VAC (Variance at Completion)" value={formatCurrencyCompact(vac)} color={vac >= 0 ? "var(--color-go)" : "var(--color-stop)"} />
           {project.totalBudget && (
-            <ForecastRow label="Original Budget" value={formatCurrency(project.totalBudget.toNumber())} />
+            <ForecastRow label="Original Budget" value={formatCurrencyCompact(project.totalBudget.toNumber())} />
           )}
         </div>
       </div>
@@ -196,10 +196,10 @@ function EvmCard({ label, sublabel, value, icon: Icon, tone }: { label: string; 
     >
       <div className="flex items-center gap-1 mb-1">
         <Icon className="size-3" style={{ color }} />
-        <p className="text-[0.5625rem] font-bold" style={{ color }}>{label}</p>
+        <p className="text-m-caption font-bold" style={{ color }}>{label}</p>
       </div>
-      <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
-      <p className="text-[0.6875rem] font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-body font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-950)" }}>
         {value}
       </p>
     </div>
@@ -214,10 +214,10 @@ function VarianceCard({ label, value, sublabel, color, icon: Icon }: { label: st
     >
       <div className="flex items-center gap-1 mb-1">
         <Icon className="size-3" style={{ color }} />
-        <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
+        <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
       </div>
-      <p className="text-[0.75rem] font-bold tabular-nums" style={{ color }}>{value}</p>
-      <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-section font-bold tabular-nums" style={{ color }}>{value}</p>
+      <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
     </div>
   );
 }
@@ -228,11 +228,11 @@ function IndexCard({ label, sublabel, value, color, hint }: { label: string; sub
       className="rounded-[0.625rem] border p-2.5"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
-      <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
+      <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>{label}</p>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{sublabel}</p>
       <div className="flex items-baseline gap-1.5 mt-1">
-        <p className="text-[1rem] font-bold tabular-nums" style={{ color }}>{value}</p>
-        <p className="text-[0.4375rem] font-semibold" style={{ color }}>{hint}</p>
+        <p className="text-m-section font-bold tabular-nums" style={{ color }}>{value}</p>
+        <p className="text-m-caption font-semibold" style={{ color }}>{hint}</p>
       </div>
     </div>
   );
@@ -241,8 +241,8 @@ function IndexCard({ label, sublabel, value, color, hint }: { label: string; sub
 function ForecastRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>{label}</span>
-      <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: color ?? "var(--color-ink-950)" }}>{value}</span>
+      <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{label}</span>
+      <span className="text-m-body font-bold tabular-nums" style={{ color: color ?? "var(--color-ink-950)" }}>{value}</span>
     </div>
   );
 }

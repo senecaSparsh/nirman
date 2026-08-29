@@ -30,18 +30,18 @@ export function DraftBanner({
       }}
     >
       <span
-        className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide"
+        className="shrink-0 rounded-full px-1.5 py-px text-m-caption font-bold uppercase tracking-wide"
         style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
       >
         Draft
       </span>
-      <p className="text-[0.5625rem] flex-1 min-w-0 truncate" style={{ color: "var(--color-ink-700)" }}>
+      <p className="text-m-caption flex-1 min-w-0 truncate" style={{ color: "var(--color-ink-700)" }}>
         {formName} saved {relativeTime}
       </p>
       <button
         type="button"
         onClick={onRestore}
-        className="shrink-0 flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-[0.5625rem] font-bold press"
+        className="shrink-0 flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-m-caption font-bold text-m-body press"
         style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         <RotateCcw className="size-2.5" />

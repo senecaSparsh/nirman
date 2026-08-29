@@ -7,7 +7,7 @@ import { getCashFlowForecast } from "@nirman/services";
 import { TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -87,9 +87,9 @@ async function MobileCashFlowContent({
 
       <MobileReportSummary
         items={[
-          { label: "Inflows", value: formatCurrency(totalInflow), tone: "go" },
-          { label: "Outflows", value: formatCurrency(totalOutflow), tone: "stop" },
-          { label: "Net Cash", value: formatCurrency(netCashFlow), tone: netCashFlow >= 0 ? "go" : "stop" },
+          { label: "Inflows", value: formatCurrencyCompact(totalInflow), tone: "go" },
+          { label: "Outflows", value: formatCurrencyCompact(totalOutflow), tone: "stop" },
+          { label: "Net Cash", value: formatCurrencyCompact(netCashFlow), tone: netCashFlow >= 0 ? "go" : "stop" },
           { label: "Scheduled", value: String(scheduledPayments.length) },
         ]}
       />
@@ -100,7 +100,7 @@ async function MobileCashFlowContent({
           <a
             key={p.id}
             href={`/m/reports/cash-flow?project=${p.id}`}
-            className="shrink-0 rounded-full border px-3 py-1.5 text-[0.625rem] font-semibold press"
+            className="shrink-0 rounded-full border px-3 py-1.5 text-m-label font-semibold text-m-body press"
             style={{
               borderColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -117,7 +117,7 @@ async function MobileCashFlowContent({
           title="Cash Flow Forecast"
           rows={scheduledPayments as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Inflows: ${formatCurrency(totalInflow)} · Outflows: ${formatCurrency(totalOutflow)} · Net: ${formatCurrency(netCashFlow)}`}
+          summary={`Inflows: ${formatCurrencyCompact(totalInflow)} · Outflows: ${formatCurrencyCompact(totalOutflow)} · Net: ${formatCurrency(netCashFlow)}`}
         />
       </div>
 
@@ -130,16 +130,16 @@ async function MobileCashFlowContent({
             { label: "Outflows", value: totalOutflow, tone: "stop" as const },
             { label: "Net Cash", value: netCashFlow, tone: netCashFlow >= 0 ? ("go" as const) : ("stop" as const) },
           ]}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
       {/* Outflow breakdown */}
       <MobileSectionTitle>Outflows</MobileSectionTitle>
       <div className="flex flex-col gap-2 mb-4">
-        <MobileRow icon={TrendingDown} title="Commitments" meta={formatCurrency(cf.outflows.commitments.toNumber())} tone="danger" />
-        <MobileRow icon={Calendar} title="Pending RA Bills" meta={formatCurrency(cf.outflows.pendingRaBills.toNumber())} tone="danger" />
-        <MobileRow icon={Wallet} title="Payroll Due" meta={formatCurrency(cf.outflows.payrollDue.toNumber())} tone="danger" />
+        <MobileRow icon={TrendingDown} title="Commitments" meta={formatCurrencyCompact(cf.outflows.commitments.toNumber())} tone="danger" />
+        <MobileRow icon={Calendar} title="Pending RA Bills" meta={formatCurrencyCompact(cf.outflows.pendingRaBills.toNumber())} tone="danger" />
+        <MobileRow icon={Wallet} title="Payroll Due" meta={formatCurrencyCompact(cf.outflows.payrollDue.toNumber())} tone="danger" />
       </div>
 
       {/* Scheduled payments */}
@@ -153,7 +153,7 @@ async function MobileCashFlowContent({
                 icon={TrendingUp}
                 title={p.customerName}
                 subtitle={`${p.unitName} · ${formatDate(p.dueDate)}`}
-                meta={formatCurrency(p.amount)}
+                meta={formatCurrencyCompact(p.amount)}
                 tone="success"
               />
             ))}

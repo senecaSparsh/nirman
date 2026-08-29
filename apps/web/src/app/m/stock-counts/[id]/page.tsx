@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import { Printer } from "lucide-react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileStockCountDetailClient } from "./MobileStockCountDetailClient";
 
 /**
@@ -91,10 +93,32 @@ async function MobileStockCountDetailContent({
     })),
   };
 
+  // Lifecycle pipeline: DRAFT → COUNTED → RECONCILED
+  const scPipelineSteps: MobilePipelineStep[] = [
+    { label: "Draft", state: count.status === "DRAFT" ? "current" : "done" },
+    { label: "Counted", state: count.status === "COUNTED" ? "current" : count.status === "RECONCILED" ? "done" : "pending" },
+    { label: "Reconciled", state: count.status === "RECONCILED" ? "current" : "pending" },
+  ];
+
   return (
-    <MobileStockCountDetailClient
-      count={serialized}
-      canManage={canManage}
-    />
+    <>
+      <div className="mb-3 flex items-center justify-between rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={scPipelineSteps} />
+        <a
+          href={`/print/stock-counts/${count.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press shrink-0"
+          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+        >
+          <Printer className="size-3.5" />
+          Print
+        </a>
+      </div>
+      <MobileStockCountDetailClient
+        count={serialized}
+        canManage={canManage}
+      />
+    </>
   );
 }

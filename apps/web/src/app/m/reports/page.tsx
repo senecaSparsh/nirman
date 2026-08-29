@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileStatCard,
@@ -100,12 +100,12 @@ async function MobileReportsHubContent() {
       />
 
       {/* ── Headline metrics ── */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <MobileStatCard label="Inventory Value" value={formatCurrency(inventoryValue)} icon={Package} />
-        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="go" />
-        <MobileStatCard label="Purchase Spend" value={formatCurrency(purchaseSpend)} icon={Truck} />
-        <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} />
-        <MobileStatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={Wallet} />
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        <MobileStatCard label="Inventory Value" value={formatCurrencyCompact(inventoryValue)} icon={Package} />
+        <MobileStatCard label="Sales Revenue" value={formatCurrencyCompact(salesRevenue)} icon={ShoppingCart} tone="go" />
+        <MobileStatCard label="Purchase Spend" value={formatCurrencyCompact(purchaseSpend)} icon={Truck} />
+        <MobileStatCard label="Project Costs" value={formatCurrencyCompact(totalProjectCosts)} icon={Building2} />
+        <MobileStatCard label="Expenses" value={formatCurrencyCompact(totalExpenses)} icon={Wallet} />
         <MobileStatCard
           label="Net Profit"
           value={formatCurrency(netProfit)}
@@ -116,7 +116,7 @@ async function MobileReportsHubContent() {
 
       {/* ── Basis clarification ── */}
       <div
-        className="rounded-[0.5rem] border px-3 py-2 mb-4 text-[0.5rem]"
+        className="rounded-[0.5rem] border px-3 py-2 mb-4 text-m-caption"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
       >
         <strong style={{ color: "var(--color-ink-700)" }}>Note:</strong> Revenue = cash received (not booked).
@@ -207,7 +207,7 @@ function ReportLink({
   return (
     <a
       href={href}
-      className="flex items-center gap-2.5 rounded-[0.5rem] border p-2.5 press active:scale-[0.99] transition-transform"
+      className="flex items-center gap-2.5 rounded-[0.5rem] border p-2.5 text-m-body press active:scale-[0.99] transition-transform"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <span
@@ -217,10 +217,10 @@ function ReportLink({
         <Icon className="size-4" style={{ color: "var(--color-ink-600)" }} />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[0.75rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
-        <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
           {sublabel}
         </p>
       </div>

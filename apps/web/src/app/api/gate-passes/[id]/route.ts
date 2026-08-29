@@ -8,9 +8,10 @@ import {
   confirmExit,
   cancelGatePass,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * GET /api/gate-passes/[id]
@@ -49,6 +50,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  * Body: { action: "submit" | "approve" | "reject" | "confirmExit" | "cancel", ... }
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
@@ -90,5 +92,34 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   revalidatePath("/gate-passes");
   revalidatePath("/m/gate-pass");
   revalidatePath(`/api/gate-passes/${id}`);
+  return json({ ok: true });
+});
+
+/**
+ * DELETE /api/gate-passes/[id]
+ * Hard-delete a gate pass. Only allowed when status is DRAFT.
+ */
+export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.GATE_PASS_MANAGE);
+  const company = await getCompany();
+  const { id } = await params;
+
+  const gp = await prisma.gatePass.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true, status: true },
+  });
+  if (!gp) return json({ error: "Gate pass not found" }, { status: 404 });
+  if (gp.status !== "DRAFT") {
+    return json({ error: "Only DRAFT gate passes can be deleted" }, { status: 400 });
+  }
+
+  // Delete lines + gate pass atomically, so a failure doesn't leave orphaned lines
+  await prisma.$transaction([
+    prisma.gatePassLine.deleteMany({ where: { gatePassId: id } }),
+    prisma.gatePass.delete({ where: { id } }),
+  ]);
+
+  revalidatePath("/gate-passes");
+  revalidatePath("/m/gate-pass");
   return json({ ok: true });
 });

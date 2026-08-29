@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ContactRound, Plus } from "lucide-react";
+import { ContactRound, Plus, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import type { LeadRow, LeadStage } from "@/lib/types";
 import { LeadFormDialog } from "./lead-form-dialog";
 import { LeadDetailDialog } from "./lead-detail-dialog";
+import { LeadDedupDialog } from "./lead-dedup-dialog";
 
 const STAGES: { value: "ALL" | LeadStage; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -36,6 +37,7 @@ export function LeadPipelineView({
 }) {
   const [stage, setStage] = useState<"ALL" | LeadStage>("ALL");
   const [formOpen, setFormOpen] = useState(false);
+  const [dedupOpen, setDedupOpen] = useState(false);
   const [selected, setSelected] = useState<LeadRow | null>(null);
 
   const filtered = useMemo(
@@ -123,7 +125,12 @@ export function LeadPipelineView({
           icon={<ContactRound className="size-5" />}
           title="No leads in the pipeline"
           description="Capture an enquiry here, then keep calls, site visits and follow-ups attached until it becomes a booking."
-          action={canManage ? <Button size="sm" onClick={() => setFormOpen(true)}><Plus className="size-4" /> Add lead</Button> : undefined}
+          action={canManage ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDedupOpen(true)}><Copy className="size-4" /> Find duplicates</Button>
+              <Button size="sm" onClick={() => setFormOpen(true)}><Plus className="size-4" /> Add lead</Button>
+            </div>
+          ) : undefined}
         />
       ) : (
         <>
@@ -165,6 +172,7 @@ export function LeadPipelineView({
       )}
 
       <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} units={units} assignees={assignees} />
+      <LeadDedupDialog open={dedupOpen} onOpenChange={setDedupOpen} />
       <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} />
     </div>
   );

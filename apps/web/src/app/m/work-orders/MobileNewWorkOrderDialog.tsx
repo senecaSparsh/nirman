@@ -219,21 +219,21 @@ export function MobileNewWorkOrderDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={onClose}>
-      <div className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="grid place-items-center size-7 rounded-[0.375rem]" style={{ backgroundColor: "var(--color-concrete)" }}>
               <Wrench className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               New Work Order {step === 2 && "· Scope"}
             </p>
           </div>
@@ -286,7 +286,7 @@ export function MobileNewWorkOrderDialog({
             {/* Description */}
             <div>
               <label className={labelClass} style={labelStyle}>Description</label>
-              <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope details…" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none" style={inputStyle} />
+              <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope details…" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none" style={inputStyle} />
             </div>
 
             {/* Dates */}
@@ -334,7 +334,7 @@ export function MobileNewWorkOrderDialog({
             </div>
 
             {/* Next button */}
-            <button type="submit" className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button type="submit" className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               Next: Select Scope
               <ChevronRight className="size-4" />
             </button>
@@ -348,7 +348,7 @@ export function MobileNewWorkOrderDialog({
               </label>
               {selectedLines.length === 0 ? (
                 <div className="rounded-[0.5rem] border border-dashed p-4 text-center" style={{ borderColor: "var(--color-line)" }}>
-                  <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
                     {loadingBoq ? "Loading Bill of Quantities items…" : "Tap + Add to select scope items"}
                   </p>
                 </div>
@@ -358,17 +358,17 @@ export function MobileNewWorkOrderDialog({
                     <div key={l.boqItemId} className="rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[0.4375rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{l.serialNo}</p>
-                          <p className="text-[0.6875rem] font-semibold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>{l.description}</p>
+                          <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{l.serialNo}</p>
+                          <p className="text-m-body font-semibold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>{l.description}</p>
                         </div>
-                        <button type="button" onClick={() => removeLine(i)} className="press shrink-0" style={{ color: "var(--color-ink-300)" }}>
+                        <button type="button" onClick={() => removeLine(i)} className="text-m-body press shrink-0" style={{ color: "var(--color-ink-300)" }}>
                           <Trash2 className="size-3.5" />
                         </button>
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>Agreed rate:</span>
+                        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Agreed rate:</span>
                         <div className="relative flex-1">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
                           <input
                             type="number"
                             min={0}
@@ -376,11 +376,11 @@ export function MobileNewWorkOrderDialog({
                             value={l.agreedRate}
                             onChange={(e) => updateLineRate(i, e.target.value)}
                             inputMode="decimal"
-                            className="w-full h-7 rounded-[0.375rem] border pl-5 pr-2 text-[0.6875rem] font-bold tabular-nums outline-none"
+                            className="w-full h-7 rounded-[0.375rem] border pl-5 pr-2 text-m-body font-bold tabular-nums outline-none"
                             style={inputStyle}
                           />
                         </div>
-                        <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>{l.unit ?? ""}</span>
+                        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{l.unit ?? ""}</span>
                       </div>
                     </div>
                   ))}
@@ -393,19 +393,42 @@ export function MobileNewWorkOrderDialog({
               type="button"
               onClick={() => setShowBoqPicker(true)}
               disabled={loadingBoq || boqItems.length === 0}
-              className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border-2 border-dashed text-[0.6875rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border-2 border-dashed text-m-body font-bold text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
             >
               <Plus className="size-3.5" />
               {boqItems.length === 0 && !loadingBoq ? "No BOQ items for this project" : "Add Bill of Quantities Item"}
             </button>
 
+            {/* Impact preview — commitment summary before issuing */}
+            {selectedLines.length > 0 && (() => {
+              const totalCommitment = selectedLines.reduce((s, l) => {
+                const boq = boqItems.find((b) => b.id === l.boqItemId);
+                const qty = boq?.estimatedQty ?? 0;
+                return s + qty * (Number(l.agreedRate) || 0);
+              }, 0);
+              const advance = Number(form.advanceAmount) || 0;
+              const retentionPct = Number(form.retentionPct) || 0;
+              return (
+                <div className="rounded-[0.5rem] border p-2.5 flex flex-col gap-1" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Est. commitment</span>
+                    <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(totalCommitment)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    <span>Retention {retentionPct}%{advance > 0 ? ` · Advance ${formatCurrency(advance)}` : ""}</span>
+                    <span>{selectedLines.length} scope line{selectedLines.length !== 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Actions */}
-            <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setStep(1)} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
+            <div className="flex flex-col gap-2 pt-1">
+              <button type="button" onClick={() => setStep(1)} disabled={saving} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
                 Back
               </button>
-              <button type="submit" disabled={saving || selectedLines.length === 0} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+              <button type="submit" disabled={saving || selectedLines.length === 0} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
                 {saving ? <Loader2 className="size-4 animate-spin" /> : null}
                 {saving ? "Issuing…" : "Issue Work Order"}
               </button>
@@ -415,10 +438,10 @@ export function MobileNewWorkOrderDialog({
 
         {/* BOQ Picker Sheet */}
         {showBoqPicker && (
-          <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setShowBoqPicker(false)}>
-            <div className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={() => setShowBoqPicker(false)}>
+            <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
+                <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
                 <button onClick={() => setShowBoqPicker(false)} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
                   <X className="size-4" />
                 </button>
@@ -429,12 +452,12 @@ export function MobileNewWorkOrderDialog({
                 </div>
               ) : boqItems.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                     No Bill of Quantities line items found for this project.
                   </p>
                   <Link
                     href={`/m/boq?project=${form.projectId}`}
-                    className="inline-flex items-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-4 py-2 text-[0.6875rem] font-bold press"
+                    className="inline-flex items-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-4 py-2 text-m-body font-bold text-m-body press"
                     style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
                   >
                     <Plus className="size-3.5" />
@@ -450,18 +473,18 @@ export function MobileNewWorkOrderDialog({
                         key={item.id}
                         onClick={() => { if (!isSelected) { addLine(item); haptic(10); } }}
                         disabled={isSelected}
-                        className="flex items-start gap-2 rounded-[0.5rem] border p-2 text-left press disabled:opacity-40"
+                        className="flex items-start gap-2 rounded-[0.5rem] border p-2 text-left text-m-body press disabled:opacity-40"
                         style={{ borderColor: "var(--color-line)", backgroundColor: isSelected ? "var(--color-concrete)" : "var(--color-paper)" }}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-[0.4375rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{item.serialNo}</p>
-                          <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>{item.description}</p>
-                          <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                          <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{item.serialNo}</p>
+                          <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>{item.description}</p>
+                          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                             {item.estimatedQty ? `${item.estimatedQty} ` : ""}{item.unit ?? ""} {item.rate ? `· ₹${formatCurrency(item.rate)}/${item.unit ?? ""}` : ""}
                           </p>
                         </div>
                         {isSelected ? (
-                          <span className="text-[0.4375rem] font-bold shrink-0" style={{ color: "var(--color-go)" }}>ADDED</span>
+                          <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-go)" }}>ADDED</span>
                         ) : (
                           <Plus className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-ink-500)" }} />
                         )}

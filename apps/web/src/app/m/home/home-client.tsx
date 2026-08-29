@@ -148,7 +148,7 @@ function RecentItemsCarousel({
       <div className="flex items-center gap-1.5 mb-2 px-1">
         <Clock className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
         <span
-          className="text-[0.625rem] font-bold uppercase tracking-wide"
+          className="text-m-label font-bold uppercase tracking-wide"
           style={{ color: "var(--color-ink-400)" }}
         >
           Recent
@@ -161,7 +161,7 @@ function RecentItemsCarousel({
             <button
               key={`${item.type}:${item.id}`}
               onClick={() => onSelect(item.href)}
-              className="press shrink-0 w-[8.5rem] rounded-[0.625rem] border p-2.5 text-left"
+              className="text-m-body press shrink-0 w-[8.5rem] rounded-[0.625rem] border p-2.5 text-left"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -175,21 +175,21 @@ function RecentItemsCarousel({
                   <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
                 </div>
                 <span
-                  className="text-[0.5rem] font-medium uppercase tracking-wide"
+                  className="text-m-caption font-medium uppercase tracking-wide"
                   style={{ color: "var(--color-ink-400)" }}
                 >
                   {timeAgo(item.ts)}
                 </span>
               </div>
               <div
-                className="text-xs font-semibold truncate"
+                className="text-m-caption font-semibold truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {item.label}
               </div>
               {item.sublabel ? (
                 <div
-                  className="text-[0.625rem] truncate mt-0.5"
+                  className="text-m-label truncate mt-0.5"
                   style={{ color: "var(--color-ink-400)" }}
                 >
                   {item.sublabel}

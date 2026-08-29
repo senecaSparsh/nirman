@@ -8,11 +8,12 @@ import {
   IndianRupee, Loader2, Phone, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
+  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -105,11 +106,11 @@ export function MobileSalesCollection({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Total Outstanding
           </p>
           <span
-            className="text-[0.5rem] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
+            className="text-m-caption font-bold tabular-nums px-1.5 py-0.5 rounded-full"
             style={{
               color: stats.collectionPct >= 80 ? "var(--color-go)" : "var(--color-signal)",
               backgroundColor: `color-mix(in srgb, ${stats.collectionPct >= 80 ? "var(--color-go)" : "var(--color-signal)"} 10%, transparent)`,
@@ -118,8 +119,8 @@ export function MobileSalesCollection({
             {stats.collectionPct}% collected
           </span>
         </div>
-        <p className="text-[1.125rem] font-bold tabular-nums mb-1.5" style={{ color: "var(--color-ink-950)" }}>
-          {formatCurrency(stats.totalOutstanding)}
+        <p className="text-m-section font-bold tabular-nums mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          {formatCurrencyCompact(stats.totalOutstanding)}
         </p>
 
         {/* Progress bar */}
@@ -137,7 +138,7 @@ export function MobileSalesCollection({
         </div>
 
         {/* Mini stats */}
-        <div className="flex items-center gap-3 text-[0.5rem]">
+        <div className="flex items-center gap-3 text-m-caption">
           <span className="flex items-center gap-1" style={{ color: "var(--color-go)" }}>
             <TrendingUp className="size-2.5" />
             {formatCurrencyCompact(stats.totalCollected)} collected
@@ -148,15 +149,8 @@ export function MobileSalesCollection({
         </div>
       </div>
 
-      {/* ── New sale button ── */}
-      <Link
-        href="/m/sales/new"
-        className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.75rem] font-bold press mb-2.5"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-      >
-        <Plus className="size-3.5" />
-        New Sale
-      </Link>
+      {/* ── New sale FAB ── */}
+      <MobileFab href="/m/sales/new" label="New sale" />
 
       {/* ── Search + filter + export ── */}
       <MobileSearchHeader
@@ -207,7 +201,7 @@ export function MobileSalesCollection({
       {settled.length > 0 && (
         <>
           <p
-            className="text-[0.5rem] font-bold uppercase tracking-wide mb-2 px-1"
+            className="text-m-caption font-bold uppercase tracking-wide mb-2 px-1"
             style={{ color: "var(--color-ink-500)" }}
           >
             Settled ({settled.length})
@@ -255,7 +249,7 @@ function OutstandingCard({
   async function recordPayment() {
     const amt = Number(amount);
     if (!(amt > 0)) return toast.error("Enter a valid amount");
-    if (amt > sale.balance) return toast.error(`Amount exceeds balance of ${formatCurrency(sale.balance)}`);
+    if (amt > sale.balance) return toast.error(`Amount exceeds balance of ${formatCurrencyCompact(sale.balance)}`);
 
     setSubmitting(true);
     try {
@@ -269,7 +263,7 @@ function OutstandingCard({
       toast.success(
         data.paymentStatus === "PAID"
           ? "Payment recorded — fully paid"
-          : `${formatCurrency(sale.balance - amt)} remaining`,
+          : `${formatCurrencyCompact(sale.balance - amt)} remaining`,
       );
       onPaid();
     } catch (err) {
@@ -291,38 +285,38 @@ function OutstandingCard({
       <button
         onClick={onToggle}
         disabled={submitting}
-        className="w-full text-left p-2.5 active:scale-[0.99] transition-transform"
+        className="w-full text-left p-2.5 active:scale-[0.99] transition-transform press"
       >
         <div className="flex items-center justify-between mb-0.5">
-          <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {sale.customerName}
           </p>
           <span
-            className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
             style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
           >
             {meta.label}
           </span>
         </div>
-        <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
           {sale.assetLabel} · {sale.saleNumber}
         </p>
 
         {/* Amount row */}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Outstanding
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
-              {formatCurrency(sale.balance)}
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+              {formatCurrencyCompact(sale.balance)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Collected
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrencyCompact(sale.totalPaid)} / {formatCurrencyCompact(sale.salePrice)}
             </p>
           </div>
@@ -343,7 +337,7 @@ function OutstandingCard({
         </div>
 
         <div className="flex items-center justify-between mt-1.5">
-          <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             {formatDate(sale.saleDate)}
           </span>
           <div className="flex items-center gap-2">
@@ -351,7 +345,7 @@ function OutstandingCard({
               <a
                 href={`tel:${sale.customerPhone}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+                className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 <Phone className="size-2.5" />
@@ -361,7 +355,7 @@ function OutstandingCard({
             <Link
               href={`/m/sales/${sale.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+              className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
               style={{ color: "var(--color-ink-600)" }}
             >
               Details
@@ -377,28 +371,28 @@ function OutstandingCard({
           className="p-2.5 border-t"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
-          <div className="flex items-center justify-between mb-2.5 text-[0.5rem]">
+          <div className="flex items-center justify-between mb-2.5 text-m-caption">
             <span style={{ color: "var(--color-ink-500)" }}>Sale price</span>
             <span className="tabular-nums font-semibold" style={{ color: "var(--color-ink-950)" }}>
-              {formatCurrency(sale.salePrice)}
+              {formatCurrencyCompact(sale.salePrice)}
             </span>
           </div>
-          <div className="flex items-center justify-between mb-2.5 text-[0.5rem]">
+          <div className="flex items-center justify-between mb-2.5 text-m-caption">
             <span style={{ color: "var(--color-ink-500)" }}>Paid so far</span>
             <span className="tabular-nums font-semibold" style={{ color: "var(--color-go)" }}>
-              {formatCurrency(sale.totalPaid)}
+              {formatCurrencyCompact(sale.totalPaid)}
             </span>
           </div>
-          <div className="flex items-center justify-between mb-3 text-[0.5625rem] font-bold border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
+          <div className="flex items-center justify-between mb-3 text-m-caption font-bold border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
             <span style={{ color: "var(--color-ink-950)" }}>Balance</span>
             <span className="tabular-nums" style={{ color: "var(--color-signal)" }}>
-              {formatCurrency(sale.balance)}
+              {formatCurrencyCompact(sale.balance)}
             </span>
           </div>
 
           {/* Amount input */}
           <div className="mb-2">
-            <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Amount
             </label>
             <div className="relative">
@@ -414,7 +408,7 @@ function OutstandingCard({
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full h-9 rounded-[0.375rem] border pl-7 pr-2 text-[0.6875rem] tabular-nums outline-none"
+                className="w-full h-9 rounded-[0.375rem] border pl-7 pr-2 text-m-body tabular-nums outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -427,7 +421,7 @@ function OutstandingCard({
 
           {/* Mode selector */}
           <div className="mb-2">
-            <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Mode
             </label>
             <div className="flex flex-wrap gap-1">
@@ -435,7 +429,7 @@ function OutstandingCard({
                 <button
                   key={m}
                   onClick={() => setMode(m)}
-                  className="h-6 px-2 rounded-[0.25rem] text-[0.4375rem] font-semibold press"
+                  className="h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press"
                   style={{
                     color: mode === m ? "var(--color-paper)" : "var(--color-ink-600)",
                     backgroundColor: mode === m ? "var(--color-ink-950)" : "var(--color-concrete)",
@@ -449,14 +443,14 @@ function OutstandingCard({
 
           {/* Reference */}
           <div className="mb-3">
-            <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Reference (optional)
             </label>
             <input
               type="text"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
-              className="w-full h-9 rounded-[0.375rem] border px-2.5 text-[0.6875rem] outline-none"
+              className="w-full h-9 rounded-[0.375rem] border px-2.5 text-m-body outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -470,7 +464,7 @@ function OutstandingCard({
           <button
             onClick={recordPayment}
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.6875rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-m-body font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
           >
             {submitting ? (
@@ -491,18 +485,18 @@ function SettledRow({ sale }: { sale: SaleItem }) {
   return (
     <Link
       href={`/m/sales/${sale.id}`}
-      className="flex items-center gap-2 px-2 py-1.5 rounded-[0.375rem] press"
+      className="flex items-center gap-2 px-2 py-1.5 rounded-[0.375rem] text-m-body press"
       style={{ backgroundColor: "transparent" }}
     >
       <CheckCircle2 className="size-3 shrink-0" style={{ color: "var(--color-go)" }} />
       <span
-        className="text-[0.6875rem] font-medium truncate flex-1"
+        className="text-m-body font-medium truncate flex-1"
         style={{ color: "var(--color-ink-900)" }}
       >
         {sale.customerName}
       </span>
       <span
-        className="text-[0.5625rem] tabular-nums font-semibold shrink-0"
+        className="text-m-caption tabular-nums font-semibold shrink-0"
         style={{ color: "var(--color-go)" }}
       >
         {formatCurrencyCompact(sale.salePrice)}

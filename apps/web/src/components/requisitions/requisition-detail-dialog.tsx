@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, ShoppingCart, FileText, Truck, Trophy } from "lucide-react";
+import { ArrowRight, Check, X, ShoppingCart, FileText, Truck, Trophy, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -110,6 +110,24 @@ export function RequisitionDetailDialog({
     }
   }
 
+  async function handleDelete() {
+    if (!requisition) return;
+    if (!window.confirm(`Delete requisition ${requisition.reqNumber}?\n\nThis cannot be undone.`)) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/requisitions/${requisition.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Delete failed");
+      toast.success("Requisition deleted");
+      onOpenChange(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
   if (!requisition) return null;
 
   // ── Pipeline position: Indent → Quote → PO → GRN → Issue ──────
@@ -202,6 +220,11 @@ export function RequisitionDetailDialog({
                     <FileText className="h-4 w-4" /> View PO
                   </Button>
                 </a>
+              )}
+              {(detail.status === "DRAFT" || detail.status === "REJECTED") && (
+                <Button size="sm" variant="outline" onClick={handleDelete} disabled={acting} className="text-muted-foreground hover:text-danger">
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
               )}
             </div>
 

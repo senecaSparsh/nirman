@@ -297,7 +297,7 @@ async function AccountsContent() {
             right={
               <Link
                 href="/m/books/receipts"
-                className="text-[0.625rem] font-semibold press"
+                className="text-m-label font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 View all
@@ -330,7 +330,7 @@ async function AccountsContent() {
           action={
             <Link
               href="/m/books/receipts"
-              className="text-[0.625rem] font-semibold press"
+              className="text-m-label font-semibold text-m-body press"
               style={{ color: "var(--color-ink-500)" }}
             >
               Go to receipts →

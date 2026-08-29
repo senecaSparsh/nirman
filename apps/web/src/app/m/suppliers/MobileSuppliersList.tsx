@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { Phone } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -84,7 +84,7 @@ export function MobileSuppliersList({
   }, [items, query, duesFilter]);
 
   const summaryStats: SummaryStat[] = [
-    { label: "Total Owed", value: formatCurrency(totalOwed), tone: totalOwed > 0 ? "stop" : "default" },
+    { label: "Total Owed", value: formatCurrencyCompact(totalOwed), tone: totalOwed > 0 ? "stop" : "default" },
     { label: "With Dues", value: String(withDuesCount) },
     { label: "Suppliers", value: String(items.length) },
   ];
@@ -155,7 +155,7 @@ function SupplierCard({ s }: { s: SupplierListItem }) {
   return (
     <Link
       href={`/m/suppliers/${s.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -167,11 +167,11 @@ function SupplierCard({ s }: { s: SupplierListItem }) {
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Name + dues badge */}
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {s.name}
           </p>
           <span
-            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             {hasDues ? "Due" : "Clear"}
@@ -180,13 +180,13 @@ function SupplierCard({ s }: { s: SupplierListItem }) {
 
         {/* Row 2: PO count + phone */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
             {s.poCount} Purchase Order{s.poCount !== 1 ? "s" : ""}
           </span>
           {s.phone ? (
             <>
               <span style={{ color: "var(--color-line)" }}>·</span>
-              <span className="text-[0.5rem] truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
                 <Phone className="size-2" />
                 {s.phone}
               </span>
@@ -197,11 +197,11 @@ function SupplierCard({ s }: { s: SupplierListItem }) {
         {/* Row 3: Bottom area — fixed height for equal card sizes */}
         <div className="mt-auto pt-1 h-[1rem] flex items-center">
           {hasDues ? (
-            <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
               {formatCurrencyCompact(s.balanceOwed)}
             </span>
           ) : (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               No outstanding dues
             </span>
           )}

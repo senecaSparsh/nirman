@@ -3,6 +3,7 @@ import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * POST /api/land-purchases/[id]/create-project
@@ -44,7 +45,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   }
 
   // Create the project and link the land purchase in a transaction
-  const project = await prisma.$transaction(async (tx) => {
+  const project = await withSerializableTransaction(async (tx) => {
     const proj = await tx.project.create({
       data: {
         companyId: company.id,

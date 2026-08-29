@@ -20,6 +20,7 @@ import type { StockLocationRow, StockRow } from "@/lib/types";
  */
 export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
   const [locationFilter, setLocationFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [lowStockIds, setLowStockIds] = useState<Set<string>>(new Set());
 
@@ -34,12 +35,24 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
       .catch(() => setLowStockIds(new Set()));
   }, [lowStockOnly]);
 
+  // Derive unique categories from stock data for the category filter
+  const categories = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const s of stock) {
+      if (s.categoryName && !seen.has(s.categoryName)) {
+        seen.set(s.categoryName, s.categoryName);
+      }
+    }
+    return Array.from(seen.keys()).sort();
+  }, [stock]);
+
   const filtered = useMemo(() => {
     let result = stock;
     if (locationFilter) result = result.filter((s) => s.locationId === locationFilter);
+    if (categoryFilter) result = result.filter((s) => s.categoryName === categoryFilter);
     if (lowStockOnly) result = result.filter((s) => lowStockIds.has(s.materialId));
     return result;
-  }, [stock, locationFilter, lowStockOnly, lowStockIds]);
+  }, [stock, locationFilter, categoryFilter, lowStockOnly, lowStockIds]);
 
   const locationSelect = (
     <div className="relative shrink-0" style={{ width: 180 }}>
@@ -54,6 +67,23 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
           <option key={l.id} value={l.id}>
             {l.name} ({l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"})
           </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+    </div>
+  );
+
+  const categorySelect = (
+    <div className="relative shrink-0" style={{ width: 160 }}>
+      <select
+        value={categoryFilter}
+        onChange={(e) => setCategoryFilter(e.target.value)}
+        style={{ width: 160 }}
+        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+      >
+        <option value="">All categories</option>
+        {categories.map((c) => (
+          <option key={c} value={c}>{c}</option>
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
@@ -96,7 +126,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
             totalFormat={(key, sum) => key === "value" ? formatCurrency(sum) : formatNumber(sum, 3)}
             hideable
             pageSize={50}
-            toolbarLeading={<div className="flex items-center gap-2">{locationSelect}{lowStockToggle}</div>}
+            toolbarLeading={<div className="flex items-center gap-2">{locationSelect}{categorySelect}{lowStockToggle}</div>}
           />
         </div>
       )}

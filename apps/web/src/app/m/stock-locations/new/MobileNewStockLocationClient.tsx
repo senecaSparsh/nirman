@@ -75,16 +75,16 @@ export default function MobileNewStockLocationClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Location Created
         </p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {success} is ready to receive stock.
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => router.push("/m/stock")}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Stock
@@ -95,7 +95,7 @@ export default function MobileNewStockLocationClient({
               setName("");
               setAddress("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -113,14 +113,14 @@ export default function MobileNewStockLocationClient({
           className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <label className="text-[0.5625rem] font-semibold block mb-2" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-2" style={{ color: "var(--color-ink-500)" }}>
             Location Type <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
-              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 press"
+              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
               style={{
                 borderColor: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: type === "COMPANY_WAREHOUSE" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -131,7 +131,7 @@ export default function MobileNewStockLocationClient({
                 style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
               />
               <span
-                className="text-[0.5625rem] font-bold"
+                className="text-m-caption font-bold"
                 style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
               >
                 Warehouse
@@ -140,7 +140,7 @@ export default function MobileNewStockLocationClient({
             <button
               type="button"
               onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
-              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 press"
+              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
               style={{
                 borderColor: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: type === "PROJECT_SITE" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -151,7 +151,7 @@ export default function MobileNewStockLocationClient({
                 style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
               />
               <span
-                className="text-[0.5625rem] font-bold"
+                className="text-m-caption font-bold"
                 style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
               >
                 Project Site
@@ -165,7 +165,7 @@ export default function MobileNewStockLocationClient({
           className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Location Name <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <input
@@ -174,7 +174,7 @@ export default function MobileNewStockLocationClient({
             onChange={(e) => setName(e.target.value)}
             placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
             enterKeyHint="next"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
@@ -192,7 +192,7 @@ export default function MobileNewStockLocationClient({
               onChange={setProjectId}
               placeholder="Select project…"
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               renderDialog={({ open, onClose, onCreated }) => (
                 <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
@@ -206,7 +206,7 @@ export default function MobileNewStockLocationClient({
           className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Address (optional)
           </label>
           <textarea
@@ -215,7 +215,7 @@ export default function MobileNewStockLocationClient({
             placeholder="Street, city, landmark…"
             rows={2}
             enterKeyHint="done"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none resize-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none resize-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
@@ -225,10 +225,10 @@ export default function MobileNewStockLocationClient({
           className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Geo-fence (optional)
           </label>
-          <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-ink-400)" }}>
+          <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
             Set coordinates and radius to validate GPS-tagged receipts. Receipts outside the radius are flagged as off-site.
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -239,7 +239,7 @@ export default function MobileNewStockLocationClient({
               onChange={(e) => setLat(e.target.value)}
               placeholder="Latitude"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
             <input
@@ -249,7 +249,7 @@ export default function MobileNewStockLocationClient({
               onChange={(e) => setLng(e.target.value)}
               placeholder="Longitude"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -259,7 +259,7 @@ export default function MobileNewStockLocationClient({
             onChange={(e) => setGeoRadius(e.target.value)}
             placeholder="Radius (metres, default 500)"
             enterKeyHint="done"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none mt-2"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none mt-2"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
@@ -279,7 +279,7 @@ export default function MobileNewStockLocationClient({
             type="button"
             onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
             disabled={saving}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (

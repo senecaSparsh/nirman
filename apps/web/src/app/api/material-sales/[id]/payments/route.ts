@@ -65,12 +65,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!body?.amount || Number(body.amount) <= 0) return json({ error: "amount must be > 0" }, { status: 400 });
   if (!body?.paymentMode) return json({ error: "paymentMode is required" }, { status: 400 });
 
+  let paymentDate: Date | undefined;
+  if (body.paymentDate) {
+    paymentDate = new Date(body.paymentDate);
+    if (isNaN(paymentDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+  }
+
   try {
     const payment = await createMaterialSalePayment({
       saleId,
       companyId: company.id,
-      amount: Number(body.amount),
-      paymentDate: body.paymentDate ? new Date(body.paymentDate) : undefined,
+      amount: String(body.amount),
+      paymentDate,
       paymentMode: body.paymentMode,
       referenceNo: body.referenceNo,
       notes: body.notes,

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Undo2 } from "lucide-react";
+import { Undo2, PackageX } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileStatusBadge,
+  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -73,7 +74,15 @@ export function MobileSupplierReturnsList({
     return result;
   }, [items, query, statusFilter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={PackageX}
+        title="No supplier returns"
+        hint="Supplier returns will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -107,7 +116,7 @@ export function MobileSupplierReturnsList({
         right={
           (query || statusFilter !== "ALL") ? (
             <span
-              className="text-[0.625rem] font-semibold"
+              className="text-m-label font-semibold"
               style={{ color: "var(--color-ink-500)" }}
             >
               {filtered.length} return{filtered.length !== 1 ? "s" : ""}

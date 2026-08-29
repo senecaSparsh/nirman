@@ -1,6 +1,9 @@
 "use client";
 
-import { AlertCircle, ArrowDownRight, ArrowUpRight, Clock, SearchX } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { AlertCircle, ArrowDownRight, ArrowUpRight, Clock, SearchX, Send, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/page";
@@ -59,6 +62,7 @@ export function PendingPaymentsReport({
   totalDraft,
   payableAging,
   receivableAging,
+  canSendReminders,
 }: {
   overduePOs: OverduePORow[];
   receivables: ReceivableRow[];
@@ -68,8 +72,28 @@ export function PendingPaymentsReport({
   totalDraft: number;
   payableAging: AgingSummary;
   receivableAging: AgingSummary;
+  canSendReminders?: boolean;
 }) {
+  const [sending, setSending] = useState(false);
   const hasData = overduePOs.length > 0 || receivables.length > 0 || draftPOs.length > 0;
+
+  async function sendReminders() {
+    setSending(true);
+    try {
+      const res = await fetch("/api/payments/send-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "ALL", daysAhead: 7 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
+      toast.success(`Sent ${data.remindersSent} payment reminder${data.remindersSent === 1 ? "" : "s"}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+    } finally {
+      setSending(false);
+    }
+  }
 
   if (!hasData) {
     return (
@@ -276,6 +300,15 @@ export function PendingPaymentsReport({
 
   return (
     <div className="space-y-4">
+      {/* Action bar */}
+      {canSendReminders && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={sendReminders} disabled={sending}>
+            {sending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+            {sending ? "Sending…" : "Send Payment Reminders"}
+          </Button>
+        </div>
+      )}
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-3">

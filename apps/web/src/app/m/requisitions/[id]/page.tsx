@@ -7,7 +7,9 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
-import { MobileEmptyState, mobileStatusColor, MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, mobileStatusColor, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { resolveNextAction } from "@/lib/flow-map";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
 import { MobileQuotePanel } from "./MobileQuotePanel";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
@@ -176,32 +178,45 @@ async function MobileRequisitionDetailContent({
     { label: "Issue", state: "pending" },
   ];
 
+  const nextAction = resolveNextAction("requisition", req.status, role);
+
   return (
-    <div>
+    <div className="pb-20">
       <RecordRecentItem type="requisition" id={req.id} label={req.reqNumber} sublabel={req.project?.name} href={`/m/requisitions/${req.id}`} />
+
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", req.id) : undefined}
+        />
+      ) : null}
 
       {/* Req number + status + print in one compact header row */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-[1.125rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+          <h1 className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
             {req.reqNumber}
           </h1>
           <span
-            className="text-[0.5625rem] font-bold uppercase px-2 py-0.5 rounded-[0.375rem]"
+            className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.375rem]"
             style={{ backgroundColor: statusColor, color: "#fff" }}
           >
             {req.status}
           </span>
           <a
             href={`/print/requisition/${req.id}`}
-            className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
+            className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-3.5" />
             Print
           </a>
         </div>
-        <div className="flex items-center gap-3 text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center gap-3 text-m-body" style={{ color: "var(--color-ink-500)" }}>
           <Link
             href={`/m/projects/${req.project?.id ?? ""}`}
             className="font-semibold hover:underline"
@@ -230,7 +245,7 @@ async function MobileRequisitionDetailContent({
 
       {/* ── Workflow timeline ── */}
       <div className="mb-5">
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
           Workflow
         </p>
         <div className="relative pl-6">
@@ -319,10 +334,10 @@ async function MobileRequisitionDetailContent({
       {/* ── Line items table ── */}
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
             Items
           </p>
-          <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
             {lines.length} lines · {formatNumber(totalItems, 0)} units
           </span>
         </div>
@@ -337,20 +352,20 @@ async function MobileRequisitionDetailContent({
               style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {l.materialName}
                 </p>
-                <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                   {l.materialCode}
                   {l.currentStock != null ? ` · stock ${formatNumber(l.currentStock, 0)}` : ""}
                   {l.lastRate != null ? ` · last ${formatCurrency(l.lastRate)}` : ""}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(l.qtyRequested, 0)}
                 </p>
-                <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {l.unit}
                 </p>
               </div>
@@ -382,11 +397,11 @@ async function MobileRequisitionDetailContent({
       {/* ── Notes block ── */}
       {req.notes ? (
         <div className="mb-5">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
             Notes
           </p>
           <div
-            className="rounded-[0.625rem] border-l-2 p-3 text-[0.75rem] italic"
+            className="rounded-[0.625rem] border-l-2 p-3 text-m-section italic"
             style={{
               borderColor: "var(--color-steel)",
               backgroundColor: "var(--color-paper)",
@@ -399,15 +414,7 @@ async function MobileRequisitionDetailContent({
       ) : null}
 
       {/* ── Sticky bottom action bar ── */}
-      <div
-        className="sticky bottom-0 z-20 border-t mt-4"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-          borderColor: "var(--color-line)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe">
+      <ActionBar>
           <MobileRequisitionActions
             requisition={reqPayload}
             lines={lines}
@@ -420,8 +427,7 @@ async function MobileRequisitionDetailContent({
             quotesWaived={req.quotesWaived}
             winningQuote={winningQuoteData}
           />
-        </div>
-      </div>
+      </ActionBar>
     </div>
   );
 }
@@ -452,22 +458,22 @@ function TimelineStep({
       >
         {done ? (
           <div className="absolute inset-0 grid place-items-center">
-            <div className="w-1 h-1 rounded-full bg-white" />
+            <div className="w-1 h-1 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
           </div>
         ) : null}
       </div>
       {/* Content */}
       <div>
-        <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
         {date ? (
-          <p className="text-[0.5625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {date}
           </p>
         ) : null}
         {detail ? (
-          <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             {detail}
           </p>
         ) : null}

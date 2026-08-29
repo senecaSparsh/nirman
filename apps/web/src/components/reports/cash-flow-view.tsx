@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Calendar, Download } from "lucide-react";
 import { Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { downloadCSV, type ColumnDef } from "@/lib/export";
 
 type Project = { id: string; name: string };
 
@@ -47,6 +49,23 @@ export function CashFlowView({ projects }: { projects: Project[] }) {
       .catch(() => toast.error("Failed to load cash flow forecast"))
       .finally(() => setLoading(false));
   }, [projectId]);
+
+  function handleExport() {
+    if (!data) return;
+    const rows: Record<string, unknown>[] = [
+      { category: "Commitments", amount: data.outflows.commitments },
+      { category: "Pending RA Bills", amount: data.outflows.pendingRaBills },
+      { category: "Payroll Due", amount: data.outflows.payrollDue },
+      { category: "Total Outflow", amount: data.outflows.totalOutflow },
+      { category: "Total Inflow", amount: data.inflows.totalInflow },
+      { category: "Net Cash Flow", amount: data.netCashFlow },
+    ];
+    const cols: ColumnDef[] = [
+      { key: "category", label: "Category" },
+      { key: "amount", label: "Amount" },
+    ];
+    downloadCSV("cash-flow-forecast.csv", rows, cols);
+  }
 
   if (projects.length === 0) {
     return (
@@ -87,7 +106,12 @@ export function CashFlowView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-4">
-      {projectSelector}
+      <div className="flex items-end gap-2">
+        {projectSelector}
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={!data} className="h-9">
+          <Download className="h-3.5 w-3.5" /> Export CSV
+        </Button>
+      </div>
 
       {loading && !data ? (
         <PageLoading label="Loading cash flow forecast…" variant="default" />

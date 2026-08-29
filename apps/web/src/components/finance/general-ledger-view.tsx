@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins } from "lucide-react";
+import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins, DatabaseZap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -213,6 +213,7 @@ export function GeneralLedgerView({
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerLine[] | null>(null);
   const [loadingLedger, setLoadingLedger] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const { mode, toggle } = useCurrencyMode();
   const showPaise = mode === "detailed";
   const router = useRouter();
@@ -282,6 +283,30 @@ export function GeneralLedgerView({
               </Button>
               <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => router.refresh()} title="Refresh">
                 <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5"
+                disabled={seeding}
+                onClick={async () => {
+                  setSeeding(true);
+                  try {
+                    const res = await fetch("/api/gl/accounts", { method: "POST" });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error ?? "Failed to re-seed");
+                    toast.success(`Chart of accounts re-seeded (${data.count} accounts)`);
+                    router.refresh();
+                  } catch (err: unknown) {
+                    toast.error(err instanceof Error ? err.message : "Failed to re-seed");
+                  } finally {
+                    setSeeding(false);
+                  }
+                }}
+                title="Re-seed the chart of accounts (idempotent upsert)"
+              >
+                {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DatabaseZap className="h-3.5 w-3.5" />}
+                Re-seed
               </Button>
             </div>
           </div>

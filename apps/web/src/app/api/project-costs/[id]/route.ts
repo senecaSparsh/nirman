@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { deleteProjectCost, reverseJournalEntry, postProjectCost, reallocateProjectCosts, logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.FINANCE_VIEW);
@@ -40,7 +42,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const updated = await prisma.$transaction(async (tx) => {
+  // Validate date before entering the transaction
+  let costDate: Date | null | undefined;
+  if (parsed.data.date !== undefined) {
+    if (parsed.data.date) {
+      costDate = new Date(parsed.data.date);
+      if (isNaN(costDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+    } else {
+      costDate = null;
+    }
+  }
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.projectCost.findFirst({
       where: { id, project: { companyId: company.id } },
     });
@@ -50,7 +62,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (parsed.data.projectId !== undefined) data.projectId = parsed.data.projectId;
     if (parsed.data.costType !== undefined) data.costType = parsed.data.costType;
     if (parsed.data.amount !== undefined) data.amount = parsed.data.amount;
-    if (parsed.data.date !== undefined) data.date = parsed.data.date ? new Date(parsed.data.date) : null;
+    if (costDate !== undefined) data.date = costDate;
     if (parsed.data.vendor !== undefined) data.vendor = parsed.data.vendor;
     if (parsed.data.subcontractorId !== undefined) data.subcontractorId = parsed.data.subcontractorId || null;
     if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
@@ -101,6 +113,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   try {
     await deleteProjectCost(id, user.id);
+    revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete cost") }, { status: 400 });

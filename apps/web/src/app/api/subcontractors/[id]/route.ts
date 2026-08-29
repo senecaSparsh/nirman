@@ -4,6 +4,21 @@ import { softDelete } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, subcontractorSchema } from "@/lib/server";
 
+/** GET /api/subcontractors/[id] — fetch a single subcontractor by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROCUREMENT_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const subcontractor = await prisma.subcontractor.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: {
+      _count: { select: { workOrders: true, materialIssues: true, projectCosts: true } },
+    },
+  });
+  if (!subcontractor) return json({ error: "Subcontractor not found" }, { status: 404 });
+  return json(subcontractor);
+});
+
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();

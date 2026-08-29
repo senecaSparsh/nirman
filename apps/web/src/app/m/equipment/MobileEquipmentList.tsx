@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Wrench, CheckCircle2, MapPin, Settings, Archive } from "lucide-react";
+import { Wrench, CheckCircle2, MapPin, Settings, Archive, Plus } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSearchHeader,
@@ -15,6 +15,7 @@ import {
   MobileExportShareIcons,
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type EquipmentFilter =
   | "ALL"
@@ -54,6 +55,7 @@ export function MobileEquipmentList({
   items,
   counts,
   canCreate,
+  canEdit = false,
   exportTitle,
   exportRows,
   exportColumns,
@@ -69,6 +71,7 @@ export function MobileEquipmentList({
     totalValue: number;
   };
   canCreate: boolean;
+  canEdit?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -103,6 +106,27 @@ export function MobileEquipmentList({
       return a.name.localeCompare(b.name);
     });
   }, [items, query, filter]);
+
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={Wrench}
+        title="No equipment yet"
+        hint="Add equipment to track assignments and maintenance"
+        action={
+          canCreate ? (
+            <Link
+              href="/m/equipment/new"
+              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-3.5" /> Add Equipment
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
 
   return (
     <div>
@@ -156,41 +180,14 @@ export function MobileEquipmentList({
 
       {/* ── Equipment cards grid ── */}
       {filtered.length === 0 ? (
-        query || filter !== "ALL" ? (
-          <MobileNoResults
-            title="No matching equipment"
-            hint="Try a different search or filter"
-          />
-        ) : (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper-2)",
-            }}
-          >
-            <Wrench
-              className="size-6 mb-2"
-              style={{ color: "var(--color-ink-300)" }}
-            />
-            <p
-              className="text-[0.75rem] font-semibold"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              No equipment
-            </p>
-            <p
-              className="text-[0.625rem]"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Add equipment to track assets
-            </p>
-          </div>
-        )
+        <MobileNoResults
+          title="No matching equipment"
+          hint="Try a different search or filter"
+        />
       ) : (
         <MobileCardGrid>
           {filtered.map((e) => (
-            <EquipmentCard key={e.id} e={e} />
+            <EquipmentCard key={e.id} e={e} canEdit={canEdit} />
           ))}
         </MobileCardGrid>
       )}
@@ -199,7 +196,7 @@ export function MobileEquipmentList({
 }
 
 /* ─── Equipment card — procurement-style with status accent ─── */
-function EquipmentCard({ e }: { e: EquipmentItem }) {
+function EquipmentCard({ e, canEdit = false }: { e: EquipmentItem; canEdit?: boolean }) {
   const isAvailable = e.status === "AVAILABLE";
   const isAssigned = e.status === "ASSIGNED";
   const isMaintenance = e.status === "IN_MAINTENANCE";
@@ -232,7 +229,7 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
   return (
     <Link
       href={`/m/equipment/${e.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -246,14 +243,14 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
         {/* Row 1: Status badge */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="flex items-center gap-0.5 text-[0.4375rem] font-bold uppercase shrink-0"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             <StatusIcon className="size-2.5" />
             {statusLabel}
           </span>
           <span
-            className="text-[0.4375rem] font-mono"
+            className="text-m-caption font-mono"
             style={{ color: "var(--color-ink-500)" }}
           >
             {e.assetTag}
@@ -262,7 +259,7 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
 
         {/* Row 2: Equipment name */}
         <p
-          className="text-[0.5625rem] font-bold leading-tight truncate"
+          className="text-m-caption font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {e.name}
@@ -270,7 +267,7 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
 
         {/* Row 3: Category or model */}
         <span
-          className="text-[0.5rem] truncate"
+          className="text-m-caption truncate"
           style={{ color: "var(--color-ink-500)" }}
         >
           {e.category ?? "Uncategorized"}
@@ -285,7 +282,7 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
                 style={{ color: "var(--color-steel)" }}
               />
               <span
-                className="text-[0.4375rem] font-semibold truncate"
+                className="text-m-caption font-semibold truncate"
                 style={{ color: "var(--color-steel)" }}
               >
                 {e.assignedProjectName}
@@ -294,13 +291,13 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
           ) : (
             <div className="flex items-center justify-between">
               <span
-                className="text-[0.4375rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Value
               </span>
               <span
-                className="text-[0.5625rem] font-bold tabular-nums"
+                className="text-m-caption font-bold tabular-nums"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {formatCurrencyCompact(e.currentValue)}

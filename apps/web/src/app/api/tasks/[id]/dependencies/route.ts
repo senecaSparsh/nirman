@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { addDependency, removeDependency } from "@nirman/services";
-import { apiHandler, getCurrentUser, json } from "@/lib/server";
+import { apiHandler, json, requireUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -13,8 +13,7 @@ const depSchema = z.object({
  * Managers+ only (dependencies are a planning concern).
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   if (!hasPermission(user.role, PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
   const { id: blockedById } = await params;
 
@@ -30,8 +29,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
  * DELETE /api/tasks/[id]/dependencies?blockerId=... — remove a blocker.
  */
 export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   if (!hasPermission(user.role, PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
   const { id: blockedById } = await params;
 

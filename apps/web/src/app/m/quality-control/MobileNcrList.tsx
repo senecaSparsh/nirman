@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck, FileText } from "lucide-react";
+import { AlertTriangle, ShieldCheck, FileText, ShieldAlert } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -87,7 +87,15 @@ export function MobileNcrList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={ShieldAlert}
+        title="No NCRs raised"
+        hint="Non-conformance reports will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -124,7 +132,7 @@ export function MobileNcrList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} NCR{filtered.length !== 1 ? "s" : ""}
@@ -148,30 +156,30 @@ function NcrCard({ ncr: n }: { ncr: NcrListItem }) {
   return (
     <Link
       href={`/m/quality-control/ncr/${n.id}`}
-      className="rounded-[0.5rem] border p-2.5 block press"
+      className="rounded-[0.5rem] border p-2.5 block text-m-body press"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {n.ncrNumber}
         </p>
         <MobileStatusBadge status={n.status} />
       </div>
       <div className="flex items-start gap-1.5 mb-1">
         <SevIcon className="size-3.5 shrink-0 mt-0.5" style={{ color: sevColor }} />
-        <p className="text-[0.75rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
           {n.title}
         </p>
       </div>
-      <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {CATEGORY_LABELS[n.category] ?? n.category} · {n.severity} · {n.projectName}
         {n.subcontractorName ? ` · ${n.subcontractorName}` : ""}
       </p>
       <div className="flex items-center gap-3">
         {n.location && (
           <div>
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Location</p>
-            <p className="text-[0.625rem] font-bold truncate max-w-[120px]" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Location</p>
+            <p className="text-m-label font-bold truncate max-w-[120px]" style={{ color: "var(--color-ink-950)" }}>
               {n.location}
             </p>
           </div>
@@ -179,12 +187,12 @@ function NcrCard({ ncr: n }: { ncr: NcrListItem }) {
         {n.hasCapa && (
           <div className="flex items-center gap-0.5">
             <ShieldCheck className="size-3" style={{ color: "var(--color-go)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-go)" }}>CAPA {n.capaStatus}</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-go)" }}>CAPA {n.capaStatus}</span>
           </div>
         )}
         <div className="ml-auto text-right">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Raised</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Raised</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(n.raisedAt)}
           </p>
         </div>

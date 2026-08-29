@@ -220,7 +220,7 @@ export function EquipmentView({
                     <span className="text-faint">In yard</span>
                   ),
               },
-              { key: "serialNumber", label: "Serial", defaultHidden: true },
+              { key: "serialNumber", label: "Serial", defaultHidden: true, sortable: true },
               {
                 key: "acquisitionCost",
                 label: "Bought for",

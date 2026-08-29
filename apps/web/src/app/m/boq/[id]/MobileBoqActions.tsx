@@ -6,6 +6,7 @@ import { X, Loader2, Edit3, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 
 interface FormState {
   serialNo: string;
@@ -116,23 +117,23 @@ export function MobileBoqEditDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -152,7 +153,7 @@ export function MobileBoqEditDialog({
               />
             </span>
             <p
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               Edit BOQ Item
@@ -160,7 +161,7 @@ export function MobileBoqEditDialog({
           </div>
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -255,18 +256,18 @@ export function MobileBoqEditDialog({
               value={form.notes}
               onChange={(e) => set("notes", e.target.value)}
               rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
               style={inputStyle}
             />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
                 color: "var(--color-ink-500)",
@@ -278,7 +279,7 @@ export function MobileBoqEditDialog({
             <button
               type="submit"
               disabled={saving}
-              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",
@@ -325,11 +326,11 @@ export function MobileBoqDeleteConfirm({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center "
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={onClose}
     >
       <div
-        className="w-full max-w-sm mx-4 rounded-[0.75rem] border p-5 shadow-xl"
+        className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -351,13 +352,13 @@ export function MobileBoqDeleteConfirm({
           </div>
           <div>
             <h3
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               Delete this BOQ item?
             </h3>
             <p
-              className="text-[0.6875rem] mt-1"
+              className="text-m-body mt-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               &quot;{itemDescription}&quot; will be permanently removed. Linked
@@ -365,11 +366,11 @@ export function MobileBoqDeleteConfirm({
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={onClose}
             disabled={deleteAction.isPending}
-            className="flex-1 h-10 rounded-[0.5rem] border font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
+            className="flex-1 h-10 rounded-[0.5rem] border font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{
               borderColor: "var(--color-line)",
               color: "var(--color-ink-700)",
@@ -380,7 +381,7 @@ export function MobileBoqDeleteConfirm({
           <button
             onClick={() => deleteAction.execute()}
             disabled={deleteAction.isPending}
-            className="flex-1 h-10 rounded-[0.5rem] font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
             style={{
               backgroundColor: "var(--color-stop)",
               color: "#fff",
@@ -426,19 +427,11 @@ export function MobileBoqActions({
 
   return (
     <>
-      <div
-        className="sticky bottom-0 z-20 border-t mt-4"
-        style={{
-          backgroundColor:
-            "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-          borderColor: "var(--color-line)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe flex items-center gap-2">
+      <ActionBar>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setDeleteOpen(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-[0.8125rem] press active:scale-95"
+            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95"
             style={{
               borderColor: "var(--color-stop)",
               color: "var(--color-stop)",
@@ -450,7 +443,7 @@ export function MobileBoqActions({
           </button>
           <button
             onClick={() => setEditOpen(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-[0.8125rem] press active:scale-95"
+            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -460,7 +453,7 @@ export function MobileBoqActions({
             Edit
           </button>
         </div>
-      </div>
+      </ActionBar>
 
       <MobileBoqEditDialog
         open={editOpen}

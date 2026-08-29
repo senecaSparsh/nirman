@@ -132,7 +132,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
           style={{ borderColor: "var(--color-line)" }}
         >
           <h2
-            className="text-[0.9375rem] font-semibold"
+            className="text-m-section font-semibold"
             style={{ color: "var(--color-ink-950)" }}
           >
             All pages
@@ -155,7 +155,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
           {/* Module switcher — quick jump to any module's pages */}
           <div className="mb-3">
             <h3
-              className="text-[0.5rem] uppercase tracking-wide font-semibold mb-1.5"
+              className="text-m-caption uppercase tracking-wide font-semibold mb-1.5"
               style={{ color: "var(--color-ink-500)" }}
             >
               Modules
@@ -174,7 +174,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
                     >
                       <Icon className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                       <span
-                        className="text-[0.4375rem] font-semibold leading-tight"
+                        className="text-m-caption font-semibold leading-tight"
                         style={{ color: "var(--color-ink-700)" }}
                       >
                         {tab.label}
@@ -187,7 +187,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
                     key={tab.id}
                     href={tab.href}
                     onClick={onClose}
-                    className="flex flex-col items-center gap-0.5 rounded-[0.375rem] py-1.5 press"
+                    className="flex flex-col items-center gap-0.5 rounded-[0.375rem] py-1.5 text-m-body press"
                     style={{
                       backgroundColor: active ? "var(--color-signal-wash)" : "var(--color-concrete)",
                     }}
@@ -197,7 +197,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
                       style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}
                     />
                     <span
-                      className="text-[0.4375rem] font-semibold leading-tight"
+                      className="text-m-caption font-semibold leading-tight"
                       style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-700)" }}
                     >
                       {tab.label}
@@ -211,7 +211,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
           {groups.map((group) => (
             <div key={group.title} className="mb-3">
               <h3
-                className="text-[0.5rem] uppercase tracking-wide font-semibold mb-1.5"
+                className="text-m-caption uppercase tracking-wide font-semibold mb-1.5"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {group.title}
@@ -237,11 +237,11 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
             <Link
               href="/m/me"
               onClick={onClose}
-              className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 press"
+              className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 text-m-body press"
             >
               <Settings className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
               <span
-                className="text-[0.75rem] font-medium leading-tight"
+                className="text-m-section font-medium leading-tight"
                 style={{ color: "var(--color-ink-900)" }}
               >
                 Settings & Help
@@ -270,7 +270,7 @@ function NavSheetRow({
       href={link.href}
       prefetch
       onClick={onClick}
-      className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 press"
+      className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 text-m-body press"
       style={{
         backgroundColor: active ? "var(--color-signal-wash)" : "transparent",
       }}
@@ -280,7 +280,7 @@ function NavSheetRow({
         style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}
       />
       <span
-        className="truncate text-[0.75rem] font-medium leading-tight"
+        className="truncate text-m-section font-medium leading-tight"
         style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-900)" }}
       >
         {link.label}

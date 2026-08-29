@@ -143,9 +143,9 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 | 5 | **VERIFIED** — "Create project from land" button exists, hidden when project linked |
 | 17, 24 | **FIXED** — "+ Create new category/supplier…" now works in dropdowns |
 | 42 | **FIXED** — `/crm` redirects to `/sales?tab=pipeline` |
-| 14 | Open — Material code not auto-generated from category |
-| 15 | Open — HSN/GST not auto-fetched |
-| 16 | Open — Standard cost has no "pull from previous purchase" |
+| 14 | **FIXED** — Material code auto-generated from category + grade (Auto button) |
+| 15 | Deferred — HSN/GST auto-fetch requires external government API |
+| 16 | **VERIFIED** — Standard cost "Pull from last PO" button exists in both desktop + mobile forms |
 
 ### Data/Seed Gaps (P2 — can't test end-to-end)
 | # | Gap |

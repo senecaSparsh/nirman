@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { addSubTask } from "@nirman/services";
-import { apiHandler, getCurrentUser, json, subTaskSchema } from "@/lib/server";
+import { apiHandler, json, requireUser, subTaskSchema } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -9,8 +9,7 @@ import { PERM, hasPermission } from "@/lib/roles";
  * Assignee or managers+ may add subtasks.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   const { id: taskId } = await params;
 
   const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });

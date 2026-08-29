@@ -20,7 +20,10 @@ export function NotificationPermissionToggle() {
 
   if (permission === "unsupported") {
     return (
-      <div className="flex items-center gap-2 rounded-[0.5rem] border border-border bg-muted/20 px-3 py-2.5 text-caption text-muted-foreground">
+      <div
+        className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2.5 text-m-caption"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+      >
         <BellOff className="size-3.5" />
         <span>Push notifications not supported on this device</span>
       </div>
@@ -29,11 +32,14 @@ export function NotificationPermissionToggle() {
 
   if (permission === "denied") {
     return (
-      <div className="flex items-center gap-2 rounded-[0.5rem] border border-border bg-muted/20 px-3 py-2.5 text-caption text-muted-foreground">
+      <div
+        className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2.5 text-m-caption"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+      >
         <BellOff className="size-3.5" />
         <div>
-          <div className="font-medium text-foreground">Notifications blocked</div>
-          <div className="text-caption">Enable notifications in your browser settings to receive alerts.</div>
+          <div className="font-medium" style={{ color: "var(--color-ink-950)" }}>Notifications blocked</div>
+          <div>Enable notifications in your browser settings to receive alerts.</div>
         </div>
       </div>
     );
@@ -41,12 +47,15 @@ export function NotificationPermissionToggle() {
 
   if (permission === "granted" && subscribed) {
     return (
-      <div className="flex items-center justify-between rounded-[0.5rem] border border-border bg-muted/20 px-3 py-2.5">
+      <div
+        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2.5"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+      >
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="size-3.5 text-success" />
+          <CheckCircle2 className="size-3.5" style={{ color: "var(--color-go)" }} />
           <div>
-            <div className="text-caption font-medium text-foreground">Notifications enabled</div>
-            <div className="text-caption text-muted-foreground">You&apos;ll receive push alerts for approvals, low stock, and tasks.</div>
+            <div className="text-m-caption font-medium" style={{ color: "var(--color-ink-950)" }}>Notifications enabled</div>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>You&apos;ll receive push alerts for approvals, low stock, and tasks.</div>
           </div>
         </div>
         <button
@@ -55,7 +64,8 @@ export function NotificationPermissionToggle() {
             unsubscribe();
             toast.success("Notifications disabled");
           }}
-          className="rounded-md border border-border px-2 py-1 text-caption font-medium hover:bg-muted/20"
+          className="rounded-[0.375rem] border px-2 py-1 text-m-caption font-medium press"
+          style={{ borderColor: "var(--color-line)" }}
         >
           Disable
         </button>
@@ -70,7 +80,7 @@ export function NotificationPermissionToggle() {
         requestPermission();
       }}
       disabled={loading}
-      className="flex w-full items-center gap-2 rounded-[0.5rem] border-2 border-signal/30 bg-signal/5 px-3 py-2.5 text-caption font-semibold press disabled:opacity-50"
+      className="flex w-full items-center gap-2 rounded-[0.5rem] border-2 px-3 py-2.5 text-m-caption font-semibold text-m-body press disabled:opacity-50"
       style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
     >
       {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" style={{ color: "var(--color-signal)" }} />}

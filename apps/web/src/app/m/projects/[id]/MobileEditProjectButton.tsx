@@ -16,7 +16,7 @@ export function MobileEditProjectButton({ project }: { project: ProjectEditData 
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 h-8 px-3 rounded-[0.5rem] border-2 text-[0.6875rem] font-bold press"
+        className="flex items-center gap-1.5 h-8 px-3 rounded-[0.5rem] border-2 text-m-body font-bold text-m-body press"
         style={{
           borderColor: "var(--color-line)",
           color: "var(--color-ink-700)",

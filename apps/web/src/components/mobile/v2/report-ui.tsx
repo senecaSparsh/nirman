@@ -21,7 +21,7 @@ export function MobileReportHeader({
       <div className="flex items-start gap-2.5">
         {Icon && (
           <span
-            className="grid place-items-center size-9 rounded-[0.625rem] shrink-0"
+            className="grid place-items-center size-9 rounded-[0.625rem] text-m-body shrink-0"
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
             <Icon className="size-4" style={{ color: "var(--color-ink-600)" }} />
@@ -29,14 +29,14 @@ export function MobileReportHeader({
         )}
         <div className="flex-1 min-w-0">
           <h1
-            className="text-[1rem] font-bold leading-tight"
+            className="text-m-section font-bold leading-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             {title}
           </h1>
           {subtitle && (
             <p
-              className="text-[0.625rem] mt-0.5 leading-snug"
+              className="text-m-label mt-0.5 leading-snug"
               style={{ color: "var(--color-ink-500)" }}
             >
               {subtitle}
@@ -44,7 +44,7 @@ export function MobileReportHeader({
           )}
           {period && (
             <span
-              className="inline-block mt-1.5 rounded-[0.375rem] px-2 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-wide"
+              className="inline-block mt-1.5 rounded-[0.375rem] px-2 py-0.5 text-m-caption font-semibold uppercase tracking-wide"
               style={{
                 backgroundColor: "var(--color-signal-wash)",
                 color: "var(--color-signal-dark)",
@@ -86,13 +86,13 @@ export function MobileReportSummary({
       {items.map((item, i) => (
         <div key={i} className="flex flex-col">
           <span
-            className="text-[0.5rem] uppercase tracking-wide font-semibold"
+            className="text-m-caption uppercase tracking-wide font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {item.label}
           </span>
           <span
-            className="text-[0.875rem] font-bold tabular-nums leading-tight"
+            className="text-m-section font-bold tabular-nums leading-tight"
             style={{ color: toneColor[item.tone ?? "default"] }}
           >
             {item.value}
@@ -142,13 +142,13 @@ export function MobileBarChart({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-2">
               <span
-                className="text-[0.6875rem] font-medium truncate"
+                className="text-m-body font-medium truncate"
                 style={{ color: "var(--color-ink-900)" }}
               >
                 {d.label}
               </span>
               <span
-                className="text-[0.6875rem] font-bold tabular-nums shrink-0"
+                className="text-m-body font-bold tabular-nums shrink-0"
                 style={{ color: toneColor[d.tone ?? "default"] }}
               >
                 {fmt(d.value)}

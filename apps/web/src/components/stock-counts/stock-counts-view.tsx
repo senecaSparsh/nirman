@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, ChevronDown, BookOpen } from "lucide-react";
+import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, ChevronDown, BookOpen, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
@@ -99,6 +99,17 @@ export function StockCountsView({
       render: (c) => (
         <div className="flex items-center justify-end gap-1">
           <span className="text-caption text-muted-foreground">View →</span>
+          <a
+            href={`/print/stock-counts/${c.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center justify-center h-7 w-7 text-muted-foreground hover:text-foreground"
+            title="Print stock count"
+            aria-label="Print stock count"
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </a>
           {canManage && c.status === "DRAFT" && (
             <Button
               variant="ghost"
@@ -488,6 +499,15 @@ function StockCountDetailDialog({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <StatusPill status={count.status} />
           <div className="flex gap-2">
+            <a
+              href={`/print/stock-counts/${count.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+              title="Print stock count"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print
+            </a>
             {canManage && count.status === "DRAFT" && (
               <Button size="sm" onClick={() => onAction(count.id, "confirm")}>
                 <Check className="h-4 w-4" /> Confirm Count

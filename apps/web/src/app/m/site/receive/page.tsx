@@ -60,7 +60,7 @@ async function SiteReceiveContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="In Transit" value={formatNumber(inTransit.length, 0)} icon={Truck} />
         <MobileStatCard label="Partial" value={formatNumber(partial, 0)} icon={Truck} tone={partial > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Overdue" value={formatNumber(overdue, 0)} icon={AlertTriangle} tone={overdue > 0 ? "stop" : "neutral"} />
@@ -70,7 +70,7 @@ async function SiteReceiveContent() {
         <MobileCta href="/m/site/field" icon={ScanLine} variant="primary">
           Open barcode scanner
         </MobileCta>
-        <p className="mt-2 px-2 text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="mt-2 px-2 text-m-body" style={{ color: "var(--color-ink-500)" }}>
           Scan or manually receive materials against a purchase order. Works offline.
         </p>
       </div>

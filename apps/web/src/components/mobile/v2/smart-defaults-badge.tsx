@@ -12,7 +12,7 @@ export function SmartDefaultsBadge({ onDismiss }: { onDismiss?: () => void }) {
   if (!visible) return null;
   return (
     <div
-      className="flex items-center gap-1.5 rounded-[0.375rem] px-2 py-1 text-[0.5625rem] font-medium"
+      className="flex items-center gap-1.5 rounded-[0.375rem] px-2 py-1 text-m-caption font-medium"
       style={{
         backgroundColor: "color-mix(in srgb, var(--color-steel) 8%, transparent)",
         color: "var(--color-steel)",
@@ -25,7 +25,7 @@ export function SmartDefaultsBadge({ onDismiss }: { onDismiss?: () => void }) {
           setVisible(false);
           onDismiss?.();
         }}
-        className="ml-0.5 press"
+        className="ml-0.5 text-m-body press"
         aria-label="Dismiss"
       >
         <X className="size-2.5" />

@@ -42,6 +42,7 @@ export default function MobileExportPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState<string | null>(null);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const report = REPORTS.find((r) => r.id === selected);
@@ -57,7 +58,8 @@ export default function MobileExportPage() {
           setProjects(d.items.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProjectsLoading(false));
   }, []);
 
   const handleDownload = async () => {
@@ -110,10 +112,10 @@ export default function MobileExportPage() {
       {/* Header */}
       <div className="flex items-center gap-2">
         <div>
-          <h1 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Bulk Export
           </h1>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Download reports as Excel or CSV
           </p>
         </div>
@@ -121,7 +123,7 @@ export default function MobileExportPage() {
 
       {/* Report selection */}
       <div>
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-500)" }}>
           Select Report
         </p>
         <div className="space-y-1.5">
@@ -135,23 +137,23 @@ export default function MobileExportPage() {
                   setSelected(r.id);
                   setDownloaded(null);
                 }}
-                className="w-full flex items-center gap-3 rounded-[0.625rem] border p-3 text-left press transition-colors"
+                className="w-full flex items-center gap-3 rounded-[0.625rem] border p-3 text-left text-m-body press transition-colors"
                 style={{
                   borderColor: isSelected ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: isSelected ? "var(--color-paper-2)" : "var(--color-paper)",
                 }}
               >
                 <div
-                  className="grid place-items-center size-9 rounded-[0.5rem] shrink-0"
+                  className="grid place-items-center size-9 rounded-[0.5rem] text-m-body shrink-0"
                   style={{ backgroundColor: "var(--color-concrete)" }}
                 >
                   <Icon className="size-4" style={{ color: "var(--color-steel)" }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {r.label}
                   </p>
-                  <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {r.description}
                   </p>
                 </div>
@@ -172,15 +174,15 @@ export default function MobileExportPage() {
         >
           {/* Format */}
           <div>
-            <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
               Format
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               {(["xlsx", "csv"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFormat(f)}
-                  className="flex items-center gap-1.5 rounded-[0.5rem] border px-3 py-2 text-[0.6875rem] font-bold press"
+                  className="flex items-center gap-1.5 rounded-[0.5rem] border px-3 py-2 text-m-body font-bold text-m-body press"
                   style={{
                     borderColor: format === f ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: format === f ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -197,32 +199,32 @@ export default function MobileExportPage() {
           {/* Date range (if applicable) */}
           {report.hasDateRange ? (
             <div>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
                 Date Range (optional)
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[0.5rem] font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>From</label>
+                  <label className="text-m-caption font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>From</label>
                   <input
                     type="date"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-[0.5rem] font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>To</label>
+                  <label className="text-m-caption font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>To</label>
                   <input
                     type="date"
                     value={to}
                     onChange={(e) => setTo(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>
               </div>
-              <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                 Defaults to current financial year if left blank.
               </p>
             </div>
@@ -231,7 +233,7 @@ export default function MobileExportPage() {
           {/* Project selector (if applicable) */}
           {report.needsProject ? (
             <div>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-ink-500)" }}>
                 Project
               </p>
               <div>
@@ -241,7 +243,7 @@ export default function MobileExportPage() {
                   onChange={setSelectedProjectId}
                   placeholder="Select project…"
                   options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                  inputClass="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-[0.6875rem] outline-none appearance-none"
+                  inputClass="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-m-body outline-none appearance-none"
                   inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   labelClass="hidden"
                   renderDialog={({ open, onClose, onCreated }) => (
@@ -249,8 +251,12 @@ export default function MobileExportPage() {
                   )}
                 />
               </div>
-              {projects.length === 0 ? (
-                <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              {projectsLoading ? (
+                <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  Loading projects…
+                </p>
+              ) : projects.length === 0 ? (
+                <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                   No projects available.
                 </p>
               ) : null}
@@ -261,7 +267,7 @@ export default function MobileExportPage() {
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {downloading ? (
@@ -278,7 +284,7 @@ export default function MobileExportPage() {
           </button>
 
           {downloaded === selected && !downloading ? (
-            <p className="text-[0.5625rem] text-center font-semibold" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-caption text-center font-semibold" style={{ color: "var(--color-go)" }}>
               Downloaded! Check your files app.
             </p>
           ) : null}
@@ -289,7 +295,7 @@ export default function MobileExportPage() {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <FileText className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-          <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
             Pick a report above to start export
           </p>
         </div>

@@ -362,7 +362,7 @@ async function HrContent() {
             {/* RED — absent / not at location */}
             <Link
               href="/m/attendance"
-              className="rounded-[0.5rem] border p-2.5 press"
+              className="rounded-[0.5rem] border p-2.5 text-m-body text-m-body press"
               style={{
                 borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
                 backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)",
@@ -370,21 +370,21 @@ async function HrContent() {
             >
               <div className="flex items-center gap-1 mb-1">
                 <Circle className="size-2 fill-current" style={{ color: "var(--color-stop)" }} />
-                <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-stop)" }}>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-stop)" }}>
                   Absent
                 </span>
               </div>
-              <p className="text-[1.25rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {tierStats.red}
               </p>
-              <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 not at site
               </p>
             </Link>
             {/* YELLOW — present but DPR not approved */}
             <Link
               href="/m/dprs"
-              className="rounded-[0.5rem] border p-2.5 press"
+              className="rounded-[0.5rem] border p-2.5 text-m-body text-m-body press"
               style={{
                 borderColor: "color-mix(in srgb, var(--color-warn) 30%, transparent)",
                 backgroundColor: "color-mix(in srgb, var(--color-warn) 8%, transparent)",
@@ -392,21 +392,21 @@ async function HrContent() {
             >
               <div className="flex items-center gap-1 mb-1">
                 <Circle className="size-2 fill-current" style={{ color: "var(--color-warn)" }} />
-                <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-warn)" }}>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-warn)" }}>
                   Waiting
                 </span>
               </div>
-              <p className="text-[1.25rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {tierStats.yellow}
               </p>
-              <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 DPR pending
               </p>
             </Link>
             {/* GREEN — present + DPR approved */}
             <Link
               href="/m/attendance"
-              className="rounded-[0.5rem] border p-2.5 press"
+              className="rounded-[0.5rem] border p-2.5 text-m-body text-m-body press"
               style={{
                 borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
                 backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)",
@@ -414,14 +414,14 @@ async function HrContent() {
             >
               <div className="flex items-center gap-1 mb-1">
                 <Circle className="size-2 fill-current" style={{ color: "var(--color-go)" }} />
-                <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>
                   Clear
                 </span>
               </div>
-              <p className="text-[1.25rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {tierStats.green}
               </p>
-              <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 DPR approved
               </p>
             </Link>
@@ -486,7 +486,7 @@ async function HrContent() {
           {/* Link to consolidated pending list */}
           <Link
             href="/m/hr/pending"
-            className="mt-2 flex items-center justify-center gap-1 text-[0.625rem] font-semibold"
+            className="mt-2 flex items-center justify-center gap-1 text-m-label font-semibold"
             style={{ color: "var(--color-brand)" }}
           >
             View all pending items
@@ -502,7 +502,7 @@ async function HrContent() {
             right={
               <Link
                 href="/m/dprs"
-                className="text-[0.625rem] font-semibold press"
+                className="text-m-label font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 View all

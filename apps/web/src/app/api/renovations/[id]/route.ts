@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { startRenovation, completeRenovation, cancelRenovation, logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, renovationSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
@@ -50,7 +51,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       const r = await tx.renovationProject.update({ where: { id }, data });
       await logAction(tx, {
         userId: user.id,

@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Wallet } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileReceiptsList, type ReceiptListItem } from "./MobileReceiptsList";
@@ -68,10 +68,10 @@ async function BooksReceiptsContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
-        <MobileStatCard label="Total Received" value={formatCurrency(total)} icon={Wallet} tone="go" />
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        <MobileStatCard label="Total Received" value={formatCurrencyCompact(total)} icon={Wallet} tone="go" />
         <MobileStatCard label="Count" value={formatNumber(items.length, 0)} icon={Wallet} />
-        <MobileStatCard label="Average" value={formatCurrency(avg)} icon={Wallet} />
+        <MobileStatCard label="Average" value={formatCurrencyCompact(avg)} icon={Wallet} />
       </div>
 
       {items.length === 0 ? (
@@ -89,7 +89,7 @@ async function BooksReceiptsContent() {
             { key: "paymentDate", label: "Date" },
             { key: "mode", label: "Mode" },
           ] as MobileColumnSpec[]}
-          exportSummary={`${items.length} receipts · ${formatCurrency(total)} total`}
+          exportSummary={`${items.length} receipts · ${formatCurrencyCompact(total)} total`}
         />
       )}
     </div>

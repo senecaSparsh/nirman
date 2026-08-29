@@ -142,7 +142,7 @@ export function MobilePermissionsList({
             return (
               <div key={stage}>
                 <p
-                  className="text-[0.5625rem] font-bold uppercase tracking-wide mb-2"
+                  className="text-m-caption font-bold uppercase tracking-wide mb-2"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   {STAGE_LABELS[stage]} ({stageDocs.length})
@@ -186,12 +186,12 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
         <div className="min-w-0 flex-1">
           {/* Title + status badge */}
           <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[0.4375rem] font-bold uppercase shrink-0" style={{ color: "var(--color-ink-300)" }}>
+            <span className="text-m-caption font-bold uppercase shrink-0" style={{ color: "var(--color-ink-300)" }}>
               {doc.type.replace(/_/g, " ")}
             </span>
           </div>
           <p
-            className="text-[0.75rem] font-semibold leading-tight mb-1"
+            className="text-m-section font-semibold leading-tight mb-1"
             style={{ color: "var(--color-ink-950)" }}
           >
             {doc.title}
@@ -201,7 +201,7 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
           {entityName && (
             <Link
               href={entityHref ?? "#"}
-              className="inline-flex items-center gap-1 text-[0.5625rem] font-medium mb-1"
+              className="inline-flex items-center gap-1 text-m-caption font-medium mb-1"
               style={{ color: "var(--color-steel)" }}
             >
               {doc.projectId ? <Building2 className="size-3" /> : <MapPin className="size-3" />}
@@ -214,12 +214,12 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
           {/* Doc number + authority */}
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
             {doc.docNumber && (
-              <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Doc#: <span className="font-semibold" style={{ color: "var(--color-ink-950)" }}>{doc.docNumber}</span>
               </span>
             )}
             {doc.authority && (
-              <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Auth: <span className="font-semibold" style={{ color: "var(--color-ink-700)" }}>{doc.authority}</span>
               </span>
             )}
@@ -228,16 +228,16 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
           {/* Validity + expiry alert */}
           {doc.validTill && (
             <div className="mt-1.5">
-              <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Valid till: <span className="font-semibold" style={{ color: "var(--color-ink-950)" }}>{formatDate(doc.validTill)}</span>
               </span>
               {expiryStatus === "expired" && (
-                <span className="ml-2 text-[0.5625rem] font-bold" style={{ color: "var(--color-stop)" }}>
+                <span className="ml-2 text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
                   Expired {Math.abs(days!)}d ago
                 </span>
               )}
               {expiryStatus === "expiring" && (
-                <span className="ml-2 text-[0.5625rem] font-bold" style={{ color: "var(--color-signal)" }}>
+                <span className="ml-2 text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
                   Expires in {days}d
                 </span>
               )}
@@ -250,7 +250,7 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
               href={doc.documentUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-1.5 text-[0.5625rem] font-semibold"
+              className="inline-flex items-center gap-1 mt-1.5 text-m-caption font-semibold"
               style={{ color: "var(--color-steel)" }}
             >
               <ExternalLink className="size-3" />

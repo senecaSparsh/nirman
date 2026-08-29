@@ -11,7 +11,7 @@ import { haptic } from "@/lib/haptic";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
 
 const inputClass =
-  "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-medium outline-none";
+  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -30,7 +30,7 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-[0.5625rem] font-semibold mb-1"
+        className="block text-m-caption font-semibold mb-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
@@ -127,12 +127,12 @@ export function MobileCustomerForm({
           <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
         </Link>
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             New Customer
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <Users className="size-2.5" />
@@ -172,7 +172,7 @@ export function MobileCustomerForm({
           />
           {duplicatePhone && (
             <p
-              className="flex items-center gap-1.5 text-[0.5625rem] mt-1.5"
+              className="flex items-center gap-1.5 text-m-caption mt-1.5"
               style={{ color: "var(--color-signal-dark)" }}
             >
               <AlertCircle className="size-3" />
@@ -202,6 +202,7 @@ export function MobileCustomerForm({
             value={form.gstin}
             onChange={(e) => set("gstin", e.target.value.toUpperCase())}
             placeholder="27ABCDE1234F1Z5"
+            pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{3}"
             maxLength={15}
             enterKeyHint="done"
             className={`${inputClass} font-mono uppercase`}
@@ -224,7 +225,7 @@ export function MobileCustomerForm({
             type="button"
             onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
             disabled={saving || !form.name.trim() || !form.phone.trim()}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? (
@@ -320,7 +321,7 @@ export function MobileCreateCustomerButton({
       <button
         type="button"
         onClick={() => { setOpen(true); haptic(10); }}
-        className="flex items-center gap-1 text-[0.5625rem] font-bold press"
+        className="flex items-center gap-1 text-m-caption font-bold text-m-body press"
         style={{ color: "var(--color-signal-dark)" }}
       >
         <UserPlus className="size-3" /> New
@@ -357,7 +358,7 @@ export function MobileCreateCustomerButton({
               />
               {duplicatePhone && (
                 <p
-                  className="flex items-center gap-1.5 text-[0.5625rem] mt-1.5"
+                  className="flex items-center gap-1.5 text-m-caption mt-1.5"
                   style={{ color: "var(--color-signal-dark)" }}
                 >
                   <AlertCircle className="size-3" />
@@ -393,7 +394,7 @@ export function MobileCreateCustomerButton({
               <button
                 type="button"
                 onClick={close}
-                className="flex-1 rounded-[0.5rem] border py-2.5 text-[0.6875rem] font-bold press"
+                className="flex-1 rounded-[0.5rem] border py-2.5 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
               >
                 Cancel
@@ -401,7 +402,7 @@ export function MobileCreateCustomerButton({
               <button
                 type="submit"
                 disabled={saving || !form.name.trim() || !form.phone.trim()}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 {saving ? (

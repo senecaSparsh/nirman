@@ -47,6 +47,7 @@ async function TransfersContent() {
 
   const hasMore = transfers.length > BATCH_SIZE;
   const batch = hasMore ? transfers.slice(0, BATCH_SIZE) : transfers;
+  const inTransitCount = batch.filter((t) => t.status === "IN_TRANSIT").length;
   const lastItem = batch[batch.length - 1];
   const nextCursor = hasMore && lastItem
     ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
@@ -89,6 +90,8 @@ async function TransfersContent() {
       <MobileTransfersList
         items={items}
         canCreate={canTransfer}
+        canTransfer={canTransfer}
+        inTransitCount={inTransitCount}
         currentCompanyId={company.id}
         loadMoreUrl="/api/mobile/list/transfers"
         nextCursor={nextCursor}

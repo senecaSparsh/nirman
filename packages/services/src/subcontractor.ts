@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postProjectCost, postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Subcontractor Management + RA Bills + TDS Service.
@@ -78,7 +79,7 @@ export interface CreateWorkOrderInput {
 }
 
 export async function createWorkOrder(input: CreateWorkOrderInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
@@ -161,7 +162,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
 }
 
 export async function issueWorkOrder(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id } });
     if (!wo) throw new ServiceError("Work order not found", 404);
     if (wo.status !== "DRAFT") throw new ServiceError(`Cannot issue work order in status ${wo.status}`, 400);
@@ -197,7 +198,7 @@ export async function payAdvance(
   paymentMode?: string,
   paymentReference?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id: workOrderId } });
     if (!wo) throw new ServiceError("Work order not found", 404);
     if (wo.status === "DRAFT" || wo.status === "CANCELLED" || wo.status === "CLOSED") {
@@ -255,7 +256,7 @@ export async function payAdvance(
  * Validates that no RA bills are in a non-terminal state (DRAFT/SUBMITTED/APPROVED).
  */
 export async function completeWorkOrder(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id } });
     if (!wo) throw new ServiceError("Work order not found", 404);
     if (wo.status !== "ACTIVE" && wo.status !== "ISSUED") {
@@ -323,7 +324,7 @@ export interface CreateRaBillInput {
  * Computes deductions: retention, TDS, advance recovery.
  */
 export async function createRaBill(input: CreateRaBillInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Validate billing period
     if (input.periodFrom > input.periodTo) {
       throw new ServiceError("Billing period 'from' date cannot be after 'to' date", 400);
@@ -527,7 +528,7 @@ export async function createRaBill(input: CreateRaBillInput) {
 }
 
 export async function approveRaBill(id: string, approvedById: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({
       where: { id },
       include: { workOrder: true, lines: true },
@@ -619,7 +620,7 @@ export async function approveRaBill(id: string, approvedById: string) {
 }
 
 export async function submitRaBill(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({ where: { id } });
     if (!bill) throw new ServiceError("RA bill not found", 404);
     if (bill.status !== "DRAFT") {
@@ -646,7 +647,7 @@ export async function submitRaBill(id: string, userId?: string) {
 }
 
 export async function rejectRaBill(id: string, rejectReason: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({
       where: { id },
       include: { lines: { select: { id: true } } },
@@ -692,7 +693,7 @@ export async function releaseRetention(
   paymentReference?: string,
   overrideDefectPeriod?: { reason: string },
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id: workOrderId } });
     if (!wo) throw new ServiceError("Work order not found", 404);
     if (wo.status !== "COMPLETED") {
@@ -774,7 +775,7 @@ export async function payRaBill(
   paymentMode?: string,
   paymentReference?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({
       where: { id },
       include: { workOrder: true },

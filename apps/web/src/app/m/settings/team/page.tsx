@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, getUserRole } from "@/lib/server";
-import { hasPermission, PERM, ROLES, assignableRoles as getAssignableRoles, type Role } from "@/lib/roles";
+import { hasPermission, PERM, ROLES, migrateRole, assignableRoles as getAssignableRoles, type Role } from "@/lib/roles";
 import { MobileTeamList } from "./MobileTeamList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -56,7 +56,7 @@ async function TeamContent() {
     name: m.user.name,
     email: m.user.email,
     phone: m.user.phone,
-    role: m.role as Role,
+    role: (migrateRole(m.role) ?? "SUPERVISOR") as Role,
     active: m.user.active,
     isSelf: m.user.id === currentUser?.id,
     reportsToName: m.reportsTo?.user.name ?? null,

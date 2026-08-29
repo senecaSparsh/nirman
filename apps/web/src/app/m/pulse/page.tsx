@@ -7,6 +7,7 @@ import {
   getCompanyPortfolioSummary,
   getTallySyncStats,
   lowStockAlerts,
+  leaseExpiryAlerts,
 } from "@nirman/services";
 import {
   ClipboardCheck,
@@ -20,7 +21,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileStatCard,
@@ -66,6 +67,8 @@ async function PulseContent() {
     draftPOs,
     pendingReqs,
     overduePOs,
+    overBudgetCount,
+    leaseExpiry,
     recentSales,
   ] = await Promise.all([
     getCompanyPortfolioSummary(company.id),
@@ -91,6 +94,16 @@ async function PulseContent() {
         expectedDate: { lt: new Date() },
       },
     }),
+    prisma.project.count({
+      where: {
+        companyId: company.id,
+        deletedAt: null,
+        status: { in: ["PLANNED", "ACTIVE"] },
+        totalBudget: { gt: 0 },
+        totalProjectCost: { gt: 0 },
+      },
+    }),
+    leaseExpiryAlerts(company.id).catch(() => []),
     prisma.assetSale.findMany({
       where: { companyId: company.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
@@ -101,43 +114,43 @@ async function PulseContent() {
 
   const approvalCount = draftPOs + pendingReqs;
   const attentionCount =
-    approvalCount + overduePOs + lowStock.length + tallyStats.pending;
+    approvalCount + overduePOs + lowStock.length + overBudgetCount + tallyStats.pending + leaseExpiry.length;
   const topProjects = portfolio.projects.slice(0, 5);
 
   return (
     <div>
       {/* ── KPI strip — 4 tiles ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Portfolio"
-          value={formatCurrency(toNum(portfolio.totalPortfolioValue))}
-          hint={`${portfolio.activeProjectCount} active projects`}
+          value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
+          hint={`${portfolio.activeProjectCount} active`}
           icon={Building2}
           tone="signal"
         />
         <MobileStatCard
           label="Revenue"
-          value={formatCurrency(toNum(portfolio.totalRevenue))}
-          hint={`${formatNumber(portfolio.soldUnits, 0)} units sold`}
+          value={formatCurrencyCompact(toNum(portfolio.totalRevenue))}
+          hint={`${formatNumber(portfolio.soldUnits, 0)} sold`}
           icon={TrendingUp}
           tone="go"
         />
         <MobileStatCard
           label="Avg Margin"
           value={`${formatNumber(toNum(portfolio.avgMarginPct), 1)}%`}
-          hint={`${formatCurrency(toNum(portfolio.totalProfit))} profit`}
+          hint={`${formatCurrencyCompact(toNum(portfolio.totalProfit))}`}
           icon={Wallet}
         />
         <MobileStatCard
           label="Units Avail."
           value={formatNumber(portfolio.availableUnits, 0)}
-          hint={`${formatCurrency(toNum(portfolio.unsoldAssetValue))} value`}
+          hint={`${formatCurrencyCompact(toNum(portfolio.unsoldAssetValue))}`}
           icon={Package}
         />
       </div>
 
       {/* ── Attention queue — one card, drills down ─────────────── */}
-      <div className="mb-4">
+      <div className="mb-3">
         <MobileCta href="/m/pulse/attention" icon={AlertTriangle} variant="primary">
           {attentionCount > 0
             ? `${attentionCount} things need you`
@@ -145,8 +158,8 @@ async function PulseContent() {
         </MobileCta>
       </div>
 
-      {/* ── Approvals — count + link ─────────────────────────────── */}
-      <div className="mb-4">
+      {/* ── Approvals + Inventory — side by side ─────────────────── */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MobileCta
           href="/m/pulse/approvals"
           icon={ClipboardCheck}
@@ -154,14 +167,10 @@ async function PulseContent() {
         >
           {approvalCount > 0
             ? `Approvals · ${approvalCount}`
-            : "Approvals queue"}
+            : "Approvals"}
         </MobileCta>
-      </div>
-
-      {/* ── Inventory — count + link ─────────────────────────────── */}
-      <div className="mb-4">
         <MobileCta href="/m/materials" icon={Boxes} variant="secondary">
-          Inventory at a glance
+          Inventory
         </MobileCta>
       </div>
 
@@ -170,7 +179,7 @@ async function PulseContent() {
       <div className="flex gap-2 mb-4">
         <Link
           href="/m/sales/new"
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-[0.75rem] font-bold press"
+          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >
           <Plus className="size-3.5" />
@@ -178,7 +187,7 @@ async function PulseContent() {
         </Link>
         <Link
           href="/m/requisitions"
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-[0.75rem] font-bold press"
+          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >
           <ShoppingCart className="size-3.5" />
@@ -193,7 +202,7 @@ async function PulseContent() {
           <span>Project health</span>
           <Link
             href="/m/projects"
-            className="text-[0.5625rem] font-bold press"
+            className="text-m-caption font-bold text-m-body press"
             style={{ color: "var(--color-signal-dark)" }}
           >
             View all
@@ -225,7 +234,7 @@ async function PulseContent() {
                 href={`/m/projects`}
                 icon={Building2}
                 title={p.name}
-                subtitle={`${formatCurrency(cost)} spent · ${formatNumber(p.soldUnits, 0)}/${formatNumber(p.unitCount, 0)} sold`}
+                subtitle={`${formatCurrencyCompact(cost)} spent · ${formatNumber(p.soldUnits, 0)}/${formatNumber(p.unitCount, 0)} sold`}
                 meta={
                   budget > 0
                     ? `${variancePct >= 0 ? "+" : ""}${formatNumber(variancePct, 1)}%`
@@ -248,11 +257,11 @@ async function PulseContent() {
           {recentSales.map((s) => (
             <MobileRow
               key={s.id}
-              href={`/m/sales/new`}
+              href={`/m/sales/${s.id}`}
               icon={Wallet}
               title={s.customer.name}
               subtitle={formatDate(s.createdAt)}
-              meta={formatCurrency(toNum(s.salePrice))}
+              meta={formatCurrencyCompact(toNum(s.salePrice))}
               tone="success"
             />
           ))}

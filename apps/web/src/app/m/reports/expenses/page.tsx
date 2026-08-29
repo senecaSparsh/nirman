@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Wallet, Building2, TrendingUp, Tags } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -155,9 +155,9 @@ async function MobileExpensesContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Operating", value: formatCurrency(totalOperating) },
-          { label: "Project", value: formatCurrency(totalProject), tone: "signal" },
-          { label: "Total", value: formatCurrency(total), tone: total > 0 ? "signal" : "default" },
+          { label: "Operating", value: formatCurrencyCompact(totalOperating) },
+          { label: "Project", value: formatCurrencyCompact(totalProject), tone: "signal" },
+          { label: "Total", value: formatCurrencyCompact(total), tone: total > 0 ? "signal" : "default" },
           { label: "Categories", value: String(categoryRows.length) },
         ]}
       />
@@ -167,7 +167,7 @@ async function MobileExpensesContent() {
           title="Expenses Report"
           rows={monthly as unknown as Record<string, unknown>[]}
           columns={monthlyCsvColumns}
-          summary={`Operating: ${formatCurrency(totalOperating)} · Project: ${formatCurrency(totalProject)} · Total: ${formatCurrency(total)}`}
+          summary={`Operating: ${formatCurrencyCompact(totalOperating)} · Project: ${formatCurrencyCompact(totalProject)} · Total: ${formatCurrencyCompact(total)}`}
         />
       </div>
 
@@ -180,7 +180,7 @@ async function MobileExpensesContent() {
             value: m.operating + m.project,
             tone: (m.project > m.operating ? "signal" : "default") as "signal" | "default",
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -193,7 +193,7 @@ async function MobileExpensesContent() {
             icon={Wallet}
             title={m.label}
             subtitle={`Op ${formatCurrency(m.operating)} · Proj ${formatCurrency(m.project)}`}
-            meta={formatCurrency(m.operating + m.project)}
+            meta={formatCurrencyCompact(m.operating + m.project)}
             tone="default"
           />
         ))}
@@ -218,7 +218,7 @@ async function MobileExpensesContent() {
                 icon={Tags}
                 title={c.category}
                 subtitle={`${c.count} entr${c.count > 1 ? "ies" : "y"}`}
-                meta={formatCurrency(c.amount)}
+                meta={formatCurrencyCompact(c.amount)}
                 tone="default"
               />
             ))}
@@ -237,7 +237,7 @@ async function MobileExpensesContent() {
                 icon={Building2}
                 title={p.project}
                 subtitle="Project costs"
-                meta={formatCurrency(p.amount)}
+                meta={formatCurrencyCompact(p.amount)}
                 tone="default"
               />
             ))}

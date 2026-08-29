@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, customerSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.SALES_VIEW);
@@ -35,7 +36,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const company = await getCompany();
     const customer = await tx.customer.create({ data: { ...parsed.data, companyId: company.id } });
     await logAction(tx, {
@@ -81,7 +82,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
       continue;
     }
     try {
-      await prisma.$transaction(async (tx) => {
+      await withSerializableTransaction(async (tx) => {
         const customer = await tx.customer.create({ data: { ...parsed.data, companyId: company.id } });
         await logAction(tx, {
           userId: user.id,

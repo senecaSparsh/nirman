@@ -33,13 +33,13 @@ export function MobileSelectWithCreate({
   options,
   placeholder,
   renderDialog,
-  inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none",
+  inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none",
   inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   },
-  labelClass = "text-[0.5625rem] font-semibold block mb-1",
+  labelClass = "text-m-caption font-semibold block mb-1",
   labelStyle = { color: "var(--color-ink-500)" } as React.CSSProperties,
 }: {
   label: string;
@@ -93,7 +93,7 @@ export function MobileSelectWithCreate({
             haptic(10);
             setShowDialog(true);
           }}
-          className="shrink-0 grid place-items-center self-stretch aspect-square rounded-[0.5rem] border press"
+          className="shrink-0 grid place-items-center self-stretch aspect-square rounded-[0.5rem] border text-m-body press"
           style={{
             borderColor: "var(--color-signal)",
             backgroundColor: "var(--color-signal-wash)",

@@ -136,14 +136,14 @@ export function MobileSelfCheckIn({
       >
         <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-green-600)" }} />
         <div className="flex-1 min-w-0">
-          <p className="text-[0.8125rem] font-semibold" style={{ color: "var(--color-ink-900)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
             Day complete
           </p>
-          <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-600)" }}>
+          <p className="text-m-body" style={{ color: "var(--color-ink-600)" }}>
             {checkInTime} → {checkOutTime} · {employeeName}
           </p>
           {hoursWorked != null && (
-            <p className="text-[0.625rem] font-medium mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label font-medium mt-0.5" style={{ color: "var(--color-ink-700)" }}>
               {hoursWorked}h worked
             </p>
           )}
@@ -165,20 +165,20 @@ export function MobileSelfCheckIn({
         >
           <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-green-600)" }} />
           <div className="flex-1 min-w-0">
-            <p className="text-[0.8125rem] font-semibold" style={{ color: "var(--color-ink-900)" }}>
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
               Checked in
             </p>
-            <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-600)" }}>
+            <p className="text-m-body" style={{ color: "var(--color-ink-600)" }}>
               {checkInTime ?? "Today"} · {employeeName}
             </p>
             {geoStatus?.ok === false && (
-              <p className="text-[0.625rem] font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-amber-600)" }}>
+              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-amber-600)" }}>
                 <AlertTriangle className="size-3" />
                 Outside site geofence ({geoStatus.distance}m away)
               </p>
             )}
             {geoStatus?.ok === true && (
-              <p className="text-[0.625rem] font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-green-600)" }}>
+              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-green-600)" }}>
                 <MapPin className="size-3" />
                 At {geoStatus.location ?? "site"}
               </p>
@@ -188,7 +188,7 @@ export function MobileSelfCheckIn({
         <button
           onClick={handleCheckOut}
           disabled={loading}
-          className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-[0.875rem] transition-all active:scale-[0.98] disabled:opacity-50"
+          className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-m-section transition-all active:scale-[0.98] disabled:opacity-50"
           style={{
             backgroundColor: "color-mix(in srgb, var(--color-red-500) 10%, transparent)",
             color: "var(--color-red-600)",
@@ -204,7 +204,7 @@ export function MobileSelfCheckIn({
           {loading ? "Checking out..." : "Check Out"}
         </button>
         {error && (
-          <p className="text-[0.6875rem] text-center" style={{ color: "var(--color-red-600)" }}>
+          <p className="text-m-body text-center" style={{ color: "var(--color-red-600)" }}>
             {error}
           </p>
         )}
@@ -218,7 +218,7 @@ export function MobileSelfCheckIn({
       <button
         onClick={handleCheckIn}
         disabled={loading}
-        className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-[0.875rem] transition-all active:scale-[0.98] disabled:opacity-50"
+        className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-m-section transition-all active:scale-[0.98] disabled:opacity-50"
         style={{
           backgroundColor: "var(--color-primary)",
           color: "white",
@@ -233,7 +233,7 @@ export function MobileSelfCheckIn({
         {loading ? "Checking in..." : "Check In"}
       </button>
       {error && (
-        <p className="text-[0.6875rem] mt-2 text-center" style={{ color: "var(--color-red-600)" }}>
+        <p className="text-m-body mt-2 text-center" style={{ color: "var(--color-red-600)" }}>
           {error}
         </p>
       )}

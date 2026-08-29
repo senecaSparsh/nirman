@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 import {
   Trophy,
   Plus,
@@ -282,37 +283,37 @@ export function MobileQuotationDetail({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-20">
       {/* ── Header (compact) ── */}
       <div className="flex items-center gap-2 flex-wrap">
         {onClose ? (
-          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-lg press active:scale-95" style={{ color: "var(--color-ink-700)" }} aria-label="Close">
+          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-[0.625rem] text-m-body press active:scale-95" style={{ color: "var(--color-ink-700)" }} aria-label="Close">
             <X className="size-5" />
           </button>
         ) : null}
-        <h1 className="text-[0.875rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
           {request.requestNumber}
         </h1>
         <span
-          className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded"
+          className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded"
           style={{ backgroundColor: style.color, color: "#fff" }}
         >
           {style.label}
         </span>
         {request.isUrgent ? (
           <span
-            className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5"
             style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
           >
             <AlertCircle className="size-2.5" />
             URGENT
           </span>
         ) : null}
-        <span className="text-[0.625rem] font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
+        <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
           {request.title}
         </span>
       </div>
-      <div className="flex items-center gap-2 flex-wrap text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+      <div className="flex items-center gap-2 flex-wrap text-m-caption" style={{ color: "var(--color-ink-500)" }}>
         <span>{request.projectName ?? "No project"}</span>
         <span>·</span>
         <span>by {request.submittedByName}</span>
@@ -339,18 +340,18 @@ export function MobileQuotationDetail({
       {request.convertedPo ? (
         <a
           href={`/m/procurement/${request.convertedPo.id}`}
-          className="flex items-center justify-between rounded border px-2.5 py-1.5 press"
+          className="flex items-center justify-between rounded border px-2.5 py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-go)", backgroundColor: "var(--color-go-wash)" }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-go)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-go)" }}>
               PO created
             </span>
-            <span className="text-[0.75rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
               {request.convertedPo.poNumber}
             </span>
           </div>
-          <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>
+          <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>
             {request.convertedPo.status}
           </span>
         </a>
@@ -360,12 +361,12 @@ export function MobileQuotationDetail({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {activeQuotes.length >= request.minQuotesRequired ? (
-            <span className="flex items-center gap-1 text-[0.625rem] font-semibold" style={{ color: "var(--color-go)" }}>
+            <span className="flex items-center gap-1 text-m-label font-semibold" style={{ color: "var(--color-go)" }}>
               <Check className="size-3" />
               {activeQuotes.length}/{request.minQuotesRequired} quotes
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-[0.625rem] font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+            <span className="flex items-center gap-1 text-m-label font-semibold" style={{ color: "var(--color-signal-dark)" }}>
               <AlertCircle className="size-3" />
               {activeQuotes.length}/{request.minQuotesRequired} — need {request.minQuotesRequired - activeQuotes.length} more
             </span>
@@ -374,7 +375,7 @@ export function MobileQuotationDetail({
         {request.canAddQuote ? (
           <button
             onClick={() => setShowAddQuote(true)}
-            className="flex items-center gap-1 h-7 px-2.5 rounded text-[0.625rem] font-bold whitespace-nowrap press active:scale-95"
+            className="flex items-center gap-1 h-7 px-2.5 rounded text-m-label font-bold whitespace-nowrap text-m-body press active:scale-95"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <Plus className="size-3" />
@@ -402,7 +403,7 @@ export function MobileQuotationDetail({
       {/* ── Notes ── */}
       {request.notes ? (
         <div
-          className="rounded-[0.5rem] border-l-2 p-2.5 text-[0.6875rem] italic"
+          className="rounded-[0.5rem] border-l-2 p-2.5 text-m-body italic"
           style={{ borderColor: "var(--color-steel)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
         >
           {request.notes}
@@ -412,10 +413,10 @@ export function MobileQuotationDetail({
       {/* ── Approval reason ── */}
       {request.approvalReason ? (
         <div
-          className="rounded-[0.5rem] border-l-2 p-2.5 text-[0.6875rem]"
+          className="rounded-[0.5rem] border-l-2 p-2.5 text-m-body"
           style={{ borderColor: "var(--color-signal)", backgroundColor: "var(--color-signal-wash)", color: "var(--color-ink-700)" }}
         >
-          <p className="font-bold text-[0.5625rem] uppercase mb-1" style={{ color: "var(--color-signal-dark)" }}>
+          <p className="font-bold text-m-caption uppercase mb-1" style={{ color: "var(--color-signal-dark)" }}>
             Approval Reason
           </p>
           {request.approvalReason}
@@ -424,28 +425,19 @@ export function MobileQuotationDetail({
 
       {/* ── Sticky bottom action bar ── */}
       {request.canApprove && activeQuotes.length > 0 ? (
-        <div
-          className="sticky bottom-0 z-20 border-t mt-4"
-          style={{
-            backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-            borderColor: "var(--color-line)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <div className="mx-auto w-full max-w-[34rem] px-3.5 py-2.5 pb-safe">
-            <button
-              onClick={() => {
-                setApproveQuoteId(request.cheapestQuoteId);
-                setShowApproveDialog(true);
-              }}
-              className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press active:scale-95"
-              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
-            >
-              <Trophy className="size-4" />
-              Approve & Select Winner
-            </button>
-          </div>
-        </div>
+        <ActionBar>
+          <button
+            onClick={() => {
+              setApproveQuoteId(request.cheapestQuoteId);
+              setShowApproveDialog(true);
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press active:scale-95"
+            style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+          >
+            <Trophy className="size-4" />
+            Approve & Select Winner
+          </button>
+        </ActionBar>
       ) : null}
 
       {/* ── Add Quote Dialog ── */}
@@ -816,11 +808,11 @@ function ComparativeSheet({
     return (
       <div key={batchStart} className={batchStart > 0 ? "mt-3" : ""}>
         {totalBatches > 1 && (
-          <div className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+          <div className="text-center text-m-caption font-bold uppercase tracking-wider mb-1">
             Suppliers {batchStart + 1}–{batchStart + batch.length} of {sortedQuotes.length}
           </div>
         )}
-        <div className="rounded-lg border-2 border-slate-700 bg-white shadow-md overflow-hidden cs-table">
+        <div className="rounded-[0.625rem] border-2 overflow-hidden cs-table">
           <style>{`
             .cs-table td, .cs-table th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 0; }
           `}</style>
@@ -833,7 +825,7 @@ function ComparativeSheet({
             </colgroup>
             <thead>
               <tr>
-                <th className="border border-slate-300 px-1.5 py-1 text-left bg-slate-700 text-white overflow-hidden">
+                <th className="border px-1.5 py-1 text-left overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-ink-700)", color: "var(--color-paper)" }}>
                   <div className="font-bold uppercase tracking-wider opacity-70" style={{ fontSize: `${batchFs.micro}px` }}>Comp. Statement</div>
                   <div className="font-bold" style={{ fontSize: `${batchFs.supplier}px` }}>Supplier →</div>
                 </th>
@@ -844,16 +836,17 @@ function ComparativeSheet({
                   return (
                     <th
                       key={q.id}
-                      className={`border border-slate-300 px-1 py-1 text-center overflow-hidden ${isWinner ? "bg-slate-900" : isCheapest ? "bg-slate-800" : "bg-slate-700"}`}
+                      className={`border px-1 py-1 text-center overflow-hidden ${isWinner ? "" : isCheapest ? "bg-ink-800" : "bg-ink-700"}`}
+                      style={{ borderColor: "var(--color-line)", color: "var(--color-paper)", backgroundColor: isWinner ? "var(--color-ink-950)" : undefined }}
                     >
-                      <div className="text-white">
+                      <div style={{ color: "var(--color-paper)" }}>
                         <div className="flex items-center justify-center gap-0.5 overflow-hidden">
                           {isWinner && <Crown className="shrink-0" style={{ width: batchFs.badge + 3, height: batchFs.badge + 3 }} />}
                           {isCheapest && !isWinner && <Trophy className="shrink-0" style={{ width: batchFs.badge + 3, height: batchFs.badge + 3 }} />}
                           <span className="font-bold truncate" style={{ fontSize: `${batchFs.supplier}px` }}>{q.supplierName}</span>
                         </div>
-                        {isWinner && <div className="mt-0.5 font-bold uppercase tracking-wider bg-white/20 rounded px-0.5" style={{ fontSize: `${batchFs.badge}px` }}>★ Win</div>}
-                        {isCheapest && !isWinner && <div className="mt-0.5 font-bold uppercase tracking-wider bg-white/20 rounded px-0.5" style={{ fontSize: `${batchFs.badge}px` }}>Low</div>}
+                        {isWinner && <div className="mt-0.5 font-bold uppercase tracking-wider rgba(255,255,255,0.2) rounded px-0.5" style={{ fontSize: `${batchFs.badge}px` }}>★ Win</div>}
+                        {isCheapest && !isWinner && <div className="mt-0.5 font-bold uppercase tracking-wider rgba(255,255,255,0.2) rounded px-0.5" style={{ fontSize: `${batchFs.badge}px` }}>Low</div>}
                       </div>
                     </th>
                   );
@@ -891,7 +884,7 @@ function ComparativeSheet({
 
               {/* ── SUMMARY SECTION HEADER ── */}
               <tr>
-                <td colSpan={batch.length + 1} className="border border-slate-300 px-1.5 py-1 bg-slate-200 text-slate-800 font-bold uppercase tracking-wider" style={{ fontSize: `${batchFs.section}px` }}>
+                <td colSpan={batch.length + 1} className="border px-1.5 py-1 font-bold uppercase tracking-wider" style={{ fontSize: `${batchFs.section}px` }}>
                   Summary
                 </td>
               </tr>
@@ -925,7 +918,7 @@ function ComparativeSheet({
 
               {/* ── LANDED TOTAL — bold headline row ── */}
               <tr>
-                <td className="border-2 border-slate-500 px-1.5 py-1 font-bold bg-slate-300 text-slate-900 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border-2 px-1.5 py-1 font-bold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, borderColor: "var(--color-ink-500)", backgroundColor: "var(--color-line)", color: "var(--color-ink-950)" }}>
                   Landed Total
                 </td>
                 {batch.map((q) => {
@@ -935,14 +928,14 @@ function ComparativeSheet({
                   return (
                     <td
                       key={q.id}
-                      className={`border-2 border-slate-500 px-1 py-1 text-right tabular-nums overflow-hidden ${
+                      className={`border-2 px-1 py-1 text-right tabular-nums overflow-hidden ${
                         isWinner
-                          ? "bg-slate-900 text-white"
+                          ? "var(--color-ink-950) var(--color-paper)"
                           : isCheapest
-                            ? "bg-emerald-50 text-emerald-800"
+                            ? "color-mix(in srgb, var(--color-go) 10%, transparent) var(--color-go)"
                             : isHighest
-                              ? "bg-red-50 text-red-600"
-                              : "bg-white text-slate-800"
+                              ? "stop-bg"
+                              : "var(--color-paper) var(--color-ink-900)"
                       }`}
                     >
                       <div className="font-bold leading-none" style={{ fontSize: `${fitFont("₹" + fmtCompact(q.landedTotal), batchFs.price, 7)}px` }}>₹{fmtCompact(q.landedTotal)}</div>
@@ -957,7 +950,7 @@ function ComparativeSheet({
               {/* ── VARIANCE ROW ── */}
               {sortedQuotes.length > 1 && (
                 <tr>
-                  <td className="border border-slate-300 px-1.5 py-1 font-semibold bg-slate-100 text-slate-600 uppercase overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                  <td className="border px-1.5 py-1 font-semibold uppercase overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
                     Variance vs Lowest
                   </td>
                   {batch.map((q) => {
@@ -967,8 +960,8 @@ function ComparativeSheet({
                     return (
                       <td
                         key={q.id}
-                        className={`border border-slate-300 px-1 py-1 text-right tabular-nums overflow-hidden ${
-                          isCheapest ? "bg-white text-slate-400" : "bg-red-50 text-red-600"
+                        className={`border px-1 py-1 text-right tabular-nums overflow-hidden ${
+                          isCheapest ? "var(--color-paper) var(--color-ink-400)" : "stop-bg"
                         }`}
                       >
                         {isCheapest ? (
@@ -987,14 +980,14 @@ function ComparativeSheet({
 
               {/* ── COMMERCIAL TERMS SECTION ── */}
               <tr>
-                <td colSpan={batch.length + 1} className="border border-slate-300 px-1.5 py-1 bg-slate-200 text-slate-800 font-bold uppercase tracking-wider" style={{ fontSize: `${batchFs.section}px` }}>
+                <td colSpan={batch.length + 1} className="border px-1.5 py-1 font-bold uppercase tracking-wider" style={{ fontSize: `${batchFs.section}px` }}>
                   Commercial Terms{canEdit ? " · tap to edit" : ""}
                 </td>
               </tr>
 
               {/* Payment Terms — click to edit */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Payment Terms
                 </td>
                 {batch.map((q) => {
@@ -1006,7 +999,7 @@ function ComparativeSheet({
                     <td
                       key={q.id}
                       onClick={() => canEdit && !isThisEditing && startEditTermCell(q.id, "paymentTerms", q.paymentTerms ?? "")}
-                      className={`px-0.5 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border border-slate-300"} ${isThisEditing ? "border-dashed border-slate-500 bg-amber-50" : ""}`}
+                      className={`px-0.5 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed cursor-pointer hover-bg-signal" : "border border-line"} ${isThisEditing ? "border-dashed editing-bg" : ""}`}
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
@@ -1024,7 +1017,7 @@ function ComparativeSheet({
                             }}
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "paymentTerms", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
-                            className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                            className="w-full bg-transparent text-center outline-none font-semibold"
                             style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                           />
                         ) : (
@@ -1039,7 +1032,7 @@ function ComparativeSheet({
                             onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "paymentTerms", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
-                            className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                            className="w-full bg-transparent text-center outline-none font-semibold"
                             style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                           >
                             {PAYMENT_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt === "Advance payment" ? "Adv" : opt.replace(" days credit", "d cr")}</option>)}
@@ -1048,7 +1041,7 @@ function ComparativeSheet({
                           </select>
                         )
                       ) : (
-                        <span className="text-slate-600">
+                        <span style={{ color: "var(--color-ink-600)" }}>
                           {display === "Advance payment" ? "Adv" : display.includes("days credit") ? display.replace(" days credit", "d cr") : display.includes("days") ? display.replace(" days", "d") : display}
                         </span>
                       )}
@@ -1059,7 +1052,7 @@ function ComparativeSheet({
 
               {/* Delivery Basis — click to edit (select) */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Delivery Basis
                 </td>
                 {batch.map((q) => {
@@ -1068,7 +1061,7 @@ function ComparativeSheet({
                     <td
                       key={q.id}
                       onClick={() => canEdit && !isThisEditing && startEditTermCell(q.id, "deliveryTermsType", q.deliveryTermsType)}
-                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border border-slate-300"} ${isThisEditing ? "border-dashed border-slate-500 bg-amber-50" : ""}`}
+                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed cursor-pointer hover-bg-signal" : "border border-line"} ${isThisEditing ? "border-dashed editing-bg" : ""}`}
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
@@ -1077,7 +1070,7 @@ function ComparativeSheet({
                           value={cellValue}
                           onChange={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "deliveryTermsType", e.target.value); }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
-                          className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                          className="w-full bg-transparent text-center outline-none font-semibold"
                           style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                         >
                           <option value="DELIVERED_SITE">Delivered</option>
@@ -1095,7 +1088,7 @@ function ComparativeSheet({
 
               {/* Lead Time — click to edit */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Lead Time
                 </td>
                 {batch.map((q) => {
@@ -1106,7 +1099,7 @@ function ComparativeSheet({
                     <td
                       key={q.id}
                       onClick={() => canEdit && !isThisEditing && startEditTermCell(q.id, "leadTimeDays", q.leadTimeDays?.toString() ?? "")}
-                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border border-slate-300"} ${isThisEditing ? "border-dashed border-slate-500 bg-amber-50" : ""} ${isBest ? "bg-emerald-50 text-emerald-700 font-semibold" : ""}`}
+                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed cursor-pointer hover-bg-signal" : "border border-line"} ${isThisEditing ? "border-dashed editing-bg" : ""} ${isBest ? "best-bg" : ""}`}
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
@@ -1123,11 +1116,11 @@ function ComparativeSheet({
                           }}
                           onBlur={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "leadTimeDays", cellValueRef.current); }}
                           disabled={saving}
-                          className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                          className="w-full bg-transparent text-center outline-none font-semibold"
                           style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                         />
                       ) : (
-                        <span className="text-slate-600">{q.leadTimeDays != null ? `${q.leadTimeDays}d` : "—"}</span>
+                        <span style={{ color: "var(--color-ink-600)" }}>{q.leadTimeDays != null ? `${q.leadTimeDays}d` : "—"}</span>
                       )}
                     </td>
                   );
@@ -1136,7 +1129,7 @@ function ComparativeSheet({
 
               {/* Warranty — click to edit */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Warranty
                 </td>
                 {batch.map((q) => {
@@ -1148,7 +1141,7 @@ function ComparativeSheet({
                     <td
                       key={q.id}
                       onClick={() => canEdit && !isThisEditing && startEditTermCell(q.id, "warranty", q.warranty ?? "")}
-                      className={`px-0.5 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border border-slate-300"} ${isThisEditing ? "border-dashed border-slate-500 bg-amber-50" : ""}`}
+                      className={`px-0.5 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed cursor-pointer hover-bg-signal" : "border border-line"} ${isThisEditing ? "border-dashed editing-bg" : ""}`}
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
@@ -1166,7 +1159,7 @@ function ComparativeSheet({
                             }}
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "warranty", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
-                            className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                            className="w-full bg-transparent text-center outline-none font-semibold"
                             style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                           />
                         ) : (
@@ -1181,7 +1174,7 @@ function ComparativeSheet({
                             onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "warranty", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
-                            className="w-full bg-transparent text-center outline-none text-slate-900 font-semibold"
+                            className="w-full bg-transparent text-center outline-none font-semibold"
                             style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
                           >
                             {WARRANTY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt === "No warranty" ? "None" : opt.replace(" months", "mo")}</option>)}
@@ -1190,7 +1183,7 @@ function ComparativeSheet({
                           </select>
                         )
                       ) : (
-                        <span className="text-slate-600">{w === "No warranty" ? "None" : w.includes("months") ? w.replace(" months", "mo") : w}</span>
+                        <span style={{ color: "var(--color-ink-600)" }}>{w === "No warranty" ? "None" : w.includes("months") ? w.replace(" months", "mo") : w}</span>
                       )}
                     </td>
                   );
@@ -1199,7 +1192,7 @@ function ComparativeSheet({
 
               {/* Valid Until — click to edit */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Valid Until
                 </td>
                 {batch.map((q) => {
@@ -1208,7 +1201,7 @@ function ComparativeSheet({
                     <td
                       key={q.id}
                       onClick={() => canEdit && !isThisEditing && startEditTermCell(q.id, "validUntil", q.validUntil ? q.validUntil.split("T")[0] ?? "" : "")}
-                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border border-slate-300"} ${isThisEditing ? "border-dashed border-slate-500 bg-amber-50" : ""} ${q.isExpired ? "bg-red-50 text-red-600" : q.daysUntilExpiry !== null && q.daysUntilExpiry <= 7 ? "bg-amber-50 text-amber-700" : ""}`}
+                      className={`px-1 py-0.5 text-center overflow-hidden ${canEdit ? "border border-dashed cursor-pointer hover-bg-signal" : "border border-line"} ${isThisEditing ? "border-dashed editing-bg" : ""} ${q.isExpired ? "stop-bg" : q.daysUntilExpiry !== null && q.daysUntilExpiry <= 7 ? "signal-bg" : ""}`}
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
@@ -1218,15 +1211,15 @@ function ComparativeSheet({
                           value={cellValue}
                           onChange={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "validUntil", e.target.value); }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
-                          className="w-full bg-transparent text-center outline-none text-slate-900 font-bold"
+                          className="w-full bg-transparent text-center outline-none font-bold"
                           style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b", minHeight: "20px" }}
                         />
                       ) : q.validUntil ? (
                         <span className="flex flex-col items-center leading-tight">
-                          <span className="font-bold text-slate-900" style={{ color: "#1e293b" }}>{fmtDateShort(q.validUntil)}</span>
-                          {q.isExpired ? <span className="text-red-500 font-bold" style={{ fontSize: `${batchFs.micro}px` }}>expired</span> : q.daysUntilExpiry !== null ? <span className={q.daysUntilExpiry <= 7 ? "text-amber-600 font-semibold" : "text-slate-500"} style={{ fontSize: `${batchFs.micro}px` }}>{q.daysUntilExpiry}d left</span> : null}
+                          <span className="font-bold" style={{ color: "#1e293b" }}>{fmtDateShort(q.validUntil)}</span>
+                          {q.isExpired ? <span className="font-bold" style={{ fontSize: `${batchFs.micro}px`, color: "var(--color-stop)" }}>expired</span> : q.daysUntilExpiry !== null ? <span className={`font-semibold ${q.daysUntilExpiry <= 7 ? "" : ""}`} style={{ fontSize: `${batchFs.micro}px`, color: q.daysUntilExpiry <= 7 ? "var(--color-signal)" : "var(--color-ink-500)" }}>{q.daysUntilExpiry}d left</span> : null}
                         </span>
-                      ) : <span className="text-slate-400">—</span>}
+                      ) : <span style={{ color: "var(--color-ink-400)" }}>—</span>}
                     </td>
                   );
                 })}
@@ -1234,13 +1227,13 @@ function ComparativeSheet({
 
               {/* Quote Document — expandable + downloadable */}
               <tr>
-                <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px` }}>
+                <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   Quote Doc
                 </td>
                 {batch.map((q) => (
                   <td
                     key={q.id}
-                    className="border border-slate-300 px-1 py-0.5 text-center overflow-hidden bg-white"
+                    className="border px-1 py-0.5 text-center overflow-hidden"
                     style={{ fontSize: `${batchFs.sub}px` }}
                   >
                     {q.fileUrl ? (
@@ -1249,7 +1242,7 @@ function ComparativeSheet({
                           href={q.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 font-semibold"
+                          className="inline-flex items-center gap-0.5 font-semibold"
                           style={{ fontSize: `${batchFs.sub}px` }}
                         >
                           <ExternalLink style={{ width: batchFs.sub + 1, height: batchFs.sub + 1 }} />
@@ -1258,14 +1251,14 @@ function ComparativeSheet({
                         <a
                           href={q.fileUrl}
                           download={q.fileName ?? undefined}
-                          className="inline-flex items-center text-emerald-600 hover:text-emerald-800 font-semibold"
+                          className="inline-flex items-center font-semibold"
                           style={{ fontSize: `${batchFs.sub}px` }}
                         >
                           <Download style={{ width: batchFs.sub + 1, height: batchFs.sub + 1 }} />
                         </a>
                       </div>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span style={{ color: "var(--color-ink-400)" }}>—</span>
                     )}
                   </td>
                 ))}
@@ -1337,8 +1330,8 @@ function ComparativeSheet({
       <div className="flex justify-end mb-1">
         <button
           onClick={exportToExcel}
-          className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-white font-semibold hover:bg-emerald-700"
-          style={{ fontSize: "10px" }}
+          className="inline-flex items-center gap-1 rounded-[0.375rem] px-2 py-1 font-semibold press"
+          style={{ fontSize: "10px", backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
         >
           <Download style={{ width: 12, height: 12 }} />
           Excel
@@ -1405,16 +1398,16 @@ function MatSection({
     <>
       {/* Material header row */}
       <tr>
-        <td className="border border-slate-300 px-1.5 py-1 bg-blue-50 overflow-hidden">
-          <button onClick={onToggle} className="flex items-center gap-0.5 w-full text-left">
-            {isExpanded ? <ChevronUp className="shrink-0 text-blue-600" style={{ width: fs.micro + 2, height: fs.micro + 2 }} /> : <ChevronDown className="shrink-0 text-blue-600" style={{ width: fs.micro + 2, height: fs.micro + 2 }} />}
+        <td className="border px-1.5 py-1 overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "color-mix(in srgb, var(--color-ink-700) 10%, transparent)" }}>
+          <button onClick={onToggle} className="flex items-center gap-0.5 w-full text-left press">
+            {isExpanded ? <ChevronUp className="shrink-0" style={{ width: fs.micro + 2, height: fs.micro + 2 }} /> : <ChevronDown className="shrink-0" style={{ width: fs.micro + 2, height: fs.micro + 2 }} />}
             <div className="min-w-0 overflow-hidden">
-              <div className="font-bold text-blue-900 truncate" style={{ fontSize: `${fs.supplier}px` }}>{line.materialName}</div>
-              <div className="font-mono text-blue-500 truncate" style={{ fontSize: `${fs.micro}px` }}>
+              <div className="font-bold truncate" style={{ fontSize: `${fs.supplier}px` }}>{line.materialName}</div>
+              <div className="font-mono truncate" style={{ fontSize: `${fs.micro}px` }}>
                 {line.materialCode} · {formatNumber(line.qtyRequired, 0)} {line.unit} · GST {line.gstRate}%
               </div>
               {line.lastRate && (
-                <div className="flex items-center gap-0.5 text-slate-500 truncate" style={{ fontSize: `${fs.micro}px` }}>
+                <div className="flex items-center gap-0.5 truncate" style={{ fontSize: `${fs.micro}px` }}>
                   <TrendingUp style={{ width: fs.micro, height: fs.micro }} />
                   Last: {fmtCompact(line.lastRate.unitCost)}/{line.unit}
                 </div>
@@ -1428,18 +1421,18 @@ function MatSection({
           return (
             <td
               key={e.quoteId}
-              className={`border border-slate-300 px-1 py-1 text-center tabular-nums overflow-hidden ${
-                isWinner ? "bg-green-50" : isCheapest ? "bg-emerald-50" : "bg-white"
+              className={`border px-1 py-1 text-center tabular-nums overflow-hidden ${
+                isWinner ? "color-mix(in srgb, var(--color-go) 10%, transparent)" : isCheapest ? "color-mix(in srgb, var(--color-go) 10%, transparent)" : "var(--color-paper)"
               }`}
             >
               <div className="flex items-center justify-center gap-0.5">
-                {isWinner && <Crown className="shrink-0 text-green-600" style={{ width: fs.badge + 2, height: fs.badge + 2 }} />}
-                {isCheapest && !isWinner && <Trophy className="shrink-0 text-emerald-500" style={{ width: fs.badge + 2, height: fs.badge + 2 }} />}
-                <span className={`font-bold ${isWinner ? "text-green-700" : isCheapest ? "text-emerald-700" : "text-slate-700"}`} style={{ fontSize: `${fitFont(fmtCompact(e.unitLandedCost), fs.price, 6)}px` }}>
+                {isWinner && <Crown className="shrink-0" style={{ width: fs.badge + 2, height: fs.badge + 2 }} />}
+                {isCheapest && !isWinner && <Trophy className="shrink-0" style={{ width: fs.badge + 2, height: fs.badge + 2, color: "var(--color-go)" }} />}
+                <span className="font-bold" style={{ fontSize: `${fitFont(fmtCompact(e.unitLandedCost), fs.price, 6)}px`, color: isWinner || isCheapest ? "var(--color-go)" : "var(--color-ink-700)" }}>
                   {fmtCompact(e.unitLandedCost)}
                 </span>
               </div>
-              <div className="text-slate-400 truncate" style={{ fontSize: `${fitFont(fmtCompact(e.lineTotal), fs.micro, 8)}px` }}>/{line.unit} · {fmtCompact(e.lineTotal)}</div>
+              <div className="truncate" style={{ fontSize: `${fitFont(fmtCompact(e.lineTotal), fs.micro, 8)}px` }}>/{line.unit} · {fmtCompact(e.lineTotal)}</div>
             </td>
           );
         })}
@@ -1448,8 +1441,8 @@ function MatSection({
       {/* Cartel warning */}
       {line.allQuotesAboveLastRate && line.lastRate && (
         <tr>
-          <td colSpan={entries.length + 1} className="border border-slate-300 px-1.5 py-1 bg-amber-50">
-            <div className="flex items-center gap-0.5 text-amber-700">
+          <td colSpan={entries.length + 1} className="border px-1.5 py-1 editing-bg">
+            <div className="flex items-center gap-0.5">
               <AlertCircle className="shrink-0" style={{ width: fs.micro + 2, height: fs.micro + 2 }} />
               <span style={{ fontSize: `${fs.sub}px` }}>
                 All quotes <strong>{line.minVariancePct}% above</strong> last rate ({fmtCompact(line.lastRate.unitCost)}/{line.unit}). Verify.
@@ -1468,8 +1461,8 @@ function MatSection({
         const minVal = positiveVals.length > 0 ? Math.min(...positiveVals) : 0;
 
         return (
-          <tr key={row.label} className="bg-slate-50/50">
-            <td className="border border-slate-300 px-1 py-0.5 pl-4 text-slate-500 overflow-hidden" style={{ fontSize: `${fs.sub}px` }}>
+          <tr key={row.label} className="paper-2-bg">
+            <td className="border px-1 py-0.5 pl-4 overflow-hidden" style={{ fontSize: `${fs.sub}px` }}>
               {row.label}
             </td>
             {entries.map((e) => {
@@ -1484,7 +1477,7 @@ function MatSection({
                 return (
                   <td
                     key={e.quoteId}
-                    className="border border-dashed border-slate-500 px-1 py-0.5 overflow-hidden bg-amber-50"
+                    className="border border-dashed px-1 py-0.5 overflow-hidden editing-bg"
                     style={{ fontSize: `${fs.sub}px` }}
                   >
                     <input
@@ -1504,7 +1497,7 @@ function MatSection({
                         onSaveCell?.();
                       }}
                       disabled={saving}
-                      className="w-full bg-transparent text-right tabular-nums outline-none text-slate-900 font-semibold"
+                      className="w-full bg-transparent text-right tabular-nums outline-none font-semibold"
                       style={{ fontSize: `${fs.sub}px`, border: "none", color: "#1e293b" }}
                     />
                   </td>
@@ -1521,10 +1514,10 @@ function MatSection({
                     }
                   }}
                   className={`border px-1 py-0.5 text-right tabular-nums overflow-hidden ${
-                    isEditable ? "border-dashed border-slate-300 cursor-pointer hover:bg-amber-50/50" : "border-slate-300"
+                    isEditable ? "border-dashed cursor-pointer hover-bg-signal" : "var(--color-line)"
                   } ${
-                    isZero ? "text-slate-300" : "text-slate-600"
-                  } ${isMin ? "bg-emerald-50 font-semibold text-emerald-700" : ""}`}
+                    isZero ? "var(--color-ink-300)" : "var(--color-ink-600)"
+                  } ${isMin ? "color-mix(in srgb, var(--color-go) 10%, transparent) font-semibold var(--color-go)" : ""}`}
                   style={{ fontSize: `${isZero ? fs.sub : fitFont(`${row.prefix ?? ""}${fmtCompact(Math.abs(v))}`, fs.sub, 6)}px` }}
                 >
                   {isZero ? "—" : `${row.prefix ?? ""}${fmtCompact(Math.abs(v))}`}
@@ -1552,7 +1545,7 @@ function SummaryRow({
   const minVal = Math.min(...values.filter((v) => v > 0));
   return (
     <tr>
-      <td className="border border-slate-300 px-1.5 py-0.5 font-semibold bg-slate-100 text-slate-700 uppercase tracking-wide overflow-hidden" style={{ fontSize: `${fs.sub}px` }}>
+      <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${fs.sub}px` }}>
         {label}
       </td>
       {quotes.map((q, idx) => {
@@ -1562,8 +1555,8 @@ function SummaryRow({
         return (
           <td
             key={q.id}
-            className={`border border-slate-300 px-1 py-0.5 text-right tabular-nums font-medium overflow-hidden ${
-              isCheapest ? "bg-emerald-50 text-emerald-700" : isHighest ? "bg-red-50 text-red-500" : "bg-white text-slate-700"
+            className={`border px-1 py-0.5 text-right tabular-nums font-medium overflow-hidden ${
+              isCheapest ? "color-mix(in srgb, var(--color-go) 10%, transparent) var(--color-go)" : isHighest ? "stop-bg" : "var(--color-paper) var(--color-ink-700)"
             }`}
             style={{ fontSize: `${v > 0 ? fitFont(fmtCompact(v), fs.sub, 7) : fs.sub}px` }}
           >
@@ -1585,18 +1578,18 @@ function DeliveryPill({
   onDark?: boolean;
   fs?: number;
 }) {
-  const config: Record<string, { label: string; light: string; dark: string }> = {
-    EX_WORKS: { label: "ExW", light: "bg-amber-100 text-amber-700", dark: "bg-amber-500/30 text-amber-200" },
-    FOR_STATION: { label: "FOR", light: "bg-amber-100 text-amber-700", dark: "bg-amber-500/30 text-amber-200" },
-    DELIVERED_SITE: { label: "Del", light: "bg-slate-200 text-slate-700", dark: "bg-white/20 text-white" },
-    CUSTOM: { label: "Cus", light: "bg-slate-200 text-slate-700", dark: "bg-white/20 text-white" },
+  const config: Record<string, { label: string; lightBg: string; lightColor: string; darkBg: string; darkColor: string }> = {
+    EX_WORKS: { label: "ExW", lightBg: "color-mix(in srgb, var(--color-signal) 20%, transparent)", lightColor: "var(--color-signal-dark)", darkBg: "color-mix(in srgb, var(--color-signal) 30%, transparent)", darkColor: "var(--color-paper)" },
+    FOR_STATION: { label: "FOR", lightBg: "color-mix(in srgb, var(--color-signal) 20%, transparent)", lightColor: "var(--color-signal-dark)", darkBg: "color-mix(in srgb, var(--color-signal) 30%, transparent)", darkColor: "var(--color-paper)" },
+    DELIVERED_SITE: { label: "Del", lightBg: "var(--color-line)", lightColor: "var(--color-ink-700)", darkBg: "rgba(255,255,255,0.2)", darkColor: "var(--color-paper)" },
+    CUSTOM: { label: "Cus", lightBg: "var(--color-line)", lightColor: "var(--color-ink-700)", darkBg: "rgba(255,255,255,0.2)", darkColor: "var(--color-paper)" },
   };
   const c = config[type ?? "EX_WORKS"] ?? config.EX_WORKS!;
   const label = c?.label ?? "ExW";
-  const lightClass = c?.light ?? "bg-slate-200 text-slate-700";
-  const darkClass = c?.dark ?? "bg-white/20 text-white";
+  const bg = onDark ? (c?.darkBg ?? "rgba(255,255,255,0.2)") : (c?.lightBg ?? "var(--color-line)");
+  const color = onDark ? (c?.darkColor ?? "var(--color-paper)") : (c?.lightColor ?? "var(--color-ink-700)");
   return (
-    <span className={`inline-flex items-center gap-0 font-semibold ${onDark ? darkClass : lightClass}`} style={{ fontSize: `${fs}px` }}>
+    <span className="inline-flex items-center gap-0 font-semibold" style={{ fontSize: `${fs}px`, backgroundColor: bg, color }}>
       {label}
     </span>
   );
@@ -1871,17 +1864,17 @@ function AddQuoteDialog({
     }
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none focus:ring-2";
+  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onClose} className="p-1" style={{ color: "var(--color-ink-700)" }}>
+        <button onClick={onClose} className="p-1" style={{ color: "var(--color-ink-700) press" }}>
           <X className="size-5" />
         </button>
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Add Supplier Quote
         </p>
       </div>
@@ -1892,7 +1885,7 @@ function AddQuoteDialog({
         <div className="rounded-[0.625rem] border p-3 space-y-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Supplier
             </span>
           </div>
@@ -1948,7 +1941,7 @@ function AddQuoteDialog({
                   setShowNewSupplier(false);
                   setNewSupplier({ name: "", gstin: "", phone: "", email: "", address: "" });
                 }}
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold press"
                 style={{ color: "var(--color-steel)" }}
               >
                 ← Use existing supplier
@@ -1971,7 +1964,7 @@ function AddQuoteDialog({
               </select>
               <button
                 onClick={() => setShowNewSupplier(true)}
-                className="flex items-center gap-1 text-[0.625rem] font-bold"
+                className="flex items-center gap-1 text-m-label font-bold press"
                 style={{ color: "var(--color-signal-dark)" }}
               >
                 <Plus className="size-3" />
@@ -1985,14 +1978,14 @@ function AddQuoteDialog({
         <div className="rounded-[0.625rem] border p-3 space-y-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <FileText className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Quote Source <span style={{ color: "var(--color-stop)" }}>*</span>
             </span>
           </div>
 
           {/* Source type picker — not all quotes arrive as files */}
           <div>
-            <label className="block text-[0.4375rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>How was this quote received?</label>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>How was this quote received?</label>
             <div className="grid grid-cols-3 gap-1.5">
               {([
                 { value: "DOCUMENT", label: "PDF/Photo" },
@@ -2006,7 +1999,7 @@ function AddQuoteDialog({
                   key={opt.value}
                   type="button"
                   onClick={() => setQuoteSource(opt.value)}
-                  className="rounded-[0.375rem] border px-2 py-1.5 text-[0.5625rem] font-semibold"
+                  className="rounded-[0.375rem] border px-2 py-1.5 text-m-caption font-semibold press"
                   style={{
                     borderColor: quoteSource === opt.value ? "var(--color-steel)" : "var(--color-line)",
                     backgroundColor: quoteSource === opt.value ? "var(--color-steel-wash)" : "var(--color-paper)",
@@ -2025,7 +2018,7 @@ function AddQuoteDialog({
               <div className="flex items-center justify-between rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-go)", backgroundColor: "var(--color-go-wash)" }}>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Check className="size-3.5 shrink-0" style={{ color: "var(--color-go)" }} />
-                  <span className="text-[0.6875rem] font-semibold truncate" style={{ color: "var(--color-go)" }}>
+                  <span className="text-m-body font-semibold truncate" style={{ color: "var(--color-go)" }}>
                     {fileName}
                   </span>
                 </div>
@@ -2035,7 +2028,7 @@ function AddQuoteDialog({
                     setFileName("");
                     setMimeType("");
                   }}
-                  className="text-[0.5625rem] font-semibold"
+                  className="text-m-caption font-semibold press"
                   style={{ color: "var(--color-stop)" }}
                 >
                   Remove
@@ -2043,14 +2036,14 @@ function AddQuoteDialog({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex flex-col items-center justify-center gap-1 rounded-[0.5rem] border-2 border-dashed py-4 cursor-pointer press" style={{ borderColor: "var(--color-line)" }}>
+                <label className="flex flex-col items-center justify-center gap-1 rounded-[0.5rem] border-2 border-dashed py-4 cursor-pointer text-m-body press" style={{ borderColor: "var(--color-line)" }}>
                   {uploading ? <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-steel)" }} /> : <Camera className="size-5" style={{ color: "var(--color-steel)" }} />}
-                  <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>Camera</span>
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>Camera</span>
                   <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                 </label>
-                <label className="flex flex-col items-center justify-center gap-1 rounded-[0.5rem] border-2 border-dashed py-4 cursor-pointer press" style={{ borderColor: "var(--color-line)" }}>
+                <label className="flex flex-col items-center justify-center gap-1 rounded-[0.5rem] border-2 border-dashed py-4 cursor-pointer text-m-body press" style={{ borderColor: "var(--color-line)" }}>
                   {uploading ? <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-steel)" }} /> : <Upload className="size-5" style={{ color: "var(--color-steel)" }} />}
-                  <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>File</span>
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>File</span>
                   <input type="file" accept="image/*,application/pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                 </label>
               </div>
@@ -2060,7 +2053,7 @@ function AddQuoteDialog({
           {/* Source note — mandatory for non-document sources */}
           {!["DOCUMENT", "LETTER", "EXCEL"].includes(quoteSource) ? (
             <div>
-              <label className="block text-[0.4375rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Source note <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <textarea
@@ -2068,7 +2061,7 @@ function AddQuoteDialog({
                 onChange={(e) => setSourceNote(e.target.value)}
                 rows={2}
                 placeholder={quoteSource === "VERBAL" ? "e.g. Verbal quote from Ramesh (Ambuja) on 15-Aug-2026 over phone" : quoteSource === "EMAIL" ? "e.g. Email from supplier on 15-Aug-2026, subject: Quote for steel" : "e.g. WhatsApp message from supplier on 15-Aug-2026"}
-                className={`${inputClass} resize-none text-[0.6875rem] py-1.5`}
+                className={`${inputClass} resize-none text-m-body py-1.5`}
                 style={inputStyle}
               />
             </div>
@@ -2078,23 +2071,23 @@ function AddQuoteDialog({
         {/* ── Commercial terms (moved BEFORE prices — mandatory, top of mind) ── */}
         <div className="rounded-[0.625rem] border p-3 space-y-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Commercial Terms <span style={{ color: "var(--color-stop)" }}>*</span>
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Valid until <span style={{ color: "var(--color-stop)" }}>*</span></label>
+              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Valid until <span style={{ color: "var(--color-stop)" }}>*</span></label>
               <input
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                className={`${inputClass} font-mono text-m-body py-1.5`}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Lead time (days) <span style={{ color: "var(--color-stop)" }}>*</span></label>
+              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Lead time (days) <span style={{ color: "var(--color-stop)" }}>*</span></label>
               <input
                 type="number"
                 inputMode="numeric"
@@ -2102,27 +2095,27 @@ function AddQuoteDialog({
                 value={leadTimeDays}
                 onChange={(e) => setLeadTimeDays(e.target.value)}
                 placeholder="e.g. 7"
-                className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                className={`${inputClass} font-mono text-m-body py-1.5`}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Payment terms <span style={{ color: "var(--color-stop)" }}>*</span></label>
+              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Payment terms <span style={{ color: "var(--color-stop)" }}>*</span></label>
               <input
                 type="text"
                 value={paymentTerms}
                 onChange={(e) => setPaymentTerms(e.target.value)}
                 placeholder="e.g. 30 days credit"
-                className={`${inputClass} text-[0.6875rem] py-1.5`}
+                className={`${inputClass} text-m-body py-1.5`}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Delivery basis <span style={{ color: "var(--color-stop)" }}>*</span></label>
+              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Delivery basis <span style={{ color: "var(--color-stop)" }}>*</span></label>
               <select
                 value={deliveryTermsType}
                 onChange={(e) => changeDeliveryType(e.target.value as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM")}
-                className={`${inputClass} text-[0.6875rem] py-1.5`}
+                className={`${inputClass} text-m-body py-1.5`}
                 style={inputStyle}
               >
                 <option value="DELIVERED_SITE">Delivered to site</option>
@@ -2136,24 +2129,24 @@ function AddQuoteDialog({
                   value={deliveryTerms}
                   onChange={(e) => setDeliveryTerms(e.target.value)}
                   placeholder="Describe delivery terms"
-                  className={`${inputClass} text-[0.6875rem] py-1.5 mt-1`}
+                  className={`${inputClass} text-m-body py-1.5 mt-1`}
                   style={inputStyle}
                 />
               ) : null}
               {(deliveryTermsType === "EX_WORKS" || deliveryTermsType === "FOR_STATION") ? (
-                <p className="text-[0.4375rem] mt-1 font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+                <p className="text-m-caption mt-1 font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                   Enter buyer transport per unit for each line below — this normalizes the comparison.
                 </p>
               ) : null}
             </div>
             <div className="col-span-2">
-              <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Warranty (optional)</label>
+              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Warranty (optional)</label>
               <input
                 type="text"
                 value={warranty}
                 onChange={(e) => setWarranty(e.target.value)}
                 placeholder="e.g. 12 months"
-                className={`${inputClass} text-[0.6875rem] py-1.5`}
+                className={`${inputClass} text-m-body py-1.5`}
                 style={inputStyle}
               />
             </div>
@@ -2165,7 +2158,7 @@ function AddQuoteDialog({
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <div className="flex items-center gap-1.5">
               <Calculator className="size-3.5" style={{ color: "var(--color-steel)" }} />
-              <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Prices
               </span>
             </div>
@@ -2174,7 +2167,7 @@ function AddQuoteDialog({
               <select
                 value=""
                 onChange={(e) => { if (e.target.value) copyFromQuote(e.target.value); e.target.value = ""; }}
-                className="text-[0.5rem] font-semibold rounded-[0.25rem] border px-1.5 py-1"
+                className="text-m-caption font-semibold rounded-[0.25rem] border px-1.5 py-1"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-steel-dark)" }}
               >
                 <option value="">Copy from…</option>
@@ -2193,17 +2186,17 @@ function AddQuoteDialog({
               <div key={l.id} className="rounded-[0.5rem] border p-2 space-y-1.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {l.materialName}
                     </p>
-                    <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                       {l.materialCode} · HSN {l.hsnCode ?? "—"} · GST {l.gstRate}%
                     </p>
                   </div>
                   {/* Qty is read-only — supplier quotes on the RFQ's quantities */}
                   <div className="shrink-0 text-right">
-                    <p className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Qty (fixed)</p>
-                    <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                    <p className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Qty (fixed)</p>
+                    <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
                       {d.qty} {l.unit}
                     </p>
                   </div>
@@ -2211,7 +2204,7 @@ function AddQuoteDialog({
                 {/* Rate — the only field shown by default */}
                 <div className="grid grid-cols-2 gap-1.5 items-end">
                   <div>
-                    <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Rate/{l.unit} <span style={{ color: "var(--color-stop)" }}>*</span></label>
+                    <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Rate/{l.unit} <span style={{ color: "var(--color-stop)" }}>*</span></label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -2221,7 +2214,7 @@ function AddQuoteDialog({
                       placeholder="0"
                       autoFocus={lines[0]?.materialId === l.materialId}
                       onFocus={(e) => e.target.select()}
-                      className={`${inputClass} font-mono text-[0.75rem] py-2`}
+                      className={`${inputClass} font-mono text-m-section py-2`}
                       style={inputStyle}
                     />
                   </div>
@@ -2229,7 +2222,7 @@ function AddQuoteDialog({
                   <button
                     type="button"
                     onClick={() => toggleLineExpanded(l.materialId)}
-                    className="flex items-center justify-center gap-1 rounded-[0.375rem] border py-2 text-[0.5625rem] font-semibold"
+                    className="flex items-center justify-center gap-1 rounded-[0.375rem] border py-2 text-m-caption font-semibold press"
                     style={{
                       borderColor: isExpanded || hasCosts ? "var(--color-steel)" : "var(--color-line)",
                       backgroundColor: isExpanded || hasCosts ? "var(--color-steel-wash)" : "var(--color-paper)",
@@ -2244,80 +2237,80 @@ function AddQuoteDialog({
                 {isExpanded ? (
                   <div className="grid grid-cols-3 gap-1.5 pt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Disc/{l.unit}</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Disc/{l.unit}</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.discount}
                         onChange={(e) => updateLine(l.materialId, "discount", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>P&F/{l.unit}</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>P&F/{l.unit}</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.packing}
                         onChange={(e) => updateLine(l.materialId, "packing", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Freight</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Freight</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.freight}
                         onChange={(e) => updateLine(l.materialId, "freight", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Loading</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Loading</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.loading}
                         onChange={(e) => updateLine(l.materialId, "loading", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Insurance</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Insurance</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.insurance}
                         onChange={(e) => updateLine(l.materialId, "insurance", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>Handling</label>
+                      <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Handling</label>
                       <input
                         type="number" inputMode="decimal" step="any"
                         value={d.handling}
                         onChange={(e) => updateLine(l.materialId, "handling", e.target.value)}
                         placeholder="0"
                         onFocus={(e) => e.target.select()}
-                        className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                        className={`${inputClass} font-mono text-m-body py-1.5`}
                         style={inputStyle}
                       />
                     </div>
                     {(deliveryTermsType === "EX_WORKS" || deliveryTermsType === "FOR_STATION") ? (
                       <div className="col-span-3">
-                        <label className="block text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+                        <label className="block text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                           Buyer transport per {l.unit} <span style={{ color: "var(--color-stop)" }}>*</span>
                         </label>
                         <input
@@ -2326,7 +2319,7 @@ function AddQuoteDialog({
                           onChange={(e) => updateLine(l.materialId, "buyerTransport", e.target.value)}
                           placeholder="0"
                           onFocus={(e) => e.target.select()}
-                          className={`${inputClass} font-mono text-[0.6875rem] py-1.5`}
+                          className={`${inputClass} font-mono text-m-body py-1.5`}
                           style={inputStyle}
                         />
                       </div>
@@ -2339,10 +2332,10 @@ function AddQuoteDialog({
                     className="flex items-center justify-between rounded-[0.375rem] px-2 py-1"
                     style={{ backgroundColor: "var(--color-go-wash)" }}
                   >
-                    <span className="text-[0.5rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                       Per-piece landed cost
                     </span>
-                    <span className="text-[0.75rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                    <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
                       {formatCurrency(perPiece)}/{l.unit}
                     </span>
                   </div>
@@ -2354,7 +2347,7 @@ function AddQuoteDialog({
 
         {/* ── Notes ── */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Notes (optional)
           </label>
           <textarea
@@ -2373,7 +2366,7 @@ function AddQuoteDialog({
         <button
           onClick={onSubmit}
           disabled={saving || uploading}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press active:scale-95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
@@ -2415,24 +2408,24 @@ function ApproveDialog({
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onCancel} className="p-1" style={{ color: "var(--color-ink-700)" }}>
+        <button onClick={onCancel} className="p-1" style={{ color: "var(--color-ink-700) press" }}>
           <X className="size-5" />
         </button>
-        <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Select Winning Quote
         </p>
       </div>
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
           Tap the quote you want to select as the winner. The cheapest is recommended.
         </p>
         {quotes.map((q) => (
           <button
             key={q.id}
             onClick={() => onSelect(q.id)}
-            className="flex items-center justify-between w-full rounded-[0.625rem] border p-3 text-left press active:scale-[0.98]"
+            className="flex items-center justify-between w-full rounded-[0.625rem] border p-3 text-left text-m-body press active:scale-[0.98]"
             style={{
               borderColor: selectedQuoteId === q.id ? "var(--color-go)" : "var(--color-line)",
               backgroundColor: selectedQuoteId === q.id ? "var(--color-go-wash)" : "var(--color-paper)",
@@ -2443,16 +2436,16 @@ function ApproveDialog({
                 {q.id === cheapestQuoteId ? (
                   <Trophy className="size-3.5 shrink-0" style={{ color: "var(--color-go)" }} />
                 ) : null}
-                <span className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {q.supplierName}
                 </span>
               </div>
-              <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                 Subtotal: {formatCurrency(q.subtotal)} · GST: {formatCurrency(q.gstTotal)} · Landed: {formatCurrency(q.landedTotal)}
               </p>
             </div>
             <div className="text-right shrink-0 ml-2">
-              <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrency(q.landedTotal)}
               </p>
               {selectedQuoteId === q.id ? (
@@ -2470,11 +2463,11 @@ function ApproveDialog({
               style={{ backgroundColor: "var(--color-signal-wash)" }}
             >
               <AlertCircle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-signal-dark)" }} />
-              <p className="text-[0.625rem]" style={{ color: "var(--color-signal-dark)" }}>
+              <p className="text-m-label" style={{ color: "var(--color-signal-dark)" }}>
                 You are selecting a quote that is <strong>not the cheapest</strong>. A reason is required.
               </p>
             </div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Reason for override *
             </label>
             <textarea
@@ -2482,7 +2475,7 @@ function ApproveDialog({
               onChange={(e) => onReasonChange(e.target.value)}
               rows={3}
               placeholder="e.g. Better delivery time, better payment terms, quality preference…"
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none focus:ring-2 resize-none"
+              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2 resize-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -2494,7 +2487,7 @@ function ApproveDialog({
         <button
           onClick={onConfirm}
           disabled={approving || !selectedQuoteId || (!!isOverride && !reason.trim())}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press active:scale-95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
         >
           {approving ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}

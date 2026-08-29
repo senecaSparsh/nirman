@@ -6,7 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileLandList } from "./MobileLandList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
@@ -152,7 +152,7 @@ async function MobileLandContent() {
         exportTitle="Land & Parcels"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={csvColumns}
-        exportSummary={`${purchases.length} land purchases · ${sellable.length} parcels · Valuation: ${formatCurrency(unsoldValue)}`}
+        exportSummary={`${purchases.length} land purchases · ${sellable.length} parcels · Valuation: ${formatCurrencyCompact(unsoldValue)}`}
         portfolio={{
           purchaseCount: purchases.length,
           totalArea,

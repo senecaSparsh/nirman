@@ -10,6 +10,7 @@ import { toNum, getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { MobileScrapCancelBtn } from "./MobileScrapCancelBtn";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 
 export default function MobileScrapDetailPage({
   params,
@@ -57,7 +58,7 @@ async function MobileScrapDetailContent({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Recycle className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Scrap slip not found
           </p>
         </div>
@@ -73,16 +74,16 @@ async function MobileScrapDetailContent({
   const SourceIcon = isAuto ? Zap : Hand;
 
   return (
-    <div>
+    <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
             {scrap.scrapNumber}
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{
             color: accentColor,
             backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
@@ -93,7 +94,7 @@ async function MobileScrapDetailContent({
         </span>
         {isCancelled ? (
           <span
-            className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
             style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
           >
             Cancelled
@@ -101,7 +102,7 @@ async function MobileScrapDetailContent({
         ) : null}
         <Link
           href={`/print/scrap/${scrap.id}`}
-          className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press shrink-0"
+          className="flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press shrink-0"
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5" />
@@ -119,18 +120,18 @@ async function MobileScrapDetailContent({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Scrap Value
             </p>
-            <p className="text-[1rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrency(totalValue)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Total Qty
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(totalQty, 0)}
             </p>
           </div>
@@ -145,22 +146,22 @@ async function MobileScrapDetailContent({
         {/* Destination */}
         <Link
           href={`/m/stock?locationId=${scrap.toLocation.id}`}
-          className="flex items-center gap-2 px-2.5 py-1.5 press"
+          className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
         >
-          <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
             Destination
           </span>
-          <span className="text-[0.625rem] font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+          <span className="text-m-label font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
             {scrap.toLocation.name}
           </span>
         </Link>
 
         {/* Date */}
         <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-          <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
             Date
           </span>
-          <span className="text-[0.625rem] font-bold ml-auto tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <span className="text-m-label font-bold ml-auto tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(scrap.generationDate)}
           </span>
         </div>
@@ -169,13 +170,13 @@ async function MobileScrapDetailContent({
         {scrap.project ? (
           <Link
             href={`/m/projects/${scrap.project.id}`}
-            className="flex items-center gap-2 px-2.5 py-1.5 press"
+            className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
             style={{ borderTop: "1px solid var(--color-line)" }}
           >
-            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
               Project
             </span>
-            <span className="text-[0.625rem] font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {scrap.project.name}
             </span>
           </Link>
@@ -185,13 +186,13 @@ async function MobileScrapDetailContent({
         {scrap.sourceMaterial ? (
           <Link
             href={`/m/materials/${scrap.sourceMaterial.id}`}
-            className="flex items-center gap-2 px-2.5 py-1.5 press"
+            className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
             style={{ borderTop: "1px solid var(--color-line)" }}
           >
-            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
               Source
             </span>
-            <span className="text-[0.625rem] font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {scrap.sourceMaterial.name}
             </span>
           </Link>
@@ -200,10 +201,10 @@ async function MobileScrapDetailContent({
         {/* Notes */}
         {scrap.notes ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <p className="text-[0.5rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
               Notes
             </p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
               {scrap.notes}
             </p>
           </div>
@@ -211,7 +212,7 @@ async function MobileScrapDetailContent({
       </div>
 
       {/* ── Line items ── */}
-      <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+      <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
         Line Items ({scrap.lines.length})
       </p>
       {scrap.lines.length === 0 ? (
@@ -220,7 +221,7 @@ async function MobileScrapDetailContent({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Recycle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No line items
           </p>
         </div>
@@ -233,22 +234,22 @@ async function MobileScrapDetailContent({
             <Link
               key={l.id}
               href={`/m/materials/${l.material.id}`}
-              className="flex items-center gap-2 px-2.5 py-2 press"
+              className="flex items-center gap-2 px-2.5 py-2 text-m-body press"
               style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {l.material.name}
                 </p>
-                <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                   {l.material.code} · {formatCurrency(toNum(l.unitCost))}/{l.material.unit}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(toNum(l.qty), 0)} {l.material.unit}
                 </p>
-                <p className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(toNum(l.qty) * toNum(l.unitCost))}
                 </p>
               </div>
@@ -257,12 +258,14 @@ async function MobileScrapDetailContent({
         </div>
       )}
 
-      {/* ── Cancel action ── */}
-      {canManage && !isCancelled ? (
-        <div className="mt-3">
-          <MobileScrapCancelBtn scrapId={scrap.id} scrapNumber={scrap.scrapNumber} />
-        </div>
-      ) : null}
+      <ActionBar>
+        {/* ── Cancel action ── */}
+        {canManage && !isCancelled ? (
+          <div className="mt-3">
+            <MobileScrapCancelBtn scrapId={scrap.id} scrapNumber={scrap.scrapNumber} />
+          </div>
+        ) : null}
+      </ActionBar>
 
       {/* ── Cancelled banner ── */}
       {isCancelled && scrap.cancelledAt ? (
@@ -270,10 +273,10 @@ async function MobileScrapDetailContent({
           className="rounded-[0.5rem] border p-2.5 mt-3"
           style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}
         >
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-stop)" }}>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-stop)" }}>
             Cancelled
           </p>
-          <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             {formatDate(scrap.cancelledAt)}
           </p>
         </div>

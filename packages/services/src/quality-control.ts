@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Quality Control Service — Non-Conformance Reports (NCR) and
@@ -114,7 +115,7 @@ async function generateCapaNumber(tx: Prisma.TransactionClient, companyId: strin
 // ── NCR CRUD ───────────────────────────────────────────────
 
 export async function createNcr(input: CreateNcrInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
       include: { company: { select: { id: true } } },
@@ -194,8 +195,8 @@ export async function getNcr(id: string) {
   });
 }
 
-export async function updateNcr(id: string, input: UpdateNcrInput) {
-  return prisma.$transaction(async (tx) => {
+export async function updateNcr(id: string, input: UpdateNcrInput, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.nonConformanceReport.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("NCR not found", 404);
     if (existing.status !== "OPEN") {
@@ -214,14 +215,24 @@ export async function updateNcr(id: string, input: UpdateNcrInput) {
     if (input.subcontractorId !== undefined) data.subcontractor = input.subcontractorId ? { connect: { id: input.subcontractorId } } : { disconnect: true };
     if (input.attachments !== undefined) data.attachments = input.attachments;
 
-    return tx.nonConformanceReport.update({ where: { id }, data });
+    const updated = await tx.nonConformanceReport.update({ where: { id }, data });
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "NCR_UPDATE",
+        entityType: "NonConformanceReport",
+        entityId: id,
+        after: { ncrNumber: existing.ncrNumber, severity: updated.severity },
+      });
+    }
+    return updated;
   });
 }
 
 // ── NCR Workflow ───────────────────────────────────────────
 
 export async function reviewNcr(id: string, input: ReviewNcrInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({ where: { id } });
     if (!ncr) throw new ServiceError("NCR not found", 404);
     if (ncr.status !== "OPEN" && ncr.status !== "UNDER_REVIEW") {
@@ -254,7 +265,7 @@ export async function reviewNcr(id: string, input: ReviewNcrInput) {
 }
 
 export async function closeNcr(id: string, userId: string, closureNotes: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({
       where: { id },
       include: { capa: true },
@@ -297,7 +308,7 @@ export async function closeNcr(id: string, userId: string, closureNotes: string)
 }
 
 export async function cancelNcr(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({ where: { id } });
     if (!ncr) throw new ServiceError("NCR not found", 404);
     if (ncr.status !== "OPEN") {
@@ -322,7 +333,7 @@ export async function cancelNcr(id: string, userId: string) {
 }
 
 export async function deleteNcr(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.nonConformanceReport.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("NCR not found", 404);
     if (existing.status === "CLOSED") {
@@ -345,7 +356,7 @@ export async function deleteNcr(id: string, userId?: string) {
 // ── CAPA CRUD + Workflow ───────────────────────────────────
 
 export async function createCapa(input: CreateCapaInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({
       where: { id: input.ncrId },
       include: { project: { select: { companyId: true } } },
@@ -407,8 +418,8 @@ export async function getCapa(ncrId: string) {
   });
 }
 
-export async function updateCapa(id: string, input: UpdateCapaInput) {
-  return prisma.$transaction(async (tx) => {
+export async function updateCapa(id: string, input: UpdateCapaInput, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.capa.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("CAPA not found", 404);
     if (existing.status !== "DRAFT") {
@@ -422,12 +433,22 @@ export async function updateCapa(id: string, input: UpdateCapaInput) {
     if (input.preventiveAction !== undefined) data.preventiveAction = input.preventiveAction;
     if (input.preventiveDueDate !== undefined) data.preventiveDueDate = input.preventiveDueDate;
 
-    return tx.capa.update({ where: { id }, data });
+    const updated = await tx.capa.update({ where: { id }, data });
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "CAPA_UPDATE",
+        entityType: "Capa",
+        entityId: id,
+        after: { capaNumber: existing.capaNumber },
+      });
+    }
+    return updated;
   });
 }
 
 export async function startCapa(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const capa = await tx.capa.findUnique({ where: { id } });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "DRAFT" && capa.status !== "REJECTED") {
@@ -440,7 +461,7 @@ export async function startCapa(id: string, userId: string) {
 }
 
 export async function completeCorrectiveAction(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const capa = await tx.capa.findUnique({ where: { id } });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "IN_PROGRESS") {
@@ -456,7 +477,7 @@ export async function completeCorrectiveAction(id: string, userId: string) {
 }
 
 export async function completePreventiveAction(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const capa = await tx.capa.findUnique({ where: { id } });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "IN_PROGRESS") {
@@ -475,7 +496,7 @@ export async function completePreventiveAction(id: string, userId: string) {
 }
 
 export async function verifyCapa(id: string, userId: string, verificationMethod: string, verificationNotes: string, effective: boolean) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const capa = await tx.capa.findUnique({ where: { id } });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "VERIFICATION") {
@@ -510,7 +531,7 @@ export async function verifyCapa(id: string, userId: string, verificationMethod:
 }
 
 export async function closeCapa(id: string, userId: string, closureNotes: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const capa = await tx.capa.findUnique({ where: { id } });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "VERIFIED") {

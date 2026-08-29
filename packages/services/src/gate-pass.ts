@@ -3,6 +3,7 @@ import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
@@ -80,11 +81,11 @@ export async function createGatePass(input: CreateGatePassInput) {
   // Pre-fetch material snapshots for lines that have materialId but no snapshot
   const materialIds = input.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
   const materials = materialIds.length > 0
-    ? await prisma.material.findMany({ where: { id: { in: materialIds } }, select: { id: true, code: true, name: true, unit: true } })
+    ? await prisma.material.findMany({ where: { id: { in: materialIds }, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
     : [];
   const materialMap = new Map(materials.map((m) => [m.id, m]));
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gatePassNumber = await generateGatePassNumber(tx);
 
     const gatePass = await tx.gatePass.create({
@@ -154,7 +155,7 @@ export async function createGatePass(input: CreateGatePassInput) {
 
 /** Submit a DRAFT gate pass for approval → PENDING */
 export async function submitGatePass(id: string, userId: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "DRAFT") throw new ServiceError(`Cannot submit gate pass in status ${gp.status}`);
@@ -191,7 +192,7 @@ export async function submitGatePass(id: string, userId: string) {
 
 /** Approve a PENDING gate pass → APPROVED */
 export async function approveGatePass(id: string, approverId: string, notes?: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot approve gate pass in status ${gp.status}`);
@@ -252,7 +253,7 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
 
 /** Reject a PENDING gate pass → REJECTED. Also cancels linked PENDING issue/sale. */
 export async function rejectGatePass(id: string, rejecterId: string, reason: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot reject gate pass in status ${gp.status}`);
@@ -302,7 +303,7 @@ export async function rejectGatePass(id: string, rejecterId: string, reason: str
 
 /** Resubmit a REJECTED gate pass → PENDING (fix and resubmit). Also re-opens linked CANCELLED issue/sale. */
 export async function resubmitGatePass(id: string, userId: string, notes?: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "REJECTED") throw new ServiceError(`Cannot resubmit gate pass in status ${gp.status}`);
@@ -365,7 +366,7 @@ export interface ConfirmExitInput {
 
 /** Confirm physical exit of items → EXITED (security guard action) */
 export async function confirmExit(id: string, securityId: string, exitDetails: ConfirmExitInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "APPROVED") throw new ServiceError(`Cannot confirm exit for gate pass in status ${gp.status}. Items can only exit after approval.`);
@@ -408,7 +409,7 @@ export async function confirmExit(id: string, securityId: string, exitDetails: C
 
 /** Cancel a gate pass (DRAFT or PENDING → CANCELLED). Also cancels linked PENDING issue/sale. */
 export async function cancelGatePass(id: string, userId: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status === "APPROVED") throw new ServiceError("Cannot cancel an approved gate pass — items are cleared to leave. Contact security to confirm or reject the exit.");
@@ -508,7 +509,7 @@ export async function autoCreateGatePassFromRef(
   // Pre-fetch material snapshots
   const materialIds = params.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
   const materials = materialIds.length > 0
-    ? await tx.material.findMany({ where: { id: { in: materialIds } }, select: { id: true, code: true, name: true, unit: true } })
+    ? await tx.material.findMany({ where: { id: { in: materialIds }, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
     : [];
   const materialMap = new Map(materials.map((m) => [m.id, m]));
 

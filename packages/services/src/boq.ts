@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * BOQ (Bill of Quantities) + WBS (Work Breakdown Structure) +
@@ -35,7 +36,7 @@ export interface CreateBoqItemInput {
 }
 
 export async function createBoqItem(input: CreateBoqItemInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
     });
@@ -105,7 +106,7 @@ export async function updateBoqItem(
   id: string,
   patch: Partial<CreateBoqItemInput> & { userId?: string },
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.boqItem.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("BOQ item not found", 404);
 
@@ -153,7 +154,7 @@ export async function updateBoqItem(
 }
 
 export async function deleteBoqItem(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.boqItem.findUnique({
       where: { id },
       include: { children: true, mbEntries: true, wbsNodes: true, workOrderLines: true },
@@ -264,7 +265,7 @@ export interface CreateWbsNodeInput {
 }
 
 export async function createWbsNode(input: CreateWbsNodeInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
     });
@@ -326,7 +327,7 @@ export async function updateWbsNode(
     userId?: string;
   },
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.wbsNode.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("WBS node not found", 404);
 
@@ -396,7 +397,7 @@ export async function updateWbsNode(
 }
 
 export async function deleteWbsNode(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.wbsNode.findUnique({
       where: { id },
       include: { children: true, mbEntries: true, dependencies: true, blocks: true },
@@ -443,7 +444,7 @@ export async function addWbsDependency(
   if (predecessorId === successorId) {
     throw new ServiceError("A node cannot depend on itself", 400);
   }
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Check for cycles (simple check: does the predecessor already depend on the successor?)
     const reverse = await tx.wbsDependency.findFirst({
       where: { predecessorId: successorId, successorId: predecessorId },
@@ -469,7 +470,7 @@ export async function addWbsDependency(
 }
 
 export async function removeWbsDependency(dependencyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const dep = await tx.wbsDependency.findUnique({ where: { id: dependencyId } });
     if (!dep) throw new ServiceError("Dependency not found", 404);
 
@@ -552,7 +553,7 @@ export interface CreateMbEntryInput {
 }
 
 export async function createMbEntry(input: CreateMbEntryInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
     });
@@ -634,7 +635,7 @@ export async function createMbEntry(input: CreateMbEntryInput) {
 }
 
 export async function verifyMbEntry(id: string, verifiedById: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "DRAFT") {
@@ -659,7 +660,7 @@ export async function verifyMbEntry(id: string, verifiedById: string) {
 }
 
 export async function approveMbEntry(id: string, approvedById: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "VERIFIED") {
@@ -709,7 +710,7 @@ export async function approveMbEntry(id: string, approvedById: string) {
 }
 
 export async function rejectMbEntry(id: string, rejectReason: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status === "APPROVED") {

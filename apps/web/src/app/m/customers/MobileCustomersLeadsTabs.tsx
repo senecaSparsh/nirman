@@ -15,12 +15,16 @@ export function MobileCustomersLeadsTabs({
   customers,
   leads,
   canCreate,
+  canEdit = false,
+  canDelete = false,
   customerStats,
   leadCount,
 }: {
   customers: CustomerListItem[];
   leads: LeadListItem[];
   canCreate: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
   customerStats: {
     customerCount: number;
     withDues: number;
@@ -43,7 +47,7 @@ export function MobileCustomersLeadsTabs({
       >
         <button
           onClick={() => setTab("customers")}
-          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-[0.6875rem] font-bold transition-colors"
+          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-m-body font-bold transition-colors press"
           style={{
             backgroundColor: tab === "customers" ? "var(--color-ink-950)" : "transparent",
             color: tab === "customers" ? "var(--color-paper)" : "var(--color-ink-500)",
@@ -52,7 +56,7 @@ export function MobileCustomersLeadsTabs({
           <Users className="size-3.5" />
           Customers
           <span
-            className="ml-0.5 px-1.5 rounded-full text-[0.5rem]"
+            className="ml-0.5 px-1.5 rounded-full text-m-caption"
             style={{
               backgroundColor: tab === "customers" ? "rgba(255,255,255,0.2)" : "var(--color-concrete)",
             }}
@@ -62,7 +66,7 @@ export function MobileCustomersLeadsTabs({
         </button>
         <button
           onClick={() => setTab("leads")}
-          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-[0.6875rem] font-bold transition-colors"
+          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-m-body font-bold transition-colors press"
           style={{
             backgroundColor: tab === "leads" ? "var(--color-ink-950)" : "transparent",
             color: tab === "leads" ? "var(--color-paper)" : "var(--color-ink-500)",
@@ -71,7 +75,7 @@ export function MobileCustomersLeadsTabs({
           <Flame className="size-3.5" />
           Leads
           <span
-            className="ml-0.5 px-1.5 rounded-full text-[0.5rem]"
+            className="ml-0.5 px-1.5 rounded-full text-m-caption"
             style={{
               backgroundColor: tab === "leads" ? "rgba(255,255,255,0.2)" : "var(--color-concrete)",
             }}
@@ -86,6 +90,8 @@ export function MobileCustomersLeadsTabs({
         <MobileCustomersList
           items={customers}
           canCreate={canCreate}
+          canEdit={canEdit}
+          canDelete={canDelete}
           stats={customerStats}
           exportTitle="Customers"
           exportRows={customers as unknown as Record<string, unknown>[]}

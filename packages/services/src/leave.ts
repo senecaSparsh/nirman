@@ -2,6 +2,7 @@ import { prisma, type Prisma, type LeaveType, type LeaveStatus } from "@nirman/d
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Leave Service — leave requests with approval workflow.
@@ -38,7 +39,7 @@ export interface CreateLeaveInput {
 }
 
 export async function createLeaveRequest(input: CreateLeaveInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const employee = await tx.employee.findFirst({
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
     });
@@ -106,7 +107,7 @@ const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
 };
 
 export async function approveLeaveRequest(input: ApproveLeaveInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
     });
@@ -225,7 +226,7 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
 }
 
 export async function cancelLeaveRequest(leaveId: string, companyId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: leaveId, companyId },
     });

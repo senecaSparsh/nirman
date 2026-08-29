@@ -7,7 +7,7 @@ import { getJobCosting } from "@nirman/services";
 import { Calculator, TrendingDown, Wallet, Building2 } from "lucide-react";
 import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -122,7 +122,7 @@ async function MobileJobCostingContent({
           <a
             key={p.id}
             href={`/m/reports/job-costing?project=${p.id}`}
-            className="shrink-0 rounded-full border px-3 py-1.5 text-[0.625rem] font-semibold press"
+            className="shrink-0 rounded-full border px-3 py-1.5 text-m-label font-semibold text-m-body press"
             style={{
               borderColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: p.id === selected.id ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -136,9 +136,9 @@ async function MobileJobCostingContent({
 
       <MobileReportSummary
         items={[
-          { label: "Direct Costs", value: formatCurrency(direct.total) },
-          { label: "Indirect Costs", value: formatCurrency(indirect.total) },
-          { label: "Total Cost", value: formatCurrency(totalCost) },
+          { label: "Direct Costs", value: formatCurrencyCompact(direct.total) },
+          { label: "Indirect Costs", value: formatCurrencyCompact(indirect.total) },
+          { label: "Total Cost", value: formatCurrencyCompact(totalCost) },
           { label: "OH Rate", value: `${overheadRate.toFixed(1)}%` },
         ]}
       />
@@ -148,7 +148,7 @@ async function MobileJobCostingContent({
           title="Job Costing Report"
           rows={csvRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Project: ${selected.name} · Direct: ${formatCurrency(direct.total)} · Indirect: ${formatCurrency(indirect.total)} · Total: ${formatCurrency(totalCost)}`}
+          summary={`Project: ${selected.name} · Direct: ${formatCurrency(direct.total)} · Indirect: ${formatCurrency(indirect.total)} · Total: ${formatCurrencyCompact(totalCost)}`}
         />
       </div>
 
@@ -164,22 +164,22 @@ async function MobileJobCostingContent({
             { label: "Overhead", value: indirect.overhead, tone: "stop" as const },
             { label: "Admin Allocated", value: indirect.adminAllocated, tone: "stop" as const },
           ]}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
       <MobileSectionTitle>Direct Costs</MobileSectionTitle>
       <div className="flex flex-col gap-2 mb-4">
-        <MobileRow icon={Building2} title="Materials" meta={formatCurrency(direct.materials)} tone="danger" />
-        <MobileRow icon={Wallet} title="Labour" meta={formatCurrency(direct.labour)} tone="danger" />
-        <MobileRow icon={Wallet} title="Subcontractor" meta={formatCurrency(direct.subcontractor)} tone="danger" />
-        <MobileRow icon={Wallet} title="Equipment" meta={formatCurrency(direct.equipment)} tone="danger" />
+        <MobileRow icon={Building2} title="Materials" meta={formatCurrencyCompact(direct.materials)} tone="danger" />
+        <MobileRow icon={Wallet} title="Labour" meta={formatCurrencyCompact(direct.labour)} tone="danger" />
+        <MobileRow icon={Wallet} title="Subcontractor" meta={formatCurrencyCompact(direct.subcontractor)} tone="danger" />
+        <MobileRow icon={Wallet} title="Equipment" meta={formatCurrencyCompact(direct.equipment)} tone="danger" />
       </div>
 
       <MobileSectionTitle>Indirect Costs</MobileSectionTitle>
       <div className="flex flex-col gap-2">
-        <MobileRow icon={Wallet} title="Overhead" meta={formatCurrency(indirect.overhead)} tone="danger" />
-        <MobileRow icon={Wallet} title="Admin Allocated" meta={formatCurrency(indirect.adminAllocated)} tone="danger" />
+        <MobileRow icon={Wallet} title="Overhead" meta={formatCurrencyCompact(indirect.overhead)} tone="danger" />
+        <MobileRow icon={Wallet} title="Admin Allocated" meta={formatCurrencyCompact(indirect.adminAllocated)} tone="danger" />
       </div>
     </div>
   );

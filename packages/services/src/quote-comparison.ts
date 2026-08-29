@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { computeLineLandedCost, computeQuoteTotals } from "./quotation";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Comparative Quote Engine — the SRS's mandatory procurement cost-control.
@@ -167,7 +168,7 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
     if (!user) throw new ServiceError("Submitting user not found", 404);
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Fetch requisition lines + their materials for HSN/GST lookup
     const reqLines = await tx.materialRequisitionLine.findMany({
       where: { requisitionId: input.requisitionId },
@@ -299,7 +300,7 @@ export interface UpdateVendorQuoteInput {
 }
 
 export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const quote = await tx.vendorQuote.findUnique({
       where: { id: input.quoteId },
       include: { lines: true },
@@ -422,7 +423,7 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
 }
 
 export async function deleteVendorQuote(quoteId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const quote = await tx.vendorQuote.findUnique({ where: { id: quoteId } });
     if (!quote) throw new ServiceError("Quote not found", 404);
     if (quote.status === "SELECTED") throw new ServiceError("Cannot delete the selected (winning) quote");
@@ -457,7 +458,7 @@ export interface SelectWinnerInput {
  * captures why (e.g. "closer delivery", "better payment terms").
  */
 export async function selectWinningQuote(input: SelectWinnerInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const quote = await tx.vendorQuote.findUnique({
       where: { id: input.quoteId },
       include: { requisition: true },
@@ -527,7 +528,7 @@ export interface WaiveQuotesInput {
 export async function waiveQuoteRequirement(input: WaiveQuotesInput) {
   if (!input.reason?.trim()) throw new ServiceError("A waiver reason is required");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: input.requisitionId } });
     if (!req) throw new ServiceError("Requisition not found", 404);
     if (req.status === "CONVERTED") throw new ServiceError("Cannot waive quotes on a converted requisition");

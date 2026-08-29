@@ -19,7 +19,7 @@ import {
   Sun,
   CheckCheck,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { toast } from "sonner";
 
@@ -84,7 +84,7 @@ export function MorningBriefing() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        <Loader2 className="size-4 animate-spin text-[color:var(--color-ink-500)]" />
       </div>
     );
   }
@@ -106,10 +106,10 @@ export function MorningBriefing() {
         <div className="flex items-center gap-2">
           <Sun className="size-4" style={{ color: "var(--color-signal)" }} />
           <div>
-            <div className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <div className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {greeting}, {firstName}
             </div>
-            <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {formatDate(new Date(data.date))}
             </div>
           </div>
@@ -176,7 +176,7 @@ export function MorningBriefing() {
               count={data.deliveriesToday.length}
               href="/m/procurement"
               items={data.deliveriesToday.map((d) => ({
-                label: `${d.poNumber} — ${d.supplierName} (${formatCurrency(d.total)})`,
+                label: `${d.poNumber} — ${d.supplierName} (${formatCurrencyCompact(d.total)})`,
                 href: "/m/procurement",
               }))}
             />
@@ -189,10 +189,10 @@ export function MorningBriefing() {
               iconBg="#b91c1c"
               title="Payments overdue"
               count={data.paymentsDue.length}
-              href="/m/finance"
+              href="/m/books/finance"
               items={data.paymentsDue.map((p) => ({
-                label: `${p.description} — ${formatCurrency(p.amount)}`,
-                href: "/m/finance",
+                label: `${p.description} — ${formatCurrencyCompact(p.amount)}`,
+                href: "/m/books/finance",
               }))}
             />
           )}
@@ -206,17 +206,17 @@ export function MorningBriefing() {
           <div className="mx-4 rounded-[0.75rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <div className="flex items-center gap-2 mb-2">
               <Clock className="size-3.5" style={{ color: data.myAttendance.checkedIn ? "var(--color-go)" : "var(--color-signal)" }} />
-              <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Today&apos;s Attendance
               </span>
             </div>
             {data.myAttendance.checkedIn ? (
-              <div className="flex items-center gap-1.5 text-[0.5625rem]" style={{ color: "var(--color-go)" }}>
+              <div className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-go)" }}>
                 <CheckCircle2 className="size-3" />
                 <span className="font-semibold">Checked in — {data.myAttendance.status}</span>
               </div>
             ) : (
-              <Link href="/m/attendance" className="flex items-center gap-1.5 text-[0.5625rem] font-semibold press" style={{ color: "var(--color-signal)" }}>
+              <Link href="/m/attendance" className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press" style={{ color: "var(--color-signal)" }}>
                 <span>Check in now</span>
                 <ArrowRight className="size-3" />
               </Link>
@@ -227,17 +227,17 @@ export function MorningBriefing() {
           <div className="mx-4 rounded-[0.75rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <div className="flex items-center gap-2 mb-2">
               <ClipboardList className="size-3.5" style={{ color: data.myDpr.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
-              <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Today&apos;s DPR
               </span>
             </div>
             {data.myDpr.submitted ? (
-              <div className="flex items-center gap-1.5 text-[0.5625rem]" style={{ color: "var(--color-go)" }}>
+              <div className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-go)" }}>
                 <CheckCircle2 className="size-3" />
                 <span className="font-semibold">Submitted</span>
               </div>
             ) : (
-              <Link href="/m/site" className="flex items-center gap-1.5 text-[0.5625rem] font-semibold press" style={{ color: "var(--color-signal)" }}>
+              <Link href="/m/site" className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press" style={{ color: "var(--color-signal)" }}>
                 <span>Submit DPR</span>
                 <ArrowRight className="size-3" />
               </Link>
@@ -251,12 +251,12 @@ export function MorningBriefing() {
               iconBg="var(--color-signal)"
               title="My tasks"
               count={data.myTasks.length}
-              href="/m/tasks"
+              href="/m/site/tasks"
               items={data.myTasks.map((t) => ({
                 label: t.dueDate
                   ? `${t.title} — due ${formatDate(t.dueDate)}`
                   : t.title,
-                href: "/m/tasks",
+                href: "/m/site/tasks",
               }))}
             />
           )}
@@ -267,10 +267,10 @@ export function MorningBriefing() {
       {!isManager && !isFieldWorker && (
         <div className="mx-4 rounded-[0.75rem] border p-4 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <CheckCircle2 className="mx-auto size-6 mb-2" style={{ color: "var(--color-go)" }} />
-          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
             All caught up!
           </p>
-          <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             Nothing needs your attention right now.
           </p>
         </div>
@@ -297,17 +297,17 @@ function BriefingCard({
   items: { label: string; href: string }[];
 }) {
   return (
-    <Link href={href} className="block mx-4 press">
+    <Link href={href} className="block mx-4 text-m-body press">
       <div className="rounded-[0.75rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center gap-2 mb-2">
           <div className="grid place-items-center size-7 rounded-full" style={{ backgroundColor: iconBg }}>
-            <Icon className="size-3.5 text-white" />
+            <Icon className="size-3.5" style={{ color: "var(--color-paper)" }} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
               {title}
             </div>
-            <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {count} item{count === 1 ? "" : "s"}
             </div>
           </div>
@@ -315,13 +315,13 @@ function BriefingCard({
         </div>
         <div className="space-y-1">
           {items.slice(0, 3).map((item, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
+            <div key={i} className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
               <div className="size-1 rounded-full shrink-0" style={{ backgroundColor: "var(--color-ink-300)" }} />
               <span className="truncate">{item.label}</span>
             </div>
           ))}
           {items.length > 3 && (
-            <div className="text-[0.5625rem] font-semibold pl-2.5" style={{ color: "var(--color-ink-500)" }}>
+            <div className="text-m-caption font-semibold pl-2.5" style={{ color: "var(--color-ink-500)" }}>
               +{items.length - 3} more
             </div>
           )}

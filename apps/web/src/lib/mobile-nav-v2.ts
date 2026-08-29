@@ -38,6 +38,8 @@ import {
   MapPin,
   Search,
   Briefcase,
+  Workflow,
+  Building2 as BuildingIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -257,6 +259,9 @@ const PATH_TO_MODULE: Record<string, string> = {
   "material-reconciliation": "inventory",
   "direct-purchases": "inventory",
   "goods-receipts": "inventory",
+  departments: "inventory",
+  "profit-center": "accounts",
+  workflows: "home",
   // Real estate (lives under inventory module in NavSheet)
   projects: "inventory",
   units: "inventory",
@@ -384,6 +389,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/hr", icon: Users, label: "People", subtitle: "Attendance, DPR, employees" },
         { href: "/m/accounts", icon: BookOpen, label: "Accounts", subtitle: "Finance, GL, receipts" },
         { href: "/m/settings", icon: Settings, label: "Settings", subtitle: "Profile, team, company" },
+        { href: "/m/workflows", icon: Workflow, label: "Workflows", subtitle: "Automate repetitive tasks — schedule and run" },
       ],
     },
     {
@@ -448,6 +454,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/gate-pass", icon: ShieldCheck, label: "Gate Pass", subtitle: "Approve items leaving the gate" },
         { href: "/m/equipment", icon: Wrench, label: "Equipment", subtitle: "Tools, assignments, maintenance" },
         { href: "/m/vehicles", icon: Truck, label: "Vehicles", subtitle: "Auto-built vehicle master + trip log" },
+        { href: "/m/departments", icon: BuildingIcon, label: "Departments", subtitle: "Operational cost centers — workshop, lab, manufacturing" },
       ],
     },
     {
@@ -567,6 +574,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/books/finance", icon: Wallet, label: "Finance", subtitle: "Expenses & project costs" },
         { href: "/m/books/receipts", icon: Receipt, label: "Receipts", subtitle: "Payment receipts" },
         { href: "/m/books/payroll", icon: Wallet, label: "Payroll", subtitle: "Salary processing" },
+        { href: "/m/profit-center", icon: TrendingUp, label: "Profit Center", subtitle: "Per-project revenue, cost, and margin analysis" },
       ],
     },
     {
@@ -612,6 +620,7 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/settings/team", icon: Users, label: "Team & Permissions", subtitle: "Users, roles, access control" },
         { href: "/m/settings/export", icon: FileText, label: "Bulk Export", subtitle: "CSV/PDF data export" },
         { href: "/m/settings/notifications", icon: AlertTriangle, label: "Notifications", subtitle: "Alerts, templates, delivery" },
+        { href: "/m/settings/project-assignments", icon: ShieldCheck, label: "Project Assignments", subtitle: "Scope user access to specific projects" },
       ],
     },
   ],

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Globe, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -221,7 +221,7 @@ function ListingRow({ l }: { l: PortalListingItem }) {
       icon={Globe}
       title={l.title}
       subtitle={subtitle}
-      meta={formatCurrency(l.askingPrice)}
+      meta={formatCurrencyCompact(l.askingPrice)}
       tone={
         l.status === "SYNC_FAILED"
           ? "danger"
@@ -239,7 +239,7 @@ function ListingRow({ l }: { l: PortalListingItem }) {
               href={l.listingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-6 w-6 items-center justify-center rounded-[0.375rem] press"
+              className="flex h-6 w-6 items-center justify-center rounded-[0.375rem] text-m-body press"
               style={{ color: "var(--color-ink-500)" }}
               aria-label="Open listing"
             >

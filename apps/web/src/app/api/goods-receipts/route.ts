@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { receiveGoods } from "@nirman/services";
+import { receiveGoods, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, receiveGoodsSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -121,6 +122,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
         inspectionRemarks: l.inspectionRemarks ?? undefined,
       })),
     });
+    revalidatePath("/procurement");
+    revalidatePath("/m/procurement");
+    revalidatePath("/stock");
     return json(
       {
         ok: true,
@@ -130,6 +134,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       { status: 201 },
     );
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to receive goods") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to receive goods" }, { status: 400 });
   }
 });

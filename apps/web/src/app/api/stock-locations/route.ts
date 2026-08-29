@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -59,7 +61,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (parsed.data.type === "COMPANY_WAREHOUSE" && parsed.data.projectId) {
     parsed.data.projectId = null;
   }
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const loc = await tx.stockLocation.create({
       data: {
         ...parsed.data,
@@ -76,5 +78,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return loc;
   });
+  revalidatePath("/stock-locations");
+  revalidatePath("/m/stock-locations");
   return json(created, { status: 201 });
 });

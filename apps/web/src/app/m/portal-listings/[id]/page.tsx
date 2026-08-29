@@ -52,7 +52,7 @@ async function MobilePortalListingDetailContent({
   }
 
   return (
-    <div>
+    <div className="pb-20">
       <div className="mb-4">
       </div>
 
@@ -70,7 +70,7 @@ async function MobilePortalListingDetailContent({
       </div>
 
       <MobileSectionTitle>Pricing</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Asking Price"
           value={formatCurrency(toNum(listing.askingPrice))}
@@ -96,7 +96,16 @@ async function MobilePortalListingDetailContent({
         </>
       )}
 
-      <MobilePortalListingActions listingId={listing.id} status={listing.status} />
+      <MobilePortalListingActions
+        listingId={listing.id}
+        status={listing.status}
+        title={listing.title}
+        description={listing.description}
+        askingPrice={toNum(listing.askingPrice)}
+        bedrooms={listing.bedrooms}
+        bathrooms={listing.bathrooms}
+        furnishing={listing.furnishing}
+      />
     </div>
   );
 }

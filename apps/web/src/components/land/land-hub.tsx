@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload, Building2, Loader2,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload, Building2, Loader2, CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { StatusPill } from "@/components/page";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { LandPurchaseFormDialog, type LandPurchaseEditInitial } from "./land-purchase-form-dialog";
 import { LandPurchasePaymentDialog } from "./land-purchase-payment-dialog";
+import { LandPaymentScheduleDialog } from "./land-payment-schedule-dialog";
 import { CompleteLandPurchaseDialog } from "./complete-land-purchase-dialog";
 import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
@@ -207,6 +208,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [unpartitionParcel, setUnpartitionParcel] = useState<LandParcelRow | null>(null);
   // Staged purchase dialogs
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
@@ -418,6 +420,11 @@ export function LandHub({ data }: { data: LandHubData }) {
               {permissions.canEdit && (
                 <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                </Button>
+              )}
+              {permissions.canEdit && (
+                <Button variant="outline" size="sm" onClick={() => setScheduleOpen(true)}>
+                  <CalendarClock className="mr-1 h-3.5 w-3.5" /> {purchase.paymentSchedule ? "Edit" : "Create"} Plan
                 </Button>
               )}
               {permissions.canDelete && (
@@ -947,6 +954,13 @@ export function LandHub({ data }: { data: LandHubData }) {
         totalCost={purchase.totalCost}
         totalPaid={totalPaid}
         onSuccess={() => router.refresh()}
+      />
+      <LandPaymentScheduleDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        landPurchaseId={purchase.id}
+        totalCost={purchase.totalCost}
+        existingItems={purchase.paymentSchedule?.items}
       />
       <CompleteLandPurchaseDialog
         open={completeOpen}

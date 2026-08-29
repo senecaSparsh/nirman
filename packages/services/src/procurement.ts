@@ -1,6 +1,7 @@
 import { prisma, type Prisma, type ProcurementScope, type PurchaseOrderStatus } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { withSerializableTransaction } from "./transaction";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
@@ -89,7 +90,7 @@ async function generatePoNumber(tx: Prisma.TransactionClient): Promise<string> {
 }
 
 export async function createPurchaseOrder(input: CreatePOInput) {
-  return prisma.$transaction(async (tx) => createPurchaseOrderTx(tx, input));
+  return withSerializableTransaction(async (tx) => createPurchaseOrderTx(tx, input));
 }
 
 /** Internal: creates a PO within a caller-provided transaction. */
@@ -278,7 +279,7 @@ export async function approvePurchaseOrder(
   approvedById?: string,
   approvalNotes?: string,
 ) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
@@ -337,7 +338,7 @@ export async function approvePurchaseOrder(
 }
 
 export async function orderPurchaseOrder(poId: string, userId?: string) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "APPROVED") throw new ServiceError(`Cannot order PO in status ${po.status}`);
@@ -372,7 +373,7 @@ export async function orderPurchaseOrder(poId: string, userId?: string) {
 }
 
 export async function cancelPurchaseOrder(poId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({
       where: { id: poId },
       include: { lines: { select: { qtyReceived: true } } },
@@ -399,6 +400,95 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
       after: { status: "CANCELLED" },
     });
     return updated;
+  });
+}
+
+/**
+ * Add a single line to an existing Purchase Order.
+ *
+ * Allowed only when the PO is in ORDERED or PARTIAL status (lines can be
+ * appended after ordering, e.g. to top up a running order). Validates that:
+ *   - the PO exists
+ *   - the PO is in an orderable status
+ *   - the material exists and is not soft-deleted
+ *   - the material isn't already present on the PO (one line per material)
+ *
+ * The line is created inside a `prisma.$transaction` together with an
+ * `logAction` audit entry, so the audit trail never diverges from the data.
+ */
+export async function addLineToPurchaseOrder(input: {
+  poId: string;
+  materialId: string;
+  qtyOrdered: Decimal | number | string;
+  unitCost: Decimal | number | string;
+  userId?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: input.poId },
+      select: { id: true, status: true, companyId: true, poNumber: true },
+    });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
+      throw new ServiceError(`Cannot add lines to PO in status ${po.status}`);
+    }
+
+    // Validate the material exists and is not soft-deleted.
+    // (Materials are global — not company-scoped — so we don't filter by
+    // companyId here, matching the createPurchaseOrderTx validation.)
+    const material = await tx.material.findFirst({
+      where: { id: input.materialId, deletedAt: null },
+      select: { id: true, code: true, name: true, unit: true },
+    });
+    if (!material) throw new ServiceError("Material not found or deleted", 404);
+
+    // Prevent duplicate material on the same PO — one line per material keeps
+    // receiving + variance reporting unambiguous.
+    const existingLine = await tx.purchaseOrderLine.findFirst({
+      where: { purchaseOrderId: input.poId, materialId: input.materialId },
+      select: { id: true },
+    });
+    if (existingLine) {
+      throw new ServiceError("Material is already on this PO — edit the existing line instead");
+    }
+
+    const qty = new Decimal(input.qtyOrdered);
+    const cost = new Decimal(input.unitCost);
+    if (!qty.gt(0)) throw new ServiceError("qtyOrdered must be > 0");
+    if (cost.lt(0)) throw new ServiceError("unitCost must be >= 0");
+
+    const lineTotal = qty.times(cost);
+
+    const line = await tx.purchaseOrderLine.create({
+      data: {
+        purchaseOrderId: input.poId,
+        materialId: input.materialId,
+        qtyOrdered: qty,
+        unitCost: cost,
+        qtyReceived: 0,
+        lineTotal,
+      },
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: po.companyId,
+      action: "PURCHASE_ORDER_ADD_LINE",
+      entityType: "PurchaseOrder",
+      entityId: input.poId,
+      after: {
+        lineId: line.id,
+        materialId: input.materialId,
+        materialCode: material.code,
+        materialName: material.name,
+        qtyOrdered: qty.toString(),
+        unitCost: cost.toString(),
+        lineTotal: lineTotal.toString(),
+        poNumber: po.poNumber,
+      },
+    });
+
+    return line;
   });
 }
 
@@ -671,7 +761,7 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     //    This mirrors the Cr AP posted above and keeps balanceOwed in sync —
     //    createSupplierPayment decrements it on payment.
     const receiptTotal = receiptSubtotal.plus(receiptGst);
-    const supplier = await tx.supplier.findUnique({ where: { id: po.supplierId } });
+    const supplier = await tx.supplier.findFirst({ where: { id: po.supplierId, deletedAt: null } });
     if (supplier) {
       const newBalance = new Decimal(supplier.balanceOwed).plus(receiptTotal);
       await tx.supplier.update({

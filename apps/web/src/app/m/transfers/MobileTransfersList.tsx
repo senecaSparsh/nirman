@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -64,6 +65,8 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 export function MobileTransfersList({
   items: initialItems,
   canCreate,
+  canTransfer,
+  inTransitCount = 0,
   currentCompanyId,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -74,6 +77,8 @@ export function MobileTransfersList({
 }: {
   items: TransferItem[];
   canCreate: boolean;
+  canTransfer?: boolean;
+  inTransitCount?: number;
   currentCompanyId: string;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -119,6 +124,14 @@ export function MobileTransfersList({
 
   return (
     <div className="pb-6">
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="stockTransfer" />
+      <NextActionCard
+        flow="stockTransfer"
+        count={inTransitCount}
+        can={(perm) => perm === "STOCK_TRANSFER" ? !!canTransfer : false}
+      />
+
       {/* ── Summary ── */}
       <div
         className="rounded-[0.625rem] border p-3 mb-3"
@@ -132,10 +145,10 @@ export function MobileTransfersList({
             <ArrowRight className="size-4" style={{ color: "var(--color-ink-600)" }} />
           </div>
           <div>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {items.length} {items.length === 1 ? "transfer" : "transfers"}
             </p>
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {counts.pending} pending · {counts.inTransit} in transit · {counts.received} received
             </p>
           </div>
@@ -179,7 +192,7 @@ export function MobileTransfersList({
       {(query || filter !== "ALL" || dirFilter !== "ALL") && filtered.length > 0 && (
         <div className="flex items-center justify-end mb-1.5">
           <span
-            className="text-[0.625rem] font-semibold"
+            className="text-m-label font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {filtered.length} transfer{filtered.length !== 1 ? "s" : ""}
@@ -210,7 +223,7 @@ export function MobileTransfersList({
                 <div className="flex items-center gap-2 mb-1.5">
                   {/* Direction badge */}
                   <span
-                    className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide flex items-center gap-0.5"
+                    className="shrink-0 rounded-full px-1.5 py-px text-m-caption font-bold uppercase tracking-wide flex items-center gap-0.5"
                     style={{
                       backgroundColor: isOutgoing ? "var(--color-signal-wash)" : "color-mix(in srgb, var(--color-go) 12%, transparent)",
                       color: isOutgoing ? "var(--color-signal-dark)" : "var(--color-go)",
@@ -221,7 +234,7 @@ export function MobileTransfersList({
                   </span>
                   {/* Transfer type badge */}
                   <span
-                    className="shrink-0 rounded-full px-1.5 py-px text-[0.375rem] font-bold uppercase tracking-wide"
+                    className="shrink-0 rounded-full px-1.5 py-px text-m-caption font-bold uppercase tracking-wide"
                     style={{
                       backgroundColor: t.isInterCompany ? "var(--color-signal-wash)" : "var(--color-concrete)",
                       color: t.isInterCompany ? "var(--color-signal-dark)" : "var(--color-ink-600)",
@@ -230,22 +243,22 @@ export function MobileTransfersList({
                     {t.isInterCompany ? "C to C" : "inHouse"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.5625rem] font-semibold truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption font-semibold truncate" style={{ color: "var(--color-ink-500)" }}>
                       {t.fromLocationName}
                     </p>
                     {t.isInterCompany && t.fromCompanyName && (
-                      <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-steel)" }}>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-steel)" }}>
                         {t.fromCompanyName}
                       </p>
                     )}
                   </div>
                   <ArrowRight className="size-3 shrink-0" style={{ color: "var(--color-ink-300)" }} />
                   <div className="min-w-0 flex-1 text-right">
-                    <p className="text-[0.5625rem] font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-caption font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {t.toLocationName}
                     </p>
                     {t.isInterCompany && t.toCompanyName && (
-                      <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-steel)" }}>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-steel)" }}>
                         {t.toCompanyName}
                       </p>
                     )}
@@ -266,12 +279,12 @@ export function MobileTransfersList({
                     />
                     <MobileStatusBadge status={t.status} />
                     {isIncoming && t.status === "IN_TRANSIT" ? (
-                      <span className="text-[0.375rem] font-bold px-1.5 py-px rounded-full animate-pulse" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)", color: "var(--color-go)" }}>
+                      <span className="text-m-caption font-bold px-1.5 py-px rounded-full animate-pulse" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)", color: "var(--color-go)" }}>
                         ACTION NEEDED
                       </span>
                     ) : null}
                   </div>
-                  <span className="text-[0.4375rem]" style={{ color: "var(--color-ink-400)" }}>
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
                     {formatDate(t.transferDate)}
                   </span>
                 </div>
@@ -283,15 +296,15 @@ export function MobileTransfersList({
                 style={{ backgroundColor: "var(--color-paper-2)", borderTop: "1px solid var(--color-line)" }}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     {t.lineCount} {t.lineCount === 1 ? "item" : "items"}
                   </p>
-                  <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-700)" }}>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
                     {t.materials.slice(0, 3).join(", ")}
                     {t.materials.length > 3 ? ` +${t.materials.length - 3} more` : ""}
                   </p>
                 </div>
-                <span className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(t.totalQty, 2)} units
                 </span>
               </div>

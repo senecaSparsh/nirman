@@ -3,6 +3,23 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
+
+/** GET /api/departments/[id] — fetch a single department by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const department = await prisma.department.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: {
+      stockLocation: { select: { id: true, name: true } },
+      _count: { select: { materialIssues: true, requisitions: true } },
+    },
+  });
+  if (!department) return json({ error: "Department not found" }, { status: 404 });
+  return json(department);
+});
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
@@ -20,7 +37,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     if (clash) return json({ error: "A department with this code already exists" }, { status: 409 });
   }
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.department.findFirst({ where: { id, companyId: company.id } });
     if (!existing) throw new Error("Department not found in this company");
     const dept = await tx.department.update({ where: { id }, data: parsed.data });
@@ -52,7 +69,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (location && location.stockItems.some((i) => Number(i.qty) > 0)) {
     return json({ error: "Cannot delete department — its stock room still holds stock. Transfer stock out first." }, { status: 400 });
   }
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     await tx.department.update({ where: { id }, data: { deletedAt: new Date() } });
     await logAction(tx, {
       userId: user.id,

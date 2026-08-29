@@ -79,19 +79,19 @@ async function MobileStandardConsumptionDetailContent({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             {sc.workType}
           </p>
         </div>
-        <p className="text-[0.875rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
           {sc.material.name}
         </p>
-        <p className="text-[0.625rem] mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mb-2" style={{ color: "var(--color-ink-500)" }}>
           {sc.material.code ? `${sc.material.code} · ` : ""}
           {sc.unitOfMeasure}
         </p>
         {sc.notes && (
-          <p className="text-[0.625rem] leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
             {sc.notes}
           </p>
         )}
@@ -100,7 +100,7 @@ async function MobileStandardConsumptionDetailContent({
       {/* Summary stats */}
       <div>
         <SectionHead title="Benchmark Summary" />
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <StatCard label="Standard Qty" value={`${formatNumber(standardQty, 3)} ${sc.material.unit}`} icon={Package} tone="go" />
           <StatCard label="Base Qty" value={formatNumber(baseQty, 3)} icon={Ruler} />
           <StatCard label="Per Unit" value={`${formatNumber(perUnitQty, 5)} ${sc.material.unit}`} icon={Beaker} tone="signal" />
@@ -109,13 +109,13 @@ async function MobileStandardConsumptionDetailContent({
 
       {/* Material link */}
       <Link
-        href={`/m/material/${sc.material.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        href={`/m/materials/${sc.material.id}`}
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Material</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{sc.material.name}</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Material</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{sc.material.name}</p>
         </div>
       </Link>
 
@@ -156,14 +156,14 @@ function StatCard({
 
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center gap-1 mb-1">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.75rem] font-bold tabular-nums" style={{ color: toneColor }}>{value}</p>
+      <p className="text-m-section font-bold tabular-nums truncate" style={{ color: toneColor }}>{value}</p>
     </div>
   );
 }

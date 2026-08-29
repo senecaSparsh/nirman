@@ -112,16 +112,16 @@ export function MobileNewSupplierClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Supplier Created
         </p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {success.name}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => router.push(`/m/suppliers/${success.id}`)}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View {success.name}
@@ -131,7 +131,7 @@ export function MobileNewSupplierClient({
               setSuccess(null);
               setForm({ name: "", gstin: "", phone: "", email: "", address: "", leadTimeDays: "" });
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -146,7 +146,7 @@ export function MobileNewSupplierClient({
   }
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none focus:ring-2";
+    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -170,14 +170,14 @@ export function MobileNewSupplierClient({
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Supplier Details
             </span>
           </div>
 
           {/* Name */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -191,7 +191,7 @@ export function MobileNewSupplierClient({
               style={inputStyle}
             />
             {duplicateName && (
-              <p className="flex items-center gap-1 text-[0.5rem] mt-1" style={{ color: "var(--color-signal-dark)" }}>
+              <p className="flex items-center gap-1 text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
                 <AlertCircle className="size-3" />
                 A supplier with this name already exists
               </p>
@@ -200,7 +200,7 @@ export function MobileNewSupplierClient({
 
           {/* GSTIN */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               GSTIN
             </label>
             <input
@@ -208,6 +208,7 @@ export function MobileNewSupplierClient({
               value={form.gstin}
               onChange={(e) => set("gstin", e.target.value.toUpperCase())}
               placeholder="27ABCDE1234F1Z5"
+              pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{3}"
               maxLength={15}
               className={`${inputClass} font-mono`}
               style={inputStyle}
@@ -216,7 +217,7 @@ export function MobileNewSupplierClient({
 
           {/* Phone */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Phone
             </label>
             <input
@@ -228,7 +229,7 @@ export function MobileNewSupplierClient({
               style={inputStyle}
             />
             {duplicatePhone && (
-              <p className="flex items-center gap-1 text-[0.5rem] mt-1" style={{ color: "var(--color-signal-dark)" }}>
+              <p className="flex items-center gap-1 text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
                 <AlertCircle className="size-3" />
                 A supplier with this phone already exists
               </p>
@@ -237,7 +238,7 @@ export function MobileNewSupplierClient({
 
           {/* Email */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Email
             </label>
             <input
@@ -252,7 +253,7 @@ export function MobileNewSupplierClient({
 
           {/* Address */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Address
             </label>
             <textarea
@@ -267,7 +268,7 @@ export function MobileNewSupplierClient({
 
           {/* Lead time */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Lead time (days)
             </label>
             <input
@@ -287,7 +288,7 @@ export function MobileNewSupplierClient({
         <button
           type="submit"
           disabled={saving || !form.name.trim()}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (

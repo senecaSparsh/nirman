@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { usePermissions } from "@/lib/permissions";
+import { useConfirm } from "@/lib/use-confirm";
 
 export type CompanyRow = {
   id: string;
@@ -57,6 +58,7 @@ export function CompaniesManager({
   actorRole: string;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const { canManageUsers } = usePermissions();
   const canManageCompanies = canManage && canManageUsers();
   // Roles this actor can assign (hierarchical RBAC — only roles strictly
@@ -203,6 +205,25 @@ export function CompaniesManager({
     }
   }
 
+  async function deleteCompany(company: CompanyRow) {
+    const ok = await confirm({
+      title: `Delete "${company.name}"?`,
+      description: "This will soft-delete the company. Companies with child companies cannot be deleted — remove or re-parent children first.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/companies/${company.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete company");
+      toast.success("Company deleted");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete company");
+    }
+  }
+
   // Build a tree: roots first, children indented under parents.
   const byParent = new Map<string | null, CompanyRow[]>();
   for (const c of companies) {
@@ -242,6 +263,17 @@ export function CompaniesManager({
           >
             Switch to
           </Button>
+          {canManageCompanies && !c.hasChildren && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 text-muted-foreground hover:text-danger"
+              onClick={(e) => { e.stopPropagation(); deleteCompany(c); }}
+              title="Delete company"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
         {expanded === c.id && (
           <div className="border-l border-border ml-4 pl-3 py-2 space-y-3" style={{ marginLeft: `${depth * 16 + 24}px` }}>
@@ -445,6 +477,7 @@ export function CompaniesManager({
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export async function MobileApprovals({ title }: { title: string }) {
     return (
       <div>
         <MobilePageHeader title={title} subtitle="No access" right={<MobileRefreshButton />} />
-        <div className="px-4 py-10 text-center text-body text-muted-foreground">
+        <div className="px-4 py-10 text-center text-m-body" style={{ color: "var(--color-ink-500)" }}>
           You don&apos;t have permission to approve purchase orders, requisitions, gate passes, or DPRs.
         </div>
       </div>

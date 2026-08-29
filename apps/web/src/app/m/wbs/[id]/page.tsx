@@ -98,35 +98,35 @@ async function MobileWbsDetailContent({
   const canManage = hasPermission(role, PERM.WBS_MANAGE);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
       <div
         className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {node.code}
           </p>
           <MobileStatusBadge status={node.type.replace(/_/g, " ")} />
         </div>
-        <p className="text-[0.875rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
           {node.name}
         </p>
-        <p className="text-[0.625rem] mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mb-2" style={{ color: "var(--color-ink-500)" }}>
           {node.project.name}
           {node.phase ? ` · ${node.phase.name}` : ""}
         </p>
         {node.description && (
-          <p className="text-[0.625rem] leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
             {node.description}
           </p>
         )}
         {/* Progress bar */}
         <div className="mt-2">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Progress</p>
-            <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: progressColor }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Progress</p>
+            <p className="text-m-label font-bold tabular-nums" style={{ color: progressColor }}>
               {formatNumber(progress, 0)}%
             </p>
           </div>
@@ -161,18 +161,18 @@ async function MobileWbsDetailContent({
           <SectionHead title="Linked BOQ Item" />
           <Link
             href={`/m/boq/${node.boqItem.id}`}
-            className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+            className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <div className="min-w-0 flex-1">
-              <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                 {node.boqItem.serialNo}
               </p>
-              <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                 {node.boqItem.description}
               </p>
               {node.boqItem.estimatedAmount && (
-                <p className="text-[0.5625rem] font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+                <p className="text-m-caption font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-700)" }}>
                   {formatCurrency(toNum(node.boqItem.estimatedAmount))}
                 </p>
               )}
@@ -199,25 +199,25 @@ async function MobileWbsDetailContent({
                 <Link
                   key={child.id}
                   href={`/m/wbs/${child.id}`}
-                  className="rounded-[0.5rem] border p-2.5 press"
+                  className="rounded-[0.5rem] border p-2.5 text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: childColor }} />
-                    <span className="text-[0.5625rem] font-semibold tabular-nums shrink-0" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-ink-500)" }}>
                       {child.code}
                     </span>
-                    <p className="text-[0.75rem] font-semibold truncate flex-1" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-section font-semibold truncate flex-1" style={{ color: "var(--color-ink-950)" }}>
                       {child.name}
                     </p>
-                    <span className="text-[0.6875rem] font-bold tabular-nums shrink-0" style={{ color: childColor }}>
+                    <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: childColor }}>
                       {formatNumber(childProgress, 0)}%
                     </span>
                   </div>
                   {(child.plannedStart || child.plannedEnd) && (
                     <div className="flex items-center gap-1" style={{ marginLeft: "1.125rem" }}>
                       <Calendar className="size-2.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                      <span className="text-[0.5625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                      <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                         {formatDate(child.plannedStart)} — {formatDate(child.plannedEnd)}
                       </span>
                     </div>
@@ -238,7 +238,7 @@ async function MobileWbsDetailContent({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <BookOpen className="size-5 mx-auto mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>No measurement entries</p>
+            <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>No measurement entries</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -246,25 +246,25 @@ async function MobileWbsDetailContent({
               <Link
                 key={mb.id}
                 href={`/m/measurement-book/${mb.id}`}
-                className="rounded-[0.5rem] border p-2.5 press"
+                className="rounded-[0.5rem] border p-2.5 text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                     {mb.mbNumber}
                   </p>
                   <MobileStatusBadge status={mb.status} />
                 </div>
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Measured</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Measured</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                       {formatNumber(toNum(mb.measuredQty), 3)}
                     </p>
                   </div>
                   <div className="ml-auto text-right">
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Date</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Date</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
                       {formatDate(mb.measureDate)}
                     </p>
                   </div>
@@ -278,12 +278,12 @@ async function MobileWbsDetailContent({
       {/* Project link */}
       <Link
         href={`/m/projects/${node.project.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Project</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{node.project.name}</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Project</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{node.project.name}</p>
         </div>
       </Link>
 
@@ -321,9 +321,9 @@ function DetailRow({
     <div className="flex items-center justify-between px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
       <div className="flex items-center gap-1.5">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.625rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-label font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { addWbsDependency } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -9,6 +10,35 @@ const schema = z.object({
   successorId: z.string().min(1),
   type: z.enum(["FS", "SS", "FF", "SF"]).default("FS"),
   lagDays: z.coerce.number().default(0),
+});
+
+/**
+ * GET /api/wbs/dependencies?nodeId=… — fetch all dependencies
+ * (both as predecessor and successor) for a given WBS node.
+ */
+export const GET = apiHandler(async (req: NextRequest) => {
+  await requirePermission(PERM.WBS_VIEW);
+  const { searchParams } = new URL(req.url);
+  const nodeId = searchParams.get("nodeId");
+  if (!nodeId) return json({ error: "nodeId is required" }, { status: 400 });
+
+  const deps = await prisma.wbsDependency.findMany({
+    where: { OR: [{ predecessorId: nodeId }, { successorId: nodeId }] },
+    include: {
+      predecessor: { select: { id: true, code: true, name: true } },
+      successor: { select: { id: true, code: true, name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return json(deps.map((d) => ({
+    id: d.id,
+    type: d.type,
+    lagDays: d.lagDays,
+    predecessor: d.predecessor,
+    successor: d.successor,
+    direction: d.predecessorId === nodeId ? "outgoing" : "incoming",
+  })));
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

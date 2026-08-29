@@ -4,6 +4,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { logAction } from "./audit";
 import { postDirectPurchase, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Direct Purchase Service — simplified purchase log for local/ad-hoc buys
@@ -185,7 +186,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
 
   // No stock lines — just a log entry (e.g. a service purchase with no material)
   const billAmount = new Decimal(0);
-  const purchase = await prisma.$transaction(async (tx) => {
+  const purchase = await withSerializableTransaction(async (tx) => {
     const dp = await tx.directPurchase.create({
       data: {
         billNumber,

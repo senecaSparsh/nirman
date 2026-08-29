@@ -42,7 +42,7 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
 
 const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];
 
-const inputClass = "w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] font-medium outline-none";
+const inputClass = "w-full h-9 rounded-[0.375rem] border px-2 text-m-label font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -274,7 +274,7 @@ export function MobileAttendanceForm({
         className="flex items-center justify-between rounded-[0.625rem] border p-2.5 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center gap-2 text-[0.5rem] font-semibold overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-2 text-m-caption font-semibold overflow-x-auto scrollbar-hide">
           <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-go)" }} title="Present">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
             {stats.present} P
@@ -320,7 +320,7 @@ export function MobileAttendanceForm({
             </span>
           )}
         </div>
-        <span className="text-[0.5625rem] font-bold tabular-nums shrink-0 ml-2" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-bold tabular-nums shrink-0 ml-2" style={{ color: "var(--color-ink-500)" }}>
           {stats.total} total
         </span>
       </div>
@@ -328,14 +328,14 @@ export function MobileAttendanceForm({
       {/* ── Project + Search ────────────────────────────────── */}
       <div className="flex flex-col gap-2 mb-3">
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Project (optional)
           </label>
           <div className="flex gap-1.5">
             <select
               value={fProject}
               onChange={(e) => setFProject(e.target.value)}
-              className="flex-1 h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="flex-1 h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={inputStyle}
             >
               <option value="">All workers</option>
@@ -345,7 +345,7 @@ export function MobileAttendanceForm({
               type="button"
               onClick={requestGps}
               disabled={gpsLoading}
-              className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border press disabled:opacity-50"
+              className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
               title="Use my location to auto-select project"
             >
@@ -360,7 +360,7 @@ export function MobileAttendanceForm({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search workers…"
-            className="w-full h-10 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] outline-none"
+            className="w-full h-10 rounded-[0.5rem] border pl-8 pr-8 text-m-section outline-none"
             style={{
               borderColor: search ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -371,7 +371,7 @@ export function MobileAttendanceForm({
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 press"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-m-body press"
               aria-label="Clear"
             >
               <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
@@ -383,7 +383,7 @@ export function MobileAttendanceForm({
           type="button"
           onClick={captureGps}
           disabled={gpsFetching}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
           style={
             gps
               ? { borderColor: "color-mix(in srgb, var(--color-go) 40%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)", color: "var(--color-go)" }
@@ -405,7 +405,7 @@ export function MobileAttendanceForm({
         {stats.present < stats.total && (
           <button
             onClick={markAllPresent}
-            className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-[0.6875rem] font-bold press"
+            className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press"
             style={{
               borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
               backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)",
@@ -435,18 +435,18 @@ export function MobileAttendanceForm({
                 <div className="flex items-center justify-between gap-2">
                   <button
                     onClick={() => { setExpandedId(isOpen ? null : emp.id); haptic(10); }}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left press"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-m-body press"
                   >
                     {isOpen ? <ChevronDown className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} /> : <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />}
                     <div className="min-w-0">
-                      <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{emp.name}</div>
-                      <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                      <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>{emp.name}</div>
+                      <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                         {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? `${formatCurrencyCompact(emp.dailyRate)}/day` : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
                       </div>
                     </div>
                   </button>
                   <span
-                    className="shrink-0 rounded-full border px-2 py-0.5 text-[0.5rem] font-bold"
+                    className="shrink-0 rounded-full border px-2 py-0.5 text-m-caption font-bold"
                     style={{ color: cfg.color, backgroundColor: cfg.bg, borderColor: cfg.border }}
                   >
                     {cfg.label}
@@ -463,7 +463,7 @@ export function MobileAttendanceForm({
                         <button
                           key={s}
                           onClick={() => setStatus(emp.id, s)}
-                          className="shrink-0 rounded-full border px-2.5 py-1 text-[0.5rem] font-bold press"
+                          className="shrink-0 rounded-full border px-2.5 py-1 text-m-caption font-bold text-m-body press"
                           style={
                             active
                               ? { color: sCfg.color, backgroundColor: sCfg.bg, borderColor: sCfg.border }
@@ -481,7 +481,7 @@ export function MobileAttendanceForm({
                 {isOpen && (
                   <div className="mt-2.5 grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
+                      <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
                       <input
                         type="time"
                         value={r.checkIn}
@@ -491,7 +491,7 @@ export function MobileAttendanceForm({
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Out</label>
+                      <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Out</label>
                       <input
                         type="time"
                         value={r.checkOut}
@@ -501,7 +501,7 @@ export function MobileAttendanceForm({
                       />
                     </div>
                     <div>
-                      <label className="block text-[0.4375rem] font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Hrs</label>
+                      <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Hrs</label>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -522,7 +522,7 @@ export function MobileAttendanceForm({
         {filteredEmployees.length === 0 && (
           <div className="flex flex-col items-center py-8 text-center">
             <Users className="mb-2 size-7" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>No workers found</p>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>No workers found</p>
           </div>
         )}
       </div>
@@ -540,7 +540,7 @@ export function MobileAttendanceForm({
           <button
             onClick={submit}
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (

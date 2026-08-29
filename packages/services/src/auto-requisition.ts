@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { lowStockAlerts } from "./alerts";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Auto-Requisition Service — operationalize the reorderPoint / EOQ fields.
@@ -119,7 +120,7 @@ export async function generateAutoRequisition(opts: {
   }
 
   // 5. Create the DRAFT requisition (one per call, batching all due materials).
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const d = new Date();
     const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
     const prefix = `AREQ-${ymd}-`;

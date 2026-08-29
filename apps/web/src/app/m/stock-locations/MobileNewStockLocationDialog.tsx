@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -24,6 +25,7 @@ export function MobileNewStockLocationDialog({
   onCreated: (location: { id: string; name: string; type: string }) => void;
   projects?: { id: string; name: string }[];
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [type, setType] = useState<
     "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE"
@@ -58,6 +60,7 @@ export function MobileNewStockLocationDialog({
         throw new Error(data.error ?? "Failed to create stock location");
       haptic([10, 40, 80]);
       toast.success(`${data.name} stock location created`);
+      router.refresh();
       onCreated({ id: data.id, name: data.name, type: data.type });
       setName("");
       setType("COMPANY_WAREHOUSE");
@@ -76,10 +79,10 @@ export function MobileNewStockLocationDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -88,14 +91,14 @@ export function MobileNewStockLocationDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Stock Location
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -103,7 +106,7 @@ export function MobileNewStockLocationDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           A stock location is where materials are stored — a company warehouse
@@ -114,7 +117,7 @@ export function MobileNewStockLocationDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Location name{" "}
@@ -126,7 +129,7 @@ export function MobileNewStockLocationDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Central Warehouse"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -138,7 +141,7 @@ export function MobileNewStockLocationDialog({
           {/* Type */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Type <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -155,7 +158,7 @@ export function MobileNewStockLocationDialog({
                 setProjectId("");
                 haptic(10);
               }}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -174,7 +177,7 @@ export function MobileNewStockLocationDialog({
           {type === "PROJECT_SITE" && (
             <div>
               <label
-                className="text-[0.5625rem] font-semibold block mb-1"
+                className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Project <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -185,7 +188,7 @@ export function MobileNewStockLocationDialog({
                   setProjectId(e.target.value);
                   haptic(10);
                 }}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -206,7 +209,7 @@ export function MobileNewStockLocationDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

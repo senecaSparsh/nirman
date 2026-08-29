@@ -8,6 +8,7 @@ import { reallocateProjectCosts } from "./valuation";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { postMaterialIssue } from "./gl-posting";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Generate the next SA-YYMMDD-NNNN slip number for a DPR-generated material issue.
@@ -448,7 +449,7 @@ export interface CreateCrewInput {
 }
 
 export async function createCrew(input: CreateCrewInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     if (input.supervisorId) {
       const sup = await tx.employee.findFirst({
         where: { id: input.supervisorId, companyId: input.companyId, deletedAt: null },
@@ -499,7 +500,7 @@ export interface UpdateCrewInput {
 }
 
 export async function updateCrew(input: UpdateCrewInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.crew.findUnique({ where: { id: input.crewId } });
     if (!existing) throw new HrError("Crew not found", 404);
 
@@ -544,7 +545,7 @@ export async function updateCrew(input: UpdateCrewInput) {
 }
 
 export async function deleteCrew(crewId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const crew = await tx.crew.findUnique({
       where: { id: crewId },
       include: { _count: { select: { members: true } } },
@@ -592,7 +593,7 @@ export interface CreateEmployeeInput {
 }
 
 export async function createEmployee(input: CreateEmployeeInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     if (input.crewId) {
       const crew = await tx.crew.findFirst({
         where: { id: input.crewId, companyId: input.companyId },
@@ -656,7 +657,7 @@ export interface UpdateEmployeeInput {
 }
 
 export async function updateEmployee(input: UpdateEmployeeInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.employee.findFirst({
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
     });
@@ -733,7 +734,7 @@ export interface LogAttendanceInput {
 }
 
 export async function recordAttendance(input: LogAttendanceInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const employee = await tx.employee.findFirst({
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
     });
@@ -844,7 +845,7 @@ export interface BulkAttendanceInput {
 /** Log attendance for many workers on one day in a single transaction. */
 export async function bulkRecordAttendance(input: BulkAttendanceInput) {
   const dateOnly = dateOnlyUTC(input.date);
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const results: { employeeId: string; status: string }[] = [];
     for (const r of input.records) {
       const employee = await tx.employee.findFirst({
@@ -920,7 +921,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
   const { startDate, endDate } = monthRange(input.year, input.month);
   const workingDays = computeWorkingDays(startDate, endDate);
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Find or create the period.
     let period = await tx.payrollPeriod.findUnique({
       where: { companyId_year_month: { companyId: input.companyId, year: input.year, month: input.month } },
@@ -1060,7 +1061,7 @@ export interface AdjustPayrollLineInput {
 
 /** Manually adjust overtime/deductions on a draft payroll line. */
 export async function updatePayrollLine(input: AdjustPayrollLineInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const line = await tx.payrollLine.findUnique({
       where: { id: input.payrollLineId },
       include: { payrollPeriod: true },
@@ -1134,7 +1135,7 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
 
 /** Lock a DRAFT payroll and post the salary expense to the GL. */
 export async function processPayroll(input: { payrollPeriodId: string; userId?: string }) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const period = await tx.payrollPeriod.findUnique({
       where: { id: input.payrollPeriodId },
       include: { lines: { include: { employee: { select: { activeProjectId: true } } } } },
@@ -1224,7 +1225,7 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
 
 /** Settle a PROCESSED payroll (pay it) and clear the Salaries Payable liability. */
 export async function payPayroll(input: { payrollPeriodId: string; userId?: string }) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const period = await tx.payrollPeriod.findUnique({ where: { id: input.payrollPeriodId } });
     if (!period) throw new HrError("Payroll period not found", 404);
     if (period.status === "PAID") {
@@ -1301,7 +1302,7 @@ export interface SubmitDprInput {
  * stock (use the MaterialIssue flow for actual consumption).
  */
 export async function submitDPR(input: SubmitDprInput) {
-  const dpr = await prisma.$transaction(async (tx) => {
+  const dpr = await withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
@@ -1442,7 +1443,7 @@ export const updateDpr = submitDPR;
  *  Blocks deletion if the DPR has an auto-generated scrap generation linked
  *  to it — the scrap record (and its stock movements) must be resolved first. */
 export async function deleteDpr(dprId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({
       where: { id: dprId },
       include: { _count: { select: { materialLines: true, laborLines: true } } },
@@ -1486,7 +1487,7 @@ export async function deleteDpr(dprId: string, userId?: string) {
 //   (any pre-final stage can be REJECTED)
 
 export async function subAdminApproveDpr(dprId: string, approverId: string, notes?: string) {
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUBMITTED") {
@@ -1524,7 +1525,7 @@ export async function subAdminApproveDpr(dprId: string, approverId: string, note
 }
 
 export async function adminApproveDpr(dprId: string, approverId: string, notes?: string) {
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUB_ADMIN_APPROVED") {
@@ -1563,7 +1564,7 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
 
 export async function rejectDpr(dprId: string, rejecterId: string, reason: string) {
   if (!reason?.trim()) throw new HrError("Rejection reason is required", 400);
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus === "APPROVED") {
@@ -1602,7 +1603,7 @@ export async function rejectDpr(dprId: string, rejecterId: string, reason: strin
 
 /** Reset a rejected DPR back to SUBMITTED so it can be re-approved. */
 export async function resubmitDpr(dprId: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "REJECTED") {
@@ -1633,7 +1634,7 @@ export async function resubmitDpr(dprId: string, userId: string) {
 
 /** Delete an attendance record, with audit logging. */
 export async function deleteAttendance(attendanceId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const record = await tx.workerAttendance.findUnique({ where: { id: attendanceId } });
     if (!record) throw new HrError("Attendance record not found", 404);
     await tx.workerAttendance.delete({ where: { id: attendanceId } });
@@ -1923,7 +1924,7 @@ export async function dprFinanceReconciliation(
  * to this DPR via sourceDprId.
  */
 export async function markDprCostPosted(dprId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new ServiceError("DPR not found", 404);
 

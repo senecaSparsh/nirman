@@ -15,8 +15,10 @@ import {
   MobileCta,
   MobileNoAccess,
 } from "@/components/mobile/v2/primitives";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
+
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { MobileMaterialDeleteBtn } from "./MobileMaterialDeleteBtn";
 
 /**
  * /m/materials/[id] — material detail page.
@@ -105,6 +107,7 @@ async function MobileMaterialDetailContent({
 
       {/* ── Back ── */}
       <div className="mb-3">
+        <MobileBackButton fallback="/m/materials" />
       </div>
 
       {/* ── Hero card ── */}
@@ -120,15 +123,15 @@ async function MobileMaterialDetailContent({
             <Package className="size-5" style={{ color: "var(--color-ink-700)" }} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="font-bold text-[1.0625rem] leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="font-bold text-m-section leading-tight" style={{ color: "var(--color-ink-950)" }}>
               {material.name}
             </h1>
-            <p className="text-[0.6875rem] mt-0.5 font-mono" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body mt-0.5 font-mono" style={{ color: "var(--color-ink-500)" }}>
               {material.code} · {material.category.name}
             </p>
           </div>
           <span
-            className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
             style={{ backgroundColor: stockTone, color: "#fff" }}
           >
             {isOut ? "Out" : isLow ? "Low" : "OK"}
@@ -138,17 +141,17 @@ async function MobileMaterialDetailContent({
         {/* Stock level bar */}
         <div className="mt-3">
           <div className="flex items-baseline justify-between mb-1">
-            <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               On hand
             </span>
-            <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(totalQty, 0)} {material.unit}
             </span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-concrete)" }}>
             <div className="h-full rounded-full transition-all" style={{ width: `${stockPct}%`, backgroundColor: stockTone }} />
           </div>
-          <p className="text-[0.5rem] mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {formatCurrency(totalValue)} value
             {reorderPoint ? ` · reorder at ${formatNumber(reorderPoint, 0)}` : ""}
           </p>
@@ -166,7 +169,7 @@ async function MobileMaterialDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <IndianRupee className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Overview</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Overview</p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Stock value" value={formatCurrency(totalValue)} />
@@ -186,7 +189,7 @@ async function MobileMaterialDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <ClipboardList className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Details</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Details</p>
           </div>
           <div className="space-y-1.5">
             {minStock != null ? <KpiRow label="Min stock" value={formatNumber(minStock, 0)} sub={material.unit} /> : null}
@@ -203,7 +206,7 @@ async function MobileMaterialDetailContent({
       <div className="grid grid-cols-2 gap-2 mb-3 items-start">
         {/* Stock by location column */}
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
             By Location ({stockItems.length})
           </h3>
           {stockItems.length === 0 ? (
@@ -211,7 +214,7 @@ async function MobileMaterialDetailContent({
               className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
             >
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>None on hand</p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>None on hand</p>
             </div>
           ) : (
             stockItems.map((i) => {
@@ -221,17 +224,17 @@ async function MobileMaterialDetailContent({
                 <Link
                   key={i.id}
                   href={`/m/stock?locationId=${i.locationId}`}
-                  className="flex flex-col rounded-[0.5rem] border p-2 press overflow-hidden"
+                  className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
                   <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: locTone }} />
-                  <p className="text-[0.5625rem] font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                     {i.location.name}
                   </p>
-                  <p className="text-[0.4375rem] mb-1 truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mb-1 truncate" style={{ color: "var(--color-ink-500)" }}>
                     Moving Average Cost {formatCurrency(toNum(i.movingAvgCost))}
                   </p>
-                  <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+                  <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                     {formatNumber(locQty, 0)} {material.unit}
                   </p>
                 </Link>
@@ -242,7 +245,7 @@ async function MobileMaterialDetailContent({
 
         {/* Recent movements column */}
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
             Movements ({movements.length})
           </h3>
           {movements.length === 0 ? (
@@ -250,7 +253,7 @@ async function MobileMaterialDetailContent({
               className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
             >
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>No movements</p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>No movements</p>
             </div>
           ) : (
             movements.map((m) => {
@@ -264,13 +267,13 @@ async function MobileMaterialDetailContent({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
                   <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: moveTone }} />
-                  <p className="text-[0.5rem] font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                     {m.fromLocation?.name ?? "—"} → {m.toLocation?.name ?? "—"}
                   </p>
-                  <p className="text-[0.4375rem] mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mb-1" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(m.timestamp)}
                   </p>
-                  <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: moveTone }}>
+                  <p className="text-m-caption font-bold tabular-nums" style={{ color: moveTone }}>
                     {isIn ? "+" : isOut ? "−" : ""}{formatNumber(toNum(m.qty), 0)} {material.unit}
                   </p>
                 </div>
@@ -287,9 +290,9 @@ async function MobileMaterialDetailContent({
         </MobileCta>
       </div>
 
-      {/* ── Edit FAB (managers only) ── */}
+      {/* ── Edit + Archive actions (managers only) ── */}
       {hasPermission(role, PERM.INVENTORY_MANAGE) && (
-        <MobileFab href={`/m/materials/${material.id}/edit`} label="Edit material" />
+        <MobileMaterialDeleteBtn materialId={material.id} materialName={material.name} />
       )}
     </div>
   );
@@ -314,10 +317,10 @@ function KpiRow({
     "var(--color-ink-950)";
   return (
     <div className="flex items-baseline justify-between gap-1">
-      <span className="text-[0.5rem] shrink-0" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </span>
-      <span className="text-[0.5625rem] font-bold text-right tabular-nums truncate" style={{ color }}>
+      <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
         {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
       </span>

@@ -4,6 +4,7 @@ import { generateMaterialCode } from "./material-code";
 import { suggestHsnByMaterial, lookupGstByHsn } from "./hsn-gst";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Auto-fill HSN code + GST rate on a material that's missing them.
@@ -20,8 +21,8 @@ export async function autoFillHsnGst(materialId: string): Promise<{
   hsnCode: string;
   gstRate: Decimal;
 } | null> {
-  const material = await prisma.material.findUnique({
-    where: { id: materialId },
+  const material = await prisma.material.findFirst({
+    where: { id: materialId, deletedAt: null },
     include: { category: { select: { name: true } } },
   });
   if (!material) return null;
@@ -122,7 +123,7 @@ export async function quickCreateMaterial(input: {
   }
 
   // 3. Create the material
-  const material = await prisma.$transaction(async (tx) => {
+  const material = await withSerializableTransaction(async (tx) => {
     // Restore if soft-deleted with same code
     if (existing?.deletedAt) {
       const restored = await tx.material.update({

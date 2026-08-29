@@ -187,7 +187,7 @@ async function InventoryContent() {
             right={
               <Link
                 href="/m/requisitions"
-                className="text-[0.625rem] font-semibold press"
+                className="text-m-label font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 View all
@@ -206,16 +206,16 @@ async function InventoryContent() {
                 <Link
                   key={req.id}
                   href={`/m/requisitions/${req.id}`}
-                  className="flex items-center gap-2 px-1.5 py-1.5 press rounded-[0.375rem]"
+                  className="flex items-center gap-2 px-1.5 py-1.5 text-m-body press rounded-[0.375rem]"
                 >
                   <span
-                    className="text-[0.625rem] font-bold tabular-nums shrink-0"
+                    className="text-m-label font-bold tabular-nums shrink-0"
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {reqLabel}
                   </span>
                   <span
-                    className="text-[0.5625rem] truncate flex-1"
+                    className="text-m-caption truncate flex-1"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     {req.project?.name ?? "—"}

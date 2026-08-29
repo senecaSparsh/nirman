@@ -53,7 +53,7 @@ export function MobileWbsProjectSelector({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press"
+        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press"
         style={{
           borderColor: open ? "var(--color-ink-950)" : "var(--color-line)",
           backgroundColor: "var(--color-paper)",
@@ -70,13 +70,13 @@ export function MobileWbsProjectSelector({
         </span>
         <div className="min-w-0 flex-1 text-left">
           <p
-            className="text-[0.5625rem] uppercase tracking-wide font-semibold"
+            className="text-m-caption uppercase tracking-wide font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             Project
           </p>
           <p
-            className="text-[0.75rem] font-semibold truncate"
+            className="text-m-section font-semibold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {current?.name ?? "Select project…"}
@@ -103,7 +103,7 @@ export function MobileWbsProjectSelector({
             <button
               key={p.id}
               onClick={() => selectProject(p.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left press"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-m-body press"
               style={{
                 backgroundColor:
                   p.id === selectedId
@@ -113,7 +113,7 @@ export function MobileWbsProjectSelector({
             >
               <div className="min-w-0 flex-1">
                 <p
-                  className="text-[0.6875rem] font-semibold truncate"
+                  className="text-m-body font-semibold truncate"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {p.name}

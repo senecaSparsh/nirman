@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCompany, toNum, getUserRole } from "@/lib/server";
+import { apiHandler, json, getCompany, getUserRole, requireUser, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -25,6 +25,7 @@ import { PERM, hasPermission } from "@/lib/roles";
  *   }
  */
 export const GET = apiHandler(async (_req: NextRequest) => {
+  await requireUser();
   const company = await getCompany();
   const role = await getUserRole();
 

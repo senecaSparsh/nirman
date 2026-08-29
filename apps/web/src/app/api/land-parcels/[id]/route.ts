@@ -5,6 +5,25 @@ import { setParcelStatus, updateParcelValuation } from "@nirman/services";
 import { apiHandler, getCompany, json, parcelValuationSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
+/** GET /api/land-parcels/[id] — fetch a single land parcel by ID */
+export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
+  const { id } = await ctx.params;
+  const parcel = await prisma.landParcel.findFirst({
+    where: { id, landPurchase: { companyId: company.id }, deletedAt: null },
+    include: {
+      landPurchase: { select: { id: true, sellerName: true, totalArea: true } },
+      parentParcel: { select: { id: true, number: true, area: true, status: true } },
+      children: { select: { id: true, number: true, area: true, status: true, isInfrastructure: true } },
+      project: { select: { id: true, name: true } },
+      _count: { select: { children: true, builtUnits: true } },
+    },
+  });
+  if (!parcel) return json({ error: "Land parcel not found" }, { status: 404 });
+  return json(parcel);
+});
+
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await ctx.params;

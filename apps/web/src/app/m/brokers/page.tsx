@@ -24,6 +24,7 @@ async function MobileBrokersContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.SALE_CREATE);
+  const canDelete = hasPermission(role, PERM.SALE_CREATE);
 
   const brokers = await prisma.broker.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -49,6 +50,7 @@ async function MobileBrokersContent() {
       items={rows}
       canCreate={canCreate}
       canEdit={canCreate}
+      canDelete={canDelete}
     />
   );
 }

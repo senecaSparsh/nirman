@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { FileText, TrendingUp, TrendingDown, Truck } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -114,9 +114,9 @@ async function MobilePurchaseRegisterContent({
       <MobileReportSummary
         items={[
           { label: "Bills", value: String(rows.length) },
-          { label: "Purchases", value: formatCurrency(totalPurchases) },
-          { label: "Returns", value: formatCurrency(totalReturns), tone: "stop" },
-          { label: "Net", value: formatCurrency(netTotal), tone: netTotal >= 0 ? "go" : "stop" },
+          { label: "Purchases", value: formatCurrencyCompact(totalPurchases) },
+          { label: "Returns", value: formatCurrencyCompact(totalReturns), tone: "stop" },
+          { label: "Net", value: formatCurrencyCompact(netTotal), tone: netTotal >= 0 ? "go" : "stop" },
         ]}
       />
 
@@ -125,7 +125,7 @@ async function MobilePurchaseRegisterContent({
           title="Purchase Register Report"
           rows={rows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Purchases: ${formatCurrency(totalPurchases)} · Returns: ${formatCurrency(totalReturns)} · Net: ${formatCurrency(netTotal)}`}
+          summary={`Purchases: ${formatCurrencyCompact(totalPurchases)} · Returns: ${formatCurrencyCompact(totalReturns)} · Net: ${formatCurrency(netTotal)}`}
         />
       </div>
 
@@ -140,7 +140,7 @@ async function MobilePurchaseRegisterContent({
                 value: s.total,
                 tone: "signal" as const,
               }))}
-              formatValue={(v) => formatCurrency(v)}
+              formatValue={(v) => formatCurrencyCompact(v)}
             />
           </div>
         </>
@@ -154,13 +154,13 @@ async function MobilePurchaseRegisterContent({
             icon={r.type === "PURCHASE" ? Truck : TrendingDown}
             title={r.name}
             subtitle={`${r.number} · ${formatDate(r.date)}`}
-            meta={formatCurrency(Math.abs(r.billAmt))}
+            meta={formatCurrencyCompact(Math.abs(r.billAmt))}
             metaSub={r.type === "RETURN" ? "Return" : "Purchase"}
             tone={r.type === "RETURN" ? "danger" : "default"}
           />
         ))}
         {rows.length > 50 && (
-          <p className="text-center text-[0.625rem] py-2" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-center text-m-label py-2" style={{ color: "var(--color-ink-500)" }}>
             Showing 50 of {rows.length} bills
           </p>
         )}

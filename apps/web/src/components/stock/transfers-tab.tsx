@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown } from "lucide-react";
+import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown, Send, Undo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -186,7 +186,7 @@ function TransferCard({ transfer }: { transfer: TransferRow }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
 
-  async function doAction(action: "complete" | "cancel") {
+  async function doAction(action: "complete" | "cancel" | "dispatch" | "returnToSource") {
     setActing(true);
     try {
       const res = await fetch(`/api/transfers/${transfer.id}`, {
@@ -196,7 +196,8 @@ function TransferCard({ transfer }: { transfer: TransferRow }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      toast.success(`Transfer ${action}d`);
+      const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source" };
+      toast.success(`Transfer ${done[action]}`);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -260,11 +261,26 @@ function TransferCard({ transfer }: { transfer: TransferRow }) {
       {/* Actions for DRAFT transfers */}
       {transfer.status === "DRAFT" && (
         <div className="mt-3 flex gap-1 border-t border-border pt-3">
+          <Button variant="ghost" size="sm" onClick={() => doAction("dispatch")} disabled={acting} className="text-info hover:text-info">
+            <Send className="h-4 w-4" /> Dispatch
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => doAction("complete")} disabled={acting} className="text-success hover:text-success">
             <Check className="h-4 w-4" /> Complete
           </Button>
           <Button variant="ghost" size="icon" onClick={() => doAction("cancel")} disabled={acting} aria-label="Cancel" className="ml-auto text-muted-foreground hover:text-danger">
             <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Actions for IN_TRANSIT transfers */}
+      {transfer.status === "IN_TRANSIT" && (
+        <div className="mt-3 flex gap-1 border-t border-border pt-3">
+          <Button variant="ghost" size="sm" onClick={() => doAction("complete")} disabled={acting} className="text-success hover:text-success">
+            <Check className="h-4 w-4" /> Complete
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => doAction("returnToSource")} disabled={acting} className="ml-auto text-muted-foreground hover:text-warning">
+            <Undo className="h-4 w-4" /> Return to Source
           </Button>
         </div>
       )}
@@ -277,7 +293,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
 
-  async function doAction(action: "complete" | "cancel") {
+  async function doAction(action: "complete" | "cancel" | "dispatch" | "returnToSource") {
     setActing(true);
     try {
       const res = await fetch(`/api/transfers/${transfer.id}`, {
@@ -287,7 +303,8 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      toast.success(`Transfer ${action}d`);
+      const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source" };
+      toast.success(`Transfer ${done[action]}`);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -455,11 +472,26 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       {/* Actions for DRAFT transfers */}
       {transfer.status === "DRAFT" && (
         <div className="flex gap-2 border-t border-border pt-3">
+          <Button variant="default" size="sm" onClick={() => doAction("dispatch")} disabled={acting}>
+            <Send className="h-4 w-4" /> Dispatch
+          </Button>
           <Button variant="default" size="sm" onClick={() => doAction("complete")} disabled={acting}>
             <Check className="h-4 w-4" /> Complete Transfer
           </Button>
           <Button variant="outline" size="sm" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
             <X className="h-4 w-4" /> Cancel
+          </Button>
+        </div>
+      )}
+
+      {/* Actions for IN_TRANSIT transfers */}
+      {transfer.status === "IN_TRANSIT" && (
+        <div className="flex gap-2 border-t border-border pt-3">
+          <Button variant="default" size="sm" onClick={() => doAction("complete")} disabled={acting}>
+            <Check className="h-4 w-4" /> Complete Transfer
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => doAction("returnToSource")} disabled={acting} className="text-muted-foreground hover:text-warning">
+            <Undo className="h-4 w-4" /> Return to Source
           </Button>
         </div>
       )}

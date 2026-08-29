@@ -163,13 +163,13 @@ export function MobileLocationDetail({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
-            <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {locationName}
             </p>
           </div>
         </div>
         <span
-          className="text-[0.5rem] font-bold uppercase tracking-wide shrink-0 px-1.5 py-0.5 rounded-full"
+          className="text-m-caption font-bold uppercase tracking-wide shrink-0 px-1.5 py-0.5 rounded-full"
           style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
           {typeLabel(locationType)}
@@ -182,26 +182,26 @@ export function MobileLocationDetail({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Items
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatNumber(items.length, 0)}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Total Qty
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatNumber(totalQty, 0)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Value
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrency(totalValue)}
           </p>
         </div>
@@ -211,27 +211,27 @@ export function MobileLocationDetail({
       <div className="grid grid-cols-3 gap-1.5 mb-3">
         <Link
           href="/m/stock-out?mode=issue"
-          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <ArrowUpFromLine className="size-3.5 mb-0.5" style={{ color: "var(--color-stop)" }} />
-          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Issue</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Issue</span>
         </Link>
         <Link
           href="/m/site/receive"
-          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <ArrowDownToLine className="size-3.5 mb-0.5" style={{ color: "var(--color-go)" }} />
-          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Receive</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Receive</span>
         </Link>
         <Link
           href="/m/stock"
-          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <ArrowLeftRight className="size-3.5 mb-0.5" style={{ color: "var(--color-steel)" }} />
-          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Transfer</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Transfer</span>
         </Link>
       </div>
 
@@ -239,7 +239,7 @@ export function MobileLocationDetail({
       <div className="flex gap-1 mb-2">
         <button
           onClick={() => setTab("inventory")}
-          className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
           style={
             tab === "inventory"
               ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
@@ -250,7 +250,7 @@ export function MobileLocationDetail({
         </button>
         <button
           onClick={() => setTab("activity")}
-          className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
           style={
             tab === "activity"
               ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
@@ -262,7 +262,7 @@ export function MobileLocationDetail({
         {(inTransitIncoming.length > 0 || inTransitOutgoing.length > 0) && (
           <button
             onClick={() => setTab("transit")}
-            className="flex-1 rounded-[0.375rem] py-1.5 text-[0.625rem] font-bold transition-colors"
+            className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
             style={
               tab === "transit"
                 ? { backgroundColor: "var(--color-signal)", color: "#fff" }
@@ -292,7 +292,7 @@ export function MobileLocationDetail({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={tab === "inventory" ? "Search material…" : "Search movement…"}
-            className="w-full h-8 rounded-[0.5rem] border pl-8 pr-8 text-[0.75rem] focus:outline-none"
+            className="w-full h-8 rounded-[0.5rem] border pl-8 pr-8 text-m-section focus:outline-none"
             style={{
               borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -302,7 +302,7 @@ export function MobileLocationDetail({
           {query ? (
             <button
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-5"
+              className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-5 press"
             >
               <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
             </button>
@@ -335,7 +335,7 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <ArrowDownToLine className="size-3.5" style={{ color: "var(--color-go)" }} />
-            <h3 className="text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-go)" }}>
+            <h3 className="text-m-body font-bold uppercase tracking-wide" style={{ color: "var(--color-go)" }}>
               Incoming ({incoming.length})
             </h3>
           </div>
@@ -344,22 +344,22 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
               <Link
                 key={t.id}
                 href={`/m/transfers/${t.id}`}
-                className="block rounded-[0.5rem] border p-2.5 press"
+                className="block rounded-[0.5rem] border p-2.5 text-m-body press"
                 style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 4%, transparent)" }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                     From {t.fromLocationName}
                   </span>
                   {t.vehicleNumber && (
-                    <span className="flex items-center gap-1 text-[0.5rem] font-mono" style={{ color: "var(--color-steel)" }}>
+                    <span className="flex items-center gap-1 text-m-caption font-mono" style={{ color: "var(--color-steel)" }}>
                       <Truck className="size-3" />{t.vehicleNumber}
                     </span>
                   )}
                 </div>
                 <div className="space-y-0.5">
                   {t.lines.map((l, i) => (
-                    <div key={i} className="flex justify-between text-[0.5625rem]">
+                    <div key={i} className="flex justify-between text-m-caption">
                       <span style={{ color: "var(--color-ink-700)" }}>{l.materialName}</span>
                       <span className="tabular-nums font-semibold" style={{ color: "var(--color-ink-950)" }}>
                         {formatNumber(l.qty, 3)} {l.unit}
@@ -368,7 +368,7 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
                   ))}
                 </div>
                 {t.dispatchedAt && (
-                  <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                     Dispatched {formatDate(t.dispatchedAt)}
                   </p>
                 )}
@@ -382,7 +382,7 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <ArrowUpFromLine className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
-            <h3 className="text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-signal-dark)" }}>
+            <h3 className="text-m-body font-bold uppercase tracking-wide" style={{ color: "var(--color-signal-dark)" }}>
               Outgoing ({outgoing.length})
             </h3>
           </div>
@@ -391,22 +391,22 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
               <Link
                 key={t.id}
                 href={`/m/transfers/${t.id}`}
-                className="block rounded-[0.5rem] border p-2.5 press"
+                className="block rounded-[0.5rem] border p-2.5 text-m-body press"
                 style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, transparent)" }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                     To {t.toLocationName}
                   </span>
                   {t.vehicleNumber && (
-                    <span className="flex items-center gap-1 text-[0.5rem] font-mono" style={{ color: "var(--color-steel)" }}>
+                    <span className="flex items-center gap-1 text-m-caption font-mono" style={{ color: "var(--color-steel)" }}>
                       <Truck className="size-3" />{t.vehicleNumber}
                     </span>
                   )}
                 </div>
                 <div className="space-y-0.5">
                   {t.lines.map((l, i) => (
-                    <div key={i} className="flex justify-between text-[0.5625rem]">
+                    <div key={i} className="flex justify-between text-m-caption">
                       <span style={{ color: "var(--color-ink-700)" }}>{l.materialName}</span>
                       <span className="tabular-nums font-semibold" style={{ color: "var(--color-ink-950)" }}>
                         {formatNumber(l.qty, 3)} {l.unit}
@@ -415,7 +415,7 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
                   ))}
                 </div>
                 {t.dispatchedAt && (
-                  <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                     Dispatched {formatDate(t.dispatchedAt)}
                   </p>
                 )}
@@ -428,7 +428,7 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
       {incoming.length === 0 && outgoing.length === 0 && (
         <div className="text-center py-8">
           <Truck className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>
             No transfers in transit
           </p>
         </div>
@@ -459,16 +459,16 @@ function InventoryTab({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No materials in stock
           </p>
-          <p className="text-[0.5625rem] mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
             Receive stock against a purchase order, transfer from another location, or add a new material to your catalog.
           </p>
           {canManage && (
             <button
               onClick={() => setShowCreateMaterial(true)}
-              className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-[0.6875rem] font-bold press"
+              className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-m-body font-bold text-m-body press"
               style={{
                 borderColor: "var(--color-signal)",
                 backgroundColor: "var(--color-signal-wash)",
@@ -505,22 +505,22 @@ function InventoryTab({
         <Link
           key={item.materialId}
           href={`/m/materials/${item.materialId}`}
-          className="flex items-center justify-between gap-2 px-2.5 py-2 press"
+          className="flex items-center justify-between gap-2 px-2.5 py-2 text-m-body press"
           style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
         >
           <div className="min-w-0 flex-1">
-            <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {item.materialName}
             </p>
-            <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
               {item.materialCode} · Moving Average Cost {formatCurrency(item.mac)}
             </p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(item.qty, 0)}
             </p>
-            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {item.unit}
             </p>
           </div>
@@ -539,7 +539,7 @@ function ActivityTab({ groups }: { groups: { label: string; items: DetailMovemen
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         <ArrowLeftRight className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
           No movements yet
         </p>
       </div>
@@ -550,7 +550,7 @@ function ActivityTab({ groups }: { groups: { label: string; items: DetailMovemen
     <div className="flex flex-col gap-2">
       {groups.map((group) => (
         <div key={group.label}>
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1 px-0.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide mb-1 px-0.5" style={{ color: "var(--color-steel)" }}>
             {group.label}
           </p>
           <div
@@ -564,7 +564,7 @@ function ActivityTab({ groups }: { groups: { label: string; items: DetailMovemen
                 <Link
                   key={m.id}
                   href={`/m/materials/${m.materialId}`}
-                  className="flex items-center gap-2 px-2.5 py-1.5 press"
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
                   style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
                 >
                   <span
@@ -574,18 +574,18 @@ function ActivityTab({ groups }: { groups: { label: string; items: DetailMovemen
                     <Icon className="size-3" style={{ color }} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {formatNumber(m.qty, 0)} {m.materialUnit} {m.materialName}
                     </p>
-                    <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                       {m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[0.5rem] font-semibold" style={{ color }}>
+                    <p className="text-m-caption font-semibold" style={{ color }}>
                       {movementLabel(m.movementType)}
                     </p>
-                    <p className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                       {formatTime(m.timestamp)}
                     </p>
                   </div>

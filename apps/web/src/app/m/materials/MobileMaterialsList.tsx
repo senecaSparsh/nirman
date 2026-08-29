@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { Package } from "lucide-react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
 import { ScanButton } from "@/components/mobile/v2/scan-button";
 import {
@@ -10,7 +11,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { mobileStatusColor } from "@/components/mobile/v2/primitives";
+import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type MaterialItem = {
   id: string;
@@ -95,7 +96,15 @@ export function MobileMaterialsList({
   }
   const groupedCategories = Object.keys(grouped).sort();
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={Package}
+        title="No materials"
+        hint="Materials will appear here once added to the catalog"
+      />
+    );
+  }
 
   const sortLabel: Record<SortMode, string> = {
     default: "Default",
@@ -148,19 +157,19 @@ export function MobileMaterialsList({
             groupedCategories.map((category, idx) => (
               <section key={category} className="mb-4">
                 <h2
-                  className="text-[0.8125rem] font-bold mb-1.5 flex items-center gap-1.5"
+                  className="text-m-section font-bold mb-1.5 flex items-center gap-1.5"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {category}
                   <span
-                    className="text-[0.625rem] font-normal"
+                    className="text-m-label font-normal"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     {grouped[category]!.length}
                   </span>
                   {idx === 0 && (
                     <span
-                      className="ml-auto text-[0.625rem] font-semibold"
+                      className="ml-auto text-m-label font-semibold"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       {filtered.length} item{filtered.length !== 1 ? "s" : ""}
@@ -179,7 +188,7 @@ export function MobileMaterialsList({
             <div>
               <div className="flex items-center justify-end mb-1.5">
                 <span
-                  className="text-[0.625rem] font-semibold"
+                  className="text-m-label font-semibold"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   {filtered.length} item{filtered.length !== 1 ? "s" : ""}
@@ -236,13 +245,13 @@ function MaterialCard({ material }: { material: MaterialItem }) {
       {/* Content */}
       <div className="p-1.5">
         <p
-          className="text-[0.5rem] font-semibold uppercase tracking-wide truncate"
+          className="text-m-caption font-semibold uppercase tracking-wide truncate"
           style={{ color: "var(--color-steel)" }}
         >
           {material.categoryName}
         </p>
         <p
-          className="font-semibold text-[0.625rem] leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
+          className="font-semibold text-m-label leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
           style={{ color: "var(--color-ink-950)" }}
         >
           {material.name}
@@ -250,20 +259,20 @@ function MaterialCard({ material }: { material: MaterialItem }) {
         <div className="mt-1 flex items-baseline justify-between gap-1">
           <div className="min-w-0">
             <p
-              className="numeric text-[0.625rem] font-bold"
+              className="numeric text-m-label font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               {formatNumber(material.totalQty, 0)} {material.unit}
             </p>
             <p
-              className="numeric text-[0.5rem]"
+              className="numeric text-m-caption"
               style={{ color: "var(--color-ink-500)" }}
             >
-              {formatCurrency(material.stockValue)}
+              {formatCurrencyCompact(material.stockValue)}
             </p>
           </div>
           <span
-            className="text-[0.5rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: statusColor }}
           >
             {statusLabel}
@@ -317,7 +326,7 @@ function FilterDropdown({
           >
             <button
               onClick={() => { onChange(null); setOpen(false); }}
-              className="press w-full text-left px-3 py-2 text-[0.75rem]"
+              className="text-m-body press w-full text-left px-3 py-2 text-m-section"
               style={{
                 fontWeight: !hasFilter ? 600 : 400,
                 color: !hasFilter ? "var(--color-ink-950)" : "var(--color-ink-700)",
@@ -330,7 +339,7 @@ function FilterDropdown({
               <button
                 key={c}
                 onClick={() => { onChange(c); setOpen(false); }}
-                className="press w-full text-left px-3 py-2 text-[0.75rem] border-t"
+                className="text-m-body press w-full text-left px-3 py-2 text-m-section border-t"
                 style={{
                   borderColor: "var(--color-line)",
                   fontWeight: activeCategory === c ? 600 : 400,
@@ -390,7 +399,7 @@ function SortDropdown({
               <button
                 key={mode}
                 onClick={() => { setSort(mode); setOpen(false); }}
-                className="press w-full text-left px-3 py-2 text-[0.75rem]"
+                className="text-m-body press w-full text-left px-3 py-2 text-m-section"
                 style={{
                   fontWeight: sort === mode ? 600 : 400,
                   color: sort === mode ? "var(--color-ink-950)" : "var(--color-ink-700)",

@@ -15,6 +15,9 @@ import {
   MobilePipelineStepper,
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
+import { resolveNextAction } from "@/lib/flow-map";
 import { MobilePoActions } from "@/components/mobile/mobile-po-actions";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
@@ -95,6 +98,7 @@ async function MobilePoDetailContent({
 
   const canApprove = hasPermission(role, PERM.PO_APPROVE);
   const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+  const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
   const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
   const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
 
@@ -218,13 +222,29 @@ async function MobilePoDetailContent({
     { label: "Issue", state: "pending" },
   ];
 
+  // Resolve the next action for this PO's status + the viewer's role.
+  // Server-side — no permission function crosses the boundary.
+  const nextAction = resolveNextAction("procurement", po.status, role);
+
   return (
     <div className="pb-20">
       {/* ── Back ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
+        <MobileBackButton fallback="/m/procurement" />
       </div>
 
       <RecordRecentItem type="po" id={po.id} label={po.poNumber} sublabel={po.supplier.name} href={`/m/procurement/${po.id}`} />
+
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", po.id) : undefined}
+        />
+      ) : null}
 
       {/* ── Hero card — identity + receive progress ── */}
       <div
@@ -242,19 +262,19 @@ async function MobilePoDetailContent({
             <Truck className="size-5" style={{ color: "var(--color-ink-700)" }} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="font-bold text-[1.0625rem] leading-tight font-mono" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="font-bold text-m-section leading-tight font-mono" style={{ color: "var(--color-ink-950)" }}>
               {po.poNumber}
             </h1>
             <Link
               href={`/m/suppliers/${po.supplierId}`}
-              className="text-[0.6875rem] mt-0.5 underline underline-offset-2 press"
+              className="text-m-body mt-0.5 underline underline-offset-2 text-m-body press"
               style={{ color: "var(--color-ink-500)" }}
             >
               {po.supplier.name}
             </Link>
           </div>
           <span
-            className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
             style={{ backgroundColor: statusTone, color: "#fff" }}
           >
             {po.status}
@@ -263,7 +283,7 @@ async function MobilePoDetailContent({
             href={`/print/purchase-order/${po.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press shrink-0"
+            className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press shrink-0"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-3.5" />
@@ -277,13 +297,13 @@ async function MobilePoDetailContent({
             className="rounded-[0.5rem] border p-2.5 mb-2"
             style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}
           >
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-stop)" }}>
               Delivery Rejected
             </p>
-            <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-700)" }}>
               {po.rejectionReason ?? "No reason provided"}
             </p>
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {new Date(po.rejectedAt).toLocaleString("en-IN")}
             </p>
           </div>
@@ -293,7 +313,7 @@ async function MobilePoDetailContent({
         {po.project ? (
           <Link
             href={`/m/projects/${po.project.id}`}
-            className="flex items-center gap-1.5 text-[0.625rem] mt-2.5 press"
+            className="flex items-center gap-1.5 text-m-label mt-2.5 text-m-body press"
             style={{ color: "var(--color-steel)" }}
           >
             <Building2 className="size-3 shrink-0" />
@@ -305,7 +325,7 @@ async function MobilePoDetailContent({
         {sourceRequisition ? (
           <Link
             href={`/m/requisitions/${sourceRequisition.id}`}
-            className="flex items-center gap-1.5 text-[0.625rem] mt-1.5 press"
+            className="flex items-center gap-1.5 text-m-label mt-1.5 text-m-body press"
             style={{ color: "var(--color-steel)" }}
           >
             <ClipboardList className="size-3 shrink-0" />
@@ -316,7 +336,7 @@ async function MobilePoDetailContent({
         {/* Inline overdue alert */}
         {overdueDays > 0 ? (
           <div
-            className="flex items-center gap-1.5 mt-2.5 rounded-[0.375rem] px-2 py-1 text-[0.5625rem] font-semibold"
+            className="flex items-center gap-1.5 mt-2.5 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold"
             style={{ backgroundColor: "var(--color-stop-wash)", color: "var(--color-stop)" }}
           >
             <AlertTriangle className="size-3 shrink-0" />
@@ -333,10 +353,10 @@ async function MobilePoDetailContent({
         {totalQtyOrdered > 0 ? (
           <div className="mt-3">
             <div className="flex items-baseline justify-between mb-1">
-              <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Received
               </span>
-              <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <span className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatNumber(totalQtyReceived, 0)}/{formatNumber(totalQtyOrdered, 0)} units
               </span>
             </div>
@@ -349,7 +369,7 @@ async function MobilePoDetailContent({
                 }}
               />
             </div>
-            <p className="text-[0.5rem] mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
               {Math.round(receivePct)}%{pendingLines > 0 ? ` · ${pendingLines} pending` : ""}
             </p>
           </div>
@@ -361,7 +381,7 @@ async function MobilePoDetailContent({
         className="rounded-[0.625rem] border p-3 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
           Tracking
         </p>
         <div className="relative pl-6">
@@ -476,14 +496,14 @@ async function MobilePoDetailContent({
           className="rounded-[0.5rem] border p-2.5 mb-2"
           style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)" }}
         >
-          <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-go)" }}>
+          <p className="text-m-body font-bold" style={{ color: "var(--color-go)" }}>
             Approval Notes
           </p>
-          <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-700)" }}>
             {po.approvalNotes}
           </p>
           {po.approvedBy?.name ? (
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               — {po.approvedBy.name} · {formatDate(po.approvedAt)}
             </p>
           ) : null}
@@ -501,7 +521,7 @@ async function MobilePoDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <IndianRupee className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Financials</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Financials</p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Total" value={formatCurrency(total)} />
@@ -526,7 +546,7 @@ async function MobilePoDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <ClipboardList className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Logistics</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Logistics</p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Recv at" value={po.destinationLocation.name} />
@@ -575,7 +595,7 @@ async function MobilePoDetailContent({
       <div className="grid grid-cols-2 gap-2 mb-3 items-start">
         {/* Lines column */}
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
             Lines ({lines.length})
           </h3>
           {lines.map((l) => {
@@ -585,25 +605,25 @@ async function MobilePoDetailContent({
               <Link
                 key={l.id}
                 href={`/m/materials/${l.materialId}`}
-                className="flex flex-col rounded-[0.5rem] border p-2 press overflow-hidden"
+                className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: lineTone }} />
-                <p className="text-[0.5625rem] font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                   {l.materialName}
                 </p>
                 <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                  <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
                     {formatNumber(l.qtyReceived, 0)}/{formatNumber(l.qtyOrdered, 0)} {l.unit}
                   </span>
-                  <span className="text-[0.4375rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                     @ {formatCurrency(l.unitCost)}
                   </span>
                 </div>
                 <div className="h-0.5 rounded-full overflow-hidden mb-1" style={{ backgroundColor: "var(--color-concrete)" }}>
                   <div className="h-full rounded-full" style={{ width: `${Math.min(100, linePct)}%`, backgroundColor: lineTone }} />
                 </div>
-                <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+                <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                   {formatCurrency(l.lineTotal)}
                 </p>
               </Link>
@@ -613,7 +633,7 @@ async function MobilePoDetailContent({
 
         {/* Receipts column */}
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-[0.6875rem] font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
             Receipts ({receipts.length})
           </h3>
           {receipts.length > 0 ? (
@@ -630,20 +650,20 @@ async function MobilePoDetailContent({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
                   <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: inspTone }} />
-                  <p className="text-[0.5625rem] font-bold leading-tight mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-caption font-bold leading-tight mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                     {formatDate(r.receiptDate)}
                   </p>
-                  <p className="text-[0.4375rem] mb-1 uppercase font-semibold" style={{ color: inspTone }}>
+                  <p className="text-m-caption mb-1 uppercase font-semibold" style={{ color: inspTone }}>
                     {r.inspectionStatus}
                   </p>
-                  <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+                  <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                     {formatNumber(r.qty, 0)} units
                   </p>
                   <a
                     href={`/print/goods-receipt/${r.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-[0.4375rem] font-semibold rounded px-1.5 py-0.5"
+                    className="mt-1 inline-flex items-center gap-1 text-m-caption font-semibold rounded px-1.5 py-0.5"
                     style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-paper-2)" }}
                   >
                     Print GRN
@@ -656,7 +676,7 @@ async function MobilePoDetailContent({
               className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
             >
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 No receipts yet
               </p>
             </div>
@@ -667,7 +687,7 @@ async function MobilePoDetailContent({
       {/* ── Itemized charges (from quotation or manual) ── */}
       {hasCharges ? (
         <div className="mb-3">
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Charges & Freight
           </h3>
           <div className="flex flex-col gap-1.5">
@@ -678,14 +698,14 @@ async function MobilePoDetailContent({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div className="min-w-0">
-                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {c.heading}
                   </p>
                   {c.notes ? (
-                    <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>{c.notes}</p>
+                    <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{c.notes}</p>
                   ) : null}
                 </div>
-                <span className="text-[0.6875rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
+                <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
                   {formatCurrency(c.amount)}
                 </span>
               </div>
@@ -710,7 +730,7 @@ async function MobilePoDetailContent({
       {/* ── Payments ── */}
       {payments.length > 0 ? (
         <div className="mb-3">
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Payments ({payments.length})
           </h3>
           <div className="flex flex-col gap-1.5">
@@ -721,25 +741,32 @@ async function MobilePoDetailContent({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div className="min-w-0">
-                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <a
+                    href={`/print/supplier-payment/${p.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-m-label font-bold truncate inline-flex items-center gap-1 text-m-body press"
+                    style={{ color: "var(--color-brand)" }}
+                  >
                     {p.paymentNumber}
-                  </p>
-                  <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <Printer className="size-2.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                  </a>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(p.paymentDate)} · {p.paymentMode}
                     {p.referenceNo ? ` · ${p.referenceNo}` : ""}
                   </p>
                   {p.tdsAmount > 0 ? (
-                    <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-signal)" }}>
+                    <p className="text-m-caption truncate" style={{ color: "var(--color-signal)" }}>
                       TDS: {formatCurrency(p.tdsAmount)}{p.tdsSection ? ` (${p.tdsSection})` : ""}
                     </p>
                   ) : null}
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-[0.6875rem] font-bold tabular-nums block" style={{ color: "var(--color-steel)" }}>
+                  <span className="text-m-body font-bold tabular-nums block" style={{ color: "var(--color-steel)" }}>
                     {formatCurrency(p.amount)}
                   </span>
                   {p.tdsAmount > 0 ? (
-                    <span className="text-[0.5rem] tabular-nums block" style={{ color: "var(--color-go)" }}>
+                    <span className="text-m-caption tabular-nums block" style={{ color: "var(--color-go)" }}>
                       Net: {formatCurrency(p.netPaidAmount)}
                     </span>
                   ) : null}
@@ -751,10 +778,10 @@ async function MobilePoDetailContent({
               className="flex items-center justify-between rounded-[0.5rem] border px-2.5 py-2"
               style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-concrete)" }}
             >
-              <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Total Paid
               </p>
-              <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrency(totalPaid)} / {formatCurrency(total)}
               </span>
             </div>
@@ -767,6 +794,10 @@ async function MobilePoDetailContent({
         po={poPayload}
         canApprove={canApprove}
         canManage={canManage}
+        canManagePayments={canManagePayments}
+        supplierId={po.supplierId}
+        supplierName={po.supplier.name}
+        balanceRemaining={Math.max(0, poPayload.total - totalPaid)}
         backHref="/m/procurement"
       />
     </div>
@@ -780,10 +811,10 @@ function ChargeRow({ heading, amount }: { heading: string; amount: number }) {
       className="flex items-center justify-between rounded-[0.5rem] border px-2.5 py-2"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
     >
-      <p className="text-[0.625rem] font-semibold truncate" style={{ color: "var(--color-ink-700)" }}>
+      <p className="text-m-label font-semibold truncate" style={{ color: "var(--color-ink-700)" }}>
         {heading}
       </p>
-      <span className="text-[0.6875rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
+      <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
         {formatCurrency(amount)}
       </span>
     </div>
@@ -809,10 +840,10 @@ function KpiRow({
     "var(--color-ink-950)";
   return (
     <div className="flex items-baseline justify-between gap-1">
-      <span className="text-[0.5rem] shrink-0" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </span>
-      <span className="text-[0.5625rem] font-bold text-right tabular-nums truncate" style={{ color }}>
+      <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
         {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
       </span>
@@ -846,22 +877,22 @@ function TimelineStep({
       >
         {done ? (
           <div className="absolute inset-0 grid place-items-center">
-            <div className="w-1 h-1 rounded-full bg-white" />
+            <div className="w-1 h-1 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
           </div>
         ) : null}
       </div>
       {/* Content */}
       <div>
-        <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
         {date ? (
-          <p className="text-[0.5625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {date}
           </p>
         ) : null}
         {detail ? (
-          <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             {detail}
           </p>
         ) : null}

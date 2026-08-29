@@ -106,6 +106,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "No company membership found for the current user" }, { status: 403 });
   }
 
+  if (parsed.data.requiredByDate) {
+    const d = new Date(parsed.data.requiredByDate);
+    if (isNaN(d.getTime())) {
+      return json({ error: "Invalid required-by date format" }, { status: 400 });
+    }
+  }
+
   const created = await createQuotationRequest({
     companyId: company.id,
     projectId: parsed.data.projectId ?? null,

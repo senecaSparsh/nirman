@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -44,6 +44,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
@@ -77,4 +78,25 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
+});
+
+/** DELETE /api/work-orders/[id] — hard-delete a work order (only DRAFT) */
+export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.WO_MANAGE);
+  const company = await getCompany();
+  const { id } = await params;
+
+  const wo = await prisma.subcontractorWorkOrder.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true, status: true },
+  });
+  if (!wo) return json({ error: "Work order not found" }, { status: 404 });
+  if (wo.status !== "DRAFT") {
+    return json({ error: "Only DRAFT work orders can be deleted" }, { status: 400 });
+  }
+
+  // Delete lines first, then the work order
+  await prisma.subcontractorWorkOrderLine.deleteMany({ where: { workOrderId: id } });
+  await prisma.subcontractorWorkOrder.delete({ where: { id } });
+  return json({ ok: true });
 });

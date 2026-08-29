@@ -80,7 +80,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
   // Validate project if provided
   if (input.projectId) {
     const project = await prisma.project.findFirst({
-      where: { id: input.projectId, companyId: input.companyId },
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found", 404);
   }

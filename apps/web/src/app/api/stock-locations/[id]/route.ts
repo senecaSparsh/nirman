@@ -1,9 +1,27 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, json, stockLocationSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
+import { withSerializableTransaction } from "@nirman/services";
+
+/** GET /api/stock-locations/[id] — fetch a single stock location by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
+  const { id } = await params;
+  const location = await prisma.stockLocation.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      project: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true, code: true } },
+      _count: { select: { stockItems: true } },
+    },
+  });
+  if (!location) return json({ error: "Stock location not found" }, { status: 404 });
+  return json(location);
+});
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
@@ -27,7 +45,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   try {
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       const loc = await tx.stockLocation.update({
         where: { id },
         data: { ...parsed.data, projectId: parsed.data.projectId ?? null },
@@ -41,6 +59,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       return loc;
     });
+    revalidatePath("/stock-locations");
+    revalidatePath("/m/stock-locations");
     return json(updated);
   } catch {
     return json({ error: "Stock location not found" }, { status: 404 });
@@ -51,5 +71,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   await softDelete("StockLocation", id);
+  revalidatePath("/stock-locations");
+  revalidatePath("/m/stock-locations");
   return json({ ok: true });
 });

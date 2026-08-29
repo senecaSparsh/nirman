@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { BookOpen, Plus } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -110,10 +110,10 @@ async function MobileMbContent({
     <div>
       <MobileMbProjectSelector projects={projects} selectedId={projectId} />
 
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-4 gap-1.5 mb-4">
         <MobileStatCard label="Entries" value={String(entries.length)} icon={BookOpen} />
         <MobileStatCard label="Total Measured" value={formatNumber(totalMeasured, 2)} icon={BookOpen} tone="neutral" />
-        <MobileStatCard label="Earned Value" value={formatCurrency(totalValue)} icon={BookOpen} tone="go" />
+        <MobileStatCard label="Earned Value" value={formatCurrencyCompact(totalValue)} icon={BookOpen} tone="go" />
         <MobileStatCard label="Bill of Quantities Items" value={String(boqItems.length)} icon={BookOpen} />
       </div>
 
@@ -182,47 +182,47 @@ function MbEntryCard({ entry: e }: { entry: MbEntryCardData }) {
   return (
     <Link
       href={`/m/measurement-book/${e.id}`}
-      className="rounded-[0.5rem] border p-2.5 press block"
+      className="rounded-[0.5rem] border p-2.5 text-m-body press block"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {e.mbNumber}
         </p>
-        <p className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {formatDate(e.measureDate)}
         </p>
       </div>
-      <p className="text-[0.4375rem] font-bold tabular-nums mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption font-bold tabular-nums mb-0.5" style={{ color: "var(--color-ink-500)" }}>
         Bill of Quantities {e.boqSerialNo}
       </p>
-      <p className="text-[0.75rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         {e.boqDescription}
       </p>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Measured</p>
-          <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Measured</p>
+          <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatNumber(e.measuredQty, 2)} {e.unit}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Rate</p>
-          <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Rate</p>
+          <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrency(e.rate)}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div className="ml-auto text-right">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Amount</p>
-          <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Amount</p>
+          <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
             {formatCurrency(e.amount)}
           </p>
         </div>
       </div>
       {e.description && (
-        <p className="text-[0.5rem] mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
           {e.description}
         </p>
       )}

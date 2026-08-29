@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Wallet, Calculator } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Calculator, Download } from "lucide-react";
 import { Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
+import { downloadCSV, type ColumnDef } from "@/lib/export";
 
 type Project = { id: string; name: string };
 
@@ -43,6 +45,27 @@ export function JobCostingView({ projects }: { projects: Project[] }) {
       .catch(() => toast.error("Failed to load job costing"))
       .finally(() => setLoading(false));
   }, [projectId]);
+
+  function handleExport() {
+    if (!data) return;
+    const rows: Record<string, unknown>[] = [
+      { category: "Materials", type: "Direct", amount: data.directCosts.materials },
+      { category: "Labour", type: "Direct", amount: data.directCosts.labour },
+      { category: "Subcontractor", type: "Direct", amount: data.directCosts.subcontractor },
+      { category: "Equipment", type: "Direct", amount: data.directCosts.equipment },
+      { category: "Total Direct", type: "Direct", amount: data.directCosts.total },
+      { category: "Overhead", type: "Indirect", amount: data.indirectCosts.overhead },
+      { category: "Admin Allocated", type: "Indirect", amount: data.indirectCosts.adminAllocated },
+      { category: "Total Indirect", type: "Indirect", amount: data.indirectCosts.total },
+      { category: "Total Cost", type: "Total", amount: data.totalCost },
+    ];
+    const cols: ColumnDef[] = [
+      { key: "category", label: "Category" },
+      { key: "type", label: "Type" },
+      { key: "amount", label: "Amount" },
+    ];
+    downloadCSV("job-costing.csv", rows, cols);
+  }
 
   if (projects.length === 0) {
     return (
@@ -83,7 +106,12 @@ export function JobCostingView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-4">
-      {projectSelector}
+      <div className="flex items-end gap-2">
+        {projectSelector}
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={!data} className="h-9">
+          <Download className="h-3.5 w-3.5" /> Export CSV
+        </Button>
+      </div>
 
       {loading && !data ? (
         <PageLoading label="Loading job costing…" variant="default" />

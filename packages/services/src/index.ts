@@ -21,6 +21,9 @@ export {
   getLotHistory,
 } from "./stock-ledger";
 
+// Serializable transaction helper — for auto-numbered creates and status transitions
+export { withSerializableTransaction } from "./transaction";
+
 // UOM Conversion — pure functions for base/secondary unit conversion
 export {
   toBaseUnit,
@@ -54,6 +57,7 @@ export {
   approvePurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,
+  addLineToPurchaseOrder,
   receiveGoods,
   rejectDelivery,
 } from "./procurement";

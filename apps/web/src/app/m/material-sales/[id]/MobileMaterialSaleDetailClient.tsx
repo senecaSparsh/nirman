@@ -10,6 +10,8 @@ import {
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -71,6 +73,7 @@ export function MobileMaterialSaleDetailClient({
   payments,
   canManage,
   gatePass,
+  nextAction,
   notFound,
 }: {
   saleId: string;
@@ -96,6 +99,7 @@ export function MobileMaterialSaleDetailClient({
   payments: PaymentItem[];
   canManage: boolean;
   gatePass: { id: string; gatePassNumber: string; status: string } | null;
+  nextAction?: { label: string; reason: string; tone: "signal" | "go" | "stop"; hash?: string; href?: string } | null;
   notFound?: boolean;
 }) {
   const router = useRouter();
@@ -119,7 +123,7 @@ export function MobileMaterialSaleDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <IndianRupee className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Sale not found
           </p>
         </div>
@@ -210,7 +214,18 @@ export function MobileMaterialSaleDetailClient({
   }
 
   return (
-    <div>
+    <div className="pb-20">
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone}
+          hash={nextAction.hash}
+          href={nextAction.href}
+        />
+      ) : null}
+
       {/* ── Gate pass status banner (for PENDING sales) ── */}
       {gatePass && (
         <div className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2" style={{
@@ -225,14 +240,14 @@ export function MobileMaterialSaleDetailClient({
             color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
               ? "var(--color-go)" : "var(--color-signal-dark)",
           }} />
-          <span className="text-[0.5625rem] flex-1" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption flex-1" style={{ color: "var(--color-ink-700)" }}>
             Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
             {gatePass.status === "PENDING" ? "awaiting approval. Sale will activate once approved." :
              gatePass.status === "APPROVED" ? "approved — sale activating." :
              gatePass.status === "REJECTED" ? "rejected — resubmit or cancel." :
              `${gatePass.status}`}
           </span>
-          <Link href="/m/gate-pass" className="text-[0.5625rem] font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
+          <Link href="/m/gate-pass" className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
             View →
           </Link>
         </div>
@@ -241,12 +256,12 @@ export function MobileMaterialSaleDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
             {saleNumber}
           </p>
         </div>
         <span
-          className="text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{
             color: accentColor,
             backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
@@ -270,11 +285,11 @@ export function MobileMaterialSaleDetailClient({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               {isCancelled ? "Cancelled" : isPaid ? "Total Amount" : "Balance Due"}
             </p>
             <p
-              className="text-[1rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal)" }}
             >
               {formatCurrency(isCancelled ? totalAmount : isPaid ? totalAmount : balanceDue)}
@@ -282,17 +297,17 @@ export function MobileMaterialSaleDetailClient({
           </div>
           {!isCancelled && !isPaid ? (
             <div className="text-right">
-              <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Total
               </p>
-              <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrency(totalAmount)}
               </p>
             </div>
           ) : null}
         </div>
         {!isCancelled && payments.length > 0 ? (
-          <div className="mt-1.5 pt-1.5 flex items-center justify-between text-[0.5rem]" style={{ borderTop: "1px solid var(--color-line)" }}>
+          <div className="mt-1.5 pt-1.5 flex items-center justify-between text-m-caption" style={{ borderTop: "1px solid var(--color-line)" }}>
             <span style={{ color: "var(--color-ink-500)" }}>Paid so far</span>
             <span className="font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrency(totalPaid)}
@@ -306,11 +321,11 @@ export function MobileMaterialSaleDetailClient({
         {customer?.phone ? (
           <a
             href={`tel:${customer.phone}`}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Phone className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Call</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Call</span>
           </a>
         ) : (
           <div
@@ -318,35 +333,35 @@ export function MobileMaterialSaleDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", opacity: 0.5 }}
           >
             <Phone className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-300)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-300)" }}>No phone</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>No phone</span>
           </div>
         )}
         {canManage && !isCancelled && !isPaid ? (
           <button
             onClick={() => setShowPayment(true)}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Banknote className="size-3.5 mb-0.5" style={{ color: "var(--color-go)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Payment</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Payment</span>
           </button>
         ) : (
           <Link
             href={`/print/material-sale/${saleId}`}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-            <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Print</span>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Print</span>
           </Link>
         )}
         <Link
           href={`/print/material-sale/${saleId}`}
-          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-          <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Invoice</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Invoice</span>
         </Link>
       </div>
 
@@ -358,22 +373,22 @@ export function MobileMaterialSaleDetailClient({
         {customer ? (
           <Link
             href={`/m/customers/${customer.id}`}
-            className="flex items-center gap-2 px-2.5 py-1.5 press"
+            className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
           >
-            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
               Customer
             </span>
-            <span className="text-[0.625rem] font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {customer.name}
             </span>
           </Link>
         ) : null}
 
         <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-          <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
             Date
           </span>
-          <span className="text-[0.625rem] font-bold ml-auto tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <span className="text-m-label font-bold ml-auto tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(saleDate)}
           </span>
         </div>
@@ -381,13 +396,13 @@ export function MobileMaterialSaleDetailClient({
         {project ? (
           <Link
             href={`/m/projects/${project.id}`}
-            className="flex items-center gap-2 px-2.5 py-1.5 press"
+            className="flex items-center gap-2 px-2.5 py-1.5 text-m-body press"
             style={{ borderTop: "1px solid var(--color-line)" }}
           >
-            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
               Project
             </span>
-            <span className="text-[0.625rem] font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
               {project.name}
             </span>
           </Link>
@@ -395,10 +410,10 @@ export function MobileMaterialSaleDetailClient({
 
         {paymentMode ? (
           <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <span className="text-[0.5rem] font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
               Pay Mode
             </span>
-            <span className="text-[0.625rem] font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
               {paymentMode}
             </span>
           </div>
@@ -406,19 +421,19 @@ export function MobileMaterialSaleDetailClient({
 
         {notes ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <p className="text-[0.5rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
               Notes
             </p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>{notes}</p>
+            <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>{notes}</p>
           </div>
         ) : null}
 
         {(vehicleNumber || driverName) ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <p className="text-[0.5rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
               Dispatch
             </p>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-m-label" style={{ color: "var(--color-ink-700)" }}>
               {vehicleNumber && (
                 <span>Vehicle: <span className="font-mono font-bold">{vehicleNumber}</span>{vehicleType ? ` (${vehicleType})` : ""}</span>
               )}
@@ -436,35 +451,35 @@ export function MobileMaterialSaleDetailClient({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div>
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Subtotal
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(subtotal)}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             GST
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(gstTotal)}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Cost
           </p>
-          <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
             {formatCurrencyCompact(totalCost)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Profit
           </p>
           <p
-            className="text-[0.875rem] font-bold tabular-nums flex items-center gap-0.5 justify-end"
+            className="text-m-section font-bold tabular-nums flex items-center gap-0.5 justify-end"
             style={{ color: grossProfit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
           >
             <TrendingUp className="size-2.5" />
@@ -482,17 +497,17 @@ export function MobileMaterialSaleDetailClient({
             backgroundColor: "color-mix(in srgb, var(--color-steel) 6%, var(--color-paper))",
           }}
         >
-          <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-steel)" }}>
+          <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-steel)" }}>
             Scrap Recovery
           </span>
-          <span className="text-[0.625rem] font-bold tabular-nums ml-auto" style={{ color: "var(--color-steel)" }}>
+          <span className="text-m-label font-bold tabular-nums ml-auto" style={{ color: "var(--color-steel)" }}>
             {formatCurrency(scrapSubtotal)}
           </span>
         </div>
       ) : null}
 
       {/* ── Line items ── */}
-      <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+      <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
         Line Items ({lines.length})
       </p>
       {lines.length === 0 ? (
@@ -501,7 +516,7 @@ export function MobileMaterialSaleDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <IndianRupee className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>No line items</p>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>No line items</p>
         </div>
       ) : (
         <div
@@ -512,22 +527,22 @@ export function MobileMaterialSaleDetailClient({
             <Link
               key={l.id}
               href={`/m/materials/${l.materialId}`}
-              className="flex items-center gap-2 px-2.5 py-2 press"
+              className="flex items-center gap-2 px-2.5 py-2 text-m-body press"
               style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {l.materialName}
                 </p>
-                <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                   {l.materialCode} · {l.locationName} · {formatCurrency(l.unitPrice)}/{l.materialUnit}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(l.qty, 0)} {l.materialUnit}
                 </p>
-                <p className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(l.lineTotal)}
                 </p>
               </div>
@@ -539,7 +554,7 @@ export function MobileMaterialSaleDetailClient({
       {/* ── Payment history ── */}
       {payments.length > 0 ? (
         <>
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
             Payments ({payments.length})
           </p>
           <div
@@ -552,7 +567,7 @@ export function MobileMaterialSaleDetailClient({
                 href={`/print/material-sale-receipt/${p.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2.5 py-2 press"
+                className="flex items-center gap-2 px-2.5 py-2 text-m-body press"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <span
@@ -562,21 +577,21 @@ export function MobileMaterialSaleDetailClient({
                   <Banknote className="size-3" style={{ color: "var(--color-go)" }} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                     {p.paymentMode}
                     {p.referenceNo ? ` · ${p.referenceNo}` : ""}
                   </p>
-                  <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(p.paymentDate)}
                   </p>
                   {p.paymentMode === "CHEQUE" && p.chequeNo && (
-                    <p className="text-[0.4375rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                       Chq: {p.chequeNo}{p.chequeBank ? ` · ${p.chequeBank}` : ""}
                       {p.chequePhotoUrl ? " · 📷" : ""}
                     </p>
                   )}
                 </div>
-                <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(p.amount)}
                 </p>
                 <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
@@ -586,28 +601,30 @@ export function MobileMaterialSaleDetailClient({
         </>
       ) : null}
 
-      {/* ── Cancel action ── */}
-      {canManage && !isCancelled ? (
-        <button
-          onClick={() => setShowCancel(true)}
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 press"
-          style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
-        >
-          <XCircle className="size-3.5" />
-          <span className="text-[0.6875rem] font-bold">Cancel Sale</span>
-        </button>
-      ) : null}
+      <ActionBar>
+        {/* ── Cancel action ── */}
+        {canManage && !isCancelled ? (
+          <button
+            onClick={() => setShowCancel(true)}
+            className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 text-m-body press"
+            style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", color: "var(--color-stop)" }}
+          >
+            <XCircle className="size-3.5" />
+            <span className="text-m-body font-bold">Cancel Sale</span>
+          </button>
+        ) : null}
+      </ActionBar>
 
       {/* ── Cancel confirmation modal ── */}
       {showCancel ? (
         <Modal onClose={() => setShowCancel(false)} title="Cancel Sale?">
-          <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             Cancel sale <span className="font-mono font-bold">{saleNumber}</span>? Stock will be reversed. This cannot be undone.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
             <button
               onClick={() => setShowCancel(false)}
-              className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
               Keep Sale
@@ -615,7 +632,7 @@ export function MobileMaterialSaleDetailClient({
             <button
               onClick={handleCancel}
               disabled={submitting}
-              className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Cancel Sale"}
@@ -629,7 +646,7 @@ export function MobileMaterialSaleDetailClient({
         <Modal onClose={() => setShowPayment(false)} title="Record Payment">
           <form onSubmit={handlePayment} className="flex flex-col gap-3">
             {balanceDue > 0 ? (
-              <div className="text-[0.5625rem] rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
+              <div className="text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
                 Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span>
               </div>
             ) : null}
@@ -667,11 +684,11 @@ export function MobileMaterialSaleDetailClient({
               />
             </FormField>
             {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => setShowPayment(false)}
-                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 Cancel
@@ -679,7 +696,7 @@ export function MobileMaterialSaleDetailClient({
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
@@ -706,8 +723,8 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -721,7 +738,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
       {children}
@@ -729,4 +746,4 @@ function FormField({ label, required, children }: { label: string; required?: bo
   );
 }
 
-const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";

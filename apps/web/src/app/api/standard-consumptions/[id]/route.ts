@@ -1,8 +1,31 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { updateStandardConsumption, deleteStandardConsumption } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
+
+/**
+ * GET /api/standard-consumptions/[id]
+ * Fetch a single standard consumption benchmark by ID.
+ */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const sc = await prisma.standardConsumption.findFirst({
+    where: { id, companyId: company.id },
+    include: {
+      material: { select: { id: true, code: true, name: true, unit: true } },
+    },
+  });
+  if (!sc) return json({ error: "Standard consumption not found" }, { status: 404 });
+  return json({
+    ...sc,
+    standardQty: sc.standardQty.toString(),
+    baseQty: sc.baseQty.toString(),
+  });
+});
 
 /**
  * PATCH /api/standard-consumptions/[id]

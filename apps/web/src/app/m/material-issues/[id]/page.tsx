@@ -4,6 +4,9 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { resolveNextAction } from "@/lib/flow-map";
 import { MobileMaterialIssueDetailClient } from "./MobileMaterialIssueDetailClient";
 
 export default function MobileMaterialIssueDetailPage({
@@ -96,5 +99,38 @@ async function MobileMaterialIssueDetailContent({
     })),
   };
 
-  return <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} />;
+  // Lifecycle pipeline: PENDING → COMPLETED → CANCELLED
+  const issuePipelineSteps: MobilePipelineStep[] = issue.status === "CANCELLED"
+    ? [
+        { label: "Pending", state: "done" },
+        { label: "Completed", state: "skipped" },
+        { label: "Cancelled", state: "current" },
+      ]
+    : [
+        { label: "Pending", state: issue.status === "PENDING" ? "current" : "done" },
+        { label: "Completed", state: issue.status === "COMPLETED" ? "current" : "pending" },
+        { label: "Cancelled", state: "pending" },
+      ];
+
+  const nextAction = resolveNextAction("materialIssue", issue.status, role);
+
+  return (
+    <>
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", issue.id) : undefined}
+        />
+      ) : null}
+
+      <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={issuePipelineSteps} />
+      </div>
+      <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} />
+    </>
+  );
 }

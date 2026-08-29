@@ -87,7 +87,7 @@ async function MobileLeavesContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="On Leave Today" value={String(onLeaveToday)} icon={CalendarDays} tone={onLeaveToday > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Pending" value={String(pending)} icon={CalendarDays} tone={pending > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Approved" value={String(approved)} icon={CalendarDays} tone="go" />

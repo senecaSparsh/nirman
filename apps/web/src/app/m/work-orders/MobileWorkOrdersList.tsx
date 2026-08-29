@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -69,7 +70,15 @@ export function MobileWorkOrdersList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={ClipboardList}
+        title="No work orders"
+        hint="Work orders will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -109,7 +118,7 @@ export function MobileWorkOrdersList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} order{filtered.length !== 1 ? "s" : ""}
@@ -131,32 +140,32 @@ function WorkOrderCard({ wo: w }: { wo: WorkOrderListItem }) {
   return (
     <Link
       href={`/m/work-orders/${w.id}`}
-      className="block rounded-[0.5rem] border p-2.5 press"
+      className="block rounded-[0.5rem] border p-2.5 text-m-body press"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {w.workOrderNumber}
         </p>
         <MobileStatusBadge status={w.status} />
       </div>
-      <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
         {w.workTitle}
       </p>
-      <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {w.subcontractorName}{w.subcontractorTrade ? ` · ${w.subcontractorTrade}` : ""} · {w.projectName}
       </p>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Scope</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Scope</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {w.lineCount} {w.lineCount === 1 ? "item" : "items"}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>RA Bills</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>RA Bills</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {w.raBillCount}
           </p>
         </div>
@@ -164,8 +173,8 @@ function WorkOrderCard({ wo: w }: { wo: WorkOrderListItem }) {
           <>
             <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
             <div className="ml-auto text-right">
-              <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Start</p>
-              <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Start</p>
+              <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatDate(w.startDate)}
               </p>
             </div>

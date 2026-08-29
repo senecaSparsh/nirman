@@ -5,12 +5,14 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileNoAccess,
   MobileEmptyState,
   MobileStatusBadge,
   SectionHead,
+  MobilePipelineStepper,
+  type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { FileText, IndianRupee, Calendar, Package, TrendingUp } from "lucide-react";
 import { MobileRateContractCancelBtn } from "./MobileRateContractCancelBtn";
@@ -72,6 +74,19 @@ async function MobileRateContractDetailContent({
   const isExpired = new Date(rc.validTo) < now;
   const statusLabel = rc.status === "CANCELLED" ? "CANCELLED" : isActive ? "ACTIVE" : isExpired ? "EXPIRED" : "PENDING";
 
+  // Lifecycle pipeline: Pending → Active → Expired/Cancelled
+  const rcPipelineSteps: MobilePipelineStep[] = rc.status === "CANCELLED"
+    ? [
+        { label: "Pending", state: "skipped" },
+        { label: "Active", state: "skipped" },
+        { label: "Cancelled", state: "current" },
+      ]
+    : [
+        { label: "Pending", state: statusLabel === "PENDING" ? "current" : "done" },
+        { label: "Active", state: statusLabel === "ACTIVE" ? "current" : statusLabel === "EXPIRED" ? "done" : "pending" },
+        { label: "Expired", state: statusLabel === "EXPIRED" ? "current" : "pending" },
+      ];
+
   return (
     <div className="flex flex-col gap-4 pb-6">
       {/* Header card */}
@@ -80,30 +95,35 @@ async function MobileRateContractDetailContent({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {rc.contractNumber}
           </p>
           <MobileStatusBadge status={statusLabel} />
         </div>
-        <p className="text-[0.875rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
           {rc.material.name}
         </p>
-        <p className="text-[0.625rem] mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mb-2" style={{ color: "var(--color-ink-500)" }}>
           {rc.supplier.name}
           {rc.material.code ? ` · ${rc.material.code}` : ""}
         </p>
         {rc.notes && (
-          <p className="text-[0.625rem] leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
             {rc.notes}
           </p>
         )}
       </div>
 
+      {/* Lifecycle pipeline */}
+      <div className="rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={rcPipelineSteps} />
+      </div>
+
       {/* Financial summary */}
       <div>
         <SectionHead title="Financial Summary" />
-        <div className="grid grid-cols-2 gap-2">
-          <StatCard label="Agreed Rate" value={`${formatCurrency(agreedRate)}/${rc.material.unit}`} icon={IndianRupee} tone="go" />
+        <div className="grid grid-cols-4 gap-1.5">
+          <StatCard label="Agreed Rate" value={`${formatCurrencyCompact(agreedRate)}/${rc.material.unit}`} icon={IndianRupee} tone="go" />
           <StatCard label="Released Qty" value={formatNumber(totalReleasedQty, 3)} icon={TrendingUp} />
           {minQty != null && <StatCard label="Min Order Qty" value={formatNumber(minQty, 3)} icon={Package} />}
           {maxQty != null && <StatCard label="Max Qty" value={formatNumber(maxQty, 3)} icon={Package} tone="signal" />}
@@ -139,12 +159,12 @@ async function MobileRateContractDetailContent({
       {/* Supplier link */}
       <Link
         href={`/m/suppliers/${rc.supplier.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Supplier</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{rc.supplier.name}</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Supplier</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{rc.supplier.name}</p>
         </div>
       </Link>
 
@@ -176,14 +196,14 @@ function StatCard({
 
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center gap-1 mb-1">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.75rem] font-bold tabular-nums" style={{ color: toneColor }}>{value}</p>
+      <p className="text-m-section font-bold tabular-nums truncate" style={{ color: toneColor }}>{value}</p>
     </div>
   );
 }
@@ -201,9 +221,9 @@ function DetailRow({
     <div className="flex items-center justify-between px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
       <div className="flex items-center gap-1.5">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.625rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-label font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }

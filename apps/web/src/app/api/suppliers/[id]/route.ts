@@ -3,6 +3,28 @@ import { prisma } from "@nirman/db";
 import { softDelete, extractVersion, ConcurrentEditError, logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierSchema } from "@/lib/server";
+import { withSerializableTransaction } from "@nirman/services";
+
+/** GET /api/suppliers/[id] — fetch a single supplier by ID */
+export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.PROCUREMENT_VIEW);
+  const company = await getCompany();
+  const { id } = await ctx.params;
+  const supplier = await prisma.supplier.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: {
+      _count: {
+        select: {
+          purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } },
+          supplierReturns: true,
+          rateContracts: true,
+        },
+      },
+    },
+  });
+  if (!supplier) return json({ error: "Supplier not found" }, { status: 404 });
+  return json(supplier);
+});
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
@@ -19,7 +41,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (expectedVersion !== undefined && existing.version !== expectedVersion) {
     return json({ error: new ConcurrentEditError("Supplier", id, expectedVersion, existing.version).message, code: "CONCURRENT_EDIT" }, { status: 409 });
   }
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const sup = await tx.supplier.update({
       where: { id },
       data: { ...parsed.data, version: { increment: 1 } },

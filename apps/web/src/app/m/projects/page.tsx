@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { Building2, Home } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
@@ -80,10 +80,10 @@ async function MobileProjectsContent() {
       attentionBanners.push({
         id: `budget-${p.id}`,
         title: p.name,
-        subtitle: `Over budget by ${formatCurrency(overBy)} · budget ${formatCurrency(budget)}`,
+        subtitle: `Over budget by ${formatCurrencyCompact(overBy)} · budget ${formatCurrencyCompact(budget)}`,
         href: `/m/projects/${p.id}`,
         severity: "low",
-        qtyText: formatCurrency(overBy),
+        qtyText: formatCurrencyCompact(overBy),
         category: "Over Budget",
       });
     }
@@ -131,7 +131,7 @@ async function MobileProjectsContent() {
       <AttentionBannerCarousel banners={attentionBanners} />
 
       {/* ── KPI strip ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-4 gap-1.5 mb-4">
         <MobileStatCard label="Active" value={formatNumber(active.length, 0)} icon={Building2} tone="go" />
         <MobileStatCard label="Units" value={formatNumber(projects.reduce((s, p) => s + p._count.builtUnits, 0), 0)} icon={Home} />
         <MobileStatCard label="Completed" value={formatNumber(done.length, 0)} icon={Building2} tone="signal" />

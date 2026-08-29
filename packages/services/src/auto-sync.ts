@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import { getIntegrationConfig, createTallyProviderFromConfig } from "./integration-config";
 import { syncEntryToTally } from "./tally";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Auto-sync a journal entry to Tally if the company has Tally auto-sync enabled.
@@ -11,7 +12,7 @@ import { syncEntryToTally } from "./tally";
  *
  * Usage (inside a service function, after $transaction resolves):
  * ```
- * const result = await prisma.$transaction(async (tx) => { ... });
+ * const result = await withSerializableTransaction(async (tx) => { ... });
  * // Fire-and-forget auto-sync (don't await)
  * void autoSyncEntryToTally(companyId, journalEntryId).catch(() => {});
  * ```

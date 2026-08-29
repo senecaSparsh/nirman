@@ -4,7 +4,7 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
   ClipboardList,
@@ -40,7 +40,7 @@ async function MobilePendingListContent() {
   if (!hasPermission(role, PERM.HR_VIEW)) {
     return (
       <div className="p-4 text-center">
-        <p className="text-sm text-muted-foreground">You don&apos;t have access to the pending list.</p>
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>You don&apos;t have access to the pending list.</p>
       </div>
     );
   }
@@ -120,11 +120,11 @@ async function MobilePendingListContent() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <ClipboardList className="size-4" style={{ color: "var(--color-ink-600)" }} />
-        <h1 className="text-base font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Pending List
         </h1>
         <span
-          className="ml-auto rounded-full px-2 py-0.5 text-[0.5625rem] font-bold"
+          className="ml-auto rounded-full px-2 py-0.5 text-m-caption font-bold"
           style={{
             backgroundColor: totalCount > 0 ? "var(--color-signal)" : "var(--color-concrete)",
             color: "var(--color-paper)",
@@ -143,10 +143,10 @@ async function MobilePendingListContent() {
           }}
         >
           <ClipboardList className="size-6" style={{ color: "var(--color-ink-400)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             All caught up
           </p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Nothing pending. You&apos;re all set.
           </p>
         </div>
@@ -228,7 +228,7 @@ async function MobilePendingListContent() {
               key={p.id}
               title={`${p.month + 1}/${p.year}`}
               subtitle={`${p._count.lines} employees`}
-              meta={`Net: ${formatCurrency(toNum(p.totalNet))}`}
+              meta={`Net: ${formatCurrencyCompact(toNum(p.totalNet))}`}
               href="/m/books/payroll"
               tone="stop"
             />
@@ -249,7 +249,7 @@ async function MobilePendingListContent() {
               key={po.id}
               title={po.poNumber}
               subtitle={`${po.supplier?.name ?? "Unknown"} · ${po.project?.name ?? "No project"}`}
-              meta={`Total: ${formatCurrency(toNum(po.total))}`}
+              meta={`Total: ${formatCurrencyCompact(toNum(po.total))}`}
               href="/m/procurement"
               tone="signal"
             />
@@ -335,11 +335,11 @@ function MobilePendingSection({
         style={{ borderColor: "var(--color-line)" }}
       >
         {icon}
-        <h2 className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h2 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
           {title}
         </h2>
         <span
-          className="ml-auto rounded-full px-1.5 py-0.5 text-[0.5rem] font-bold"
+          className="ml-auto rounded-full px-1.5 py-0.5 text-m-caption font-bold"
           style={{ backgroundColor: accentColor, color: "var(--color-paper)" }}
         >
           {count}
@@ -379,15 +379,15 @@ function PendingRow({
     >
       <div className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
       <div className="min-w-0 flex-1">
-        <p className="text-[0.6875rem] font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
           {title}
         </p>
-        <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
           {subtitle}
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>{meta}</p>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{meta}</p>
       </div>
       <ArrowRight className="size-3 shrink-0" style={{ color: "var(--color-ink-400)" }} />
     </Link>

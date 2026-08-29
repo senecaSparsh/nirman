@@ -59,6 +59,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  if (parsed.data.joinDate) {
+    const d = new Date(parsed.data.joinDate);
+    if (isNaN(d.getTime())) {
+      return json({ error: "Invalid join date format" }, { status: 400 });
+    }
+  }
   const created = await createEmployee({
     companyId: company.id,
     name: parsed.data.name,

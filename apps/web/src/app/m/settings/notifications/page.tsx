@@ -166,7 +166,7 @@ export default function MobileNotificationsPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading notifications...</p>
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading notifications...</p>
       </div>
     );
   }
@@ -176,10 +176,10 @@ export default function MobileNotificationsPage() {
       {/* Header */}
       <div className="flex items-center gap-2">
         <div>
-          <h1 className="text-[0.9375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Notifications
           </h1>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Alerts, templates & delivery
           </p>
         </div>
@@ -204,7 +204,7 @@ export default function MobileNotificationsPage() {
       {/* Test button */}
       <button
         onClick={handleTestNotification}
-        className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] border py-2.5 text-[0.6875rem] font-bold press"
+        className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] border py-2.5 text-m-body font-bold text-m-body press"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
       >
         <Send className="size-3.5" />
@@ -217,7 +217,7 @@ export default function MobileNotificationsPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="flex-1 rounded-[0.375rem] py-2 text-[0.625rem] font-bold uppercase tracking-wide press transition-colors"
+            className="flex-1 rounded-[0.375rem] py-2 text-m-label font-bold uppercase tracking-wide text-m-body press transition-colors"
             style={{
               backgroundColor: tab === t ? "var(--color-paper)" : "transparent",
               color: tab === t ? "var(--color-ink-950)" : "var(--color-ink-500)",
@@ -254,8 +254,8 @@ export default function MobileNotificationsPage() {
 function StatBox({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="text-center">
-      <p className="text-[1rem] font-bold tabular-nums" style={{ color }}>{value}</p>
-      <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+      <p className="text-m-section font-bold tabular-nums" style={{ color }}>{value}</p>
+      <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
     </div>
   );
 }
@@ -274,7 +274,7 @@ function PreferencesTab({
     return (
       <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <Bell className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
           No notification preferences set. Defaults will be used.
         </p>
       </div>
@@ -295,7 +295,7 @@ function PreferencesTab({
           className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <p className="text-[0.6875rem] font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
             {EVENT_LABELS[eventType] ?? eventType.replace(/_/g, " ")}
           </p>
           <div className="space-y-1.5">
@@ -305,21 +305,25 @@ function PreferencesTab({
                 <div key={pref.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-                    <span className="text-[0.625rem] font-medium" style={{ color: "var(--color-ink-700)" }}>
+                    <span className="text-m-label font-medium" style={{ color: "var(--color-ink-700)" }}>
                       {pref.channel.replace(/_/g, " ")}
                     </span>
                   </div>
                   <button
                     onClick={() => onToggle(pref)}
                     disabled={toggling === pref.id}
-                    className="relative w-10 h-5 rounded-full transition-colors press"
+                    className="relative w-10 h-5 rounded-full transition-colors text-m-body press"
                     style={{
                       backgroundColor: pref.enabled ? "var(--color-go)" : "var(--color-concrete)",
                     }}
                   >
                     <div
-                      className="absolute top-0.5 size-4 rounded-full bg-white transition-transform"
-                      style={{ transform: pref.enabled ? "translateX(1.25rem)" : "translateX(0.125rem)" }}
+                      className="absolute top-0.5 size-4 rounded-full transition-transform"
+                      style={{
+                        transform: pref.enabled ? "translateX(1.25rem)" : "translateX(0.125rem)",
+                        backgroundColor: "var(--color-paper)",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }}
                     />
                   </button>
                 </div>
@@ -350,7 +354,7 @@ function TemplatesTab({
     return (
       <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <Bell className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
           No notification templates configured.
         </p>
       </div>
@@ -370,19 +374,19 @@ function TemplatesTab({
           >
             <button
               onClick={() => onExpand(isExpanded ? null : tmpl.id)}
-              className="w-full flex items-center gap-2 p-3 text-left"
+              className="w-full flex items-center gap-2 p-3 text-left press"
             >
               <Icon className="size-4 shrink-0" style={{ color: "var(--color-steel)" }} />
               <div className="min-w-0 flex-1">
-                <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                   {EVENT_LABELS[tmpl.eventType] ?? tmpl.eventType.replace(/_/g, " ")}
                 </p>
-                <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   {tmpl.channel.replace(/_/g, " ")}
                 </p>
               </div>
               <span
-                className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
                 style={{
                   color: tmpl.isActive ? "var(--color-go)" : "var(--color-ink-500)",
                   backgroundColor: tmpl.isActive ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "var(--color-concrete)",
@@ -394,13 +398,13 @@ function TemplatesTab({
             </button>
             {isExpanded ? (
               <div className="px-3 pb-3 space-y-2 border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
-                <div className="rounded-[0.375rem] p-2 font-mono text-[0.5625rem]" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
+                <div className="rounded-[0.375rem] p-2 font-mono text-m-caption" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
                   {tmpl.template}
                 </div>
                 <button
                   onClick={() => onToggle(tmpl)}
                   disabled={toggling === tmpl.id}
-                  className="w-full rounded-[0.375rem] border py-2 text-[0.625rem] font-bold press disabled:opacity-50"
+                  className="w-full rounded-[0.375rem] border py-2 text-m-label font-bold text-m-body press disabled:opacity-50"
                   style={{
                     borderColor: tmpl.isActive ? "var(--color-stop)" : "var(--color-go)",
                     color: tmpl.isActive ? "var(--color-stop)" : "var(--color-go)",
@@ -424,7 +428,7 @@ function LogTab({ logs }: { logs: LogEntry[] }) {
     return (
       <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <Clock className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
           No notifications sent yet.
         </p>
       </div>
@@ -447,23 +451,23 @@ function LogTab({ logs }: { logs: LogEntry[] }) {
               <Icon className="size-3.5 mt-0.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {EVENT_LABELS[log.eventType] ?? log.eventType.replace(/_/g, " ")}
                   </p>
                   <div className="flex items-center gap-1 shrink-0">
                     <StatusIcon className="size-3" style={{ color: status.color }} />
-                    <span className="text-[0.5rem] font-bold uppercase" style={{ color: status.color }}>
+                    <span className="text-m-caption font-bold uppercase" style={{ color: status.color }}>
                       {log.status}
                     </span>
                   </div>
                 </div>
-                <p className="text-[0.5625rem] mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
                   To: {log.recipient}
                 </p>
-                <p className="text-[0.5625rem] mt-0.5 line-clamp-2" style={{ color: "var(--color-ink-700)" }}>
+                <p className="text-m-caption mt-0.5 line-clamp-2" style={{ color: "var(--color-ink-700)" }}>
                   {log.message}
                 </p>
-                <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                   {new Date(log.createdAt).toLocaleString("en-IN")}
                 </p>
               </div>

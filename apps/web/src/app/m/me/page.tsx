@@ -46,6 +46,7 @@ export default function MePage() {
   const [userEmail, setUserEmail] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [profileLoading, setProfileLoading] = useState(true);
   const [isDark, setIsDark] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editName, setEditName] = useState("");
@@ -53,6 +54,9 @@ export default function MePage() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
+    let meDone = false;
+    let companyDone = false;
+    const checkDone = () => { if (meDone && companyDone) setProfileLoading(false); };
     fetch("/api/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -61,13 +65,15 @@ export default function MePage() {
         if (d?.email) setUserEmail(d.email);
         if (d?.phone) setUserPhone(d.phone);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { meDone = true; checkDone(); });
     fetch("/api/company")
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         if (c?.name) setCompanyName(c.name);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { companyDone = true; checkDone(); });
     const isDarkNow = document.documentElement.classList.contains("dark");
     setIsDark((prev) => (prev !== isDarkNow ? isDarkNow : prev));
   }, []);
@@ -135,14 +141,23 @@ export default function MePage() {
               <User className="size-6" style={{ color: "var(--color-signal-dark)" }} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[1rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                {userName || "User"}
-              </p>
-              <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
-                {userRole} · {companyName}
-              </p>
+              {profileLoading ? (
+                <>
+                  <div className="h-5 w-32 rounded animate-pulse" style={{ backgroundColor: "var(--color-paper-2)" }} />
+                  <div className="h-4 w-24 mt-1 rounded animate-pulse" style={{ backgroundColor: "var(--color-paper-2)" }} />
+                </>
+              ) : (
+                <>
+                  <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    {userName || "User"}
+                  </p>
+                  <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                    {userRole} · {companyName}
+                  </p>
+                </>
+              )}
             </div>
-            <Badge tone="signal">{userRole}</Badge>
+            <Badge tone="signal">{profileLoading ? "…" : userRole}</Badge>
           </div>
 
           {/* Profile details / edit form */}
@@ -150,19 +165,19 @@ export default function MePage() {
             <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
               <div className="space-y-2.5">
                 <div>
-                  <label className="text-[0.5625rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                     Name
                   </label>
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.875rem] font-medium outline-none"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-[0.5625rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                     Phone
                   </label>
                   <input
@@ -170,17 +185,17 @@ export default function MePage() {
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     placeholder="—"
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.875rem] font-medium outline-none"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
-                <Button variant="secondary" size="md" onClick={() => setEditingProfile(false)} disabled={savingProfile}>
+              <div className="flex flex-col gap-2 mt-3">
+                <Button variant="secondary" size="md" fullWidth onClick={() => setEditingProfile(false)} disabled={savingProfile}>
                   <X className="size-3.5" />
                   Cancel
                 </Button>
-                <Button variant="primary" size="md" onClick={saveProfile} disabled={savingProfile}>
+                <Button variant="primary" size="md" fullWidth onClick={saveProfile} disabled={savingProfile}>
                   {savingProfile ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                   Save
                 </Button>
@@ -190,16 +205,16 @@ export default function MePage() {
             <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
                     {userEmail || "—"}
                   </p>
-                  <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
                     {userPhone || "No phone"}
                   </p>
                 </div>
                 <button
                   onClick={startEditProfile}
-                  className="flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1.5 text-[0.625rem] font-bold press active:scale-95"
+                  className="flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1.5 text-m-label font-bold text-m-body press active:scale-95"
                   style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
                 >
                   <Pencil className="size-3" />
@@ -221,16 +236,16 @@ export default function MePage() {
               ) : (
                 <WifiOff className="size-4" style={{ color: "var(--color-stop)" }} />
               )}
-              <span className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-900)" }}>
+              <span className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
                 {online ? "Online" : "Offline"}
               </span>
             </div>
             {offlineQueueCount > 0 ? (
-              <div className="flex gap-2">
-                <Button variant="secondary" size="md" onClick={() => router.push("/m/queue")}>
+              <div className="flex flex-col gap-2">
+                <Button variant="secondary" size="md" fullWidth onClick={() => router.push("/m/queue")}>
                   View Queue ({offlineQueueCount})
                 </Button>
-                <Button variant="secondary" size="md" onClick={() => void syncOfflineQueue()} disabled={syncing}>
+                <Button variant="secondary" size="md" fullWidth onClick={() => void syncOfflineQueue()} disabled={syncing}>
                   <RefreshCw className={syncing ? "size-3.5 animate-spin" : "size-3.5"} />
                   {syncing ? "Syncing…" : "Sync"}
                 </Button>
@@ -238,7 +253,7 @@ export default function MePage() {
             ) : null}
           </div>
           {offlineQueueCount > 0 ? (
-            <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>
               {offlineQueueCount} action{offlineQueueCount === 1 ? "" : "s"} queued for sync
             </p>
           ) : null}
@@ -250,15 +265,15 @@ export default function MePage() {
       <div>
         <button
           onClick={() => toggleFieldMode()}
-          className="flex items-center gap-3 min-h-[3.5rem] px-4 border-b w-full press"
+          className="flex items-center gap-3 min-h-[3.5rem] px-4 border-b w-full text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Sun className="size-4 shrink-0" style={{ color: fieldMode ? "var(--color-signal-dark)" : "var(--color-ink-500)" }} />
           <div className="flex-1 text-left">
-            <p className="text-[0.9375rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
               Field Mode
             </p>
-            <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
               Larger text for outdoor use
             </p>
           </div>
@@ -269,7 +284,7 @@ export default function MePage() {
 
         <button
           onClick={toggleDark}
-          className="flex items-center gap-3 min-h-[3.5rem] px-4 border-b w-full press"
+          className="flex items-center gap-3 min-h-[3.5rem] px-4 border-b w-full text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           {isDark ? (
@@ -278,10 +293,10 @@ export default function MePage() {
             <Sun className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           )}
           <div className="flex-1 text-left">
-            <p className="text-[0.9375rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
               Dark Mode
             </p>
-            <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
               {isDark ? "On" : "Off"}
             </p>
           </div>

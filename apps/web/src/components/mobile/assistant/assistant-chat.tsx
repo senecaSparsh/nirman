@@ -399,12 +399,12 @@ export function AssistantChat({
           }}
           aria-label="Open assistant"
         >
-          <MessageCircle className="h-5 w-5" />
+          <MessageCircle className="size-5" />
           <span
-            className="absolute -top-1 -right-1 flex h-3 w-3"
+            className="absolute -top-1 -right-1 flex size-3"
           >
-            <span className="absolute h-3 w-3 animate-ping rounded-full opacity-75" style={{ backgroundColor: "var(--color-go)" }} />
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
+            <span className="absolute size-3 animate-ping rounded-full opacity-75" style={{ backgroundColor: "var(--color-go)" }} />
+            <span className="size-3 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
           </span>
         </button>
       )}
@@ -424,20 +424,20 @@ export function AssistantChat({
               className="flex h-9 w-9 items-center justify-center rounded-full"
               style={{ backgroundColor: "var(--color-signal)" }}
             >
-              <Sparkles className="h-4 w-4" style={{ color: "var(--color-ink-950)" }} />
+              <Sparkles className="size-4" style={{ color: "var(--color-ink-950)" }} />
             </div>
             <div className="flex-1">
               <p className="text-sm font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Sahayak
               </p>
-              <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
                 {speaking ? "🔊 Bol raha hoon..." : ttsEnabled ? "Owner Assistant · Voice ON" : "Owner Assistant · Hindi/English"}
               </p>
             </div>
             {/* Voice language toggle */}
             <button
               onClick={toggleVoiceLang}
-              className="rounded-full px-2 py-1 text-[0.5625rem] font-bold"
+              className="rounded-full px-2 py-1 text-m-caption font-bold"
               style={{
                 backgroundColor: voiceLang === "hi-IN" ? "var(--color-signal)" : "var(--color-line)",
                 color: voiceLang === "hi-IN" ? "var(--color-ink-950)" : "var(--color-ink-600)",
@@ -460,11 +460,11 @@ export function AssistantChat({
               title={ttsEnabled ? "Voice output ON" : "Voice output OFF"}
             >
               {speaking ? (
-                <Volume2 className="h-4 w-4 animate-pulse" />
+                <Volume2 className="size-4 animate-pulse" />
               ) : ttsEnabled ? (
-                <Volume2 className="h-4 w-4" />
+                <Volume2 className="size-4" />
               ) : (
-                <VolumeX className="h-4 w-4" />
+                <VolumeX className="size-4" />
               )}
             </button>
             <button
@@ -476,7 +476,7 @@ export function AssistantChat({
               style={{ color: "var(--color-ink-600)" }}
               aria-label="Close"
             >
-              <X className="h-5 w-5" />
+              <X className="size-5" />
             </button>
           </div>
 
@@ -487,7 +487,7 @@ export function AssistantChat({
             ))}
             {loading && (
               <div className="flex items-center gap-2" style={{ color: "var(--color-ink-500)" }}>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="size-3.5 animate-spin" />
                 <span className="text-xs">Soch raha hoon...</span>
               </div>
             )}
@@ -495,7 +495,7 @@ export function AssistantChat({
             {/* ── Suggestion chips (only on first few messages) ── */}
             {messages.length <= 2 && !loading && (
               <div className="pt-2">
-                <p className="text-[0.5625rem] font-semibold mb-2" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold mb-2" style={{ color: "var(--color-ink-500)" }}>
                   QUICK SUGGESTIONS
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -503,7 +503,7 @@ export function AssistantChat({
                     <button
                       key={chip.text}
                       onClick={() => sendMessage(chip.text)}
-                      className="rounded-full border px-2.5 py-1 text-[0.6875rem] font-medium transition-colors active:scale-95"
+                      className="rounded-full border px-2.5 py-1 text-m-body font-medium transition-colors active:scale-95"
                       style={{
                         borderColor: "var(--color-line)",
                         backgroundColor: "var(--color-paper)",
@@ -547,7 +547,7 @@ export function AssistantChat({
                 }}
                 aria-label={listening ? "Stop voice input" : "Start voice input"}
               >
-                {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                {listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
               </button>
 
               {/* Text input */}
@@ -578,7 +578,7 @@ export function AssistantChat({
                 }}
                 aria-label="Send"
               >
-                <Send className="h-4 w-4" />
+                <Send className="size-4" />
               </button>
             </div>
           </div>
@@ -610,7 +610,7 @@ function MessageBubble({
       <div className={`max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
         {/* Bubble */}
         <div
-          className="rounded-2xl px-3.5 py-2.5 text-[0.8125rem] whitespace-pre-wrap"
+          className="rounded-2xl px-3.5 py-2.5 text-m-section whitespace-pre-wrap"
           style={{
             backgroundColor: isUser ? "var(--color-signal)" : "var(--color-paper)",
             color: isUser ? "var(--color-ink-950)" : "var(--color-ink-900)",
@@ -623,7 +623,7 @@ function MessageBubble({
 
         {/* Timestamp */}
         <p
-          className="mt-0.5 text-[0.5rem]"
+          className="mt-0.5 text-m-caption"
           style={{ color: "var(--color-ink-400)", textAlign: isUser ? "right" : "left" }}
         >
           {time}
@@ -636,7 +636,7 @@ function MessageBubble({
               <button
                 key={i}
                 onClick={() => onCardClick(card)}
-                className="rounded-full px-3 py-1.5 text-[0.6875rem] font-semibold transition-all active:scale-95"
+                className="rounded-full px-3 py-1.5 text-m-body font-semibold transition-all active:scale-95"
                 style={cardStyle(card.variant)}
               >
                 {card.label}

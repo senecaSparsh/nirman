@@ -79,7 +79,7 @@ export function PhotoCapture({
 
   return (
     <div>
-      <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         Photos {mandatory ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
         {mandatory && photos.length === 0 ? (
           <span className="ml-1 normal-case" style={{ color: "var(--color-stop)" }}>1 req</span>
@@ -96,9 +96,9 @@ export function PhotoCapture({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.fileName ?? "proof"} className="w-full h-full object-cover" />
             {p.lat != null && p.lng != null ? (
-              <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-                <MapPin className="size-2 shrink-0 text-white" />
-                <span className="text-[0.375rem] font-semibold text-white truncate">
+              <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}>
+                <MapPin className="size-2 shrink-0" style={{ color: "var(--color-paper)" }} />
+                <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-paper)" }}>
                   {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
                 </span>
               </div>
@@ -125,7 +125,7 @@ export function PhotoCapture({
           ) : (
             <>
               <Camera className={compact ? "size-4" : "size-5"} />
-              <span className="text-[0.4375rem] font-semibold">{compact ? "Photo" : "Add Photo"}</span>
+              <span className="text-m-caption font-semibold">{compact ? "Photo" : "Add Photo"}</span>
             </>
           )}
         </button>
@@ -235,7 +235,7 @@ export function SignaturePad({
 
   return (
     <div className={compact ? "flex flex-col" : ""}>
-      <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {compact ? "Signature" : "Receiver Signature"} {mandatory ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
       <div className="relative rounded-[0.5rem] border" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
@@ -250,7 +250,7 @@ export function SignaturePad({
         />
         {!hasSigned ? (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-[0.5rem]" style={{ color: "var(--color-ink-300)" }}>
+            <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>
               {compact ? "Sign here" : "Sign here with your finger"}
             </span>
           </div>
@@ -260,7 +260,7 @@ export function SignaturePad({
         <button
           type="button"
           onClick={clear}
-          className="mt-1 flex items-center gap-1 text-[0.5rem] font-semibold press"
+          className="mt-1 flex items-center gap-1 text-m-caption font-semibold text-m-body press"
           style={{ color: "var(--color-ink-500)" }}
         >
           <RefreshCw className="size-3" />
@@ -318,14 +318,14 @@ export function GeoTagCapture({
 
   return (
     <div>
-      <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         Geo-tag {mandatory ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
       <button
         type="button"
         onClick={capture}
         disabled={capturing}
-        className="w-full flex items-center gap-2 rounded-[0.5rem] border py-2.5 px-3 press"
+        className="w-full flex items-center gap-2 rounded-[0.5rem] border py-2.5 px-3 text-m-body press"
         style={{
           borderColor: captured ? "var(--color-go)" : "var(--color-line)",
           backgroundColor: captured ? "color-mix(in srgb, var(--color-go) 5%, transparent)" : "var(--color-paper)",
@@ -338,7 +338,7 @@ export function GeoTagCapture({
         ) : (
           <MapPin className="size-4 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
         )}
-        <span className="text-[0.625rem] font-semibold text-left flex-1" style={{ color: captured ? "var(--color-ink-700)" : "var(--color-ink-500)" }}>
+        <span className="text-m-label font-semibold text-left flex-1" style={{ color: captured ? "var(--color-ink-700)" : "var(--color-ink-500)" }}>
           {capturing ? "Capturing GPS…" : captured ? `${lat!.toFixed(6)}, ${lng!.toFixed(6)}` : "Capture GPS location"}
         </span>
       </button>
@@ -364,13 +364,13 @@ export function SelectField({
 }) {
   return (
     <div>
-      <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label} {required ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.6875rem] font-semibold outline-none"
+        className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-body font-semibold outline-none"
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper-2)",
@@ -406,7 +406,7 @@ export function TextField({
 }) {
   return (
     <div>
-      <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label} {required ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
       <input
@@ -414,7 +414,7 @@ export function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.6875rem] outline-none ${mono ? "font-mono" : ""}`}
+        className={`w-full h-9 rounded-[0.5rem] border px-2.5 text-m-body outline-none ${mono ? "font-mono" : ""}`}
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper-2)",
@@ -494,26 +494,26 @@ export function WeighbridgeFields({
   return (
     <div className="grid grid-cols-4 gap-1.5">
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
           Slip No{required ? " *" : ""}
         </label>
-        <input type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-8 rounded-[0.375rem] border px-1.5 text-[0.5rem] font-mono outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-8 rounded-[0.375rem] border px-1.5 text-m-caption font-mono outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
       </div>
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
           Gross{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-[0.5rem] text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
       </div>
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
           Tare{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-[0.5rem] text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
       </div>
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-go)" }}>Net (kg)</label>
-        <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-[0.5rem] text-right tabular-nums font-bold outline-none" style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)", color: "var(--color-ink-950)" }} />
+        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-go)" }}>Net (kg)</label>
+        <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums font-bold outline-none" style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)", color: "var(--color-ink-950)" }} />
       </div>
     </div>
   );
@@ -567,8 +567,8 @@ export function ReceivingPhotoUpload({
         >
           <X className="size-2.5" style={{ color: "var(--color-paper)" }} />
         </button>
-        <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <span className="text-[0.4375rem] font-semibold text-white truncate">✓ Receiving photo</span>
+        <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5" style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}>
+          <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-paper)" }}>✓ Receiving photo</span>
         </div>
       </div>
     );
@@ -580,7 +580,7 @@ export function ReceivingPhotoUpload({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="w-full h-8 rounded-[0.25rem] border-2 border-dashed flex items-center justify-center gap-1 press"
+        className="w-full h-8 rounded-[0.25rem] border-2 border-dashed flex items-center justify-center gap-1 text-m-body press"
         style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
       >
         {uploading ? (
@@ -588,7 +588,7 @@ export function ReceivingPhotoUpload({
         ) : (
           <>
             <Camera className="size-3" />
-            <span className="text-[0.5rem] font-semibold">Upload receiving photo</span>
+            <span className="text-m-caption font-semibold">Upload receiving photo</span>
           </>
         )}
       </button>
@@ -617,7 +617,7 @@ export function GeoFenceStatus({ ok, distance }: { ok: boolean; distance?: numbe
       }}
     >
       <MapPin className="size-3" style={{ color: ok ? "var(--color-go)" : "var(--color-stop)" }} />
-      <span className="text-[0.5rem] font-semibold" style={{ color: ok ? "var(--color-go)" : "var(--color-stop)" }}>
+      <span className="text-m-caption font-semibold" style={{ color: ok ? "var(--color-go)" : "var(--color-stop)" }}>
         {ok ? "On-site" : `Off-site${distance != null ? ` (${distance}m away)` : ""}`}
       </span>
     </div>

@@ -141,6 +141,7 @@ async function PendingPaymentsContent() {
         totalDraft={totalDraft}
         payableAging={payableAging}
         receivableAging={receivableAging}
+        canSendReminders={hasPermission(role, PERM.FINANCE_MANAGE)}
       />
     </>
   );

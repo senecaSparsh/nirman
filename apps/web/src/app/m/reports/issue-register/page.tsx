@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { ClipboardList, FileText } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -127,9 +127,9 @@ async function MobileIssueRegisterContent() {
       <MobileReportSummary
         items={[
           { label: "Total Issues", value: String(records.length) },
-          { label: "Total Value", value: formatCurrency(totalAmount), tone: "go" },
+          { label: "Total Value", value: formatCurrencyCompact(totalAmount), tone: "go" },
           { label: "Total Qty", value: String(totalQty), tone: "signal" },
-          { label: "Round-Off", value: formatCurrency(totalRound) },
+          { label: "Round-Off", value: formatCurrencyCompact(totalRound) },
         ]}
       />
 
@@ -138,7 +138,7 @@ async function MobileIssueRegisterContent() {
           title="Issue Register Report"
           rows={records as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Issues: ${records.length} · Value: ${formatCurrency(totalAmount)} · Qty: ${totalQty}`}
+          summary={`Issues: ${records.length} · Value: ${formatCurrencyCompact(totalAmount)} · Qty: ${totalQty}`}
         />
       </div>
 
@@ -147,7 +147,7 @@ async function MobileIssueRegisterContent() {
       <div className="mb-4">
         <MobileBarChart
           data={chartData}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -160,13 +160,13 @@ async function MobileIssueRegisterContent() {
             icon={ClipboardList}
             title={r.name}
             subtitle={`${r.number} · ${formatDate(r.date)}`}
-            meta={formatCurrency(r.billAmt)}
+            meta={formatCurrencyCompact(r.billAmt)}
             metaSub={r.round !== 0 ? `Round ${formatCurrency(r.round)}` : undefined}
             tone="success"
           />
         ))}
         {records.length > 30 && (
-          <p className="text-center text-[0.625rem] py-2" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-center text-m-label py-2" style={{ color: "var(--color-ink-500)" }}>
             Showing 30 of {records.length} issues
           </p>
         )}

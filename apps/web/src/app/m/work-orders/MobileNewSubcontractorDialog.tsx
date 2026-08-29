@@ -80,10 +80,10 @@ export function MobileNewSubcontractorDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -92,14 +92,14 @@ export function MobileNewSubcontractorDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Subcontractor
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -107,7 +107,7 @@ export function MobileNewSubcontractorDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           Add a subcontractor to issue work orders to. Only the name is
@@ -118,7 +118,7 @@ export function MobileNewSubcontractorDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -129,7 +129,7 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. ABC Plumbing Works"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -141,7 +141,7 @@ export function MobileNewSubcontractorDialog({
           {/* Trade */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Trade
@@ -151,7 +151,7 @@ export function MobileNewSubcontractorDialog({
               value={trade}
               onChange={(e) => setTrade(e.target.value)}
               placeholder="e.g. Plumbing, Electrical, Masonry"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -163,7 +163,7 @@ export function MobileNewSubcontractorDialog({
           {/* GSTIN */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               GSTIN
@@ -173,7 +173,7 @@ export function MobileNewSubcontractorDialog({
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase())}
               placeholder="22AAAAA0000A1Z5"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -185,7 +185,7 @@ export function MobileNewSubcontractorDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Phone
@@ -195,7 +195,7 @@ export function MobileNewSubcontractorDialog({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="9876543210"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -207,7 +207,7 @@ export function MobileNewSubcontractorDialog({
           {/* Email */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email
@@ -217,7 +217,7 @@ export function MobileNewSubcontractorDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contact@abcworks.com"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -229,7 +229,7 @@ export function MobileNewSubcontractorDialog({
           {/* Address */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Address
@@ -239,7 +239,7 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Shop 12, Market Road, City"
               rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -252,7 +252,7 @@ export function MobileNewSubcontractorDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

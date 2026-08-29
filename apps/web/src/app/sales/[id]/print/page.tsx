@@ -3,7 +3,8 @@ import { getPrintableSaleData } from "@nirman/services";
 import { PrintHeader } from "@/components/print/print-header";
 import { PrintButton } from "./print-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { toNum, getCompany } from "@/lib/server";
+import { toNum, getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function PrintableSaleFormPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.SALES_VIEW)) notFound();
   const userCompany = await getCompany();
 
   let data;

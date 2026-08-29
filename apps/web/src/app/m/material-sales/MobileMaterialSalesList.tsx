@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { InteractiveListItem } from "@/components/mobile/v2/interactive-list-item";
+import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
@@ -56,6 +57,7 @@ export function MobileMaterialSalesList({
   totalRevenue,
   totalProfit,
   pendingCount,
+  pendingSaleCount = 0,
   canCreate,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -68,6 +70,7 @@ export function MobileMaterialSalesList({
   totalRevenue: number;
   totalProfit: number;
   pendingCount: number;
+  pendingSaleCount?: number;
   canCreate: boolean;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -131,6 +134,14 @@ export function MobileMaterialSalesList({
       {/* ── Summary strip ── */}
       <MobileSummaryStrip stats={summaryStats} />
 
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="materialSale" />
+      <NextActionCard
+        flow="materialSale"
+        count={pendingSaleCount}
+        can={(perm) => perm === "SALE_CREATE" ? canCreate : false}
+      />
+
       {/* ── Sticky search header ── */}
       <MobileSearchHeader
         query={query}
@@ -180,7 +191,7 @@ export function MobileMaterialSalesList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} sale{filtered.length !== 1 ? "s" : ""}
@@ -259,7 +270,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
     >
     <Link
       href={`/m/material-sales/${s.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -273,13 +284,13 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
         {/* Row 1: Sale number + status badge */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.5625rem] font-mono font-bold truncate"
+            className="text-m-caption font-mono font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {s.saleNumber}
           </span>
           <span
-            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             {statusLabel}
@@ -288,7 +299,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
 
         {/* Row 2: Customer name */}
         <p
-          className="text-[0.5625rem] font-bold leading-tight truncate"
+          className="text-m-caption font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {s.customerName ?? "Walk-in customer"}
@@ -297,7 +308,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
         {/* Row 3: Date + project */}
         <div className="flex items-center gap-1">
           <span
-            className="text-[0.5rem] tabular-nums"
+            className="text-m-caption tabular-nums"
             style={{ color: "var(--color-ink-500)" }}
           >
             {formatDate(s.saleDate)}
@@ -306,7 +317,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
             <>
               <span style={{ color: "var(--color-line)" }}>·</span>
               <span
-                className="text-[0.5rem] truncate"
+                className="text-m-caption truncate"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {s.projectName}
@@ -319,13 +330,13 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
         <div className="mt-auto pt-1 h-[1.625rem] flex flex-col justify-end">
           <div className="flex items-center justify-between">
             <span
-              className="text-[0.4375rem] font-semibold"
+              className="text-m-caption font-semibold"
               style={{ color: "var(--color-ink-500)" }}
             >
               {s.lineCount} item{s.lineCount !== 1 ? "s" : ""}
             </span>
             <span
-              className="text-[0.5625rem] font-bold tabular-nums"
+              className="text-m-caption font-bold tabular-nums"
               style={{ color: "var(--color-ink-950)" }}
             >
               {formatCurrencyCompact(s.totalAmount)}
@@ -343,7 +354,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
                 }}
               />
               <span
-                className="text-[0.4375rem] font-bold tabular-nums"
+                className="text-m-caption font-bold tabular-nums"
                 style={{
                   color:
                     s.grossProfit >= 0
@@ -356,7 +367,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
               </span>
               {s.scrapSubtotal > 0 ? (
                 <span
-                  className="text-[0.4375rem] font-semibold"
+                  className="text-m-caption font-semibold"
                   style={{ color: "var(--color-steel)" }}
                 >
                   · scrap

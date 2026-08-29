@@ -14,9 +14,10 @@ import {
   ShieldCheck,
   AlertTriangle,
   Crown,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
@@ -93,12 +94,17 @@ export function MobileRequisitionActions({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [showConvert, setShowConvert] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const showSubmit = requisition.status === "DRAFT" && canManage;
   const showApproveReject = requisition.status === "SUBMITTED" && canApprove;
   const canConvert = requisition.status === "APPROVED" && canManage;
+  const showDelete =
+    (requisition.status === "DRAFT" || requisition.status === "REJECTED") &&
+    canManage;
 
-  if (!showSubmit && !showApproveReject && !canConvert) return null;
+  if (!showSubmit && !showApproveReject && !canConvert && !showDelete)
+    return null;
 
   async function act(action: "submit" | "approve" | "reject", label: string) {
     haptic(10);
@@ -117,6 +123,25 @@ export function MobileRequisitionActions({
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function deleteReq() {
+    haptic(30);
+    setBusy("delete");
+    try {
+      const res = await fetch(`/api/requisitions/${requisition.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete requisition");
+      toast.success("Requisition deleted");
+      router.push("/m/requisitions");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setBusy(null);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -176,6 +201,96 @@ export function MobileRequisitionActions({
               }}
             />
           )}
+        </>
+      )}
+      {showDelete && (
+        <BarButton
+          onClick={() => {
+            haptic(10);
+            setShowDeleteConfirm(true);
+          }}
+          busy={busy === "delete"}
+          icon={Trash2}
+          label="Delete Requisition"
+          variant="outline"
+        />
+      )}
+      {showDeleteConfirm && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+            onClick={() => !busy && setShowDeleteConfirm(false)}
+          />
+          <div
+            className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+            }}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div
+                className="w-10 h-1 rounded-full"
+                style={{ backgroundColor: "var(--color-line)" }}
+              />
+            </div>
+            <div
+              className="flex items-center justify-between px-4 pb-2 border-b"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <p
+                className="text-m-section font-bold"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                Delete Requisition?
+              </p>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={busy === "delete"}
+                className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                <XCircle className="size-4" />
+              </button>
+            </div>
+            <div className="px-4 py-3 flex flex-col gap-3">
+              <p
+                className="text-m-body"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                This will permanently delete requisition{" "}
+                <span className="font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+                  {requisition.reqNumber}
+                </span>
+                . This action cannot be undone.
+              </p>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={busy === "delete"}
+                  className="flex-1 h-10 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
+                  style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteReq}
+                  disabled={busy === "delete"}
+                  className="flex-1 h-10 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1.5"
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+                >
+                  {busy === "delete" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                  {busy === "delete" ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
         </>
       )}
     </div>
@@ -269,7 +384,7 @@ function ConvertForm({
     >
       {/* ── Quote gate status ── */}
       <div
-        className="flex items-center gap-2 rounded-[0.5rem] px-2.5 py-2 text-[0.625rem] font-semibold"
+        className="flex items-center gap-2 rounded-[0.5rem] px-2.5 py-2 text-m-label font-semibold"
         style={{
           backgroundColor: gateSatisfied ? "var(--color-go-wash)" : "var(--color-signal-wash)",
           color: gateSatisfied ? "var(--color-go-dark)" : "var(--color-signal-dark)",
@@ -303,11 +418,11 @@ function ConvertForm({
             style={{ color: winningQuote.isCheapest ? "var(--color-go)" : "var(--color-steel)" }}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               Winner: {winningQuote.supplierName}
             </p>
-            <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
-              Landed total: {formatCurrency(winningQuote.landedTotal)}
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Landed total: {formatCurrencyCompact(winningQuote.landedTotal)}
               {!winningQuote.isCheapest && " · not cheapest"}
               {winningQuote.selectionReason ? ` · ${winningQuote.selectionReason}` : ""}
             </p>
@@ -316,7 +431,7 @@ function ConvertForm({
       )}
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Supplier
         </label>
         <MobileSelectWithCreate
@@ -324,7 +439,7 @@ function ConvertForm({
           value={supplierId}
           onChange={setSupplierId}
           options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
-          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
           inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           labelClass="hidden"
           renderDialog={({ open, onClose, onCreated }) => (
@@ -341,7 +456,7 @@ function ConvertForm({
       </div>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Procurement scope
         </label>
         <select
@@ -355,7 +470,7 @@ function ConvertForm({
             );
             if (!valid.some((l) => l.id === locationId) && valid[0]) setLocationId(valid[0].id);
           }}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         >
           <option value="COMPANY">Company warehouse</option>
@@ -364,7 +479,7 @@ function ConvertForm({
       </div>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Receive at
         </label>
         <MobileSelectWithCreate
@@ -373,7 +488,7 @@ function ConvertForm({
           onChange={setLocationId}
           options={scopedLocations.map((l) => ({ value: l.id, label: l.name }))}
           placeholder={scopedLocations.length === 0 ? "No locations for this scope" : "Select location…"}
-          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
           inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           labelClass="hidden"
           renderDialog={({ open, onClose, onCreated }) => (
@@ -391,23 +506,23 @@ function ConvertForm({
       </div>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Expected date (optional)
         </label>
         <input
           type="date"
           value={expectedDate}
           onChange={(e) => setExpectedDate(e.target.value)}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Line costs
           {winningQuote && (
-            <span className="ml-1 text-[0.5rem]" style={{ color: "var(--color-steel)" }}>
+            <span className="ml-1 text-m-caption" style={{ color: "var(--color-steel)" }}>
               (auto-filled from winning quote)
             </span>
           )}
@@ -416,8 +531,8 @@ function ConvertForm({
           {lines.map((l) => (
             <div key={l.materialId} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</div>
-                <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <div className="truncate text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</div>
+                <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {formatNumber(l.qtyRequested, 0)} {l.unit}
                 </div>
               </div>
@@ -431,7 +546,7 @@ function ConvertForm({
                   onChange={(e) =>
                     setLineCosts((c) => ({ ...c, [l.materialId]: Number(e.target.value) }))
                   }
-                  className="w-full h-9 rounded-[0.375rem] border px-2 text-right text-[0.6875rem] tabular-nums outline-none"
+                  className="w-full h-9 rounded-[0.375rem] border px-2 text-right text-m-body tabular-nums outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
@@ -439,12 +554,12 @@ function ConvertForm({
           ))}
         </div>
         <div
-          className="mt-2 flex justify-between border-t pt-2 text-[0.5625rem] font-bold"
+          className="mt-2 flex justify-between border-t pt-2 text-m-caption font-bold"
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
         >
           <span>Estimated total</span>
           <span className="tabular-nums" style={{ color: "var(--color-go)" }}>
-            {formatCurrency(
+            {formatCurrencyCompact(
               lines.reduce((s, l) => s + (lineCosts[l.materialId] ?? 0) * l.qtyRequested, 0),
             )}
           </span>
@@ -452,7 +567,7 @@ function ConvertForm({
       </div>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Notes (optional)
         </label>
         <textarea
@@ -460,7 +575,7 @@ function ConvertForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="PO notes"
-          className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] resize-none outline-none"
+          className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section resize-none outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
@@ -469,7 +584,7 @@ function ConvertForm({
         type="button"
         onClick={convert}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
         style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-3.5" />}
@@ -499,7 +614,7 @@ function BarButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className={`flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50 ${className ?? ""}`}
+      className={`flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold press disabled:opacity-50 ${className ?? ""}`}
       style={
         variant === "primary"
           ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }

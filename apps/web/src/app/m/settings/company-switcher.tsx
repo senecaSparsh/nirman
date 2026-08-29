@@ -79,7 +79,7 @@ export function CompanySwitcher({
     <>
       {/* Avatar */}
       <span
-        className="grid place-items-center w-10 h-10 rounded-[0.5rem] shrink-0 text-[1.125rem] font-bold"
+        className="grid place-items-center w-10 h-10 rounded-[0.5rem] shrink-0 text-m-section font-bold"
         style={{
           backgroundColor: "var(--color-ink-950)",
           color: "var(--color-paper)",
@@ -90,13 +90,13 @@ export function CompanySwitcher({
       {/* Name + meta */}
       <div className="min-w-0 flex-1 text-left">
         <p
-          className="font-bold text-[0.875rem] truncate"
+          className="font-bold text-m-section truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {displayName}
         </p>
         <p
-          className="text-[0.5625rem] mt-0.5"
+          className="text-m-caption mt-0.5"
           style={{ color: "var(--color-ink-500)" }}
         >
           {currency} · {role}
@@ -152,7 +152,7 @@ export function CompanySwitcher({
               key={c.id}
               onClick={() => switchCompany(c.id)}
               disabled={switching}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left press disabled:opacity-50"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
               style={{
                 backgroundColor:
                   c.id === currentCompanyId
@@ -161,7 +161,7 @@ export function CompanySwitcher({
               }}
             >
               <span
-                className="grid place-items-center w-6 h-6 rounded-[0.25rem] text-[0.5rem] font-bold shrink-0"
+                className="grid place-items-center w-6 h-6 rounded-[0.25rem] text-m-caption font-bold shrink-0"
                 style={{
                   backgroundColor: "var(--color-ink-950)",
                   color: "var(--color-paper)",
@@ -171,13 +171,13 @@ export function CompanySwitcher({
               </span>
               <div className="min-w-0 flex-1">
                 <p
-                  className="text-[0.6875rem] font-semibold truncate"
+                  className="text-m-body font-semibold truncate"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {c.name}
                 </p>
                 <p
-                  className="text-[0.5rem]"
+                  className="text-m-caption"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   {c.role}

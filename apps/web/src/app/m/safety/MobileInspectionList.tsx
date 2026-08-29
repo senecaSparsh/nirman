@@ -66,7 +66,7 @@ export function MobileInspectionList({ items }: { items: InspectionListItem[] })
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} inspection{filtered.length !== 1 ? "s" : ""}
@@ -75,31 +75,31 @@ export function MobileInspectionList({ items }: { items: InspectionListItem[] })
           )}
         <div className="flex flex-col gap-2">
           {filtered.map((i) => (
-            <Link key={i.id} href={`/m/safety/inspections/${i.id}`} className="rounded-[0.5rem] border p-2.5 block press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <Link key={i.id} href={`/m/safety/inspections/${i.id}`} className="rounded-[0.5rem] border p-2.5 block text-m-body press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{i.inspectionNumber}</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{i.inspectionNumber}</p>
                 <MobileStatusBadge status={i.status} />
               </div>
-              <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{i.title}</p>
-              <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{i.projectName}{i.inspectorName ? ` · ${i.inspectorName}` : ""}</p>
+              <p className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{i.title}</p>
+              <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{i.projectName}{i.inspectorName ? ` · ${i.inspectorName}` : ""}</p>
               <div className="flex items-center gap-3">
                 <div>
-                  <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Scheduled</p>
-                  <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.scheduledDate)}</p>
+                  <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Scheduled</p>
+                  <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.scheduledDate)}</p>
                 </div>
                 {i.result && (
                   <>
                     <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
                     <div>
-                      <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Result</p>
-                      <p className="text-[0.625rem] font-bold" style={{ color: RESULT_TONES[i.result] ?? "var(--color-ink-500)" }}>{i.result.replace(/_/g, " ")}</p>
+                      <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Result</p>
+                      <p className="text-m-label font-bold" style={{ color: RESULT_TONES[i.result] ?? "var(--color-ink-500)" }}>{i.result.replace(/_/g, " ")}</p>
                     </div>
                   </>
                 )}
                 {i.conductedDate && (
                   <div className="ml-auto text-right">
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Conducted</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.conductedDate)}</p>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Conducted</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(i.conductedDate)}</p>
                   </div>
                 )}
               </div>

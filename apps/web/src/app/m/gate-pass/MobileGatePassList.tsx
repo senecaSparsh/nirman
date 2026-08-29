@@ -26,6 +26,7 @@ import { formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileNoResults,
+  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
@@ -68,12 +69,12 @@ type GatePassRow = {
 };
 
 const STATUS_CONFIG: Record<GatePassRow["status"], { label: string; color: string; bg: string }> = {
-  DRAFT: { label: "Draft", color: "text-muted-foreground", bg: "bg-muted/10" },
-  PENDING: { label: "Pending", color: "text-warning", bg: "bg-warning/10" },
-  APPROVED: { label: "Approved", color: "text-success", bg: "bg-success/10" },
-  REJECTED: { label: "Rejected", color: "text-danger", bg: "bg-danger/10" },
-  EXITED: { label: "Exited", color: "text-info", bg: "bg-info/10" },
-  CANCELLED: { label: "Cancelled", color: "text-muted-foreground", bg: "bg-muted/10" },
+  DRAFT: { label: "Draft", color: "var(--color-ink-500)", bg: "var(--color-paper-2)" },
+  PENDING: { label: "Pending", color: "var(--color-signal)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)" },
+  APPROVED: { label: "Approved", color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)" },
+  REJECTED: { label: "Rejected", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 10%, transparent)" },
+  EXITED: { label: "Exited", color: "var(--color-ink-700)", bg: "color-mix(in srgb, var(--color-ink-700) 10%, transparent)" },
+  CANCELLED: { label: "Cancelled", color: "var(--color-ink-500)", bg: "var(--color-paper-2)" },
 };
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
@@ -215,7 +216,7 @@ export function MobileGatePassList({
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Search bar */}
       <MobileSearchHeader
         query={query}
@@ -245,51 +246,51 @@ export function MobileGatePassList({
         const cfg = STATUS_CONFIG[gp.status];
         const isExpanded = expanded.has(gp.id);
         return (
-          <div key={gp.id} className={`rounded-lg border border-border ${cfg.bg} overflow-hidden`}>
+          <div key={gp.id} className="rounded-[0.625rem] border overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: cfg.bg }}>
             {/* Header */}
             <button
               onClick={() => toggle(gp.id)}
-              className="flex w-full items-center justify-between p-3 text-left"
+              className="flex w-full items-center justify-between p-3 text-left press"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-caption font-medium">{gp.gatePassNumber}</span>
-                  <span className={`text-[10px] font-medium ${cfg.color}`}>{cfg.label}</span>
+                  <span className="font-mono text-m-caption font-medium" style={{ color: "var(--color-ink-950)" }}>{gp.gatePassNumber}</span>
+                  <span className="text-m-label font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
                 </div>
-                <div className="mt-0.5 text-caption text-muted-foreground">
+                <div className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {gp.lineCount} items · {gp.locationName}
                 </div>
                 {gp.vehicleNumber && (
-                  <div className="mt-0.5 text-caption text-muted-foreground">
+                  <div className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     🚚 {gp.vehicleNumber}
                     {gp.driverName && ` · ${gp.driverName}`}
                   </div>
                 )}
               </div>
               {isExpanded ? (
-                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronUp className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
               ) : (
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronDown className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
               )}
             </button>
 
             {/* Expanded content */}
             {isExpanded && (
-              <div className="border-t border-border/40 p-3 space-y-3">
+              <div className="border-t p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
                 {/* Category badge */}
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">
-                    <ShieldCheck className="h-2.5 w-2.5" />
+                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-m-label font-medium" style={{ borderColor: "var(--color-ink-300)", backgroundColor: "color-mix(in srgb, var(--color-ink-950) 10%, transparent)", color: "var(--color-ink-950)" }}>
+                    <ShieldCheck className="size-2.5" />
                     {CATEGORY_LABELS[gp.category] ?? gp.category}
                   </span>
                 </div>
 
                 {/* Items */}
                 <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Items</div>
+                  <div className="text-m-label font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--color-ink-500)" }}>Items</div>
                   <div className="space-y-1">
                     {gp.lines.map((l) => (
-                      <div key={l.id} className="flex justify-between text-caption">
+                      <div key={l.id} className="flex justify-between text-m-caption">
                         <span className="min-w-0 flex-1 truncate">
                           {l.materialName ?? l.description ?? "—"}
                         </span>
@@ -303,63 +304,63 @@ export function MobileGatePassList({
 
                 {/* Rejection reason */}
                 {gp.status === "REJECTED" && gp.rejectionReason && (
-                  <div className="rounded-md border border-danger/30 bg-danger/5 px-2 py-1.5 text-caption text-danger">
+                  <div className="rounded-[0.375rem] border px-2 py-1.5 text-m-caption" style={{ borderColor: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)", color: "var(--color-stop)" }}>
                     <span className="font-medium">Rejected:</span> {gp.rejectionReason}
-                    {gp.rejectedByName && <div className="mt-0.5 text-meta">by {gp.rejectedByName}</div>}
+                    {gp.rejectedByName && <div className="mt-0.5 text-m-caption">by {gp.rejectedByName}</div>}
                   </div>
                 )}
 
                 {/* Approval notes */}
                 {gp.approvalNotes && (
-                  <div className="rounded-md border border-success/30 bg-success/5 px-2 py-1.5 text-caption text-success">
+                  <div className="rounded-[0.375rem] border px-2 py-1.5 text-m-caption" style={{ borderColor: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)", color: "var(--color-go)" }}>
                     <span className="font-medium">Approval notes:</span> {gp.approvalNotes}
                   </div>
                 )}
 
                 {/* Exit notes */}
                 {gp.exitNotes && (
-                  <div className="rounded-md border border-info/30 bg-info/5 px-2 py-1.5 text-caption text-info">
+                  <div className="rounded-[0.375rem] border px-2 py-1.5 text-m-caption" style={{ borderColor: "var(--color-ink-700)", backgroundColor: "color-mix(in srgb, var(--color-ink-700) 5%, transparent)", color: "var(--color-ink-700)" }}>
                     <span className="font-medium">Exit notes:</span> {gp.exitNotes}
-                    {gp.exitedByName && <div className="mt-0.5 text-meta">by {gp.exitedByName}</div>}
+                    {gp.exitedByName && <div className="mt-0.5 text-m-caption">by {gp.exitedByName}</div>}
                   </div>
                 )}
 
                 {/* Transport details */}
-                <div className="text-caption text-muted-foreground space-y-0.5">
+                <div className="text-m-caption space-y-0.5" style={{ color: "var(--color-ink-500)" }}>
                   {gp.destination && (
                     <div className="flex items-center gap-1.5">
-                      <Navigation className="h-3 w-3 shrink-0" />
+                      <Navigation className="size-3 shrink-0" />
                       <span>Destination: {gp.destination}</span>
                     </div>
                   )}
                   {gp.purpose && (
                     <div className="flex items-center gap-1.5">
-                      <FileText className="h-3 w-3 shrink-0" />
+                      <FileText className="size-3 shrink-0" />
                       <span>Purpose: {gp.purpose}</span>
                     </div>
                   )}
                   {gp.vehicleType && (
                     <div className="flex items-center gap-1.5">
-                      <Truck className="h-3 w-3 shrink-0" />
+                      <Truck className="size-3 shrink-0" />
                       <span>Vehicle: {VEHICLE_TYPE_LABELS[gp.vehicleType] ?? gp.vehicleType}</span>
                     </div>
                   )}
                   {gp.transporterName && (
                     <div className="flex items-center gap-1.5">
-                      <Building2 className="h-3 w-3 shrink-0" />
+                      <Building2 className="size-3 shrink-0" />
                       <span>Transporter: {gp.transporterName}</span>
                     </div>
                   )}
                   {gp.driverPhone && (
                     <div className="flex items-center gap-1.5">
-                      <Phone className="h-3 w-3 shrink-0" />
-                      <a href={`tel:${gp.driverPhone}`} className="text-brand hover:underline">{gp.driverPhone}</a>
+                      <Phone className="size-3 shrink-0" />
+                      <a href={`tel:${gp.driverPhone}`} className="text-m-caption ">{gp.driverPhone}</a>
                     </div>
                   )}
                 </div>
 
                 {/* Timeline */}
-                <div className="text-caption text-muted-foreground space-y-0.5 border-t border-border/40 pt-2">
+                <div className="text-m-caption space-y-0.5 border-t pt-2" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}>
                   {gp.createdByName && <div>Created by: {gp.createdByName} · {formatDate(gp.createdAt)}</div>}
                   {gp.submittedByName && gp.submittedAt && <div>Submitted by: {gp.submittedByName} · {formatDate(gp.submittedAt)}</div>}
                   {gp.approvedByName && gp.approvedAt && <div>Approved by: {gp.approvedByName} · {formatDate(gp.approvedAt)}</div>}
@@ -367,12 +368,13 @@ export function MobileGatePassList({
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-col gap-2 pt-1">
                   <button
                     onClick={() => window.open(`/print/gate-pass/${gp.id}`, "_blank")}
-                    className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-caption hover:bg-muted/20"
+                    className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption active:opacity-70 press"
+                    style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
                   >
-                    <Printer className="h-3 w-3" /> Print
+                    <Printer className="size-3" /> Print
                   </button>
 
                   {/* Submit: DRAFT → PENDING */}
@@ -380,9 +382,10 @@ export function MobileGatePassList({
                     <button
                       disabled={actionLoading === gp.id}
                       onClick={() => handleAction(gp.id, "submit")}
-                      className="flex items-center gap-1 rounded-md bg-warning px-2 py-1 text-caption text-white hover:bg-warning/90"
+                      className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
+                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
                     >
-                      {actionLoading === gp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                      {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
                       Submit
                     </button>
                   )}
@@ -393,16 +396,18 @@ export function MobileGatePassList({
                       <button
                         disabled={actionLoading === gp.id}
                         onClick={() => { setRejectTarget(gp); setRejectReason(""); }}
-                        className="flex items-center gap-1 rounded-md border border-danger/30 px-2 py-1 text-caption text-danger hover:bg-danger/5"
+                        className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption press"
+                        style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
                       >
-                        <XCircle className="h-3 w-3" /> Reject
+                        <XCircle className="size-3" /> Reject
                       </button>
                       <button
                         disabled={actionLoading === gp.id}
                         onClick={() => handleAction(gp.id, "approve")}
-                        className="flex items-center gap-1 rounded-md bg-success px-2 py-1 text-caption text-white hover:bg-success/90"
+                        className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
+                        style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}
                       >
-                        {actionLoading === gp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                        {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle className="size-3" />}
                         Approve
                       </button>
                     </>
@@ -417,9 +422,10 @@ export function MobileGatePassList({
                         setExitNotes("");
                         setExitPhotos([]);
                       }}
-                      className="flex items-center gap-1 rounded-md bg-info px-2 py-1 text-caption text-white hover:bg-info/90"
+                      className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press active:scale-95"
+                      style={{ backgroundColor: "var(--color-ink-700)", color: "var(--color-paper)" }}
                     >
-                      {actionLoading === gp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                      {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <ShieldCheck className="size-3" />}
                       Confirm Exit
                     </button>
                   )}
@@ -429,9 +435,10 @@ export function MobileGatePassList({
                     <button
                       disabled={actionLoading === gp.id}
                       onClick={() => handleAction(gp.id, "resubmit")}
-                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-caption hover:bg-muted/20"
+                      className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption active:opacity-70 press"
+                      style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
                     >
-                      {actionLoading === gp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                      {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <RotateCcw className="size-3" />}
                       Resubmit
                     </button>
                   )}
@@ -441,9 +448,10 @@ export function MobileGatePassList({
                     <button
                       disabled={actionLoading === gp.id}
                       onClick={() => setCancelTarget(gp)}
-                      className="flex items-center gap-1 rounded-md border border-danger/30 px-2 py-1 text-caption text-danger hover:bg-danger/5"
+                      className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption press"
+                      style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
                     >
-                      <Trash2 className="h-3 w-3" /> Cancel
+                      <Trash2 className="size-3" /> Cancel
                     </button>
                   )}
                 </div>
@@ -455,31 +463,40 @@ export function MobileGatePassList({
 
       {/* Reject dialog */}
       {rejectTarget && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setRejectTarget(null)}>
-          <div className="w-full max-w-md rounded-t-lg bg-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          onClick={() => setRejectTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div>
-              <div className="text-subhead font-semibold">Reject {rejectTarget.gatePassNumber}</div>
-              <div className="text-caption text-muted-foreground">Provide a reason for rejection</div>
+              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Reject {rejectTarget.gatePassNumber}</div>
+              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
             </div>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               rows={3}
               placeholder="Why is this gate pass being rejected?"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+              className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               autoFocus
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setRejectTarget(null)}
-                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+                className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption active:opacity-70 press"
               >
                 Cancel
               </button>
               <button
                 disabled={!rejectReason.trim() || actionLoading === rejectTarget.id}
                 onClick={submitReject}
-                className="rounded-md bg-danger px-3 py-1.5 text-caption text-white hover:bg-danger/90 disabled:opacity-50"
+                className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
               >
                 Reject Gate Pass
               </button>
@@ -490,11 +507,19 @@ export function MobileGatePassList({
 
       {/* Cancel dialog */}
       {cancelTarget && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setCancelTarget(null)}>
-          <div className="w-full max-w-md rounded-t-lg bg-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          onClick={() => setCancelTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div>
-              <div className="text-subhead font-semibold">Cancel {cancelTarget.gatePassNumber}</div>
-              <div className="text-caption text-muted-foreground">
+              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Cancel {cancelTarget.gatePassNumber}</div>
+              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 {cancelTarget.category !== "MANUAL"
                   ? "This will also cancel the linked transaction (issue/sale). This cannot be undone."
                   : "This gate pass will be permanently cancelled. This cannot be undone."}
@@ -503,16 +528,18 @@ export function MobileGatePassList({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setCancelTarget(null)}
-                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+                className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption active:opacity-70 press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
               >
                 Keep
               </button>
               <button
                 disabled={actionLoading === cancelTarget.id}
                 onClick={submitCancel}
-                className="rounded-md bg-danger px-3 py-1.5 text-caption text-white hover:bg-danger/90 disabled:opacity-50"
+                className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
               >
-                {actionLoading === cancelTarget.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Cancel Gate Pass"}
+                {actionLoading === cancelTarget.id ? <Loader2 className="size-3.5 animate-spin" /> : "Cancel Gate Pass"}
               </button>
             </div>
           </div>
@@ -521,33 +548,41 @@ export function MobileGatePassList({
 
       {/* Exit confirmation dialog with photo capture */}
       {exitTarget && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setExitTarget(null)}>
-          <div className="w-full max-w-md rounded-t-lg bg-card p-4 space-y-3 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          onClick={() => setExitTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5 max-h-[90vh] overflow-y-auto"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div>
-              <div className="text-subhead font-semibold">Confirm Exit — {exitTarget.gatePassNumber}</div>
-              <div className="text-caption text-muted-foreground">
+              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Confirm Exit — {exitTarget.gatePassNumber}</div>
+              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Confirm items have physically left the gate.
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-caption font-semibold">Exit Notes</label>
+              <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-600)" }}>Exit Notes</label>
               <textarea
                 value={exitNotes}
                 onChange={(e) => setExitNotes(e.target.value)}
                 rows={2}
                 placeholder="Optional — any observations at the gate"
-                className="w-full rounded-md border border-border bg-background px-2.5 py-2 text-caption outline-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-caption font-semibold">Exit Photos</label>
+              <label className="text-m-caption font-semibold">Exit Photos</label>
               <PhotoUploader photos={exitPhotos} onChange={setExitPhotos} maxPhotos={4} />
-              <p className="text-caption text-muted-foreground">Photograph the loaded vehicle as it exits.</p>
+              <p className="text-m-caption">Photograph the loaded vehicle as it exits.</p>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button
                 onClick={() => setExitTarget(null)}
-                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+                className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption active:opacity-70 press"
               >
                 Cancel
               </button>
@@ -578,9 +613,9 @@ export function MobileGatePassList({
                     setActionLoading(null);
                   }
                 }}
-                className="flex items-center gap-1 rounded-md bg-info px-3 py-1.5 text-caption text-white hover:bg-info/90 disabled:opacity-50"
+                className="flex items-center gap-1 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press active:scale-95 disabled:opacity-50"
               >
-                {actionLoading === exitTarget.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+                {actionLoading === exitTarget.id ? <Loader2 className="size-3.5 animate-spin" /> : <Truck className="size-3.5" />}
                 Confirm Exit
               </button>
             </div>
@@ -688,33 +723,28 @@ export function MobileGatePassFormDialog({
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-caption font-semibold text-white hover:bg-brand/90"
-      >
-        <Plus className="h-3.5 w-3.5" /> New
-      </button>
+      <MobileFab onClick={() => setOpen(true)} label="New gate pass" />
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={handleClose}>
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-lg bg-card p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center " style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={handleClose}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-[0.75rem] p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between">
-              <div className="text-subhead font-semibold">New Gate Pass</div>
-              <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
+              <div className="text-m-section font-semibold">New Gate Pass</div>
+              <button onClick={handleClose} className="press">
+                <X className="size-4" />
               </button>
             </div>
 
             {/* Location */}
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Location <span className="text-danger">*</span>
+              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+                Location <span className="">*</span>
               </label>
               <select
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 <option value="">Select location…</option>
                 {locations.map((l) => (
@@ -726,13 +756,13 @@ export function MobileGatePassFormDialog({
             {/* Project */}
             {projects.length > 0 && (
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Project (optional)
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 >
                   <option value="">No project</option>
                   {projects.map((p) => (
@@ -745,7 +775,7 @@ export function MobileGatePassFormDialog({
             {/* Destination + Purpose */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Destination
                 </label>
                 <input
@@ -753,11 +783,11 @@ export function MobileGatePassFormDialog({
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="Where to?"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Purpose
                 </label>
                 <input
@@ -765,7 +795,7 @@ export function MobileGatePassFormDialog({
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   placeholder="Why?"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
@@ -773,7 +803,7 @@ export function MobileGatePassFormDialog({
             {/* Vehicle details */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Vehicle Number
                 </label>
                 <input
@@ -781,17 +811,17 @@ export function MobileGatePassFormDialog({
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
                   placeholder="HR26 AB 1234"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Vehicle Type
                 </label>
                 <select
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 >
                   {Object.entries(VEHICLE_TYPE_LABELS).map(([v, label]) => (
                     <option key={v} value={v}>{label}</option>
@@ -802,7 +832,7 @@ export function MobileGatePassFormDialog({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Driver Name
                 </label>
                 <input
@@ -810,11 +840,11 @@ export function MobileGatePassFormDialog({
                   value={driverName}
                   onChange={(e) => setDriverName(e.target.value)}
                   placeholder="Driver name"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                   Driver Phone
                 </label>
                 <input
@@ -822,13 +852,13 @@ export function MobileGatePassFormDialog({
                   value={driverPhone}
                   onChange={(e) => setDriverPhone(e.target.value)}
                   placeholder="+91…"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                 Transporter
               </label>
               <input
@@ -836,19 +866,19 @@ export function MobileGatePassFormDialog({
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="Transporter name"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
 
             {/* Line items */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Items <span className="text-danger">*</span>
+                <label className="text-m-label font-semibold uppercase tracking-wider">
+                  Items <span className="">*</span>
                 </label>
                 <button
                   onClick={() => setLines([...lines, { description: "", qty: "", unit: "" }])}
-                  className="text-caption text-brand hover:underline"
+                  className="text-m-caption text-m-caption press"
                 >
                   + Add line
                 </button>
@@ -861,28 +891,28 @@ export function MobileGatePassFormDialog({
                       value={line.description}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, description: e.target.value } : l))}
                       placeholder="Description"
-                      className="flex-1 min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="flex-1 min-w-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
                     />
                     <input
                       type="number"
                       value={line.qty}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))}
                       placeholder="Qty"
-                      className="w-16 shrink-0 rounded-md border border-border bg-background px-2 py-1.5 text-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="w-16 shrink-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
                     />
                     <input
                       type="text"
                       value={line.unit}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, unit: e.target.value } : l))}
                       placeholder="Unit"
-                      className="w-16 shrink-0 rounded-md border border-border bg-background px-2 py-1.5 text-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="w-16 shrink-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
                     />
                     {lines.length > 1 && (
                       <button
                         onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
-                        className="shrink-0 text-muted-foreground hover:text-danger"
+                        className="shrink-0 hover: press"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="size-3.5" />
                       </button>
                     )}
                   </div>
@@ -892,7 +922,7 @@ export function MobileGatePassFormDialog({
 
             {/* Notes */}
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
                 Notes
               </label>
               <textarea
@@ -900,17 +930,17 @@ export function MobileGatePassFormDialog({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Additional notes…"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-body focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
 
             {/* Auto-submit toggle */}
-            <label className="flex items-center gap-2 text-caption">
+            <label className="flex items-center gap-2 text-m-caption">
               <input
                 type="checkbox"
                 checked={autoSubmit}
                 onChange={(e) => setAutoSubmit(e.target.checked)}
-                className="h-4 w-4 rounded border-border"
+                className="size-4 rounded"
               />
               <span>Submit for approval immediately</span>
             </label>
@@ -919,16 +949,16 @@ export function MobileGatePassFormDialog({
             <div className="flex justify-end gap-2 pt-1">
               <button
                 onClick={handleClose}
-                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+                className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption active:opacity-70 press"
               >
                 Cancel
               </button>
               <button
                 disabled={submitting}
                 onClick={handleSubmit}
-                className="flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-caption font-semibold text-white hover:bg-brand/90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold text-m-body press active:scale-95 disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
                 {autoSubmit ? "Create & Submit" : "Create Draft"}
               </button>
             </div>

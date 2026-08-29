@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Wallet, TrendingUp, TrendingDown, FileText, AlertTriangle } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -112,10 +112,10 @@ async function MobilePendingPaymentsContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Payable", value: formatCurrency(totalPayable), tone: "stop" },
-          { label: "Receivable", value: formatCurrency(totalReceivable), tone: "go" },
-          { label: "Net Cash", value: formatCurrency(netCash), tone: netCash >= 0 ? "go" : "stop" },
-          { label: "Draft POs", value: formatCurrency(totalDraft), tone: "signal" },
+          { label: "Payable", value: formatCurrencyCompact(totalPayable), tone: "stop" },
+          { label: "Receivable", value: formatCurrencyCompact(totalReceivable), tone: "go" },
+          { label: "Net Cash", value: formatCurrencyCompact(netCash), tone: netCash >= 0 ? "go" : "stop" },
+          { label: "Draft POs", value: formatCurrencyCompact(totalDraft), tone: "signal" },
         ]}
       />
 
@@ -124,7 +124,7 @@ async function MobilePendingPaymentsContent() {
           title="Pending Payments Report"
           rows={exportRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Payable: ${formatCurrency(totalPayable)} · Receivable: ${formatCurrency(totalReceivable)} · Net: ${formatCurrency(netCash)}`}
+          summary={`Payable: ${formatCurrencyCompact(totalPayable)} · Receivable: ${formatCurrencyCompact(totalReceivable)} · Net: ${formatCurrency(netCash)}`}
         />
       </div>
 
@@ -139,7 +139,7 @@ async function MobilePendingPaymentsContent() {
                 value: r.payable,
                 tone: "stop" as const,
               }))}
-              formatValue={(v) => formatCurrency(v)}
+              formatValue={(v) => formatCurrencyCompact(v)}
             />
           </div>
         </>
@@ -156,7 +156,7 @@ async function MobilePendingPaymentsContent() {
                 icon={AlertTriangle}
                 title={r.supplier}
                 subtitle={`${r.poNumber} · ${r.daysOverdue}d overdue`}
-                meta={formatCurrency(r.payable)}
+                meta={formatCurrencyCompact(r.payable)}
                 tone="danger"
               />
             ))}
@@ -175,7 +175,7 @@ async function MobilePendingPaymentsContent() {
                 icon={TrendingUp}
                 title={r.customer}
                 subtitle={`${r.project} · ${r.daysSinceSale}d`}
-                meta={formatCurrency(r.outstanding)}
+                meta={formatCurrencyCompact(r.outstanding)}
                 tone="success"
               />
             ))}
@@ -194,7 +194,7 @@ async function MobilePendingPaymentsContent() {
                 icon={FileText}
                 title={r.supplier}
                 subtitle={r.poNumber}
-                meta={formatCurrency(r.value)}
+                meta={formatCurrencyCompact(r.value)}
                 tone="warning"
               />
             ))}

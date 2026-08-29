@@ -234,6 +234,12 @@ async function StockContent() {
     }),
   ]);
 
+  // Check if this is a parent company with child companies (for cross-company tab)
+  const childCompanyCount = await prisma.company.count({
+    where: { parentCompanyId: company.id },
+  });
+  const hasChildren = childCompanyCount > 0;
+
   // ── On Hand rows ──
   const stockRows: StockRow[] = stockItems.map((i) => ({
     id: i.id,
@@ -505,6 +511,7 @@ async function StockContent() {
         countLocations={countLocationRows}
         categories={categoryRows}
         permissions={perms}
+        hasChildren={hasChildren}
       />
     </>
   );

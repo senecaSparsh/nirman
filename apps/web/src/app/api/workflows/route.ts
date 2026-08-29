@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, workflowSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * GET /api/workflows — list workflows scoped to the active company
@@ -47,7 +48,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const wf = await tx.workflow.create({
       data: {
         name: parsed.data.name,

@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 import { createPurchaseOrderTx } from "./procurement";
 
 /**
@@ -278,7 +279,7 @@ export async function createQuotationRequest(input: CreateQuotationRequestInput)
     requestNumber = generateRequestNumber();
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const request = await tx.quotationRequest.create({
       data: {
         requestNumber,
@@ -436,7 +437,7 @@ export async function addQuoteToRequest(input: AddQuoteToRequestInput) {
     if (new Decimal(line.unitPrice).lt(0)) throw new ServiceError("Quote line unit price must be ≥ 0");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Compute all line landed costs.
     const computedLines = input.lines.map((l) => {
       const reqLine = reqLineMap.get(l.materialId)!;
@@ -570,7 +571,7 @@ export interface ApproveQuotationInput {
  * If the selected quote is NOT the cheapest, a reason is mandatory.
  */
 export async function approveQuotation(input: ApproveQuotationInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const request = await tx.quotationRequest.findUnique({
       where: { id: input.quotationRequestId },
       include: {
@@ -670,8 +671,8 @@ export async function approveQuotation(input: ApproveQuotationInput) {
     if (!winningQuote) throw new ServiceError("Winning quote not found", 404);
 
     // Resolve the destination location (user-chosen at creation time).
-    const destLocation = await tx.stockLocation.findUnique({
-      where: { id: request.destinationLocationId ?? "" },
+    const destLocation = await tx.stockLocation.findFirst({
+      where: { id: request.destinationLocationId ?? "", deletedAt: null },
       select: { id: true, companyId: true, type: true, projectId: true, name: true },
     });
     if (!destLocation) {

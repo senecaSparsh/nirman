@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Supplier Invoice Service — three-way matching before paying suppliers.
@@ -199,7 +200,7 @@ export async function createSupplierInvoice(input: {
   if (subtotal.lt(0)) throw new ServiceError("Subtotal cannot be negative");
   if (totalAmount.lt(0)) throw new ServiceError("Total amount cannot be negative");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // 1. Validate supplier
     const supplier = await tx.supplier.findFirst({
       where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
@@ -307,7 +308,7 @@ export async function approveSupplierInvoice(input: {
   action: "approve" | "reject";
   notes?: string;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.supplierInvoice.findFirst({
       where: { id: input.invoiceId, companyId: input.companyId },
     });

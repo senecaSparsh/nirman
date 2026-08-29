@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Truck, AlertTriangle } from "lucide-react";
+import { Truck, AlertTriangle, PackageOpen } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -72,7 +72,15 @@ export function MobileReceiveList({
 
   const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={PackageOpen}
+        title="No pending receipts"
+        hint="Ordered POs awaiting delivery will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -125,7 +133,7 @@ function FlatList({ items }: { items: ReceiveListItem[] }) {
       <MobileSectionTitle
         right={
           <span
-            className="text-[0.625rem] font-semibold"
+            className="text-m-label font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {items.length} PO{items.length !== 1 ? "s" : ""}

@@ -160,22 +160,22 @@ export default function MobileNewScrapGenerationClient() {
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Scrap Generated
         </p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
           {success.scrapNumber}
         </p>
-        <p className="text-[1rem] font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
+        <p className="text-m-section font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.totalValue)}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => {
               router.refresh();
               router.push("/m/scrap-generations");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Scrap
@@ -186,7 +186,7 @@ export default function MobileNewScrapGenerationClient() {
               setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "" }]);
               setNotes("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -201,12 +201,12 @@ export default function MobileNewScrapGenerationClient() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
       </div>
     );
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
 
   return (
     <div>
@@ -282,7 +282,7 @@ export default function MobileNewScrapGenerationClient() {
 
         {/* ── Line items ── */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
             Line Items <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <div className="flex flex-col gap-2">
@@ -301,9 +301,9 @@ export default function MobileNewScrapGenerationClient() {
                     value={line.materialId}
                     onChange={(val) => handleLineChange(idx, "materialId", val)}
                     options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
-                    inputClass={`${inputClass} text-[0.6875rem] mb-2`}
+                    inputClass={`${inputClass} text-m-body mb-2`}
                     inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                    labelClass="text-[0.4375rem] font-semibold uppercase block mb-1"
+                    labelClass="text-m-caption font-semibold uppercase block mb-1"
                     renderDialog={({ open, onClose, onCreated }) => (
                       <MobileNewMaterialDialog
                         open={open}
@@ -320,7 +320,7 @@ export default function MobileNewScrapGenerationClient() {
                   {/* Qty + unit cost */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
@@ -330,12 +330,12 @@ export default function MobileNewScrapGenerationClient() {
                         value={line.qty}
                         onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
                         placeholder="0"
-                        className={`${inputClass} text-[0.6875rem] tabular-nums`}
+                        className={`${inputClass} text-m-body tabular-nums`}
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                       />
                     </div>
                     <div>
-                      <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                         Unit Cost
                       </label>
                       <input
@@ -345,7 +345,7 @@ export default function MobileNewScrapGenerationClient() {
                         value={line.unitCost}
                         onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
                         placeholder="0"
-                        className={`${inputClass} text-[0.6875rem] tabular-nums`}
+                        className={`${inputClass} text-m-body tabular-nums`}
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                       />
                     </div>
@@ -353,14 +353,14 @@ export default function MobileNewScrapGenerationClient() {
 
                   {/* Line total + remove */}
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                    <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
                       {formatCurrency(lineTotal)}
                     </span>
                     {lines.length > 1 ? (
                       <button
                         type="button"
                         onClick={() => handleRemoveLine(idx)}
-                        className="flex items-center gap-0.5 text-[0.5rem] font-semibold press"
+                        className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-3" /> Remove
@@ -376,11 +376,11 @@ export default function MobileNewScrapGenerationClient() {
           <button
             type="button"
             onClick={handleAddLine}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 press"
+            className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             <Plus className="size-3" />
-            <span className="text-[0.625rem] font-semibold">Add line item</span>
+            <span className="text-m-label font-semibold">Add line item</span>
           </button>
         </div>
 
@@ -401,10 +401,10 @@ export default function MobileNewScrapGenerationClient() {
           className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
           style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
         >
-          <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Total Scrap Value
           </span>
-          <span className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+          <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
             {formatCurrency(totalValue)}
           </span>
         </div>
@@ -412,7 +412,7 @@ export default function MobileNewScrapGenerationClient() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {submitting ? (
@@ -442,7 +442,7 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-[0.5625rem] font-semibold mb-1"
+        className="block text-m-caption font-semibold mb-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}

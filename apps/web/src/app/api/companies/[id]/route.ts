@@ -4,6 +4,34 @@ import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
+/** GET /api/companies/[id] — fetch a single company by ID */
+export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.COMPANY_MANAGE);
+  const currentCompany = await getCompany();
+  const { id } = await ctx.params;
+
+  // Verify the user has access to this company (member or parent company)
+  if (id !== currentCompany.id) {
+    const isChild = await prisma.company.findFirst({
+      where: { id, parentCompanyId: currentCompany.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!isChild) {
+      return json({ error: "Company not found" }, { status: 404 });
+    }
+  }
+
+  const company = await prisma.company.findUnique({
+    where: { id },
+    include: {
+      parent: { select: { id: true, name: true } },
+      _count: { select: { children: true, projects: true, stockLocations: true } },
+    },
+  });
+  if (!company || company.deletedAt) return json({ error: "Company not found" }, { status: 404 });
+  return json(company);
+});
+
 const companyUpdateSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
   gstin: z.string().optional().nullable(),

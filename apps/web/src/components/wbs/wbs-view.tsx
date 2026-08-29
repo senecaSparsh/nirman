@@ -22,6 +22,8 @@ import {
   Search,
   X,
   Info,
+  Calculator,
+  Loader2,
 } from "lucide-react";
 
 type Project = { id: string; name: string };
@@ -235,6 +237,8 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
   const [search, setSearch] = useState("");
   const [detailNode, setDetailNode] = useState<WbsNode | null>(null);
   const [confirm, confirmDialog] = useConfirm();
+  const [calcSchedule, setCalcSchedule] = useState(false);
+  const [scheduleInfo, setScheduleInfo] = useState<{ projectDuration: number; criticalPath: string[] } | null>(null);
 
   const fetchTree = useCallback(() => {
     if (!projectId) return;
@@ -256,6 +260,29 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
       .catch(() => toast.error("Failed to load WBS"))
       .finally(() => setLoading(false));
   }, [projectId]);
+
+  const handleCalcSchedule = useCallback(async () => {
+    if (!projectId) return;
+    setCalcSchedule(true);
+    try {
+      const res = await fetch(`/api/schedule?projectId=${projectId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to compute schedule");
+      setScheduleInfo({
+        projectDuration: data.projectDuration,
+        criticalPath: data.criticalPath ?? [],
+      });
+      toast.success(
+        `Schedule computed: ${data.criticalPath?.length ?? 0} critical nodes, ${data.projectDuration} days`,
+      );
+      // Refresh tree to pick up persisted isCritical / totalFloat
+      fetchTree();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to compute schedule");
+    } finally {
+      setCalcSchedule(false);
+    }
+  }, [projectId, fetchTree]);
 
   useEffect(() => {
     fetchTree();
@@ -487,6 +514,22 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
               {expanded.size > 0 ? "Collapse All" : "Expand All"}
             </Button>
           )}
+          {tree.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCalcSchedule}
+              disabled={calcSchedule}
+              title="Run critical path analysis (forward/backward pass)"
+            >
+              {calcSchedule ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Calculator className="mr-1 h-3.5 w-3.5" />
+              )}
+              Calculate Schedule
+            </Button>
+          )}
           {canEdit && tree.length > 0 && (
             <Button size="sm" onClick={() => onAdd(null)}>
               <Plus className="mr-1 h-4 w-4" /> Add Node
@@ -529,6 +572,14 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
             <>
               <span className="text-border">·</span>
               <span><strong className="text-foreground">{formatDate(new Date(dateRange.start))}</strong> → <strong className="text-foreground">{formatDate(new Date(dateRange.end))}</strong></span>
+            </>
+          )}
+          {scheduleInfo && (
+            <>
+              <span className="text-border">·</span>
+              <span className="text-foreground"><strong className="tabular-nums">{scheduleInfo.projectDuration}</strong> day duration</span>
+              <span className="text-border">·</span>
+              <span className="text-red-600"><strong className="tabular-nums">{scheduleInfo.criticalPath.length}</strong> on critical path</span>
             </>
           )}
           <span className="ml-auto flex items-center gap-2.5 text-[10px]">
@@ -635,6 +686,10 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
       <WbsDetailDialog
         node={detailNode}
         onClose={() => setDetailNode(null)}
+        canEdit={canEdit}
+        allNodes={tree}
+        onReload={fetchTree}
+        projectId={projectId}
       />
       {confirmDialog}
     </div>
@@ -1260,9 +1315,15 @@ type MbEntry = {
   measuredBy: { name: string } | null;
 };
 
-function WbsDetailDialog({ node, onClose }: { node: WbsNode | null; onClose: () => void }) {
+function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId }: { node: WbsNode | null; onClose: () => void; canEdit: boolean; allNodes: WbsNode[]; onReload: () => void; projectId: string }) {
   const [entries, setEntries] = useState<MbEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deps, setDeps] = useState<{ id: string; type: string; lagDays: number; predecessor: { id: string; code: string; name: string }; successor: { id: string; code: string; name: string }; direction: string }[]>([]);
+  const [depsLoading, setDepsLoading] = useState(false);
+  const [showAddDep, setShowAddDep] = useState(false);
+  const [depForm, setDepForm] = useState({ otherNodeId: "", depType: "FS", lagDays: "0", isPredecessor: "true" });
+  const [evm, setEvm] = useState<{ nodeId: string; pv: number; ev: number; progressPct: number; variance: number; isCritical: boolean } | null>(null);
+  const [evmLoading, setEvmLoading] = useState(false);
 
   useEffect(() => {
     if (!node) return;
@@ -1272,9 +1333,39 @@ function WbsDetailDialog({ node, onClose }: { node: WbsNode | null; onClose: () 
       .then((data) => setEntries(data ?? []))
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
-  }, [node]);
+    setDepsLoading(true);
+    fetch(`/api/wbs/dependencies?nodeId=${node.id}`)
+      .then((r) => r.json())
+      .then((data) => setDeps(Array.isArray(data) ? data : []))
+      .catch(() => setDeps([]))
+      .finally(() => setDepsLoading(false));
+    // Fetch per-node EVM (only for nodes with BOQ links)
+    if (node.boqItem && projectId) {
+      setEvmLoading(true);
+      fetch(`/api/node-evm?projectId=${projectId}`)
+        .then((r) => r.json())
+        .then((data: Array<{ nodeId: string; pv: number; ev: number; progressPct: number; variance: number; isCritical: boolean }>) => {
+          const match = data.find((d) => d.nodeId === node.id);
+          setEvm(match ?? null);
+        })
+        .catch(() => setEvm(null))
+        .finally(() => setEvmLoading(false));
+    } else {
+      setEvm(null);
+    }
+  }, [node, projectId]);
 
   if (!node) return null;
+
+  // Flatten the tree for the dependency node select
+  const allNodesFlat: WbsNode[] = [];
+  function collectAll(ns: WbsNode[]) {
+    for (const n of ns) {
+      allNodesFlat.push(n);
+      collectAll(n.children);
+    }
+  }
+  collectAll(allNodes);
 
   const isMilestone = node.type === "MILESTONE";
   const approvedEntries = entries.filter((e) => e.status === "APPROVED");
@@ -1390,6 +1481,41 @@ function WbsDetailDialog({ node, onClose }: { node: WbsNode | null; onClose: () 
           </div>
         )}
 
+        {/* ── EVM (Earned Value Management) ── */}
+        {hasBoq && (
+          <div className="border-t border-border pt-3">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Earned Value (EVM)
+            </div>
+            {evmLoading ? (
+              <div className="text-sm text-muted-foreground py-2 text-center">Computing…</div>
+            ) : evm ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wide">PV (Planned)</div>
+                  <div className="text-sm font-semibold tabular-nums">{formatCurrency(evm.pv)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wide">EV (Earned)</div>
+                  <div className="text-sm font-semibold tabular-nums">{formatCurrency(evm.ev)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wide">Variance</div>
+                  <div className={cn("text-sm font-semibold tabular-nums", evm.variance >= 0 ? "text-emerald-600" : "text-red-600")}>
+                    {evm.variance >= 0 ? "+" : ""}{formatCurrency(evm.variance)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wide">EVM Progress</div>
+                  <div className="text-sm font-semibold tabular-nums">{Math.round(evm.progressPct)}%</div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No EVM data — link a BOQ item and create MB entries to compute earned value.</p>
+            )}
+          </div>
+        )}
+
         {/* ── MB Entries ── */}
         <div className="border-t border-border pt-3">
           <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -1437,6 +1563,145 @@ function WbsDetailDialog({ node, onClose }: { node: WbsNode | null; onClose: () 
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Dependencies ── */}
+        <div className="border-t border-border pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Dependencies ({deps.length})
+            </div>
+            {canEdit && (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDepForm({ otherNodeId: "", depType: "FS", lagDays: "0", isPredecessor: "true" }); setShowAddDep(!showAddDep); }}>
+                {showAddDep ? "Cancel" : "+ Add"}
+              </Button>
+            )}
+          </div>
+          {depsLoading ? (
+            <div className="text-sm text-muted-foreground py-2 text-center">Loading…</div>
+          ) : deps.length === 0 && !showAddDep ? (
+            <div className="text-sm text-muted-foreground py-2 text-center">No dependencies. Add one to link predecessor/successor tasks.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {deps.map((d) => (
+                <div key={d.id} className="flex items-center gap-2 text-sm rounded-md border border-border/60 px-2 py-1.5">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">{d.type}</span>
+                  {d.direction === "outgoing" ? (
+                    <span className="flex-1 truncate">
+                      <span className="text-muted-foreground">→ succeeds </span>
+                      <span className="font-mono text-xs">{d.successor.code}</span>
+                      <span> {d.successor.name}</span>
+                    </span>
+                  ) : (
+                    <span className="flex-1 truncate">
+                      <span className="text-muted-foreground">← after </span>
+                      <span className="font-mono text-xs">{d.predecessor.code}</span>
+                      <span> {d.predecessor.name}</span>
+                    </span>
+                  )}
+                  {d.lagDays !== 0 && <span className="text-xs text-muted-foreground">{d.lagDays > 0 ? "+" : ""}{d.lagDays}d</span>}
+                  {canEdit && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-1.5 text-muted-foreground hover:text-danger"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/wbs/dependencies/${d.id}`, { method: "DELETE" });
+                          if (!res.ok) throw new Error("Failed");
+                          toast.success("Dependency removed");
+                          setDeps((prev) => prev.filter((x) => x.id !== d.id));
+                          onReload();
+                        } catch { toast.error("Failed to remove dependency"); }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {showAddDep && canEdit && node && (
+            <div className="mt-2 rounded-md border border-dashed p-2.5 space-y-2">
+              <div className="grid grid-cols-[1fr_80px_60px] gap-2 items-end">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase text-muted-foreground">Link to</label>
+                  <select
+                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
+                    value={depForm.otherNodeId}
+                    onChange={(e) => setDepForm((f) => ({ ...f, otherNodeId: e.target.value }))}
+                  >
+                    <option value="">Select node…</option>
+                    {allNodesFlat.filter((n) => n.id !== node.id).map((n) => (
+                      <option key={n.id} value={n.id}>{n.code} — {n.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase text-muted-foreground">Type</label>
+                  <select
+                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
+                    value={depForm.depType}
+                    onChange={(e) => setDepForm((f) => ({ ...f, depType: e.target.value }))}
+                  >
+                    <option value="FS">FS</option>
+                    <option value="SS">SS</option>
+                    <option value="FF">FF</option>
+                    <option value="SF">SF</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase text-muted-foreground">Lag</label>
+                  <input
+                    type="number"
+                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
+                    value={depForm.lagDays}
+                    onChange={(e) => setDepForm((f) => ({ ...f, lagDays: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="depDir" checked={depForm.isPredecessor === "true"} onChange={() => setDepForm((f) => ({ ...f, isPredecessor: "true" }))} />
+                  This node is predecessor
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" name="depDir" checked={depForm.isPredecessor === "false"} onChange={() => setDepForm((f) => ({ ...f, isPredecessor: "false" }))} />
+                  This node is successor
+                </label>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!depForm.otherNodeId) { toast.error("Select a node to link"); return; }
+                    const predecessorId = depForm.isPredecessor === "true" ? node.id : depForm.otherNodeId;
+                    const successorId = depForm.isPredecessor === "true" ? depForm.otherNodeId : node.id;
+                    try {
+                      const res = await fetch("/api/wbs/dependencies", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ predecessorId, successorId, type: depForm.depType, lagDays: Number(depForm.lagDays) || 0 }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error ?? "Failed");
+                      toast.success("Dependency added");
+                      setShowAddDep(false);
+                      // Refetch deps
+                      const dr = await fetch(`/api/wbs/dependencies?nodeId=${node.id}`);
+                      if (dr.ok) setDeps(await dr.json());
+                      onReload();
+                    } catch (err: unknown) {
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    }
+                  }}
+                >
+                  Add Dependency
+                </Button>
+              </div>
             </div>
           )}
         </div>

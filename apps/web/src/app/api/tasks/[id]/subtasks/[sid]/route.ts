@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { toggleSubTask, deleteSubTask, reorderSubTasks } from "@nirman/services";
-import { apiHandler, getCurrentUser, json } from "@/lib/server";
+import { apiHandler, json, requireUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -10,8 +10,7 @@ import { PERM, hasPermission } from "@/lib/roles";
  *   body: { reorder?: string[] }  // ordered list of subtask ids for this task
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string; sid: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   const { id: taskId, sid } = await params;
 
   const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });
@@ -43,8 +42,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string; sid: string }> }) => {
-  const user = await getCurrentUser();
-  if (!user) return json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireUser();
   const { id: taskId, sid } = await params;
 
   const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });

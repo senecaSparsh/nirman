@@ -134,13 +134,13 @@ export function MobileStockCountsList({
               style={{ color: "var(--color-ink-300)" }}
             />
             <p
-              className="text-[0.75rem] font-semibold"
+              className="text-m-section font-semibold"
               style={{ color: "var(--color-ink-700)" }}
             >
               No stock inventories
             </p>
             <p
-              className="text-[0.625rem]"
+              className="text-m-label"
               style={{ color: "var(--color-ink-500)" }}
             >
               Start a physical verification
@@ -152,7 +152,7 @@ export function MobileStockCountsList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} count{filtered.length !== 1 ? "s" : ""}
@@ -196,7 +196,7 @@ function CountCard({ c }: { c: StockCountItem }) {
   return (
     <Link
       href={`/m/stock-counts/${c.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -209,14 +209,14 @@ function CountCard({ c }: { c: StockCountItem }) {
         {/* Row 1: Status badge */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="flex items-center gap-0.5 text-[0.4375rem] font-bold uppercase shrink-0"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             <StatusIcon className="size-2.5" />
             {statusLabel}
           </span>
           <span
-            className="text-[0.4375rem] font-semibold"
+            className="text-m-caption font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {c.lineCount} items
@@ -225,7 +225,7 @@ function CountCard({ c }: { c: StockCountItem }) {
 
         {/* Row 2: Location name */}
         <p
-          className="text-[0.5625rem] font-bold leading-tight truncate"
+          className="text-m-caption font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {c.locationName}
@@ -233,7 +233,7 @@ function CountCard({ c }: { c: StockCountItem }) {
 
         {/* Row 3: Date */}
         <span
-          className="text-[0.5rem] tabular-nums"
+          className="text-m-caption tabular-nums"
           style={{ color: "var(--color-ink-500)" }}
         >
           {formatDate(c.countDate)}
@@ -244,13 +244,13 @@ function CountCard({ c }: { c: StockCountItem }) {
           {hasVariance ? (
             <div className="flex items-center justify-between">
               <span
-                className="text-[0.4375rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {c.itemsWithVariance} mismatch
               </span>
               <span
-                className="text-[0.5625rem] font-bold tabular-nums"
+                className="text-m-caption font-bold tabular-nums"
                 style={{ color: varianceColor }}
               >
                 {c.totalVariance > 0 ? "+" : ""}
@@ -260,7 +260,7 @@ function CountCard({ c }: { c: StockCountItem }) {
           ) : (
             <div className="flex items-center justify-between">
               <span
-                className="text-[0.4375rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 All match

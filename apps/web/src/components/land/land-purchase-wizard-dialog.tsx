@@ -494,7 +494,7 @@ export function LandPurchaseWizardDialog({
               step === i + 1 ? "bg-brand/10 text-brand" : step > i + 1 ? "text-muted-foreground" : "text-faint",
             )}>
               <div className={cn(
-                "grid place-items-center size-4 rounded-full text-[0.5rem]",
+                "grid place-items-center size-4 rounded-full text-m-caption",
                 step === i + 1 ? "bg-brand text-white" : step > i + 1 ? "bg-muted-foreground text-white" : "bg-border text-faint",
               )}>
                 {step > i + 1 ? <Check className="size-2.5" /> : i + 1}

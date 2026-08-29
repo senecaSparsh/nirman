@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight, ArrowDownRight, Clock } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Clock, GitBranch } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -78,7 +78,15 @@ export function MobileChangeOrdersList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={GitBranch}
+        title="No change orders"
+        hint="Change orders will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -115,7 +123,7 @@ export function MobileChangeOrdersList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} change order{filtered.length !== 1 ? "s" : ""}
@@ -139,33 +147,33 @@ function ChangeOrderCard({ co: c }: { co: ChangeOrderListItem }) {
   return (
     <Link
       href={`/m/change-orders/${c.id}`}
-      className="rounded-[0.5rem] border p-2.5 block press"
+      className="rounded-[0.5rem] border p-2.5 block text-m-body press"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {c.changeOrderNo}
         </p>
         <MobileStatusBadge status={c.status} />
       </div>
-      <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
         {c.title}
       </p>
-      <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {TYPE_LABELS[c.type] ?? c.type} · {c.projectName}{c.phaseName ? ` · ${c.phaseName}` : ""}
       </p>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Lines</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Lines</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {c.lineCount}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost Δ</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost Δ</p>
           <p
-            className="text-[0.625rem] font-bold tabular-nums flex items-center gap-0.5"
+            className="text-m-label font-bold tabular-nums flex items-center gap-0.5"
             style={{
               color: costDeltaPositive ? "var(--color-stop)" : costDeltaNegative ? "var(--color-go)" : "var(--color-ink-950)",
             }}
@@ -179,8 +187,8 @@ function ChangeOrderCard({ co: c }: { co: ChangeOrderListItem }) {
           <>
             <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
             <div>
-              <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Schedule</p>
-              <p className="text-[0.625rem] font-bold tabular-nums flex items-center gap-0.5" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Schedule</p>
+              <p className="text-m-label font-bold tabular-nums flex items-center gap-0.5" style={{ color: "var(--color-ink-950)" }}>
                 <Clock className="size-3" />
                 {c.scheduleDeltaDays > 0 ? "+" : ""}{c.scheduleDeltaDays}d
               </p>
@@ -188,8 +196,8 @@ function ChangeOrderCard({ co: c }: { co: ChangeOrderListItem }) {
           </>
         )}
         <div className="ml-auto text-right">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Created</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Created</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(c.createdAt)}
           </p>
         </div>

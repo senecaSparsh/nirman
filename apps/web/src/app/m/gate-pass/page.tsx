@@ -5,6 +5,7 @@ import { ShieldCheck, Truck, Clock, CheckCircle, XCircle, Plus } from "lucide-re
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSectionTitle, MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileGatePassList, MobileGatePassFormDialog } from "./MobileGatePassList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -99,13 +100,12 @@ async function MobileGatePassContent() {
 
   return (
     <div className="space-y-4 p-3">
-      <div className="flex items-center justify-between">
-        <MobileSectionTitle>Gate Pass</MobileSectionTitle>
-        {canCreate && (
-          <MobileGatePassFormDialog locations={locations} projects={projects} />
-        )}
-      </div>
-      <p className="text-meta text-muted-foreground -mt-2">Items cannot leave the gate until approved</p>
+      <MobileSectionTitle>Gate Pass</MobileSectionTitle>
+      <p className="text-m-caption -mt-2" style={{ color: "var(--color-ink-500)" }}>Items cannot leave the gate until approved</p>
+
+      {canCreate && (
+        <MobileGatePassFormDialog locations={locations} projects={projects} />
+      )}
 
       <div className="grid grid-cols-4 gap-2">
         <MobileStatCard

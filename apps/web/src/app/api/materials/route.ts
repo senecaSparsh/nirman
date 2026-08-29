@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -126,7 +128,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   const existing = await prisma.material.findUnique({ where: { code } });
   if (existing && existing.deletedAt) {
-    const restored = await prisma.$transaction(async (tx) => {
+    const restored = await withSerializableTransaction(async (tx) => {
       const mat = await tx.material.update({
         where: { id: existing.id },
         data: { ...parsed.data, deletedAt: null },
@@ -140,13 +142,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       return mat;
     });
+    revalidatePath("/materials");
+    revalidatePath("/m/materials");
     return json(restored, { status: 201 });
   }
   if (existing) {
     return json({ error: "A material with this code already exists" }, { status: 409 });
   }
   try {
-    const created = await prisma.$transaction(async (tx) => {
+    const created = await withSerializableTransaction(async (tx) => {
       // Validate category exists
       const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
       if (!category) throw new Error("Category not found");
@@ -169,6 +173,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       return mat;
     });
+    revalidatePath("/materials");
+    revalidatePath("/m/materials");
     return json(created, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create material") }, { status: 400 });
@@ -203,7 +209,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
       continue;
     }
     try {
-      await prisma.$transaction(async (tx) => {
+      await withSerializableTransaction(async (tx) => {
         if (existing && existing.deletedAt) {
           // Restore soft-deleted material
           await tx.material.update({
@@ -239,5 +245,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     }
   }
 
+  revalidatePath("/materials");
+  revalidatePath("/m/materials");
   return json(results, { status: 200 });
 });

@@ -35,7 +35,7 @@ export function BottomSheet({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
         onClick={onClose}
       />
       {/* Sheet */}
@@ -48,10 +48,10 @@ export function BottomSheet({
         <div className="sticky top-0 z-10 pt-2 pb-1" style={{ backgroundColor: "var(--color-paper)" }}>
           <div className="w-8 h-0.5 rounded-full mx-auto mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
           <div className="flex items-center justify-between px-3 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {title}
             </p>
-            <button onClick={onClose} className="press" aria-label="Close">
+            <button onClick={onClose} className="text-m-body press" aria-label="Close">
               <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
             </button>
           </div>

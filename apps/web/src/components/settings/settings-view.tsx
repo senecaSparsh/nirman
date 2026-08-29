@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -31,6 +32,11 @@ type UserRow = {
   name: string;
   role: string;
   active: boolean;
+  phone: string | null;
+  designation: string | null;
+  department: string | null;
+  employeeCode: string | null;
+  joiningDate: string | null;
 };
 
 type CompanyInfo = {
@@ -164,12 +170,16 @@ export function SettingsView({
   // Company form
   const [companyForm, setCompanyForm] = useState(company);
   const [savingCompany, setSavingCompany] = useState(false);
+  const [previewAmount, setPreviewAmount] = useState("");
+  const [previewResult, setPreviewResult] = useState<{ requiredRole: string; threshold: number; reason: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Location form
   const [locFormOpen, setLocFormOpen] = useState(false);
   const [locForm, setLocForm] = useState({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "", lat: "", lng: "", geoRadius: "" });
   const [savingLoc, setSavingLoc] = useState(false);
   const [deletingLoc, setDeletingLoc] = useState<StockLocationRow | null>(null);
+  const [editingLocId, setEditingLocId] = useState<string | null>(null);
 
   // Local copy of projects so freshly created ones appear without a refresh
   const [localProjects, setLocalProjects] = useState(projects);
@@ -212,23 +222,34 @@ export function SettingsView({
     if (!locForm.name.trim()) return toast.error("Location name is required");
     setSavingLoc(true);
     try {
-      const res = await fetch("/api/stock-locations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: locForm.type,
-          name: locForm.name.trim(),
-          address: locForm.address.trim() || null,
-          projectId: locForm.type === "PROJECT_SITE" ? locForm.projectId || null : null,
-          lat: locForm.lat ? parseFloat(locForm.lat) : null,
-          lng: locForm.lng ? parseFloat(locForm.lng) : null,
-          geoRadius: locForm.geoRadius ? parseInt(locForm.geoRadius) : null,
-        }),
-      });
+      const payload = {
+        type: locForm.type,
+        name: locForm.name.trim(),
+        address: locForm.address.trim() || null,
+        projectId: locForm.type === "PROJECT_SITE" ? locForm.projectId || null : null,
+        lat: locForm.lat ? parseFloat(locForm.lat) : null,
+        lng: locForm.lng ? parseFloat(locForm.lng) : null,
+        geoRadius: locForm.geoRadius ? parseInt(locForm.geoRadius) : null,
+      };
+      let res: Response;
+      if (editingLocId) {
+        res = await fetch(`/api/stock-locations/${editingLocId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        res = await fetch("/api/stock-locations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create location");
-      toast.success("Location created");
+      if (!res.ok) throw new Error(data.error ?? "Failed to save location");
+      toast.success(editingLocId ? "Location updated" : "Location created");
       setLocFormOpen(false);
+      setEditingLocId(null);
       setLocForm({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "", lat: "", lng: "", geoRadius: "" });
       router.refresh();
     } catch (err: unknown) {
@@ -236,6 +257,20 @@ export function SettingsView({
     } finally {
       setSavingLoc(false);
     }
+  }
+
+  function openEditLocation(l: StockLocationRow) {
+    setEditingLocId(l.id);
+    setLocForm({
+      type: l.type,
+      name: l.name,
+      address: l.address ?? "",
+      projectId: l.projectId ?? "",
+      lat: l.lat != null ? String(l.lat) : "",
+      lng: l.lng != null ? String(l.lng) : "",
+      geoRadius: l.geoRadius != null ? String(l.geoRadius) : "",
+    });
+    setLocFormOpen(true);
   }
 
   return (
@@ -354,6 +389,60 @@ export function SettingsView({
                     </div>
                   </div>
                 </div>
+
+                {/* ── Approval Routing Preview ── */}
+                <div className="rounded-md border border-border p-4 space-y-3">
+                  <div>
+                    <div className="text-body font-semibold">Approval Routing Preview</div>
+                    <div className="text-caption text-muted-foreground">
+                      Test an amount to see which role would be required to approve a PO of that value.
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 space-y-1.5">
+                      <Label>PO Amount (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={previewAmount}
+                        onChange={(e) => setPreviewAmount(e.target.value)}
+                        placeholder="e.g. 75000"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={previewLoading || !previewAmount}
+                      onClick={async () => {
+                        setPreviewLoading(true);
+                        setPreviewResult(null);
+                        try {
+                          const res = await fetch(`/api/approval-routing?amount=${encodeURIComponent(previewAmount)}`);
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error ?? "Failed to fetch routing");
+                          setPreviewResult(data);
+                        } catch (err: unknown) {
+                          toast.error(err instanceof Error ? err.message : "Failed to fetch routing");
+                        } finally {
+                          setPreviewLoading(false);
+                        }
+                      }}
+                    >
+                      {previewLoading ? "Checking…" : "Preview"}
+                    </Button>
+                  </div>
+                  {previewResult && (
+                    <div className="rounded-md bg-muted/50 p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-caption text-muted-foreground">Required approver:</span>
+                        <span className="font-semibold text-foreground">{previewResult.requiredRole.replace(/_/g, " ")}</span>
+                      </div>
+                      <p className="text-caption text-muted-foreground mt-1">{previewResult.reason}</p>
+                    </div>
+                  )}
+                </div>
+
                 <Button type="submit" disabled={savingCompany}>
                   {savingCompany ? "Saving…" : "Save Changes"}
                 </Button>
@@ -367,7 +456,7 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="locations">
-          <LocationsTab locations={locations} onDelete={setDeletingLoc} onNew={() => setLocFormOpen(true)} />
+          <LocationsTab locations={locations} onDelete={setDeletingLoc} onNew={() => { setEditingLocId(null); setLocForm({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "", lat: "", lng: "", geoRadius: "" }); setLocFormOpen(true); }} onEdit={openEditLocation} />
         </TabsContent>
         <TabsContent value="cost-centres">
           <CostCentresTab departments={departments} canCreate canEdit canDelete />
@@ -400,7 +489,7 @@ export function SettingsView({
       {locFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLocFormOpen(false)}>
           <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">New Stock Location</h2>
+            <h2 className="mb-4 text-lg font-semibold">{editingLocId ? "Edit Stock Location" : "New Stock Location"}</h2>
             <form onSubmit={saveLocation} className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Type</Label>
@@ -579,10 +668,12 @@ function LocationsTab({
   locations,
   onDelete,
   onNew,
+  onEdit,
 }: {
   locations: StockLocationRow[];
   onDelete: (l: StockLocationRow) => void;
   onNew: () => void;
+  onEdit: (l: StockLocationRow) => void;
 }) {
   const columns: Column<StockLocationRow>[] = [
     {
@@ -634,6 +725,14 @@ function LocationsTab({
       align: "right",
       render: (l) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Edit location"
+            onClick={() => onEdit(l)}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -697,6 +796,7 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
   const [adding, setAdding] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
 
   const assignable = assignableRoles(actorRole);
 
@@ -919,7 +1019,17 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
                   </TD>
                   {canManage && (
                     <TD className="text-right text-caption text-muted-foreground">
-                      {ROLE_LIST.find((r) => r.key === u.role)?.description}
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="hidden lg:inline">{ROLE_LIST.find((r) => r.key === u.role)?.description}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Edit profile"
+                          onClick={() => setEditUser(u)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                      </div>
                     </TD>
                   )}
                 </TR>
@@ -941,6 +1051,112 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
           ))}
         </CardContent>
       </Card>
+
+      {/* Edit user profile dialog */}
+      {editUser && (
+        <EditUserProfileDialog
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSaved={() => { setEditUser(null); router.refresh(); }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * Edit User Profile Dialog — edit name, phone, designation,
+ * department, employeeCode, joiningDate via PATCH /api/users/[id]
+ * ════════════════════════════════════════════════════════════ */
+function EditUserProfileDialog({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: UserRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [designation, setDesignation] = useState(user.designation ?? "");
+  const [department, setDepartment] = useState(user.department ?? "");
+  const [employeeCode, setEmployeeCode] = useState(user.employeeCode ?? "");
+  const [joiningDate, setJoiningDate] = useState(user.joiningDate ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return toast.error("Name is required");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim() || null,
+          designation: designation.trim() || null,
+          department: department.trim() || null,
+          employeeCode: employeeCode.trim() || null,
+          joiningDate: joiningDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update user");
+      toast.success("User profile updated");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={`Edit Profile — ${user.name}`}
+      description={user.email}
+      className="max-w-md"
+    >
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label>Name *</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Phone</Label>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Designation</Label>
+            <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Department</Label>
+            <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Employee Code</Label>
+            <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. EMP-001" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Joining Date</Label>
+            <Input type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

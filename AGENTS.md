@@ -703,3 +703,64 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
   quote upload dialog — no separate "add supplier" page needed. Nav:
   Build → Procure section on desktop; "More" menu on mobile for
   executive/ops/field personas.
+- **Guidance layer (orientation + next-action)**: a set of primitives
+  that answer "what is this page for / where am I in the flow / what do
+  I do next — on this page" without adding chrome or changing the
+  existing UI. Built on the existing warm-palette mobile v2 tokens.
+  Single rule (inherited from the `Callout` contract: *"a callout must
+  always carry an action, or it is nagging"*): every guidance element
+  either (a) explains the screen in one line, (b) shows flow position,
+  or (c) offers a single next action doable on the same page — else
+  don't render it.
+  - **Flow map** (`@/lib/flow-map.ts`): the single source of truth for
+    transactional flows (procurement, requisition, stockTransfer,
+    materialIssue, materialSale, dpr, ncr, builtUnit). Each `FlowDef`
+    has `listLead` (one-line page description), ordered `nodes`
+    (lifecycle statuses), `next` (status → next-action with label,
+    reason, on-page action anchor/filter/navigate, required permission,
+    tone), and optional `listNext` (queue count for list pages).
+    `resolveNextAction(flowId, status, role)` resolves server-side via
+    `hasPermission` — no function crosses the server/client boundary.
+    `flowForRoute(route)` maps a /m/* list route to its flow. Add a new
+    flow by appending to `FLOWS`; add a status by adding a `NextAction`.
+  - **Primitives** (`@/components/mobile/v2/guidance.tsx`):
+    - `PageLead` — one muted line under the page title; auto-collapses
+      after 3 visits (localStorage `nirman:page-visits`, no backend).
+      Pass `flow="procurement"` (reads `listLead` from the flow map) or
+      `text="…"`.
+    - `NextActionCard` (client) / `NextActionCardView` (server,
+      presentational) — the one thing to do next, as a left-accent card.
+      Only renders when an action exists AND the user has the perm.
+      Record-level: pass `flow` + `status` + `can(perm)`. List-level:
+      pass `flow` + `count` + `can` (uses `flow.listNext`). Actions
+      stay on-page via `#anchor` hashes or `?status=` filter chips;
+      only navigates when there's genuinely no on-page action.
+    - `ContextTag` — the "before" in the flow: a tappable chip showing
+      where this thing came from ("from Requisition RQ-2401-012",
+      "to Project Riviera"). Formalises the ad-hoc source/parent links.
+    - `DoneStrip` — replaces floating toasts for successful mutations;
+      stays on-page (no portal, never covers the bottom action bar),
+      auto-hides after 5s, carries the next-flow-step link.
+    - `MobileFieldHint` — the mobile cousin of the desktop `Hint`;
+      one-line business-rule explanation under a form field, shown when
+      focused/empty.
+  - **Pilot**: `/m/procurement` (list) renders `PageLead` +
+    `NextActionCard` (drafts-awaiting-approval queue, filter-chip
+    action). `/m/procurement/[id]` (detail) renders
+    `NextActionCardView` (status-driven, server-resolved). The PO
+    detail already had `MobilePipelineStepper` (the "where am I" strip)
+    and ad-hoc source-requisition/project links — these are the
+    reference for wiring other flows.
+  - **Wiring other flows**: (1) add the flow to `FLOWS` in
+    `flow-map.ts`; (2) on the list page (server), compute the queue
+    count + pass `canApprove`-style booleans; (3) render `<PageLead
+    flow="…" />` + `<NextActionCard flow="…" count={n} can={…} />`; (4)
+    on the detail page, `const next = resolveNextAction("…", status,
+    role)` and render `<NextActionCardView …/>` if non-null.
+  - **InlineWarn (row-level warnings)**: `MobileRow` already has a
+    `tone: "warning" | "danger"` prop — wire it on list pages so
+    problems sit on the row that has them (3px left border + chip),
+    not as a floating banner. Rule: at most ONE banner (the most
+    severe) at the top; everything else is row-level. The procurement
+    list already does this on its custom `PoCard` (overdue accent
+    strip) — extend the pattern to other lists that use `MobileRow`.

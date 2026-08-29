@@ -535,7 +535,7 @@ export default function MobileNewMaterialSaleClient() {
           )}
         </div>
         <p
-          className="text-[0.875rem] font-bold mb-1"
+          className="text-m-section font-bold mb-1"
           style={{ color: "var(--color-ink-950)" }}
         >
           {isQueued
@@ -545,7 +545,7 @@ export default function MobileNewMaterialSaleClient() {
               : "Sale Created"}
         </p>
         <p
-          className="text-[0.6875rem] font-mono mb-3"
+          className="text-m-body font-mono mb-3"
           style={{ color: "var(--color-ink-500)" }}
         >
           {isQueued
@@ -555,7 +555,7 @@ export default function MobileNewMaterialSaleClient() {
               : success.saleNumber}
         </p>
         <p
-          className="text-[1rem] font-bold tabular-nums mb-1"
+          className="text-m-section font-bold tabular-nums mb-1"
           style={{ color: "var(--color-go)" }}
         >
           {formatCurrency(success.totalAmount)}
@@ -563,28 +563,28 @@ export default function MobileNewMaterialSaleClient() {
         {/* Payment status badge */}
         {isQueued ? (
           <p
-            className="text-[0.5625rem] font-bold uppercase mb-4"
+            className="text-m-caption font-bold uppercase mb-4"
             style={{ color: "var(--color-signal)" }}
           >
             Record Payments After Sync
           </p>
         ) : isGatePass ? (
           <p
-            className="text-[0.5625rem] font-bold uppercase mb-4"
+            className="text-m-caption font-bold uppercase mb-4"
             style={{ color: "var(--color-signal)" }}
           >
             Awaiting Gate Pass Approval
           </p>
         ) : isPaid ? (
           <p
-            className="text-[0.5625rem] font-bold uppercase mb-4"
+            className="text-m-caption font-bold uppercase mb-4"
             style={{ color: "var(--color-go)" }}
           >
             Fully Paid
           </p>
         ) : isPartial ? (
           <p
-            className="text-[0.5625rem] font-bold uppercase mb-4"
+            className="text-m-caption font-bold uppercase mb-4"
             style={{ color: "var(--color-signal)" }}
           >
             Partial ·{" "}
@@ -593,17 +593,17 @@ export default function MobileNewMaterialSaleClient() {
           </p>
         ) : (
           <p
-            className="text-[0.5625rem] font-bold uppercase mb-4"
+            className="text-m-caption font-bold uppercase mb-4"
             style={{ color: "var(--color-signal)" }}
           >
             Unpaid · Credit
           </p>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           {isGatePass ? (
             <button
               onClick={() => router.push("/m/gate-pass")}
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",
@@ -616,7 +616,7 @@ export default function MobileNewMaterialSaleClient() {
               {!isQueued && success.saleId ? (
                 <button
                   onClick={() => router.push(`/m/material-sales/${success.saleId}`)}
-                  className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+                  className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
                   style={{
                     backgroundColor: "var(--color-ink-950)",
                     color: "var(--color-paper)",
@@ -630,7 +630,7 @@ export default function MobileNewMaterialSaleClient() {
                   router.refresh();
                   router.push("/m/material-sales");
                 }}
-                className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+                className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
                 style={{
                   backgroundColor: "var(--color-ink-950)",
                   color: "var(--color-paper)",
@@ -656,7 +656,7 @@ export default function MobileNewMaterialSaleClient() {
               ]);
               setNotes("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -679,7 +679,7 @@ export default function MobileNewMaterialSaleClient() {
           style={{ color: "var(--color-ink-500)" }}
         />
         <p
-          className="text-[0.6875rem] mt-2"
+          className="text-m-body mt-2"
           style={{ color: "var(--color-ink-500)" }}
         >
           Loading form…
@@ -882,7 +882,7 @@ function SaleForm({
         {/* Party name override — for walk-in / cash customers without a CRM record */}
         <div>
           <label
-            className="text-[0.5625rem] font-semibold block mb-1"
+            className="text-m-caption font-semibold block mb-1"
             style={{ color: "var(--color-ink-500)" }}
           >
             Party name (override, optional)
@@ -892,14 +892,14 @@ function SaleForm({
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
             placeholder="Walk-in customer name on invoice"
-            className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none"
+            className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
               color: "var(--color-ink-950)",
             }}
           />
-          <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
             Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.
           </p>
         </div>
@@ -935,7 +935,7 @@ function SaleForm({
                   }}
                 >
                   <span
-                    className="text-[0.4375rem] font-bold uppercase tracking-wide"
+                    className="text-m-caption font-bold uppercase tracking-wide"
                     style={{ color: "var(--color-ink-500)" }}
                   >
                     Item {idx + 1}
@@ -944,7 +944,7 @@ function SaleForm({
                     <button
                       type="button"
                       onClick={() => onRemoveLine(idx)}
-                      className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+                      className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                       style={{ color: "var(--color-stop)" }}
                     >
                       <Trash2 className="size-2.5" />
@@ -981,7 +981,7 @@ function SaleForm({
                   <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                     <div>
                       <label
-                        className="text-[0.375rem] font-semibold uppercase block mb-0.5"
+                        className="text-m-caption font-semibold uppercase block mb-0.5"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Qty{mat ? ` (${mat.unit})` : ""}
@@ -997,7 +997,7 @@ function SaleForm({
                           onLineChange(idx, "qty", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{
                           borderColor: "var(--color-line)",
                           backgroundColor: "var(--color-paper)",
@@ -1007,7 +1007,7 @@ function SaleForm({
                     </div>
                     <div>
                       <label
-                        className="text-[0.375rem] font-semibold uppercase block mb-0.5"
+                        className="text-m-caption font-semibold uppercase block mb-0.5"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         Price
@@ -1023,7 +1023,7 @@ function SaleForm({
                           onLineChange(idx, "unitPrice", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{
                           borderColor: "var(--color-line)",
                           backgroundColor: "var(--color-paper)",
@@ -1042,21 +1042,21 @@ function SaleForm({
                     }}
                   >
                     <span
-                      className="text-[0.4375rem] font-semibold uppercase"
+                      className="text-m-caption font-semibold uppercase"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       Total
                     </span>
                     <div className="flex items-center gap-1">
                       <span
-                        className="text-[0.625rem] font-bold tabular-nums"
+                        className="text-m-label font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
                         {formatCurrency(lineTotal)}
                       </span>
                       {mat && mat.gstRate > 0 ? (
                         <span
-                          className="text-[0.375rem] font-semibold"
+                          className="text-m-caption font-semibold"
                           style={{ color: "var(--color-ink-500)" }}
                         >
                           +{mat.gstRate}%
@@ -1074,14 +1074,14 @@ function SaleForm({
         <button
           type="button"
           onClick={onAddLine}
-          className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 press"
+          className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body press"
           style={{
             borderColor: "var(--color-line)",
             color: "var(--color-ink-700)",
           }}
         >
           <Plus className="size-3.5" />
-          <span className="text-[0.6875rem] font-bold">Add another item</span>
+          <span className="text-m-body font-bold">Add another item</span>
         </button>
 
         {/* ══════ SECTION: HOW ══════ */}
@@ -1128,7 +1128,7 @@ function SaleForm({
                   {/* Split header */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span
-                      className="text-[0.4375rem] font-bold uppercase tracking-wide"
+                      className="text-m-caption font-bold uppercase tracking-wide"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       Payment {idx + 1}
@@ -1141,7 +1141,7 @@ function SaleForm({
                             prev.filter((s) => s.id !== split.id),
                           )
                         }
-                        className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+                        className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-2.5" />
@@ -1174,7 +1174,7 @@ function SaleForm({
                           )
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{
                           borderColor: "var(--color-line)",
                           backgroundColor: "var(--color-paper)",
@@ -1209,7 +1209,7 @@ function SaleForm({
                               ),
                             )
                           }
-                          className="rounded-[0.375rem] py-1 text-[0.5rem] font-bold transition-colors press"
+                          className="rounded-[0.375rem] py-1 text-m-caption font-bold transition-colors text-m-body press"
                           style={
                             active
                               ? {
@@ -1255,14 +1255,14 @@ function SaleForm({
                   { id: crypto.randomUUID(), amount: "", mode: "CASH" },
                 ])
               }
-              className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-1.5 press"
+              className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-1.5 text-m-body press"
               style={{
                 borderColor: "var(--color-line)",
                 color: "var(--color-ink-700)",
               }}
             >
               <Plus className="size-3" />
-              <span className="text-[0.5625rem] font-semibold">
+              <span className="text-m-caption font-semibold">
                 Add another payment
               </span>
             </button>
@@ -1286,7 +1286,7 @@ function SaleForm({
                         : "color-mix(in srgb, var(--color-go) 6%, transparent)",
                   }}
                 >
-                  <div className="flex items-center justify-between text-[0.5625rem]">
+                  <div className="flex items-center justify-between text-m-caption">
                     <span style={{ color: "var(--color-ink-500)" }}>
                       Total paying
                     </span>
@@ -1297,7 +1297,7 @@ function SaleForm({
                       {formatCurrency(totalPaid)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[0.5625rem]">
+                  <div className="flex items-center justify-between text-m-caption">
                     <span style={{ color: "var(--color-ink-500)" }}>
                       {overpaid
                         ? "Overpaid by"
@@ -1338,7 +1338,7 @@ function SaleForm({
             }}
           >
             <span
-              className="text-[0.5625rem]"
+              className="text-m-caption"
               style={{ color: "var(--color-ink-700)" }}
             >
               Sale will be created as{" "}
@@ -1356,7 +1356,7 @@ function SaleForm({
         {/* Vehicle / Carrier — how goods are dispatched */}
         <div>
           <label
-            className="text-[0.5625rem] font-semibold block mb-1.5"
+            className="text-m-caption font-semibold block mb-1.5"
             style={{ color: "var(--color-ink-500)" }}
           >
             Vehicle / Carrier
@@ -1367,7 +1367,7 @@ function SaleForm({
         {/* Notes */}
         <div>
           <label
-            className="text-[0.5625rem] font-semibold block mb-1"
+            className="text-m-caption font-semibold block mb-1"
             style={{ color: "var(--color-ink-500)" }}
           >
             Notes (optional)
@@ -1377,7 +1377,7 @@ function SaleForm({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Surplus cement sold to local contractor"
             rows={2}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -1402,7 +1402,7 @@ function SaleForm({
           {/* Total + payment status */}
           <div className="shrink-0">
             <p
-              className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+              className="text-m-caption font-semibold uppercase tracking-wide"
               style={{ color: "var(--color-ink-500)" }}
             >
               {paymentType === "paid"
@@ -1410,7 +1410,7 @@ function SaleForm({
                 : `${formatCurrency(total)} · Credit`}
             </p>
             <p
-              className="text-[0.875rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{ color: "var(--color-go)" }}
             >
               {paymentType === "paid"
@@ -1424,7 +1424,7 @@ function SaleForm({
             </p>
             {paymentType === "paid" ? (
               <p
-                className="text-[0.4375rem]"
+                className="text-m-caption"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {(() => {
@@ -1448,7 +1448,7 @@ function SaleForm({
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; onSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -1593,7 +1593,7 @@ function SectionHeader({
     <div className="flex items-center gap-1.5 mt-1">
       <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
       <span
-        className="text-[0.5625rem] font-bold uppercase tracking-wide"
+        className="text-m-caption font-bold uppercase tracking-wide"
         style={{ color: "var(--color-steel)" }}
       >
         {label}
@@ -1624,7 +1624,7 @@ function PaymentTypeCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center press transition-colors"
+      className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center text-m-body press transition-colors"
       style={
         active
           ? {
@@ -1639,10 +1639,10 @@ function PaymentTypeCard({
             }
       }
     >
-      <span className="text-[0.6875rem] font-bold">{label}</span>
+      <span className="text-m-body font-bold">{label}</span>
       {sublabel ? (
         <span
-          className="text-[0.4375rem] font-semibold truncate w-full text-center"
+          className="text-m-caption font-semibold truncate w-full text-center"
           style={
             active
               ? { color: "color-mix(in srgb, #fff 70%, transparent)" }
@@ -1684,7 +1684,7 @@ function SelectorCard({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
       style={{
         borderColor: hasValue
           ? "var(--color-line)"
@@ -1709,7 +1709,7 @@ function SelectorCard({
       </span>
       <div className="min-w-0 flex-1">
         <p
-          className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+          className="text-m-caption font-semibold uppercase tracking-wide"
           style={{ color: "var(--color-ink-500)" }}
         >
           {label}
@@ -1720,14 +1720,14 @@ function SelectorCard({
         {hasValue ? (
           <>
             <p
-              className="text-[0.75rem] font-bold truncate"
+              className="text-m-section font-bold truncate"
               style={{ color: "var(--color-ink-950)" }}
             >
               {value}
             </p>
             {subvalue ? (
               <p
-                className="text-[0.5625rem] truncate"
+                className="text-m-caption truncate"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {subvalue}
@@ -1736,7 +1736,7 @@ function SelectorCard({
           </>
         ) : (
           <p
-            className="text-[0.75rem] font-medium"
+            className="text-m-section font-medium"
             style={{ color: "var(--color-ink-500)" }}
           >
             {placeholder ?? "Tap to select…"}
@@ -1797,7 +1797,7 @@ function SelectorRow({
       />
       <div className="min-w-0 flex-1">
         <span
-          className={`font-semibold uppercase ${compact ? "text-[0.375rem]" : "text-[0.4375rem]"}`}
+          className={`font-semibold uppercase ${compact ? "text-m-caption" : "text-m-caption"}`}
           style={{ color: "var(--color-ink-500)" }}
         >
           {label}
@@ -1807,7 +1807,7 @@ function SelectorRow({
         </span>
         {hasValue ? (
           <p
-            className={`font-bold truncate ${compact ? "text-[0.5625rem]" : "text-[0.6875rem]"}`}
+            className={`font-bold truncate ${compact ? "text-m-caption" : "text-m-body"}`}
             style={{ color: "var(--color-ink-950)" }}
           >
             {value}
@@ -1823,7 +1823,7 @@ function SelectorRow({
           </p>
         ) : (
           <p
-            className={`text-[0.5625rem]`}
+            className={`text-m-caption`}
             style={{ color: "var(--color-ink-500)" }}
           >
             Tap to select…
@@ -1891,12 +1891,12 @@ function SelectorModal({
           style={{ borderColor: "var(--color-line)" }}
         >
           <p
-            className="text-[0.75rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             {title}
           </p>
-          <button onClick={onClose} className="press">
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -1917,7 +1917,7 @@ function SelectorModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
+              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper-2)",
@@ -1936,7 +1936,7 @@ function SelectorModal({
                 style={{ color: "var(--color-ink-300)" }}
               />
               <p
-                className="text-[0.6875rem] font-semibold"
+                className="text-m-body font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 No results
@@ -1949,7 +1949,7 @@ function SelectorModal({
                 <button
                   key={item.id || i}
                   onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
                   style={{
                     backgroundColor: isSelected
                       ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"
@@ -1959,7 +1959,7 @@ function SelectorModal({
                 >
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[0.75rem] font-bold truncate"
+                      className="text-m-section font-bold truncate"
                       style={{
                         color: isSelected
                           ? "var(--color-ink-950)"
@@ -1970,7 +1970,7 @@ function SelectorModal({
                     </p>
                     {item.sub ? (
                       <p
-                        className="text-[0.5625rem] truncate"
+                        className="text-m-caption truncate"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         {item.sub}
@@ -1998,7 +1998,7 @@ function SelectorModal({
             <button
               type="button"
               onClick={onCreate}
-              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{
                 borderColor: "var(--color-signal)",
                 color: "var(--color-signal-dark)",

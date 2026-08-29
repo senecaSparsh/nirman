@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Package, Truck, ShoppingCart, Building2, Wallet, ClipboardCheck, TrendingUp } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileStatCard,
@@ -84,10 +84,10 @@ async function MobileReportsContent() {
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         <TrendingUp className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
           No financial data yet
         </p>
-        <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
           Post transactions to see analytics here
         </p>
       </div>
@@ -96,13 +96,13 @@ async function MobileReportsContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <MobileStatCard label="Inventory Value" value={formatCurrency(inventoryValue)} icon={Package} href="/m/inventory" />
-        <MobileStatCard label="Sales Revenue" value={formatCurrency(salesRevenue)} icon={ShoppingCart} tone="go" href="/m/sales?tab=collections" />
-        <MobileStatCard label="Sales Booked" value={formatCurrency(salesBooked)} icon={ShoppingCart} href="/m/sales?tab=collections" />
-        <MobileStatCard label="Purchase Spend" value={formatCurrency(purchaseSpend)} icon={Truck} href="/m/procurement" />
-        <MobileStatCard label="Project Costs" value={formatCurrency(totalProjectCosts)} icon={Building2} href="/m/books/finance" />
-        <MobileStatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={Wallet} href="/m/books/finance" />
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        <MobileStatCard label="Inventory Value" value={formatCurrencyCompact(inventoryValue)} icon={Package} href="/m/inventory" />
+        <MobileStatCard label="Sales Revenue" value={formatCurrencyCompact(salesRevenue)} icon={ShoppingCart} tone="go" href="/m/sales?tab=collections" />
+        <MobileStatCard label="Sales Booked" value={formatCurrencyCompact(salesBooked)} icon={ShoppingCart} href="/m/sales?tab=collections" />
+        <MobileStatCard label="Purchase Spend" value={formatCurrencyCompact(purchaseSpend)} icon={Truck} href="/m/procurement" />
+        <MobileStatCard label="Project Costs" value={formatCurrencyCompact(totalProjectCosts)} icon={Building2} href="/m/books/finance" />
+        <MobileStatCard label="Expenses" value={formatCurrencyCompact(totalExpenses)} icon={Wallet} href="/m/books/finance" />
       </div>
 
       <MobileSectionTitle>Revenue</MobileSectionTitle>

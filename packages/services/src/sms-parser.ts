@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postPaymentReceived, postMaterialSalePayment, postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * SMS Parser Service — auto payment entry from bank SMS notifications.
@@ -304,7 +305,7 @@ async function matchPayment(
         ? 95
         : 80;
       // Create the payment + post GL + update parent status in one transaction
-      const payment = await prisma.$transaction(async (tx) => {
+      const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.assetSalePayment.create({
           data: {
             assetSaleId: sale.id,
@@ -374,7 +375,7 @@ async function matchPayment(
         ? 90
         : 70;
       // Create the payment + post GL in one transaction
-      const payment = await prisma.$transaction(async (tx) => {
+      const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.rentalPayment.create({
           data: {
             tenancyId: tenancy.id,
@@ -431,7 +432,7 @@ async function matchPayment(
         ? 90
         : 75;
       // Create the payment + post GL + update parent status in one transaction
-      const payment = await prisma.$transaction(async (tx) => {
+      const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.materialSalePayment.create({
           data: {
             saleId: sale.id,
@@ -507,7 +508,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
   let paymentId: string | null = null;
 
   if (input.entityType === "ASSET_SALE") {
-    paymentId = await prisma.$transaction(async (tx) => {
+    paymentId = await withSerializableTransaction(async (tx) => {
       const sale = await tx.assetSale.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
       if (!sale) throw new ServiceError("Asset sale not found", 404);
       const p = await tx.assetSalePayment.create({
@@ -541,7 +542,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
       return p.id;
     });
   } else if (input.entityType === "TENANCY") {
-    paymentId = await prisma.$transaction(async (tx) => {
+    paymentId = await withSerializableTransaction(async (tx) => {
       const tenancy = await tx.tenancy.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
       if (!tenancy) throw new ServiceError("Tenancy not found", 404);
       const p = await tx.rentalPayment.create({
@@ -569,7 +570,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
       return p.id;
     });
   } else if (input.entityType === "MATERIAL_SALE") {
-    paymentId = await prisma.$transaction(async (tx) => {
+    paymentId = await withSerializableTransaction(async (tx) => {
       const sale = await tx.materialSale.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
       if (!sale) throw new ServiceError("Material sale not found", 404);
       const p = await tx.materialSalePayment.create({

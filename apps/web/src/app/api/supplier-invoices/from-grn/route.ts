@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
+import Decimal from "decimal.js";
 import { createSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission } from "@/lib/server";
@@ -82,21 +84,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const gstRate = poLine?.gstRate ?? grl.material.gstRate ?? 0;
     return {
       materialId: grl.materialId,
-      quantity: Number(grl.qtyReceived),
-      unitPrice: Number(grl.unitCost),
-      gstRate: Number(gstRate),
+      quantity: new Decimal(grl.qtyReceived),
+      unitPrice: new Decimal(grl.unitCost),
+      gstRate: new Decimal(gstRate),
     };
   });
 
-  // Compute totals
-  let subtotal = 0;
-  let gstAmount = 0;
+  // Compute totals using Decimal to avoid floating-point errors
+  let subtotal = new Decimal(0);
+  let gstAmount = new Decimal(0);
   for (const line of invoiceLines) {
-    const lineTotal = line.quantity * line.unitPrice;
-    subtotal += lineTotal;
-    gstAmount += lineTotal * (line.gstRate / 100);
+    const lineTotal = line.quantity.times(line.unitPrice);
+    subtotal = subtotal.plus(lineTotal);
+    gstAmount = gstAmount.plus(lineTotal.times(line.gstRate.div(100)));
   }
-  const totalAmount = subtotal + gstAmount;
+  const totalAmount = subtotal.plus(gstAmount);
 
   // Generate a draft invoice number if GRN doesn't have one
   const invoiceNumber = grn.invoiceNumber ?? `DRAFT-GRN-${grn.id.slice(-8).toUpperCase()}`;
@@ -117,6 +119,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
 
+    revalidatePath("/supplier-invoices");
+    revalidatePath("/m/suppliers");
     return json({
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,

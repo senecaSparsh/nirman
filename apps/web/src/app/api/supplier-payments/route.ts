@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupplierPayment, getSupplierPayments } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -84,6 +85,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
 
+    revalidatePath("/supplier-payments");
+    revalidatePath("/m/suppliers");
     return json(
       {
         id: payment.id,

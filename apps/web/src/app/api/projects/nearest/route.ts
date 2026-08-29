@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCompany } from "@/lib/server";
+import { apiHandler, json, getCompany, requireUser } from "@/lib/server";
 
 /**
  * GET /api/projects/nearest?lat=XX.XX&lng=YY.YY
@@ -13,6 +13,7 @@ import { apiHandler, json, getCompany } from "@/lib/server";
  * or 404 if no project sites with coordinates exist.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
+  await requireUser();
   const company = await getCompany();
   const url = new URL(req.url);
   const lat = parseFloat(url.searchParams.get("lat") ?? "");

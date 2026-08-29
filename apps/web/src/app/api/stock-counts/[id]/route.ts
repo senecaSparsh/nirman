@@ -61,11 +61,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   try {
     if (action === "confirm") {
       const c = await confirmStockCount(id, user.id);
+      revalidatePath("/stock-counts");
       revalidatePath("/m/stock-counts");
       return json({ ok: true, status: c.status });
     }
     if (action === "reconcile") {
       const c = await reconcileStockCount(id, user.id);
+      revalidatePath("/stock-counts");
       revalidatePath("/m/stock-counts");
       return json({ ok: true, status: c.status });
     }
@@ -89,6 +91,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   }
   try {
     await deleteStockCount(id, user.id);
+    revalidatePath("/stock-counts");
+    revalidatePath("/m/stock-counts");
     return json({ ok: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Delete failed";

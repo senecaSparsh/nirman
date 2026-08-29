@@ -123,10 +123,10 @@ export function InstallAppRow() {
           <CheckCircle2 className="size-3.5" style={{ color: "var(--color-go)" }} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
             App installed
           </p>
-          <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             Running in standalone mode
           </p>
         </div>
@@ -150,18 +150,18 @@ export function InstallAppRow() {
           }}
         >
           <div className="flex items-start justify-between gap-2 mb-2">
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               Add to Home Screen
             </p>
             <button
               onClick={() => setShowIosInstructions(false)}
-              className="text-[0.5625rem] font-semibold press shrink-0"
+              className="text-m-caption font-semibold text-m-body press shrink-0"
               style={{ color: "var(--color-ink-500)" }}
             >
               Close
             </button>
           </div>
-          <ol className="flex flex-col gap-1.5 text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+          <ol className="flex flex-col gap-1.5 text-m-label" style={{ color: "var(--color-ink-700)" }}>
             <li className="flex gap-1.5">
               <span className="font-bold shrink-0" style={{ color: "var(--color-signal-dark)" }}>1.</span>
               <span>Tap the <span className="font-semibold">Share</span> icon in Safari&apos;s toolbar</span>
@@ -177,7 +177,7 @@ export function InstallAppRow() {
           </ol>
           <button
             onClick={dismiss}
-            className="mt-2 text-[0.5rem] font-semibold press"
+            className="mt-2 text-m-caption font-semibold text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
             Don&apos;t show again
@@ -189,7 +189,7 @@ export function InstallAppRow() {
     return (
       <button
         onClick={() => setShowIosInstructions(true)}
-        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <span
@@ -199,10 +199,10 @@ export function InstallAppRow() {
           <Smartphone className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
             Add to Home Screen
           </p>
-          <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             Install for offline field access
           </p>
         </div>
@@ -215,7 +215,7 @@ export function InstallAppRow() {
   return (
     <button
       onClick={promptInstall}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
+      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <span
@@ -225,15 +225,15 @@ export function InstallAppRow() {
         <Download className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.6875rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
           Install app
         </p>
-        <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           Add to home screen for offline access
         </p>
       </div>
       <span
-        className="shrink-0 rounded-[0.375rem] px-2 py-1 text-[0.5rem] font-bold uppercase tracking-wide"
+        className="shrink-0 rounded-[0.375rem] px-2 py-1 text-m-caption font-bold uppercase tracking-wide"
         style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
       >
         Install

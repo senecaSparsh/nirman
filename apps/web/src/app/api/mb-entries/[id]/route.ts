@@ -1,10 +1,33 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { verifyMbEntry, approveMbEntry, rejectMbEntry } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
+/** GET /api/mb-entries/[id] — fetch a single measurement book entry by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.MB_VIEW);
+  const company = await getCompany();
+  const { id } = await params;
+  const entry = await prisma.measurementBookEntry.findFirst({
+    where: { id, project: { companyId: company.id } },
+    include: {
+      project: { select: { id: true, name: true } },
+      phase: { select: { id: true, name: true } },
+      boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
+      wbsNode: { select: { id: true, code: true, name: true } },
+      measuredBy: { select: { id: true, name: true } },
+      verifiedBy: { select: { id: true, name: true } },
+      approvedBy: { select: { id: true, name: true } },
+    },
+  });
+  if (!entry) return json({ error: "MB entry not found" }, { status: 404 });
+  return json(entry);
+});
+
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
@@ -32,4 +55,23 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
+});
+
+/** DELETE /api/mb-entries/[id] — hard-delete a measurement book entry (only DRAFT) */
+export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.MB_APPROVE);
+  const company = await getCompany();
+  const { id } = await params;
+
+  const entry = await prisma.measurementBookEntry.findFirst({
+    where: { id, project: { companyId: company.id } },
+    select: { id: true, status: true },
+  });
+  if (!entry) return json({ error: "MB entry not found" }, { status: 404 });
+  if (entry.status !== "DRAFT") {
+    return json({ error: "Only DRAFT entries can be deleted" }, { status: 400 });
+  }
+
+  await prisma.measurementBookEntry.delete({ where: { id } });
+  return json({ ok: true });
 });

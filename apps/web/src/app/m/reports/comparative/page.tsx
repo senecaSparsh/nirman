@@ -7,7 +7,7 @@ import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services
 import { BarChart3, Building2, TrendingUp, Clock, Users } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -127,7 +127,7 @@ async function MobileComparativeContent() {
           { label: "Avg Progress", value: `${avgProgress.toFixed(1)}%`, tone: "go" },
           { label: "Labor Hours", value: String(Math.round(totalLaborHours)), tone: "signal" },
           { label: "Avg Attendance", value: `${avgAttendance.toFixed(1)}%` },
-          { label: "Total Profit", value: formatCurrency(totalProfit), tone: totalProfit >= 0 ? "go" : "stop" },
+          { label: "Total Profit", value: formatCurrencyCompact(totalProfit), tone: totalProfit >= 0 ? "go" : "stop" },
         ]}
       />
 
@@ -136,7 +136,7 @@ async function MobileComparativeContent() {
           title="Comparative Analysis Report"
           rows={projectAnalyses as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Projects: ${projectAnalyses.length} · Avg Progress: ${avgProgress.toFixed(1)}% · Total Profit: ${formatCurrency(totalProfit)}`}
+          summary={`Projects: ${projectAnalyses.length} · Avg Progress: ${avgProgress.toFixed(1)}% · Total Profit: ${formatCurrencyCompact(totalProfit)}`}
         />
       </div>
 
@@ -149,7 +149,7 @@ async function MobileComparativeContent() {
             value: p.profit,
             tone: (p.profit >= 0 ? "go" : "stop") as "go" | "stop",
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 

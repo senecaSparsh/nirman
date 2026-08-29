@@ -85,6 +85,12 @@ export function MobileNewEmployeeDialog({
       toast.error("Employee name is required");
       return;
     }
+    const dailyRate = form.dailyRate === "" ? 0 : Number(form.dailyRate);
+    const monthlySalary = form.wageType !== "DAILY" && form.monthlySalary !== "" ? Number(form.monthlySalary) : null;
+    const hierarchyLevel = form.hierarchyLevel ? Number(form.hierarchyLevel) : null;
+    if (dailyRate < 0) { toast.error("Daily rate cannot be negative"); return; }
+    if (monthlySalary !== null && monthlySalary < 0) { toast.error("Monthly salary cannot be negative"); return; }
+    if (hierarchyLevel !== null && (hierarchyLevel < 1 || hierarchyLevel > 6)) { toast.error("Hierarchy level must be 1–6"); return; }
     setSaving(true);
     haptic(10);
     try {
@@ -98,14 +104,11 @@ export function MobileNewEmployeeDialog({
           phone: form.phone.trim() || null,
           email: form.email.trim() || null,
           wageType: form.wageType,
-          dailyRate: form.dailyRate === "" ? 0 : Number(form.dailyRate),
-          monthlySalary:
-            form.wageType !== "DAILY" && form.monthlySalary !== ""
-              ? Number(form.monthlySalary)
-              : null,
+          dailyRate,
+          monthlySalary,
           joinDate: form.joinDate || null,
           activeProjectId: form.activeProjectId || null,
-          hierarchyLevel: form.hierarchyLevel ? Number(form.hierarchyLevel) : null,
+          hierarchyLevel,
           reportingLocationId: form.reportingLocationId || null,
           active: true,
         }),
@@ -130,23 +133,23 @@ export function MobileNewEmployeeDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -166,7 +169,7 @@ export function MobileNewEmployeeDialog({
               />
             </span>
             <p
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               New Employee
@@ -174,7 +177,7 @@ export function MobileNewEmployeeDialog({
           </div>
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -251,7 +254,7 @@ export function MobileNewEmployeeDialog({
                   key={opt.value}
                   type="button"
                   onClick={() => { set("hierarchyLevel", opt.value); haptic(10); }}
-                  className="rounded-[0.375rem] border px-2.5 py-1.5 text-[0.5625rem] font-bold press"
+                  className="rounded-[0.375rem] border px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                   style={{
                     borderColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -301,7 +304,7 @@ export function MobileNewEmployeeDialog({
             <label className={labelClass} style={labelStyle}>
               Wage Type
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
                 <button
                   key={w}
@@ -310,7 +313,7 @@ export function MobileNewEmployeeDialog({
                     set("wageType", w);
                     haptic(10);
                   }}
-                  className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.6875rem] font-bold press"
+                  className="flex-1 h-10 rounded-[0.5rem] border-2 text-m-body font-bold text-m-body press"
                   style={{
                     borderColor:
                       form.wageType === w
@@ -421,18 +424,18 @@ export function MobileNewEmployeeDialog({
                 </option>
               ))}
             </select>
-            <p className="text-[0.5625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
               When set, attendance auto-marks as PRESENT when the employee enters this location&apos;s geo-fence.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
                 color: "var(--color-ink-500)",
@@ -444,7 +447,7 @@ export function MobileNewEmployeeDialog({
             <button
               type="submit"
               disabled={saving}
-              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",

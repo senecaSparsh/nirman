@@ -27,7 +27,7 @@ export function MobileMbProjectSelector({
         }}
         placeholder="— Select project —"
         options={projects.map((p) => ({ value: p.id, label: p.name }))}
-        inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-semibold outline-none"
+        inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-semibold outline-none"
         inputStyle={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper)",

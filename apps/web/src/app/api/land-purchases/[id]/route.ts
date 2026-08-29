@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry } from "@nirman/services";
+import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, ServiceError } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum, landPurchaseEditSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_VIEW);
@@ -110,7 +111,15 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (parsed.data.sellerId !== undefined) data.sellerId = parsed.data.sellerId;
   if (parsed.data.sellerName !== undefined) data.sellerName = parsed.data.sellerName;
   if (parsed.data.sellerContact !== undefined) data.sellerContact = parsed.data.sellerContact;
-  if (parsed.data.purchaseDate !== undefined) data.purchaseDate = parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : null;
+  if (parsed.data.purchaseDate !== undefined) {
+    if (parsed.data.purchaseDate) {
+      const purchaseDate = new Date(parsed.data.purchaseDate);
+      if (isNaN(purchaseDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+      data.purchaseDate = purchaseDate;
+    } else {
+      data.purchaseDate = null;
+    }
+  }
   if (parsed.data.totalArea !== undefined) data.totalArea = parsed.data.totalArea;
   if (parsed.data.areaUnit !== undefined) data.areaUnit = parsed.data.areaUnit;
   if (parsed.data.totalCost !== undefined) data.totalCost = parsed.data.totalCost;
@@ -121,8 +130,24 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (parsed.data.landType !== undefined) data.landType = parsed.data.landType;
   if (parsed.data.leaseType !== undefined) data.leaseType = parsed.data.leaseType;
   if (parsed.data.leasePeriodYears !== undefined) data.leasePeriodYears = parsed.data.leasePeriodYears;
-  if (parsed.data.leaseStartDate !== undefined) data.leaseStartDate = parsed.data.leaseStartDate ? new Date(parsed.data.leaseStartDate) : null;
-  if (parsed.data.leaseEndDate !== undefined) data.leaseEndDate = parsed.data.leaseEndDate ? new Date(parsed.data.leaseEndDate) : null;
+  if (parsed.data.leaseStartDate !== undefined) {
+    if (parsed.data.leaseStartDate) {
+      const leaseStartDate = new Date(parsed.data.leaseStartDate);
+      if (isNaN(leaseStartDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+      data.leaseStartDate = leaseStartDate;
+    } else {
+      data.leaseStartDate = null;
+    }
+  }
+  if (parsed.data.leaseEndDate !== undefined) {
+    if (parsed.data.leaseEndDate) {
+      const leaseEndDate = new Date(parsed.data.leaseEndDate);
+      if (isNaN(leaseEndDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+      data.leaseEndDate = leaseEndDate;
+    } else {
+      data.leaseEndDate = null;
+    }
+  }
   if (parsed.data.baseCost !== undefined) data.baseCost = parsed.data.baseCost;
   if (parsed.data.leaseRentPercent !== undefined) data.leaseRentPercent = parsed.data.leaseRentPercent;
   if (parsed.data.leaseRentAmount !== undefined) data.leaseRentAmount = parsed.data.leaseRentAmount;
@@ -145,13 +170,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   // we need to reallocate costs for both the old and new project.
   const projectIdChanged = parsed.data.projectId !== undefined;
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     // Fetch the existing land purchase (need old totalCost + companyId for GL reversal)
     const existing = await tx.landPurchase.findFirst({
       where: { id, deletedAt: null },
       include: { parcels: { where: { deletedAt: null, parentParcelId: null } } },
     });
-    if (!existing) throw new Error("Land purchase not found");
+    if (!existing) throw new ServiceError("Land purchase not found", 404);
 
     const lp = await tx.landPurchase.update({ where: { id }, data });
 
@@ -234,7 +259,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       after: { sellerName: lp.sellerName, totalCost: lp.totalCost.toString(), totalArea: lp.totalArea.toString() },
     });
     return lp;
-  }, { isolationLevel: "Serializable" });
+  });
   revalidatePath("/m/land");
   return json({ ok: true, id: updated.id });
 });
@@ -247,6 +272,9 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
     revalidatePath("/m/land");
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to delete") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to delete land purchase" }, { status: 400 });
   }
 });

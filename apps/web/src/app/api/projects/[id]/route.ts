@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROJECTS_VIEW);
@@ -60,7 +61,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     reraNumber, reraRegistrationDate, reraValidityDate, reraWebsiteUrl,
     ...rest
   } = parsed.data;
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const proj = await tx.project.update({
       where: { id },
       data: {

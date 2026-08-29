@@ -1,7 +1,9 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { postNrvWriteDown } from "./gl-posting";
+import { logAction } from "./audit";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Alerts & Reporting Service — low-stock alerts, inventory aging, NRV flagging.
@@ -212,7 +214,7 @@ export async function flagNrvWriteDowns(companyId?: string) {
 
   // Apply all updates + GL postings in a single transaction
   if (unitUpdates.length > 0 || parcelUpdates.length > 0) {
-    await prisma.$transaction(async (tx) => {
+    await withSerializableTransaction(async (tx) => {
       for (const u of unitUpdates) {
         await tx.builtUnit.update({ where: { id: u.id }, data: { nrvWriteDown: u.nrvWriteDown } });
         if (u.glAmount.gt(0)) {
@@ -221,6 +223,12 @@ export async function flagNrvWriteDowns(companyId?: string) {
             entityType: "BUILT_UNIT",
             entityId: u.id,
             writeDownAmount: u.glAmount,
+          });
+          await logAction(tx, {
+            action: "NRV_WRITE_DOWN",
+            entityType: "BUILT_UNIT",
+            entityId: u.id,
+            after: { nrvWriteDown: u.nrvWriteDown.toString(), glAmount: u.glAmount.toString() },
           });
         }
       }
@@ -232,6 +240,12 @@ export async function flagNrvWriteDowns(companyId?: string) {
             entityType: "LAND",
             entityId: p.id,
             writeDownAmount: p.glAmount,
+          });
+          await logAction(tx, {
+            action: "NRV_WRITE_DOWN",
+            entityType: "LAND_PARCEL",
+            entityId: p.id,
+            after: { nrvWriteDown: p.nrvWriteDown.toString(), glAmount: p.glAmount.toString() },
           });
         }
       }

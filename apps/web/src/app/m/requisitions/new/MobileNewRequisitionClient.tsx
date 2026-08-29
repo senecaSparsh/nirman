@@ -42,7 +42,7 @@ interface ReqDraft {
 }
 
 const inputClass =
-  "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none focus:ring-2";
+  "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -183,15 +183,15 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <ShoppingCart className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No projects available
           </p>
-          <p className="text-[0.6875rem] mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
             Create a project first to raise material indents
           </p>
           <Link
             href="/m/projects"
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-[0.6875rem] font-bold press"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
@@ -224,7 +224,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <ShoppingCart className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Indent Details
             </span>
           </div>
@@ -247,7 +247,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           />
 
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Needed by date
             </label>
             <input
@@ -266,13 +266,13 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Materials
             </span>
             <button
               type="button"
               onClick={addLine}
-              className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-[0.5625rem] font-bold press active:scale-95"
+              className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-bold text-m-body press active:scale-95"
               style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-steel)" }}
             >
               <Plus className="size-3" />
@@ -296,7 +296,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                         value={line.materialId}
                         onChange={(val) => updateLine(idx, "materialId", val)}
                         options={data.materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
-                        inputClass={`${inputClass} text-[0.6875rem]`}
+                        inputClass={`${inputClass} text-m-body`}
                         inputStyle={inputStyle}
                         labelClass="hidden"
                         renderDialog={({ open, onClose, onCreated }) => (
@@ -313,7 +313,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                       <button
                         type="button"
                         onClick={() => removeLine(idx)}
-                        className="p-1.5 press active:scale-95 shrink-0"
+                        className="p-1.5 text-m-body press active:scale-95 shrink-0"
                         style={{ color: "var(--color-ink-500)" }}
                       >
                         <Trash2 className="size-4" />
@@ -329,10 +329,10 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                       value={line.qty}
                       onChange={(e) => updateLine(idx, "qty", e.target.value)}
                       placeholder="Qty"
-                      className="w-20 rounded-[0.375rem] border px-2 py-1 text-[0.6875rem] font-mono font-bold outline-none"
+                      className="w-20 rounded-[0.375rem] border px-2 py-1 text-m-body font-mono font-bold outline-none"
                       style={inputStyle}
                     />
-                    <span className="text-[0.5625rem] font-medium truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-medium truncate" style={{ color: "var(--color-ink-500)" }}>
                       {mat?.unit || "units"}
                     </span>
                   </div>
@@ -341,7 +341,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                     <select
                       value={line.preferredSupplierId}
                       onChange={(e) => updateLine(idx, "preferredSupplierId", e.target.value)}
-                      className={`${inputClass} text-[0.625rem]`}
+                      className={`${inputClass} text-m-label`}
                       style={inputStyle}
                     >
                       <option value="">No preferred supplier</option>
@@ -356,7 +356,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                     value={line.notes}
                     onChange={(e) => updateLine(idx, "notes", e.target.value)}
                     placeholder="Line note (optional)"
-                    className={`${inputClass} text-[0.625rem]`}
+                    className={`${inputClass} text-m-label`}
                     style={inputStyle}
                   />
                 </div>
@@ -367,7 +367,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
 
         {/* ── Notes ── */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Indent notes
           </label>
           <textarea
@@ -391,13 +391,13 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="max-w-[34rem] mx-auto px-3.5 py-2.5">
+        <div className="max-w-md mx-auto px-3.5 py-2.5">
           <button
             type="button"
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50 select-none"
+            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (

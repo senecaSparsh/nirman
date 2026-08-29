@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Equipment Service — manage discrete, trackable assets (machinery, tools, vehicles).
@@ -38,7 +39,7 @@ export async function createEquipment(input: CreateEquipmentInput) {
   const existing = await prisma.equipment.findUnique({ where: { assetTag: input.assetTag } });
   if (existing) throw new ServiceError(`Equipment with assetTag ${input.assetTag} already exists`);
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.create({
       data: {
         assetTag: input.assetTag,
@@ -83,7 +84,7 @@ interface AssignEquipmentInput {
 }
 
 export async function assignEquipment(input: AssignEquipmentInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: input.equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status !== "AVAILABLE") {
@@ -124,7 +125,7 @@ export async function assignEquipment(input: AssignEquipmentInput) {
 }
 
 export async function returnEquipment(assignmentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const assignment = await tx.equipmentAssignment.findUnique({
       where: { id: assignmentId },
       include: { equipment: true },
@@ -174,7 +175,7 @@ interface RecordMaintenanceInput {
 }
 
 export async function recordMaintenance(input: RecordMaintenanceInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findUnique({ where: { id: input.equipmentId } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.deletedAt) throw new ServiceError("Equipment is deleted");
@@ -221,8 +222,8 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
 }
 
 export async function completeMaintenance(equipmentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
-    const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
+  return withSerializableTransaction(async (tx) => {
+    const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status !== "IN_MAINTENANCE") {
       throw new ServiceError(`Equipment is not in maintenance (status: ${equipment.status})`);
@@ -252,8 +253,8 @@ export async function completeMaintenance(equipmentId: string, userId?: string) 
 }
 
 export async function retireEquipment(equipmentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
-    const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
+  return withSerializableTransaction(async (tx) => {
+    const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status === "RETIRED") throw new ServiceError("Equipment already retired");
     if (equipment.status === "ASSIGNED") {
@@ -300,8 +301,8 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
  * since those would conflict with the AVAILABLE status.
  */
 export async function unretireEquipment(equipmentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
-    const equipment = await tx.equipment.findUnique({ where: { id: equipmentId } });
+  return withSerializableTransaction(async (tx) => {
+    const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status !== "RETIRED") throw new ServiceError("Only retired equipment can be un-retired");
 

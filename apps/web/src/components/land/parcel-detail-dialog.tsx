@@ -124,6 +124,23 @@ export function ParcelDetailDialog({
     }
   }
 
+  async function handleDelete(p: LandParcelRow) {
+    if (!window.confirm(`Delete parcel "${p.number}"?`)) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/land-parcels/${p.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete parcel");
+      toast.success("Parcel deleted");
+      onOpenChange(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : "Something went wrong"));
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function toggleStatus(p: LandParcelRow) {
     setActing(true);
     try {
@@ -208,12 +225,24 @@ export function ParcelDetailDialog({
                           <Button variant="ghost" size="sm" onClick={() => toggleStatus(p)} disabled={acting}>
                             Hold
                           </Button>
+                          {p.childCount === 0 && (
+                            <Button variant="outline" size="sm" onClick={() => handleDelete(p)} disabled={acting}>
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </Button>
+                          )}
                         </>
                       )}
                       {p.status === "HOLD" && (
-                        <Button variant="ghost" size="sm" onClick={() => toggleStatus(p)} disabled={acting}>
-                          Release
-                        </Button>
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => toggleStatus(p)} disabled={acting}>
+                            Release
+                          </Button>
+                          {p.childCount === 0 && (
+                            <Button variant="outline" size="sm" onClick={() => handleDelete(p)} disabled={acting}>
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </Button>
+                          )}
+                        </>
                       )}
                       {p.status === "PARTITIONED" && (
                         <span className="text-caption text-muted-foreground">{p.childCount} sub-plots</span>

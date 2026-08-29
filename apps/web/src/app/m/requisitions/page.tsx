@@ -21,6 +21,7 @@ async function MobileRequisitionsContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+  const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE);
 
   const BATCH_SIZE = 60;
   const reqs = await prisma.materialRequisition.findMany({
@@ -37,6 +38,7 @@ async function MobileRequisitionsContent() {
 
   const hasMore = reqs.length > BATCH_SIZE;
   const batch = hasMore ? reqs.slice(0, BATCH_SIZE) : reqs;
+  const submittedCount = batch.filter((r) => r.status === "SUBMITTED").length;
   const lastItem = batch[batch.length - 1];
   const nextCursor = hasMore && lastItem
     ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
@@ -73,6 +75,8 @@ async function MobileRequisitionsContent() {
       <MobileRequisitionsList
         items={serialized}
         canCreate={canCreate}
+        canApprove={canApprove}
+        submittedCount={submittedCount}
         loadMoreUrl="/api/mobile/list/requisitions"
         nextCursor={nextCursor}
         exportTitle="Material Requisitions"

@@ -443,6 +443,8 @@ export async function getCompanyPortfolioSummary(
     const revenue = revenueByProject.get(p.id) ?? new Decimal(0);
     const cost = new Decimal(p.totalProjectCost ?? 0);
     const profit = revenue.minus(cost);
+    // Margin: only meaningful when there's revenue. For projects with no sales
+    // yet, show 0% (not -100%) to avoid alarming/meaningless negative margins.
     const marginPct = revenue.gt(0) ? profit.div(revenue).times(100) : new Decimal(0);
     const soldUnits = p._count.assetSales;
     const availableUnits = p.builtUnits.filter(

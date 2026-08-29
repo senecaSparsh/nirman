@@ -131,7 +131,7 @@ export function HrInteractive() {
             <button
               key={cat.id}
               onClick={() => selectTab(cat.id)}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 press transition-colors"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body text-m-body press transition-colors"
               style={{
                 backgroundColor: isActive
                   ? "var(--color-ink-950)"
@@ -139,15 +139,15 @@ export function HrInteractive() {
                 color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
-              <span className="text-[0.875rem]">{cat.icon}</span>
-              <span className="text-[0.6875rem] font-bold">{cat.label}</span>
+              <span className="text-m-section">{cat.icon}</span>
+              <span className="text-m-body font-bold">{cat.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Quick actions — 4-col grid, switches with tab ── */}
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
+      {/* ── Quick actions — grid switches with tab ── */}
+      <div className={`grid gap-1.5 mb-3 ${active.actions.length % 3 === 0 ? "grid-cols-3" : "grid-cols-4"}`}>
         {active.actions.map((action) => (
           <QuickActionTile
             key={action.label}
@@ -174,7 +174,7 @@ function QuickActionTile({
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 press"
+      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -187,7 +187,7 @@ function QuickActionTile({
         <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
       </span>
       <span
-        className="font-semibold text-[0.5625rem] text-center leading-tight"
+        className="font-semibold text-m-caption text-center leading-tight"
         style={{ color: "var(--color-ink-950)" }}
       >
         {label}

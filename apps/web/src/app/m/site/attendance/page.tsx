@@ -12,11 +12,11 @@ export default function MobileAttendancePage() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
           Attendance
         </p>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <Users className="size-2.5" />

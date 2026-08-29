@@ -160,7 +160,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
       >
         <button
           onClick={onClose}
-          className="press shrink-0 flex items-center justify-center size-9 rounded-lg"
+          className="press shrink-0 flex items-center justify-center size-9 rounded-[0.625rem] text-m-body"
           style={{ color: "var(--color-ink-500)" }}
           aria-label="Close search"
         >
@@ -177,7 +177,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search POs, projects, materials, people..."
-            className="w-full h-10 pl-9 pr-9 rounded-lg text-sm outline-none"
+            className="w-full h-9 pl-9 pr-9 rounded-[0.625rem] text-m-body outline-none"
             style={{
               backgroundColor: "var(--color-paper)",
               border: "1px solid var(--color-line)",
@@ -216,10 +216,10 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         {!loading && query.trim() && results.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
               No results for &ldquo;{query}&rdquo;
             </p>
-            <p className="text-xs mt-1" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
               Try searching by name, number, or code
             </p>
           </div>
@@ -231,7 +231,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             {grouped.map((group) => (
               <div key={group.type}>
                 <div
-                  className="px-4 py-1.5 text-[0.625rem] font-bold uppercase tracking-wide"
+                  className="px-4 py-1.5 text-m-label font-bold uppercase tracking-wide"
                   style={{ color: "var(--color-ink-400)" }}
                 >
                   {group.label}
@@ -242,24 +242,24 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                     <button
                       key={`${item.type}:${item.id}`}
                       onClick={() => handleSelect(item)}
-                      className="press w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                      className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left"
                     >
                       <div
-                        className="shrink-0 flex items-center justify-center size-8 rounded-lg"
+                        className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
                         style={{ backgroundColor: "var(--color-surface)" }}
                       >
                         <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div
-                          className="text-sm font-medium truncate"
+                          className="text-m-body font-medium truncate"
                           style={{ color: "var(--color-ink-950)" }}
                         >
                           {item.label}
                         </div>
                         {item.sublabel ? (
                           <div
-                            className="text-xs truncate"
+                            className="text-m-caption truncate"
                             style={{ color: "var(--color-ink-400)" }}
                           >
                             {item.sublabel}
@@ -268,7 +268,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                       </div>
                       {item.badge ? (
                         <span
-                          className="shrink-0 text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded uppercase"
+                          className="shrink-0 text-m-caption font-semibold px-1.5 py-0.5 rounded uppercase"
                           style={{
                             backgroundColor: "var(--color-surface)",
                             color: "var(--color-ink-500)",
@@ -292,14 +292,14 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
               className="flex items-center justify-between px-4 py-1.5"
             >
               <span
-                className="text-[0.625rem] font-bold uppercase tracking-wide"
+                className="text-m-label font-bold uppercase tracking-wide"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 Recent
               </span>
               <button
                 onClick={clear}
-                className="press flex items-center gap-1 text-[0.625rem] font-medium"
+                className="text-m-body press flex items-center gap-1 text-m-label font-medium"
                 style={{ color: "var(--color-ink-400)" }}
               >
                 <Trash2 className="size-3" /> Clear
@@ -311,24 +311,24 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                 <button
                   key={`${item.type}:${item.id}`}
                   onClick={() => handleSelect(item)}
-                  className="press w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                  className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left"
                 >
                   <div
-                    className="shrink-0 flex items-center justify-center size-8 rounded-lg"
+                    className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
                     style={{ backgroundColor: "var(--color-surface)" }}
                   >
                     <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-sm font-medium truncate"
+                      className="text-m-body font-medium truncate"
                       style={{ color: "var(--color-ink-950)" }}
                     >
                       {item.label}
                     </div>
                     {item.sublabel ? (
                       <div
-                        className="text-xs truncate"
+                        className="text-m-caption truncate"
                         style={{ color: "var(--color-ink-400)" }}
                       >
                         {item.sublabel}
@@ -346,10 +346,10 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         {!query.trim() && recentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
               Search anything
             </p>
-            <p className="text-xs mt-1" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
               POs, projects, materials, suppliers, customers, units...
             </p>
           </div>

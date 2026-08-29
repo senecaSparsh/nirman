@@ -180,7 +180,7 @@ export function MobileLegalDocsSection({
         right={canManage ? (
           <button
             onClick={() => { setEditing(null); setShowForm(true); }}
-            className="flex items-center gap-1 text-[0.75rem] font-semibold rounded-full px-2.5 py-1"
+            className="flex items-center gap-1 text-m-section font-semibold rounded-full px-2.5 py-1"
             style={{ backgroundColor: "var(--color-brand)", color: "white" }}
           >
             <Plus className="size-3.5" /> Add
@@ -201,7 +201,7 @@ export function MobileLegalDocsSection({
             }}
           />
         </div>
-        <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
           {obtainedRequired}/{requiredSteps.length} required permissions obtained ({progressPct}%)
         </p>
       </div>
@@ -217,7 +217,7 @@ export function MobileLegalDocsSection({
             <div key={stage}>
               <div className="flex items-center gap-1.5 mb-1.5 pb-1" style={{ borderBottom: "1px solid var(--color-line)" }}>
                 <StageIcon className="size-3" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-[0.625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-label font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                   {STAGE_LABELS[stage]}
                 </p>
               </div>
@@ -330,37 +330,37 @@ function MobileChecklistRow({
         {/* Title */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1 flex-wrap">
-            <p className="text-[0.75rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
               {step.label}
             </p>
             {!step.isOptional && !isObtained && !isNotRequired && !isLocked && (
-              <span className="rounded px-1 text-[0.5rem] font-bold" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#b91c1c" }}>REQ</span>
+              <span className="rounded px-1 text-m-caption font-bold" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#b91c1c" }}>REQ</span>
             )}
             {statusStyle && doc && (
-              <span className="rounded-full px-1.5 py-0.5 text-[0.5rem] font-semibold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}>
+              <span className="rounded-full px-1.5 py-0.5 text-m-caption font-semibold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}>
                 {statusStyle.label}
               </span>
             )}
           </div>
           {!isExpanded && (
-            <p className="text-[0.625rem] line-clamp-1 mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-label line-clamp-1 mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {doc ? doc.title : step.description}
             </p>
           )}
           {/* Expiry warning */}
           {expiryStatus === "expired" && (
-            <p className="text-[0.5625rem] font-semibold mt-0.5" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "var(--color-stop)" }}>
               Expired {Math.abs(expiryDays!)}d ago
             </p>
           )}
           {expiryStatus === "expiring" && (
-            <p className="text-[0.5625rem] font-semibold mt-0.5" style={{ color: "#c2410c" }}>
+            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "#c2410c" }}>
               Expires in {expiryDays}d
             </p>
           )}
           {/* Prerequisite lock */}
           {isLocked && step.prerequisite && (
-            <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
               <Lock className="inline size-2.5 mr-0.5" />
               Needs {LEGAL_DOC_FLOW_MAP[step.prerequisite]?.label ?? step.prerequisite}
             </p>
@@ -372,7 +372,7 @@ function MobileChecklistRow({
           <div className="flex items-center gap-0.5 shrink-0">
             <button
               onClick={() => onToggleObtained(true)}
-              className="rounded px-1.5 py-0.5 text-[0.5625rem] font-bold press"
+              className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
               style={{
                 backgroundColor: isObtained ? "rgba(34,197,94,0.15)" : "var(--color-paper-2)",
                 color: isObtained ? "#15803d" : "var(--color-ink-500)",
@@ -380,7 +380,7 @@ function MobileChecklistRow({
             >Yes</button>
             <button
               onClick={() => onToggleObtained(false)}
-              className="rounded px-1.5 py-0.5 text-[0.5625rem] font-bold press"
+              className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
               style={{
                 backgroundColor: isPending && !isObtained ? "rgba(245,158,11,0.15)" : "var(--color-paper-2)",
                 color: isPending && !isObtained ? "#b45309" : "var(--color-ink-500)",
@@ -389,7 +389,7 @@ function MobileChecklistRow({
             {step.isOptional && (
               <button
                 onClick={onMarkNotRequired}
-                className="rounded px-1.5 py-0.5 text-[0.5625rem] font-bold press"
+                className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
                 style={{
                   backgroundColor: isNotRequired ? "rgba(107,114,128,0.15)" : "var(--color-paper-2)",
                   color: isNotRequired ? "#4b5563" : "var(--color-ink-500)",
@@ -403,15 +403,15 @@ function MobileChecklistRow({
       {/* Expanded details */}
       {isExpanded && !isLocked && (
         <div className="px-2.5 pb-2.5 pt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.625rem] mb-1.5" style={{ color: "var(--color-ink-500)" }}>{step.description}</p>
-          <p className="text-[0.5625rem] mb-2" style={{ color: "var(--color-ink-400)" }}>
+          <p className="text-m-label mb-1.5" style={{ color: "var(--color-ink-500)" }}>{step.description}</p>
+          <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
             Authority: {step.defaultAuthority}
             {step.typicalValidityMonths && ` · Validity: ${step.typicalValidityMonths}mo`}
           </p>
 
           {doc ? (
             <>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[0.625rem]" style={{ color: "var(--color-ink-600)" }}>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-m-label" style={{ color: "var(--color-ink-600)" }}>
                 {doc.authority && <div><span style={{ color: "var(--color-ink-400)" }}>Auth: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{doc.authority}</span></div>}
                 {doc.docNumber && <div><span style={{ color: "var(--color-ink-400)" }}>Ref: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{doc.docNumber}</span></div>}
                 {doc.applicationDate && <div><span style={{ color: "var(--color-ink-400)" }}>Applied: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.applicationDate)}</span></div>}
@@ -420,21 +420,21 @@ function MobileChecklistRow({
                 {doc.amount != null && <div><span style={{ color: "var(--color-ink-400)" }}>{step.amountLabel ?? "Amt"}: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatCurrency(doc.amount)}</span></div>}
                 {doc.expectedRegistryDate && <div><span style={{ color: "var(--color-ink-400)" }}>Registry: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.expectedRegistryDate)}</span></div>}
               </div>
-              {doc.notes && <p className="text-[0.625rem] italic mt-1" style={{ color: "var(--color-ink-500)" }}>{doc.notes}</p>}
+              {doc.notes && <p className="text-m-label italic mt-1" style={{ color: "var(--color-ink-500)" }}>{doc.notes}</p>}
               {/* Transfer duty → project cost bridge indicator */}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && doc.projectId && isObtained && (
-                <p className="text-[0.5625rem] font-medium mt-1 flex items-center gap-1" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-caption font-medium mt-1 flex items-center gap-1" style={{ color: "var(--color-go)" }}>
                   <CheckCircle2 className="size-2.5" /> Transfer duty {formatCurrency(doc.amount)} auto-logged as project cost.
                 </p>
               )}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && !doc.projectId && (
-                <p className="text-[0.5625rem] font-medium mt-1 flex items-center gap-1" style={{ color: "#b45309" }}>
+                <p className="text-m-caption font-medium mt-1 flex items-center gap-1" style={{ color: "#b45309" }}>
                   <AlertCircle className="size-2.5" /> Link land to a project to auto-log the duty as a cost.
                 </p>
               )}
               <div className="flex items-center gap-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--color-line)" }}>
                 {doc.documentUrl && (
-                  <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[0.625rem] font-medium" style={{ color: "var(--color-brand)" }}>
+                  <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-m-label font-medium" style={{ color: "var(--color-brand)" }}>
                     <Download className="size-3" /> {doc.documentName ?? "View"}
                   </a>
                 )}
@@ -447,7 +447,7 @@ function MobileChecklistRow({
               </div>
             </>
           ) : (
-            <p className="text-[0.5625rem] italic" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption italic" style={{ color: "var(--color-ink-400)" }}>
               Tap &quot;Yes&quot; to record this permission.
             </p>
           )}
@@ -588,7 +588,7 @@ function MobileLegalDocForm({
   }
 
   const isATS = form.type === "AGREEMENT_TO_SELL";
-  const inputClass = "w-full rounded-lg border px-3 py-2 text-[0.8125rem]";
+  const inputClass = "w-full rounded-lg border px-3 py-2 text-m-section";
   const inputStyle = {
     backgroundColor: "var(--color-surface)",
     borderColor: "var(--color-line)",
@@ -606,7 +606,7 @@ function MobileLegalDocForm({
         <div className="sticky top-0 z-10 pt-2 pb-1" style={{ backgroundColor: "var(--color-paper)" }}>
           <div className="w-8 h-0.5 rounded-full mx-auto mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
           <div className="flex items-center justify-between px-3 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {editing ? "Edit Legal Document" : "Add Legal Document"}
             </p>
             <button onClick={onClose} className="press">
@@ -620,7 +620,7 @@ function MobileLegalDocForm({
           {/* Type + Status */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type *</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type *</label>
               <select
                 value={form.type}
                 onChange={(e) => {
@@ -641,7 +641,7 @@ function MobileLegalDocForm({
               </select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Status</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Status</label>
               <select
                 value={form.status}
                 onChange={(e) => setField("status", e.target.value as LegalDocStatus)}
@@ -657,7 +657,7 @@ function MobileLegalDocForm({
 
           {/* Title */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title *</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title *</label>
             <input
               type="text"
               value={form.title}
@@ -671,7 +671,7 @@ function MobileLegalDocForm({
           {/* Authority + Doc Number */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Authority</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Authority</label>
               <input
                 type="text"
                 value={form.authority}
@@ -682,7 +682,7 @@ function MobileLegalDocForm({
               />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Ref. No.</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Ref. No.</label>
               <input
                 type="text"
                 value={form.docNumber}
@@ -697,15 +697,15 @@ function MobileLegalDocForm({
           {/* Dates */}
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Issue Date</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Issue Date</label>
               <input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputClass} style={inputStyle} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid From</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid From</label>
               <input type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} className={inputClass} style={inputStyle} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid Till</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid Till</label>
               <input type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} className={inputClass} style={inputStyle} />
             </div>
           </div>
@@ -713,34 +713,34 @@ function MobileLegalDocForm({
           {/* ATS-specific or amount */}
           {isATS ? (
             <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: "var(--color-brand)", backgroundColor: "rgba(59,130,246,0.05)" }}>
-              <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-brand)" }}>Agreement to Sell</p>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-brand)" }}>Agreement to Sell</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reg. Amount (₹)</label>
+                  <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reg. Amount (₹)</label>
                   <input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="5000000" className={inputClass} style={inputStyle} />
                 </div>
                 <div>
-                  <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Expected Registry</label>
+                  <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Expected Registry</label>
                   <input type="date" value={form.expectedRegistryDate} onChange={(e) => setField("expectedRegistryDate", e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
               </div>
-              <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
                 ATS is a legal substitute for registry — used when the seller cannot registry immediately.
               </p>
             </div>
           ) : (
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fee / Amount (₹) — optional</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fee / Amount (₹) — optional</label>
               <input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="50000" className={inputClass} style={inputStyle} />
             </div>
           )}
 
           {/* Upload */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Proof Document</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Proof Document</label>
             {form.documentUrl ? (
               <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-surface)" }}>
-                <a href={form.documentUrl} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-[0.75rem]" style={{ color: "var(--color-ink-900)" }}>
+                <a href={form.documentUrl} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-m-section" style={{ color: "var(--color-ink-900)" }}>
                   <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                   <span className="truncate">{form.documentName ?? "View"}</span>
                 </a>
@@ -752,7 +752,7 @@ function MobileLegalDocForm({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-[0.6875rem]"
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-m-body"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
               >
                 {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
@@ -764,7 +764,7 @@ function MobileLegalDocForm({
 
           {/* Notes */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setField("notes", e.target.value)}
@@ -781,7 +781,7 @@ function MobileLegalDocForm({
           <button
             onClick={onClose}
             disabled={saving}
-            className="flex-1 rounded-lg border py-2.5 text-[0.75rem] font-semibold"
+            className="flex-1 rounded-lg border py-2.5 text-m-section font-semibold"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             Cancel
@@ -789,7 +789,7 @@ function MobileLegalDocForm({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 rounded-lg py-2.5 text-[0.75rem] font-semibold flex items-center justify-center gap-1"
+            className="flex-1 rounded-lg py-2.5 text-m-section font-semibold flex items-center justify-center gap-1"
             style={{ backgroundColor: "var(--color-brand)", color: "white" }}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}

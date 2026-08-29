@@ -169,7 +169,7 @@ export function MobileStockMovementsList({
       {/* ── Material filter label (when deep-linked) ── */}
       {filterMaterialName ? (
         <div
-          className="rounded-[0.5rem] px-3 py-2 mb-3 text-[0.75rem] font-semibold"
+          className="rounded-[0.5rem] px-3 py-2 mb-3 text-m-section font-semibold"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
           Filtering by: {filterMaterialName}
@@ -179,7 +179,7 @@ export function MobileStockMovementsList({
       {/* ── Material stock by location (when deep-linked by material) ── */}
       {filterMaterialName && materialStockItems.length > 0 ? (
         <div className="mb-3">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--color-steel)" }}>
             On Hand by Location
           </p>
           <div
@@ -190,13 +190,13 @@ export function MobileStockMovementsList({
               <Link
                 key={item.locationId}
                 href={`/m/stock?locationId=${item.locationId}`}
-                className="flex items-center justify-between gap-2 px-2.5 py-1.5 press"
+                className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-m-body press"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
-                <span className="text-[0.625rem] font-semibold truncate" style={{ color: "var(--color-ink-700)" }}>
+                <span className="text-m-label font-semibold truncate" style={{ color: "var(--color-ink-700)" }}>
                   {item.locationName}
                 </span>
-                <span className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(item.qty, 0)} {item.unit}
                 </span>
               </Link>
@@ -246,10 +246,10 @@ export function MobileStockMovementsList({
             <div key={group.label}>
               {/* Date header */}
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                   {group.label}
                 </span>
-                <span className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                   {group.items.length} entr{group.items.length !== 1 ? "ies" : "y"}
                 </span>
               </div>
@@ -276,20 +276,20 @@ export function MobileStockMovementsList({
 
                       {/* Main content */}
                       <div className="min-w-0 flex-1">
-                        <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                        <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                           {formatNumber(m.qty, 0)} {m.materialUnit} {m.materialName}
                         </p>
-                        <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                           {m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}
                         </p>
                       </div>
 
                       {/* Right: type + time */}
                       <div className="text-right shrink-0">
-                        <p className="text-[0.5625rem] font-bold" style={{ color }}>
+                        <p className="text-m-caption font-bold" style={{ color }}>
                           {movementLabel(m.movementType)}
                         </p>
-                        <p className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-400)" }}>
+                        <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-400)" }}>
                           {formatTime(m.timestamp)}
                         </p>
                       </div>

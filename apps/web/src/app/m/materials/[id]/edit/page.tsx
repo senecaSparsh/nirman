@@ -46,7 +46,7 @@ export default async function EditMaterialPage({
       <div className="p-4">
         <div className="mb-4">
         </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
           Material not found
         </p>
       </div>

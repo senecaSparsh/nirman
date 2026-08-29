@@ -6,9 +6,10 @@ import { prisma } from "@nirman/db";
 import { BookOpen } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
+import { MobileReseedAccountsButton } from "./MobileReseedAccountsButton";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -65,21 +66,25 @@ async function MobileGlContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <MobileStatCard label="Total Debit" value={formatCurrency(totalDebit)} icon={BookOpen} />
-        <MobileStatCard label="Total Credit" value={formatCurrency(totalCredit)} icon={BookOpen} tone="go" />
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
+        <MobileStatCard label="Total Debit" value={formatCurrencyCompact(totalDebit)} icon={BookOpen} />
+        <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
+      </div>
+
+      <div className="mb-4 flex justify-end">
+        <MobileReseedAccountsButton />
       </div>
 
       {totalDebit !== totalCredit && (
         <div
-          className="mb-4 rounded-[0.5rem] border-2 px-3 py-2 text-[0.5625rem] font-semibold"
+          className="mb-4 rounded-[0.5rem] border-2 px-3 py-2 text-m-caption font-semibold"
           style={{
             borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
             backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)",
             color: "var(--color-stop)",
           }}
         >
-          Out of balance by {formatCurrency(Math.abs(totalDebit - totalCredit))}
+          Out of balance by {formatCurrencyCompact(Math.abs(totalDebit - totalCredit))}
         </div>
       )}
 
@@ -98,7 +103,7 @@ async function MobileGlContent() {
             { key: "credit", label: "Credit", format: "currency" },
             { key: "balance", label: "Balance", format: "currency" },
           ] as MobileColumnSpec[]}
-          exportSummary={`${rows.length} accounts · Dr ${formatCurrency(totalDebit)} / Cr ${formatCurrency(totalCredit)}`}
+          exportSummary={`${rows.length} accounts · Dr ${formatCurrencyCompact(totalDebit)} / Cr ${formatCurrencyCompact(totalCredit)}`}
         />
       )}
     </div>

@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { reallocateProjectCosts } from "./valuation";
@@ -220,7 +221,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
     if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Issue qty must be > 0");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Create MaterialIssue in PENDING state (no stock movements yet)
     const materialIssue = await tx.materialIssue.create({
       data: {
@@ -278,7 +279,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
     }
 
     return { materialIssue, totalCost: new Decimal(0) };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**

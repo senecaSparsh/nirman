@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/customers/[id] — customer detail.
@@ -66,7 +67,12 @@ async function MobileCustomerDetailContent({
 
   if (!customer) {
     return (
-      <MobileCustomerDetailClient notFound canSell={canSell} canManage={canManage} />
+      <>
+        <div className="mb-3">
+          <MobileBackButton fallback="/m/customers" />
+        </div>
+        <MobileCustomerDetailClient notFound canSell={canSell} canManage={canManage} />
+      </>
     );
   }
 
@@ -140,6 +146,9 @@ async function MobileCustomerDetailContent({
 
   return (
     <>
+      <div className="mb-3">
+        <MobileBackButton fallback="/m/customers" />
+      </div>
       <RecordRecentItem type="customer" id={customer.id} label={customer.name} sublabel={customer.phone ?? undefined} href={`/m/customers/${customer.id}`} />
       <MobileCustomerDetailClient
         data={data}

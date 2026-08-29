@@ -58,6 +58,11 @@ export function SupplierFormDialog({
       toast.error("Supplier name is required");
       return;
     }
+    const leadTime = form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays);
+    if (leadTime !== null && leadTime < 0) {
+      toast.error("Lead time cannot be negative");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -66,7 +71,7 @@ export function SupplierFormDialog({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
-        leadTimeDays: form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays),
+        leadTimeDays: leadTime,
       };
       const url = supplier ? `/api/suppliers/${supplier.id}` : "/api/suppliers";
       const method = supplier ? "PATCH" : "POST";

@@ -3,6 +3,7 @@ import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { ALL_ROLES, type Role } from "@/lib/roles";
 import { json } from "@/lib/server";
+import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * POST /api/auth/demo-login — one-click login provisioning (DEV ONLY).
@@ -79,7 +80,7 @@ export const POST = async (req: NextRequest) => {
   // Resolve (or create) the user for this role, then ensure they have a
   // credential Account with the demo password. Everything in one
   // transaction so a partial failure can't leave a passwordless account.
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // Prefer an existing user that already has this role (matches seed).
     let user = await tx.user.findFirst({
       where: { role },

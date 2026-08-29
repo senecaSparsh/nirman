@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -21,6 +22,7 @@ export function MobileNewSupplierDialog({
   onClose: () => void;
   onCreated: (supplier: { id: string; name: string }) => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [gstin, setGstin] = useState("");
   const [phone, setPhone] = useState("");
@@ -52,6 +54,7 @@ export function MobileNewSupplierDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to create supplier");
       haptic([10, 40, 80]);
       toast.success(`${data.name} supplier created`);
+      router.refresh();
       onCreated({ id: data.id, name: data.name });
       setName("");
       setGstin("");
@@ -72,10 +75,10 @@ export function MobileNewSupplierDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -84,14 +87,14 @@ export function MobileNewSupplierDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Supplier
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -99,7 +102,7 @@ export function MobileNewSupplierDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           Add a vendor you purchase materials from. Only the name is required.
@@ -109,7 +112,7 @@ export function MobileNewSupplierDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -120,7 +123,7 @@ export function MobileNewSupplierDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. ABC Cement Suppliers"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -132,7 +135,7 @@ export function MobileNewSupplierDialog({
           {/* GSTIN */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               GSTIN
@@ -142,7 +145,7 @@ export function MobileNewSupplierDialog({
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase())}
               placeholder="22AAAAA0000A1Z5"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -154,7 +157,7 @@ export function MobileNewSupplierDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Phone
@@ -164,7 +167,7 @@ export function MobileNewSupplierDialog({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="9876543210"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -176,7 +179,7 @@ export function MobileNewSupplierDialog({
           {/* Email */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email
@@ -186,7 +189,7 @@ export function MobileNewSupplierDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contact@abcsuppliers.com"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -198,7 +201,7 @@ export function MobileNewSupplierDialog({
           {/* Address */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Address
@@ -208,7 +211,7 @@ export function MobileNewSupplierDialog({
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Shop 12, Market Road, City"
               rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -221,7 +224,7 @@ export function MobileNewSupplierDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

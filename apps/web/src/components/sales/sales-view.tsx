@@ -319,6 +319,8 @@ function SalesTab({
   const [stageFilter, setStageFilter] = useState("");
   const [payFilter, setPayFilter] = useState("");
   const [bbaFilter, setBbaFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [formOpen, setFormOpen] = useState(Boolean(autoOpenNewSale));
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
 
@@ -337,9 +339,11 @@ function SalesTab({
       if (payFilter && s.paymentStatus !== payFilter) return false;
       if (bbaFilter === "signed" && !s.bbaNo && !s.bbaDocumentUrl) return false;
       if (bbaFilter === "pending" && (s.bbaNo || s.bbaDocumentUrl)) return false;
+      if (dateFrom && s.saleDate < dateFrom) return false;
+      if (dateTo && s.saleDate > dateTo) return false;
       return true;
     }),
-    [sales, statusFilter, stageFilter, payFilter, bbaFilter],
+    [sales, statusFilter, stageFilter, payFilter, bbaFilter, dateFrom, dateTo],
   );
 
   // ── View toggle — Board vs Table (shared between both branches) ──
@@ -390,7 +394,7 @@ function SalesTab({
         <button
           onClick={async () => {
             try {
-              const res = await fetch("/api/cron/reminders", { method: "POST", headers: { "x-cron-secret": process.env.NEXT_PUBLIC_CRON_SECRET ?? "" } });
+              const res = await fetch("/api/sales/send-reminders", { method: "POST" });
               const data = await res.json();
               if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
               toast.success("Payment reminders sent", {
@@ -488,7 +492,7 @@ function SalesTab({
             onSelectSale={(s) => setSelected(s)}
             onSendReminders={async () => {
               try {
-                const res = await fetch("/api/cron/reminders", { method: "POST", headers: { "x-cron-secret": process.env.NEXT_PUBLIC_CRON_SECRET ?? "" } });
+                const res = await fetch("/api/sales/send-reminders", { method: "POST" });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
                 toast.success("Payment reminders sent", {
@@ -549,6 +553,20 @@ function SalesTab({
                   { value: "signed", label: "BBA Signed" },
                   { value: "pending", label: "BBA Pending" },
                 ])}
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+                  title="Filter from date"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+                  title="Filter to date"
+                />
               </div>
             }
             toolbarTrailing={trailingButtons}

@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { recordMovement, recordTransfer, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
@@ -190,7 +191,7 @@ export async function createTransfer(input: CreateTransferInput) {
     if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Transfer qty must be > 0");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.create({
       data: {
         fromLocationId: input.fromLocationId,
@@ -240,7 +241,7 @@ export async function createTransfer(input: CreateTransferInput) {
     });
 
     return transfer;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -814,7 +815,7 @@ export async function returnTransferToSource(transferId: string, userId?: string
 }
 
 export async function cancelTransfer(transferId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({ where: { id: transferId }, include: { fromLocation: { select: { companyId: true } } } });
     if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
@@ -838,5 +839,5 @@ export async function cancelTransfer(transferId: string, userId?: string) {
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }

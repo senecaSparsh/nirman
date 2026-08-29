@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { TrendingUp, Truck, Users, FileText } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -98,10 +98,10 @@ async function MobilePurchaseTrendsContent() {
 
       <MobileReportSummary
         items={[
-          { label: "12-mo Spend", value: formatCurrency(grandTotal) },
+          { label: "12-mo Spend", value: formatCurrencyCompact(grandTotal) },
           { label: "Orders", value: String(totalOrders) },
           { label: "Suppliers", value: String(topSuppliers.length) },
-          { label: "Avg Order", value: formatCurrency(totalOrders > 0 ? grandTotal / totalOrders : 0) },
+          { label: "Avg Order", value: formatCurrencyCompact(totalOrders > 0 ? grandTotal / totalOrders : 0) },
         ]}
       />
 
@@ -123,7 +123,7 @@ async function MobilePurchaseTrendsContent() {
             value: m.total,
             tone: "signal" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -135,7 +135,7 @@ async function MobilePurchaseTrendsContent() {
             key={m.label}
             title={m.label}
             subtitle={`${m.count} order${m.count !== 1 ? "s" : ""} · GST ${formatCurrency(m.gst)}`}
-            meta={formatCurrency(m.total)}
+            meta={formatCurrencyCompact(m.total)}
             tone={m.count > 0 ? "default" : "default"}
           />
         ))}
@@ -150,7 +150,7 @@ async function MobilePurchaseTrendsContent() {
             icon={Users}
             title={s.name}
             subtitle={`${s.count} order${s.count !== 1 ? "s" : ""}`}
-            meta={formatCurrency(s.total)}
+            meta={formatCurrencyCompact(s.total)}
             tone="default"
           />
         ))}

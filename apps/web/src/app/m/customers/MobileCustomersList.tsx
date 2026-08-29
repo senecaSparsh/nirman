@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
   Users, Phone,
-  UserPlus,
+  UserPlus, Plus,
   AlertCircle, ChevronRight,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
@@ -12,8 +12,10 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
+  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ─── Types ─── */
 
@@ -56,6 +58,8 @@ export function MobileCustomersList({
   items,
   stats,
   canCreate = false,
+  canEdit = false,
+  canDelete = false,
   exportTitle,
   exportRows,
   exportColumns,
@@ -64,6 +68,8 @@ export function MobileCustomersList({
   items: CustomerListItem[];
   stats: Stats;
   canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -97,6 +103,27 @@ export function MobileCustomersList({
     { label: "Clear", value: "clear" },
   ];
 
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={Users}
+        title="No customers yet"
+        hint="Add your first customer to start recording sales"
+        action={
+          canCreate ? (
+            <Link
+              href="/m/customers/new"
+              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-3.5" /> Add Customer
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
     <div>
       {/* ── Outstanding banner — the money you're owed ── */}
@@ -109,26 +136,26 @@ export function MobileCustomersList({
       >
         <div className="flex items-center justify-between mb-1">
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Total Outstanding
             </p>
             <p
-              className="text-[1.25rem] font-bold tabular-nums leading-tight"
+              className="text-m-section font-bold tabular-nums leading-tight"
               style={{ color: stats.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}
             >
-              {formatCurrency(stats.totalOutstanding)}
+              {formatCurrencyCompact(stats.totalOutstanding)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Pipeline
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrencyCompact(stats.pipelineValue)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[0.5rem] font-semibold mt-1">
+        <div className="flex items-center gap-3 text-m-caption font-semibold mt-1">
           <span className="flex items-center gap-0.5" style={{ color: "var(--color-ink-600)" }}>
             <Users className="size-2.5" />
             {stats.customerCount} customers
@@ -140,16 +167,9 @@ export function MobileCustomersList({
         </div>
       </div>
 
-      {/* ── New Customer button ── */}
+      {/* ── New Customer FAB ── */}
       {canCreate ? (
-        <Link
-          href="/m/customers/new"
-          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.625rem] mb-3 text-[0.75rem] font-bold press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-        >
-          <UserPlus className="size-3.5" />
-          New Customer
-        </Link>
+        <MobileFab href="/m/customers/new" label="New customer" icon={UserPlus} />
       ) : null}
 
       {/* ── Search + filter ── */}
@@ -183,7 +203,7 @@ export function MobileCustomersList({
       {(query || filter !== "all") && filtered.length > 0 && (
         <div className="flex items-center justify-end mb-1.5">
           <span
-            className="text-[0.625rem] font-semibold"
+            className="text-m-label font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
@@ -200,7 +220,7 @@ export function MobileCustomersList({
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((c) => (
-            <CustomerCard key={c.id} customer={c} />
+            <CustomerCard key={c.id} customer={c} canEdit={canEdit} canDelete={canDelete} />
           ))}
         </div>
       )}
@@ -209,7 +229,15 @@ export function MobileCustomersList({
 }
 
 /* ─── Customer card ─── */
-function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
+function CustomerCard({
+  customer: c,
+  canEdit = false,
+  canDelete = false,
+}: {
+  customer: CustomerListItem;
+  canEdit?: boolean;
+  canDelete?: boolean;
+}) {
   const badge = PAYMENT_BADGE[c.paymentStatus] ?? { color: "var(--color-ink-400)", label: "Unknown" };
   const hasDues = c.dueCount > 0;
   const hasSales = c.activeCount > 0;
@@ -226,11 +254,11 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
       <div className="p-2.5">
         {/* ── Top: name + badge ── */}
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {c.name}
           </p>
           <span
-            className="flex items-center gap-0.5 text-[0.375rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
             style={{ color: badge.color, backgroundColor: `color-mix(in srgb, ${badge.color} 12%, transparent)` }}
           >
             {badge.label}
@@ -239,12 +267,12 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
 
         {/* ── Phone ── */}
         {c.phone ? (
-          <p className="text-[0.5rem] flex items-center gap-0.5 mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption flex items-center gap-0.5 mb-1.5" style={{ color: "var(--color-ink-500)" }}>
             <Phone className="size-2.5" />
             {c.phone}
           </p>
         ) : (
-          <p className="text-[0.5rem] mb-1.5" style={{ color: "var(--color-ink-400)" }}>
+          <p className="text-m-caption mb-1.5" style={{ color: "var(--color-ink-400)" }}>
             No phone
           </p>
         )}
@@ -253,10 +281,10 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
         {hasSales ? (
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                 Sales
               </p>
-              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrencyCompact(c.totalValue)}
               </p>
             </div>
@@ -265,10 +293,10 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
               <>
                 <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
                 <div>
-                  <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                     Outstanding
                   </p>
-                  <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                  <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
                     {formatCurrencyCompact(c.outstanding)}
                   </p>
                 </div>
@@ -276,16 +304,16 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
             ) : null}
 
             <div className="ml-auto text-right">
-              <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                 Deals
               </p>
-              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {c.activeCount}
               </p>
             </div>
           </div>
         ) : (
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-400)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
             No sales yet
           </p>
         )}
@@ -298,7 +326,7 @@ function CustomerCard({ customer: c }: { customer: CustomerListItem }) {
           style={{ borderTop: "1px solid var(--color-line)", backgroundColor: `color-mix(in srgb, var(--color-signal) 5%, transparent)` }}
         >
           <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-          <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }}>
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
             {c.dueCount} {c.dueCount === 1 ? "sale" : "sales"} with dues
           </span>
           <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />

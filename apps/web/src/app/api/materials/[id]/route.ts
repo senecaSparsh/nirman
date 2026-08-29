@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
 import { apiHandler, json, materialSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
@@ -36,7 +38,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // managed by refreshMaterialCurrentCost() after stock movements. Only set
   // currentCost on material creation (when there's no stock yet).
   try {
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withSerializableTransaction(async (tx) => {
       // Optimistic locking: check version if provided
       if (expectedVersion !== undefined) {
         const current = await tx.material.findUnique({ where: { id }, select: { version: true } });
@@ -58,6 +60,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       return mat;
     });
+    revalidatePath("/materials");
+    revalidatePath("/m/materials");
     return json(updated);
   } catch (err) {
     if (err instanceof ConcurrentEditError) {
@@ -79,7 +83,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Material not found" }, { status: 404 });
   }
   await softDelete("Material", id);
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     await logAction(tx, {
       userId: user.id,
       action: "MATERIAL_DELETE",

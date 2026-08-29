@@ -5,9 +5,11 @@ import {
   approvePurchaseOrder,
   cancelPurchaseOrder,
   orderPurchaseOrder,
+  addLineToPurchaseOrder,
+  ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum } from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -117,6 +119,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string | undefined;
@@ -135,23 +138,34 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (!materialId || !qtyOrdered || !unitCost) {
       return json({ error: "materialId, qtyOrdered, and unitCost are required" }, { status: 400 });
     }
-    const po = await prisma.purchaseOrder.findUnique({ where: { id }, select: { status: true } });
-    if (!po) return json({ error: "PO not found" }, { status: 404 });
-    if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
-      return json({ error: "Can only add lines to ORDERED or PARTIAL POs" }, { status: 400 });
+    const qtyNum = Number(qtyOrdered);
+    const costNum = Number(unitCost);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      return json({ error: "qtyOrdered must be a positive number" }, { status: 400 });
     }
-    const line = await prisma.purchaseOrderLine.create({
-      data: {
-        purchaseOrderId: id,
+    if (!Number.isFinite(costNum) || costNum < 0) {
+      return json({ error: "unitCost must be a non-negative number" }, { status: 400 });
+    }
+    try {
+      const line = await addLineToPurchaseOrder({
+        poId: id,
         materialId,
-        qtyOrdered: Number(qtyOrdered),
-        unitCost: Number(unitCost),
-        qtyReceived: 0,
-        lineTotal: Number(qtyOrdered) * Number(unitCost),
-      },
-    });
-    revalidatePath(`/m/procurement/${id}`);
-    return json({ ok: true, lineId: line.id }, { status: 201 });
+        qtyOrdered: qtyNum,
+        unitCost: costNum,
+        userId: user.id,
+      });
+      revalidatePath(`/m/procurement/${id}`);
+      return json({ ok: true, lineId: line.id }, { status: 201 });
+    } catch (err) {
+      // Re-throw ServiceError as-is (apiHandler maps it to the correct HTTP
+      // status); wrap any other failure so FK/constraint errors surface as a
+      // 400 instead of an opaque 500.
+      if (err instanceof ServiceError) throw err;
+      throw new ServiceError(
+        err instanceof Error ? err.message : "Failed to add line to purchase order",
+        400,
+      );
+    }
   } else {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);

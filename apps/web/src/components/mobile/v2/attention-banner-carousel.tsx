@@ -113,7 +113,7 @@ export function AttentionBannerCarousel({
       {approvalsCount > 0 ? (
         <Link
           href={approvalsHref}
-          className="absolute top-1.5 left-1.5 z-30 flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.5rem] font-bold press"
+          className="absolute top-1.5 left-1.5 z-30 flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold text-m-body press"
           style={{
             backgroundColor: "rgba(255,255,255,0.25)",
             color: "#fff",
@@ -128,7 +128,7 @@ export function AttentionBannerCarousel({
       {/* Total attention count — top right, persistent */}
       {totalAttention > 1 ? (
         <div
-          className="absolute top-1.5 right-1.5 z-30 flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.5625rem] font-bold pointer-events-none"
+          className="absolute top-1.5 right-1.5 z-30 flex items-center gap-1 rounded-full px-2.5 py-1 text-m-caption font-bold pointer-events-none"
           style={{
             backgroundColor: "rgba(255,255,255,0.25)",
             color: "#fff",
@@ -158,7 +158,7 @@ export function AttentionBannerCarousel({
             <Link
               key={banner.id}
               href={banner.href}
-              className="block shrink-0 w-full"
+              className="block shrink-0 w-full text-m-body"
               style={{ background: GRADIENTS[banner.severity] }}
             >
               <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem]">
@@ -173,19 +173,19 @@ export function AttentionBannerCarousel({
                 {/* Text */}
                 <div className="flex-1 min-w-0">
                   <span
-                    className="text-[0.5625rem] font-semibold uppercase tracking-wide block mb-1"
+                    className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
                     style={{ color: "#fff", opacity: 0.7 }}
                   >
                     {banner.category}
                   </span>
                   <p
-                    className="font-bold text-[1rem] leading-tight truncate"
+                    className="font-bold text-m-section leading-tight truncate"
                     style={{ color: "#fff" }}
                   >
                     {banner.title}
                   </p>
                   <p
-                    className="text-[0.75rem] mt-1 truncate"
+                    className="text-m-body mt-1 truncate"
                     style={{ color: "#fff", opacity: 0.8 }}
                   >
                     {banner.subtitle}
@@ -195,7 +195,7 @@ export function AttentionBannerCarousel({
                 {/* CTA pill + Snooze */}
                 <div className="shrink-0 flex flex-col items-end gap-1.5">
                   <div
-                    className="rounded-full px-3 py-1.5 text-[0.75rem] font-bold flex items-center gap-1"
+                    className="rounded-full px-3 py-1.5 text-m-body font-bold flex items-center gap-1"
                     style={{
                       backgroundColor: ACCENT_COLORS[banner.severity],
                       color: "#1a1a1a",

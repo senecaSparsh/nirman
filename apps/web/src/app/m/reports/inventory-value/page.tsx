@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Package, Layers, MapPin } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -127,7 +127,7 @@ async function MobileInventoryValueContent({
 
       <MobileReportSummary
         items={[
-          { label: "Total Value", value: formatCurrency(grandTotal) },
+          { label: "Total Value", value: formatCurrencyCompact(grandTotal) },
           { label: "Line Items", value: String(items.length) },
           { label: "Locations", value: String(locationRows.length) },
           { label: "Categories", value: String(categoryRows.length) },
@@ -152,7 +152,7 @@ async function MobileInventoryValueContent({
             value: l.value,
             tone: "signal" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -165,7 +165,7 @@ async function MobileInventoryValueContent({
             icon={MapPin}
             title={l.name}
             subtitle={`${l.qty.toFixed(2)} units · ${l.type}`}
-            meta={formatCurrency(l.value)}
+            meta={formatCurrencyCompact(l.value)}
             tone="default"
           />
         ))}
@@ -180,7 +180,7 @@ async function MobileInventoryValueContent({
             icon={Layers}
             title={c.name}
             subtitle={`${c.qty.toFixed(2)} units`}
-            meta={formatCurrency(c.value)}
+            meta={formatCurrencyCompact(c.value)}
             tone="default"
           />
         ))}
@@ -195,7 +195,7 @@ async function MobileInventoryValueContent({
             icon={Package}
             title={m.name}
             subtitle={`${m.code} · ${m.qty.toFixed(2)} ${m.unit} · ${m.categoryName}`}
-            meta={formatCurrency(m.value)}
+            meta={formatCurrencyCompact(m.value)}
             tone="default"
           />
         ))}

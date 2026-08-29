@@ -4,6 +4,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { logAction } from "./audit";
 import { postStockAdjustment } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Stock Count Service — physical inventory reconciliation.
@@ -34,7 +35,7 @@ export async function createStockCount(input: CreateStockCountInput) {
   });
   const systemQtyMap = new Map(items.map((i) => [i.materialId, new Decimal(i.qty)]));
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const count = await tx.stockCount.create({
       data: {
         locationId: input.locationId,
@@ -72,7 +73,7 @@ export async function createStockCount(input: CreateStockCountInput) {
  * an immutable audit record.
  */
 export async function deleteStockCount(countId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
     if (!count) throw new ServiceError("Stock count not found", 404);
     if (count.status !== "DRAFT") {
@@ -91,7 +92,7 @@ export async function deleteStockCount(countId: string, userId?: string) {
 }
 
 export async function confirmStockCount(countId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
     if (!count) throw new ServiceError("Stock count not found", 404);
     if (count.status !== "DRAFT") throw new ServiceError(`Cannot confirm count in status ${count.status}`);

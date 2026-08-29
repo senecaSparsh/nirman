@@ -13,9 +13,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Input, Select, Label } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { MobileSearchBar, MobileFilterChips, MobileStatusBadge, MobileEmptyState, MobileCta } from "@/components/mobile/mobile-primitives";
+import { MobileSearchHeader, MobileFilterChips } from "@/components/mobile/v2/scaffold";
+import { MobileStatusBadge, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
@@ -68,12 +67,18 @@ export function MobileSalesList({ sales }: { sales: SaleItem[] }) {
   return (
     <div>
       {/* ── Search + filter ────────────────────────────────────── */}
-      <MobileSearchBar value={query} onChange={setQuery} placeholder="Search customer or sale no…" />
-      <MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search customer or sale no…"
+        filterChips={<MobileFilterChips chips={FILTER_CHIPS} active={filter} onChange={setFilter} />}
+        showClear={!!query || filter !== "ALL"}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
+      />
 
       {/* ── Payments due (actionable) ──────────────────────────── */}
       {dueSales.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-3 text-label text-muted-foreground/75">
+        <h2 className="px-4 pb-1.5 pt-3 text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
           Payments Due ({dueSales.length})
         </h2>
       )}
@@ -92,26 +97,30 @@ export function MobileSalesList({ sales }: { sales: SaleItem[] }) {
 
       {/* ── Fully paid (view-only) ─────────────────────────────── */}
       {paidSales.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
+        <h2 className="px-4 pb-1.5 pt-5 text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
           Paid ({paidSales.length})
         </h2>
       )}
       {paidSales.map((sale) => (
         <div
           key={sale.id}
-          className="flex min-h-12 items-center gap-3 border-b border-border/70 bg-card px-4 py-2"
+          className="flex min-h-12 items-center gap-3 border-b px-4 py-2"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-success" />
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
+            style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)" }}
+          >
+            <CheckCircle2 className="h-4 w-4" style={{ color: "var(--color-go)" }} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-body font-semibold text-foreground">{sale.customerName}</div>
-            <div className="truncate text-caption text-muted-foreground">
+            <div className="truncate text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{sale.customerName}</div>
+            <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               {sale.saleNumber} · {formatDate(sale.saleDate)}
             </div>
           </div>
           <MobileStatusBadge status={sale.paymentStatus} />
-          <span className="shrink-0 text-meta font-medium tnum text-success">
+          <span className="shrink-0 text-m-caption font-medium tnum" style={{ color: "var(--color-go)" }}>
             {formatCurrency(sale.salePrice)}
           </span>
         </div>
@@ -123,7 +132,7 @@ export function MobileSalesList({ sales }: { sales: SaleItem[] }) {
             icon={ShoppingCart}
             title="No sales yet"
             hint="Create your first sale to start tracking bookings and payments."
-            action={<MobileCta href="/m/sales/new" icon={ShoppingCart}>New Sale</MobileCta>}
+            action={<MobileCta href="/m/sales/new" icon={ShoppingCart} variant="primary">New Sale</MobileCta>}
           />
         ) : (
           <MobileEmptyState
@@ -187,31 +196,34 @@ function SaleCard({
   }
 
   return (
-    <div className="border-b border-border/70 bg-card">
+    <div className="border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
       {/* Header row */}
       <button
         onClick={onToggle}
         disabled={submitting}
-        className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left transition-colors active:bg-accent"
+        className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left press transition-colors"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Wallet className="h-4 w-4 text-warning" />
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-warn) 10%, transparent)" }}
+        >
+          <Wallet className="h-4 w-4" style={{ color: "var(--color-warn)" }} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-body font-semibold text-foreground">{sale.customerName}</div>
-          <div className="truncate text-caption text-muted-foreground">
+          <div className="truncate text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{sale.customerName}</div>
+          <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             {sale.saleNumber} · {formatDate(sale.saleDate)}
           </div>
         </div>
         <MobileStatusBadge status={sale.paymentStatus} />
         <div className="shrink-0 text-right">
-          <div className="text-meta font-medium tnum text-warning">{formatCurrency(sale.balance)}</div>
-          <div className="text-caption text-muted-foreground">due</div>
+          <div className="text-m-caption font-medium tnum" style={{ color: "var(--color-warn)" }}>{formatCurrency(sale.balance)}</div>
+          <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>due</div>
         </div>
         {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
         )}
       </button>
 
@@ -219,28 +231,31 @@ function SaleCard({
       {expanded && (
         <div className="px-4 pb-4">
           {/* Summary */}
-          <div className="mb-3 rounded-md border border-border bg-background p-3 text-meta">
+          <div
+            className="mb-3 rounded-[0.375rem] border p-3 text-m-caption"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Sale price</span>
-              <span className="tnum text-foreground">{formatCurrency(sale.salePrice)}</span>
+              <span style={{ color: "var(--color-ink-500)" }}>Sale price</span>
+              <span className="tnum" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(sale.salePrice)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Paid so far</span>
-              <span className="tnum text-success">{formatCurrency(sale.totalPaid)}</span>
+              <span style={{ color: "var(--color-ink-500)" }}>Paid so far</span>
+              <span className="tnum" style={{ color: "var(--color-go)" }}>{formatCurrency(sale.totalPaid)}</span>
             </div>
-            <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
-              <span>Balance</span>
-              <span className="tnum text-warning">{formatCurrency(sale.balance)}</span>
+            <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: "var(--color-line)" }}>
+              <span style={{ color: "var(--color-ink-950)" }}>Balance</span>
+              <span className="tnum" style={{ color: "var(--color-warn)" }}>{formatCurrency(sale.balance)}</span>
             </div>
           </div>
 
           {/* Payment form */}
           <div className="space-y-3">
-            <div>
-              <Label>Amount</Label>
+            <div className="space-y-1">
+              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>Amount</label>
               <div className="relative">
-                <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <IndianRupee className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--color-ink-500)" }} />
+                <input
                   type="text"
                   inputMode="decimal"
                   enterKeyHint="done"
@@ -249,43 +264,54 @@ function SaleCard({
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="pl-9"
+                  className="w-full rounded-[0.375rem] border py-2.5 pl-9 pr-3 text-m-body outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   placeholder="0.00"
                 />
               </div>
             </div>
-            <div>
-              <Label>Mode</Label>
-              <Select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <div className="space-y-1">
+              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>Mode</label>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+                className="w-full rounded-[0.375rem] border px-3 py-2.5 text-m-body outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
                 {PAYMENT_MODES.map((m) => (
                   <option key={m} value={m}>
                     {m.replace(/_/g, " ")}
                   </option>
                 ))}
-              </Select>
+              </select>
             </div>
-            <div>
-              <Label>Reference (optional)</Label>
-              <Input
+            <div className="space-y-1">
+              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>Reference (optional)</label>
+              <input
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
+                className="w-full rounded-[0.375rem] border px-3 py-2.5 text-m-body outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 placeholder="Cheque no, UPI ID, transaction ref…"
               />
             </div>
 
-            <Button
+            <button
               onClick={recordPayment}
               disabled={submitting}
-              className="w-full"
-              size="lg"
+              className="w-full rounded-[0.625rem] py-2.5 text-m-body font-semibold press disabled:opacity-50 active:scale-95 transition-transform"
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {submitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" /> Recording…
+                </span>
               ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
+                <span className="inline-flex items-center gap-2">
+                  <CheckCircle2 className="size-4" /> Record Payment
+                </span>
               )}
-              {submitting ? "Recording…" : "Record Payment"}
-            </Button>
+            </button>
           </div>
         </div>
       )}

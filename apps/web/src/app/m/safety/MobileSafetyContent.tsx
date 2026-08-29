@@ -60,7 +60,7 @@ export function MobileSafetyContent({
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
-              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-[0.6875rem] font-bold transition-colors press"
+              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-m-body font-bold transition-colors text-m-body press"
               style={{
                 backgroundColor: active ? "var(--color-ink-950)" : "transparent",
                 color: active ? "var(--color-paper)" : "var(--color-ink-500)",
@@ -70,7 +70,7 @@ export function MobileSafetyContent({
               {t.label}
               {count > 0 && (
                 <span
-                  className="ml-0.5 px-1 rounded text-[0.5rem] tabular-nums"
+                  className="ml-0.5 px-1 rounded text-m-caption tabular-nums"
                   style={{ backgroundColor: active ? "rgba(255,255,255,0.2)" : "var(--color-concrete)" }}
                 >
                   {count}

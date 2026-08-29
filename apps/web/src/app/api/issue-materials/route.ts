@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { issueMaterialsToProject, issueMaterialsToDepartment, createMaterialIssueRequest, executeMaterialIssue, recordVehicleTrip } from "@nirman/services";
+import { issueMaterialsToProject, issueMaterialsToDepartment, createMaterialIssueRequest, executeMaterialIssue, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -80,7 +80,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
       { status: 201 },
     );
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to issue materials") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to issue materials" }, { status: 400 });
   }
 });
 
@@ -129,7 +132,10 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
       revalidatePath("/gate-passes");
       return json({ ok: true, totalCost: toNum(result.totalCost) });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to execute issue") }, { status: 400 });
+      if (err instanceof ServiceError) {
+        return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      return json({ error: "Failed to execute issue" }, { status: 400 });
     }
   }
 

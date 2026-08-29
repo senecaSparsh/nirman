@@ -20,9 +20,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
     // Use UTC date range to match @db.Date storage (stored as UTC midnight)
     const dayStart = new Date(date + "T00:00:00.000Z");
     const dayEnd = new Date(date + "T23:59:59.999Z");
+    if (isNaN(dayStart.getTime()) || isNaN(dayEnd.getTime())) {
+      return json({ error: "Invalid date format" }, { status: 400 });
+    }
     where.date = { gte: dayStart, lte: dayEnd };
   } else if (startDate && endDate) {
-    where.date = { gte: new Date(startDate), lte: new Date(endDate) };
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+      return json({ error: "Invalid date range format" }, { status: 400 });
+    }
+    where.date = { gte: s, lte: e };
   }
   if (projectId) where.projectId = projectId;
   if (employeeId) where.employeeId = employeeId;

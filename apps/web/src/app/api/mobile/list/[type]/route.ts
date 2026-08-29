@@ -7,6 +7,7 @@ import {
   json,
   toNum,
   requirePermission,
+  requireUser,
 } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -24,6 +25,7 @@ import { PERM } from "@/lib/roles";
  * Supported types: procurement, dprs, transfers, sales, requisitions
  */
 export const GET = apiHandler(async (req: NextRequest) => {
+  await requireUser();
   const { searchParams, pathname } = new URL(req.url);
   const type = pathname.split("/").pop() ?? "";
   const cursor = searchParams.get("cursor");

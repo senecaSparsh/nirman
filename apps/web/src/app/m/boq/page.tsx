@@ -7,7 +7,7 @@ import { getBoqTree } from "@nirman/services";
 import { FileText, ListTree, Layers, Package } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
   MobileSectionTitle,
@@ -159,7 +159,7 @@ async function MobileBoqContent({
       <MobileBoqProjectSelector projects={projects} selectedId={projectId} />
 
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Line Items"
           value={formatNumber(lineItemCount, 0)}
@@ -168,7 +168,7 @@ async function MobileBoqContent({
         />
         <MobileStatCard
           label="Est. Amount"
-          value={formatCurrency(totalAmount)}
+          value={formatCurrencyCompact(totalAmount)}
           hint="total budget"
           icon={FileText}
           tone="signal"
@@ -218,7 +218,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
   return (
     <Link
       href={`/m/boq/${row.id}`}
-      className="rounded-[0.5rem] border p-2.5 press block"
+      className="rounded-[0.5rem] border p-2.5 text-m-body press block"
       style={{
         backgroundColor: "var(--color-paper)",
         borderColor: "var(--color-line)",
@@ -229,7 +229,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 mb-1">
             <span
-              className="text-[0.5625rem] font-bold tabular-nums shrink-0"
+              className="text-m-caption font-bold tabular-nums shrink-0"
               style={{ color: "var(--color-ink-500)" }}
             >
               {row.serialNo}
@@ -237,7 +237,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
             <Badge tone={typeTone}>{row.type.replace("_", " ")}</Badge>
           </div>
           <p
-            className="text-[0.75rem] font-semibold leading-tight"
+            className="text-m-section font-semibold leading-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             {row.description}
@@ -246,18 +246,18 @@ function BoqRowCard({ row }: { row: BoqRow }) {
           {isLineItem && (
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
               {row.unit && (
-                <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   Unit: <span className="font-semibold" style={{ color: "var(--color-ink-950)" }}>{row.unit}</span>
                 </span>
               )}
               {row.estimatedQty != null && (
-                <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   Qty: <span className="font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatNumber(row.estimatedQty, 3)}</span>
                 </span>
               )}
               {row.rate != null && (
-                <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
-                  Rate: <span className="font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(row.rate)}</span>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  Rate: <span className="font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(row.rate)}</span>
                 </span>
               )}
             </div>
@@ -267,12 +267,12 @@ function BoqRowCard({ row }: { row: BoqRow }) {
         {isLineItem && row.estimatedAmount != null && (
           <div className="shrink-0 text-right">
             <p
-              className="text-[0.6875rem] font-bold tabular-nums leading-tight"
+              className="text-m-body font-bold tabular-nums leading-tight"
               style={{ color: "var(--color-ink-950)" }}
             >
-              {formatCurrency(row.estimatedAmount)}
+              {formatCurrencyCompact(row.estimatedAmount)}
             </p>
-            <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-300)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-300)" }}>
               amount
             </p>
           </div>

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
@@ -179,6 +180,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         }).catch(() => { /* best-effort */ });
       }
 
+      revalidatePath("/transfers");
+      revalidatePath("/m/transfers");
       return json(t);
     }
     if (action === "complete") {
@@ -200,14 +203,20 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         netWeight: body.netWeight,
         lineReceipts: body.lineReceipts,
       });
+      revalidatePath("/transfers");
+      revalidatePath("/m/transfers");
       return json(t);
     }
     if (action === "returnToSource") {
       const t = await returnTransferToSource(id, user.id, body.reason);
+      revalidatePath("/transfers");
+      revalidatePath("/m/transfers");
       return json(t);
     }
     if (action === "cancel") {
       const t = await cancelTransfer(id, user.id);
+      revalidatePath("/transfers");
+      revalidatePath("/m/transfers");
       return json(t);
     }
     return json({ error: "Unknown action" }, { status: 400 });

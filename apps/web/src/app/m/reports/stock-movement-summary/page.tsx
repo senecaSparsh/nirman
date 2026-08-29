@@ -6,7 +6,7 @@ import { prisma, type StockMovementType } from "@nirman/db";
 import { PackageOpen, ArrowDownToLine, ArrowUpFromLine, Scale, MapPin, Boxes, Package } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -204,10 +204,10 @@ async function MobileStockMovementSummaryContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Opening Value", value: formatCurrency(opening) },
-          { label: "Received", value: formatCurrency(received), tone: "go" },
-          { label: "Issued", value: formatCurrency(issued), tone: "signal" },
-          { label: "Balance", value: formatCurrency(balance), tone: balance >= 0 ? "default" : "stop" },
+          { label: "Opening Value", value: formatCurrencyCompact(opening) },
+          { label: "Received", value: formatCurrencyCompact(received), tone: "go" },
+          { label: "Issued", value: formatCurrencyCompact(issued), tone: "signal" },
+          { label: "Balance", value: formatCurrencyCompact(balance), tone: balance >= 0 ? "default" : "stop" },
         ]}
       />
 
@@ -229,7 +229,7 @@ async function MobileStockMovementSummaryContent() {
             value: l.received - l.issued,
             tone: l.received >= l.issued ? ("go" as const) : ("stop" as const),
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -242,7 +242,7 @@ async function MobileStockMovementSummaryContent() {
             icon={MapPin}
             title={l.name}
             subtitle={`Open ${formatCurrency(l.opening)} · Recd ${formatCurrency(l.received)} · Issued ${formatCurrency(l.issued)}`}
-            meta={formatCurrency(l.balance)}
+            meta={formatCurrencyCompact(l.balance)}
             metaSub="Balance"
             tone="success"
           />
@@ -268,7 +268,7 @@ async function MobileStockMovementSummaryContent() {
                 icon={Boxes}
                 title={c.name}
                 subtitle={`Received ${formatCurrency(c.received)} · Issued ${formatCurrency(c.issued)}`}
-                meta={formatCurrency(c.received - c.issued)}
+                meta={formatCurrencyCompact(c.received - c.issued)}
                 metaSub="Net"
                 tone="default"
               />

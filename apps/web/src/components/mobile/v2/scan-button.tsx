@@ -27,7 +27,7 @@ export function ScanButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`press flex items-center justify-center gap-1.5 rounded-lg shrink-0 ${className}`}
+        className={`press flex items-center justify-center gap-1.5 rounded-[0.625rem] shrink-0 ${className}`}
         style={{
           minHeight: "2.5rem",
           padding: "0 0.75rem",
@@ -38,7 +38,7 @@ export function ScanButton({
         aria-label={label}
       >
         <ScanLine className="size-4" />
-        {label ? <span className="text-xs font-semibold">{label}</span> : null}
+        {label ? <span className="text-m-caption font-semibold">{label}</span> : null}
       </button>
       {open ? (
         <BarcodeScanner

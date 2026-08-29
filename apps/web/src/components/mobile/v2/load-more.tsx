@@ -36,7 +36,7 @@ export function MobileLoadMore({
   if (!hasMore && count !== undefined) {
     return (
       <div
-        className="text-center py-4 text-[0.625rem] font-semibold"
+        className="text-center py-4 text-m-label font-semibold"
         style={{ color: "var(--color-ink-400)" }}
       >
         {count} item{count !== 1 ? "s" : ""} loaded
@@ -52,7 +52,7 @@ export function MobileLoadMore({
       <button
         onClick={onClick}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] border-2 border-dashed py-3 text-[0.75rem] font-bold press disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] border-2 border-dashed py-3 text-m-section font-bold text-m-body press disabled:opacity-50"
         style={{
           borderColor: "var(--color-line)",
           color: "var(--color-ink-700)",

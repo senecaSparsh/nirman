@@ -6,7 +6,7 @@ import {
   Package, Send, Loader2, Plus,
   CheckCircle2, Sparkles,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
@@ -87,6 +87,13 @@ export default function MobileNewMaterialClient({
     if (!categoryId) { toast.error("Please select a category"); return; }
     if (!unit.trim()) { toast.error("Unit is required"); return; }
 
+    const gst = Number(gstRate) || 0;
+    const cost = Number(standardCost) || 0;
+    const reorder = reorderPoint.trim() === "" ? null : Number(reorderPoint);
+    if (gst < 0 || gst > 100) { toast.error("GST rate must be between 0 and 100"); return; }
+    if (cost < 0) { toast.error("Standard cost cannot be negative"); return; }
+    if (reorder !== null && reorder < 0) { toast.error("Reorder point cannot be negative"); return; }
+
     setSaving(true);
     haptic(10);
     try {
@@ -98,9 +105,9 @@ export default function MobileNewMaterialClient({
         categoryId,
         unit: unit.trim().toUpperCase(),
         hsnCode: hsnCode.trim() || null,
-        gstRate: Number(gstRate) || 0,
-        standardCost: Number(standardCost) || 0,
-        reorderPoint: reorderPoint.trim() === "" ? null : Number(reorderPoint),
+        gstRate: gst,
+        standardCost: cost,
+        reorderPoint: reorder,
         description: description.trim() || null,
       };
       const url = isEdit ? `/api/materials/${material!.id}` : "/api/materials";
@@ -134,19 +141,19 @@ export default function MobileNewMaterialClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isEdit ? "Material Updated" : "Material Created"}
         </p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
           {success.code}
         </p>
-        <p className="text-[0.75rem] font-semibold mb-4" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-section font-semibold mb-4" style={{ color: "var(--color-ink-700)" }}>
           {success.name}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => router.push(`/m/materials/${success.id}`)}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Material
@@ -162,7 +169,7 @@ export default function MobileNewMaterialClient({
               setReorderPoint("");
               setDescription("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -183,15 +190,15 @@ export default function MobileNewMaterialClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Package className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
             No material categories
           </p>
-          <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
             You need at least one category before adding materials.
           </p>
           <button
             onClick={() => setShowNewCategory(true)}
-            className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+            className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
@@ -211,7 +218,7 @@ export default function MobileNewMaterialClient({
     );
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none";
+  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" } as React.CSSProperties;
   const costValue = Number(standardCost) || 0;
   const totalWithGst = costValue * (1 + (Number(gstRate) || 0) / 100);
@@ -222,7 +229,7 @@ export default function MobileNewMaterialClient({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* ── Code (auto-generated by default, manual override available) ── */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Material code
           </label>
           {code === "AUTO" ? (
@@ -232,17 +239,17 @@ export default function MobileNewMaterialClient({
                 style={{ borderColor: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}
               >
                 <Sparkles className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} />
-                <span className="text-[0.75rem] font-mono font-bold" style={{ color: "var(--color-steel-dark)" }}>
+                <span className="text-m-section font-mono font-bold" style={{ color: "var(--color-steel-dark)" }}>
                   {codePreview || "Auto-generated"}
                 </span>
-                <span className="text-[0.5rem] ml-auto" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption ml-auto" style={{ color: "var(--color-ink-500)" }}>
                   Auto from category + grade
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => { setCode(""); setCodePreview(""); }}
-                className="text-[0.5625rem] font-semibold"
+                className="text-m-caption font-semibold press"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Enter code manually instead
@@ -320,7 +327,7 @@ export default function MobileNewMaterialClient({
 
         {/* ── Unit ── */}
         <div>
-          <label className="block text-[0.5625rem] font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
             Unit of measure <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <div className="flex flex-wrap gap-1">
@@ -329,7 +336,7 @@ export default function MobileNewMaterialClient({
                 key={u}
                 type="button"
                 onClick={() => { setUnit(u); haptic(10); }}
-                className="h-7 px-2 rounded-[0.25rem] text-[0.5625rem] font-semibold press"
+                className="h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press"
                 style={{
                   color: unit === u ? "#fff" : "var(--color-ink-700)",
                   backgroundColor: unit === u ? "var(--color-ink-950)" : "var(--color-concrete)",
@@ -356,8 +363,10 @@ export default function MobileNewMaterialClient({
           </FormField>
           <FormField label="GST rate (%)">
             <input
-              type="text"
-              inputMode="decimal"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
               enterKeyHint="next"
               value={gstRate}
               onChange={(e) => setGstRate(e.target.value)}
@@ -372,8 +381,9 @@ export default function MobileNewMaterialClient({
         <FormField label="Standard cost (₹)">
           <div className="flex gap-1.5">
             <input
-              type="text"
-              inputMode="decimal"
+              type="number"
+              min="0"
+              step="0.01"
               enterKeyHint="next"
               value={standardCost}
               onChange={(e) => setStandardCost(e.target.value)}
@@ -400,7 +410,7 @@ export default function MobileNewMaterialClient({
                     toast.error("Could not fetch last purchase price");
                   }
                 }}
-                className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-[0.5625rem] font-bold press"
+                className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
               >
                 Pull last
@@ -412,8 +422,9 @@ export default function MobileNewMaterialClient({
         {/* ── Reorder point ── */}
         <FormField label="Reorder point (optional)">
           <input
-            type="text"
-            inputMode="decimal"
+            type="number"
+            min="0"
+            step="0.01"
             enterKeyHint="next"
             value={reorderPoint}
             onChange={(e) => setReorderPoint(e.target.value)}
@@ -441,11 +452,11 @@ export default function MobileNewMaterialClient({
             className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
             style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
           >
-            <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Cost incl. GST
             </span>
-            <span className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-              {formatCurrency(totalWithGst)}
+            <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+              {formatCurrencyCompact(totalWithGst)}
             </span>
           </div>
         )}
@@ -454,7 +465,7 @@ export default function MobileNewMaterialClient({
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (
@@ -484,7 +495,7 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-[0.5625rem] font-semibold mb-1"
+        className="block text-m-caption font-semibold mb-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}

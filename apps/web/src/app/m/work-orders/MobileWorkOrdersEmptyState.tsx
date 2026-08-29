@@ -49,7 +49,7 @@ export function MobileWorkOrdersEmptyState({
             ) : !hasSubcontractors ? (
               <button
                 onClick={() => setShowCreateSub(true)}
-                className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 px-4 text-[0.6875rem] font-bold press"
+                className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 px-4 text-m-body font-bold text-m-body press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 <Plus className="size-3.5" /> Add Subcontractor

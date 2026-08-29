@@ -117,23 +117,23 @@ export function MobileNewMbEntryDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -153,7 +153,7 @@ export function MobileNewMbEntryDialog({
               />
             </span>
             <p
-              className="text-[0.875rem] font-bold"
+              className="text-m-section font-bold"
               style={{ color: "var(--color-ink-950)" }}
             >
               New Measurement Entry
@@ -161,7 +161,7 @@ export function MobileNewMbEntryDialog({
           </div>
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -211,7 +211,7 @@ export function MobileNewMbEntryDialog({
             </select>
             {suggestedWbsNode && form.wbsNodeId === suggestedWbsNode.id && (
               <p
-                className="text-[0.5rem] mt-1"
+                className="text-m-caption mt-1"
                 style={{ color: "var(--color-signal-dark)" }}
               >
                 Auto-linked from BOQ item. Progress will update on approval.
@@ -219,7 +219,7 @@ export function MobileNewMbEntryDialog({
             )}
             {!suggestedWbsNode && form.boqItemId && (
               <p
-                className="text-[0.5rem] mt-1"
+                className="text-m-caption mt-1"
                 style={{ color: "var(--color-stop)" }}
               >
                 This BOQ item isn&apos;t linked to any WBS activity.
@@ -253,7 +253,7 @@ export function MobileNewMbEntryDialog({
                 Unit
               </label>
               <div
-                className="h-10 rounded-[0.5rem] border px-3 flex items-center text-[0.75rem] font-semibold"
+                className="h-10 rounded-[0.5rem] border px-3 flex items-center text-m-section font-semibold"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-concrete)",
@@ -300,12 +300,12 @@ export function MobileNewMbEntryDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
                 color: "var(--color-ink-500)",
@@ -317,7 +317,7 @@ export function MobileNewMbEntryDialog({
             <button
               type="submit"
               disabled={saving}
-              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",

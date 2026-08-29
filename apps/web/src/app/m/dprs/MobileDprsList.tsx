@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
   MobileSearchHeader,
@@ -64,6 +65,8 @@ const STATUS_INFO: Record<
 export function MobileDprsList({
   items: initialItems,
   canSubmit,
+  canApproveSubAdmin,
+  submittedCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
   exportTitle,
@@ -73,6 +76,8 @@ export function MobileDprsList({
 }: {
   items: DprListItem[];
   canSubmit?: boolean;
+  canApproveSubAdmin?: boolean;
+  submittedCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
   exportTitle?: string;
@@ -133,6 +138,7 @@ export function MobileDprsList({
   if (items.length === 0) {
     return (
       <div>
+        <PageLead flow="dpr" />
         <MobileEmptyState
           icon={ClipboardList}
           title="No Daily Progress Reports yet"
@@ -178,6 +184,14 @@ export function MobileDprsList({
         }}
       />
 
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="dpr" />
+      <NextActionCard
+        flow="dpr"
+        count={submittedCount}
+        can={(perm) => perm === "DPR_APPROVE_SUB_ADMIN" ? !!canApproveSubAdmin : false}
+      />
+
       {/* ── Date-grouped sections ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
@@ -192,13 +206,13 @@ export function MobileDprsList({
               {/* Date section header */}
               <div className="flex items-center justify-between mb-2">
                 <span
-                  className="text-[0.6875rem] font-bold"
+                  className="text-m-body font-bold"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {group.label}
                 </span>
                 <span
-                  className="text-[0.5625rem] font-semibold"
+                  className="text-m-caption font-semibold"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   {group.items.length} report
@@ -317,13 +331,13 @@ function DprStrip({
         {/* Row 1: Project + status label */}
         <div className="flex items-center justify-between gap-2 mb-0.5">
           <p
-            className="text-[0.75rem] font-bold truncate"
+            className="text-m-section font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {dpr.projectName}
           </p>
           <span
-            className="text-[0.5625rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: info.color }}
           >
             {info.label}
@@ -332,7 +346,7 @@ function DprStrip({
 
         {/* Row 2: Submitter + work type */}
         <p
-          className="text-[0.5625rem] truncate mb-1.5"
+          className="text-m-caption truncate mb-1.5"
           style={{ color: "var(--color-ink-500)" }}
         >
           {dpr.submittedByName ?? "—"}
@@ -376,7 +390,7 @@ function DprStrip({
           />
           {isRejected ? (
             <span
-              className="text-[0.5rem] font-bold ml-1"
+              className="text-m-caption font-bold ml-1"
               style={{ color: "var(--color-stop)" }}
             >
               Rejected
@@ -428,7 +442,7 @@ function ApprovalDot({
         }}
       />
       <span
-        className="text-[0.4375rem] font-semibold"
+        className="text-m-caption font-semibold"
         style={{
           color: active ? "var(--color-ink-700)" : "var(--color-ink-400)",
         }}

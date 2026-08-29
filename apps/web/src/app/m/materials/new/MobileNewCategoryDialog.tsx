@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -23,6 +24,7 @@ export function MobileNewCategoryDialog({
   onClose: () => void;
   onCreated: (cat: { id: string; name: string; unit: string }) => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("NOS");
   const [saving, setSaving] = useState(false);
@@ -67,6 +69,7 @@ export function MobileNewCategoryDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to create category");
       haptic([10, 40, 80]);
       toast.success(`${data.name} category created`);
+      router.refresh();
       onCreated({ id: data.id, name: data.name, unit: data.unit });
       setName("");
       setUnit("NOS");
@@ -84,10 +87,10 @@ export function MobileNewCategoryDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -96,14 +99,14 @@ export function MobileNewCategoryDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Material Category
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -111,7 +114,7 @@ export function MobileNewCategoryDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           Categories group materials and define a default unit of measure.
@@ -121,7 +124,7 @@ export function MobileNewCategoryDialog({
           {/* Name */}
           <div>
             <label
-              className="block text-[0.5625rem] font-semibold mb-1"
+              className="block text-m-caption font-semibold mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Category name{" "}
@@ -133,7 +136,7 @@ export function MobileNewCategoryDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Cement & Binding"
               autoFocus
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none"
+              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -145,7 +148,7 @@ export function MobileNewCategoryDialog({
           {/* Unit */}
           <div>
             <label
-              className="block text-[0.5625rem] font-semibold mb-1.5"
+              className="block text-m-caption font-semibold mb-1.5"
               style={{ color: "var(--color-ink-500)" }}
             >
               Default unit <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -159,7 +162,7 @@ export function MobileNewCategoryDialog({
                     setUnit(u);
                     haptic(10);
                   }}
-                  className="h-7 px-2 rounded-[0.25rem] text-[0.5625rem] font-semibold press"
+                  className="h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press"
                   style={{
                     color: unit === u ? "#fff" : "var(--color-ink-700)",
                     backgroundColor:
@@ -178,7 +181,7 @@ export function MobileNewCategoryDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

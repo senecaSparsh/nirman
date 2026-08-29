@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Upload } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -43,6 +44,7 @@ export function SaleDetailDialog({
   const [acting, setActing] = useState(false);
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
+  const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number } | null>(null);
   const trackRecent = useTrackRecent();
 
   async function uploadDocument(documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT", photos: { url: string; fileName?: string }[]) {
@@ -659,6 +661,7 @@ export function SaleDetailDialog({
                         <TH className="text-right">Amount</TH>
                         <TH>Due Date</TH>
                         <TH>Status</TH>
+                        {canManage && <TH className="text-right">Action</TH>}
                       </TR>
                     </THead>
                     <TBody>
@@ -670,6 +673,23 @@ export function SaleDetailDialog({
                           <TD className="tnum text-right">{formatCurrency(item.amount)}</TD>
                           <TD className="text-caption">{item.dueDate ? formatDate(item.dueDate) : "—"}</TD>
                           <TD><StatusPill status={item.status} /></TD>
+                          {canManage && (
+                            <TD className="text-right">
+                              {item.status !== "PAID" && !isCancelled ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px]"
+                                  disabled={acting}
+                                  onClick={() => setCollectItem(item)}
+                                >
+                                  <Banknote className="h-3 w-3" /> Collect
+                                </Button>
+                              ) : (
+                                <span className="text-caption text-muted-foreground">—</span>
+                              )}
+                            </TD>
+                          )}
                         </TR>
                       ))}
                     </TBody>
@@ -914,6 +934,99 @@ export function SaleDetailDialog({
         confirmLabel="Cancel Sale"
         onConfirm={cancelSale}
       />
+
+      {collectItem && (
+        <CollectInstallmentDialog
+          item={collectItem}
+          onClose={() => setCollectItem(null)}
+          onSuccess={refreshDetail}
+        />
+      )}
     </>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+ * Collect Installment — records a payment against a specific
+ * PaymentScheduleItem via POST /api/payment-schedules/items/[id]/pay
+ * ════════════════════════════════════════════════════════════ */
+function CollectInstallmentDialog({
+  item,
+  onClose,
+  onSuccess,
+}: {
+  item: { id: string; installmentNo: number; description: string; amount: number; paidAmount: number };
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const balanceDue = item.amount - item.paidAmount;
+  const [amount, setAmount] = useState(String(balanceDue));
+  const [paymentMode, setPaymentMode] = useState("BANK_TRANSFER");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/payment-schedules/items/${item.id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(amount),
+          paymentMode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
+      toast.success("Installment payment recorded");
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={`Collect Installment #${item.installmentNo}`}
+      description={`${item.description} — ${formatCurrency(item.amount)}${item.paidAmount > 0 ? ` (${formatCurrency(item.paidAmount)} already paid)` : ""}`}
+      className="max-w-md"
+    >
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-label text-muted-foreground">Amount (₹)</label>
+          <Input
+            type="number"
+            min={0}
+            max={balanceDue}
+            step="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+          <p className="text-caption text-muted-foreground">Balance due: {formatCurrency(balanceDue)}</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-label text-muted-foreground">Payment Mode</label>
+          <Select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank Transfer</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="UPI">UPI</option>
+            <option value="OTHER">Other</option>
+          </Select>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={saving}>
+            {saving ? "Recording…" : "Record Payment"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

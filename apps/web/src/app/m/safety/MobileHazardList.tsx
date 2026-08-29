@@ -71,7 +71,7 @@ export function MobileHazardList({ items }: { items: HazardListItem[] }) {
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} hazard{filtered.length !== 1 ? "s" : ""}
@@ -80,22 +80,22 @@ export function MobileHazardList({ items }: { items: HazardListItem[] }) {
           )}
         <div className="flex flex-col gap-2">
           {filtered.map((h) => (
-            <Link key={h.id} href={`/m/safety/hazards/${h.id}`} className="rounded-[0.5rem] border p-2.5 block press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <Link key={h.id} href={`/m/safety/hazards/${h.id}`} className="rounded-[0.5rem] border p-2.5 block text-m-body press" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{h.hazardNumber}</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{h.hazardNumber}</p>
                 <MobileStatusBadge status={h.status} />
               </div>
-              <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{h.title}</p>
-              <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{h.projectName}{h.location ? ` · ${h.location}` : ""}</p>
+              <p className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{h.title}</p>
+              <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>{h.projectName}{h.location ? ` · ${h.location}` : ""}</p>
               <div className="flex items-center gap-2">
                 <div className="rounded-[0.25rem] px-2 py-0.5" style={{ backgroundColor: RISK_BG[h.riskLevel] ?? "var(--color-concrete)" }}>
-                  <span className="text-[0.5rem] font-bold uppercase" style={{ color: RISK_COLORS[h.riskLevel] ?? "var(--color-ink-500)" }}>{h.riskLevel}</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: RISK_COLORS[h.riskLevel] ?? "var(--color-ink-500)" }}>{h.riskLevel}</span>
                 </div>
-                <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>L:{h.likelihood}×S:{h.severity}={h.likelihood * h.severity}</span>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>L:{h.likelihood}×S:{h.severity}={h.likelihood * h.severity}</span>
                 {h.targetResolutionDate && (
                   <div className="ml-auto text-right">
-                    <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Target</p>
-                    <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(h.targetResolutionDate)}</p>
+                    <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Target</p>
+                    <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatDate(h.targetResolutionDate)}</p>
                   </div>
                 )}
               </div>

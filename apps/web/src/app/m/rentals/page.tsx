@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileRentalsList, type RentalListItem } from "./MobileRentalsList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -147,7 +147,7 @@ async function MobileRentalsContent() {
       exportTitle="Rentals"
       exportRows={rows as unknown as Record<string, unknown>[]}
       exportColumns={exportColumns}
-      exportSummary={`${rows.length} tenancies · ${formatCurrency(totalOverdue)} overdue`}
+      exportSummary={`${rows.length} tenancies · ${formatCurrencyCompact(totalOverdue)} overdue`}
     />
   );
 }

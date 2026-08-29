@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { CalendarOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -70,7 +71,15 @@ export function MobileLeavesList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={CalendarOff}
+        title="No leave requests"
+        hint="Leave requests will appear here"
+      />
+    );
+  }
 
   return (
     <div>
@@ -108,7 +117,7 @@ export function MobileLeavesList({
           {(query || filter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} leave{filtered.length !== 1 ? "s" : ""}
@@ -133,31 +142,31 @@ function LeaveCard({ leave: l }: { leave: LeaveListItem }) {
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
           {l.employeeName}
         </p>
         <MobileStatusBadge status={l.status} />
       </div>
-      <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {l.employeeTrade ?? "—"} · {LEAVE_TYPE_LABELS[l.type] ?? l.type}
       </p>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Dates</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Dates</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatDate(l.startDate)} → {formatDate(l.endDate)}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Days</p>
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Days</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {l.days}
           </p>
         </div>
       </div>
       {l.reason && (
-        <p className="text-[0.5rem] mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
           {l.reason}
         </p>
       )}

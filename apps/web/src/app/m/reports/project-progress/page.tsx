@@ -7,7 +7,7 @@ import { projectPnl } from "@nirman/services";
 import { Building2, TrendingUp, TrendingDown, Wallet, Gauge } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -128,9 +128,9 @@ async function MobileProjectProgressContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Total Cost", value: formatCurrency(totalCost) },
-          { label: "Total Revenue", value: formatCurrency(totalRevenue), tone: "go" },
-          { label: "Total Profit", value: formatCurrency(totalProfit), tone: totalProfit >= 0 ? "go" : "stop" },
+          { label: "Total Cost", value: formatCurrencyCompact(totalCost) },
+          { label: "Total Revenue", value: formatCurrencyCompact(totalRevenue), tone: "go" },
+          { label: "Total Profit", value: formatCurrencyCompact(totalProfit), tone: totalProfit >= 0 ? "go" : "stop" },
           { label: "Projects", value: String(rows.length) },
         ]}
       />
@@ -140,7 +140,7 @@ async function MobileProjectProgressContent() {
           title="Project Progress Report"
           rows={rows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Revenue: ${formatCurrency(totalRevenue)} · Profit: ${formatCurrency(totalProfit)} · ${rows.length} projects`}
+          summary={`Revenue: ${formatCurrencyCompact(totalRevenue)} · Profit: ${formatCurrencyCompact(totalProfit)} · ${rows.length} projects`}
         />
       </div>
 
@@ -153,7 +153,7 @@ async function MobileProjectProgressContent() {
             value: r.profit,
             tone: r.profit >= 0 ? ("go" as const) : ("stop" as const),
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
@@ -166,7 +166,7 @@ async function MobileProjectProgressContent() {
             icon={Building2}
             title={r.name}
             subtitle={`${r.progressPct.toFixed(1)}% complete · ${r.unitCount} units · ${r.phaseCount} phases`}
-            meta={formatCurrency(r.profit)}
+            meta={formatCurrencyCompact(r.profit)}
             metaSub={`Margin ${r.margin.toFixed(1)}% · Cost ${formatCurrency(r.totalCost)} · Rev ${formatCurrency(r.revenue)}`}
             tone={r.profit >= 0 ? "success" : "danger"}
           />

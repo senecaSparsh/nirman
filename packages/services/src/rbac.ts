@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Hierarchical RBAC Service — the 5-tier delegation hierarchy.
@@ -301,7 +302,7 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   const entries = input.scopeEntries ?? [];
   validateScopeEntries(scopeType, entries);
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Upsert the membership.
     const existing = await tx.userCompany.findUnique({
       where: { userId_companyId: { userId: input.userId, companyId: input.companyId } },

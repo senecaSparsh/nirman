@@ -40,7 +40,7 @@ type YesterdayDpr = {
   laborLines: { employeeId: string | null; crewId: string | null; hoursWorked: number; taskDescription: string }[];
 };
 
-const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] font-medium outline-none";
+const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -59,7 +59,7 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-[0.5625rem] font-semibold mb-1"
+        className="block text-m-caption font-semibold mb-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
@@ -371,7 +371,7 @@ export function MobileDprForm({
     <div className="flex flex-col gap-3 pb-32">
       {editingDprId && (
         <div
-          className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-[0.5625rem] font-semibold"
+          className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-caption font-semibold"
           style={{
             borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
             backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)",
@@ -395,7 +395,7 @@ export function MobileDprForm({
 
       {/* ── Auto-save status indicator ─────────────────────────── */}
       {!editingDprId && saveStatus !== "idle" && (
-        <div className="flex items-center gap-1.5 text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           {saveStatus === "saving" && (
             <>
               <Loader2 className="size-3 animate-spin" />
@@ -428,7 +428,7 @@ export function MobileDprForm({
             type="button"
             onClick={requestGps}
             disabled={gpsLoading}
-            className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-[0.5625rem] font-bold press disabled:opacity-50"
+            className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
             title="Use my location to auto-select project"
           >
@@ -509,7 +509,7 @@ export function MobileDprForm({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Materials used
           </p>
           <div className="flex items-center gap-1.5">
@@ -517,7 +517,7 @@ export function MobileDprForm({
               <button
                 type="button"
                 onClick={repeatYesterday}
-                className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-[0.5rem] font-bold press"
+                className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
               >
                 <Repeat className="size-2.5" /> Repeat
@@ -526,7 +526,7 @@ export function MobileDprForm({
             <button
               type="button"
               onClick={addMaterialLine}
-              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-[0.5rem] font-bold press"
+              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
               style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-2.5" /> Add
@@ -540,7 +540,7 @@ export function MobileDprForm({
             className="rounded-[0.375rem] border p-2 mb-2"
             style={{ borderColor: "color-mix(in srgb, var(--color-signal) 25%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
           >
-            <div className="flex items-center gap-1.5 text-[0.5rem] font-semibold mb-1.5" style={{ color: "var(--color-signal-dark)" }}>
+            <div className="flex items-center gap-1.5 text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-signal-dark)" }}>
               <Zap className="size-2.5" />
               Quick add from yesterday
             </div>
@@ -549,7 +549,7 @@ export function MobileDprForm({
                 <button
                   key={m.materialId}
                   onClick={() => quickAddMaterial(m.materialId, m.qty, m.unitCost)}
-                  className="rounded-full border px-2.5 py-1 text-[0.5rem] font-semibold press"
+                  className="rounded-full border px-2.5 py-1 text-m-caption font-semibold text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
                 >
                   + {m.name} ({m.qty} {m.unit})
@@ -568,7 +568,7 @@ export function MobileDprForm({
             >
               <div className="flex items-center justify-between mb-1.5">
                 <span
-                  className="text-[0.4375rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  className="text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
                   style={{ backgroundColor: "var(--color-paper)", color: "var(--color-ink-500)" }}
                 >
                   #{idx + 1}
@@ -576,7 +576,7 @@ export function MobileDprForm({
                 <button
                   type="button"
                   onClick={() => removeMaterialLine(idx)}
-                  className="press"
+                  className="text-m-body press"
                 >
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
@@ -595,11 +595,11 @@ export function MobileDprForm({
                 }}
               />
               <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] tabular-nums outline-none" style={inputStyle} />
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] tabular-nums outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
               </div>
               {l.qty && l.unitCost && Number(l.qty) > 0 && Number(l.unitCost) > 0 ? (
-                <p className="text-right text-[0.5rem] font-semibold tabular-nums mt-1" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-right text-m-caption font-semibold tabular-nums mt-1" style={{ color: "var(--color-ink-500)" }}>
                   = {(Number(l.qty) * Number(l.unitCost)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                 </p>
               ) : null}
@@ -608,10 +608,10 @@ export function MobileDprForm({
         </div>
         {materialLines.some((l) => l.qty && l.unitCost && Number(l.qty) > 0 && Number(l.unitCost) > 0) ? (
           <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-[0.5625rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Material total
             </span>
-            <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {materialLines
                 .filter((l) => l.qty && l.unitCost)
                 .reduce((s, l) => s + (Number(l.qty) * Number(l.unitCost) || 0), 0)
@@ -627,13 +627,13 @@ export function MobileDprForm({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Labour utilised
           </p>
           <button
             type="button"
             onClick={addLaborLine}
-            className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-[0.5rem] font-bold press"
+            className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
             style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <Plus className="size-2.5" /> Add
@@ -648,7 +648,7 @@ export function MobileDprForm({
             >
               <div className="flex items-center justify-between mb-1.5">
                 <span
-                  className="text-[0.4375rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  className="text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
                   style={{ backgroundColor: "var(--color-paper)", color: "var(--color-ink-500)" }}
                 >
                   #{idx + 1}
@@ -656,22 +656,22 @@ export function MobileDprForm({
                 <button
                   type="button"
                   onClick={() => removeLaborLine(idx)}
-                  className="press"
+                  className="text-m-body press"
                 >
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               </div>
-              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label mb-1.5 outline-none" style={inputStyle}>
                 <option value="">Individual worker…</option>
                 {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} {emp.trade ? `(${emp.trade})` : ""}</option>)}
               </select>
-              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label mb-1.5 outline-none" style={inputStyle}>
                 <option value="">Or crew…</option>
                 {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] tabular-nums outline-none" style={inputStyle} />
-                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-[0.625rem] outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
+                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label outline-none" style={inputStyle} />
               </div>
             </div>
           ))}
@@ -683,7 +683,7 @@ export function MobileDprForm({
       </FormField>
 
       <div>
-        <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Site photos
         </label>
         <PhotoUploader photos={fPhotos} onChange={setFPhotos} maxPhotos={8} label="Add Site Photo" />
@@ -703,7 +703,7 @@ export function MobileDprForm({
             type="button"
             onClick={submit}
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (

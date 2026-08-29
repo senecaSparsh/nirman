@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   approveRequisition,
@@ -9,8 +10,9 @@ import {
   logAction,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, json, requirePermission, toNum, UnauthorizedError } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, json, requirePermission, requireUser, toNum, UnauthorizedError } from "@/lib/server";
 import { z } from "zod";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -113,6 +115,7 @@ const convertSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requireUser();
   const { id } = await params;
   const body = await req.json();
   const action = body?.action as string;
@@ -121,16 +124,22 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "submit") {
       const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
       await submitRequisition(id, user.id);
+      revalidatePath("/requisitions");
+      revalidatePath("/m/requisitions");
       return json({ ok: true });
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       await approveRequisition(id, user.id);
+      revalidatePath("/requisitions");
+      revalidatePath("/m/requisitions");
       return json({ ok: true });
     }
     if (action === "reject") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       await rejectRequisition(id, user.id, body?.rejectReason);
+      revalidatePath("/requisitions");
+      revalidatePath("/m/requisitions");
       return json({ ok: true });
     }
     if (action === "waiveQuotes") {
@@ -138,6 +147,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const reason = body?.reason as string;
       if (!reason?.trim()) return json({ error: "A waiver reason is required" }, { status: 400 });
       await waiveQuoteRequirement({ requisitionId: id, waivedById: user.id, reason });
+      revalidatePath("/requisitions");
+      revalidatePath("/m/requisitions");
       return json({ ok: true });
     }
     if (action === "convert") {
@@ -156,6 +167,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         notes: parsed.data.notes ?? undefined,
         userId: user.id,
       });
+      revalidatePath("/requisitions");
+      revalidatePath("/m/requisitions");
       return json({ ok: true, poId: po.id, poNumber: po.poNumber }, { status: 201 });
     }
     return json({ error: "Invalid action. Use submit, approve, reject, waiveQuotes, or convert." }, { status: 400 });
@@ -179,7 +192,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Only draft or rejected requisitions can be deleted" }, { status: 400 });
   }
   // Delete lines first, then the requisition — with audit log
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     await tx.materialRequisitionLine.deleteMany({ where: { requisitionId: id } });
     await tx.materialRequisition.delete({ where: { id } });
     await logAction(tx, {
@@ -190,5 +203,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
       before: { reqNumber: req.reqNumber, status: req.status },
     });
   });
+  revalidatePath("/requisitions");
+  revalidatePath("/m/requisitions");
   return json({ ok: true });
 });

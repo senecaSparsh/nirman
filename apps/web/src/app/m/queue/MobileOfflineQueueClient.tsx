@@ -58,10 +58,10 @@ export function MobileOfflineQueueClient() {
     <div className="space-y-4 p-4">
       {/* Header */}
       <div>
-        <h1 className="text-[1rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Offline Queue
         </h1>
-        <p className="text-[0.6875rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           {pending > 0
             ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
             : online
@@ -83,14 +83,14 @@ export function MobileOfflineQueueClient() {
         ) : (
           <WifiOff className="size-4 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
         )}
-        <span className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+        <span className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
           {online ? "Online" : "Offline"}
         </span>
         {pending > 0 && online ? (
           <button
             onClick={() => { haptic(10); void sync(); }}
             disabled={syncing}
-            className="ml-auto flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1 text-[0.625rem] font-bold press active:scale-95 disabled:opacity-50"
+            className="ml-auto flex items-center gap-1 rounded-[0.375rem] px-2.5 py-1 text-m-label font-bold text-m-body press active:scale-95 disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {syncing ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
@@ -110,10 +110,10 @@ export function MobileOfflineQueueClient() {
         >
           <AlertTriangle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-stop)" }} />
           <div>
-            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
               {failedCount} failed operation{failedCount > 1 ? "s" : ""}
             </p>
-            <p className="text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               These were rejected by the server. Review the errors below — you may need to redo these operations from the relevant form.
             </p>
           </div>
@@ -127,10 +127,10 @@ export function MobileOfflineQueueClient() {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <CheckCircle2 className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Queue is empty
           </p>
-          <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
             Operations created while offline will appear here
           </p>
         </div>
@@ -156,23 +156,23 @@ export function MobileOfflineQueueClient() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                         {kindInfo.label}
                       </p>
                       <span
-                        className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide"
+                        className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide"
                         style={{ color: statusInfo.color }}
                       >
                         <StatusIcon className={`size-2.5 ${op.status === "SYNCING" ? "animate-spin" : ""}`} />
                         {statusInfo.label}
                       </span>
                     </div>
-                    <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                       {formatRelativeTime(new Date(op.createdAt))}
                       {op.attempts > 0 ? ` · ${op.attempts} attempt${op.attempts > 1 ? "s" : ""}` : ""}
                     </p>
                     {op.error ? (
-                      <p className="text-[0.5625rem] mt-1 font-medium" style={{ color: "var(--color-stop)" }}>
+                      <p className="text-m-caption mt-1 font-medium" style={{ color: "var(--color-stop)" }}>
                         {op.error}
                       </p>
                     ) : null}
@@ -189,7 +189,7 @@ export function MobileOfflineQueueClient() {
         <button
           onClick={handleClearCompleted}
           disabled={clearing}
-          className="flex items-center justify-center gap-1.5 w-full h-10 rounded-[0.5rem] border font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 w-full h-10 rounded-[0.5rem] border font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
         >
           {clearing ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}

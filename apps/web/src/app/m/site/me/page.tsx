@@ -39,16 +39,16 @@ async function SiteMeContent() {
       <div className="flex flex-col gap-2.5">
         {FIELD_MORE_LINKS.map((m) => (
           <Link key={m.href} href={m.href} className="flex items-center gap-3 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-medium" style={{ color: "var(--color-ink-950)" }}>{m.label}</span>
-            <ArrowRight className="h-4 w-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+            <span className="min-w-0 flex-1 truncate text-m-section font-medium" style={{ color: "var(--color-ink-950)" }}>{m.label}</span>
+            <ArrowRight className="size-4 shrink-0" style={{ color: "var(--color-ink-300)" }} />
           </Link>
         ))}
       </div>
 
       <MobileSectionTitle>Switch view</MobileSectionTitle>
       <div className="mb-4">
-        <Link href="/?desktop=1" className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] border-2 px-4 py-3 text-[0.875rem] font-semibold" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", color: "var(--color-ink-900)" }}>
-          <Monitor className="h-4 w-4" />
+        <Link href="/?desktop=1" className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] border-2 px-4 py-3 text-m-section font-semibold" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", color: "var(--color-ink-900)" }}>
+          <Monitor className="size-4" />
           View desktop site
         </Link>
       </div>

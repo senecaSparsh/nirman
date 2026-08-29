@@ -313,7 +313,52 @@ export async function getJobCosting(projectId: string) {
     .plus(pc.subcontractorCost)
     .plus(pc.equipmentCost);
 
-  const indirectTotal = pc.overheadCost;
+  // Allocate company-level admin expenses (Expense rows with projectId = null)
+  // across all active projects in the company, proportional to each project's
+  // direct cost. This is standard absorption costing — admin overhead is
+  // spread based on project scale.
+  const project = await prisma.project.findFirstOrThrow({
+    where: { id: projectId },
+    select: { companyId: true },
+  });
+
+  const companyAdminExpenses = await prisma.expense.aggregate({
+    where: { companyId: project.companyId, projectId: null },
+    _sum: { amount: true },
+  });
+  const totalAdmin = new Decimal(companyAdminExpenses._sum.amount ?? 0);
+
+  // Sum direct costs across all active projects in the company to compute
+  // this project's share.
+  const companyProjects = await prisma.project.findMany({
+    where: { companyId: project.companyId, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    select: { id: true },
+  });
+  const projectIds = companyProjects.map((p) => p.id);
+
+  // Aggregate direct costs (material issues + project costs) for all active projects
+  const [companyIssueLines, companyOverheads] = await Promise.all([
+    prisma.materialIssueLine.findMany({
+      where: { materialIssue: { projectId: { in: projectIds } } },
+      select: { qty: true, unitCost: true },
+    }),
+    prisma.projectCost.aggregate({
+      where: { projectId: { in: projectIds } },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const companyDirectTotal = companyIssueLines.reduce(
+    (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
+    new Decimal(0),
+  ).plus(new Decimal(companyOverheads._sum.amount ?? 0));
+
+  // This project's share = (projectDirect / companyDirect) × totalAdmin
+  const adminAllocated = directTotal.gt(0) && companyDirectTotal.gt(0)
+    ? totalAdmin.times(directTotal).div(companyDirectTotal).toDecimalPlaces(2)
+    : new Decimal(0);
+
+  const indirectTotal = pc.overheadCost.plus(adminAllocated);
 
   const absorbedOverheadRate = directTotal.gt(0)
     ? indirectTotal.div(directTotal).times(100)
@@ -330,10 +375,10 @@ export async function getJobCosting(projectId: string) {
     },
     indirectCosts: {
       overhead: pc.overheadCost,
-      adminAllocated: new Decimal(0), // TODO: allocate company admin costs
+      adminAllocated,
       total: indirectTotal.toDecimalPlaces(2),
     },
-    totalCost: pc.totalCost,
+    totalCost: pc.totalCost.plus(adminAllocated),
     absorbedOverheadRate: absorbedOverheadRate.toDecimalPlaces(2),
   };
 }

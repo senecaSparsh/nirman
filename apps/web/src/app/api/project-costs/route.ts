@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { ProjectCostType } from "@nirman/db";
 import { addProjectCost, deleteProjectCost } from "@nirman/services";
@@ -50,17 +51,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
+    const costDate = parsed.data.date ? new Date(parsed.data.date) : undefined;
+    if (costDate && isNaN(costDate.getTime())) {
+      return json({ error: "Invalid date format" }, { status: 400 });
+    }
     const cost = await addProjectCost({
       projectId: parsed.data.projectId,
       costType: parsed.data.costType,
       amount: parsed.data.amount,
-      date: parsed.data.date ? new Date(parsed.data.date) : undefined,
+      date: costDate,
       vendor: parsed.data.vendor ?? undefined,
       notes: parsed.data.notes ?? undefined,
       receiptUrl: parsed.data.receiptUrl ?? undefined,
       userId: user.id,
       ...(body?.subcontractorId ? { subcontractorId: body.subcontractorId } : {}),
     });
+    revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json({ ok: true, id: cost.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to add cost") }, { status: 400 });
@@ -74,6 +81,8 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   if (!id) return json({ error: "id query param is required" }, { status: 400 });
   try {
     await deleteProjectCost(id, user.id);
+    revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete cost") }, { status: 400 });

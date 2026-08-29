@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { postRenovationCost, postRenovationCapitalization } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
@@ -51,7 +52,7 @@ export async function createRenovation(input: CreateRenovationInput) {
     throw new ServiceError("Cannot link renovation to both a built unit and a land parcel");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
@@ -103,7 +104,7 @@ export async function createRenovation(input: CreateRenovationInput) {
     }
 
     return renovation;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function startRenovation(id: string, userId?: string) {
@@ -111,7 +112,7 @@ export async function startRenovation(id: string, userId?: string) {
   if (!renovation) throw new ServiceError("Renovation project not found", 404);
   if (renovation.status !== "PLANNED") throw new ServiceError(`Cannot start renovation in status ${renovation.status}`);
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.renovationProject.update({
       where: { id },
       data: { status: "IN_PROGRESS", startDate: renovation.startDate ?? new Date() },
@@ -127,7 +128,7 @@ export async function startRenovation(id: string, userId?: string) {
       });
     }
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export interface AddRenovationCostInput {
@@ -144,7 +145,7 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Amount must be > 0");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const renovation = await tx.renovationProject.findUnique({
       where: { id: input.renovationProjectId },
     });
@@ -199,11 +200,11 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
     }
 
     return cost;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 export async function deleteRenovationCost(costId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const cost = await tx.renovationCost.findUnique({
       where: { id: costId },
       include: { renovationProject: true },
@@ -268,7 +269,7 @@ export async function completeRenovation(
   id: string,
   opts: { newValuation?: Decimal | number | string; userId?: string },
 ) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const renovation = await tx.renovationProject.findUnique({
       where: { id },
       include: { builtUnit: true, landParcel: true },
@@ -325,8 +326,8 @@ export async function completeRenovation(
       // Determine companyId from the renovation's project or the asset itself
       let companyId: string | null = null;
       if (renovation.projectId) {
-        const project = await tx.project.findUnique({
-          where: { id: renovation.projectId },
+        const project = await tx.project.findFirst({
+          where: { id: renovation.projectId, deletedAt: null },
           select: { companyId: true },
         });
         companyId = project?.companyId ?? null;
@@ -339,8 +340,8 @@ export async function completeRenovation(
         companyId = lp?.companyId ?? null;
       }
       if (!companyId && renovation.builtUnitId) {
-        const unit = await tx.builtUnit.findUnique({
-          where: { id: renovation.builtUnitId },
+        const unit = await tx.builtUnit.findFirst({
+          where: { id: renovation.builtUnitId, deletedAt: null },
           select: { project: { select: { companyId: true } } },
         });
         companyId = unit?.project?.companyId ?? null;
@@ -387,7 +388,7 @@ export async function completeRenovation(
     }
 
     return { renovation: updated, roi, actualCost, newValuation, companyId: renovation.companyId };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.RENOVATION_COMPLETED,
@@ -410,7 +411,7 @@ export async function cancelRenovation(id: string, userId?: string) {
   if (!renovation) throw new ServiceError("Renovation project not found", 404);
   if (renovation.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed renovation");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Reverse all posted RENOVATION_COST GL entries for this renovation.
     // Each cost was posted via postRenovationCost() (Dr WIP/Expense, Cr Cash).
     // We reverse them so the books don't carry orphan WIP/expense for a
@@ -465,7 +466,7 @@ export async function cancelRenovation(id: string, userId?: string) {
       });
     }
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /** Compute ROI for a completed renovation. */

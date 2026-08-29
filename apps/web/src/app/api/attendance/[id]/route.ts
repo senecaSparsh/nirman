@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { deleteAttendance, logAction } from "@nirman/services";
+import { deleteAttendance, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.HR_MANAGE);
@@ -13,11 +14,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.workerAttendance.findFirst({
       where: { id, companyId: company.id },
     });
-    if (!existing) throw new Error("Attendance record not found in this company");
+    if (!existing) throw new ServiceError("Attendance record not found in this company", 404);
     const att = await tx.workerAttendance.update({
       where: { id },
       data: {

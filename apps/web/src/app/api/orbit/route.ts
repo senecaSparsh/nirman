@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, requireUser, toNum } from "@/lib/server";
+import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 
 /**
  * GET /api/orbit?type=company&id=<id>
@@ -57,6 +57,7 @@ interface ChildEntity {
 // ─── Main handler ───────────────────────────────────────────────────────────
 
 export const GET = apiHandler(async (req: NextRequest) => {
+  await requireUser();
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("mode") ?? "node";
   const company = await getCompany();
@@ -245,10 +246,10 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
   if (c.pan) details.push({ label: "PAN", value: c.pan });
   if (parentCompany) details.push({ label: "Parent", value: parentCompany.name });
   if (totalProjectCost._sum.totalProjectCost) {
-    details.push({ label: "Project value", value: formatCurrency(toNum(totalProjectCost._sum.totalProjectCost)) });
+    details.push({ label: "Project value", value: formatCurrencyCompact(toNum(totalProjectCost._sum.totalProjectCost)) });
   }
   const totalAssets = toNum(landValue._sum.currentValuation) + toNum(unitValue._sum.currentValuation);
-  if (totalAssets > 0) details.push({ label: "Asset value", value: formatCurrency(totalAssets) });
+  if (totalAssets > 0) details.push({ label: "Asset value", value: formatCurrencyCompact(totalAssets) });
 
   return {
     id: c.id, type: "company",
@@ -312,9 +313,9 @@ async function getProjectNode(id: string, _companyId: string): Promise<OrbitNode
     { label: "Status", value: p.status },
     { label: "Type", value: p.type },
   ];
-  if (p.totalBudget) details.push({ label: "Budget", value: formatCurrency(toNum(p.totalBudget)) });
-  if (p.totalProjectCost) details.push({ label: "Total cost", value: formatCurrency(toNum(p.totalProjectCost)) });
-  if (p.costPerSqft) details.push({ label: "Cost/sqft", value: formatCurrency(toNum(p.costPerSqft)) });
+  if (p.totalBudget) details.push({ label: "Budget", value: formatCurrencyCompact(toNum(p.totalBudget)) });
+  if (p.totalProjectCost) details.push({ label: "Total cost", value: formatCurrencyCompact(toNum(p.totalProjectCost)) });
+  if (p.costPerSqft) details.push({ label: "Cost/sqft", value: formatCurrencyCompact(toNum(p.costPerSqft)) });
   if (p.totalSellableArea) details.push({ label: "Sellable", value: `${formatNumber(toNum(p.totalSellableArea), 0)} sqft` });
   if (p.address) details.push({ label: "Address", value: p.address });
 
@@ -322,7 +323,7 @@ async function getProjectNode(id: string, _companyId: string): Promise<OrbitNode
     id: p.id, type: "project",
     title: p.name,
     subtitle: `${p.status} · ${p.type}`,
-    meta: p.totalProjectCost ? formatCurrency(toNum(p.totalProjectCost)) : "",
+    meta: p.totalProjectCost ? formatCurrencyCompact(toNum(p.totalProjectCost)) : "",
     href: `/m/projects/${p.id}`,
     details,
     orbits: [
@@ -366,15 +367,15 @@ async function getBuiltUnitNode(id: string, _companyId: string): Promise<OrbitNo
   ];
   if (u.floor != null) details.push({ label: "Floor", value: String(u.floor) });
   if (u.wing) details.push({ label: "Wing", value: u.wing });
-  if (toNum(u.productionCost) > 0) details.push({ label: "Production cost", value: formatCurrency(toNum(u.productionCost)) });
-  if (u.askingPrice) details.push({ label: "Asking price", value: formatCurrency(toNum(u.askingPrice)) });
-  if (toNum(u.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrency(toNum(u.currentValuation)) });
+  if (toNum(u.productionCost) > 0) details.push({ label: "Production cost", value: formatCurrencyCompact(toNum(u.productionCost)) });
+  if (u.askingPrice) details.push({ label: "Asking price", value: formatCurrencyCompact(toNum(u.askingPrice)) });
+  if (toNum(u.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrencyCompact(toNum(u.currentValuation)) });
 
   return {
     id: u.id, type: "builtUnit",
     title: `Unit ${u.unitNumber}`,
     subtitle: `${u.unitType} · ${u.status}`,
-    meta: u.askingPrice ? formatCurrency(toNum(u.askingPrice)) : formatCurrency(toNum(u.productionCost)),
+    meta: u.askingPrice ? formatCurrencyCompact(toNum(u.askingPrice)) : formatCurrencyCompact(toNum(u.productionCost)),
     href: `/m/units/${u.id}`,
     details,
     orbits: [
@@ -405,15 +406,15 @@ async function getLandParcelNode(id: string, _companyId: string): Promise<OrbitN
     { label: "Status", value: l.status },
   ];
   if (l.isInfrastructure) details.push({ label: "Type", value: "Infrastructure" });
-  details.push({ label: "Acquisition", value: formatCurrency(toNum(l.acquisitionCost)) });
-  if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrency(toNum(l.currentValuation)) });
-  if (l.askingPrice) details.push({ label: "Asking", value: formatCurrency(toNum(l.askingPrice)) });
+  details.push({ label: "Acquisition", value: formatCurrencyCompact(toNum(l.acquisitionCost)) });
+  if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrencyCompact(toNum(l.currentValuation)) });
+  if (l.askingPrice) details.push({ label: "Asking", value: formatCurrencyCompact(toNum(l.askingPrice)) });
 
   return {
     id: l.id, type: "landParcel",
     title: `Plot ${l.number}`,
     subtitle: `${formatNumber(toNum(l.area), 0)} ${l.areaUnit} · ${l.status}`,
-    meta: formatCurrency(toNum(l.currentValuation || l.acquisitionCost)),
+    meta: formatCurrencyCompact(toNum(l.currentValuation || l.acquisitionCost)),
     href: `/m/land/${l.id}`,
     details,
     orbits: [
@@ -445,17 +446,17 @@ async function getAssetSaleNode(id: string, _companyId: string): Promise<OrbitNo
     { label: "Payment", value: s.paymentStatus },
   ];
   if (s.customer.phone) details.push({ label: "Phone", value: s.customer.phone });
-  details.push({ label: "Sale price", value: formatCurrency(toNum(s.salePrice)) });
-  if (toNum(s.costBasis) > 0) details.push({ label: "Cost basis", value: formatCurrency(toNum(s.costBasis)) });
-  if (toNum(s.profit) !== 0) details.push({ label: "Profit", value: formatCurrency(toNum(s.profit)) });
-  if (s.depositAmount) details.push({ label: "Deposit", value: formatCurrency(toNum(s.depositAmount)) });
+  details.push({ label: "Sale price", value: formatCurrencyCompact(toNum(s.salePrice)) });
+  if (toNum(s.costBasis) > 0) details.push({ label: "Cost basis", value: formatCurrencyCompact(toNum(s.costBasis)) });
+  if (toNum(s.profit) !== 0) details.push({ label: "Profit", value: formatCurrencyCompact(toNum(s.profit)) });
+  if (s.depositAmount) details.push({ label: "Deposit", value: formatCurrencyCompact(toNum(s.depositAmount)) });
   details.push({ label: "Sale date", value: formatDate(s.saleDate) });
 
   return {
     id: s.id, type: "assetSale",
     title: `Sale ${s.saleNumber}`,
     subtitle: `${s.customer.name} · ${s.paymentStatus}`,
-    meta: formatCurrency(toNum(s.salePrice)),
+    meta: formatCurrencyCompact(toNum(s.salePrice)),
     href: `/m/sales`,
     details,
     orbits: [
@@ -485,13 +486,13 @@ async function getProjectChildren(companyId: string, _c: string): Promise<ChildE
       { label: "Status", value: p.status },
       { label: "Units", value: String(p._count.builtUnits) },
     ];
-    if (p.totalProjectCost) details.push({ label: "Cost", value: formatCurrency(toNum(p.totalProjectCost)) });
-    if (p.costPerSqft) details.push({ label: "/sqft", value: formatCurrency(toNum(p.costPerSqft)) });
+    if (p.totalProjectCost) details.push({ label: "Cost", value: formatCurrencyCompact(toNum(p.totalProjectCost)) });
+    if (p.costPerSqft) details.push({ label: "/sqft", value: formatCurrencyCompact(toNum(p.costPerSqft)) });
     return {
       id: p.id, type: "project",
       title: p.name,
       subtitle: `${p.status} · ${p.type}`,
-      meta: p.totalProjectCost ? formatCurrency(toNum(p.totalProjectCost)) : "",
+      meta: p.totalProjectCost ? formatCurrencyCompact(toNum(p.totalProjectCost)) : "",
       href: `/m/projects/${p.id}`,
       details,
       hasChildren: true,
@@ -515,13 +516,13 @@ async function getLandPurchaseChildren(companyId: string, _c: string): Promise<C
       { label: "Parcels", value: String(l._count.parcels) },
     ];
     if (l.location) details.push({ label: "Location", value: l.location });
-    details.push({ label: "Cost", value: formatCurrency(toNum(l.totalCost)) });
+    details.push({ label: "Cost", value: formatCurrencyCompact(toNum(l.totalCost)) });
     details.push({ label: "Date", value: formatDate(l.purchaseDate) });
     return {
       id: l.id, type: "landPurchase",
       title: l.sellerName,
       subtitle: `${formatNumber(toNum(l.totalArea), 0)} ${l.areaUnit ?? "SQFT"}`,
-      meta: formatCurrency(toNum(l.totalCost)),
+      meta: formatCurrencyCompact(toNum(l.totalCost)),
       href: `/m/land/${l.id}`,
       details,
       hasChildren: true,
@@ -588,7 +589,7 @@ async function getEmployeeChildren(companyId: string, _c: string): Promise<Child
     if (e.trade) details.push({ label: "Trade", value: e.trade });
     if (e.designation) details.push({ label: "Role", value: e.designation });
     if (e.phone) details.push({ label: "Phone", value: e.phone });
-    if (toNum(e.dailyRate) > 0) details.push({ label: "Daily rate", value: formatCurrency(toNum(e.dailyRate)) });
+    if (toNum(e.dailyRate) > 0) details.push({ label: "Daily rate", value: formatCurrencyCompact(toNum(e.dailyRate)) });
     if (e.activeProject) details.push({ label: "Project", value: e.activeProject.name });
     return {
       id: e.id, type: "employee",
@@ -617,8 +618,8 @@ async function getEquipmentChildren(companyId: string, _c: string): Promise<Chil
     ];
     if (e.category) details.push({ label: "Category", value: e.category });
     if (e.assetTag) details.push({ label: "Tag", value: e.assetTag });
-    if (toNum(e.acquisitionCost) > 0) details.push({ label: "Acquired", value: formatCurrency(toNum(e.acquisitionCost)) });
-    if (toNum(e.currentValue) > 0) details.push({ label: "Current", value: formatCurrency(toNum(e.currentValue)) });
+    if (toNum(e.acquisitionCost) > 0) details.push({ label: "Acquired", value: formatCurrencyCompact(toNum(e.acquisitionCost)) });
+    if (toNum(e.currentValue) > 0) details.push({ label: "Current", value: formatCurrencyCompact(toNum(e.currentValue)) });
     return {
       id: e.id, type: "equipment",
       title: e.name,
@@ -653,13 +654,13 @@ async function getBuiltUnitChildren(parentId: string, companyId: string, parentT
     ];
     if (u.floor != null) details.push({ label: "Floor", value: String(u.floor) });
     if (u.wing) details.push({ label: "Wing", value: u.wing });
-    if (u.askingPrice) details.push({ label: "Asking", value: formatCurrency(toNum(u.askingPrice)) });
-    if (toNum(u.productionCost) > 0) details.push({ label: "Cost", value: formatCurrency(toNum(u.productionCost)) });
+    if (u.askingPrice) details.push({ label: "Asking", value: formatCurrencyCompact(toNum(u.askingPrice)) });
+    if (toNum(u.productionCost) > 0) details.push({ label: "Cost", value: formatCurrencyCompact(toNum(u.productionCost)) });
     return {
       id: u.id, type: "builtUnit",
       title: `Unit ${u.unitNumber}`,
       subtitle: `${u.unitType} · ${u.status}`,
-      meta: u.askingPrice ? formatCurrency(toNum(u.askingPrice)) : `${formatNumber(toNum(u.area), 0)} ${u.areaUnit}`,
+      meta: u.askingPrice ? formatCurrencyCompact(toNum(u.askingPrice)) : `${formatNumber(toNum(u.area), 0)} ${u.areaUnit}`,
       href: `/m/units/${u.id}`,
       details,
       hasChildren: true,
@@ -688,13 +689,13 @@ async function getLandParcelChildren(parentId: string, companyId: string, parent
       { label: "Status", value: l.status },
     ];
     if (l.isInfrastructure) details.push({ label: "Type", value: "Infrastructure" });
-    details.push({ label: "Acquisition", value: formatCurrency(toNum(l.acquisitionCost)) });
-    if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrency(toNum(l.currentValuation)) });
+    details.push({ label: "Acquisition", value: formatCurrencyCompact(toNum(l.acquisitionCost)) });
+    if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrencyCompact(toNum(l.currentValuation)) });
     return {
       id: l.id, type: "landParcel",
       title: `Plot ${l.number}`,
       subtitle: `${formatNumber(toNum(l.area), 0)} ${l.areaUnit} · ${l.status}`,
-      meta: formatCurrency(toNum(l.currentValuation)),
+      meta: formatCurrencyCompact(toNum(l.currentValuation)),
       href: `/m/land/${l.id}`,
       details,
       hasChildren: true,
@@ -751,12 +752,12 @@ async function getPurchaseOrderChildren(parentId: string, companyId: string, par
       { label: "Date", value: formatDate(p.orderDate) },
     ];
     if (p.expectedDate) details.push({ label: "Expected", value: formatDate(p.expectedDate) });
-    if (p.total) details.push({ label: "Total", value: formatCurrency(toNum(p.total)) });
+    if (p.total) details.push({ label: "Total", value: formatCurrencyCompact(toNum(p.total)) });
     return {
       id: p.id, type: "purchaseOrder",
       title: `PO-${p.poNumber ?? p.id.slice(-6)}`,
       subtitle: p.supplier?.name ?? "—",
-      meta: p.total ? formatCurrency(toNum(p.total)) : p.status,
+      meta: p.total ? formatCurrencyCompact(toNum(p.total)) : p.status,
       href: `/m/procurement/${p.id}`,
       details,
       hasChildren: false,
@@ -783,7 +784,7 @@ async function getMaterialIssueChildren(parentId: string, companyId: string, par
       { label: "Date", value: formatDate(m.createdAt) },
     ];
     if (m.project) details.push({ label: "Project", value: m.project.name });
-    if (toNum(m.totalCost) > 0) details.push({ label: "Cost", value: formatCurrency(toNum(m.totalCost)) });
+    if (toNum(m.totalCost) > 0) details.push({ label: "Cost", value: formatCurrencyCompact(toNum(m.totalCost)) });
     return {
       id: m.id, type: "materialIssue",
       title: `SA-${m.issueNumber ?? m.id.slice(-6)}`,
@@ -849,14 +850,14 @@ async function getSaleChildren(parentId: string, companyId: string, parentType: 
       { label: "Payment", value: s.paymentStatus },
     ];
     if (s.customer.phone) details.push({ label: "Phone", value: s.customer.phone });
-    details.push({ label: "Price", value: formatCurrency(toNum(s.salePrice)) });
-    if (toNum(s.profit) !== 0) details.push({ label: "Profit", value: formatCurrency(toNum(s.profit)) });
+    details.push({ label: "Price", value: formatCurrencyCompact(toNum(s.salePrice)) });
+    if (toNum(s.profit) !== 0) details.push({ label: "Profit", value: formatCurrencyCompact(toNum(s.profit)) });
     details.push({ label: "Date", value: formatDate(s.saleDate) });
     return {
       id: s.id, type: "assetSale",
       title: `Sale ${s.saleNumber}`,
       subtitle: s.customer.name,
-      meta: formatCurrency(toNum(s.salePrice)),
+      meta: formatCurrencyCompact(toNum(s.salePrice)),
       href: `/m/sales`,
       details,
       hasChildren: true,
@@ -877,12 +878,12 @@ async function getPortalListingChildren(parentId: string, companyId: string, par
     id: l.id, type: "portalListing",
     title: l.title,
     subtitle: l.portalName,
-    meta: l.askingPrice ? formatCurrency(toNum(l.askingPrice)) : l.status,
+    meta: l.askingPrice ? formatCurrencyCompact(toNum(l.askingPrice)) : l.status,
     href: l.listingUrl ?? `/m/portal-listings/${l.id}`,
     details: [
       { label: "Portal", value: l.portalName },
       { label: "Status", value: l.status },
-      { label: "Asking", value: formatCurrency(toNum(l.askingPrice)) },
+      { label: "Asking", value: formatCurrencyCompact(toNum(l.askingPrice)) },
     ],
     hasChildren: false,
   }));
@@ -903,7 +904,7 @@ async function getPaymentChildren(saleId: string, _c: string): Promise<ChildEnti
     if (p.reference) details.push({ label: "Ref", value: p.reference });
     return {
       id: p.id, type: "payment",
-      title: formatCurrency(toNum(p.amount)),
+      title: formatCurrencyCompact(toNum(p.amount)),
       subtitle: formatDate(p.paymentDate),
       meta: p.mode,
       href: `/m/sales`,
@@ -925,12 +926,12 @@ async function getSubParcelChildren(parcelId: string, _c: string): Promise<Child
       { label: "Status", value: l.status },
     ];
     if (l.isInfrastructure) details.push({ label: "Type", value: "Infrastructure" });
-    if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrency(toNum(l.currentValuation)) });
+    if (toNum(l.currentValuation) > 0) details.push({ label: "Valuation", value: formatCurrencyCompact(toNum(l.currentValuation)) });
     return {
       id: l.id, type: "landParcel",
       title: `Plot ${l.number}`,
       subtitle: `${formatNumber(toNum(l.area), 0)} ${l.areaUnit} · ${l.status}`,
-      meta: formatCurrency(toNum(l.currentValuation)),
+      meta: formatCurrencyCompact(toNum(l.currentValuation)),
       href: `/m/land/${l.id}`,
       details,
       hasChildren: true,
@@ -978,12 +979,12 @@ async function getSupplierChildren(companyId: string, _c: string): Promise<Child
     if (s.gstin) details.push({ label: "GSTIN", value: s.gstin });
     if (s.phone) details.push({ label: "Phone", value: s.phone });
     if (s.leadTimeDays) details.push({ label: "Lead", value: `${s.leadTimeDays}d` });
-    if (toNum(s.balanceOwed) > 0) details.push({ label: "Owed", value: formatCurrency(toNum(s.balanceOwed)) });
+    if (toNum(s.balanceOwed) > 0) details.push({ label: "Owed", value: formatCurrencyCompact(toNum(s.balanceOwed)) });
     return {
       id: s.id, type: "supplier",
       title: s.name,
       subtitle: s.phone ?? s.email ?? "—",
-      meta: toNum(s.balanceOwed) > 0 ? formatCurrency(toNum(s.balanceOwed)) : "",
+      meta: toNum(s.balanceOwed) > 0 ? formatCurrencyCompact(toNum(s.balanceOwed)) : "",
       href: `/m/suppliers/${s.id}`,
       details,
       hasChildren: false,
@@ -1082,7 +1083,7 @@ async function getExpenseChildren(parentId: string, companyId: string, parentTyp
       id: e.id, type: "expense",
       title: e.category,
       subtitle: formatDate(e.date),
-      meta: formatCurrency(toNum(e.amount)),
+      meta: formatCurrencyCompact(toNum(e.amount)),
       href: `/m/expenses`,
       details,
       hasChildren: false,
@@ -1210,12 +1211,12 @@ async function getProjectPhaseChildren(projectId: string, _c: string): Promise<C
     ];
     if (ph.startDate) details.push({ label: "Start", value: formatDate(ph.startDate) });
     if (ph.endDate) details.push({ label: "End", value: formatDate(ph.endDate) });
-    if (ph.budget) details.push({ label: "Budget", value: formatCurrency(toNum(ph.budget)) });
+    if (ph.budget) details.push({ label: "Budget", value: formatCurrencyCompact(toNum(ph.budget)) });
     return {
       id: ph.id, type: "projectPhase",
       title: ph.name,
       subtitle: String(ph.status),
-      meta: ph.budget ? formatCurrency(toNum(ph.budget)) : "",
+      meta: ph.budget ? formatCurrencyCompact(toNum(ph.budget)) : "",
       href: `/m/projects/${projectId}`,
       details,
       hasChildren: false,
@@ -1301,12 +1302,12 @@ async function getTenancyChildren(parentId: string, companyId: string, parentTyp
     ];
     if (t.endDate) details.push({ label: "End", value: formatDate(t.endDate) });
     if (t.tenantPhone) details.push({ label: "Phone", value: t.tenantPhone });
-    if (t.monthlyRent) details.push({ label: "Rent", value: formatCurrency(toNum(t.monthlyRent)) });
+    if (t.monthlyRent) details.push({ label: "Rent", value: formatCurrencyCompact(toNum(t.monthlyRent)) });
     return {
       id: t.id, type: "tenancy",
       title: t.tenantName,
       subtitle: String(t.assetType),
-      meta: t.monthlyRent ? formatCurrency(toNum(t.monthlyRent)) : String(t.status),
+      meta: t.monthlyRent ? formatCurrencyCompact(toNum(t.monthlyRent)) : String(t.status),
       href: `/m/rent`,
       details,
       hasChildren: false,
@@ -1330,7 +1331,7 @@ async function getSaleExpenseChildren(saleId: string, _c: string): Promise<Child
       id: e.id, type: "saleExpense",
       title: e.label ?? String(e.head),
       subtitle: String(e.borneBy),
-      meta: formatCurrency(toNum(e.amount)),
+      meta: formatCurrencyCompact(toNum(e.amount)),
       href: `/m/sales`,
       details,
       hasChildren: false,
@@ -1348,12 +1349,12 @@ async function getSaleTermChildren(saleId: string, _c: string): Promise<ChildEnt
     const details: DetailField[] = [
       { label: "Included", value: t.isIncluded ? "In deal" : "Extra" },
     ];
-    if (t.extraAmount) details.push({ label: "Amount", value: formatCurrency(toNum(t.extraAmount)) });
+    if (t.extraAmount) details.push({ label: "Amount", value: formatCurrencyCompact(toNum(t.extraAmount)) });
     return {
       id: t.id, type: "saleTerm",
       title: t.description.slice(0, 60),
       subtitle: t.isIncluded ? "Included" : "Extra charge",
-      meta: t.extraAmount ? formatCurrency(toNum(t.extraAmount)) : "",
+      meta: t.extraAmount ? formatCurrencyCompact(toNum(t.extraAmount)) : "",
       href: `/m/sales`,
       details,
       hasChildren: false,

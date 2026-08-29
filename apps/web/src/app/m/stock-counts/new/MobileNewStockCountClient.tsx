@@ -308,26 +308,26 @@ export default function MobileNewStockCountClient() {
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isQueued ? "Stock Inventory Queued" : "Stock Inventory Created"}
         </p>
         {isQueued ? (
-          <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
             Will sync when back online
           </p>
         ) : (
-          <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
             {varianceSummary.counted} items counted · {varianceSummary.mismatches} mismatches
           </p>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           {!isQueued && (
             <button
               onClick={() => {
                 router.refresh();
                 router.push(`/m/stock-counts/${success.id}`);
               }}
-              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View Count
@@ -346,7 +346,7 @@ export default function MobileNewStockCountClient() {
                 countedQty: "",
               })));
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             New Count
@@ -361,7 +361,7 @@ export default function MobileNewStockCountClient() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading…</p>
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading…</p>
       </div>
     );
   }
@@ -381,7 +381,7 @@ export default function MobileNewStockCountClient() {
       {/* ── Location selector ── */}
       <div className="flex items-center gap-1.5 mb-2">
         <MapPin className="size-3" style={{ color: "var(--color-steel)" }} />
-        <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+        <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
           Location
         </span>
         <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -390,7 +390,7 @@ export default function MobileNewStockCountClient() {
       <button
         type="button"
         onClick={() => setShowLocationModal(true)}
-        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left mb-3"
+        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left mb-3"
         style={{
           borderColor: selectedLocation ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
           backgroundColor: "var(--color-paper)",
@@ -406,15 +406,15 @@ export default function MobileNewStockCountClient() {
           />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Stock Location
           </p>
           {selectedLocation ? (
-            <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
               {selectedLocation.name}
             </p>
           ) : (
-            <p className="text-[0.75rem] font-medium" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-section font-medium" style={{ color: "var(--color-ink-500)" }}>
               Tap to select…
             </p>
           )}
@@ -425,7 +425,7 @@ export default function MobileNewStockCountClient() {
       {/* ── Line items ── */}
       <div className="flex items-center gap-1.5 mb-2">
         <Package className="size-3" style={{ color: "var(--color-steel)" }} />
-        <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+        <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
           Count Items ({lines.length})
         </span>
         <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -434,7 +434,7 @@ export default function MobileNewStockCountClient() {
       {stockLoading ? (
         <div className="flex flex-col items-center justify-center py-6">
           <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-          <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading stock…</p>
+          <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading stock…</p>
         </div>
       ) : lines.length === 0 ? (
         <div
@@ -442,10 +442,10 @@ export default function MobileNewStockCountClient() {
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Package className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-700)" }}>
             No stock at this location
           </p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Select a different location
           </p>
         </div>
@@ -477,17 +477,17 @@ export default function MobileNewStockCountClient() {
                   {/* Material name + remove */}
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                         {line.materialName}
                       </p>
-                      <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                         {line.materialCode} · sys: {formatNumber(line.systemQty, 0)} {line.unit}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveLine(line.materialId)}
-                      className="shrink-0 press"
+                      className="shrink-0 text-m-body press"
                     >
                       <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                     </button>
@@ -496,7 +496,7 @@ export default function MobileNewStockCountClient() {
                   {/* Counted qty input + variance */}
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
                         Counted ({line.unit})
                       </label>
                       <input
@@ -506,7 +506,7 @@ export default function MobileNewStockCountClient() {
                         value={line.countedQty}
                         onChange={(e) => handleLineChange(line.materialId, e.target.value)}
                         placeholder={String(line.systemQty)}
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                       />
                     </div>
@@ -514,7 +514,7 @@ export default function MobileNewStockCountClient() {
                       <div className="shrink-0 flex items-center gap-0.5 pt-4">
                         <VarianceIcon className="size-3" style={{ color: varianceColor }} />
                         <span
-                          className="text-[0.5625rem] font-bold tabular-nums"
+                          className="text-m-caption font-bold tabular-nums"
                           style={{ color: varianceColor }}
                         >
                           {variance! > 0 ? "+" : ""}{formatNumber(variance!, 0)}
@@ -535,11 +535,11 @@ export default function MobileNewStockCountClient() {
           <button
             type="button"
             onClick={() => setShowMaterialModal(true)}
-            className="flex-1 flex items-center justify-center gap-1 rounded-[0.375rem] border border-dashed py-2 press"
+            className="flex-1 flex items-center justify-center gap-1 rounded-[0.375rem] border border-dashed py-2 text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             <Plus className="size-3" />
-            <span className="text-[0.625rem] font-semibold">Add material</span>
+            <span className="text-m-label font-semibold">Add material</span>
           </button>
           <ScanButton onScan={handleScan} label="Scan" />
         </div>
@@ -547,7 +547,7 @@ export default function MobileNewStockCountClient() {
 
       {/* ── Notes ── */}
       <div className="mt-3">
-        <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Notes (optional)
         </label>
         <textarea
@@ -555,7 +555,7 @@ export default function MobileNewStockCountClient() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Monthly verification — cement bags damaged"
           rows={2}
-          className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+          className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
@@ -572,11 +572,11 @@ export default function MobileNewStockCountClient() {
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           {/* Summary */}
           <div className="shrink-0">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               {varianceSummary.counted}/{varianceSummary.total} counted
             </p>
             <p
-              className="text-[0.875rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{
                 color: varianceSummary.mismatches > 0
                   ? (varianceSummary.netVariance < 0 ? "var(--color-stop)" : "var(--color-signal)")
@@ -589,7 +589,7 @@ export default function MobileNewStockCountClient() {
               }
             </p>
             {varianceSummary.mismatches > 0 ? (
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 net Δ {varianceSummary.netVariance > 0 ? "+" : ""}{formatNumber(varianceSummary.netVariance, 0)}
               </p>
             ) : null}
@@ -601,7 +601,7 @@ export default function MobileNewStockCountClient() {
             onClick={() => { if (submitLongPress.wasLongPress()) return; handleSubmit(); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
@@ -696,8 +696,8 @@ function SelectorModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -715,7 +715,7 @@ function SelectorModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
+              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -726,7 +726,7 @@ function SelectorModal({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+              <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
             </div>
           ) : (
             filtered.map((item, i) => {
@@ -735,7 +735,7 @@ function SelectorModal({
                 <button
                   key={item.id || i}
                   onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
                   style={{
                     backgroundColor: isSelected ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
                     borderBottom: "1px solid var(--color-line)",
@@ -743,13 +743,13 @@ function SelectorModal({
                 >
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[0.75rem] font-bold truncate"
+                      className="text-m-section font-bold truncate"
                       style={{ color: isSelected ? "var(--color-ink-950)" : "var(--color-ink-900)" }}
                     >
                       {item.label}
                     </p>
                     {item.sub ? (
-                      <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                         {item.sub}
                       </p>
                     ) : null}

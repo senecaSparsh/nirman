@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee } from "lucide-react";
+import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee, Plus } from "lucide-react";
 import Link from "next/link";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-ste
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
+import { PoAddLineDialog } from "./po-add-line-dialog";
 import { AuditTrail } from "@/components/audit-trail";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/types";
@@ -38,6 +39,7 @@ export function PurchaseOrderDetailDialog({
   const [loading, setLoading] = useState(false);
   const [recvOpen, setRecvOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [addLineOpen, setAddLineOpen] = useState(false);
   const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
@@ -249,6 +251,11 @@ export function PurchaseOrderDetailDialog({
               {(detail.status === "ORDERED" || detail.status === "PARTIAL") && (
                 <Button size="sm" onClick={() => setRecvOpen(true)}>
                   <Package className="h-4 w-4" /> Receive Goods <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
+                </Button>
+              )}
+              {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canApprove && (
+                <Button size="sm" variant="outline" onClick={() => setAddLineOpen(true)}>
+                  <Plus className="h-4 w-4" /> Add Line
                 </Button>
               )}
               {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
@@ -475,6 +482,12 @@ export function PurchaseOrderDetailDialog({
         purchaseOrderNumber={detail?.poNumber}
         defaultSupplierId={detail?.supplierId}
         defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
+      />
+      <PoAddLineDialog
+        open={addLineOpen}
+        onOpenChange={setAddLineOpen}
+        poId={detail?.id ?? ""}
+        onAdded={() => { setAddLineOpen(false); router.refresh(); }}
       />
     </>
   );

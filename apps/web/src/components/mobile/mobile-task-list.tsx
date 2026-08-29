@@ -121,7 +121,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by title…"
-                className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-9 text-[0.8125rem] focus:outline-none"
+                className="w-full h-9 rounded-[0.625rem] border-2 pl-9 pr-9 text-m-section focus:outline-none"
                 style={{
                   borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -132,7 +132,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 press"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-m-body press"
                   aria-label="Clear"
                 >
                   <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
@@ -150,7 +150,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                       key={chip.value}
                       type="button"
                       onClick={() => { setStatusFilter(chip.value); haptic(10); }}
-                      className="h-7 shrink-0 rounded-full border px-3 text-[0.5625rem] font-bold press"
+                      className="h-7 shrink-0 rounded-full border px-3 text-m-caption font-bold text-m-body press"
                       style={{
                         borderColor: isActive ? "var(--color-ink-950)" : "var(--color-line)",
                         backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -181,7 +181,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           return (
             <div key={status}>
               <h2
-                className="text-[0.5625rem] font-bold uppercase tracking-wide pb-1.5 pt-4"
+                className="text-m-caption font-bold uppercase tracking-wide pb-1.5 pt-4"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {label} ({items.length})
@@ -189,7 +189,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-8 text-center">
                   <CheckSquare className="mb-2 size-6" style={{ color: "var(--color-ink-300)" }} />
-                  <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     No {label.toLowerCase()} tasks
                   </p>
                 </div>
@@ -220,7 +220,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           title="No open tasks"
           hint="New assignments from your admin appear here. Pull to refresh or tap below to check for updates."
           action={
-            <MobileCta href="/m/tasks" icon={CheckSquare} variant="secondary">
+            <MobileCta href="/m/site/tasks" icon={CheckSquare} variant="secondary">
               Refresh Tasks
             </MobileCta>
           }
@@ -263,7 +263,7 @@ function FilteredView({
   return (
     <div>
       <h2
-        className="text-[0.5625rem] font-bold uppercase tracking-wide pb-1.5 pt-3"
+        className="text-m-caption font-bold uppercase tracking-wide pb-1.5 pt-3"
         style={{ color: "var(--color-ink-500)" }}
       >
         Results ({visible.length})
@@ -330,7 +330,7 @@ function TaskRow({
       <button
         onClick={onToggle}
         disabled={state === "updating"}
-        className="flex w-full items-center gap-2.5 p-2.5 text-left press"
+        className="flex w-full items-center gap-2.5 p-2.5 text-left text-m-body press"
       >
         <span
           className="flex size-8 shrink-0 items-center justify-center rounded-[0.375rem]"
@@ -339,10 +339,10 @@ function TaskRow({
           <Icon className="size-4" style={{ color: tone }} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+          <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
             {task.title}
           </div>
-          <div className="truncate text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             {task.priority}
             {task.dueDate && (
               <span style={{ color: isOverdue ? "var(--color-stop)" : undefined }}>
@@ -364,7 +364,7 @@ function TaskRow({
         <div className="px-2.5 pb-2.5">
           {task.description && (
             <div
-              className="mb-2.5 rounded-[0.375rem] border p-2.5 text-[0.5625rem]"
+              className="mb-2.5 rounded-[0.375rem] border p-2.5 text-m-caption"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >
               {task.description}
@@ -372,11 +372,11 @@ function TaskRow({
           )}
           {task.instructions && (
             <div className="mb-2.5">
-              <p className="text-[0.5rem] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-steel)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-steel)" }}>
                 Step-by-step Guidance
               </p>
               <pre
-                className="whitespace-pre-wrap rounded-[0.375rem] border p-2.5 text-[0.5625rem] font-mono"
+                className="whitespace-pre-wrap rounded-[0.375rem] border p-2.5 text-m-caption font-mono"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
               >
                 {task.instructions}
@@ -445,10 +445,10 @@ function ActionButton({
   label: string;
   variant: "primary" | "success" | "outline";
 }) {
-  const baseCls = "flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50";
+  const baseCls = "flex flex-1 items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold press disabled:opacity-50";
   const variantStyle: React.CSSProperties =
     variant === "success"
-      ? { backgroundColor: "var(--color-go)", color: "#fff", borderColor: "var(--color-go)" }
+      ? { backgroundColor: "var(--color-go)", color: "var(--color-paper)", borderColor: "var(--color-go)" }
       : variant === "primary"
         ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" }
         : { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" };

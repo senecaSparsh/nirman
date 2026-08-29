@@ -45,7 +45,7 @@ async function SettingsContent() {
     prisma.user.findMany({
       where: { memberships: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
-      select: { id: true, email: true, name: true, role: true, active: true },
+      select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, joiningDate: true },
     }),
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
@@ -146,6 +146,11 @@ async function SettingsContent() {
         name: u.name,
         role: u.role,
         active: u.active,
+        phone: u.phone,
+        designation: u.designation,
+        department: u.department,
+        employeeCode: u.employeeCode,
+        joiningDate: u.joiningDate ? u.joiningDate.toISOString().split("T")[0]! : null,
       }))}
       locations={locationRows}
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}

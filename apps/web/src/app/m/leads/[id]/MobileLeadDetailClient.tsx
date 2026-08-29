@@ -8,6 +8,7 @@ import {
   Target, TrendingUp, Clock, MessageSquare,
   CheckCircle2, AlertCircle, ArrowRight,
   Plus, Loader2, X, UserRoundCheck, ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -188,25 +189,25 @@ export function MobileLeadDetailClient({
       >
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0">
-            <h1 className="text-[0.875rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
               {lead.name}
             </h1>
             <div className="flex items-center gap-1.5 mt-1">
               <span
-                className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
                 style={{ backgroundColor: stageMeta.color, color: "var(--color-paper)" }}
               >
                 {stageMeta.label}
               </span>
               <span
-                className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
                 style={{ backgroundColor: priorityMeta.color, color: "var(--color-paper)" }}
               >
                 {priorityMeta.label}
               </span>
               {isConverted ? (
                 <span
-                  className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+                  className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
                   style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                 >
                   Converted
@@ -215,10 +216,10 @@ export function MobileLeadDetailClient({
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[0.5rem] uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
               Score
             </p>
-            <p className="text-[1rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {lead.score}
             </p>
           </div>
@@ -229,7 +230,7 @@ export function MobileLeadDetailClient({
           {lead.phone ? (
             <a
               href={`tel:${lead.phone}`}
-              className="flex items-center gap-1 text-[0.5625rem] font-semibold press"
+              className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
             >
               <Phone className="size-3" />
@@ -239,7 +240,7 @@ export function MobileLeadDetailClient({
           {lead.email ? (
             <a
               href={`mailto:${lead.email}`}
-              className="flex items-center gap-1 text-[0.5625rem] font-semibold press"
+              className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
             >
               <Mail className="size-3" />
@@ -261,7 +262,7 @@ export function MobileLeadDetailClient({
             <button
               onClick={convertToCustomer}
               disabled={converting}
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {converting ? <Loader2 className="size-3.5 animate-spin" /> : <UserRoundCheck className="size-3.5" />}
@@ -275,7 +276,7 @@ export function MobileLeadDetailClient({
                 setLostReason("");
                 setShowStageSheet(true);
               }}
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 text-[0.625rem] font-bold press"
+              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               <TrendingUp className="size-3" />
@@ -287,7 +288,7 @@ export function MobileLeadDetailClient({
       ) : null}
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-1.5">
         <MobileStatCard
           label="Activities"
           value={String(lead.stats.activityCount)}
@@ -384,7 +385,7 @@ export function MobileLeadDetailClient({
             className="rounded-[0.5rem] border p-3"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <p className="text-[0.625rem] leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
               {lead.notes}
             </p>
           </div>
@@ -418,25 +419,25 @@ export function MobileLeadDetailClient({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <p className="text-[0.5625rem] font-bold uppercase" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-950)" }}>
                         {a.type.replace(/_/g, " ")}
                       </p>
-                      <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                         {formatDate(a.occurredAt)}
                       </p>
                     </div>
                     {a.note ? (
-                      <p className="text-[0.5625rem] mt-0.5 leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
+                      <p className="text-m-caption mt-0.5 leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
                         {a.note}
                       </p>
                     ) : null}
                     {a.outcome ? (
-                      <p className="text-[0.5rem] mt-0.5 italic" style={{ color: "var(--color-steel)" }}>
+                      <p className="text-m-caption mt-0.5 italic" style={{ color: "var(--color-steel)" }}>
                         → {a.outcome}
                       </p>
                     ) : null}
                     {a.nextFollowUpAt ? (
-                      <p className="text-[0.5rem] mt-1 flex items-center gap-0.5" style={{ color: "var(--color-warn)" }}>
+                      <p className="text-m-caption mt-1 flex items-center gap-0.5" style={{ color: "var(--color-warn)" }}>
                         <Calendar className="size-2.5" />
                         Follow up: {formatDate(a.nextFollowUpAt)}
                       </p>
@@ -453,11 +454,11 @@ export function MobileLeadDetailClient({
       {showStageSheet ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
           onClick={() => setShowStageSheet(false)}
         >
           <div
-            className="w-full rounded-t-[1rem] max-h-[80vh] overflow-y-auto"
+            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[80vh] overflow-y-auto"
             style={{ backgroundColor: "var(--color-paper)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -465,16 +466,16 @@ export function MobileLeadDetailClient({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Move Lead
               </p>
-              <button onClick={() => setShowStageSheet(false)} className="press p-1">
+              <button onClick={() => setShowStageSheet(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
             <div className="px-3 pb-4 flex flex-col gap-3">
               <div>
-                <label className="text-[0.5625rem] font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+                <label className="text-m-caption font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
                   Next Stage
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -485,7 +486,7 @@ export function MobileLeadDetailClient({
                       <button
                         key={s}
                         onClick={() => { setSelectedStage(s); setLostReason(""); }}
-                        className="rounded-[0.375rem] px-2.5 py-1.5 text-[0.5625rem] font-bold press"
+                        className="rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                         style={{
                           backgroundColor: active ? meta.color : "var(--color-paper-2)",
                           color: active ? "var(--color-paper)" : "var(--color-ink-700)",
@@ -500,23 +501,23 @@ export function MobileLeadDetailClient({
               </div>
               {selectedStage === "LOST" ? (
                 <div>
-                  <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
                     Lost Reason *
                   </label>
                   <input
                     value={lostReason}
                     onChange={(e) => setLostReason(e.target.value)}
                     placeholder="Budget, location, competitor…"
-                    className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none"
+                    className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>
               ) : null}
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-col gap-2 pt-1">
                 <button
                   onClick={() => setShowStageSheet(false)}
                   disabled={movingStage}
-                  className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+                  className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
                   style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
                 >
                   Cancel
@@ -524,7 +525,7 @@ export function MobileLeadDetailClient({
                 <button
                   onClick={moveStage}
                   disabled={movingStage || !selectedStage || (selectedStage === "LOST" && !lostReason.trim())}
-                  className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press flex items-center justify-center gap-1"
+                  className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
                   style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: movingStage || !selectedStage ? 0.5 : 1 }}
                 >
                   {movingStage ? <Loader2 className="size-3.5 animate-spin" /> : "Move Lead"}
@@ -611,7 +612,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
               <button
                 key={t.value}
                 onClick={() => { setType(t.value); setOpen(true); }}
-                className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-1.5 text-[0.5625rem] font-bold press"
+                className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -635,7 +636,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h3 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
           Log Activity
         </h3>
         <button
@@ -658,7 +659,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
                 key={t.value}
                 type="button"
                 onClick={() => setType(t.value)}
-                className="flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-[0.5rem] font-bold press"
+                className="flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-m-caption font-bold text-m-body press"
                 style={{
                   backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
                   color: active ? "var(--color-paper)" : "var(--color-ink-500)",
@@ -673,7 +674,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
 
         {/* Notes — "किसने क्या बोला" */}
         <div>
-          <label className="text-[0.5rem] font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
             Notes — what was discussed
           </label>
           <textarea
@@ -681,7 +682,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="e.g. Client interested in 2BHK, asked for site visit next week"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.625rem] font-medium outline-none resize-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none resize-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -692,7 +693,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
 
         {/* Outcome */}
         <div>
-          <label className="text-[0.5rem] font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
             Outcome
           </label>
           <input
@@ -700,7 +701,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
             placeholder="e.g. Callback scheduled, warm lead"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.625rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -711,14 +712,14 @@ function LogActivityForm({ leadId }: { leadId: string }) {
 
         {/* Next follow-up */}
         <div>
-          <label className="text-[0.5rem] font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
             Next Follow-up
           </label>
           <input
             type="date"
             value={nextFollowUp}
             onChange={(e) => setNextFollowUp(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.625rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -730,7 +731,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center justify-center gap-1.5 rounded-[0.375rem] py-2.5 text-[0.625rem] font-bold press disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 rounded-[0.375rem] py-2.5 text-m-label font-bold text-m-body press disabled:opacity-50"
           style={{
             backgroundColor: "var(--color-ink-950)",
             color: "var(--color-paper)",

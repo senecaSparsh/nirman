@@ -56,7 +56,7 @@ export function MobileDocUploader({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 flex-1 min-w-0 text-[0.5625rem] font-bold press"
+          className="flex items-center gap-1 flex-1 min-w-0 text-m-caption font-bold text-m-body press"
           style={{ color: "var(--color-ink-950)" }}
         >
           <span className="truncate">{fileName ?? "View Document"}</span>
@@ -66,7 +66,7 @@ export function MobileDocUploader({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-full p-0.5 press shrink-0"
+            className="rounded-full p-0.5 text-m-body press shrink-0"
             style={{ color: "var(--color-stop)" }}
           >
             <X className="size-3" />
@@ -82,7 +82,7 @@ export function MobileDocUploader({
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-2.5 press disabled:opacity-50"
+        className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-2.5 text-m-body press disabled:opacity-50"
         style={{ borderColor: required ? "color-mix(in srgb, var(--color-signal) 40%, var(--color-line))" : "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         {uploading ? (
@@ -90,7 +90,7 @@ export function MobileDocUploader({
         ) : (
           <Camera className="size-3.5" style={{ color: required ? "var(--color-signal)" : "var(--color-ink-500)" }} />
         )}
-        <span className="text-[0.5625rem] font-bold" style={{ color: required ? "var(--color-signal)" : "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-bold" style={{ color: required ? "var(--color-signal)" : "var(--color-ink-500)" }}>
           {uploading ? "Uploading…" : label}
         </span>
       </button>

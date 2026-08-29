@@ -84,7 +84,7 @@ export function MobileCustomerDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Customer not found
           </p>
         </div>
@@ -93,7 +93,7 @@ export function MobileCustomerDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <AlertCircle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Customer not found
           </p>
         </div>
@@ -127,10 +127,10 @@ export function MobileCustomerDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {data.name}
           </p>
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Customer since {formatDate(data.createdAt)}
           </p>
         </div>
@@ -147,7 +147,7 @@ export function MobileCustomerDetailClient({
             {data.phone ? (
               <a
                 href={`tel:${data.phone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press"
+                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
                 style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
               >
                 <Phone className="size-3.5" />
@@ -157,7 +157,7 @@ export function MobileCustomerDetailClient({
             {data.email ? (
               <a
                 href={`mailto:${data.email}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
               >
                 <Mail className="size-3.5" />
@@ -167,7 +167,7 @@ export function MobileCustomerDetailClient({
             {canSell ? (
               <Link
                 href={`/m/sales/new?customerId=${data.id}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
               >
                 <Plus className="size-3.5" />
@@ -197,21 +197,21 @@ export function MobileCustomerDetailClient({
         <div className="p-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Outstanding
               </p>
               <p
-                className="text-[1.25rem] font-bold tabular-nums leading-tight"
+                className="text-m-section font-bold tabular-nums leading-tight"
                 style={{ color: data.totals.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}
               >
-                {formatCurrency(data.totals.totalOutstanding)}
+                {formatCurrencyCompact(data.totals.totalOutstanding)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Total Sales
               </p>
-              <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                 {formatCurrencyCompact(data.totals.totalValue)}
               </p>
             </div>
@@ -230,7 +230,7 @@ export function MobileCustomerDetailClient({
           ) : null}
 
           {/* Mini stats row */}
-          <div className="flex items-center gap-3 text-[0.5rem] font-semibold">
+          <div className="flex items-center gap-3 text-m-caption font-semibold">
             <span className="flex items-center gap-0.5" style={{ color: "var(--color-go)" }}>
               <Wallet className="size-2.5" />
               {formatCurrencyCompact(data.totals.totalPaid)} received
@@ -250,7 +250,7 @@ export function MobileCustomerDetailClient({
 
       {/* ── Sales history ── */}
       <div className="mb-4">
-        <p className="text-[0.5rem] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
           Purchase History ({data.sales.length})
         </p>
 
@@ -260,13 +260,13 @@ export function MobileCustomerDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
           >
             <ShoppingCart className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
               No purchases yet
             </p>
             {canSell ? (
               <Link
                 href={`/m/sales/new?customerId=${data.id}`}
-                className="text-[0.5rem] mt-1 underline"
+                className="text-m-caption mt-1 underline"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Create first sale
@@ -287,7 +287,7 @@ export function MobileCustomerDetailClient({
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => setShowEdit(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-semibold press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
           >
             <Pencil className="size-3" />
@@ -295,7 +295,7 @@ export function MobileCustomerDetailClient({
           </button>
           <button
             onClick={() => setShowDelete(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-semibold press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-stop)" }}
           >
             <Trash2 className="size-3" />
@@ -336,12 +336,12 @@ function ContactField({
 }) {
   return (
     <div>
-      <p className="text-[0.375rem] font-semibold uppercase flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption font-semibold uppercase flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
         {icon}
         {label}
       </p>
       <p
-        className={`text-[0.625rem] font-bold leading-tight mt-0.5 truncate ${mono ? "font-mono tabular-nums" : ""}`}
+        className={`text-m-label font-bold leading-tight mt-0.5 truncate ${mono ? "font-mono tabular-nums" : ""}`}
         style={{ color: value ? "var(--color-ink-950)" : "var(--color-ink-300)" }}
       >
         {value ?? "—"}
@@ -375,18 +375,18 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
             <AssetIcon className="size-3" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-[0.5rem] font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-caption font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>
               {s.saleNumber}
             </span>
             <span
-              className="text-[0.375rem] font-bold uppercase px-1 py-0.5 rounded"
+              className="text-m-caption font-bold uppercase px-1 py-0.5 rounded"
               style={{ color: "var(--color-ink-600)", backgroundColor: "var(--color-paper-2)" }}
             >
               {assetLabel}
             </span>
           </div>
           <span
-            className="flex items-center gap-0.5 text-[0.375rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
             style={{ color: stage.color, backgroundColor: `color-mix(in srgb, ${stage.color} 12%, transparent)` }}
           >
             {stage.label}
@@ -394,7 +394,7 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
         </div>
 
         {/* ── Project + date ── */}
-        <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-500)" }}>
           {s.projectName ?? "Standalone"}
           {" · "}{formatDate(s.saleDate)}
         </p>
@@ -402,10 +402,10 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
         {/* ── Financial row ── */}
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Total
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrencyCompact(s.totalWithGst)}
             </p>
           </div>
@@ -413,10 +413,10 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
           <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
 
           <div>
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Paid
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrencyCompact(s.paid)}
             </p>
           </div>
@@ -425,10 +425,10 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
             <>
               <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
               <div>
-                <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Balance
                 </p>
-                <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
                   {formatCurrencyCompact(s.balance)}
                 </p>
               </div>
@@ -437,7 +437,7 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
 
           {/* Payment status badge */}
           <span
-            className="ml-auto text-[0.375rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+            className="ml-auto text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
             style={{ color: payment.color, backgroundColor: `color-mix(in srgb, ${payment.color} 12%, transparent)` }}
           >
             {payment.label}
@@ -466,32 +466,32 @@ function DeleteConfirm({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose} />
+      <div className="absolute inset-0" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
       <div
         className="relative w-full max-w-md rounded-t-[0.75rem] border-t"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
         <div className="p-3">
-          <p className="text-[0.75rem] font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
             Delete {customerName}?
           </p>
           <div
             className="rounded-[0.5rem] border p-3 mb-3"
             style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}
           >
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
               This customer will be permanently deleted.
             </p>
-            <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
               Only possible if they have no active sales.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
             <button
               onClick={onClose}
               disabled={acting}
-              className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               Cancel
@@ -499,7 +499,7 @@ function DeleteConfirm({
             <button
               onClick={onConfirm}
               disabled={acting}
-              className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press disabled:opacity-50"
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {acting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Delete"}

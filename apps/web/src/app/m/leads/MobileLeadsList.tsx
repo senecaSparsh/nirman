@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { Phone, Calendar, Flame, TrendingUp } from "lucide-react";
+import { Phone, Calendar, Flame, TrendingUp, UserPlus, Plus } from "lucide-react";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
@@ -14,6 +14,7 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type StageFilter = "ALL" | "NEW" | "CONTACTED" | "SITE_VISIT" | "NEGOTIATION" | "BOOKED" | "LOST";
 
@@ -133,6 +134,27 @@ export function MobileLeadsList({
     { label: "Follow-ups", value: String(followUpsDue), tone: followUpsDue > 0 ? "signal" : "default" },
   ];
 
+  if (items.length === 0) {
+    return (
+      <MobileEmptyState
+        icon={UserPlus}
+        title="No leads yet"
+        hint="Create a lead to track potential customers"
+        action={
+          canCreate ? (
+            <Link
+              href="/m/leads/new"
+              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-3.5" /> Add Lead
+            </Link>
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
     <div>
       {/* ── Summary strip ── */}
@@ -203,7 +225,7 @@ function LeadCard({ l }: { l: LeadListItem }) {
   return (
     <Link
       href={`/m/leads/${l.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -215,7 +237,7 @@ function LeadCard({ l }: { l: LeadListItem }) {
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Name + priority indicator */}
         <div className="flex items-center justify-between gap-1">
-          <p className="text-[0.625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {l.name}
           </p>
           {isHot ? (
@@ -231,7 +253,7 @@ function LeadCard({ l }: { l: LeadListItem }) {
         {/* Row 2: Stage badge + phone */}
         <div className="flex items-center gap-1.5">
           <span
-            className="text-[0.4375rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: stageColor }}
           >
             {STAGE_LABELS[l.stage] ?? l.stage}
@@ -239,7 +261,7 @@ function LeadCard({ l }: { l: LeadListItem }) {
           {l.phone ? (
             <>
               <span style={{ color: "var(--color-line)" }}>·</span>
-              <span className="text-[0.5rem] truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
                 <Phone className="size-2" />
                 {l.phone}
               </span>
@@ -249,7 +271,7 @@ function LeadCard({ l }: { l: LeadListItem }) {
 
         {/* Row 3: Project name */}
         {l.projectName ? (
-          <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
             {l.projectName}
           </p>
         ) : null}
@@ -257,24 +279,24 @@ function LeadCard({ l }: { l: LeadListItem }) {
         {/* Row 4: Bottom area — fixed height for equal card sizes */}
         <div className="mt-auto pt-1 h-[1rem] flex items-center gap-1.5">
           {isConverted ? (
-            <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>
+            <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>
               Converted
             </span>
           ) : l.nextFollowUpAt ? (
             <span
-              className="text-[0.4375rem] font-semibold flex items-center gap-0.5"
+              className="text-m-caption font-semibold flex items-center gap-0.5"
               style={{ color: followUpOverdue ? "var(--color-stop)" : "var(--color-ink-500)" }}
             >
               <Calendar className="size-2" />
               {formatDate(l.nextFollowUpAt)}
             </span>
           ) : l.score > 0 ? (
-            <span className="text-[0.4375rem] font-semibold flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
               <TrendingUp className="size-2" />
               Score {l.score}
             </span>
           ) : (
-            <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               {STAGE_LABELS[l.stage] ?? l.stage}
             </span>
           )}

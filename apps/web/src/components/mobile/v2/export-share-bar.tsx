@@ -258,7 +258,7 @@ export function MobileExportShareBar({
         <button
           onClick={() => setShowMenu(!showMenu)}
           disabled={downloading}
-          className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 press active:opacity-80 disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 text-m-body press active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "var(--color-concrete)" }}
         >
           <Download
@@ -275,7 +275,7 @@ export function MobileExportShareBar({
 
         <button
           onClick={handleShare}
-          className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 press active:opacity-80 flex-1 justify-center"
+          className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 text-m-body press active:opacity-80 flex-1 justify-center"
           style={{ backgroundColor: "var(--color-ink-950)" }}
         >
           {shared ? (
@@ -311,7 +311,7 @@ export function MobileExportShareBar({
           >
             <button
               onClick={handleCSV}
-              className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left"
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 text-m-body press active:opacity-80 text-left"
             >
               <FileText
                 className="size-4 shrink-0"
@@ -336,7 +336,7 @@ export function MobileExportShareBar({
               <button
                 onClick={handleExcel}
                 disabled={downloading}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left border-t disabled:opacity-40"
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-m-body press active:opacity-80 text-left border-t disabled:opacity-40"
                 style={{ borderColor: "var(--color-line)" }}
               >
                 <FileSpreadsheet
@@ -460,7 +460,7 @@ export function MobileExportShareIcons({
         onClick={() => setShowMenu(!showMenu)}
         disabled={downloading}
         aria-label="Export"
-        className="grid place-items-center size-9 rounded-[0.5rem] border press active:opacity-80 disabled:opacity-40"
+        className="grid place-items-center size-9 rounded-[0.5rem] border text-m-body press active:opacity-80 disabled:opacity-40"
         style={{
           borderColor: showMenu ? "var(--color-ink-950)" : "var(--color-line)",
           backgroundColor: showMenu
@@ -478,7 +478,7 @@ export function MobileExportShareIcons({
       <button
         onClick={handleShare}
         aria-label="Share"
-        className="grid place-items-center size-9 rounded-[0.5rem] border press active:opacity-80"
+        className="grid place-items-center size-9 rounded-[0.5rem] border text-m-body press active:opacity-80"
         style={{
           borderColor: shared ? "var(--color-go)" : "var(--color-line)",
           backgroundColor: shared
@@ -512,7 +512,7 @@ export function MobileExportShareIcons({
           >
             <button
               onClick={handleCSV}
-              className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left"
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 text-m-body press active:opacity-80 text-left"
             >
               <FileText
                 className="size-4 shrink-0"
@@ -537,7 +537,7 @@ export function MobileExportShareIcons({
               <button
                 onClick={handleExcel}
                 disabled={downloading}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left border-t disabled:opacity-40"
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-m-body press active:opacity-80 text-left border-t disabled:opacity-40"
                 style={{ borderColor: "var(--color-line)" }}
               >
                 <FileSpreadsheet

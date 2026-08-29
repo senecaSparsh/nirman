@@ -6,7 +6,7 @@ import { getRealEstateInventory } from "@nirman/services";
 import { Building2, Home, TrendingUp, Wallet } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -86,8 +86,8 @@ async function MobileRealEstateInventoryContent() {
           { label: "Total Units", value: String(totalUnits) },
           { label: "Available", value: String(availableUnits), tone: "signal" },
           { label: "Sold", value: String(soldUnits), tone: "go" },
-          { label: "Asset Value", value: formatCurrency(totalAssetValue) },
-          { label: "Revenue", value: formatCurrency(totalRevenue), tone: "go" },
+          { label: "Asset Value", value: formatCurrencyCompact(totalAssetValue) },
+          { label: "Revenue", value: formatCurrencyCompact(totalRevenue), tone: "go" },
         ]}
       />
 
@@ -96,7 +96,7 @@ async function MobileRealEstateInventoryContent() {
           title="Real Estate Inventory Report"
           rows={projectRows as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Total Units: ${totalUnits} · Available: ${availableUnits} · Sold: ${soldUnits} · Asset Value: ${formatCurrency(totalAssetValue)}`}
+          summary={`Total Units: ${totalUnits} · Available: ${availableUnits} · Sold: ${soldUnits} · Asset Value: ${formatCurrencyCompact(totalAssetValue)}`}
         />
       </div>
 
@@ -149,7 +149,7 @@ async function MobileRealEstateInventoryContent() {
                 icon={Building2}
                 title={p.name}
                 subtitle={`${p.availableUnits} avail · ${p.soldUnits} sold · ${p.totalUnits} total`}
-                meta={formatCurrency(toNum(p.totalAssetValue))}
+                meta={formatCurrencyCompact(toNum(p.totalAssetValue))}
                 metaSub={`Rev ${formatCurrency(toNum(p.revenue))}`}
                 tone="default"
               />

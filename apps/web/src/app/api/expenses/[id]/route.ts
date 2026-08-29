@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { reverseJournalEntry, postExpense, logAction } from "@nirman/services";
+import { reverseJournalEntry, postExpense, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
+import { withSerializableTransaction } from "@nirman/services";
 
 const expenseUpdateSchema = z.object({
   projectId: z.string().optional().nullable(),
@@ -42,15 +44,25 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const updated = await prisma.$transaction(async (tx) => {
+  // Validate date before entering the transaction
+  let expenseDate: Date | null | undefined;
+  if (parsed.data.date !== undefined) {
+    if (parsed.data.date) {
+      expenseDate = new Date(parsed.data.date);
+      if (isNaN(expenseDate.getTime())) return json({ error: "Invalid date format" }, { status: 400 });
+    } else {
+      expenseDate = null;
+    }
+  }
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.expense.findFirst({ where: { id, companyId: company.id } });
-    if (!existing) throw new Error("Expense not found in this company");
+    if (!existing) throw new ServiceError("Expense not found in this company", 404);
 
     const data: Record<string, unknown> = {};
     if (parsed.data.projectId !== undefined) data.projectId = parsed.data.projectId;
     if (parsed.data.category !== undefined) data.category = parsed.data.category;
     if (parsed.data.amount !== undefined) data.amount = parsed.data.amount;
-    if (parsed.data.date !== undefined) data.date = parsed.data.date ? new Date(parsed.data.date) : null;
+    if (expenseDate !== undefined) data.date = expenseDate;
     if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
     const exp = await tx.expense.update({ where: { id }, data });
 
@@ -83,6 +95,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     return exp;
   });
+  revalidatePath("/expenses");
+  revalidatePath("/m/expenses");
   return json({ ok: true, id: updated.id });
 });
 
@@ -90,10 +104,10 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const user = await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     // Validate the expense belongs to the user's company
     const expense = await tx.expense.findFirst({ where: { id, companyId: company.id } });
-    if (!expense) throw new Error("Expense not found in this company");
+    if (!expense) throw new ServiceError("Expense not found in this company", 404);
     // Reverse the GL entry before deleting the expense row
     const glEntry = await tx.journalEntry.findFirst({
       where: { sourceType: "EXPENSE", sourceId: id },
@@ -106,5 +120,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     }
     await tx.expense.delete({ where: { id } });
   });
+  revalidatePath("/expenses");
+  revalidatePath("/m/expenses");
   return json({ ok: true });
 });

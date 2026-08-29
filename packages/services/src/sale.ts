@@ -15,6 +15,7 @@ import {
   ACCT,
 } from "./gl-posting";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
 
@@ -144,7 +145,7 @@ export interface PaymentScheduleItemInput {
 }
 
 export async function sellAsset(input: SellAssetInput) {
-  const sale = await prisma.$transaction(async (tx) => {
+  const sale = await withSerializableTransaction(async (tx) => {
     // Validate customer
     const customer = await tx.customer.findFirst({
       where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
@@ -196,7 +197,7 @@ export async function sellAsset(input: SellAssetInput) {
 
       if (resolvedProjectId) {
         projectId = resolvedProjectId;
-        const project = await tx.project.findUnique({ where: { id: projectId } });
+        const project = await tx.project.findFirst({ where: { id: projectId, deletedAt: null } });
         if (!project) throw new ServiceError("Project not found", 404);
         companyId = project.companyId;
       } else {
@@ -228,7 +229,7 @@ export async function sellAsset(input: SellAssetInput) {
       if (unit.saleId) throw new ServiceError("Unit is already sold (double-sell guard)");
 
       projectId = unit.projectId;
-      const project = await tx.project.findUnique({ where: { id: projectId! } });
+      const project = await tx.project.findFirst({ where: { id: projectId!, deletedAt: null } });
       if (!project) throw new ServiceError("Project not found", 404);
       companyId = project.companyId;
       costBasis = new Decimal(unit.productionCost);
@@ -621,7 +622,7 @@ export async function sellAsset(input: SellAssetInput) {
     }
 
     return sale;
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.SALE_CREATED,
@@ -668,7 +669,7 @@ export interface RecordDepositInput {
 }
 
 export async function recordDeposit(input: RecordDepositInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
       include: { payments: true },
@@ -742,7 +743,7 @@ export async function recordDeposit(input: RecordDepositInput) {
     }
 
     return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus, companyId: sale.companyId };
-  }, { isolationLevel: "Serializable" });
+  });
 
   // Auto-sync the deposit GL entry to Tally (best-effort, outside the tx)
   void (async () => {
@@ -795,7 +796,7 @@ export interface CompleteSaleInput {
 }
 
 export async function completeSale(input: CompleteSaleInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
       include: { payments: true },
@@ -947,7 +948,7 @@ export async function completeSale(input: CompleteSaleInput) {
     }
 
     return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -968,7 +969,7 @@ export interface RecordPaymentInput {
 }
 
 export async function recordPayment(input: RecordPaymentInput) {
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.assetSaleId },
       include: { payments: true },
@@ -1085,7 +1086,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     }
 
     return { payment, paymentStatus, companyId: sale.companyId };
-  }, { isolationLevel: "Serializable" });
+  });
 
   void emitNotificationEvent({
     eventType: NotificationEventType.SALE_PAYMENT_RECEIVED,
@@ -1178,7 +1179,7 @@ export interface UpdateSaleInput {
  * - Cancelled sales cannot be edited.
  */
 export async function updateSale(input: UpdateSaleInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
       include: { payments: true },
@@ -1276,7 +1277,7 @@ export async function updateSale(input: UpdateSaleInput) {
 // ───────────────────────────────────────────────────────────
 
 export async function cancelSale(saleId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: saleId },
       include: { payments: true },
@@ -1386,7 +1387,7 @@ export async function cancelSale(saleId: string, userId?: string) {
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1467,7 +1468,7 @@ export async function createSalePaymentSchedule(
   schedule: PaymentScheduleInput,
   userId?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
@@ -1537,7 +1538,7 @@ export async function createSalePaymentSchedule(
     }
 
     return created;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1607,7 +1608,7 @@ export function autoGenerateScheduleItems(
 // ───────────────────────────────────────────────────────────
 
 export async function payBrokerCommission(saleId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.dealSource !== "BROKER") throw new ServiceError("Sale is not a broker deal");
@@ -1642,7 +1643,7 @@ export async function payBrokerCommission(saleId: string, userId?: string) {
     }
 
     return updated;
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1660,7 +1661,7 @@ export interface UploadSaleDocumentInput {
 /** Upload a document (ATS, BBA, Registry, or Allotment) for a sale.
  *  The registry document is REQUIRED before the sale can be completed. */
 export async function uploadSaleDocument(input: UploadSaleDocumentInput) {
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({ where: { id: input.saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot upload documents for a cancelled sale");
@@ -1767,7 +1768,7 @@ export async function getPrintableSaleData(saleId: string, companyId?: string) {
  * Only applicable to payments with chequeStatus = "PENDING".
  */
 export async function clearCheque(paymentId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const payment = await tx.assetSalePayment.findUnique({
       where: { id: paymentId },
       include: { assetSale: true },
@@ -1854,7 +1855,7 @@ export async function clearCheque(paymentId: string, userId?: string) {
     }
 
     return { ok: true, saleStage: "COMPLETED" as const };
-  }, { isolationLevel: "Serializable" });
+  });
 }
 
 /**
@@ -1863,7 +1864,7 @@ export async function clearCheque(paymentId: string, userId?: string) {
  * DEPOSIT_RECEIVED with adjusted amounts).
  */
 export async function bounceCheque(paymentId: string, userId?: string, bounceReason?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const payment = await tx.assetSalePayment.findUnique({
       where: { id: paymentId },
       include: { assetSale: { include: { payments: true } } },
@@ -1940,5 +1941,5 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
     }
 
     return { ok: true, saleStage: totalRemaining.gt(0) ? "DEPOSIT_RECEIVED" as const : "PENDING" as const };
-  }, { isolationLevel: "Serializable" });
+  });
 }

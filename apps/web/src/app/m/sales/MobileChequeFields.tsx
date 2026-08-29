@@ -64,14 +64,14 @@ export function MobileChequeFields({
       className="rounded-[0.375rem] border p-2.5 space-y-2"
       style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, var(--color-paper))" }}
     >
-      <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-signal)" }}>
+      <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-signal)" }}>
         Cheque Details — pending until cleared
       </p>
 
       {/* Cheque No + Date */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[0.4375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
             Cheque No.
           </label>
           <input
@@ -79,19 +79,19 @@ export function MobileChequeFields({
             value={value.chequeNo}
             onChange={(e) => set("chequeNo", e.target.value)}
             placeholder="000123"
-            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           />
         </div>
         <div>
-          <label className="text-[0.4375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
             Cheque Date
           </label>
           <input
             type="date"
             value={value.chequeDate}
             onChange={(e) => set("chequeDate", e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           />
         </div>
@@ -99,7 +99,7 @@ export function MobileChequeFields({
 
       {/* Bank */}
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
           Bank
         </label>
         <input
@@ -107,14 +107,14 @@ export function MobileChequeFields({
           value={value.chequeBank}
           onChange={(e) => set("chequeBank", e.target.value)}
           placeholder="HDFC, SBI, ICICI…"
-          className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] outline-none"
+          className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         />
       </div>
 
       {/* Cheque photo */}
       <div>
-        <label className="text-[0.4375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
           Cheque Photo (front)
         </label>
         {value.chequePhotoUrl ? (
@@ -123,7 +123,7 @@ export function MobileChequeFields({
             <button
               type="button"
               onClick={() => set("chequePhotoUrl", "")}
-              className="absolute top-1 right-1 rounded-full p-1 press"
+              className="absolute top-1 right-1 rounded-full p-1 text-m-body press"
               style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 70%, transparent)" }}
             >
               <X className="size-3" style={{ color: "var(--color-paper)" }} />
@@ -134,7 +134,7 @@ export function MobileChequeFields({
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-3 press disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-3 text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
           >
             {uploading ? (
@@ -142,7 +142,7 @@ export function MobileChequeFields({
             ) : (
               <Camera className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
             )}
-            <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>
               {uploading ? "Uploading…" : "Upload Cheque Photo"}
             </span>
           </button>

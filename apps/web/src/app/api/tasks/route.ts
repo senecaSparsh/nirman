@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { createTask } from "@nirman/services";
-import { apiHandler, getCurrentUser, json, requirePermission, taskSchema } from "@/lib/server";
+import { apiHandler, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 
@@ -11,10 +11,7 @@ import { formatDate } from "@/lib/utils";
  *   - Everyone else sees only tasks assigned to them
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await getCurrentUser();
-  if (!user) {
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireUser();
   const role = user.role;
 
   const url = new URL(req.url);

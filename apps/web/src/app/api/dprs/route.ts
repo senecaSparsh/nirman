@@ -65,11 +65,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  const dprDate = new Date(parsed.data.date);
+  if (isNaN(dprDate.getTime())) {
+    return json({ error: "Invalid date format" }, { status: 400 });
+  }
   try {
     const dpr = await submitDPR({
       companyId: company.id,
       projectId: parsed.data.projectId,
-      date: new Date(parsed.data.date),
+      date: dprDate,
       submittedById: user.id,
       weather: parsed.data.weather ?? undefined,
       workSummary: parsed.data.workSummary,

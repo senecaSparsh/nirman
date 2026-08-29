@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, rejectDelivery, recordVehicleTrip } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -68,6 +69,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       }).catch(() => { /* best-effort */ });
     }
 
+    revalidatePath("/procurement");
+    revalidatePath("/m/procurement");
     return json({ ok: true, goodsReceiptId: result.goodsReceipt.id }, { status: 201 });
   }
 
@@ -155,5 +158,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     }).catch(() => { /* best-effort — don't fail the receipt */ });
   }
 
+  revalidatePath("/procurement");
+  revalidatePath("/m/procurement");
   return json({ ok: true, newStatus: result.newStatus, goodsReceiptId: result.goodsReceipt.id }, { status: 201 });
 });

@@ -60,7 +60,7 @@ export function MobileStockCountDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Stock inventory not found
           </p>
         </div>
@@ -69,7 +69,7 @@ export function MobileStockCountDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Count not found
           </p>
         </div>
@@ -129,12 +129,12 @@ export function MobileStockCountDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Stock Inventory
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
           <StatusIcon className="size-2.5" />
@@ -157,31 +157,31 @@ export function MobileStockCountDetailClient({
         <div className="flex items-center justify-between">
           {/* Items counted */}
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Items Counted
             </p>
-            <p className="text-[1.125rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {count.lineCount}
             </p>
           </div>
 
           {/* Matched */}
           <div className="text-center">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Matched
             </p>
-            <p className="text-[1.125rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {count.itemsMatched}
             </p>
           </div>
 
           {/* Mismatches */}
           <div className="text-center">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Mismatch
             </p>
             <p
-              className="text-[1.125rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{ color: count.itemsWithVariance > 0 ? "var(--color-signal)" : "var(--color-go)" }}
             >
               {count.itemsWithVariance}
@@ -190,11 +190,11 @@ export function MobileStockCountDetailClient({
 
           {/* Net variance */}
           <div className="text-right">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Net Δ
             </p>
             <p
-              className="text-[1.125rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{
                 color: count.totalVariance < 0 ? "var(--color-stop)" : count.totalVariance > 0 ? "var(--color-signal)" : "var(--color-go)",
               }}
@@ -217,7 +217,7 @@ export function MobileStockCountDetailClient({
       {/* ── Line items ── */}
       <div className="flex items-center gap-1.5 mb-2">
         <ScanLine className="size-3" style={{ color: "var(--color-steel)" }} />
-        <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+        <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
           Counted Items
         </span>
         <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -229,7 +229,7 @@ export function MobileStockCountDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <ScanLine className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>No items counted</p>
+          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-700)" }}>No items counted</p>
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -251,19 +251,19 @@ export function MobileStockCountDetailClient({
                 }}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {l.materialName}
                   </p>
-                  <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {l.materialCode}
                   </p>
                   {/* System vs Counted */}
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                       sys: {formatNumber(l.systemQty, 0)} {l.materialUnit}
                     </span>
                     <span style={{ color: "var(--color-line)" }}>→</span>
-                    <span className="text-[0.5rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                       {formatNumber(l.countedQty, 0)} {l.materialUnit}
                     </span>
                   </div>
@@ -276,7 +276,7 @@ export function MobileStockCountDetailClient({
                 >
                   <VarianceIcon className="size-2.5" style={{ color: varianceColor }} />
                   <span
-                    className="text-[0.5625rem] font-bold tabular-nums"
+                    className="text-m-caption font-bold tabular-nums"
                     style={{ color: varianceColor }}
                   >
                     {hasVariance ? varianceStr : "✓"}
@@ -295,7 +295,7 @@ export function MobileStockCountDetailClient({
             <button
               onClick={() => handleAction("confirm")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "confirm" ? (
@@ -313,7 +313,7 @@ export function MobileStockCountDetailClient({
             <button
               onClick={() => handleAction("reconcile")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "reconcile" ? (
@@ -332,7 +332,7 @@ export function MobileStockCountDetailClient({
             <button
               onClick={() => setShowDelete(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-stop)" }}
             >
               <Trash2 className="size-3.5" />
@@ -352,7 +352,7 @@ export function MobileStockCountDetailClient({
           }}
         >
           <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
-          <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
+          <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
             Stock levels have been adjusted to match counted quantities. GL entries posted for variances.
           </span>
         </div>
@@ -371,16 +371,16 @@ export function MobileStockCountDetailClient({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Delete draft count?</p>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete draft count?</p>
             </div>
             <div className="p-3">
-              <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete the draft stock inventory for {count.location.name}. This action cannot be undone.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setShowDelete(false)}
-                  className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press"
+                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 >
                   Cancel
@@ -388,7 +388,7 @@ export function MobileStockCountDetailClient({
                 <button
                   onClick={handleDelete}
                   disabled={acting === "delete"}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
                 >
                   {acting === "delete" ? (
@@ -425,10 +425,10 @@ function InfoRow({
     >
       <Icon className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
       <div className="min-w-0 flex-1">
-        <span className="text-[0.4375rem] font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
           {label}
         </span>
-        <span className="text-[0.6875rem] font-bold truncate block" style={{ color: "var(--color-ink-950)" }}>
+        <span className="text-m-body font-bold truncate block" style={{ color: "var(--color-ink-950)" }}>
           {value}
         </span>
       </div>

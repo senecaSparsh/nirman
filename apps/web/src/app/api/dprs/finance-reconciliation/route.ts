@@ -10,11 +10,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
 
-  const reconciliation = await dprFinanceReconciliation(
-    company.id,
-    startDate ? new Date(startDate) : undefined,
-    endDate ? new Date(endDate) : undefined,
-  );
+  const start = startDate ? new Date(startDate) : undefined;
+  const end = endDate ? new Date(endDate) : undefined;
+  if (start && isNaN(start.getTime())) {
+    return json({ error: "Invalid startDate format" }, { status: 400 });
+  }
+  if (end && isNaN(end.getTime())) {
+    return json({ error: "Invalid endDate format" }, { status: 400 });
+  }
+
+  const reconciliation = await dprFinanceReconciliation(company.id, start, end);
 
   return json(reconciliation);
 });

@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, json, materialCategorySchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     where: { name: parsed.data.name },
   });
   if (existing && existing.deletedAt) {
-    const restored = await prisma.$transaction(async (tx) => {
+    const restored = await withSerializableTransaction(async (tx) => {
       const cat = await tx.materialCategory.update({
         where: { id: existing.id },
         data: { deletedAt: null, unit: parsed.data.unit },
@@ -45,7 +46,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (existing) {
     return json({ error: "A category with this name already exists" }, { status: 409 });
   }
-  const created = await prisma.$transaction(async (tx) => {
+  const created = await withSerializableTransaction(async (tx) => {
     const cat = await tx.materialCategory.create({ data: parsed.data });
     await logAction(tx, {
       userId: user.id,

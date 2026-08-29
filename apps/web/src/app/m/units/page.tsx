@@ -10,6 +10,7 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { PageLead } from "@/components/mobile/v2/guidance";
 import { MobileUnitsList } from "./MobileUnitsList";
 import { MobileUnitsFab } from "./MobileUnitsFab";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -127,10 +128,10 @@ async function MobileUnitsContent({
         >
           {/* Row 1: name + count */}
           <div className="flex items-baseline justify-between gap-2 mb-1.5">
-            <h1 className="font-bold text-[0.875rem] leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="font-bold text-m-section leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
               {project ? project.name : "All Units"}
             </h1>
-            <span className="text-[0.5625rem] tabular-nums shrink-0" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption tabular-nums shrink-0" style={{ color: "var(--color-ink-500)" }}>
               {units.length} unit{units.length !== 1 ? "s" : ""}
             </span>
           </div>
@@ -171,6 +172,9 @@ async function MobileUnitsContent({
 
       <div className="mb-4">
       </div>
+
+      {/* ── Orientation: what is this page ── */}
+      <PageLead flow="builtUnit" />
 
       {/* ── Searchable/filterable list ── */}
       <MobileUnitsList
@@ -222,10 +226,10 @@ function Stat({
     "var(--color-ink-950)";
   return (
     <div className="flex flex-col items-center min-w-0">
-      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </span>
-      <span className="text-[0.625rem] font-bold tabular-nums truncate" style={{ color }}>
+      <span className="text-m-label font-bold tabular-nums truncate" style={{ color }}>
         {value}
       </span>
     </div>

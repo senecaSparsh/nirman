@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
 import { createRequisition } from "@nirman/services";
@@ -70,6 +71,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         preferredSupplierId: l.preferredSupplierId ?? undefined,
       })),
     });
+    revalidatePath("/requisitions");
+    revalidatePath("/m/requisitions");
     return json({ ok: true, id: req.id, reqNumber: req.reqNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create requisition") }, { status: 400 });

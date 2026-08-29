@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PayrollStatus } from "@nirman/db";
 import { generatePayroll } from "@nirman/services";
@@ -60,6 +61,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       year: parsed.data.year,
       userId: user.id,
     });
+    revalidatePath("/payroll");
+    revalidatePath("/m/hr");
     return json({ ok: true, id: period?.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to generate payroll") }, { status: 400 });

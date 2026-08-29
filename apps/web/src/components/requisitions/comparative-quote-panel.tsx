@@ -4,10 +4,10 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Plus, Trophy, AlertTriangle, CheckCircle2, Loader2, Trash2,
-  ShieldCheck, FileText, Truck, Crown, Printer,
+  ShieldCheck, FileText, Truck, Crown, Printer, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea, Label } from "@/components/ui/input";
+import { Input, Textarea, Label } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { QuoteUploadDialog } from "./quote-upload-dialog";
@@ -73,6 +73,7 @@ export function ComparativeQuotePanel({
   const [waiveReason, setWaiveReason] = useState("");
   const [waiving, setWaiving] = useState(false);
   const [selectingId, setSelectingId] = useState<string | null>(null);
+  const [editQuote, setEditQuote] = useState<VendorQuoteRow | null>(null);
 
   const fetchStatement = useCallback(async () => {
     try {
@@ -677,15 +678,26 @@ export function ComparativeQuotePanel({
                             </span>
                           )}
                           {canCreate && !isWinner && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-slate-400 hover:text-red-600"
-                              onClick={() => deleteQuote(q.id)}
-                              title="Delete quote"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-slate-400 hover:text-blue-600"
+                                onClick={() => setEditQuote(q)}
+                                title="Edit quote"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-slate-400 hover:text-red-600"
+                                onClick={() => deleteQuote(q.id)}
+                                title="Delete quote"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -783,11 +795,127 @@ export function ComparativeQuotePanel({
           </div>
         </div>
       </Dialog>
+
+      {/* Edit quote dialog */}
+      {editQuote && (
+        <EditQuoteDialog
+          quote={editQuote}
+          onClose={() => setEditQuote(null)}
+          onSaved={() => { setEditQuote(null); fetchStatement(); }}
+        />
+      )}
     </div>
   );
 }
 
-// ── Per-material section (sub-rows for each cost component) ──
+/* ════════════════════════════════════════════════════════════
+ * Edit Quote Dialog — correct quote metadata before selection
+ * ════════════════════════════════════════════════════════════ */
+function EditQuoteDialog({
+  quote,
+  onClose,
+  onSaved,
+}: {
+  quote: VendorQuoteRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [landedTotal, setLandedTotal] = useState(String(quote.landedTotal));
+  const [notes, setNotes] = useState(quote.notes ?? "");
+  const [validUntil, setValidUntil] = useState(quote.validUntil ? quote.validUntil.split("T")[0]! : "");
+  const [leadTimeDays, setLeadTimeDays] = useState(quote.leadTimeDays != null ? String(quote.leadTimeDays) : "");
+  const [paymentTerms, setPaymentTerms] = useState(quote.paymentTerms ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          landedTotal: Number(landedTotal),
+          notes: notes || null,
+          validUntil: validUntil || null,
+          leadTimeDays: leadTimeDays ? Number(leadTimeDays) : null,
+          paymentTerms: paymentTerms || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update quote");
+      toast.success("Quote updated");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update quote");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={`Edit Quote — ${quote.supplierName}`}
+      description={`Landed total was ${quote.landedTotal.toLocaleString("en-IN", { style: "currency", currency: "INR" })}`}
+      className="max-w-md"
+    >
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label>Landed Total (₹) *</Label>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={landedTotal}
+            onChange={(e) => setLandedTotal(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Valid Until</Label>
+          <Input
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Lead Time (days)</Label>
+          <Input
+            type="number"
+            min={0}
+            value={leadTimeDays}
+            onChange={(e) => setLeadTimeDays(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Payment Terms</Label>
+          <Input
+            value={paymentTerms}
+            onChange={(e) => setPaymentTerms(e.target.value)}
+            placeholder="e.g. 30 days credit"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
 
 function MatSection({
   line, entries, cheapestCost, highestCost, hasMultiple,

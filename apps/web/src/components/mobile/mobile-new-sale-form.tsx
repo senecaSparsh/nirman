@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
@@ -55,7 +55,7 @@ interface ProjectOpt {
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
 const inputClass =
-  "w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] font-medium outline-none";
+  "w-full h-9 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -64,7 +64,7 @@ const inputStyle = {
 
 // Compact variant for use inside 2-col grid (narrower columns)
 const inputClassSm =
-  "w-full h-8 rounded-[0.375rem] border px-2 text-[0.5625rem] font-medium outline-none";
+  "w-full h-8 rounded-[0.375rem] border px-2 text-m-caption font-medium outline-none";
 const inputStyleSm = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -83,7 +83,7 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-[0.5625rem] font-semibold mb-1"
+        className="block text-m-caption font-semibold mb-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
@@ -107,7 +107,7 @@ function FormFieldSm({
   return (
     <div>
       <label
-        className="block text-[0.4375rem] font-semibold mb-0.5"
+        className="block text-m-caption font-semibold mb-0.5"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
@@ -369,14 +369,14 @@ export function MobileNewSaleForm({
         {/* ══════ SECTION: WHAT ══════ */}
         {/* ── Asset type (full width) ── */}
         <div>
-          <p className="text-[0.5625rem] font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
             Asset type <span style={{ color: "var(--color-stop)" }}>*</span>
           </p>
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => { setAssetType("BUILT_UNIT"); haptic(10); }}
-              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 press"
+              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 text-m-body press"
               style={{
                 borderColor: assetType === "BUILT_UNIT" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: assetType === "BUILT_UNIT" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -387,7 +387,7 @@ export function MobileNewSaleForm({
                 style={{ color: assetType === "BUILT_UNIT" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
               />
               <span
-                className="text-[0.5625rem] font-bold"
+                className="text-m-caption font-bold"
                 style={{ color: assetType === "BUILT_UNIT" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
               >
                 Unit
@@ -396,7 +396,7 @@ export function MobileNewSaleForm({
             <button
               type="button"
               onClick={() => { setAssetType("LAND"); haptic(10); }}
-              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 press"
+              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 text-m-body press"
               style={{
                 borderColor: assetType === "LAND" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: assetType === "LAND" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -407,7 +407,7 @@ export function MobileNewSaleForm({
                 style={{ color: assetType === "LAND" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
               />
               <span
-                className="text-[0.5625rem] font-bold"
+                className="text-m-caption font-bold"
                 style={{ color: assetType === "LAND" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
               >
                 Land
@@ -416,7 +416,7 @@ export function MobileNewSaleForm({
             <button
               type="button"
               onClick={() => { setAssetType("PROJECT"); haptic(10); }}
-              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 press"
+              className="flex flex-col items-center gap-1 rounded-[0.5rem] border p-2.5 text-m-body press"
               style={{
                 borderColor: assetType === "PROJECT" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: assetType === "PROJECT" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -427,7 +427,7 @@ export function MobileNewSaleForm({
                 style={{ color: assetType === "PROJECT" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
               />
               <span
-                className="text-[0.5625rem] font-bold"
+                className="text-m-caption font-bold"
                 style={{ color: assetType === "PROJECT" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
               >
                 Project
@@ -447,8 +447,8 @@ export function MobileNewSaleForm({
           >
             <ShieldCheck className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-stop)" }} />
             <div>
-              <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>RERA not registered</p>
-              <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>RERA not registered</p>
+              <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                 This project has no RERA number. Selling units without RERA registration is illegal under RERA Act 2016.
               </p>
             </div>
@@ -466,7 +466,7 @@ export function MobileNewSaleForm({
             {assetType === "PROJECT" ? (
               <FormFieldSm label="Project" required>
                 {sellableProjects.length === 0 ? (
-                  <p className="text-[0.5rem] py-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption py-1" style={{ color: "var(--color-ink-500)" }}>
                     No sellable projects.
                   </p>
                 ) : (
@@ -486,7 +486,7 @@ export function MobileNewSaleForm({
             ) : (
               <FormFieldSm label={assetType === "BUILT_UNIT" ? "Unit" : "Parcel"} required>
                 {assetOptions.length === 0 ? (
-                  <p className="text-[0.5rem] py-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption py-1" style={{ color: "var(--color-ink-500)" }}>
                     No {assetType === "BUILT_UNIT" ? "units" : "parcels"}.
                   </p>
                 ) : (
@@ -502,9 +502,9 @@ export function MobileNewSaleForm({
                   </select>
                 )}
                 {selectedAsset && (
-                  <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                     {formatNumber(selectedAsset.area, 0)} {selectedAsset.areaUnit}
-                    {selectedAsset.askingPrice ? ` · ${formatCurrency(selectedAsset.askingPrice)}` : ""}
+                    {selectedAsset.askingPrice ? ` · ${formatCurrencyCompact(selectedAsset.askingPrice)}` : ""}
                   </p>
                 )}
               </FormFieldSm>
@@ -542,8 +542,7 @@ export function MobileNewSaleForm({
                   style={{ color: "var(--color-ink-500)" }}
                 />
                 <input
-                  type="text"
-                  inputMode="decimal"
+                  type="number"
                   min="0"
                   step="0.01"
                   value={salePrice}
@@ -559,8 +558,7 @@ export function MobileNewSaleForm({
             <div className="grid grid-cols-2 gap-1.5">
               <FormFieldSm label="GST %">
                 <input
-                  type="text"
-                  inputMode="decimal"
+                  type="number"
                   min="0"
                   max="28"
                   step="0.01"
@@ -575,7 +573,7 @@ export function MobileNewSaleForm({
                   className="flex items-center h-8 rounded-[0.375rem] border px-2 tabular-nums font-bold"
                   style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))", color: "var(--color-go)", fontSize: "0.5625rem" }}
                 >
-                  {formatCurrency(totalValue)}
+                  {formatCurrencyCompact(totalValue)}
                 </div>
               </FormFieldSm>
             </div>
@@ -618,7 +616,7 @@ export function MobileNewSaleForm({
                 <button
                   type="button"
                   onClick={() => setDealSource("SELF")}
-                  className="h-8 rounded-[0.375rem] border text-[0.5rem] font-bold transition-colors"
+                  className="h-8 rounded-[0.375rem] border text-m-caption font-bold transition-colors"
                   style={{
                     borderColor: dealSource === "SELF" ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: dealSource === "SELF" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -630,7 +628,7 @@ export function MobileNewSaleForm({
                 <button
                   type="button"
                   onClick={() => setDealSource("BROKER")}
-                  className="h-8 rounded-[0.375rem] border text-[0.5rem] font-bold transition-colors"
+                  className="h-8 rounded-[0.375rem] border text-m-caption font-bold transition-colors"
                   style={{
                     borderColor: dealSource === "BROKER" ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: dealSource === "BROKER" ? "var(--color-concrete)" : "var(--color-paper)",
@@ -711,13 +709,13 @@ export function MobileNewSaleForm({
                 <button
                   type="button"
                   onClick={() => setCommissionIsPartOfDeal((v) => !v)}
-                  className="flex items-center justify-between w-full rounded-[0.375rem] border px-2 py-1.5 press"
+                  className="flex items-center justify-between w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body press"
                   style={{
                     borderColor: commissionIsPartOfDeal ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: commissionIsPartOfDeal ? "var(--color-concrete)" : "var(--color-paper)",
                   }}
                 >
-                  <span className="text-[0.4375rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
                     Part of deal
                   </span>
                   <div
@@ -736,7 +734,7 @@ export function MobileNewSaleForm({
         </div>
 
         {/* ══════ SECTION: HOW ══════ */}
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1 px-0.5 mt-1" style={{ color: "var(--color-steel)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wide mb-1 px-0.5 mt-1" style={{ color: "var(--color-steel)" }}>
           Payment & Registry
         </p>
         {/* ── 2-col grid: Payment + Registry ── */}
@@ -747,7 +745,7 @@ export function MobileNewSaleForm({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {/* Initial payment */}
-            <p className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Initial Payment
             </p>
             <FormFieldSm label="Amount">
@@ -757,8 +755,7 @@ export function MobileNewSaleForm({
                   style={{ color: "var(--color-ink-500)" }}
                 />
                 <input
-                  type="text"
-                  inputMode="decimal"
+                  type="number"
                   min="0"
                   step="0.01"
                   value={initialPayment}
@@ -789,15 +786,15 @@ export function MobileNewSaleForm({
 
             {/* ATS / Registry — merged: either ATS or Registry */}
             <div className="pt-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-              <p className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
                 ATS / Registry
               </p>
-              <p className="text-[0.4375rem] mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Either ATS or Registry — one is the registered document.
               </p>
               <div className="grid grid-cols-2 gap-1">
                 <button type="button" onClick={() => { setIsATS(true); haptic(10); }}
-                  className="h-7 rounded-[0.375rem] border-2 text-[0.4375rem] font-bold press"
+                  className="h-7 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
                   style={{
                     borderColor: isATS ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: isATS ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -806,7 +803,7 @@ export function MobileNewSaleForm({
                   ATS
                 </button>
                 <button type="button" onClick={() => { setIsATS(false); haptic(10); }}
-                  className="h-7 rounded-[0.375rem] border-2 text-[0.4375rem] font-bold press"
+                  className="h-7 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
                   style={{
                     borderColor: !isATS ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: !isATS ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -835,7 +832,7 @@ export function MobileNewSaleForm({
                       onChange={(e) => setExpectedRegistryDate(e.target.value)}
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
-                  <label className="flex items-center gap-1.5 text-[0.5rem]" style={{ color: "var(--color-ink-600)" }}>
+                  <label className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-600)" }}>
                     <input type="checkbox" checked={allowRegistryBeforeFullPayment}
                       onChange={(e) => setAllowRegistryBeforeFullPayment(e.target.checked)}
                       className="rounded" />
@@ -860,12 +857,12 @@ export function MobileNewSaleForm({
           >
             {/* Home Loan */}
             <div className="flex items-center justify-between">
-              <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Home Loan
               </span>
               <div className="grid grid-cols-2 gap-1">
                 <button type="button" onClick={() => { setHasHomeLoan(false); haptic(10); }}
-                  className="h-6 rounded-[0.375rem] border-2 text-[0.4375rem] font-bold press px-2"
+                  className="h-6 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press px-2"
                   style={{
                     borderColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: !hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -874,7 +871,7 @@ export function MobileNewSaleForm({
                   No
                 </button>
                 <button type="button" onClick={() => { setHasHomeLoan(true); haptic(10); }}
-                  className="h-6 rounded-[0.375rem] border-2 text-[0.4375rem] font-bold press px-2"
+                  className="h-6 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press px-2"
                   style={{
                     borderColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: hasHomeLoan ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -894,7 +891,7 @@ export function MobileNewSaleForm({
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
                   <FormFieldSm label="Amount">
-                    <input type="text" inputMode="decimal" value={homeLoanAmount}
+                    <input type="number" min="0" step="0.01" value={homeLoanAmount}
                       onChange={(e) => setHomeLoanAmount(e.target.value)}
                       placeholder="0"
                       className={`${inputClassSm} tabular-nums`} style={inputStyleSm} />
@@ -933,7 +930,7 @@ export function MobileNewSaleForm({
         </div>
 
         {/* ── Expenses & Terms ── */}
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1 px-0.5 mt-1" style={{ color: "var(--color-steel)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wide mb-1 px-0.5 mt-1" style={{ color: "var(--color-steel)" }}>
           Expenses & Terms
         </p>
         {/* ── 2-col grid: Expenses + Terms ── */}
@@ -944,7 +941,7 @@ export function MobileNewSaleForm({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <div className="px-2 py-1.5" style={{ borderBottom: "1px solid var(--color-line)" }}>
-              <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Expense Heads
               </span>
             </div>
@@ -955,7 +952,7 @@ export function MobileNewSaleForm({
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[0.5rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {EXPENSE_HEADS.find((h) => h.value === exp.head)?.label ?? exp.head}
                   </span>
                   <select
@@ -965,7 +962,7 @@ export function MobileNewSaleForm({
                       next[i] = { ...exp, borneBy: e.target.value as "CLIENT" | "SELLER" | "NA" };
                       setExpenses(next);
                     }}
-                    className="text-[0.4375rem] font-bold px-1 py-0.5 rounded-[0.25rem] border outline-none"
+                    className="text-m-caption font-bold px-1 py-0.5 rounded-[0.25rem] border outline-none"
                     style={{
                       borderColor: exp.borneBy === "NA" ? "var(--color-line)" : "var(--color-ink-950)",
                       backgroundColor: exp.borneBy === "NA" ? "var(--color-paper)" : "var(--color-concrete)",
@@ -1011,20 +1008,20 @@ export function MobileNewSaleForm({
             {/* Terms & Conditions */}
             <div className="p-2 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                   Terms & Conditions
                 </span>
                 <button
                   type="button"
                   onClick={() => setTerms([...terms, { description: "", extraAmount: "", isIncluded: true }])}
-                  className="flex items-center gap-0.5 text-[0.4375rem] font-bold press"
+                  className="flex items-center gap-0.5 text-m-caption font-bold text-m-body press"
                   style={{ color: "var(--color-ink-700)" }}
                 >
                   <Plus className="size-2.5" /> Add
                 </button>
               </div>
               {terms.length === 0 && (
-                <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   Add conditions like &quot;Fire NOC by seller&quot;.
                 </p>
               )}
@@ -1046,7 +1043,7 @@ export function MobileNewSaleForm({
                     <button
                       type="button"
                       onClick={() => setTerms(terms.filter((_, idx) => idx !== i))}
-                      className="press mt-0.5"
+                      className="text-m-body press mt-0.5"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       <Trash2 className="size-3" />
@@ -1074,7 +1071,7 @@ export function MobileNewSaleForm({
                         next[i] = { ...term, isIncluded: !term.isIncluded };
                         setTerms(next);
                       }}
-                      className="text-[0.4375rem] font-bold px-1.5 py-0.5 rounded press"
+                      className="text-m-caption font-bold px-1.5 py-0.5 rounded text-m-body press"
                       style={{
                         backgroundColor: term.isIncluded ? "var(--color-concrete)" : "transparent",
                         border: "1px solid var(--color-line)",
@@ -1091,20 +1088,20 @@ export function MobileNewSaleForm({
             {/* Payment Plan */}
             <div className="p-2 space-y-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
               <div className="flex items-center justify-between">
-                <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                   Payment Plan
                 </span>
                 <button
                   type="button"
                   onClick={() => setSchedule([...schedule, { description: "", percentage: "", amount: "", dueDate: "" }])}
-                  className="flex items-center gap-0.5 text-[0.4375rem] font-bold press"
+                  className="flex items-center gap-0.5 text-m-caption font-bold text-m-body press"
                   style={{ color: "var(--color-ink-700)" }}
                 >
                   <Plus className="size-2.5" /> Add
                 </button>
               </div>
               {schedule.length === 0 && (
-                <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   Add installments like &quot;25% every month&quot;.
                 </p>
               )}
@@ -1126,7 +1123,7 @@ export function MobileNewSaleForm({
                     <button
                       type="button"
                       onClick={() => setSchedule(schedule.filter((_, idx) => idx !== i))}
-                      className="press"
+                      className="text-m-body press"
                       style={{ color: "var(--color-ink-500)" }}
                     >
                       <Trash2 className="size-3" />
@@ -1194,7 +1191,7 @@ export function MobileNewSaleForm({
             type="button"
             onClick={submit}
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (

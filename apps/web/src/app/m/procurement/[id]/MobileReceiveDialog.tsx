@@ -687,8 +687,8 @@ export function MobileReceiveDialog({
           <div className="size-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)" }}>
             <CheckCircle2 className="size-8" style={{ color: "var(--color-go)" }} />
           </div>
-          <h2 className="text-lg font-bold" style={{ color: "var(--color-ink-950)" }}>GRN Recorded</h2>
-          <p className="text-[0.75rem] mt-1 text-center" style={{ color: "var(--color-steel)" }}>
+          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>GRN Recorded</h2>
+          <p className="text-m-section mt-1 text-center" style={{ color: "var(--color-steel)" }}>
             Stock updated · PO is now <span className="font-semibold">{lastNewStatus}</span>
           </p>
 
@@ -697,7 +697,7 @@ export function MobileReceiveDialog({
               href={`/print/goods-receipt/${lastGrnId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Printer className="size-4" />
@@ -731,7 +731,7 @@ export function MobileReceiveDialog({
                     toast.error(e instanceof Error ? e.message : "Failed to create invoice");
                   });
               }}
-              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-bold border-2 press"
+              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-bold border-2 text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)", backgroundColor: "transparent" }}
             >
               <FileText className="size-3.5" />
@@ -740,7 +740,7 @@ export function MobileReceiveDialog({
             <button
               type="button"
               onClick={() => { setLastGrnId(null); setOpen(false); router.refresh(); }}
-              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.6875rem] font-semibold press"
+              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
             >
               Done
@@ -757,7 +757,7 @@ export function MobileReceiveDialog({
         <button
           type="button"
           onClick={() => { haptic(5); setMode("receive"); setOpen(true); }}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.75rem] font-bold press transition-colors"
+          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           <ScanLine className="size-4" />
@@ -766,7 +766,7 @@ export function MobileReceiveDialog({
         <button
           type="button"
           onClick={() => { haptic(5); setMode("reject"); setOpen(true); }}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border-2 press"
+          className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2 text-m-body font-bold border-2 text-m-body press"
           style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)", backgroundColor: "transparent" }}
         >
           <XCircle className="size-3.5" />
@@ -794,13 +794,13 @@ export function MobileReceiveDialog({
               {mode === "reject" ? <XCircle className="size-3.5" style={{ color: "var(--color-stop)" }} /> : <Package className="size-3.5" style={{ color: "var(--color-ink-700)" }} />}
             </span>
             <div className="min-w-0">
-              <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                 {mode === "reject" ? "Reject Delivery" : "Receive Materials"}
               </p>
-              <p className="text-[0.5625rem] truncate font-mono" style={{ color: "var(--color-ink-500)" }}>{poNumber} · {supplierName}</p>
+              <p className="text-m-caption truncate font-mono" style={{ color: "var(--color-ink-500)" }}>{poNumber} · {supplierName}</p>
             </div>
           </div>
-          <button onClick={() => { if (!submitting && !confirmLines && !showRejectConfirm) setOpen(false); }} className="press shrink-0 p-1">
+          <button onClick={() => { if (!submitting && !confirmLines && !showRejectConfirm) setOpen(false); }} className="text-m-body press shrink-0 p-1">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -809,13 +809,13 @@ export function MobileReceiveDialog({
         <div className="flex items-center gap-3 px-3 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
           <div className="flex items-center gap-1.5">
             <Calendar className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-semibold tabular-nums" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-steel)" }}>
               {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <Truck className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-semibold truncate" style={{ color: "var(--color-steel)" }}>{locationName}</span>
+            <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-steel)" }}>{locationName}</span>
           </div>
           {geo && locationLat != null && locationLng != null ? (
             <GeoFenceStatus
@@ -842,14 +842,14 @@ export function MobileReceiveDialog({
           <div className="flex-1 overflow-y-auto overscroll-contain">
             <div className="p-3 space-y-3">
               <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}>
-                <p className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+                <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
                   Goods will be refused entry. No stock will be received. A rejection record will be created for audit + supplier dispute resolution.
                 </p>
               </div>
               <TextField label="Vehicle Number" value={vehicleNumber} onChange={setVehicleNumber} placeholder="MH-12-AB-1234" mono />
               <TextField label="Challan Number" value={challanNumber} onChange={setChallanNumber} placeholder="Supplier challan no." mono />
               <div>
-                <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Rejection Reason <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
                 <textarea
@@ -857,7 +857,7 @@ export function MobileReceiveDialog({
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="e.g. Damaged packaging, wrong material, expired stock..."
                   rows={3}
-                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.6875rem] outline-none resize-none"
+                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body outline-none resize-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
                 />
               </div>
@@ -872,14 +872,14 @@ export function MobileReceiveDialog({
             {/* Line items with batch/lot + inspection */}
             <div className="p-3 space-y-2">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+                <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
                   Line Items ({lines.length})
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={receiveFull}
-                    className="flex items-center gap-1 text-[0.5rem] font-bold press rounded-[0.25rem] px-1.5 py-0.5"
+                    className="flex items-center gap-1 text-m-caption font-bold text-m-body press rounded-[0.25rem] px-1.5 py-0.5"
                     style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}
                   >
                     <CheckCircle2 className="size-2.5" /> Receive Full
@@ -887,7 +887,7 @@ export function MobileReceiveDialog({
                   <button
                     type="button"
                     onClick={() => { haptic(5); setShowQuickAdd(!showQuickAdd); loadCategories(); }}
-                    className="flex items-center gap-1 text-[0.5rem] font-bold press"
+                    className="flex items-center gap-1 text-m-caption font-bold text-m-body press"
                     style={{ color: "var(--color-signal-dark)" }}
                   >
                     <Plus className="size-3" /> Quick Add
@@ -900,24 +900,24 @@ export function MobileReceiveDialog({
                 <div className="rounded-[0.5rem] border p-2.5 space-y-2" style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, transparent)" }}>
                   <div className="flex items-center gap-1.5">
                     <AlertCircle className="size-3" style={{ color: "var(--color-signal-dark)" }} />
-                    <p className="text-[0.5rem] font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+                    <p className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                       New material — code + HSN/GST auto-generated
                     </p>
                   </div>
-                  <input type="text" placeholder="Material name" value={quickAddName} onChange={(e) => setQuickAddName(e.target.value)} className="w-full h-8 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                  <input type="text" placeholder="Material name" value={quickAddName} onChange={(e) => setQuickAddName(e.target.value)} className="w-full h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                   <div className="grid grid-cols-2 gap-2">
-                    <select value={quickAddCategory} onChange={(e) => setQuickAddCategory(e.target.value)} className="h-8 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
+                    <select value={quickAddCategory} onChange={(e) => setQuickAddCategory(e.target.value)} className="h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
                       <option value="">Select category…</option>
                       {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                     <div className="flex gap-1">
-                      <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-[0.6875rem] outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
-                      <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-[0.6875rem] text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                      <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                      <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-[0.5625rem] font-bold border" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}>Cancel</button>
-                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-[0.5625rem] font-bold" style={{ backgroundColor: "var(--color-signal)", color: "#fff" }}>
+                  <div className="flex flex-col gap-2">
+                    <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold border" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500) press" }}>Cancel</button>
+                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold" style={{ backgroundColor: "var(--color-signal)", color: "#fff press" }}>
                       {quickAddLoading ? "Creating…" : "Create + auto-fill HSN/GST"}
                     </button>
                   </div>
@@ -938,24 +938,24 @@ export function MobileReceiveDialog({
                   <div key={l.id} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: lineStatus === "over" ? "var(--color-stop)" : "var(--color-line)", backgroundColor: done ? "var(--color-paper-2)" : "var(--color-paper)", opacity: done ? 0.6 : 1 }}>
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</p>
-                        <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                        <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</p>
+                        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                           {l.materialCode} · {formatNumber(l.qtyReceived, 0)}/{formatNumber(l.qtyOrdered, 0)} {l.unit}
                           {remaining > 0 ? <span style={{ color: "var(--color-signal-dark)" }}> · {formatNumber(remaining, 0)} left</span> : null}
                         </p>
                         {/* HSN/GST + UOM conversion badge */}
                         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                           {l.hsnCode ? (
-                            <span className="text-[0.4375rem] font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}>
+                            <span className="text-m-caption font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}>
                               HSN {l.hsnCode} · GST {l.gstRate}%
                             </span>
                           ) : (
-                            <span className="text-[0.4375rem] font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)", color: "var(--color-stop)" }}>
+                            <span className="text-m-caption font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)", color: "var(--color-stop)" }}>
                               ⚠ No HSN/GST
                             </span>
                           )}
                           {canConvert ? (
-                            <span className="text-[0.4375rem] font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}>
+                            <span className="text-m-caption font-semibold rounded px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}>
                               1 {l.unit} = {l.uomConversionFactor} {l.baseUnit}
                             </span>
                           ) : null}
@@ -967,7 +967,7 @@ export function MobileReceiveDialog({
                       <>
                         {/* Shortage / over-delivery indicator */}
                         {lineStatus !== "none" && lineStatus !== "full" ? (
-                          <div className="mb-1 rounded-[0.25rem] px-2 py-0.5 text-[0.5rem] font-semibold" style={{
+                          <div className="mb-1 rounded-[0.25rem] px-2 py-0.5 text-m-caption font-semibold" style={{
                             backgroundColor: lineStatus === "over"
                               ? "color-mix(in srgb, var(--color-stop) 10%, transparent)"
                               : "color-mix(in srgb, var(--color-signal) 10%, transparent)",
@@ -986,7 +986,7 @@ export function MobileReceiveDialog({
                             <button
                               type="button"
                               onClick={() => { haptic(5); toggleByWeight(l.id); }}
-                              className="flex items-center justify-center h-8 rounded-[0.375rem] border press"
+                              className="flex items-center justify-center h-8 rounded-[0.375rem] border text-m-body press"
                               style={{
                                 backgroundColor: byWeight ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-paper-2)",
                                 color: byWeight ? "var(--color-signal-dark)" : "var(--color-ink-500)",
@@ -1009,22 +1009,22 @@ export function MobileReceiveDialog({
                                   placeholder="Wt"
                                   value={lineWeights[l.id] ?? ""}
                                   onChange={(e) => setLineWeight(l.id, e.target.value)}
-                                  className="w-full h-8 px-1 text-[0.625rem] text-right tabular-nums outline-none bg-transparent"
+                                  className="w-full h-8 px-1 text-m-label text-right tabular-nums outline-none bg-transparent"
                                   style={{ color: "var(--color-ink-950)" }}
                                 />
-                                <span className="text-[0.4375rem] font-bold shrink-0 px-0.5" style={{ color: "var(--color-ink-500)" }}>{l.baseUnit}</span>
+                                <span className="text-m-caption font-bold shrink-0 px-0.5" style={{ color: "var(--color-ink-500)" }}>{l.baseUnit}</span>
                               </>
                             ) : (
                               <>
-                                <input type="number" inputMode="decimal" step="0.001" min="0" max={remaining} placeholder="Qty" value={receipts[l.id] ?? ""} onChange={(e) => setQty(l.id, e.target.value)} className="w-full h-8 px-1 text-[0.625rem] text-right tabular-nums outline-none bg-transparent" style={{ color: "var(--color-ink-950)" }} />
-                                <span className="text-[0.4375rem] font-bold shrink-0 px-0.5" style={{ color: "var(--color-ink-500)" }}>{l.unit}</span>
+                                <input type="number" inputMode="decimal" step="0.001" min="0" max={remaining} placeholder="Qty" value={receipts[l.id] ?? ""} onChange={(e) => setQty(l.id, e.target.value)} className="w-full h-8 px-1 text-m-label text-right tabular-nums outline-none bg-transparent" style={{ color: "var(--color-ink-950)" }} />
+                                <span className="text-m-caption font-bold shrink-0 px-0.5" style={{ color: "var(--color-ink-500)" }}>{l.unit}</span>
                               </>
                             )}
                           </div>
                           {/* Lot/Batch */}
-                          <input type="text" placeholder="Lot/Batch" value={lineLots[l.id] ?? ""} onChange={(e) => setLineLots((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-[0.5625rem] outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                          <input type="text" placeholder="Lot/Batch" value={lineLots[l.id] ?? ""} onChange={(e) => setLineLots((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                           {/* Inspection */}
-                          <select value={lineInspection[l.id] ?? ""} onChange={(e) => setLineInspection((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-[0.5625rem] font-semibold outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
+                          <select value={lineInspection[l.id] ?? ""} onChange={(e) => setLineInspection((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption font-semibold outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
                             <option value="">Inspect…</option>
                             {INSPECTION_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
@@ -1034,7 +1034,7 @@ export function MobileReceiveDialog({
                         {byWeight && canConvert ? (
                           <div className="flex items-center gap-1.5 mb-1">
                             {currentWeight > 0 ? (
-                              <span className="text-[0.5rem] font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+                              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                                 = {formatNumber(currentQty, 3)} {l.unit}
                               </span>
                             ) : null}
@@ -1042,7 +1042,7 @@ export function MobileReceiveDialog({
                               <button
                                 type="button"
                                 onClick={() => { haptic(5); fillWeightFromWeighbridge(l.id); }}
-                                className="ml-auto text-[0.4375rem] font-bold press rounded-[0.25rem] px-1.5 py-0.5"
+                                className="ml-auto text-m-caption font-bold text-m-body press rounded-[0.25rem] px-1.5 py-0.5"
                                 style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                               >
                                 WB: {netWt} {l.baseUnit}
@@ -1050,7 +1050,7 @@ export function MobileReceiveDialog({
                             ) : null}
                           </div>
                         ) : expWt ? (
-                          <div className="text-[0.4375rem] text-right mb-1" style={{ color: "var(--color-ink-500)" }}>
+                          <div className="text-m-caption text-right mb-1" style={{ color: "var(--color-ink-500)" }}>
                             ≈ {formatNumber(expWt, 1)} {l.baseUnit}
                           </div>
                         ) : null}
@@ -1063,7 +1063,7 @@ export function MobileReceiveDialog({
 
             {/* Delivery & transport */}
             <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>
                 Delivery & Transport
                 {deliveryTermsType ? <span className="ml-1 normal-case" style={{ color: "var(--color-ink-500)" }}>({deliveryTermsType.replace(/_/g, " ")})</span> : null}
               </p>
@@ -1094,14 +1094,14 @@ export function MobileReceiveDialog({
                 Mandatory for non-quantifiable (bulk/loose) materials like CFT, BRASS, TON.
                 Optional for quantifiable (countable) materials like BAG, NOS, PIECE. */}
             <div className="px-3 pb-3 space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide flex items-center gap-1" style={{ color: "var(--color-steel)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide flex items-center gap-1" style={{ color: "var(--color-steel)" }}>
                 <Scale className="size-3" /> Weighbridge (Kata Parchi)
                 {kataParchiRequired ? (
-                  <span className="text-[0.4375rem] font-bold px-1 py-0.5 rounded-[0.25rem]" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)", color: "var(--color-stop)" }}>
+                  <span className="text-m-caption font-bold px-1 py-0.5 rounded-[0.25rem]" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)", color: "var(--color-stop)" }}>
                     MANDATORY
                   </span>
                 ) : (
-                  <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-400)" }}>
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-400)" }}>
                     (optional)
                   </span>
                 )}
@@ -1114,7 +1114,7 @@ export function MobileReceiveDialog({
                 required={kataParchiRequired}
               />
               {hasConvertibleLines ? (
-                <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-400)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
                   Tap the scale icon on a line to fill its weight from this weighbridge.
                 </p>
               ) : null}
@@ -1122,7 +1122,7 @@ export function MobileReceiveDialog({
 
             {/* Documents */}
             <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Documents</p>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Documents</p>
 
               {/* Gate Pass No. / Receiving — toggle between the two modes */}
               <div>
@@ -1130,7 +1130,7 @@ export function MobileReceiveDialog({
                   <button
                     type="button"
                     onClick={() => { haptic(5); setGatePassMode("gatePass"); }}
-                    className="flex-1 text-[0.5rem] font-bold py-1 rounded-[0.25rem] press"
+                    className="flex-1 text-m-caption font-bold py-1 rounded-[0.25rem] text-m-body press"
                     style={{
                       backgroundColor: gatePassMode === "gatePass" ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-paper-2)",
                       color: gatePassMode === "gatePass" ? "var(--color-signal-dark)" : "var(--color-ink-500)",
@@ -1142,7 +1142,7 @@ export function MobileReceiveDialog({
                   <button
                     type="button"
                     onClick={() => { haptic(5); setGatePassMode("receiving"); }}
-                    className="flex-1 text-[0.5rem] font-bold py-1 rounded-[0.25rem] press"
+                    className="flex-1 text-m-caption font-bold py-1 rounded-[0.25rem] text-m-body press"
                     style={{
                       backgroundColor: gatePassMode === "receiving" ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-paper-2)",
                       color: gatePassMode === "receiving" ? "var(--color-signal-dark)" : "var(--color-ink-500)",
@@ -1158,7 +1158,7 @@ export function MobileReceiveDialog({
                     value={gatePassNo}
                     onChange={(e) => setGatePassNo(e.target.value)}
                     placeholder="Supplier gate pass no."
-                    className="w-full h-8 rounded-[0.25rem] border px-1.5 text-[0.5625rem] font-mono outline-none"
+                    className="w-full h-8 rounded-[0.25rem] border px-1.5 text-m-caption font-mono outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
                   />
                 ) : (
@@ -1185,7 +1185,7 @@ export function MobileReceiveDialog({
 
             {/* Proof of delivery — mandatory */}
             <div className="px-3 pb-3 space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-stop)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-stop)" }}>
                 Proof of Delivery (Mandatory)
               </p>
               {/* Photos + Signature side-by-side */}
@@ -1198,7 +1198,7 @@ export function MobileReceiveDialog({
 
             {/* Supervisor co-signature (optional) */}
             <div className="px-3 pb-3 space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
                 Supervisor Co-sign (optional)
               </p>
               <SignaturePad value={supervisorSignature} onChange={setSupervisorSignature} compact />
@@ -1206,7 +1206,7 @@ export function MobileReceiveDialog({
 
             {/* Remarks */}
             <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Remarks</p>
+              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Remarks</p>
               <TextField label="Receipt Remarks" value={receiptNotes} onChange={setReceiptNotes} placeholder="Vehicle / challan details" />
               <div className="grid grid-cols-2 gap-1.5">
                 <TextField label="Shortage" value={shortageRemarks} onChange={(v) => { shortageEditedRef.current = true; setShortageRemarks(v); }} placeholder="If any shortage" />
@@ -1219,11 +1219,11 @@ export function MobileReceiveDialog({
         {/* Footer */}
         <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
           {mode === "reject" ? (
-            <button type="button" onClick={prepareReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+            <button type="button" onClick={prepareReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
               {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Review rejection</>)}
             </button>
           ) : (
-            <button type="button" onClick={prepareReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button type="button" onClick={prepareReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               <CheckCircle2 className="size-4" />
               Review receipt
             </button>
@@ -1235,37 +1235,37 @@ export function MobileReceiveDialog({
           <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setConfirmLines(null); }}>
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-                <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
-                <button onClick={() => { if (!submitting) setConfirmLines(null); }} className="press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+                <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
+                <button onClick={() => { if (!submitting) setConfirmLines(null); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="max-h-[35vh] overflow-y-auto p-3 space-y-2">
                 {confirmLines.map((l, i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                         {l.name}
-                        {l.full ? <span className="ml-1 text-[0.4375rem]" style={{ color: "var(--color-go)" }}>✓ full</span> : null}
+                        {l.full ? <span className="ml-1 text-m-caption" style={{ color: "var(--color-go)" }}>✓ full</span> : null}
                       </p>
-                      <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                         {l.weight ? <span style={{ color: "var(--color-signal-dark)" }}>{l.weight} → </span> : null}
                         {formatNumber(l.qty, 3)} {l.unit} @ {formatCurrency(l.cost / l.qty)}
                       </p>
                       {l.shortage > 0 ? (
-                        <p className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal-dark)" }}>
+                        <p className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                           {l.shortage} {l.unit} short
                         </p>
                       ) : null}
                     </div>
-                    <span className="text-[0.6875rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(l.cost)}</span>
+                    <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(l.cost)}</span>
                   </div>
                 ))}
                 <div className="flex justify-between border-t pt-2.5 mt-1" style={{ borderColor: "var(--color-line)" }}>
-                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Total value</span>
-                  <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}</span>
+                  <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Total value</span>
+                  <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}</span>
                 </div>
               </div>
               <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
-                <button type="button" onClick={confirmReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                <button type="button" onClick={confirmReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><CheckCircle2 className="size-4" />Confirm — update stock</>)}
                 </button>
               </div>
@@ -1278,30 +1278,30 @@ export function MobileReceiveDialog({
           <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setShowRejectConfirm(false); }}>
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-                <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
-                <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} className="press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+                <p className="text-m-section font-bold" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
+                <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="p-3 space-y-2">
                 <div className="rounded-[0.375rem] p-2" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}>
-                  <p className="text-[0.5625rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+                  <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
                     Goods will be refused entry. No stock will be received.
                   </p>
-                  <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
                     A rejection record with photos + GPS will be created for audit + supplier dispute resolution.
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reason</p>
-                  <p className="text-[0.625rem]" style={{ color: "var(--color-ink-950)" }}>{rejectReason}</p>
+                  <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reason</p>
+                  <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{rejectReason}</p>
                 </div>
-                <div className="flex gap-3 text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                <div className="flex gap-3 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   <span>📷 {rejectPhotos.length} photo(s)</span>
                   {geo && <span>📍 GPS captured</span>}
                   {vehicleNumber && <span>🚚 {vehicleNumber}</span>}
                 </div>
               </div>
               <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
-                <button type="button" onClick={confirmReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-[0.75rem] font-bold press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+                <button type="button" onClick={confirmReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Confirm — reject delivery</>)}
                 </button>
               </div>

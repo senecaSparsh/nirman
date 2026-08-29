@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -23,6 +24,7 @@ export function MobileNewCustomerDialog({
   onClose: () => void;
   onCreated: (customer: { id: string; name: string }) => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -54,6 +56,7 @@ export function MobileNewCustomerDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to create customer");
       haptic([10, 40, 80]);
       toast.success(`${data.name} customer created`);
+      router.refresh();
       onCreated({ id: data.id, name: data.name });
       setName("");
       setPhone("");
@@ -74,10 +77,10 @@ export function MobileNewCustomerDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
     >
       <div
-        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
+        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
         style={{
           backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
@@ -86,14 +89,14 @@ export function MobileNewCustomerDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[0.875rem] font-bold"
+            className="text-m-section font-bold"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Customer
           </h2>
           <button
             onClick={onClose}
-            className="touch press grid place-items-center rounded-[0.375rem]"
+            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
             style={{ color: "var(--color-ink-500)" }}
           >
             <X className="size-4" />
@@ -101,7 +104,7 @@ export function MobileNewCustomerDialog({
         </div>
 
         <p
-          className="text-[0.5625rem] mb-4"
+          className="text-m-caption mb-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           Add a customer record to use in sales transactions.
@@ -111,7 +114,7 @@ export function MobileNewCustomerDialog({
           {/* Name */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -122,7 +125,7 @@ export function MobileNewCustomerDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Acme Constructions"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -134,7 +137,7 @@ export function MobileNewCustomerDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Phone
@@ -144,7 +147,7 @@ export function MobileNewCustomerDialog({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="e.g. +91 98765 43210"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -156,7 +159,7 @@ export function MobileNewCustomerDialog({
           {/* Email */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Email
@@ -166,7 +169,7 @@ export function MobileNewCustomerDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. accounts@acme.in"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -178,7 +181,7 @@ export function MobileNewCustomerDialog({
           {/* GSTIN */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               GSTIN
@@ -188,7 +191,7 @@ export function MobileNewCustomerDialog({
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase())}
               placeholder="e.g. 27ABCDE1234F1Z5"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -200,7 +203,7 @@ export function MobileNewCustomerDialog({
           {/* Address */}
           <div>
             <label
-              className="text-[0.5625rem] font-semibold block mb-1"
+              className="text-m-caption font-semibold block mb-1"
               style={{ color: "var(--color-ink-500)" }}
             >
               Address
@@ -210,7 +213,7 @@ export function MobileNewCustomerDialog({
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Billing address"
               rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
@@ -223,7 +226,7 @@ export function MobileNewCustomerDialog({
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-ink-950)",
               color: "var(--color-paper)",

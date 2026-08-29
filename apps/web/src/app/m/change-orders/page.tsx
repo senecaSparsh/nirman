@@ -73,7 +73,7 @@ async function MobileChangeOrdersContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
         <MobileStatCard label="Draft" value={String(draft)} icon={GitBranch} tone={draft > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Pending" value={String(pending)} icon={GitBranch} tone={pending > 0 ? "signal" : "neutral"} />
         <MobileStatCard label="Approved" value={String(approved)} icon={GitBranch} tone={approved > 0 ? "go" : "neutral"} />

@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import {
   Wrench, MapPin, Calendar, Settings, IndianRupee,
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
-  TrendingDown, FileText, Package, Send, Check,
+  TrendingDown, FileText, Package, Send, Check, Pencil, Trash2,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 
 type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
 
@@ -79,17 +81,44 @@ export function MobileEquipmentDetailClient({
   notFound?: boolean;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showAssign, setShowAssign] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [showRetire, setShowRetire] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!equipment) return;
+    const ok = await confirm({
+      title: `Delete equipment "${equipment.name}"?`,
+      description: "This will archive the equipment record.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/equipment/${equipment.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      haptic(10);
+      toast.success("Equipment archived");
+      router.push("/m/equipment");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   /* ── Not found ── */
   if (notFound || !equipment) {
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Equipment not found
           </p>
         </div>
@@ -98,7 +127,7 @@ export function MobileEquipmentDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <Wrench className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Equipment not found
           </p>
         </div>
@@ -180,17 +209,36 @@ export function MobileEquipmentDetailClient({
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {equipment.name}
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
           <StatusIcon className="size-2.5" />
           {statusLabel}
         </span>
+        {canManage ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+            >
+              <Pencil className="size-3.5" />
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop)" }}
+            >
+              {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Valuation banner ── */}
@@ -203,30 +251,30 @@ export function MobileEquipmentDetailClient({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Current Value
             </p>
-            <p className="text-[1.125rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-              {formatCurrency(equipment.currentValue)}
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              {formatCurrencyCompact(equipment.currentValue)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Acquired
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-              {formatCurrency(equipment.acquisitionCost)}
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+              {formatCurrencyCompact(equipment.acquisitionCost)}
             </p>
           </div>
         </div>
         {depreciation > 0 ? (
           <div className="flex items-center gap-1 mt-1.5 pt-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <TrendingDown className="size-3" style={{ color: "var(--color-signal)" }} />
-            <span className="text-[0.5rem] font-semibold" style={{ color: "var(--color-signal)" }}>
+            <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
               {depreciationPct}% depreciated
             </span>
-            <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
-              · −{formatCurrency(depreciation)}
+            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              · −{formatCurrencyCompact(depreciation)}
             </span>
           </div>
         ) : null}
@@ -257,7 +305,7 @@ export function MobileEquipmentDetailClient({
         <>
           <div className="flex items-center gap-1.5 mb-2">
             <MapPin className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Active Assignment
             </span>
             <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -271,16 +319,16 @@ export function MobileEquipmentDetailClient({
           >
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
-                <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                   {equipment.activeAssignment.projectId ? (
-                    <Link href={`/m/projects/${equipment.activeAssignment.projectId}`} className="underline underline-offset-2 press">
+                    <Link href={`/m/projects/${equipment.activeAssignment.projectId}`} className="underline underline-offset-2 text-m-body press">
                       {equipment.activeAssignment.projectName ?? equipment.activeAssignment.locationName}
                     </Link>
                   ) : (
                     equipment.activeAssignment.projectName ?? equipment.activeAssignment.locationName
                   )}
                 </p>
-                <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {equipment.activeAssignment.locationName} · since {formatDate(equipment.activeAssignment.assignedAt)}
                 </p>
               </div>
@@ -288,7 +336,7 @@ export function MobileEquipmentDetailClient({
                 <button
                   onClick={() => handleAction("return")}
                   disabled={acting !== null}
-                  className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-[0.5625rem] font-bold press disabled:opacity-50"
+                  className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press disabled:opacity-50"
                   style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
                 >
                   {acting === "return" ? <Loader2 className="size-3 animate-spin" /> : "Return"}
@@ -304,7 +352,7 @@ export function MobileEquipmentDetailClient({
         <>
           <div className="flex items-center gap-1.5 mb-2">
             <Settings className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Maintenance ({equipment.maintenance.length})
             </span>
             <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -320,32 +368,32 @@ export function MobileEquipmentDetailClient({
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                     {m.type}
                   </span>
                   <span
-                    className="text-[0.4375rem] font-bold uppercase"
+                    className="text-m-caption font-bold uppercase"
                     style={{ color: m.endDate ? "var(--color-go)" : "var(--color-signal)" }}
                   >
                     {m.endDate ? "Done" : "Active"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(m.startDate)}
                   </span>
                   {m.cost > 0 ? (
                     <>
                       <span style={{ color: "var(--color-line)" }}>·</span>
-                      <span className="text-[0.5rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
-                        {formatCurrency(m.cost)}
+                      <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                        {formatCurrencyCompact(m.cost)}
                       </span>
                     </>
                   ) : null}
                   {m.vendor ? (
                     <>
                       <span style={{ color: "var(--color-line)" }}>·</span>
-                      <span className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                      <span className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                         {m.vendor}
                       </span>
                     </>
@@ -365,7 +413,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={() => setShowAssign(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <MapPin className="size-4" />
@@ -378,7 +426,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={() => setShowMaintenance(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold border press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
               <Settings className="size-4" />
@@ -391,7 +439,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={() => handleAction("complete-maintenance")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
             >
               {acting === "complete-maintenance" ? (
@@ -409,7 +457,7 @@ export function MobileEquipmentDetailClient({
           <button
             onClick={() => setShowRetire(true)}
             disabled={acting !== null}
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-stop)" }}
           >
             <Archive className="size-3.5" />
@@ -423,7 +471,7 @@ export function MobileEquipmentDetailClient({
         <button
           onClick={() => handleAction("unretire")}
           disabled={acting !== null}
-          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 w-full"
+          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 w-full"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {acting === "unretire" ? (
@@ -476,16 +524,16 @@ export function MobileEquipmentDetailClient({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Retire equipment?</p>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Retire equipment?</p>
             </div>
             <div className="p-3">
-              <p className="text-[0.6875rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 {equipment.name} will be marked as retired. You can restore it later if needed.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={() => setShowRetire(false)}
-                  className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold border press"
+                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 >
                   Cancel
@@ -493,7 +541,7 @@ export function MobileEquipmentDetailClient({
                 <button
                   onClick={() => handleAction("retire")}
                   disabled={acting === "retire"}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
                 >
                   {acting === "retire" ? (
@@ -510,13 +558,166 @@ export function MobileEquipmentDetailClient({
           </div>
         </div>
       ) : null}
+
+      {/* ── Edit modal ── */}
+      {showEdit ? (
+        <EditEquipmentModal
+          equipment={equipment}
+          onClose={() => setShowEdit(false)}
+          onSuccess={() => {
+            setShowEdit(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+      {confirmDialog}
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
- * Info row
+ * Edit equipment modal
  * ═══════════════════════════════════════════════════════════ */
+function EditEquipmentModal({
+  equipment,
+  onClose,
+  onSuccess,
+}: {
+  equipment: EquipmentData;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState(equipment.name);
+  const [model, setModel] = useState(equipment.model ?? "");
+  const [serialNumber, setSerialNumber] = useState(equipment.serialNumber ?? "");
+  const [category, setCategory] = useState(equipment.category ?? "");
+  const [notes, setNotes] = useState(equipment.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/equipment/${equipment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          name,
+          model: model || null,
+          serialNumber: serialNumber || null,
+          category: category || null,
+          notes: notes || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update");
+      haptic(10);
+      toast.success("Equipment updated");
+      onSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      onClick={onClose}
+    >
+      <form
+        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Equipment</p>
+          <button type="button" onClick={onClose} className="text-m-body press">
+            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+          </button>
+        </div>
+        <div className="p-3 flex flex-col gap-3">
+          <Field label="Name *">
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </Field>
+          <Field label="Model">
+            <input
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </Field>
+          <Field label="Serial Number">
+            <input
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </Field>
+          <Field label="Category">
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </Field>
+          <Field label="Notes">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </Field>
+        </div>
+        <div className="p-3 border-t flex gap-2 sticky bottom-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <><Check className="size-3.5" /><span>Save</span></>}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+/* ─── InfoRow ─── */
 function InfoRow({
   icon: Icon, label, value, mono,
 }: {
@@ -532,11 +733,11 @@ function InfoRow({
     >
       <Icon className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
       <div className="min-w-0 flex-1">
-        <span className="text-[0.4375rem] font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
           {label}
         </span>
         <span
-          className={`text-[0.6875rem] font-bold truncate block ${mono ? "font-mono" : ""}`}
+          className={`text-m-body font-bold truncate block ${mono ? "font-mono" : ""}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           {value}
@@ -610,8 +811,8 @@ function AssignModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Assign Equipment</p>
-            <button onClick={onClose} className="press">
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Assign Equipment</p>
+            <button onClick={onClose} className="text-m-body press">
               <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
             </button>
           </div>
@@ -619,13 +820,13 @@ function AssignModal({
           <div className="p-3 flex flex-col gap-3">
             {/* Location — tappable selector card */}
             <div>
-              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Location
               </label>
               <button
                 type="button"
                 onClick={() => setPicker("location")}
-                className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2.5 press text-left"
+                className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-body press text-left"
                 style={{
                   borderColor: selectedLocation ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
                   backgroundColor: "var(--color-paper-2)",
@@ -634,11 +835,11 @@ function AssignModal({
                 <MapPin className="size-4 shrink-0" style={{ color: selectedLocation ? "var(--color-ink-700)" : "var(--color-signal)" }} />
                 <div className="min-w-0 flex-1">
                   {selectedLocation ? (
-                    <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {selectedLocation.name}
                     </p>
                   ) : (
-                    <p className="text-[0.75rem] font-medium" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-section font-medium" style={{ color: "var(--color-ink-500)" }}>
                       Tap to select…
                     </p>
                   )}
@@ -649,13 +850,13 @@ function AssignModal({
 
             {/* Project — tappable selector card */}
             <div>
-              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Project (optional)
               </label>
               <button
                 type="button"
                 onClick={() => setPicker("project")}
-                className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2.5 press text-left"
+                className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-body press text-left"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper-2)",
@@ -664,11 +865,11 @@ function AssignModal({
                 <Package className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} />
                 <div className="min-w-0 flex-1">
                   {selectedProject ? (
-                    <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                       {selectedProject.name}
                     </p>
                   ) : (
-                    <p className="text-[0.75rem] font-medium" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-section font-medium" style={{ color: "var(--color-ink-500)" }}>
                       No project linkage
                     </p>
                   )}
@@ -679,7 +880,7 @@ function AssignModal({
 
             {/* Notes */}
             <div>
-              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Notes (optional)
               </label>
               <textarea
@@ -687,7 +888,7 @@ function AssignModal({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. Deployed for foundation work"
                 rows={2}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -695,7 +896,7 @@ function AssignModal({
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {submitting ? (
@@ -776,8 +977,8 @@ function PickerSheet({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -795,7 +996,7 @@ function PickerSheet({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
+              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -806,7 +1007,7 @@ function PickerSheet({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+              <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
             </div>
           ) : (
             filtered.map((item, i) => {
@@ -815,7 +1016,7 @@ function PickerSheet({
                 <button
                   key={item.id || i}
                   onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
                   style={{
                     backgroundColor: isSelected ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
                     borderBottom: "1px solid var(--color-line)",
@@ -823,13 +1024,13 @@ function PickerSheet({
                 >
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-[0.75rem] font-bold truncate"
+                      className="text-m-section font-bold truncate"
                       style={{ color: isSelected ? "var(--color-ink-950)" : "var(--color-ink-900)" }}
                     >
                       {item.label}
                     </p>
                     {item.sub ? (
-                      <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                         {item.sub}
                       </p>
                     ) : null}
@@ -902,8 +1103,8 @@ function MaintenanceModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Record Maintenance</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Record Maintenance</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -911,7 +1112,7 @@ function MaintenanceModal({
         <div className="p-3 flex flex-col gap-3">
           {/* Type */}
           <div>
-            <label className="text-[0.4375rem] font-semibold uppercase block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold uppercase block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
               Type
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -922,7 +1123,7 @@ function MaintenanceModal({
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
-                    className="rounded-[0.375rem] py-1.5 text-[0.5625rem] font-bold press"
+                    className="rounded-[0.375rem] py-1.5 text-m-caption font-bold text-m-body press"
                     style={
                       active
                         ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
@@ -939,7 +1140,7 @@ function MaintenanceModal({
           {/* Cost + Vendor */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Cost (optional)
               </label>
               <div className="relative">
@@ -951,13 +1152,13 @@ function MaintenanceModal({
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
+                  className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
             <div>
-              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Vendor (optional)
               </label>
               <input
@@ -965,7 +1166,7 @@ function MaintenanceModal({
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
                 placeholder="e.g. ABC Services"
-                className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-medium outline-none"
+                className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-medium outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -973,7 +1174,7 @@ function MaintenanceModal({
 
           {/* Notes */}
           <div>
-            <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Notes (optional)
             </label>
             <textarea
@@ -981,7 +1182,7 @@ function MaintenanceModal({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Oil change + filter replacement"
               rows={2}
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -989,7 +1190,7 @@ function MaintenanceModal({
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (

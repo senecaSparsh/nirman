@@ -110,9 +110,9 @@ export function VehicleCapture({
     }
   }
 
-  const labelSize = compact ? "text-[0.4375rem]" : "text-[0.5rem]";
+  const labelSize = compact ? "text-m-caption" : "text-m-caption";
   const inputHeight = compact ? "h-8" : "h-9";
-  const fontSize = compact ? "text-[0.5625rem]" : "text-[0.6875rem]";
+  const fontSize = compact ? "text-m-caption" : "text-m-body";
 
   return (
     <div className="space-y-1.5">
@@ -144,7 +144,7 @@ export function VehicleCapture({
                   className="w-full text-left px-2 py-1.5 hover:bg-[color-mix(in_srgb,var(--color-signal)_8%,transparent)]"
                 >
                   <div className={`${fontSize} font-mono font-bold`} style={{ color: "var(--color-ink-950)" }}>{s.vehicleNumber}</div>
-                  <div className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {s.vehicleType}{s.driverName ? ` · ${s.driverName}` : ""}
                   </div>
                 </button>
@@ -204,8 +204,8 @@ export function VehicleCapture({
             >
               <X className="size-3" style={{ color: "var(--color-paper)" }} />
             </button>
-            <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-              <span className="text-[0.4375rem] font-semibold text-white">✓ Vehicle photo</span>
+            <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5" style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}>
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-paper)" }}>✓ Vehicle photo</span>
             </div>
           </div>
         ) : (
@@ -232,7 +232,7 @@ function VehiclePhotoButton({ uploading, onUpload, compact }: { uploading: boole
         ) : (
           <>
             <Camera className="size-3" />
-            <span className={`${compact ? "text-[0.5rem]" : "text-[0.5625rem]"} font-semibold`}>Upload vehicle photo</span>
+            <span className={`${compact ? "text-m-caption" : "text-m-caption"} font-semibold`}>Upload vehicle photo</span>
           </>
         )}
       </button>

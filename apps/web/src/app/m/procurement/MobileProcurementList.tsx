@@ -3,11 +3,12 @@
 import { useState, useMemo, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { AlertTriangle, FileText, Check, X, Copy, Share2, Eye } from "lucide-react";
+import { AlertTriangle, FileText, Check, X, Copy, Share2, Eye, Printer, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatDate, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import { MobileContextMenu, type ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { useLongPress } from "@/lib/use-long-press";
@@ -46,6 +47,19 @@ export type ProcurementListItem = {
   isOverdue: boolean;
 };
 
+export type DirectPurchaseListItem = {
+  id: string;
+  billNumber: string;
+  supplierName: string;
+  locationName: string;
+  billDate: string;
+  billAmount: number;
+  status: "COMPLETED" | "CANCELLED";
+  lineCount: number;
+};
+
+type ProcurementTab = "purchase-orders" | "cash-purchases";
+
 const FILTER_CHIPS: { label: string; value: PoStatus }[] = [
   { label: "All", value: "ALL" },
   { label: "Draft", value: "DRAFT" },
@@ -69,12 +83,16 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 export function MobileProcurementList(props: {
   items: ProcurementListItem[];
   canCreate?: boolean;
+  canApprove?: boolean;
+  draftCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  directPurchases?: DirectPurchaseListItem[];
+  directPurchaseExportRows?: Record<string, unknown>[];
 }) {
   // Wrap in Suspense — useSearchParams requires it
   return (
@@ -87,22 +105,31 @@ export function MobileProcurementList(props: {
 function MobileProcurementListInner({
   items: initialItems,
   canCreate,
+  canApprove,
+  draftCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
   exportSummary,
+  directPurchases = [],
+  directPurchaseExportRows,
 }: {
   items: ProcurementListItem[];
   canCreate?: boolean;
+  canApprove?: boolean;
+  draftCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  directPurchases?: DirectPurchaseListItem[];
+  directPurchaseExportRows?: Record<string, unknown>[];
 }) {
+  const [tab, setTab] = useState<ProcurementTab>("purchase-orders");
   // URL-persistent filters — survive navigation away and back
   const [query, setQuery] = useUrlQuery("q", "");
   const [statusFilter, setStatusFilter] = useUrlFilter<PoStatus>("status", "ALL");
@@ -131,9 +158,93 @@ function MobileProcurementListInner({
     return result;
   }, [items, query, statusFilter]);
 
-  if (items.length === 0) {
+  // Filter direct purchases by search query
+  const filteredDirectPurchases = useMemo(() => {
+    if (!query.trim()) return directPurchases;
+    const q = query.toLowerCase();
+    return directPurchases.filter(
+      (d) =>
+        d.billNumber.toLowerCase().includes(q) ||
+        d.supplierName.toLowerCase().includes(q),
+    );
+  }, [directPurchases, query]);
+
+  // ── Cash Purchases tab ──
+  if (tab === "cash-purchases") {
     return (
       <div>
+        <MobileSearchHeader
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Search bill no, supplier…"
+          action={
+            <div className="flex items-center gap-1 shrink-0">
+              {directPurchaseExportRows && directPurchaseExportRows.length > 0 ? (
+                <MobileExportShareIcons
+                  title="Cash Purchases"
+                  rows={directPurchaseExportRows}
+                  columns={[
+                    { key: "billNumber", label: "Bill Number" },
+                    { key: "supplierName", label: "Supplier" },
+                    { key: "locationName", label: "Location" },
+                    { key: "billAmount", label: "Amount", format: "currency" },
+                    { key: "billDate", label: "Date", format: "date" },
+                    { key: "status", label: "Status" },
+                  ] as MobileColumnSpec[]}
+                  summary={`${directPurchases.length} cash purchases`}
+                />
+              ) : null}
+            </div>
+          }
+          showClear={!!query && filteredDirectPurchases.length > 0}
+          onClear={() => setQuery("")}
+        />
+
+        {/* Tab switcher */}
+        <TabSwitcher tab={tab} setTab={setTab} poCount={items.length} dpCount={directPurchases.length} />
+
+        {directPurchases.length === 0 ? (
+          <MobileEmptyState
+            icon={ShoppingCart}
+            title="No cash purchases"
+            hint="Direct cash purchases from the local market will appear here"
+          />
+        ) : filteredDirectPurchases.length === 0 ? (
+          <MobileNoResults
+            title="No cash purchases found"
+            query={query || undefined}
+            hint="No cash purchases match your search."
+          />
+        ) : (
+          <div>
+            {query && (
+              <div className="flex items-center justify-end mb-1.5">
+                <span
+                  className="text-m-label font-semibold"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  {filteredDirectPurchases.length} Cash Purchase
+                  {filteredDirectPurchases.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+            <MobileCardGrid cols={2}>
+              {filteredDirectPurchases.map((dp) => (
+                <DirectPurchaseCard key={dp.id} dp={dp} />
+              ))}
+            </MobileCardGrid>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Purchase Orders tab (default) ──
+  if (items.length === 0 && directPurchases.length === 0) {
+    return (
+      <div>
+        <TabSwitcher tab={tab} setTab={setTab} poCount={items.length} dpCount={directPurchases.length} />
+        <PageLead flow="procurement" />
         <MobileEmptyState
           icon={FileText}
           title="No purchase orders"
@@ -179,6 +290,16 @@ function MobileProcurementListInner({
         }}
       />
 
+      <TabSwitcher tab={tab} setTab={setTab} poCount={items.length} dpCount={directPurchases.length} />
+
+      {/* ── Orientation: what is this page + what to do next ── */}
+      <PageLead flow="procurement" />
+      <NextActionCard
+        flow="procurement"
+        count={draftCount}
+        can={(perm) => perm === "PO_APPROVE" ? !!canApprove : false}
+      />
+
       {/* ── Results ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
@@ -191,7 +312,7 @@ function MobileProcurementListInner({
           {(query || statusFilter !== "ALL") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {filtered.length} Purchase Order
@@ -215,6 +336,128 @@ function MobileProcurementListInner({
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Tab Switcher ── */
+function TabSwitcher({
+  tab,
+  setTab,
+  poCount,
+  dpCount,
+}: {
+  tab: ProcurementTab;
+  setTab: (t: ProcurementTab) => void;
+  poCount: number;
+  dpCount: number;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1 p-0.5 rounded-[0.5rem] mb-2"
+      style={{ backgroundColor: "var(--color-concrete)" }}
+    >
+      <button
+        onClick={() => { haptic(5); setTab("purchase-orders"); }}
+        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.375rem] text-m-label font-bold transition-colors text-m-body press"
+        style={{
+          backgroundColor: tab === "purchase-orders" ? "var(--color-paper)" : "transparent",
+          color: tab === "purchase-orders" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          boxShadow: tab === "purchase-orders" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+        }}
+      >
+        <FileText className="size-3" />
+        POs
+        <span className="text-m-caption tabular-nums opacity-70">{poCount}</span>
+      </button>
+      <button
+        onClick={() => { haptic(5); setTab("cash-purchases"); }}
+        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.375rem] text-m-label font-bold transition-colors text-m-body press"
+        style={{
+          backgroundColor: tab === "cash-purchases" ? "var(--color-paper)" : "transparent",
+          color: tab === "cash-purchases" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          boxShadow: tab === "cash-purchases" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+        }}
+      >
+        <ShoppingCart className="size-3" />
+        Cash
+        <span className="text-m-caption tabular-nums opacity-70">{dpCount}</span>
+      </button>
+    </div>
+  );
+}
+
+/* ── Direct Purchase Card ── */
+function DirectPurchaseCard({ dp }: { dp: DirectPurchaseListItem }) {
+  const isCancelled = dp.status === "CANCELLED";
+  const accentColor = isCancelled ? "var(--color-stop)" : "var(--color-go)";
+
+  return (
+    <a
+      href={`/print/direct-purchase/${dp.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
+      style={{
+        borderColor: "var(--color-line)",
+        backgroundColor: "var(--color-paper)",
+      }}
+    >
+      {/* Top accent strip */}
+      <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
+
+      <div className="p-2 flex flex-col gap-1 flex-1">
+        {/* Row 1: Bill number + status */}
+        <div className="flex items-center justify-between gap-1">
+          <span
+            className="text-m-body font-mono font-bold truncate"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {dp.billNumber}
+          </span>
+          <span
+            className="text-m-caption font-bold uppercase shrink-0"
+            style={{ color: accentColor }}
+          >
+            {isCancelled ? "Cancelled" : "Paid"}
+          </span>
+        </div>
+
+        {/* Row 2: Supplier name */}
+        <p
+          className="text-m-body font-bold leading-tight truncate"
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          {dp.supplierName}
+        </p>
+
+        {/* Row 3: Amount + date */}
+        <div className="flex items-center justify-between gap-1">
+          <span
+            className="text-m-body font-bold tabular-nums"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {formatCurrencyCompact(dp.billAmount)}
+          </span>
+          <span
+            className="text-m-caption tabular-nums"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {formatDate(dp.billDate)}
+          </span>
+        </div>
+
+        {/* Row 4: Location + print icon */}
+        <div className="mt-auto pt-1 h-[1.75rem] flex items-center justify-between">
+          <span
+            className="text-m-caption truncate"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            {dp.locationName} · {dp.lineCount} item{dp.lineCount !== 1 ? "s" : ""}
+          </span>
+          <Printer className="size-3 shrink-0" style={{ color: "var(--color-brand)" }} />
+        </div>
+      </div>
+    </a>
   );
 }
 
@@ -347,7 +590,7 @@ function PoCard({
   const card = (
     <Link
       href={`/m/procurement/${po.id}`}
-      className="flex flex-col rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -360,13 +603,13 @@ function PoCard({
         {/* Row 1: PO number + status label */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.6875rem] font-mono font-bold truncate"
+            className="text-m-body font-mono font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {po.poNumber}
           </span>
           <span
-            className="text-[0.5625rem] font-bold uppercase shrink-0"
+            className="text-m-caption font-bold uppercase shrink-0"
             style={{ color: accentColor }}
           >
             {isOverdue ? "Overdue" : style.label}
@@ -375,7 +618,7 @@ function PoCard({
 
         {/* Row 2: Supplier name */}
         <p
-          className="text-[0.6875rem] font-bold leading-tight truncate"
+          className="text-m-body font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
           {po.supplierName}
@@ -384,21 +627,21 @@ function PoCard({
         {/* Row 3: Total + delivery */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-[0.6875rem] font-bold tabular-nums"
+            className="text-m-body font-bold tabular-nums"
             style={{ color: "var(--color-ink-950)" }}
           >
-            {formatCurrency(po.total)}
+            {formatCurrencyCompact(po.total)}
           </span>
           {deliveryText ? (
             <span
-              className="text-[0.5625rem] font-bold tabular-nums"
+              className="text-m-caption font-bold tabular-nums"
               style={{ color: deliveryColor }}
             >
               {deliveryText}
             </span>
           ) : po.status === "DRAFT" ? (
             <span
-              className="text-[0.5625rem]"
+              className="text-m-caption"
               style={{ color: "var(--color-ink-500)" }}
             >
               {formatDate(po.createdAt)}
@@ -412,13 +655,13 @@ function PoCard({
             <div className="w-full">
               <div className="flex items-center justify-between mb-0.5">
                 <span
-                  className="text-[0.5rem]"
+                  className="text-m-caption"
                   style={{ color: "var(--color-ink-500)" }}
                 >
                   Received
                 </span>
                 <span
-                  className="text-[0.5rem] font-bold tabular-nums"
+                  className="text-m-caption font-bold tabular-nums"
                   style={{ color: "var(--color-ink-700)" }}
                 >
                   {formatNumber(po.qtyReceived, 0)}/
@@ -448,7 +691,7 @@ function PoCard({
                 style={{ color: "var(--color-stop)" }}
               />
               <span
-                className="text-[0.5rem] font-semibold"
+                className="text-m-caption font-semibold"
                 style={{ color: "var(--color-stop)" }}
               >
                 Awaiting receipt

@@ -51,7 +51,8 @@ export function ReceiptActions({
       <button
         type="button"
         onClick={handlePrint}
-        className="flex items-center justify-center gap-1.5 rounded-[0.625rem] bg-black px-4 py-2.5 text-[0.875rem] font-semibold text-white press active:scale-95"
+        className="flex items-center justify-center gap-1.5 rounded-[0.625rem] px-4 py-2.5 text-m-section font-semibold text-m-body press active:scale-95"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         <Printer className="size-4" />
         Print / PDF
@@ -59,7 +60,7 @@ export function ReceiptActions({
       <button
         type="button"
         onClick={handleShare}
-        className="flex items-center justify-center gap-1.5 rounded-[0.625rem] border px-4 py-2.5 text-[0.875rem] font-semibold press active:scale-95"
+        className="flex items-center justify-center gap-1.5 rounded-[0.625rem] border px-4 py-2.5 text-m-section font-semibold text-m-body press active:scale-95"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
       >
         {sharing ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}

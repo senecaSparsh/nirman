@@ -164,7 +164,7 @@ export function MobileNewChangeOrderDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
       <div
         className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}
@@ -173,9 +173,9 @@ export function MobileNewChangeOrderDialog({
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-2">
             <GitBranch className="size-4" style={{ color: "var(--color-ink-950)" }} />
-            <h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>New Change Order</h2>
+            <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>New Change Order</h2>
           </div>
-          <button onClick={onClose} className="press">
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -183,11 +183,11 @@ export function MobileNewChangeOrderDialog({
         <div className="p-4 space-y-4">
           {/* Project */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
             <select
               value={form.projectId}
               onChange={(e) => set("projectId", e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
               {projects.map((p) => (
@@ -198,25 +198,25 @@ export function MobileNewChangeOrderDialog({
 
           {/* Title */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
             <input
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
               placeholder="e.g. Additional waterproofing for basement"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={2}
               placeholder="Detailed description of the change…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -224,22 +224,22 @@ export function MobileNewChangeOrderDialog({
           {/* Type + Reason */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
               <select
                 value={form.type}
                 onChange={(e) => set("type", e.target.value as ChangeOrderType)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reason</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reason</label>
               <select
                 value={form.reason}
                 onChange={(e) => set("reason", e.target.value as ChangeOrderReason)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 {REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -250,23 +250,23 @@ export function MobileNewChangeOrderDialog({
           {/* Schedule delta + Initiated by */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Schedule Δ (days)</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Schedule Δ (days)</label>
               <input
                 type="number"
                 value={form.scheduleDeltaDays}
                 onChange={(e) => set("scheduleDeltaDays", e.target.value)}
                 placeholder="0"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Initiated By</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Initiated By</label>
               <input
                 value={form.initiatedBy}
                 onChange={(e) => set("initiatedBy", e.target.value)}
                 placeholder="Client / Architect / …"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -275,8 +275,8 @@ export function MobileNewChangeOrderDialog({
           {/* Lines */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[0.625rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Line Items</label>
-              <button onClick={addLine} className="press flex items-center gap-1 text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <label className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Line Items</label>
+              <button onClick={addLine} className="text-m-body press flex items-center gap-1 text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                 <Plus className="size-3" /> Add Line
               </button>
             </div>
@@ -284,9 +284,9 @@ export function MobileNewChangeOrderDialog({
               {lines.map((l, i) => (
                 <div key={i} className="rounded-[0.5rem] border p-2 space-y-1.5" style={{ borderColor: "var(--color-line)" }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-500)" }}>Line {i + 1}</span>
+                    <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>Line {i + 1}</span>
                     {lines.length > 1 && (
-                      <button onClick={() => removeLine(i)} className="press">
+                      <button onClick={() => removeLine(i)} className="text-m-body press">
                         <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                       </button>
                     )}
@@ -295,7 +295,7 @@ export function MobileNewChangeOrderDialog({
                     value={l.description}
                     onChange={(e) => updateLine(i, { description: e.target.value })}
                     placeholder="Description"
-                    className="w-full h-8 rounded-[0.375rem] border px-2 text-[0.625rem]"
+                    className="w-full h-8 rounded-[0.375rem] border px-2 text-m-label"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                   <div className="grid grid-cols-4 gap-1">
@@ -304,7 +304,7 @@ export function MobileNewChangeOrderDialog({
                       value={l.originalQty}
                       onChange={(e) => updateLine(i, { originalQty: e.target.value })}
                       placeholder="Old Qty"
-                      className="h-8 rounded-[0.375rem] border px-1.5 text-[0.625rem] tabular-nums"
+                      className="h-8 rounded-[0.375rem] border px-1.5 text-m-label tabular-nums"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                     />
                     <input
@@ -312,14 +312,14 @@ export function MobileNewChangeOrderDialog({
                       value={l.revisedQty}
                       onChange={(e) => updateLine(i, { revisedQty: e.target.value })}
                       placeholder="New Qty"
-                      className="h-8 rounded-[0.375rem] border px-1.5 text-[0.625rem] tabular-nums"
+                      className="h-8 rounded-[0.375rem] border px-1.5 text-m-label tabular-nums"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                     />
                     <input
                       value={l.unit}
                       onChange={(e) => updateLine(i, { unit: e.target.value })}
                       placeholder="Unit"
-                      className="h-8 rounded-[0.375rem] border px-1.5 text-[0.625rem]"
+                      className="h-8 rounded-[0.375rem] border px-1.5 text-m-label"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                     />
                     <input
@@ -327,7 +327,7 @@ export function MobileNewChangeOrderDialog({
                       value={l.rate}
                       onChange={(e) => updateLine(i, { rate: e.target.value })}
                       placeholder="Rate"
-                      className="h-8 rounded-[0.375rem] border px-1.5 text-[0.625rem] tabular-nums"
+                      className="h-8 rounded-[0.375rem] border px-1.5 text-m-label tabular-nums"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                     />
                   </div>
@@ -341,9 +341,9 @@ export function MobileNewChangeOrderDialog({
             className="rounded-[0.5rem] p-3 flex items-center justify-between"
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
-            <span className="text-[0.625rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost Delta</span>
+            <span className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost Delta</span>
             <span
-              className="text-[0.875rem] font-bold tabular-nums"
+              className="text-m-section font-bold tabular-nums"
               style={{ color: costDelta > 0 ? "var(--color-stop)" : costDelta < 0 ? "var(--color-go)" : "var(--color-ink-950)" }}
             >
               {costDelta > 0 ? "+" : ""}{formatCurrency(costDelta)}
@@ -352,13 +352,13 @@ export function MobileNewChangeOrderDialog({
 
           {/* Notes */}
           <div>
-            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes (optional)</label>
+            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes (optional)</label>
             <textarea
               value={form.notes}
               onChange={(e) => set("notes", e.target.value)}
               rows={2}
               placeholder="Additional notes…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -367,7 +367,7 @@ export function MobileNewChangeOrderDialog({
           <div className="flex gap-2 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press"
+              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               Cancel
@@ -375,7 +375,7 @@ export function MobileNewChangeOrderDialog({
             <button
               onClick={onSave}
               disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}

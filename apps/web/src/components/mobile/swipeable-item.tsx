@@ -46,7 +46,7 @@ export function SwipeableListItem({
               action.onPress();
               close();
             }}
-            className="flex items-center justify-center text-[0.6875rem] font-bold text-center px-1 leading-tight"
+            className="flex items-center justify-center text-m-body font-bold text-center px-1 leading-tight"
             style={{
               width: `${actionWidth}px`,
               backgroundColor: action.color,

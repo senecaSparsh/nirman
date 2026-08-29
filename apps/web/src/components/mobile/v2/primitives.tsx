@@ -33,9 +33,9 @@ const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  md: "h-11 px-4 text-[0.75rem]",
-  lg: "h-12 px-5 text-[0.875rem]",
-  xl: "h-14 px-6 text-[1.0625rem] font-bold",
+  md: "h-11 px-4 text-m-section",
+  lg: "h-12 px-5 text-m-section",
+  xl: "h-14 px-6 text-m-section font-bold",
 };
 
 export function Button({
@@ -173,8 +173,16 @@ export function SectionHead({
 export function ActionBar({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-sm px-4 pt-2.5 pb-safe"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-paper) 95%, transparent)", borderColor: "var(--color-line)" }}
+      className="fixed inset-x-0 bottom-0 z-40 px-4 pt-2.5 pb-safe"
+      style={{
+        /* Apple §12 — match the bottom nav's translucent material so
+           stacked bars (nav + action) read as one glass layer, not two
+           different surfaces. */
+        backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        borderTop: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
+      }}
     >
       <div className="mx-auto w-full max-w-[34rem]">{children}</div>
     </div>
@@ -246,12 +254,12 @@ export function MobileRow({
       </div>
       {badge}
       {meta && (
-        <div className="shrink-0 text-right">
-          <p className="text-m-strong tabular-nums" style={{ color: toneColor }}>
+        <div className="shrink-0 text-right max-w-[40%]">
+          <p className="text-m-strong tabular-nums truncate" style={{ color: toneColor }}>
             {meta}
           </p>
           {metaSub && (
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-300)" }}>
+            <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-300)" }}>
               {metaSub}
             </p>
           )}
@@ -261,7 +269,7 @@ export function MobileRow({
     </>
   );
 
-  const cls = "flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press";
+  const cls = "flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press";
 
   if (href) {
     return (
@@ -303,17 +311,17 @@ export function MobileStatCard({
 
   const body = (
     <>
-      <p className="text-m-label mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-label mb-1 truncate" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
-      <p className="text-m-figure" style={{ color: toneColor }}>
+      <p className="text-m-figure truncate" style={{ color: toneColor }}>
         {value}
       </p>
-      {hint && <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
+      {hint && <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
     </>
   );
 
-  const cls = "rounded-[0.625rem] border p-2.5 press";
+  const cls = "rounded-[0.5rem] border p-2 text-m-body press overflow-hidden min-w-0";
 
   if (href) {
     return (
@@ -408,14 +416,14 @@ export function MobileNoAccess({
         {permission ? (
           <>
             {" "}
-            (<span className="font-mono text-[0.625rem]">{permission}</span>)
+            (<span className="font-mono text-m-label">{permission}</span>)
           </>
         ) : null}
         .
       </p>
       <Link
         href="/m/home"
-        className="mt-3 inline-flex items-center justify-center h-11 px-4 rounded-[0.5rem] text-[0.75rem] font-semibold press"
+        className="mt-3 inline-flex items-center justify-center h-11 px-4 rounded-[0.5rem] text-m-section font-semibold text-m-body press"
         style={{
           backgroundColor: "var(--color-concrete)",
           color: "var(--color-ink-950)",
@@ -450,7 +458,7 @@ export function MobileCta({
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 rounded-[0.625rem] border-2 p-2.5 font-semibold press"
+      className="flex items-center gap-2.5 rounded-[0.625rem] border-2 p-2.5 text-m-body font-semibold text-m-body press"
       style={styles[variant]}
     >
       <Icon className="size-4 shrink-0" />
@@ -535,7 +543,7 @@ export function mobileStatusColor(status: string, variant: "base" | "wash" | "da
  * tokens and inline styles that the /m surface uses.
  *
  * Dots are 14px (slightly smaller than desktop's 16px to fit mobile
- * density), labels are text-[0.5625rem], connectors are 12px wide.
+ * density), labels are text-m-caption, connectors are 12px wide.
  */
 export type MobilePipelineStep = {
   label: string;
@@ -606,7 +614,7 @@ export function MobilePipelineStepper({
         return (
           <div key={i} className="flex items-center">
             {step.href && step.state !== "pending" ? (
-              <a href={step.href} className="flex items-center press">
+              <a href={step.href} className="flex items-center text-m-body press">
                 {content}
               </a>
             ) : (

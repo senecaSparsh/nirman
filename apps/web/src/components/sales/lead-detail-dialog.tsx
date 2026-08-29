@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarClock, CheckCircle2, MessageSquarePlus, Phone, UserRoundCheck } from "lucide-react";
+import { CalendarClock, CheckCircle2, MessageSquarePlus, Phone, Trash2, UserRoundCheck } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -109,6 +109,24 @@ export function LeadDetailDialog({
     }
   }
 
+  async function handleDelete() {
+    if (!lead) return;
+    if (!window.confirm(`Delete lead "${lead.name}"?`)) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Failed to delete lead");
+      toast.success("Lead deleted");
+      onOpenChange(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete lead");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function convertAndBook() {
     if (!lead) return;
     setSaving(true);
@@ -146,10 +164,17 @@ export function LeadDetailDialog({
       title={current.name}
       description={`${current.phone} · ${current.projectName ?? "Project not selected"}`}
       size="lg"
-      action={canManage && canConvert ? (
-        <Button size="sm" onClick={convertAndBook} disabled={saving}>
-          <UserRoundCheck className="size-4" /> Convert & book
-        </Button>
+      action={canManage ? (
+        <div className="flex items-center gap-2">
+          {canConvert && (
+            <Button size="sm" onClick={convertAndBook} disabled={saving}>
+              <UserRoundCheck className="size-4" /> Convert & book
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDelete} disabled={saving}>
+            <Trash2 className="size-4" /> Delete
+          </Button>
+        </div>
       ) : undefined}
     >
       {loading ? (

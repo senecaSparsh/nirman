@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
-import { Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
+import { Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, AlertTriangle, Pencil } from "lucide-react";
 
 interface NcrDetail {
   id: string;
@@ -72,6 +72,10 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
   const [verifyForm, setVerifyForm] = useState({ verificationMethod: "", verificationNotes: "", effective: true });
   const [showCapaClose, setShowCapaClose] = useState(false);
   const [capaClosureNotes, setCapaClosureNotes] = useState("");
+  const [showEditNcr, setShowEditNcr] = useState(false);
+  const [editNcrForm, setEditNcrForm] = useState({ title: "", description: "", category: "OTHER", severity: "MINOR", location: "", responsibleParty: "" });
+  const [showEditCapa, setShowEditCapa] = useState(false);
+  const [editCapaForm, setEditCapaForm] = useState({ rootCause: "", correctiveAction: "", preventiveAction: "", correctiveDueDate: "", preventiveDueDate: "" });
 
   async function ncrAction(action: string, extra?: Record<string, unknown>) {
     setActing(action);
@@ -116,6 +120,62 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       toast.success("CAPA created"); setShowCapa(false); router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally { setActing(null); }
+  }
+
+  async function saveNcrEdit() {
+    if (!editNcrForm.title.trim() || !editNcrForm.description.trim()) {
+      toast.error("Title and description are required"); return;
+    }
+    setActing("editNcr");
+    try {
+      const res = await fetch(`/api/quality-control/ncr/${ncr.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editNcrForm.title.trim(),
+          description: editNcrForm.description.trim(),
+          category: editNcrForm.category,
+          severity: editNcrForm.severity,
+          location: editNcrForm.location.trim() || null,
+          responsibleParty: editNcrForm.responsibleParty.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update NCR");
+      toast.success("NCR updated");
+      setShowEditNcr(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally { setActing(null); }
+  }
+
+  async function saveCapaEdit() {
+    if (!ncr.capa) return;
+    if (!editCapaForm.rootCause.trim() || !editCapaForm.correctiveAction.trim() || !editCapaForm.preventiveAction.trim()) {
+      toast.error("Root cause, corrective action, and preventive action are all required"); return;
+    }
+    setActing("editCapa");
+    try {
+      const res = await fetch(`/api/quality-control/capa/${ncr.capa.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rootCause: editCapaForm.rootCause.trim(),
+          correctiveAction: editCapaForm.correctiveAction.trim(),
+          preventiveAction: editCapaForm.preventiveAction.trim(),
+          correctiveDueDate: editCapaForm.correctiveDueDate || null,
+          preventiveDueDate: editCapaForm.preventiveDueDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to update CAPA");
+      toast.success("CAPA updated");
+      setShowEditCapa(false);
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally { setActing(null); }
@@ -195,6 +255,21 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
       {/* NCR actions */}
       {canManage && (
         <div className="flex flex-wrap gap-2">
+          {ncr.status === "OPEN" && (
+            <Button variant="outline" onClick={() => {
+              setEditNcrForm({
+                title: ncr.title,
+                description: ncr.description,
+                category: ncr.category,
+                severity: ncr.severity,
+                location: ncr.location ?? "",
+                responsibleParty: ncr.responsibleParty ?? "",
+              });
+              setShowEditNcr(true);
+            }} disabled={acting !== null}>
+              <Pencil className="mr-1 h-4 w-4" /> Edit
+            </Button>
+          )}
           {(ncr.status === "OPEN" || ncr.status === "UNDER_REVIEW") && (
             <Button onClick={() => setShowReview(true)} disabled={acting === "review"}>
               {acting === "review" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />} Review
@@ -225,6 +300,20 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
       {/* CAPA actions */}
       {canManage && ncr.capa && (
         <div className="flex flex-wrap gap-2">
+          {(ncr.capa.status === "DRAFT" || ncr.capa.status === "IN_PROGRESS") && (
+            <Button variant="outline" onClick={() => {
+              setEditCapaForm({
+                rootCause: ncr.capa!.rootCause,
+                correctiveAction: ncr.capa!.correctiveAction,
+                preventiveAction: ncr.capa!.preventiveAction,
+                correctiveDueDate: ncr.capa!.correctiveDueDate ? ncr.capa!.correctiveDueDate.split("T")[0] ?? "" : "",
+                preventiveDueDate: ncr.capa!.preventiveDueDate ? ncr.capa!.preventiveDueDate.split("T")[0] ?? "" : "",
+              });
+              setShowEditCapa(true);
+            }} disabled={acting !== null}>
+              <Pencil className="mr-1 h-4 w-4" /> Edit CAPA
+            </Button>
+          )}
           {ncr.capa.status === "DRAFT" && (
             <Button onClick={() => capaAction("start")} disabled={acting === "start"}>
               {acting === "start" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Play className="mr-1 h-4 w-4" />} Start CAPA
@@ -360,6 +449,78 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
               <Button variant="ghost" onClick={() => setShowCapaClose(false)}>Cancel</Button>
               <Button onClick={() => { if (!capaClosureNotes.trim()) { toast.error("Closure notes required"); return; } capaAction("close", { closureNotes: capaClosureNotes }); }} disabled={acting === "close"}>
                 {acting === "close" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />} Confirm Closure
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {showEditNcr && (
+        <Dialog open={showEditNcr} onOpenChange={setShowEditNcr} title="Edit NCR" description="Update the non-conformance report details." size="lg">
+          <div className="space-y-3">
+            <Field label="Title" required>
+              <Input value={editNcrForm.title} onChange={(e) => setEditNcrForm((f) => ({ ...f, title: e.target.value }))} />
+            </Field>
+            <Field label="Description" required>
+              <Textarea value={editNcrForm.description} onChange={(e) => setEditNcrForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Category" required>
+                <select className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm" value={editNcrForm.category} onChange={(e) => setEditNcrForm((f) => ({ ...f, category: e.target.value }))}>
+                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </Field>
+              <Field label="Severity" required>
+                <select className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm" value={editNcrForm.severity} onChange={(e) => setEditNcrForm((f) => ({ ...f, severity: e.target.value }))}>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="MAJOR">Major</option>
+                  <option value="MINOR">Minor</option>
+                  <option value="OBSERVATION">Observation</option>
+                </select>
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Location">
+                <Input value={editNcrForm.location} onChange={(e) => setEditNcrForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Block A, 3rd floor" />
+              </Field>
+              <Field label="Responsible Party">
+                <Input value={editNcrForm.responsibleParty} onChange={(e) => setEditNcrForm((f) => ({ ...f, responsibleParty: e.target.value }))} placeholder="e.g. ABC Contractors" />
+              </Field>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowEditNcr(false)}>Cancel</Button>
+              <Button onClick={saveNcrEdit} disabled={acting === "editNcr"}>
+                {acting === "editNcr" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />} Save Changes
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {showEditCapa && (
+        <Dialog open={showEditCapa} onOpenChange={setShowEditCapa} title="Edit CAPA" description="Update the corrective and preventive action plan." size="lg">
+          <div className="space-y-3">
+            <Field label="Root Cause" required>
+              <Textarea value={editCapaForm.rootCause} onChange={(e) => setEditCapaForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} />
+            </Field>
+            <Field label="Corrective Action" required>
+              <Textarea value={editCapaForm.correctiveAction} onChange={(e) => setEditCapaForm((f) => ({ ...f, correctiveAction: e.target.value }))} rows={2} />
+            </Field>
+            <Field label="Preventive Action" required>
+              <Textarea value={editCapaForm.preventiveAction} onChange={(e) => setEditCapaForm((f) => ({ ...f, preventiveAction: e.target.value }))} rows={2} />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Corrective Due Date">
+                <Input type="date" value={editCapaForm.correctiveDueDate} onChange={(e) => setEditCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} />
+              </Field>
+              <Field label="Preventive Due Date">
+                <Input type="date" value={editCapaForm.preventiveDueDate} onChange={(e) => setEditCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} />
+              </Field>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowEditCapa(false)}>Cancel</Button>
+              <Button onClick={saveCapaEdit} disabled={acting === "editCapa"}>
+                {acting === "editCapa" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />} Save CAPA
               </Button>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Wallet, Printer } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -82,7 +82,7 @@ export function MobileReceiptsList({
               icon={r.kind === "MATERIAL" ? Printer : Wallet}
               title={r.customerName}
               subtitle={`${formatDate(r.paymentDate)} · ${r.mode} · ${r.saleNumber}`}
-              meta={formatCurrency(r.amount)}
+              meta={formatCurrencyCompact(r.amount)}
               metaSub={r.kind === "MATERIAL" ? "Material Sale" : "Property Sale"}
               tone="success"
             />

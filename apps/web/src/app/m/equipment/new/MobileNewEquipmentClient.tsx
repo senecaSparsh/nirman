@@ -65,6 +65,10 @@ export default function MobileNewEquipmentClient() {
       toast.error("Equipment name is required");
       return;
     }
+    if (cost < 0) {
+      toast.error("Acquisition cost cannot be negative");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -108,19 +112,19 @@ export default function MobileNewEquipmentClient() {
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Equipment Registered
         </p>
-        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {assetTag} · {name}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => {
               router.refresh();
               router.push(`/m/equipment/${success.id}`);
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Equipment
@@ -137,7 +141,7 @@ export default function MobileNewEquipmentClient() {
               setPurchaseDate("");
               setNotes("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -168,7 +172,7 @@ export default function MobileNewEquipmentClient() {
             value={assetTag}
             onChange={(e) => setAssetTag(e.target.value)}
             placeholder="e.g. EQ-001"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-mono font-bold outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-mono font-bold outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -179,7 +183,7 @@ export default function MobileNewEquipmentClient() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Concrete Mixer 1"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-bold outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-bold outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -190,7 +194,7 @@ export default function MobileNewEquipmentClient() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="e.g. Mixer, Vehicle, Tool"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -206,7 +210,7 @@ export default function MobileNewEquipmentClient() {
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="e.g. BMX-500"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -217,7 +221,7 @@ export default function MobileNewEquipmentClient() {
             value={serialNumber}
             onChange={(e) => setSerialNumber(e.target.value)}
             placeholder="e.g. SN-12345-ABC"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-mono font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-mono font-medium outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -240,7 +244,7 @@ export default function MobileNewEquipmentClient() {
               value={acquisitionCost}
               onChange={(e) => setAcquisitionCost(e.target.value)}
               placeholder="0"
-              className="w-full rounded-[0.375rem] border pl-7 pr-2.5 py-2 text-[0.75rem] font-bold tabular-nums outline-none"
+              className="w-full rounded-[0.375rem] border pl-7 pr-2.5 py-2 text-m-section font-bold tabular-nums outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -251,7 +255,7 @@ export default function MobileNewEquipmentClient() {
             type="date"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none"
+            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -266,7 +270,7 @@ export default function MobileNewEquipmentClient() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
           rows={3}
-          className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
+          className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
@@ -283,10 +287,10 @@ export default function MobileNewEquipmentClient() {
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           {/* Summary */}
           <div className="shrink-0">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Value
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrency(cost)}
             </p>
           </div>
@@ -297,7 +301,7 @@ export default function MobileNewEquipmentClient() {
             onClick={() => { if (submitLongPress.wasLongPress()) return; handleSubmit(); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
@@ -325,7 +329,7 @@ function SectionHeader({
   return (
     <div className="flex items-center gap-1.5 mb-2">
       <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
-      <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+      <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
         {label}
       </span>
       <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -343,7 +347,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label}{required ? " *" : ""}
       </label>
       {children}

@@ -178,7 +178,7 @@ export function MobileNewQuotationClient({
   }
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none focus:ring-2";
+    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -189,10 +189,10 @@ export function MobileNewQuotationClient({
     <div className="space-y-3">
       {onClose ? (
         <div className="flex items-center gap-2 mb-2">
-          <button type="button" onClick={onClose} className="p-1 -ml-1" style={{ color: "var(--color-ink-700)" }}>
+          <button type="button" onClick={onClose} className="p-1 -ml-1" style={{ color: "var(--color-ink-700) press" }}>
             <X className="size-5" />
           </button>
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             New Quotation Request
           </p>
         </div>
@@ -206,14 +206,14 @@ export function MobileNewQuotationClient({
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <FileText className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Request Details
             </span>
           </div>
 
           {/* Title */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Title <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -246,7 +246,7 @@ export function MobileNewQuotationClient({
 
           {/* Min quotes */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Minimum quotes required
             </label>
             <input
@@ -263,7 +263,7 @@ export function MobileNewQuotationClient({
 
           {/* Required by date */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Required by date <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -278,7 +278,7 @@ export function MobileNewQuotationClient({
 
           {/* Work activity */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Work activity (optional)
             </label>
             <input
@@ -293,13 +293,13 @@ export function MobileNewQuotationClient({
 
           {/* Destination location — where should the material be delivered? */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Deliver to <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <button
               type="button"
               onClick={() => setShowLocationPicker(true)}
-              className={`${inputClass} text-left flex items-center gap-1.5`}
+              className={`${inputClass} text-left flex items-center gap-1.5 press`}
               style={inputStyle}
             >
               <MapPin className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} />
@@ -307,7 +307,7 @@ export function MobileNewQuotationClient({
                 <span className="truncate">
                   {selectedLocation.name}
                   {!selectedLocation.isCurrent ? (
-                    <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {" "}({selectedLocation.companyName})
                     </span>
                   ) : null}
@@ -317,7 +317,7 @@ export function MobileNewQuotationClient({
               )}
             </button>
             {selectedLocation ? (
-              <p className="text-[0.5rem] mt-1 flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
                 {selectedLocation.type === "PROJECT_SITE" ? <HardHat className="size-2.5" /> : <Warehouse className="size-2.5" />}
                 {selectedLocation.type === "PROJECT_SITE" ? `Project site${selectedLocation.projectName ? ` — ${selectedLocation.projectName}` : ""}` : "Warehouse"}
                 {selectedLocation.isParent ? " · Parent company" : selectedLocation.isChild ? " · Subsidiary" : ""}
@@ -327,31 +327,31 @@ export function MobileNewQuotationClient({
 
           {/* Location picker overlay */}
           {showLocationPicker ? (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowLocationPicker(false)}>
+            <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowLocationPicker(false)}>
               <div
                 className="w-full max-h-[80vh] overflow-y-auto rounded-t-[1rem] p-3 space-y-2"
                 style={{ backgroundColor: "var(--color-canvas)" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between sticky top-0 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-                  <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Select delivery location</p>
+                  <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select delivery location</p>
                   <button type="button" onClick={() => setShowLocationPicker(false)}>
-                    <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+                    <X className="size-4" style={{ color: "var(--color-ink-500) press" }} />
                   </button>
                 </div>
                 {locationGroups.map((g) => (
                   <div key={g.companyId} className="space-y-1">
                     <div className="flex items-center gap-1.5 pt-2 pb-1">
                       <Building2 className="size-3" style={{ color: "var(--color-steel)" }} />
-                      <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                      <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                         {g.companyName}
                       </span>
-                      {g.isParent ? <span className="text-[0.4375rem] px-1 rounded" style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}>PARENT</span> : null}
-                      {g.isCurrent ? <span className="text-[0.4375rem] px-1 rounded" style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go-dark)" }}>CURRENT</span> : null}
-                      {g.isChild ? <span className="text-[0.4375rem] px-1 rounded" style={{ backgroundColor: "var(--color-steel-wash)", color: "var(--color-steel-dark)" }}>SUBSIDIARY</span> : null}
+                      {g.isParent ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}>PARENT</span> : null}
+                      {g.isCurrent ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go-dark)" }}>CURRENT</span> : null}
+                      {g.isChild ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-steel-wash)", color: "var(--color-steel-dark)" }}>SUBSIDIARY</span> : null}
                     </div>
                     {g.locations.length === 0 ? (
-                      <p className="text-[0.5rem] italic pl-4" style={{ color: "var(--color-ink-500)" }}>No locations</p>
+                      <p className="text-m-caption italic pl-4" style={{ color: "var(--color-ink-500)" }}>No locations</p>
                     ) : (
                       g.locations.map((loc) => (
                         <button
@@ -361,7 +361,7 @@ export function MobileNewQuotationClient({
                             setDestinationLocationId(loc.id);
                             setShowLocationPicker(false);
                           }}
-                          className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2 text-left"
+                          className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2 text-left press"
                           style={{
                             borderColor: destinationLocationId === loc.id ? "var(--color-steel)" : "var(--color-line)",
                             backgroundColor: destinationLocationId === loc.id ? "var(--color-steel-wash)" : "var(--color-paper)",
@@ -369,8 +369,8 @@ export function MobileNewQuotationClient({
                         >
                           {loc.type === "PROJECT_SITE" ? <HardHat className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} /> : <Warehouse className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} />}
                           <div className="min-w-0 flex-1">
-                            <p className="text-[0.6875rem] font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>{loc.name}</p>
-                            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                            <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>{loc.name}</p>
+                            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                               {loc.type === "PROJECT_SITE" ? "Project site" : "Warehouse"}
                               {loc.projectName ? ` · ${loc.projectName}` : ""}
                             </p>
@@ -387,7 +387,7 @@ export function MobileNewQuotationClient({
 
           {/* Notes */}
           <div>
-            <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Notes (optional)
             </label>
             <textarea
@@ -409,7 +409,7 @@ export function MobileNewQuotationClient({
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <div className="flex items-center gap-1.5">
               <Package className="size-3.5" style={{ color: "var(--color-steel)" }} />
-              <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Materials ({lines.length})
               </span>
             </div>
@@ -417,7 +417,7 @@ export function MobileNewQuotationClient({
 
           {/* Line items */}
           {lines.length === 0 ? (
-            <p className="text-[0.6875rem] text-center py-3" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body text-center py-3" style={{ color: "var(--color-ink-500)" }}>
               No materials added yet
             </p>
           ) : (
@@ -430,10 +430,10 @@ export function MobileNewQuotationClient({
                 >
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                         {l.materialName}
                       </p>
-                      <p className="text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                         {l.materialCode}
                         {l.hsnCode ? ` · HSN ${l.hsnCode}` : ""}
                         {` · GST ${l.gstRate}%`}
@@ -442,7 +442,7 @@ export function MobileNewQuotationClient({
                     <button
                       type="button"
                       onClick={() => removeLine(l.key)}
-                      className="shrink-0 p-1"
+                      className="shrink-0 p-1 press"
                       style={{ color: "var(--color-stop)" }}
                     >
                       <Trash2 className="size-3.5" />
@@ -460,7 +460,7 @@ export function MobileNewQuotationClient({
                       className={`${inputClass} font-mono w-24`}
                       style={inputStyle}
                     />
-                    <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {l.unit}
                     </span>
                   </div>
@@ -473,7 +473,7 @@ export function MobileNewQuotationClient({
           <button
             type="button"
             onClick={() => setShowMaterialPicker(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2 text-[0.6875rem] font-bold press"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
@@ -485,7 +485,7 @@ export function MobileNewQuotationClient({
         <button
           type="submit"
           disabled={saving || !title.trim() || !requiredByDate || lines.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (
@@ -516,7 +516,7 @@ export function MobileNewQuotationClient({
                 setShowMaterialPicker(false);
                 setMaterialSearch("");
               }}
-              className="p-1"
+              className="p-1 press"
               style={{ color: "var(--color-ink-700)" }}
             >
               <X className="size-5" />
@@ -532,7 +532,7 @@ export function MobileNewQuotationClient({
                 onChange={(e) => setMaterialSearch(e.target.value)}
                 placeholder="Search materials…"
                 autoFocus
-                className="w-full h-10 rounded-[0.625rem] border-2 pl-9 pr-3 text-[0.8125rem] focus:outline-none"
+                className="w-full h-10 rounded-[0.625rem] border-2 pl-9 pr-3 text-m-section focus:outline-none"
                 style={{
                   borderColor: materialSearch ? "var(--color-ink-950)" : "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
@@ -545,7 +545,7 @@ export function MobileNewQuotationClient({
           {/* Results */}
           <div className="flex-1 overflow-y-auto">
             {filteredMaterials.length === 0 ? (
-              <p className="text-center py-8 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-center py-8 text-m-section" style={{ color: "var(--color-ink-500)" }}>
                 No materials found
               </p>
             ) : (
@@ -555,14 +555,14 @@ export function MobileNewQuotationClient({
                     key={m.id}
                     type="button"
                     onClick={() => addLine(m)}
-                    className="flex items-center justify-between w-full p-3 text-left press active:opacity-70"
+                    className="flex items-center justify-between w-full p-3 text-left text-m-body press active:opacity-70"
                     style={{ borderColor: "var(--color-line)" }}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                         {m.name}
                       </p>
-                      <p className="text-[0.5625rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                      <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                         {m.code} · {m.unit}
                         {m.hsnCode ? ` · HSN ${m.hsnCode}` : ""}
                         {` · GST ${m.gstRate}%`}
@@ -583,7 +583,7 @@ export function MobileNewQuotationClient({
             <button
               type="button"
               onClick={() => setShowNewMaterialDialog(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" />

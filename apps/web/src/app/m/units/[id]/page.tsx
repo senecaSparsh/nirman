@@ -14,7 +14,10 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { resolveNextAction } from "@/lib/flow-map";
 import { ShareButton } from "@/components/share-button";
+import { MobileUnitActions } from "./MobileUnitActions";
 
 /**
  * /m/units/[id] — built-unit detail page.
@@ -71,6 +74,7 @@ async function MobileUnitDetailContent({
   }
 
   const canSell = hasPermission(role, PERM.SALE_CREATE);
+  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
   const isSellable = unit.status === "AVAILABLE";
 
   const askingPrice = unit.askingPrice ? toNum(unit.askingPrice) : null;
@@ -92,8 +96,21 @@ async function MobileUnitDetailContent({
   // RERA areas
   const hasRera = unit.carpetArea || unit.superBuiltUpArea || unit.balconyArea || unit.clearHeight || unit.hasLoadingDock;
 
+  const nextAction = resolveNextAction("builtUnit", unit.status, role);
+
   return (
     <div>
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", unit.id) : undefined}
+        />
+      ) : null}
+
       {/* ── Hero card ── */}
       <div
         className="rounded-[0.875rem] border p-3.5 mb-3"
@@ -107,15 +124,15 @@ async function MobileUnitDetailContent({
             <Home className="size-5" style={{ color: "var(--color-ink-700)" }} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="font-bold text-[1.0625rem] leading-tight" style={{ color: "var(--color-ink-950)" }}>
+            <h1 className="font-bold text-m-section leading-tight" style={{ color: "var(--color-ink-950)" }}>
               {unit.unitNumber}
             </h1>
-            <p className="text-[0.6875rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               {typeLabel} · {formatNumber(toNum(unit.area), 0)} {unit.areaUnit}
             </p>
           </div>
           <span
-            className="text-[0.4375rem] font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
             style={{ backgroundColor: statusTone, color: "#fff" }}
           >
             {unit.status.replace(/_/g, " ")}
@@ -125,7 +142,7 @@ async function MobileUnitDetailContent({
         {/* Project link */}
         <Link
           href={`/m/projects/${unit.project.id}`}
-          className="flex items-center gap-1.5 text-[0.625rem] mt-2.5 press"
+          className="flex items-center gap-1.5 text-m-label mt-2.5 text-m-body press"
           style={{ color: "var(--color-steel)" }}
         >
           <Building2 className="size-3 shrink-0" />
@@ -136,10 +153,10 @@ async function MobileUnitDetailContent({
         {askingPrice != null && productionCost > 0 && profit != null ? (
           <div className="mt-3">
             <div className="flex items-baseline justify-between mb-1">
-              <span className="text-[0.5625rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Margin
               </span>
-              <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+              <span className="text-m-label font-bold tabular-nums" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
                 {formatCurrency(profit)} {marginPct != null ? `(${formatNumber(marginPct, 0)}%)` : ""}
               </span>
             </div>
@@ -152,7 +169,7 @@ async function MobileUnitDetailContent({
                 }}
               />
             </div>
-            <p className="text-[0.5rem] mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
               cost {formatCurrency(productionCost)} → price {formatCurrency(askingPrice)}
             </p>
           </div>
@@ -170,7 +187,7 @@ async function MobileUnitDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <IndianRupee className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Overview</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Overview</p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Asking" value={askingPrice != null ? formatCurrency(askingPrice) : "—"} tone={askingPrice == null ? "signal" : undefined} />
@@ -190,7 +207,7 @@ async function MobileUnitDetailContent({
             <span className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
               <ClipboardList className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Details</p>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Details</p>
           </div>
           <div className="space-y-1.5">
             <KpiRow label="Type" value={typeLabel} />
@@ -206,7 +223,7 @@ async function MobileUnitDetailContent({
       {/* ── RERA areas — compact section only if any exist ── */}
       {hasRera ? (
         <>
-          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             RERA Areas
           </h3>
           <div className="grid grid-cols-2 gap-2 mb-3">
@@ -245,7 +262,7 @@ async function MobileUnitDetailContent({
             >
               <TrendingUp className="size-3.5" style={{ color: "#fff" }} />
             </span>
-            <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
               {unit.status === "SOLD" ? "Sold" : "Sale in progress"}
             </p>
           </div>
@@ -278,6 +295,26 @@ async function MobileUnitDetailContent({
           />
         </div>
       ) : null}
+
+      {/* ── Management actions (edit, status, valuation, delete) ── */}
+      <MobileUnitActions
+        unitId={unit.id}
+        unitNumber={unit.unitNumber}
+        canManage={canManage}
+        currentStatus={unit.status as "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD"}
+        initialUnitType={unit.unitType as "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "VILLA" | "OTHER"}
+        initialFloor={unit.floor}
+        initialWing={unit.wing}
+        initialArea={String(toNum(unit.area))}
+        initialAreaUnit={unit.areaUnit}
+        initialAskingPrice={unit.askingPrice ? String(toNum(unit.askingPrice)) : null}
+        initialCarpetArea={unit.carpetArea ? String(toNum(unit.carpetArea)) : null}
+        initialSuperBuiltUpArea={unit.superBuiltUpArea ? String(toNum(unit.superBuiltUpArea)) : null}
+        initialBalconyArea={unit.balconyArea ? String(toNum(unit.balconyArea)) : null}
+        initialClearHeight={unit.clearHeight ? String(toNum(unit.clearHeight)) : null}
+        initialHasLoadingDock={unit.hasLoadingDock}
+        initialCurrentValuation={String(currentValuation)}
+      />
     </div>
   );
 }
@@ -301,10 +338,10 @@ function KpiRow({
     "var(--color-ink-950)";
   return (
     <div className="flex items-baseline justify-between gap-1">
-      <span className="text-[0.5rem] shrink-0" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </span>
-      <span className="text-[0.5625rem] font-bold text-right tabular-nums truncate" style={{ color }}>
+      <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
         {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
       </span>
@@ -319,10 +356,10 @@ function ReraCard({ label, value, unit }: { label: string; value: string; unit: 
       className="rounded-[0.5rem] border p-2"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
     >
-      <p className="text-[0.4375rem] mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption mb-0.5" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
-      <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+      <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
         {value}{unit ? ` ${unit}` : ""}
       </p>
     </div>

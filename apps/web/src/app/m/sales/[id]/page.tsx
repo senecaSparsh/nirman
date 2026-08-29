@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileSaleDetailClient } from "./MobileSaleDetailClient";
 
 export default function MobileSaleDetailPage({
@@ -149,9 +150,28 @@ async function MobileSaleDetailContent({
         }
       : null;
 
+  // Lifecycle pipeline: PENDING → DEPOSIT_RECEIVED → COMPLETED (or CANCELLED)
+  const saleCancelled = sale.status === "CANCELLED";
+  const salePipelineSteps: MobilePipelineStep[] = saleCancelled
+    ? [
+        { label: "Pending", state: "done" },
+        { label: "Deposit", state: "skipped" },
+        { label: "Completed", state: "skipped" },
+        { label: "Cancelled", state: "current" },
+      ]
+    : [
+        { label: "Pending", state: sale.saleStage === "PENDING" ? "current" : "done" },
+        { label: "Deposit", state: sale.saleStage === "DEPOSIT_RECEIVED" ? "current" : sale.saleStage === "COMPLETED" ? "done" : "pending" },
+        { label: "Completed", state: sale.saleStage === "COMPLETED" ? "current" : "pending" },
+      ];
+
   return (
-    <MobileSaleDetailClient
-      saleId={sale.id}
+    <>
+      <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={salePipelineSteps} />
+      </div>
+      <MobileSaleDetailClient
+        saleId={sale.id}
       saleNumber={sale.saleNumber}
       assetType={sale.assetType}
       status={sale.status}
@@ -252,5 +272,6 @@ async function MobileSaleDetailContent({
       draftNotes={sale.draftNotes}
       draftDate={sale.draftDate ? sale.draftDate.toISOString() : null}
     />
+    </>
   );
 }

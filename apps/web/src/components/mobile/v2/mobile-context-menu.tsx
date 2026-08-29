@@ -51,7 +51,7 @@ export function MobileContextMenu({
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-[70]"
-        style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
         onClick={onClose}
       />
 
@@ -74,11 +74,11 @@ export function MobileContextMenu({
 
         {/* Title + subtitle */}
         <div className="px-4 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.8125rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {title}
           </p>
           {subtitle ? (
-            <p className="text-[0.625rem] mt-0.5 truncate" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-label mt-0.5 truncate" style={{ color: "var(--color-ink-400)" }}>
               {subtitle}
             </p>
           ) : null}
@@ -98,7 +98,7 @@ export function MobileContextMenu({
                   action.onPress();
                   onClose();
                 }}
-                className="press w-full flex items-center gap-3 px-4 py-3 text-left"
+                className="text-m-body press w-full flex items-center gap-3 px-4 py-3 text-left"
               >
                 {Icon ? (
                   <Icon
@@ -107,7 +107,7 @@ export function MobileContextMenu({
                   />
                 ) : null}
                 <span
-                  className="text-[0.8125rem] font-medium"
+                  className="text-m-section font-medium"
                   style={{ color: action.destructive ? "var(--color-stop)" : (action.color ?? "var(--color-ink-950)") }}
                 >
                   {action.label}
@@ -121,10 +121,10 @@ export function MobileContextMenu({
         <div className="border-t" style={{ borderColor: "var(--color-line)" }}>
           <button
             onClick={onClose}
-            className="press w-full flex items-center justify-center gap-1.5 px-4 py-3.5"
+            className="text-m-body press w-full flex items-center justify-center gap-1.5 px-4 py-3.5"
           >
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-[0.8125rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-section font-semibold" style={{ color: "var(--color-ink-500)" }}>
               Cancel
             </span>
           </button>

@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarClock, ContactRound, Flame, Phone, Plus, UserRoundCheck } from "lucide-react";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { LeadFormDialog } from "@/components/sales/lead-form-dialog";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";
 import type { LeadRow, LeadStage } from "@/lib/types";
-import { MobileSearchHeader, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileFilterIcon, MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileSalesCollection, type CollectionStats, type SaleItem } from "./MobileSalesCollection";
 
 const STAGES: { value: "OPEN" | LeadStage; label: string }[] = [
@@ -58,7 +58,7 @@ export function MobileSalesHub({
         <button
           type="button"
           onClick={() => setView("pipeline")}
-          className="h-9 rounded-[0.5rem] text-[0.6875rem] font-bold press"
+          className="h-9 rounded-[0.5rem] text-m-body font-bold text-m-body press"
           style={{ backgroundColor: view === "pipeline" ? "var(--color-paper)" : "transparent", color: view === "pipeline" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
         >
           Pipeline · {leads.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length}
@@ -66,7 +66,7 @@ export function MobileSalesHub({
         <button
           type="button"
           onClick={() => setView("collections")}
-          className="h-9 rounded-[0.5rem] text-[0.6875rem] font-bold press"
+          className="h-9 rounded-[0.5rem] text-m-body font-bold text-m-body press"
           style={{ backgroundColor: view === "collections" ? "var(--color-paper)" : "transparent", color: view === "collections" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
         >
           Collections · {stats.outstandingCount}
@@ -83,7 +83,7 @@ export function MobileSalesHub({
             exportTitle="Sales"
             exportRows={sales as unknown as Record<string, unknown>[]}
             exportColumns={csvColumns}
-            exportSummary={`${sales.length} sales · ${formatCurrency(stats.totalValue)} total · ${formatCurrency(stats.totalOutstanding)} outstanding`}
+            exportSummary={`${sales.length} sales · ${formatCurrencyCompact(stats.totalValue)} total · ${formatCurrencyCompact(stats.totalOutstanding)} outstanding`}
           />
         </>
       )}
@@ -135,30 +135,23 @@ function MobileLeadPipeline({
       <div className="mb-3 grid grid-cols-3 gap-2">
         <div className="rounded-[0.625rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <CalendarClock className="mb-1 size-3.5" style={{ color: dueCount ? "var(--color-stop)" : "var(--color-ink-300)" }} />
-          <p className="text-[0.9375rem] font-bold tabular-nums" style={{ color: dueCount ? "var(--color-stop)" : "var(--color-ink-950)" }}>{dueCount}</p>
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>Follow-ups due</p>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: dueCount ? "var(--color-stop)" : "var(--color-ink-950)" }}>{dueCount}</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Follow-ups due</p>
         </div>
         <div className="rounded-[0.625rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <Flame className="mb-1 size-3.5" style={{ color: "var(--color-signal-dark)" }} />
-          <p className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{hotCount}</p>
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>Hot leads</p>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{hotCount}</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Hot leads</p>
         </div>
         <div className="rounded-[0.625rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <UserRoundCheck className="mb-1 size-3.5" style={{ color: "var(--color-go)" }} />
-          <p className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{bookedCount}</p>
-          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>Converted</p>
+          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{bookedCount}</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Converted</p>
         </div>
       </div>
 
       {canManage && (
-        <button
-          type="button"
-          onClick={() => setFormOpen(true)}
-          className="mb-3 flex h-10 w-full items-center justify-center gap-1.5 rounded-[0.5rem] text-[0.6875rem] font-bold press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-        >
-          <Plus className="size-3.5" /> Add lead
-        </button>
+        <MobileFab onClick={() => setFormOpen(true)} label="Add lead" />
       )}
 
       <MobileSearchHeader
@@ -185,7 +178,7 @@ function MobileLeadPipeline({
       {(query || stage !== "OPEN") && filtered.length > 0 && (
         <div className="flex items-center justify-end mb-1.5">
           <span
-            className="text-[0.625rem] font-semibold"
+            className="text-m-label font-semibold"
             style={{ color: "var(--color-ink-500)" }}
           >
             {filtered.length} lead{filtered.length !== 1 ? "s" : ""}
@@ -200,29 +193,29 @@ function MobileLeadPipeline({
               key={lead.id}
               type="button"
               onClick={() => setSelected(lead)}
-              className="w-full rounded-[0.625rem] border p-3 text-left press"
+              className="w-full rounded-[0.625rem] border p-3 text-left text-m-body press"
               style={{ borderColor: overdue ? "var(--color-stop)" : lead.priority === "HOT" ? "var(--color-signal)" : "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
               <div className="mb-1.5 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{lead.name}</p>
-                  <p className="mt-0.5 truncate text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>{lead.projectName ?? "Any project"} · {lead.interestedUnitLabel ?? lead.interestedUnitType ?? "Unit not selected"}</p>
+                  <p className="truncate text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{lead.name}</p>
+                  <p className="mt-0.5 truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.projectName ?? "Any project"} · {lead.interestedUnitLabel ?? lead.interestedUnitType ?? "Unit not selected"}</p>
                 </div>
-                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[0.4375rem] font-bold uppercase" style={{ backgroundColor: lead.stage === "BOOKED" ? "var(--color-go-wash)" : "var(--color-concrete)", color: lead.stage === "BOOKED" ? "var(--color-go)" : "var(--color-ink-600)" }}>{lead.stage.replaceAll("_", " ")}</span>
+                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-m-caption font-bold uppercase" style={{ backgroundColor: lead.stage === "BOOKED" ? "var(--color-go-wash)" : "var(--color-concrete)", color: lead.stage === "BOOKED" ? "var(--color-go)" : "var(--color-ink-600)" }}>{lead.stage.replaceAll("_", " ")}</span>
               </div>
               <div className="flex items-end justify-between gap-2">
                 <div>
-                  <p className="text-[0.4375rem] uppercase" style={{ color: "var(--color-ink-500)" }}>Score</p>
-                  <p className="text-[0.75rem] font-bold tabular-nums" style={{ color: lead.score >= 70 ? "var(--color-go)" : "var(--color-ink-950)" }}>{lead.score}/100</p>
+                  <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>Score</p>
+                  <p className="text-m-section font-bold tabular-nums" style={{ color: lead.score >= 70 ? "var(--color-go)" : "var(--color-ink-950)" }}>{lead.score}/100</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[0.5rem] font-semibold" style={{ color: overdue ? "var(--color-stop)" : "var(--color-ink-600)" }}>{lead.nextFollowUpAt ? `${overdue ? "Overdue · " : "Follow up · "}${formatDate(lead.nextFollowUpAt)}` : "No follow-up"}</p>
-                  <p className="mt-0.5 text-[0.4375rem]" style={{ color: "var(--color-ink-400)" }}>{lead.assignedToName ?? "Unassigned"} · {lead.source.replaceAll("_", " ")}</p>
+                  <p className="text-m-caption font-semibold" style={{ color: overdue ? "var(--color-stop)" : "var(--color-ink-600)" }}>{lead.nextFollowUpAt ? `${overdue ? "Overdue · " : "Follow up · "}${formatDate(lead.nextFollowUpAt)}` : "No follow-up"}</p>
+                  <p className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{lead.assignedToName ?? "Unassigned"} · {lead.source.replaceAll("_", " ")}</p>
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
-                <span className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>{lead.latestActivity?.outcome ?? `${lead.activityCount} activities`}</span>
-                <a href={`tel:${lead.phone}`} onClick={(event) => event.stopPropagation()} className="flex items-center gap-1 text-[0.5rem] font-bold" style={{ color: "var(--color-steel)" }}><Phone className="size-3" /> Call</a>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.latestActivity?.outcome ?? `${lead.activityCount} activities`}</span>
+                <a href={`tel:${lead.phone}`} onClick={(event) => event.stopPropagation()} className="flex items-center gap-1 text-m-caption font-bold" style={{ color: "var(--color-steel)" }}><Phone className="size-3" /> Call</a>
               </div>
             </button>
           );
@@ -232,8 +225,8 @@ function MobileLeadPipeline({
       {filtered.length === 0 && (
         <div className="flex flex-col items-center rounded-[0.625rem] border px-4 py-10 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <ContactRound className="mb-2 size-6" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{leads.length ? "No leads match this view" : "No leads yet"}</p>
-          <p className="mt-1 text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>Add the enquiry once, then keep every follow-up and site visit attached.</p>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{leads.length ? "No leads match this view" : "No leads yet"}</p>
+          <p className="mt-1 text-m-caption" style={{ color: "var(--color-ink-500)" }}>Add the enquiry once, then keep every follow-up and site visit attached.</p>
         </div>
       )}
 

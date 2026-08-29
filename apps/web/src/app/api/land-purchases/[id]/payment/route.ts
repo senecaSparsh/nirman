@@ -3,6 +3,18 @@ import { revalidatePath } from "next/cache";
 import { recordLandPurchasePayment } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { z } from "zod";
+
+const paymentSchema = z.object({
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  paymentMode: z.string().min(1, "Payment mode is required"),
+  referenceNo: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  chequeNo: z.string().optional().nullable(),
+  chequeDate: z.string().optional().nullable(),
+  chequeBank: z.string().optional().nullable(),
+  chequePhotoUrl: z.string().optional().nullable(),
+});
 
 /**
  * POST /api/land-purchases/[id]/payment — record a payment against a land purchase.
@@ -13,25 +25,23 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const { id } = await ctx.params;
   const body = await req.json();
 
-  if (!body?.amount || body.amount <= 0) {
-    return json({ error: "Amount must be > 0" }, { status: 400 });
-  }
-  if (!body?.paymentMode) {
-    return json({ error: "Payment mode is required" }, { status: 400 });
+  const parsed = paymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
   try {
     const result = await recordLandPurchasePayment({
       landPurchaseId: id,
-      amount: body.amount,
-      paymentMode: body.paymentMode,
-      referenceNo: body.referenceNo,
-      notes: body.notes,
+      amount: parsed.data.amount,
+      paymentMode: parsed.data.paymentMode,
+      referenceNo: parsed.data.referenceNo ?? undefined,
+      notes: parsed.data.notes ?? undefined,
       userId: user.id,
-      chequeNo: body.chequeNo,
-      chequeDate: body.chequeDate,
-      chequeBank: body.chequeBank,
-      chequePhotoUrl: body.chequePhotoUrl,
+      chequeNo: parsed.data.chequeNo ?? undefined,
+      chequeDate: parsed.data.chequeDate ?? undefined,
+      chequeBank: parsed.data.chequeBank ?? undefined,
+      chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
     });
     revalidatePath("/land");
     revalidatePath(`/land/${id}`);

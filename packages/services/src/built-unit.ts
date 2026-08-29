@@ -4,6 +4,7 @@ import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postWipCapitalization, postJournalEntry, ACCT } from "./gl-posting";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Built Unit Service — create and manage sellable units within a project.
@@ -42,7 +43,7 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
     throw new ServiceError("Unit numbers must be unique within the batch");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
@@ -51,7 +52,7 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
 
     // Check unit numbers don't conflict with existing
     const existing = await tx.builtUnit.findMany({
-      where: { projectId: input.projectId, unitNumber: { in: numbers } },
+      where: { projectId: input.projectId, unitNumber: { in: numbers }, deletedAt: null },
       select: { unitNumber: true },
     });
     if (existing.length > 0) {
@@ -151,7 +152,7 @@ export async function updateBuiltUnit(unitId: string, data: UpdateBuiltUnitInput
     if (conflict) throw new ServiceError(`Unit number "${data.unitNumber}" already exists in this project`);
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.builtUnit.update({
       where: { id: unitId },
       data: {
@@ -245,7 +246,7 @@ export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus, 
     throw new ServiceError(`Invalid status transition: ${unit.status} → ${status}. Allowed: ${allowed.join(", ")}`);
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.builtUnit.update({ where: { id: unitId }, data: { status } });
 
     // WIP Capitalization — when a CREATED unit becomes AVAILABLE, move its
@@ -259,7 +260,7 @@ export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus, 
       await reallocateProjectCosts(tx, unit.projectId);
 
       // Re-read the unit to get the fresh productionCost + current capitalizedAmount
-      const freshUnit = await tx.builtUnit.findUnique({ where: { id: unitId } });
+      const freshUnit = await tx.builtUnit.findFirst({ where: { id: unitId, deletedAt: null } });
       if (freshUnit) {
         const productionCost = new Decimal(freshUnit.productionCost ?? 0);
         const alreadyCapitalized = new Decimal(freshUnit.capitalizedAmount ?? 0);
@@ -303,7 +304,7 @@ export async function updateUnitValuation(
   if (unit.deletedAt) throw new ServiceError("Unit is deleted");
   if (unit.status === "SOLD") throw new ServiceError("Cannot update valuation of a SOLD unit");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.builtUnit.update({
       where: { id: unitId },
       data: {
@@ -360,7 +361,7 @@ export async function purchaseBuiltUnit(input: PurchaseBuiltUnitInput) {
   if (!acquisitionCost.gt(0)) throw new ServiceError("Acquisition cost must be > 0");
   if (!new Decimal(input.area).gt(0)) throw new ServiceError("Unit area must be > 0");
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },

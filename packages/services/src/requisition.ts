@@ -7,6 +7,7 @@ import { isQuoteGateSatisfied } from "./quote-comparison";
 import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createQuotationRequest } from "./quotation";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -114,7 +115,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
   });
   const lastRateMap = new Map(lastReceipts.map((r) => [r.materialId, { rate: r.unitCost, date: r.goodsReceipt.receiptDate }]));
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.create({
       data: {
         reqNumber: await generateReqNumber(tx),
@@ -152,7 +153,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
 }
 
 export async function submitRequisition(reqId: string, userId?: string) {
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: reqId },
       include: {
@@ -200,7 +201,7 @@ export async function submitRequisition(reqId: string, userId?: string) {
 }
 
 export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string) {
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: reqId },
       include: {
@@ -314,7 +315,7 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
 }
 
 export async function rejectRequisition(reqId: string, rejectedById?: string, rejectReason?: string) {
-  const { updated, companyId } = await prisma.$transaction(async (tx) => {
+  const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: reqId },
       include: {
@@ -432,7 +433,7 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     include: { lines: true },
   });
 
-  const { po, companyId } = await prisma.$transaction(async (tx) => {
+  const { po, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: input.requisitionId },
       include: { lines: true, project: true, department: { select: { companyId: true } } },

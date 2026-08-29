@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, Loader2, Sparkles, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
@@ -60,24 +60,40 @@ export function MobileDprVarianceButton({
   }
 
   return (
-    <button
-      onClick={runVariance}
-      disabled={busy}
-      className="w-full flex items-center justify-center gap-2 h-10 rounded-[0.625rem] border-2 font-bold text-[0.75rem] press active:scale-95 disabled:opacity-50 mb-4"
-      style={{
-        borderColor: hasVariance ? "var(--color-signal)" : "var(--color-line)",
-        color: hasVariance ? "var(--color-signal-dark)" : "var(--color-ink-700)",
-        backgroundColor: hasVariance ? "color-mix(in srgb, var(--color-signal) 6%, transparent)" : "var(--color-paper)",
-      }}
-    >
-      {busy ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : hasVariance ? (
-        <AlertTriangle className="size-4" />
-      ) : (
-        <Sparkles className="size-4" />
-      )}
-      {hasVariance ? "Re-run Variance Analysis" : "Run Variance Analysis"}
-    </button>
+    <div className="flex gap-2 mb-4">
+      <button
+        onClick={runVariance}
+        disabled={busy}
+        className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
+        style={{
+          borderColor: hasVariance ? "var(--color-signal)" : "var(--color-line)",
+          color: hasVariance ? "var(--color-signal-dark)" : "var(--color-ink-700)",
+          backgroundColor: hasVariance ? "color-mix(in srgb, var(--color-signal) 6%, transparent)" : "var(--color-paper)",
+        }}
+      >
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : hasVariance ? (
+          <AlertTriangle className="size-4" />
+        ) : (
+          <Sparkles className="size-4" />
+        )}
+        {hasVariance ? "Re-run Variance" : "Run Variance"}
+      </button>
+      <a
+        href={`/api/dprs/${dprId}/print`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95"
+        style={{
+          borderColor: "var(--color-line)",
+          color: "var(--color-ink-700)",
+          backgroundColor: "var(--color-paper)",
+        }}
+      >
+        <Printer className="size-4" />
+        Print
+      </a>
+    </div>
   );
 }

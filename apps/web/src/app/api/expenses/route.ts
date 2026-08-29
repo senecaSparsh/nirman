@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { postExpense, reverseJournalEntry } from "@nirman/services";
+import { postExpense, reverseJournalEntry, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
+import { withSerializableTransaction } from "@nirman/services";
 
 const expenseSchema = z.object({
   projectId: z.string().optional().nullable(),
@@ -51,14 +53,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const expense = await prisma.$transaction(async (tx) => {
+  const expenseDate = parsed.data.date ? new Date(parsed.data.date) : new Date();
+  if (isNaN(expenseDate.getTime())) {
+    return json({ error: "Invalid date format" }, { status: 400 });
+  }
+  const expense = await withSerializableTransaction(async (tx) => {
     const created = await tx.expense.create({
       data: {
         companyId: company.id,
         projectId: parsed.data.projectId ?? null,
         category: parsed.data.category,
         amount: parsed.data.amount,
-        date: parsed.data.date ? new Date(parsed.data.date) : new Date(),
+        date: expenseDate,
         notes: parsed.data.notes ?? null,
         createdById: user.id,
       },
@@ -72,6 +78,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return created;
   });
+  revalidatePath("/expenses");
+  revalidatePath("/m/expenses");
   return json({ ok: true, id: expense.id }, { status: 201 });
 });
 
@@ -81,10 +89,10 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return json({ error: "id query param is required" }, { status: 400 });
-  await prisma.$transaction(async (tx) => {
+  await withSerializableTransaction(async (tx) => {
     // Validate the expense belongs to the user's company
     const expense = await tx.expense.findFirst({ where: { id, companyId: company.id } });
-    if (!expense) throw new Error("Expense not found in this company");
+    if (!expense) throw new ServiceError("Expense not found in this company", 404);
     // Reverse the GL entry before deleting the expense row
     const glEntry = await tx.journalEntry.findFirst({
       where: { sourceType: "EXPENSE", sourceId: id },
@@ -97,5 +105,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
     }
     await tx.expense.delete({ where: { id } });
   });
+  revalidatePath("/expenses");
+  revalidatePath("/m/expenses");
   return json({ ok: true });
 });

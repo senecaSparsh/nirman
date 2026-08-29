@@ -52,9 +52,9 @@ export function MobileMaterialReconProjectSelector({
           }}
           placeholder="Select a project…"
           options={projects.map((p) => ({ value: p.id, label: p.name }))}
-          inputClass="w-full bg-transparent text-[0.875rem] font-semibold outline-none truncate"
+          inputClass="w-full bg-transparent text-m-section font-semibold outline-none truncate"
           inputStyle={{ color: "var(--color-ink-950)" }}
-          labelClass="block text-[0.5rem] uppercase tracking-wide font-semibold mb-0.5"
+          labelClass="block text-m-caption uppercase tracking-wide font-semibold mb-0.5"
           labelStyle={{ color: "var(--color-ink-500)" }}
           renderDialog={({ open, onClose, onCreated }) => (
             <MobileNewProjectDialog

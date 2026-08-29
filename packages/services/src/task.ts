@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import { logAction } from "./audit";
 
 /**
@@ -118,7 +119,7 @@ export interface CreateTaskInput {
 }
 
 export async function createTask(input: CreateTaskInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         title: input.title,
@@ -187,7 +188,7 @@ export interface StatusChangeInput {
 }
 
 export async function updateTaskStatus({ taskId, status, userId }: StatusChangeInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
       include: { blocking: { include: { blocker: { select: { id: true, title: true, status: true } } } } },
@@ -258,7 +259,7 @@ export interface ReassignInput {
 }
 
 export async function reassignTask({ taskId, assignedToId, userId }: ReassignInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
       include: { assignedTo: { select: { name: true } } },
@@ -294,7 +295,7 @@ export async function reassignTask({ taskId, assignedToId, userId }: ReassignInp
 // ───────────────────────────────────────────────────────────
 
 export async function addSubTask(taskId: string, title: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({ where: { id: taskId }, select: { id: true } });
     if (!task) throw new TaskError("Task not found", 404);
     const count = await tx.subTask.count({ where: { taskId } });
@@ -308,7 +309,7 @@ export async function addSubTask(taskId: string, title: string, userId?: string)
 }
 
 export async function toggleSubTask(subtaskId: string, completed: boolean, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const subtask = await tx.subTask.findUnique({ where: { id: subtaskId }, select: { taskId: true, title: true } });
     if (!subtask) throw new TaskError("Subtask not found", 404);
     const updated = await tx.subTask.update({
@@ -329,7 +330,7 @@ export async function toggleSubTask(subtaskId: string, completed: boolean, userI
 }
 
 export async function deleteSubTask(subtaskId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const subtask = await tx.subTask.findUnique({ where: { id: subtaskId }, select: { taskId: true, title: true } });
     if (!subtask) throw new TaskError("Subtask not found", 404);
     await tx.subTask.delete({ where: { id: subtaskId } });
@@ -341,7 +342,7 @@ export async function deleteSubTask(subtaskId: string, userId?: string) {
 
 /** Reorder subtasks by an explicit ordered list of ids. */
 export async function reorderSubTasks(taskId: string, orderedIds: string[], userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     await Promise.all(
       orderedIds.map((id, i) => tx.subTask.update({ where: { id, taskId }, data: { order: i } })),
     );
@@ -354,7 +355,7 @@ export async function reorderSubTasks(taskId: string, orderedIds: string[], user
 // ───────────────────────────────────────────────────────────
 
 export async function addComment(taskId: string, body: string, userId: string, parentId?: string | null) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const comment = await tx.taskComment.create({
       data: { taskId, body, userId, parentId: parentId ?? null },
     });
@@ -378,7 +379,7 @@ export async function deleteComment(commentId: string, userId: string) {
 
 export async function addDependency(blockerId: string, blockedById: string, userId?: string) {
   if (blockerId === blockedById) throw new TaskError("A task cannot block itself");
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Prevent cycles: if blockedById already (transitively) blocks blockerId,
     // adding blockerId→blockedById would create a cycle.
     // DFS: starting from blockedById, follow "blocks" edges (blockerId=currentId)
@@ -426,7 +427,7 @@ export async function addDependency(blockerId: string, blockedById: string, user
 }
 
 export async function removeDependency(blockerId: string, blockedById: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     await tx.taskDependency.delete({
       where: { blockerId_blockedById: { blockerId, blockedById } },
     });
@@ -450,7 +451,7 @@ export async function removeDependency(blockerId: string, blockedById: string, u
 
 /** Start a timer for a task. Closes any already-open timer for this user first. */
 export async function startTimer(taskId: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     // Close any open timer for this user (one active timer at a time).
     const open = await tx.taskTimeLog.findFirst({
       where: { userId, endedAt: null },
@@ -472,7 +473,7 @@ export async function startTimer(taskId: string, userId: string) {
 
 /** Stop the open timer for a task (if any). */
 export async function stopTimer(taskId: string, userId: string, note?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const open = await tx.taskTimeLog.findFirst({
       where: { taskId, userId, endedAt: null },
       select: { id: true, startedAt: true },

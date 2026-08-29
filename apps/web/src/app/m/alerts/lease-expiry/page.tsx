@@ -60,34 +60,34 @@ async function LeaseExpiryContent() {
       >
         <div className="flex items-center gap-2 mb-2">
           <CalendarClock className="size-4" style={{ color: "var(--color-signal)" }} />
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Lease Expiry Alerts
           </p>
         </div>
         <div className="grid grid-cols-4 gap-2">
           <div className="text-center">
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
               {expired.length}
             </p>
-            <p className="text-[0.5rem] uppercase" style={{ color: "var(--color-ink-500)" }}>Expired</p>
+            <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>Expired</p>
           </div>
           <div className="text-center">
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
               {critical.length}
             </p>
-            <p className="text-[0.5rem] uppercase" style={{ color: "var(--color-ink-500)" }}>≤30d</p>
+            <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>≤30d</p>
           </div>
           <div className="text-center">
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
               {warning.length}
             </p>
-            <p className="text-[0.5rem] uppercase" style={{ color: "var(--color-ink-500)" }}>≤60d</p>
+            <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>≤60d</p>
           </div>
           <div className="text-center">
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
               {info.length}
             </p>
-            <p className="text-[0.5rem] uppercase" style={{ color: "var(--color-ink-500)" }}>≤90d</p>
+            <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>≤90d</p>
           </div>
         </div>
       </div>
@@ -96,7 +96,7 @@ async function LeaseExpiryContent() {
       {alerts.length === 0 ? (
         <div className="text-center py-8">
           <Clock className="size-6 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
             No leases expiring soon. All leasehold land is within its lease period.
           </p>
         </div>
@@ -106,7 +106,7 @@ async function LeaseExpiryContent() {
             <a
               key={alert.landPurchaseId}
               href={`/m/land/${alert.landPurchaseId}`}
-              className="block rounded-[0.5rem] border p-2.5 press"
+              className="block rounded-[0.5rem] border p-2.5 text-m-body press"
               style={{
                 borderColor: severityColor[alert.severity],
                 backgroundColor: severityBg[alert.severity],
@@ -118,18 +118,18 @@ async function LeaseExpiryContent() {
                   style={{ color: severityColor[alert.severity] }}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {alert.sellerName}
                   </p>
-                  <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {alert.location || "No location"}{alert.projectName ? ` · ${alert.projectName}` : ""}
                   </p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-600)" }}>
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>
                       Lease ends: <span className="font-bold">{formatDate(alert.leaseEndDate)}</span>
                     </span>
                     <span
-                      className="text-[0.5rem] font-bold uppercase rounded px-1.5 py-0.5"
+                      className="text-m-caption font-bold uppercase rounded px-1.5 py-0.5"
                       style={{
                         color: severityColor[alert.severity],
                         backgroundColor: `color-mix(in srgb, ${severityColor[alert.severity]} 15%, transparent)`,
@@ -140,7 +140,7 @@ async function LeaseExpiryContent() {
                         : `${alert.daysUntilExpiry}d left`}
                     </span>
                   </div>
-                  <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                  <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                     Cost: <span className="font-bold tabular-nums">{formatCurrency(toNum(alert.totalCost))}</span>
                     {alert.registryNo ? ` · Reg: ${alert.registryNo}` : ""}
                   </p>

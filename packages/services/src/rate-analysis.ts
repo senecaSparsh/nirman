@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Rate Analysis Service — the cost breakdown of a BOQ line item's rate.
@@ -210,7 +211,7 @@ export function computeRateAnalysis(
  * One rate analysis per BOQ item (enforced by @unique on boqItemId).
  */
 export async function createRateAnalysis(input: CreateRateAnalysisInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const boqItem = await tx.boqItem.findUnique({
       where: { id: input.boqItemId },
     });
@@ -324,7 +325,7 @@ export async function updateRateAnalysis(
   rateAnalysisId: string,
   input: UpdateRateAnalysisInput,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.rateAnalysis.findUnique({
       where: { id: rateAnalysisId },
       include: { boqItem: true },
@@ -449,7 +450,7 @@ export async function updateRateAnalysis(
  * Delete a rate analysis (and all its lines via cascade).
  */
 export async function deleteRateAnalysis(rateAnalysisId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.rateAnalysis.findUnique({
       where: { id: rateAnalysisId },
     });

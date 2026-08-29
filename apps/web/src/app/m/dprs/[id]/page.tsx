@@ -8,9 +8,12 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
+import { resolveNextAction } from "@/lib/flow-map";
 import { MobileDprActions } from "./MobileDprActions";
 import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileDprDetailPage({
   params,
@@ -66,6 +69,8 @@ async function MobileDprDetailContent({
   const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
   const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
   const canResubmit = hasPermission(role, PERM.DPR_SUBMIT);
+  const canMarkCostPosted = hasPermission(role, PERM.FINANCE_VIEW);
+  const canManage = hasPermission(role, PERM.HR_MANAGE);
 
   const status =
     dpr.approvalStatus === "SUBMITTED" ? "submitted" :
@@ -105,9 +110,27 @@ async function MobileDprDetailContent({
     },
   ];
 
+  const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role);
+
   return (
-    <div>
+    <div className="pb-20">
       <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
+
+      {/* ── Back ── */}
+      <div className="mb-3">
+        <MobileBackButton fallback="/m/dprs" />
+      </div>
+
+      {/* ── Next action — the one thing to do, doable on this page ── */}
+      {nextAction ? (
+        <NextActionCardView
+          label={nextAction.label}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", dpr.id) : undefined}
+        />
+      ) : null}
 
       {/* ── Report header banner ── */}
       <div
@@ -121,12 +144,12 @@ async function MobileDprDetailContent({
           {/* Left: date + project + badges */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-[1.25rem] font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+              <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
                 {formatDate(dpr.date)}
               </h1>
               <a
                 href={`/api/dprs/${dpr.id}/print`}
-                className="ml-auto flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press"
+                className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
               >
                 <Printer className="size-3.5" />
@@ -135,7 +158,7 @@ async function MobileDprDetailContent({
             </div>
             <Link
               href={`/m/projects/${dpr.project.id}`}
-              className="text-[0.75rem] font-semibold block mt-0.5 hover:underline"
+              className="text-m-section font-semibold block mt-0.5 hover:underline"
               style={{ color: "var(--color-ink-700)" }}
             >
               {dpr.project.name}
@@ -143,7 +166,7 @@ async function MobileDprDetailContent({
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
               {dpr.workType ? (
                 <span
-                  className="text-[0.5625rem] font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
+                  className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
                   style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                 >
                   {dpr.workType}
@@ -151,7 +174,7 @@ async function MobileDprDetailContent({
               ) : null}
               {dpr.weather ? (
                 <span
-                  className="text-[0.5625rem] font-semibold px-2 py-0.5 rounded-[0.25rem] flex items-center gap-1"
+                  className="text-m-caption font-semibold px-2 py-0.5 rounded-[0.25rem] flex items-center gap-1"
                   style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
                 >
                   <Cloud className="size-2.5" />
@@ -159,13 +182,13 @@ async function MobileDprDetailContent({
                 </span>
               ) : null}
               <span
-                className="text-[0.5625rem] font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
+                className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
                 style={{ backgroundColor: statusColor, color: "#fff" }}
               >
                 {dpr.approvalStatus.replace(/_/g, " ")}
               </span>
             </div>
-            <p className="text-[0.5625rem] mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
               By {dpr.submittedBy?.name ?? "—"}
             </p>
           </div>
@@ -180,10 +203,10 @@ async function MobileDprDetailContent({
       {/* ── Narrative section ── */}
       {dpr.workSummary ? (
         <div className="mb-4">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
             Work Summary
           </p>
-          <p className="text-[0.8125rem] leading-relaxed" style={{ color: "var(--color-ink-900)" }}>
+          <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-900)" }}>
             {dpr.workSummary}
           </p>
         </div>
@@ -196,10 +219,10 @@ async function MobileDprDetailContent({
         >
           <AlertTriangle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-stop)" }} />
           <div>
-            <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-stop)" }}>
               Blockers
             </p>
-            <p className="text-[0.75rem]" style={{ color: "var(--color-ink-900)" }}>
+            <p className="text-m-section" style={{ color: "var(--color-ink-900)" }}>
               {dpr.blockers}
             </p>
           </div>
@@ -211,10 +234,10 @@ async function MobileDprDetailContent({
           className="rounded-[0.5rem] p-3 mb-4"
           style={{ backgroundColor: "var(--color-paper-2)" }}
         >
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-steel)" }}>
             Tomorrow&apos;s Plan
           </p>
-          <p className="text-[0.75rem]" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section" style={{ color: "var(--color-ink-700)" }}>
             {dpr.tomorrowPlan}
           </p>
         </div>
@@ -222,7 +245,7 @@ async function MobileDprDetailContent({
 
       {dpr.photoUrls && dpr.photoUrls.length > 0 ? (
         <div className="mb-4">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
             Site Photos
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -251,12 +274,12 @@ async function MobileDprDetailContent({
         >
           <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
             <Hammer className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Materials
             </span>
           </div>
           {dpr.materialLines.length === 0 ? (
-            <p className="text-[0.5625rem] p-2.5" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
               None recorded
             </p>
           ) : (
@@ -267,14 +290,14 @@ async function MobileDprDetailContent({
                   className="px-2.5 py-1.5"
                   style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
                 >
-                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {ml.material.name}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                       {formatNumber(toNum(ml.qty), 0)} {ml.material.unit}
                     </span>
-                    <span className="text-[0.5rem] tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                    <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
                       {formatCurrency(toNum(ml.qty) * toNum(ml.unitCost))}
                     </span>
                   </div>
@@ -284,10 +307,10 @@ async function MobileDprDetailContent({
                 className="px-2.5 py-1.5 flex items-center justify-between"
                 style={{ borderTop: "1px solid var(--color-line)" }}
               >
-                <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Total
                 </span>
-                <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatCurrency(totalMaterialCost)}
                 </span>
               </div>
@@ -302,12 +325,12 @@ async function MobileDprDetailContent({
         >
           <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
             <Users className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Labor
             </span>
           </div>
           {dpr.laborLines.length === 0 ? (
-            <p className="text-[0.5625rem] p-2.5" style={{ color: "var(--color-ink-400)" }}>
+            <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
               None recorded
             </p>
           ) : (
@@ -318,14 +341,14 @@ async function MobileDprDetailContent({
                   className="px-2.5 py-1.5"
                   style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
                 >
-                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {ll.taskDescription}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                       {ll.employee?.name ?? ll.crew?.name ?? "—"}
                     </span>
-                    <span className="text-[0.5rem] tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                    <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
                       {formatNumber(toNum(ll.hoursWorked), 1)}h
                     </span>
                   </div>
@@ -335,10 +358,10 @@ async function MobileDprDetailContent({
                 className="px-2.5 py-1.5 flex items-center justify-between"
                 style={{ borderTop: "1px solid var(--color-line)" }}
               >
-                <span className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Total
                 </span>
-                <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(totalHours, 1)}h
                 </span>
               </div>
@@ -363,10 +386,10 @@ async function MobileDprDetailContent({
         >
           <AlertTriangle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-signal)" }} />
           <div>
-            <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-signal)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-signal)" }}>
               Variance Analysis
             </p>
-            <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-700)" }}>
+            <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
               {typeof dpr.varianceAnalysis === "string"
                 ? dpr.varianceAnalysis
                 : "Over-consumption detected — see details"}
@@ -377,7 +400,7 @@ async function MobileDprDetailContent({
 
       {/* ── Approval trail — horizontal stepper ── */}
       <div className="mb-4">
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
           Approval Trail
         </p>
         <div className="flex items-start">
@@ -403,18 +426,18 @@ async function MobileDprDetailContent({
                   )}
                 </div>
                 <span
-                  className="text-[0.5rem] font-bold text-center"
+                  className="text-m-caption font-bold text-center"
                   style={{ color: step.done ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
                 >
                   {step.label}
                 </span>
                 {step.done && step.person ? (
-                  <span className="text-[0.4375rem] text-center truncate w-full" style={{ color: "var(--color-ink-500)" }}>
+                  <span className="text-m-caption text-center truncate w-full" style={{ color: "var(--color-ink-500)" }}>
                     {step.person}
                   </span>
                 ) : null}
                 {step.done && step.date ? (
-                  <span className="text-[0.4375rem] text-center" style={{ color: "var(--color-ink-400)" }}>
+                  <span className="text-m-caption text-center" style={{ color: "var(--color-ink-400)" }}>
                     {step.date}
                   </span>
                 ) : null}
@@ -436,7 +459,7 @@ async function MobileDprDetailContent({
             className="rounded-[0.5rem] p-2.5 mt-3"
             style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}
           >
-            <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+            <p className="text-m-label font-semibold" style={{ color: "var(--color-stop)" }}>
               {dpr.approvalNotes}
             </p>
           </div>
@@ -450,6 +473,9 @@ async function MobileDprDetailContent({
         canApproveSubAdmin={canApproveSubAdmin}
         canApproveAdmin={canApproveAdmin}
         canResubmit={canResubmit}
+        canMarkCostPosted={canMarkCostPosted}
+        canManage={canManage}
+        costPosted={!!dpr.costPostedDate}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder } from "@nirman/services";
@@ -96,6 +97,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         ? charges.map((c) => ({ heading: c.heading, amount: c.amount, notes: c.notes ?? undefined }))
         : undefined,
     });
+    revalidatePath("/procurement");
+    revalidatePath("/m/procurement");
     return json(po, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create purchase order") }, { status: 400 });

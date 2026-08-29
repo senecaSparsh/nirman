@@ -6,7 +6,7 @@ import {
   KeyRound, Phone, AlertCircle, Calendar,
   Clock, ChevronRight, Plus,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { MobileNewTenancyDialog } from "./MobileNewTenancyDialog";
 import {
   MobileSearchHeader,
@@ -134,18 +134,18 @@ export function MobileRentalsList({
       >
         <div className="flex items-center justify-between mb-2">
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Monthly Rent
             </p>
-            <p className="text-[1.25rem] font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
-              {formatCurrency(stats.totalMonthlyRent)}
+            <p className="text-m-section font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
+              {formatCurrencyCompact(stats.totalMonthlyRent)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Collected
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrencyCompact(stats.totalReceived)}
             </p>
           </div>
@@ -154,16 +154,16 @@ export function MobileRentalsList({
         {/* Overdue alert */}
         {stats.totalOverdue > 0 ? (
           <div
-            className="rounded-[0.375rem] px-2 py-1.5 flex items-center gap-1.5 text-[0.5rem] font-bold"
+            className="rounded-[0.375rem] px-2 py-1.5 flex items-center gap-1.5 text-m-caption font-bold"
             style={{ backgroundColor: `color-mix(in srgb, var(--color-signal) 8%, transparent)`, color: "var(--color-signal)" }}
           >
             <AlertCircle className="size-3" />
-            {formatCurrency(stats.totalOverdue)} overdue across {overdueCount} {overdueCount === 1 ? "tenant" : "tenants"}
+            {formatCurrencyCompact(stats.totalOverdue)} overdue across {overdueCount} {overdueCount === 1 ? "tenant" : "tenants"}
           </div>
         ) : null}
 
         {/* Mini stats */}
-        <div className="flex items-center gap-3 text-[0.5rem] font-semibold mt-1.5">
+        <div className="flex items-center gap-3 text-m-caption font-semibold mt-1.5">
           <span className="flex items-center gap-0.5" style={{ color: "var(--color-go)" }}>
             <KeyRound className="size-2.5" />
             {stats.activeCount} active
@@ -227,7 +227,7 @@ export function MobileRentalsList({
           {(query || filter !== "all") && (
             <div className="flex items-center justify-end mb-1.5">
               <span
-                className="text-[0.625rem] font-semibold"
+                className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {sorted.length} tenanc{sorted.length !== 1 ? "ies" : "y"}
@@ -300,11 +300,11 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
       <div className="p-2.5">
         {/* ── Top: tenant name + status ── */}
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[0.75rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {t.tenantName}
           </p>
           <span
-            className="flex items-center gap-0.5 text-[0.375rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
             style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
           >
             {meta.label}
@@ -312,17 +312,17 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
         </div>
 
         {/* ── Asset + phone ── */}
-        <p className="text-[0.5rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
           {t.assetLabel}{t.projectName ? ` · ${t.projectName}` : ""}
         </p>
 
         {/* ── Financial row ── */}
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Rent
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrencyCompact(t.monthlyRent)}/mo
             </p>
           </div>
@@ -330,10 +330,10 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
           <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
 
           <div>
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Received
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
               {formatCurrencyCompact(t.totalReceived)}
             </p>
           </div>
@@ -344,7 +344,7 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
               <a
                 href={`tel:${t.tenantPhone}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
+                className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
                 <Phone className="size-2.5" />
@@ -355,11 +355,11 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
 
           {/* Lease end date */}
           <div className="ml-auto text-right">
-            <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Until
             </p>
             <p
-              className="text-[0.6875rem] font-bold tabular-nums"
+              className="text-m-body font-bold tabular-nums"
               style={{ color: t.expiringSoon ? "var(--color-signal)" : "var(--color-ink-950)" }}
             >
               {formatDate(t.endDate)}
@@ -384,21 +384,21 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
           {hasOverdue ? (
             <>
               <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }}>
-                {formatCurrency(t.overdueAmount)} overdue · {t.overdueCount} {t.overdueCount === 1 ? "payment" : "payments"}
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                {formatCurrencyCompact(t.overdueAmount)} overdue · {t.overdueCount} {t.overdueCount === 1 ? "payment" : "payments"}
               </span>
             </>
           ) : t.expiringSoon ? (
             <>
               <Calendar className="size-2.5" style={{ color: "var(--color-signal)" }} />
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }}>
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
                 Expires in {t.daysToExpiry} {t.daysToExpiry === 1 ? "day" : "days"}
               </span>
             </>
           ) : t.nextDueDate ? (
             <>
               <Clock className="size-2.5" style={{ color: "var(--color-ink-500)" }} />
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                 Next: {formatCurrencyCompact(t.nextDueAmount ?? 0)} due {formatDate(t.nextDueDate)}
               </span>
             </>

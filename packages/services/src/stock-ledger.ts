@@ -1,4 +1,5 @@
 import { prisma, type Prisma, type StockMovementType } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import {
   computeMovingAverageCost,

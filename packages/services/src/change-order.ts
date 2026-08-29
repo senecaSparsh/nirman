@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Change Order Service — formal modifications to project scope, BOQ, budget, or schedule.
@@ -177,7 +178,7 @@ function validateLines(lines: ChangeOrderLineInput[]) {
 // ── CRUD ───────────────────────────────────────────────────
 
 export async function createChangeOrder(input: CreateChangeOrderInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
       include: { company: { select: { id: true } } },
@@ -282,7 +283,7 @@ export async function getChangeOrder(id: string) {
 }
 
 export async function updateChangeOrder(id: string, input: UpdateChangeOrderInput) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.changeOrder.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Change order not found", 404);
     if (existing.status !== "DRAFT" && existing.status !== "REJECTED") {
@@ -353,7 +354,7 @@ export async function updateChangeOrder(id: string, input: UpdateChangeOrderInpu
 // ── Workflow actions ───────────────────────────────────────
 
 export async function submitChangeOrder(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "DRAFT" && co.status !== "REJECTED") {
@@ -387,7 +388,7 @@ export async function approveChangeOrder(
   userId: string,
   clientApprovedBy?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "SUBMITTED") {
@@ -423,7 +424,7 @@ export async function approveChangeOrder(
 }
 
 export async function rejectChangeOrder(id: string, userId: string, reason: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "SUBMITTED") {
@@ -454,7 +455,7 @@ export async function rejectChangeOrder(id: string, userId: string, reason: stri
 }
 
 export async function cancelChangeOrder(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status === "IMPLEMENTED" || co.status === "APPROVED") {
@@ -489,7 +490,7 @@ export async function cancelChangeOrder(id: string, userId: string) {
  * Then update Project.totalBudget with the cost delta.
  */
 export async function implementChangeOrder(id: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({
       where: { id },
       include: { lines: true, project: true },
@@ -615,7 +616,7 @@ export async function implementChangeOrder(id: string, userId: string) {
 }
 
 export async function deleteChangeOrder(id: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const existing = await tx.changeOrder.findUnique({ where: { id } });
     if (!existing) throw new ServiceError("Change order not found", 404);
     if (existing.status === "IMPLEMENTED") {

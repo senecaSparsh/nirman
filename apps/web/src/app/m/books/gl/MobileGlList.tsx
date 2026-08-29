@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { BookOpen } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -78,7 +78,7 @@ export function MobileGlList({
               icon={BookOpen}
               title={`${r.code} · ${r.name}`}
               subtitle={r.type}
-              meta={r.balance >= 0 ? `Dr ${formatCurrency(r.balance)}` : `Cr ${formatCurrency(-r.balance)}`}
+              meta={r.balance >= 0 ? `Dr ${formatCurrencyCompact(r.balance)}` : `Cr ${formatCurrencyCompact(-r.balance)}`}
             />
           ))}
         </div>

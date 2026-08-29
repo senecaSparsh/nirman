@@ -7,7 +7,7 @@ import { Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck, ClipboardCheck
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface NcrDetail {
   id: string;
@@ -174,24 +174,24 @@ export function MobileNcrDetailClient({
   const sevColor = SEVERITY_COLORS[ncr.severity] ?? "var(--color-ink-500)";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       {/* Header */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
           <MobileStatusBadge status={ncr.status} />
         </div>
-        <h1 className="text-[0.875rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{ncr.title}</h1>
-        <p className="text-[0.625rem]" style={{ color: sevColor, fontWeight: 600 }}>
+        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{ncr.title}</h1>
+        <p className="text-m-label" style={{ color: sevColor, fontWeight: 600 }}>
           {ncr.severity} · {CATEGORY_LABELS[ncr.category] ?? ncr.category}
         </p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>{ncr.projectName}</p>
+        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>{ncr.projectName}</p>
       </div>
 
       {/* Description */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-[0.625rem] font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
-        <p className="text-[0.75rem] leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{ncr.description}</p>
+        <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
+        <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{ncr.description}</p>
       </div>
 
       {/* Details grid */}
@@ -206,7 +206,7 @@ export function MobileNcrDetailClient({
       {/* Photo evidence */}
       {ncr.attachments.length > 0 && (
         <div className="mb-2">
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
             Photo Evidence
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -228,7 +228,7 @@ export function MobileNcrDetailClient({
 
       {/* Timeline */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-[0.625rem] font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
+        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
           <TimelineRow label="Raised" date={ncr.raisedAt} name={ncr.raisedByName} />
           {ncr.reviewedAt && <TimelineRow label="Reviewed" date={ncr.reviewedAt} name={ncr.reviewedByName} />}
@@ -236,14 +236,14 @@ export function MobileNcrDetailClient({
         </div>
         {ncr.reviewNotes && (
           <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Review Notes</p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-950)" }}>{ncr.reviewNotes}</p>
+            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Review Notes</p>
+            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.reviewNotes}</p>
           </div>
         )}
         {ncr.closureNotes && (
           <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-950)" }}>{ncr.closureNotes}</p>
+            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
+            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.closureNotes}</p>
           </div>
         )}
       </div>
@@ -255,14 +255,14 @@ export function MobileNcrDetailClient({
         <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="size-4" style={{ color: "var(--color-signal)" }} />
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>CAPA Required</p>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>CAPA Required</p>
           </div>
-          <p className="text-[0.625rem] mb-3" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
             Create a Corrective And Preventive Action plan for this NCR.
           </p>
           <button
             onClick={() => setShowCapa(true)}
-            className="w-full h-10 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press"
+            className="w-full h-10 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <ShieldCheck className="size-4" /> Create CAPA
@@ -270,9 +270,10 @@ export function MobileNcrDetailClient({
         </div>
       ) : null}
 
-      {/* NCR Workflow actions */}
+      {/* Workflow actions */}
       {canManage && (
-        <div className="flex flex-wrap gap-2">
+        <ActionBar>
+          {/* NCR actions */}
           {(ncr.status === "OPEN" || ncr.status === "UNDER_REVIEW") && (
             <ActionButton onClick={() => setShowReview(true)} loading={false} icon={Send} label="Review" variant="primary" />
           )}
@@ -296,31 +297,30 @@ export function MobileNcrDetailClient({
               variant="danger"
             />
           )}
-        </div>
-      )}
-
-      {/* CAPA workflow actions */}
-      {canManage && ncr.capa && (
-        <div className="flex flex-wrap gap-2">
-          {ncr.capa.status === "DRAFT" && (
-            <ActionButton onClick={() => capaAction("start")} loading={acting === "start"} icon={Play} label="Start CAPA" variant="primary" />
+          {/* CAPA actions */}
+          {ncr.capa && (
+            <>
+              {ncr.capa.status === "DRAFT" && (
+                <ActionButton onClick={() => capaAction("start")} loading={acting === "start"} icon={Play} label="Start CAPA" variant="primary" />
+              )}
+              {ncr.capa.status === "IN_PROGRESS" && !ncr.capa.correctiveDoneAt && (
+                <ActionButton onClick={() => capaAction("corrective_done")} loading={acting === "corrective_done"} icon={Check} label="Corrective Done" variant="go" />
+              )}
+              {ncr.capa.status === "IN_PROGRESS" && ncr.capa.correctiveDoneAt && !ncr.capa.preventiveDoneAt && (
+                <ActionButton onClick={() => capaAction("preventive_done")} loading={acting === "preventive_done"} icon={Check} label="Preventive Done" variant="go" />
+              )}
+              {ncr.capa.status === "VERIFICATION" && (
+                <ActionButton onClick={() => setShowVerify(true)} loading={false} icon={ShieldCheck} label="Verify" variant="primary" />
+              )}
+              {ncr.capa.status === "VERIFIED" && (
+                <ActionButton onClick={() => setShowCapaClose(true)} loading={false} icon={Check} label="Close CAPA" variant="go" />
+              )}
+              {ncr.capa.status === "REJECTED" && (
+                <ActionButton onClick={() => capaAction("start")} loading={acting === "start"} icon={Play} label="Restart CAPA" variant="primary" />
+              )}
+            </>
           )}
-          {ncr.capa.status === "IN_PROGRESS" && !ncr.capa.correctiveDoneAt && (
-            <ActionButton onClick={() => capaAction("corrective_done")} loading={acting === "corrective_done"} icon={Check} label="Corrective Done" variant="go" />
-          )}
-          {ncr.capa.status === "IN_PROGRESS" && ncr.capa.correctiveDoneAt && !ncr.capa.preventiveDoneAt && (
-            <ActionButton onClick={() => capaAction("preventive_done")} loading={acting === "preventive_done"} icon={Check} label="Preventive Done" variant="go" />
-          )}
-          {ncr.capa.status === "VERIFICATION" && (
-            <ActionButton onClick={() => setShowVerify(true)} loading={false} icon={ShieldCheck} label="Verify" variant="primary" />
-          )}
-          {ncr.capa.status === "VERIFIED" && (
-            <ActionButton onClick={() => setShowCapaClose(true)} loading={false} icon={Check} label="Close CAPA" variant="go" />
-          )}
-          {ncr.capa.status === "REJECTED" && (
-            <ActionButton onClick={() => capaAction("start")} loading={acting === "start"} icon={Play} label="Restart CAPA" variant="primary" />
-          )}
-        </div>
+        </ActionBar>
       )}
 
       {/* Review dialog */}
@@ -328,11 +328,11 @@ export function MobileNcrDetailClient({
         <BottomSheet title="Review NCR" onClose={() => setShowReview(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Outcome</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Outcome</label>
               <select
                 value={reviewForm.outcome}
                 onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED" }))}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
                 <option value="CAPA_REQUIRED">CAPA Required</option>
@@ -341,13 +341,13 @@ export function MobileNcrDetailClient({
               </select>
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Review Notes</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Review Notes</label>
               <textarea
                 value={reviewForm.reviewNotes}
                 onChange={(e) => setReviewForm((f) => ({ ...f, reviewNotes: e.target.value }))}
                 rows={3}
                 placeholder="Findings from the review…"
-                className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]"
+                className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -357,7 +357,7 @@ export function MobileNcrDetailClient({
                 ncrAction("review", { outcome: reviewForm.outcome, reviewNotes: reviewForm.reviewNotes });
               }}
               disabled={acting === "review"}
-              className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "review" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -372,13 +372,13 @@ export function MobileNcrDetailClient({
         <BottomSheet title="Close NCR" onClose={() => setShowClose(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
               <textarea
                 value={closureNotes}
                 onChange={(e) => setClosureNotes(e.target.value)}
                 rows={3}
                 placeholder="How was the non-conformance resolved?"
-                className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]"
+                className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -388,7 +388,7 @@ export function MobileNcrDetailClient({
                 ncrAction("close", { closureNotes });
               }}
               disabled={acting === "close"}
-              className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press"
+              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
               style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}
             >
               {acting === "close" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
@@ -403,28 +403,28 @@ export function MobileNcrDetailClient({
         <BottomSheet title="Create CAPA" onClose={() => setShowCapa(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Root Cause</label>
-              <textarea value={capaForm.rootCause} onChange={(e) => setCapaForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} placeholder="Why did the non-conformance happen?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Root Cause</label>
+              <textarea value={capaForm.rootCause} onChange={(e) => setCapaForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} placeholder="Why did the non-conformance happen?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Action</label>
-              <textarea value={capaForm.correctiveAction} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveAction: e.target.value }))} rows={2} placeholder="What will be done to fix it?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Action</label>
+              <textarea value={capaForm.correctiveAction} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveAction: e.target.value }))} rows={2} placeholder="What will be done to fix it?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Preventive Action</label>
-              <textarea value={capaForm.preventiveAction} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveAction: e.target.value }))} rows={2} placeholder="What will prevent recurrence?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Preventive Action</label>
+              <textarea value={capaForm.preventiveAction} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveAction: e.target.value }))} rows={2} placeholder="What will prevent recurrence?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Due</label>
-                <input type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Corrective Due</label>
+                <input type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
               </div>
               <div>
-                <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Preventive Due</label>
-                <input type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Preventive Due</label>
+                <input type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
               </div>
             </div>
-            <button onClick={createCapa} disabled={acting === "create_capa"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button onClick={createCapa} disabled={acting === "create_capa"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "create_capa" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
               Create CAPA
             </button>
@@ -437,18 +437,18 @@ export function MobileNcrDetailClient({
         <BottomSheet title="Verify CAPA" onClose={() => setShowVerify(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Verification Method</label>
-              <input value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Verification Method</label>
+              <input value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Verification Notes</label>
-              <textarea value={verifyForm.verificationNotes} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationNotes: e.target.value }))} rows={3} placeholder="Was the corrective action effective?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Verification Notes</label>
+              <textarea value={verifyForm.verificationNotes} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationNotes: e.target.value }))} rows={3} placeholder="Was the corrective action effective?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => { if (!verifyForm.verificationMethod.trim() || !verifyForm.verificationNotes.trim()) { toast.error("All fields required"); return; } capaAction("verify", { ...verifyForm, effective: true }); }} disabled={acting === "verify"} className="h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
+              <button onClick={() => { if (!verifyForm.verificationMethod.trim() || !verifyForm.verificationNotes.trim()) { toast.error("All fields required"); return; } capaAction("verify", { ...verifyForm, effective: true }); }} disabled={acting === "verify"} className="h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
                 {acting === "verify" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Effective
               </button>
-              <button onClick={() => { if (!verifyForm.verificationMethod.trim() || !verifyForm.verificationNotes.trim()) { toast.error("All fields required"); return; } capaAction("verify", { ...verifyForm, effective: false }); }} disabled={acting === "verify"} className="h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+              <button onClick={() => { if (!verifyForm.verificationMethod.trim() || !verifyForm.verificationNotes.trim()) { toast.error("All fields required"); return; } capaAction("verify", { ...verifyForm, effective: false }); }} disabled={acting === "verify"} className="h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
                 <X className="size-4" /> Not Effective
               </button>
             </div>
@@ -461,10 +461,10 @@ export function MobileNcrDetailClient({
         <BottomSheet title="Close CAPA" onClose={() => setShowCapaClose(false)}>
           <div className="space-y-3">
             <div>
-              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
-              <textarea value={capaClosureNotes} onChange={(e) => setCapaClosureNotes(e.target.value)} rows={3} placeholder="Final closure notes…" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Closure Notes</label>
+              <textarea value={capaClosureNotes} onChange={(e) => setCapaClosureNotes(e.target.value)} rows={3} placeholder="Final closure notes…" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
-            <button onClick={() => { if (!capaClosureNotes.trim()) { toast.error("Closure notes required"); return; } capaAction("close", { closureNotes: capaClosureNotes }); }} disabled={acting === "close"} className="w-full h-11 rounded-[0.5rem] text-[0.75rem] font-bold flex items-center justify-center gap-1.5 press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
+            <button onClick={() => { if (!capaClosureNotes.trim()) { toast.error("Closure notes required"); return; } capaAction("close", { closureNotes: capaClosureNotes }); }} disabled={acting === "close"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
               {acting === "close" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confirm Closure
             </button>
           </div>
@@ -481,7 +481,7 @@ function CapaSection({ capa }: { capa: NonNullable<NcrDetail["capa"]> }) {
       <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--color-line)" }}>
         <div className="flex items-center gap-2">
           <ShieldCheck className="size-4" style={{ color: "var(--color-go)" }} />
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{capa.capaNumber}</p>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{capa.capaNumber}</p>
         </div>
         <MobileStatusBadge status={capa.status} />
       </div>
@@ -501,12 +501,12 @@ function CapaField({ label, value, done, doneByName, doneAt, dueDate }: { label:
   return (
     <div>
       <div className="flex items-center gap-1.5">
-        <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
         {done && <Check className="size-3" style={{ color: "var(--color-go)" }} />}
       </div>
-      <p className="text-[0.625rem] leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-label leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{value}</p>
       {(doneAt || dueDate) && (
-        <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           {doneAt ? `Done ${formatDate(doneAt)}${doneByName ? ` by ${doneByName}` : ""}` : dueDate ? `Due ${formatDate(dueDate)}` : ""}
         </p>
       )}
@@ -517,8 +517,8 @@ function CapaField({ label, value, done, doneByName, doneAt, dueDate }: { label:
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-[0.375rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }
@@ -527,10 +527,10 @@ function TimelineRow({ label, date, name }: { label: string; date: string; name?
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>
-        {name && <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}
+        <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>
+        {name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}
       </div>
-      <p className="text-[0.625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
+      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
     </div>
   );
 }
@@ -543,7 +543,7 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };
   return (
-    <button onClick={onClick} disabled={loading} className="flex-1 min-w-[140px] h-11 rounded-[0.5rem] border text-[0.6875rem] font-bold flex items-center justify-center gap-1.5 press" style={styles[variant]}>
+    <button onClick={onClick} disabled={loading} className="w-full h-11 rounded-[0.5rem] border text-m-body font-bold flex items-center justify-center gap-1.5 text-m-body press" style={styles[variant]}>
       {loading ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
       {label}
     </button>
@@ -552,11 +552,11 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
 
 function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
       <div className="mt-auto rounded-t-[1rem] max-h-[80vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
+          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
         </div>
         <div className="p-4">{children}</div>
       </div>

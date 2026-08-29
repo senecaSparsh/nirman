@@ -16,7 +16,7 @@ import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-sec
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
-import { mobileStatusColor } from "@/components/mobile/v2/primitives";
+import { mobileStatusColor, ActionBar } from "@/components/mobile/v2/primitives";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
 
@@ -251,6 +251,7 @@ export function MobileLandDetailClient({
   const [showSchedule, setShowSchedule] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
+  const [createProjectLoading, setCreateProjectLoading] = useState(false);
 
   // Payment form state
   const [payAmount, setPayAmount] = useState("");
@@ -332,6 +333,31 @@ export function MobileLandDetailClient({
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleCreateProject() {
+    if (!data) return;
+    const name = window.prompt("Enter project name", `${data.sellerName ?? "Land"} Development`);
+    if (!name) return;
+    setCreateProjectLoading(true);
+    try {
+      const res = await fetch(`/api/land-purchases/${data.id}/create-project`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Failed to create project");
+      }
+      const d = await res.json();
+      toast.success("Project created", { description: `${name} has been linked to this land` });
+      router.push(`/m/projects/${d.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create project");
+    } finally {
+      setCreateProjectLoading(false);
     }
   }
 
@@ -417,7 +443,7 @@ export function MobileLandDetailClient({
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
             Land purchase not found
           </p>
         </div>
@@ -426,7 +452,7 @@ export function MobileLandDetailClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
         >
           <MapPin className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
             Land purchase not found
           </p>
         </div>
@@ -441,20 +467,20 @@ export function MobileLandDetailClient({
   const hasBuiltUnits = data.builtUnits.length > 0;
 
   return (
-    <div className="pb-6">
+    <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
             {data.location ?? data.sellerName}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-[0.625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-label truncate" style={{ color: "var(--color-ink-500)" }}>
               from {data.sellerName}
             </p>
             {data.mode ? (
               <span
-                className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
                 style={{ color: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}
               >
                 {data.mode === "BOOKED" ? "Booked" : MODE_META[data.mode]?.label ?? data.mode}
@@ -462,7 +488,7 @@ export function MobileLandDetailClient({
             ) : null}
             {isBooked && (
               <span
-                className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
                 style={{ color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
               >
                 Awaiting Registry
@@ -470,7 +496,7 @@ export function MobileLandDetailClient({
             )}
             {isCompleted && (
               <span
-                className="text-[0.5625rem] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
                 style={{ color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
               >
                 Completed
@@ -490,13 +516,13 @@ export function MobileLandDetailClient({
           }}
         >
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[0.5rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Payment Progress
             </p>
             {isBooked && canManage && balanceDue > 0 && (
               <button
                 onClick={() => setShowPayment(true)}
-                className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-0.5 press"
+                className="text-m-caption font-bold rounded-[0.25rem] px-2 py-0.5 text-m-body press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 + Payment
@@ -505,16 +531,16 @@ export function MobileLandDetailClient({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
-              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(totalCost)}</p>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(totalCost)}</p>
             </div>
             <div>
-              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
-              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
             </div>
             <div>
-              <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
-              <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: balanceDue > 0 ? "var(--color-signal)" : "var(--color-go)" }}>{formatCurrencyCompact(balanceDue)}</p>
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: balanceDue > 0 ? "var(--color-signal)" : "var(--color-go)" }}>{formatCurrencyCompact(balanceDue)}</p>
             </div>
           </div>
           {/* Progress bar */}
@@ -528,13 +554,13 @@ export function MobileLandDetailClient({
           )}
           {/* Registry doc status */}
           <div className="mt-2 pt-1.5 flex items-center justify-between" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <span className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Registry Document</span>
+            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Registry Document</span>
             {data.registryDocumentUrl ? (
-              <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] font-bold press" style={{ color: "var(--color-go)" }}>
+              <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-m-caption font-bold text-m-body press" style={{ color: "var(--color-go)" }}>
                 <ExternalLink className="size-2.5" /> Uploaded
               </a>
             ) : (
-              <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-signal)" }}>Required to complete</span>
+              <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>Required to complete</span>
             )}
           </div>
         </div>
@@ -552,11 +578,11 @@ export function MobileLandDetailClient({
           <div className="flex items-center gap-2">
             <KeyRound className="size-3.5" style={{ color: data.isPossessed ? "var(--color-go)" : "var(--color-ink-400)" }} />
             <div>
-              <p className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
                 {data.isPossessed ? "Possession Taken" : "Possession Pending"}
               </p>
               {data.possessionDate && (
-                <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                   {formatDate(data.possessionDate)}
                   {data.possessionNotes ? ` · ${data.possessionNotes}` : ""}
                 </p>
@@ -567,7 +593,7 @@ export function MobileLandDetailClient({
             <button
               onClick={() => handleTogglePossession()}
               disabled={submitting}
-              className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-1 press disabled:opacity-50"
+              className="text-m-caption font-bold rounded-[0.25rem] px-2 py-1 text-m-body press disabled:opacity-50"
               style={{
                 backgroundColor: data.isPossessed ? "var(--color-line)" : "var(--color-ink-950)",
                 color: data.isPossessed ? "var(--color-ink-600)" : "var(--color-paper)",
@@ -583,13 +609,13 @@ export function MobileLandDetailClient({
       {data.paymentSchedule && data.paymentSchedule.items.length > 0 && (
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1.5 px-0.5">
-            <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
               Payment Plan
             </p>
             {canManage && isBooked && (
               <button
                 onClick={() => setShowSchedule(true)}
-                className="text-[0.5rem] font-bold rounded-[0.25rem] px-2 py-0.5 press"
+                className="text-m-caption font-bold rounded-[0.25rem] px-2 py-0.5 text-m-body press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 Edit Plan
@@ -609,16 +635,16 @@ export function MobileLandDetailClient({
                   style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
                 >
                   <span
-                    className="grid place-items-center size-6 rounded-full shrink-0 text-[0.5rem] font-bold"
+                    className="grid place-items-center size-6 rounded-full shrink-0 text-m-caption font-bold"
                     style={{ backgroundColor: `color-mix(in srgb, ${statusColor} 12%, transparent)`, color: statusColor }}
                   >
                     {item.installmentNo}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                       {item.description}
                     </p>
-                    <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {item.percentage}% of total
                       {item.dueDate ? ` · Due ${formatDate(item.dueDate)}` : ""}
                       {item.status === "PAID" && <span style={{ color: "var(--color-go)" }}> · Paid</span>}
@@ -626,7 +652,7 @@ export function MobileLandDetailClient({
                       {item.status === "DUE" && <span style={{ color: "var(--color-stop)" }}> · Due</span>}
                     </p>
                   </div>
-                  <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: statusColor }}>
+                  <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: statusColor }}>
                     {formatCurrencyCompact(item.amount)}
                   </p>
                 </div>
@@ -636,16 +662,25 @@ export function MobileLandDetailClient({
         </div>
       )}
 
-      {/* ── Create Payment Plan button (BOOKED + no schedule + canManage) ── */}
+      {/* ── Payment actions (BOOKED + no schedule + canManage) ── */}
       {isBooked && canManage && !data.paymentSchedule && balanceDue > 0 && (
-        <button
-          onClick={() => setShowSchedule(true)}
-          className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2 mb-3 press"
-          style={{ border: "1px dashed var(--color-line)", color: "var(--color-ink-600)" }}
-        >
-          <CalendarClock className="size-3.5" />
-          <span className="text-[0.625rem] font-bold">Create Payment Plan</span>
-        </button>
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => setShowSchedule(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-body press"
+            style={{ border: "1px dashed var(--color-line)", color: "var(--color-ink-600)" }}
+          >
+            <CalendarClock className="size-3.5" />
+            <span className="text-m-label font-bold">Create Plan</span>
+          </button>
+          <button
+            onClick={() => setShowPayment(true)}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-m-body press"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            <span className="text-m-label font-bold">+ Payment</span>
+          </button>
+        </div>
       )}
 
       {/* ── Registry record card — cadastre thumb on left, info on right, full-width bottom ── */}
@@ -666,7 +701,7 @@ export function MobileLandDetailClient({
           {sortedParcels.length > 0 ? (
             <button
               onClick={() => setCadastreZoom(true)}
-              className="shrink-0 border-r flex items-center justify-center press relative"
+              className="shrink-0 border-r flex items-center justify-center text-m-body press relative"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper-2)",
@@ -685,14 +720,14 @@ export function MobileLandDetailClient({
           <div className="flex-1 min-w-0 pl-3 pr-2.5 py-2">
             {/* Registry no + mode badge */}
             <div className="flex items-center justify-between mb-1">
-              <span className="flex items-center gap-0.5 text-[0.5rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+              <span className="flex items-center gap-0.5 text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                 <ScrollText className="size-2.5" />
                 {data.registryNo ? `№ ${data.registryNo}` : "—"}
               </span>
               {data.projectName ? (
                 <Link
                   href={`/m/projects/${data.projectId}`}
-                  className="flex items-center gap-0.5 text-[0.5rem] font-semibold px-1.5 py-0.5 rounded press"
+                  className="flex items-center gap-0.5 text-m-caption font-semibold px-1.5 py-0.5 rounded text-m-body press"
                   style={{ color: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}
                 >
                   <Building2 className="size-2.5" />
@@ -700,20 +735,20 @@ export function MobileLandDetailClient({
                   <ChevronRight className="size-2" />
                 </Link>
               ) : (
-                <span className="text-[0.5rem] font-semibold px-1.5 py-0.5 rounded" style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-paper-2)" }}>
+                <span className="text-m-caption font-semibold px-1.5 py-0.5 rounded" style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-paper-2)" }}>
                   Standalone
                 </span>
               )}
             </div>
 
             {/* Seller name */}
-            <p className="text-[0.6875rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
               {data.sellerName}
             </p>
             {/* Location (left) + phone (right) — same row */}
             <div className="flex items-center justify-between gap-1.5 mt-0.5">
               {data.location ? (
-                <p className="text-[0.5rem] flex items-center gap-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption flex items-center gap-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
                   <MapPin className="size-2.5" />
                   {data.location}
                 </p>
@@ -721,7 +756,7 @@ export function MobileLandDetailClient({
               {data.sellerContact ? (
                 <a
                   href={`tel:${data.sellerContact}`}
-                  className="text-[0.5rem] flex items-center gap-0.5 press shrink-0"
+                  className="text-m-caption flex items-center gap-0.5 text-m-body press shrink-0"
                   style={{ color: "var(--color-steel)" }}
                 >
                   <Phone className="size-2.5" />
@@ -733,49 +768,49 @@ export function MobileLandDetailClient({
             {/* Field grid — Date / Area / Cost / Type all in one row, centered */}
             <div className="grid grid-cols-4 gap-1 mt-1.5 pt-1.5 border-t text-center" style={{ borderColor: "var(--color-line)" }}>
               <div className="min-w-0">
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   <Calendar className="size-2 inline mr-0.5" />Date
                 </p>
-                <p className="text-[0.5625rem] font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
                   {formatDate(data.purchaseDate)}
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   <Maximize className="size-2 inline mr-0.5" />Area
                 </p>
-                <p className="text-[0.5625rem] font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(data.totalArea, 0)} {unitShort}
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   <IndianRupee className="size-2 inline mr-0.5" />Cost
                 </p>
-                <p className="text-[0.5625rem] font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
+                <p className="text-m-caption font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
                   {formatCurrencyCompact(data.totalCost)}
                 </p>
-                <p className="text-[0.4375rem] tabular-nums truncate" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption tabular-nums truncate" style={{ color: "var(--color-ink-500)" }}>
                   @ {formatCurrency(data.costPerUnit)}/{unitShort}
                 </p>
               </div>
               <div className="min-w-0 flex flex-col gap-0.5 items-center">
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Type
                 </p>
-                <span className="rounded px-1 py-0.5 text-[0.4375rem] font-bold leading-tight whitespace-nowrap"
+                <span className="rounded px-1 py-0.5 text-m-caption font-bold leading-tight whitespace-nowrap"
                   style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}>
                   {data.landType === "LEASEHOLD" ? "Leasehold" : "Freehold"}
                 </span>
                 {data.landType === "LEASEHOLD" && data.leaseType && (
-                  <span className="rounded px-1 py-0.5 text-[0.4375rem] font-bold leading-tight whitespace-nowrap"
+                  <span className="rounded px-1 py-0.5 text-m-caption font-bold leading-tight whitespace-nowrap"
                     style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}>
                     {data.leaseType === "ONE_TIME" ? "One-time" : "Yearly"}
                     {data.leasePeriodYears ? ` · ${data.leasePeriodYears}y` : ""}
                   </span>
                 )}
                 {data.mode === "SUBDIVIDED" && (
-                  <span className="rounded px-1 py-0.5 text-[0.4375rem] font-bold leading-tight whitespace-nowrap"
+                  <span className="rounded px-1 py-0.5 text-m-caption font-bold leading-tight whitespace-nowrap"
                     style={{ backgroundColor: "rgba(100,116,139,0.1)", color: "var(--color-steel)" }}>
                     Sub-divided
                   </span>
@@ -790,7 +825,7 @@ export function MobileLandDetailClient({
                   href={data.documentUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-0.5 text-[0.5rem] font-semibold press"
+                  className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
                   style={{ color: "var(--color-steel)" }}
                 >
                   <FileText className="size-2.5" />
@@ -808,54 +843,54 @@ export function MobileLandDetailClient({
           {data.baseCost != null && data.baseCost > 0 && (
             <div className="rounded-[0.375rem] border p-2 space-y-0.5"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
-              <p className="text-[0.5rem] font-bold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Cost Breakup</p>
-              <div className="flex justify-between text-[0.5rem]">
+              <p className="text-m-caption font-bold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Cost Breakup</p>
+              <div className="flex justify-between text-m-caption">
                 <span style={{ color: "var(--color-ink-500)" }}>Base</span>
                 <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.baseCost)}</strong>
               </div>
               {data.leaseRentAmount != null && data.leaseRentAmount > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Rent ({data.leaseRentPercent}%)</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.leaseRentAmount)}</strong>
                 </div>
               )}
               {data.gstAmount != null && data.gstAmount > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>GST ({data.gstPercent}%)</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.gstAmount)}</strong>
                 </div>
               )}
               {data.registrationAmount != null && data.registrationAmount > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Registration ({data.registrationPercent}%)</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.registrationAmount)}</strong>
                 </div>
               )}
               {data.stampDutyAmount != null && data.stampDutyAmount > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Stamp Duty ({data.stampDutyPercent}%)</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.stampDutyAmount)}</strong>
                 </div>
               )}
               {data.brokerageAmount != null && data.brokerageAmount > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Brokerage</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.brokerageAmount)}</strong>
                 </div>
               )}
               {data.legalFees != null && data.legalFees > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Legal Fees</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.legalFees)}</strong>
                 </div>
               )}
               {data.otherCharges != null && data.otherCharges > 0 && (
-                <div className="flex justify-between text-[0.5rem]">
+                <div className="flex justify-between text-m-caption">
                   <span style={{ color: "var(--color-ink-500)" }}>Other Charges</span>
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.otherCharges)}</strong>
                 </div>
               )}
-              <div className="flex justify-between text-[0.5625rem] font-bold pt-1 mt-0.5"
+              <div className="flex justify-between text-m-caption font-bold pt-1 mt-0.5"
                 style={{ borderTop: "1px solid var(--color-line)" }}>
                 <span style={{ color: "var(--color-ink-950)" }}>Total Land Cost</span>
                 <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.totalCost)}</strong>
@@ -870,7 +905,7 @@ export function MobileLandDetailClient({
             if (data.mode === "SUBDIVIDED" || (childParcels.length > 0 && hasPartitionedParent)) {
               const plotNumbers = childParcels.map((p) => p.number).join(", ");
               return (
-                <div className="mt-1.5 rounded-[0.375rem] border px-3 py-2 text-[0.625rem] leading-snug"
+                <div className="mt-1.5 rounded-[0.375rem] border px-3 py-2 text-m-label leading-snug"
                   style={{
                     borderColor: "rgba(100,116,139,0.4)",
                     backgroundColor: "rgba(100,116,139,0.1)",
@@ -891,7 +926,7 @@ export function MobileLandDetailClient({
       {cadastreZoom && sortedParcels.length > 0 ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-6"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}
           onClick={() => setCadastreZoom(false)}
         >
           <div
@@ -900,10 +935,10 @@ export function MobileLandDetailClient({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
+              <p className="text-m-body font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
                 Cadastre Plan
               </p>
-              <button onClick={() => setCadastreZoom(false)} className="press">
+              <button onClick={() => setCadastreZoom(false)} className="text-m-body press">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -921,7 +956,7 @@ export function MobileLandDetailClient({
                 { label: "Sold", color: "var(--color-stop)", show: data.stats.soldCount > 0 },
                 { label: "Partitioned", color: "var(--color-steel)", show: sortedParcels.some((p) => p.status === "PARTITIONED") },
               ].filter((it) => it.show).map((it) => (
-                <span key={it.label} className="flex items-center gap-1 text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                <span key={it.label} className="flex items-center gap-1 text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                   <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: it.color, opacity: 0.6 }} />
                   {it.label}
                 </span>
@@ -940,7 +975,7 @@ export function MobileLandDetailClient({
             { label: "Sold", color: "var(--color-stop)", show: data.stats.soldCount > 0 },
             { label: "Partitioned", color: "var(--color-steel)", show: sortedParcels.some((p) => p.status === "PARTITIONED") },
           ].filter((it) => it.show).map((it) => (
-            <span key={it.label} className="flex items-center gap-0.5 text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <span key={it.label} className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
               <span
                 className="h-1.5 w-1.5 rounded-sm"
                 style={{ backgroundColor: it.color, opacity: 0.6 }}
@@ -986,7 +1021,7 @@ export function MobileLandDetailClient({
         >
           <button
             onClick={() => setView("parcels")}
-            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-[0.625rem] font-bold transition-colors press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-m-label font-bold transition-colors text-m-body press"
             style={{
               backgroundColor: view === "parcels" ? "var(--color-paper)" : "transparent",
               color: view === "parcels" ? "var(--color-ink-950)" : "var(--color-ink-500)",
@@ -998,7 +1033,7 @@ export function MobileLandDetailClient({
           </button>
           <button
             onClick={() => setView("units")}
-            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-[0.625rem] font-bold transition-colors press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-m-label font-bold transition-colors text-m-body press"
             style={{
               backgroundColor: view === "units" ? "var(--color-paper)" : "transparent",
               color: view === "units" ? "var(--color-ink-950)" : "var(--color-ink-500)",
@@ -1015,7 +1050,7 @@ export function MobileLandDetailClient({
       {view === "parcels" ? (
         <div className="mb-4">
           {!hasBuiltUnits ? (
-            <p className="text-[0.625rem] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
+            <p className="text-m-label font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
               Parcels ({sortedParcels.length})
             </p>
           ) : null}
@@ -1026,7 +1061,7 @@ export function MobileLandDetailClient({
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
             >
               <Layers className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
                 No parcels
               </p>
             </div>
@@ -1057,7 +1092,7 @@ export function MobileLandDetailClient({
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
             >
               <Home className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
                 No built units
               </p>
             </div>
@@ -1074,7 +1109,7 @@ export function MobileLandDetailClient({
       {/* ── Sales section ── */}
       {data.sales.length > 0 ? (
         <div className="mb-4">
-          <p className="text-[0.625rem] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
+          <p className="text-m-label font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-600)" }}>
             Sales ({data.sales.length})
           </p>
           <div className="flex flex-col gap-2">
@@ -1089,7 +1124,7 @@ export function MobileLandDetailClient({
       {(isBooked || payments.length > 0) && (
         <div className="mb-4">
           {/* Payments list */}
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
             Payments ({payments.length})
           </p>
           {payments.length > 0 && (
@@ -1110,18 +1145,18 @@ export function MobileLandDetailClient({
                     <Banknote className="size-3" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                    <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                       {p.paymentMode.replace("_", " ")}
                       {p.referenceNo ? ` · ${p.referenceNo}` : ""}
                     </p>
-                    <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+                    <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {formatDate(p.paymentDate)}
                       {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
                       {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cleared</span>}
                       {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Bounced</span>}
                     </p>
                   </div>
-                  <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
+                  <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
                     {formatCurrencyCompact(p.amount)}
                   </p>
                   {canManage && p.chequeStatus === "PENDING" && (
@@ -1129,7 +1164,7 @@ export function MobileLandDetailClient({
                       <button
                         onClick={() => handleChequeAction(p.id, "clear")}
                         disabled={submitting}
-                        className="rounded-[0.25rem] px-1.5 py-1 text-[0.5rem] font-bold press disabled:opacity-50"
+                        className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
                         style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
                       >
                         Clear
@@ -1137,7 +1172,7 @@ export function MobileLandDetailClient({
                       <button
                         onClick={() => handleChequeAction(p.id, "bounce")}
                         disabled={submitting}
-                        className="rounded-[0.25rem] px-1.5 py-1 text-[0.5rem] font-bold press disabled:opacity-50"
+                        className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
                         style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
                       >
                         Bounce
@@ -1150,7 +1185,7 @@ export function MobileLandDetailClient({
           )}
 
           {/* Document uploads — ATS + Registry */}
-          <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+          <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
             Purchase Documents
           </p>
           <div
@@ -1160,17 +1195,17 @@ export function MobileLandDetailClient({
             {/* ATS */}
             <div className="px-2.5 py-2" style={{ borderBottom: "1px solid var(--color-line)" }}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
                   Agreement to Sell (ATS)
                 </span>
                 {data.atsDocumentUrl ? (
-                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
                 ) : (
-                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
                 )}
               </div>
               {data.atsDocumentUrl ? (
-                <a href={data.atsDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] press" style={{ color: "var(--color-ink-600)" }}>
+                <a href={data.atsDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-m-caption text-m-body press" style={{ color: "var(--color-ink-600)" }}>
                   <ExternalLink className="size-2.5" />
                   <span className="truncate">{data.atsDocumentName || "View ATS"}</span>
                 </a>
@@ -1181,23 +1216,23 @@ export function MobileLandDetailClient({
                   onUpload={(url, name) => uploadLandDocument("ATS", url, name)}
                 />
               ) : (
-                <p className="text-[0.5rem]" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
               )}
             </div>
             {/* Registry */}
             <div className="px-2.5 py-2">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
                   Registry Document
                 </span>
                 {data.registryDocumentUrl ? (
-                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
                 ) : (
-                  <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-signal)" }}>Required</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>Required</span>
                 )}
               </div>
               {data.registryDocumentUrl ? (
-                <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[0.5rem] press" style={{ color: "var(--color-ink-600)" }}>
+                <a href={data.registryDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-m-caption text-m-body press" style={{ color: "var(--color-ink-600)" }}>
                   <ExternalLink className="size-2.5" />
                   <span className="truncate">{data.registryDocumentName || "View Registry"}</span>
                 </a>
@@ -1209,22 +1244,31 @@ export function MobileLandDetailClient({
                   onUpload={(url, name) => uploadLandDocument("REGISTRY", url, name)}
                 />
               ) : (
-                <p className="text-[0.5rem]" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
               )}
             </div>
           </div>
-          {docUploading && <p className="text-[0.4375rem] mb-2" style={{ color: "var(--color-ink-500)" }}>Uploading…</p>}
+          {docUploading && <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-500)" }}>Uploading…</p>}
 
-          {/* Complete action */}
+          {/* Complete + Payment actions */}
           {isBooked && canManage && (
-            <button
-              onClick={() => setShowComplete(true)}
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 mb-2 press"
-              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
-            >
-              <CheckCircle2 className="size-3.5" />
-              <span className="text-[0.6875rem] font-bold">Complete Purchase</span>
-            </button>
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => setShowPayment(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.5rem] border text-m-body press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+              >
+                <span className="text-m-label font-bold">+ Payment</span>
+              </button>
+              <button
+                onClick={() => setShowComplete(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.5rem] text-m-body press"
+                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+              >
+                <CheckCircle2 className="size-3.5" />
+                <span className="text-m-body font-bold">Complete</span>
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -1267,7 +1311,7 @@ export function MobileLandDetailClient({
                   })
                   .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to un-divide"));
               }}
-              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-semibold press"
+              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
               style={{ borderColor: "rgba(100,116,139,0.4)", backgroundColor: "rgba(100,116,139,0.1)", color: "var(--color-steel)" }}
             >
               <Split className="size-3 rotate-180" />
@@ -1282,12 +1326,23 @@ export function MobileLandDetailClient({
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => setShowEdit(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-semibold press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
           >
             <Pencil className="size-3" />
             Edit
           </button>
+          {canManage && !data?.projectId ? (
+            <button
+              onClick={handleCreateProject}
+              disabled={createProjectLoading}
+              className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press disabled:opacity-50"
+              style={{ borderColor: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)", color: "var(--color-steel)" }}
+            >
+              {createProjectLoading ? <Loader2 className="size-3 animate-spin" /> : <Building2 className="size-3" />}
+              Create Project
+            </button>
+          ) : null}
           <button
             onClick={async () => {
               const ok = await confirm({
@@ -1306,7 +1361,7 @@ export function MobileLandDetailClient({
                 })
                 .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to archive"));
             }}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-[0.625rem] font-semibold press"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-stop)" }}
           >
             <Trash2 className="size-3" />
@@ -1329,33 +1384,33 @@ export function MobileLandDetailClient({
           <form onSubmit={handlePayment} className="space-y-3">
             <div className="grid grid-cols-3 gap-2 rounded-[0.375rem] border p-2" style={{ borderColor: "var(--color-line)" }}>
               <div>
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
-                <p className="text-[0.625rem] font-bold tabular-nums">{formatCurrencyCompact(totalCost)}</p>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
+                <p className="text-m-label font-bold tabular-nums">{formatCurrencyCompact(totalCost)}</p>
               </div>
               <div>
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Paid</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrencyCompact(totalPaid)}</p>
               </div>
               <div>
-                <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
-                <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>{formatCurrencyCompact(balanceDue)}</p>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>{formatCurrencyCompact(balanceDue)}</p>
               </div>
             </div>
             <div>
-              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
+              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
               <input
                 type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
                 value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
                 placeholder={balanceDue.toFixed(2)} required autoFocus
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.875rem] font-bold tabular-nums outline-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-bold tabular-nums outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
             <div>
-              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Mode</label>
+              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Mode</label>
               <select
                 value={payMode} onChange={(e) => setPayMode(e.target.value)}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
@@ -1364,23 +1419,23 @@ export function MobileLandDetailClient({
               </select>
             </div>
             <div>
-              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reference</label>
+              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reference</label>
               <input
                 type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
                 placeholder="Cheque / UTR no."
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
             {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1">
               <button type="button" onClick={() => setShowPayment(false)}
-                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
                 Cancel
               </button>
               <button type="submit" disabled={submitting}
-                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
               </button>
@@ -1393,20 +1448,20 @@ export function MobileLandDetailClient({
       {showComplete ? (
         <LandModal onClose={() => setShowComplete(false)} title="Complete Land Purchase">
           <form onSubmit={handleComplete} className="space-y-3">
-            <p className="text-[0.5625rem] rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
+            <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
               Completing the purchase marks all parcels as AVAILABLE and creates an ownership certificate.
             </p>
             <div>
-              <label className="text-[0.5rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Registry No.</label>
+              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Registry No.</label>
               <input
                 type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
                 placeholder="e.g. SR-1234/2025"
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none"
+                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
             <div>
-              <label className="text-[0.5rem] font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
+              <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
                 Registry Document — required *
               </label>
               <MobileDocUploader
@@ -1418,7 +1473,7 @@ export function MobileLandDetailClient({
                 onRemove={() => setCompRegistryDocUrl("")}
               />
               {!data.registryDocumentUrl && !compRegistryDocUrl && (
-                <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
                   Purchase cannot be completed without the registry document.
                 </p>
               )}
@@ -1431,19 +1486,19 @@ export function MobileLandDetailClient({
                   onChange={(e) => setCompPartialRegistry(e.target.checked)}
                   className="size-3.5"
                 />
-                <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
                   Allow partial registry — complete with ₹{formatCurrencyCompact(balanceDue)} balance due
                 </span>
               </label>
             )}
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1">
               <button type="button" onClick={() => setShowComplete(false)}
-                className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
                 Cancel
               </button>
               <button type="submit" disabled={submitting}
-                className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Complete"}
               </button>
@@ -1482,8 +1537,8 @@ function LandModal({ title, onClose, children }: { title: string; onClose: () =>
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="press">
+          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
@@ -1504,17 +1559,17 @@ function KpiCell({
 }) {
   return (
     <div className="p-2 text-center border-r last:border-r-0" style={{ borderColor: "var(--color-line)" }}>
-      <p className="text-[0.5625rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
       <p
-        className="text-[0.6875rem] font-bold tabular-nums leading-tight mt-0.5"
+        className="text-m-body font-bold tabular-nums leading-tight mt-0.5"
         style={{ color: tone === "positive" ? "var(--color-go)" : tone === "negative" ? "var(--color-stop)" : "var(--color-ink-950)" }}
       >
         {value}
       </p>
       {sub ? (
-        <p className="text-[0.5625rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           {sub}
         </p>
       ) : null}
@@ -1539,6 +1594,7 @@ function ParcelCard({
   customers: Customer[];
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showPartition, setShowPartition] = useState(false);
   const [showSell, setShowSell] = useState(false);
@@ -1615,22 +1671,22 @@ function ParcelCard({
         {/* ── Top: number + status ── */}
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
-            <p className="text-[0.75rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
               {p.number}
             </p>
             {p.parentParcelNumber ? (
-              <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 from {p.parentParcelNumber}
               </span>
             ) : null}
             {p.isInfrastructure ? (
-              <span className="text-[0.5625rem] font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper-2)" }}>
+              <span className="text-m-caption font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper-2)" }}>
                 INFRA
               </span>
             ) : null}
             {p.purpose && PURPOSE_META[p.purpose] && !isSold ? (
               <span
-                className="flex items-center gap-0.5 text-[0.5625rem] font-semibold px-1 py-0.5 rounded"
+                className="flex items-center gap-0.5 text-m-caption font-semibold px-1 py-0.5 rounded"
                 style={{ color: PURPOSE_META[p.purpose]!.color, backgroundColor: `color-mix(in srgb, ${PURPOSE_META[p.purpose]!.color} 10%, transparent)` }}
               >
                 {(() => { const Icon = PURPOSE_META[p.purpose]!.icon; return <Icon className="size-2" />; })()}
@@ -1639,7 +1695,7 @@ function ParcelCard({
             ) : null}
           </div>
           <span
-            className="flex items-center gap-0.5 text-[0.5625rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
             style={{ color: meta!.color, backgroundColor: `color-mix(in srgb, ${meta!.color} 12%, transparent)` }}
           >
             <StatusIcon className="size-2.5" />
@@ -1651,10 +1707,10 @@ function ParcelCard({
         <div className="flex items-center gap-3">
           {/* Area */}
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Area
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(p.area, 0)} {unitShort}
             </p>
           </div>
@@ -1663,10 +1719,10 @@ function ParcelCard({
 
           {/* Cost */}
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Cost
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
               {formatCurrencyCompact(p.acquisitionCost)}
             </p>
           </div>
@@ -1675,10 +1731,10 @@ function ParcelCard({
 
           {/* Value */}
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Value
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrencyCompact(p.currentValuation)}
             </p>
           </div>
@@ -1688,10 +1744,10 @@ function ParcelCard({
             <>
               <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
               <div>
-                <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Asking
                 </p>
-                <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(p.askingPrice)}
                 </p>
               </div>
@@ -1700,11 +1756,11 @@ function ParcelCard({
 
           {/* Gain */}
           <div className="ml-auto text-right">
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Δ
             </p>
             <p
-              className="text-[0.6875rem] font-bold tabular-nums flex items-center justify-end gap-0.5"
+              className="text-m-body font-bold tabular-nums flex items-center justify-end gap-0.5"
               style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
             >
               {gain >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
@@ -1716,7 +1772,7 @@ function ParcelCard({
         {/* ── Sale info (if sold) ── */}
         {isSold ? (
           <div
-            className="mt-2 pt-2 border-t flex items-center gap-2 text-[0.5rem]"
+            className="mt-2 pt-2 border-t flex items-center gap-2 text-m-caption"
             style={{ borderColor: "var(--color-line)" }}
           >
             <DollarSign className="size-2.5" style={{ color: "var(--color-go)" }} />
@@ -1732,7 +1788,7 @@ function ParcelCard({
         {/* ── Partitioned children count + un-divide button (OWNER/ADMIN only) ── */}
         {isPartitioned ? (
           <div
-            className="mt-2 pt-2 border-t flex items-center gap-1.5 text-[0.5rem]"
+            className="mt-2 pt-2 border-t flex items-center gap-1.5 text-m-caption"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
           >
             <Split className="size-2.5" />
@@ -1740,7 +1796,13 @@ function ParcelCard({
             {canPartition ? (
               <button
                 onClick={async () => {
-                  if (!window.confirm(`Un-divide this parcel? This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`)) return;
+                  const ok = await confirm({
+                    title: "Un-divide parcel?",
+                    description: `This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`,
+                    confirmLabel: "Un-divide",
+                    variant: "destructive",
+                  });
+                  if (!ok) return;
                   setActing("unpartition");
                   fetch("/api/land-parcels", {
                     method: "POST",
@@ -1757,7 +1819,7 @@ function ParcelCard({
                     .finally(() => setActing(null));
                 }}
                 disabled={acting === "unpartition"}
-                className="ml-auto flex items-center gap-0.5 text-[0.5625rem] font-bold px-1.5 py-0.5 rounded press"
+                className="ml-auto flex items-center gap-0.5 text-m-caption font-bold px-1.5 py-0.5 rounded text-m-body press"
                 style={{ color: "var(--color-steel)", backgroundColor: "rgba(100,116,139,0.1)" }}
               >
                 {acting === "unpartition" ? <Loader2 className="size-2.5 animate-spin" /> : <Split className="size-2.5 rotate-180" />}
@@ -1770,73 +1832,75 @@ function ParcelCard({
 
       {/* ── Action bar ── */}
       {!isPartitioned && !isSold && (canManage || canPartition || canSell) ? (
-        <div
-          className="flex items-center gap-1 px-2.5 py-1.5 border-t"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          {/* Hold / Release */}
-          {canManage ? (
-            <button
-              onClick={handleStatusToggle}
-              disabled={acting === "status"}
-              className="flex items-center gap-0.5 text-[0.625rem] font-semibold px-2 py-1 rounded press"
-              style={{
-                color: isAvailable ? "var(--color-signal)" : "var(--color-go)",
-                backgroundColor: `color-mix(in srgb, ${isAvailable ? "var(--color-signal)" : "var(--color-go)"} 10%, transparent)`,
-              }}
-            >
-              {acting === "status" ? <Loader2 className="size-2.5 animate-spin" /> : isAvailable ? <PauseCircle className="size-2.5" /> : <CheckCircle2 className="size-2.5" />}
-              {isAvailable ? "Hold" : "Release"}
-            </button>
-          ) : null}
+        <ActionBar>
+          <div
+            className="flex items-center gap-1 px-2.5 py-1.5 border-t"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          >
+            {/* Hold / Release */}
+            {canManage ? (
+              <button
+                onClick={handleStatusToggle}
+                disabled={acting === "status"}
+                className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
+                style={{
+                  color: isAvailable ? "var(--color-signal)" : "var(--color-go)",
+                  backgroundColor: `color-mix(in srgb, ${isAvailable ? "var(--color-signal)" : "var(--color-go)"} 10%, transparent)`,
+                }}
+              >
+                {acting === "status" ? <Loader2 className="size-2.5 animate-spin" /> : isAvailable ? <PauseCircle className="size-2.5" /> : <CheckCircle2 className="size-2.5" />}
+                {isAvailable ? "Hold" : "Release"}
+              </button>
+            ) : null}
 
-          {/* Valuate */}
-          {canManage ? (
-            <button
-              onClick={() => setShowValuate(true)}
-              className="flex items-center gap-0.5 text-[0.625rem] font-semibold px-2 py-1 rounded press"
-              style={{ color: "var(--color-ink-600)", backgroundColor: "var(--color-paper)" }}
-            >
-              <Tag className="size-2.5" />
-              Valuate
-            </button>
-          ) : null}
+            {/* Valuate */}
+            {canManage ? (
+              <button
+                onClick={() => setShowValuate(true)}
+                className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
+                style={{ color: "var(--color-ink-600)", backgroundColor: "var(--color-paper)" }}
+              >
+                <Tag className="size-2.5" />
+                Valuate
+              </button>
+            ) : null}
 
-          {/* Partition */}
-          {canPartition ? (
-            <button
-              onClick={() => setShowPartition(true)}
-              className="flex items-center gap-0.5 text-[0.625rem] font-semibold px-2 py-1 rounded press"
-              style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper)" }}
-            >
-              <Split className="size-2.5" />
-              Partition
-            </button>
-          ) : null}
+            {/* Partition */}
+            {canPartition ? (
+              <button
+                onClick={() => setShowPartition(true)}
+                className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
+                style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper)" }}
+              >
+                <Split className="size-2.5" />
+                Partition
+              </button>
+            ) : null}
 
-          {/* Sell */}
-          {canSell ? (
-            <button
-              onClick={() => setShowSell(true)}
-              className="flex items-center gap-0.5 text-[0.625rem] font-semibold px-2 py-1 rounded press ml-auto"
-              style={{ color: "var(--color-go)", backgroundColor: `color-mix(in srgb, var(--color-go) 10%, transparent)` }}
-            >
-              <DollarSign className="size-2.5" />
-              Sell
-            </button>
-          ) : null}
+            {/* Sell */}
+            {canSell ? (
+              <button
+                onClick={() => setShowSell(true)}
+                className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press ml-auto"
+                style={{ color: "var(--color-go)", backgroundColor: `color-mix(in srgb, var(--color-go) 10%, transparent)` }}
+              >
+                <DollarSign className="size-2.5" />
+                Sell
+              </button>
+            ) : null}
 
-          {/* Delete */}
-          {canManage ? (
-            <button
-              onClick={() => setShowDelete(true)}
-              className="flex items-center gap-0.5 text-[0.625rem] font-semibold px-2 py-1 rounded press"
-              style={{ color: "var(--color-stop)" }}
-            >
-              <Trash2 className="size-2.5" />
-            </button>
-          ) : null}
-        </div>
+            {/* Delete */}
+            {canManage ? (
+              <button
+                onClick={() => setShowDelete(true)}
+                className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
+                style={{ color: "var(--color-stop)" }}
+              >
+                <Trash2 className="size-2.5" />
+              </button>
+            ) : null}
+          </div>
+        </ActionBar>
       ) : null}
 
       {/* ── Partition bottom-sheet ── */}
@@ -1878,6 +1942,7 @@ function ParcelCard({
           onClose={() => setShowDelete(false)}
         />
       ) : null}
+      {confirmDialog}
     </div>
   );
 }
@@ -1920,20 +1985,20 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
         {/* ── Top: unit number + type + status ── */}
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {u.unitNumber}
             </p>
-            <span className="text-[0.5625rem] font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-ink-600)", backgroundColor: "var(--color-paper-2)" }}>
+            <span className="text-m-caption font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-ink-600)", backgroundColor: "var(--color-paper-2)" }}>
               {UNIT_TYPE_LABEL[u.unitType] ?? u.unitType}
             </span>
             {u.originType === "PURCHASED" ? (
-              <span className="text-[0.5625rem] font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper-2)" }}>
+              <span className="text-m-caption font-semibold px-1 py-0.5 rounded" style={{ color: "var(--color-steel)", backgroundColor: "var(--color-paper-2)" }}>
                 PURCHASED
               </span>
             ) : null}
           </div>
           <span
-            className="flex items-center gap-0.5 text-[0.5625rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
             style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
           >
             {meta.label}
@@ -1941,7 +2006,7 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
         </div>
 
         {/* ── Location info ── */}
-        <p className="text-[0.5rem] mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mb-1.5" style={{ color: "var(--color-ink-500)" }}>
           {u.landParcelNumber ? `Parcel ${u.landParcelNumber}` : "—"}
           {u.wing ? ` · Wing ${u.wing}` : ""}
           {u.floor != null ? ` · Floor ${u.floor}` : ""}
@@ -1951,10 +2016,10 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
         {/* ── Stats row ── */}
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Area
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatNumber(u.area, 0)} {unitShort}
             </p>
           </div>
@@ -1962,10 +2027,10 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
           <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
 
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               {u.originType === "PURCHASED" ? "Acquired" : "Production"}
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
               {formatCurrencyCompact(cost)}
             </p>
           </div>
@@ -1973,10 +2038,10 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
           <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
 
           <div>
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Value
             </p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrencyCompact(u.currentValuation)}
             </p>
           </div>
@@ -1985,10 +2050,10 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
             <>
               <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
               <div>
-                <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Asking
                 </p>
-                <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(u.askingPrice)}
                 </p>
               </div>
@@ -1996,11 +2061,11 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
           ) : null}
 
           <div className="ml-auto text-right">
-            <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Δ
             </p>
             <p
-              className="text-[0.6875rem] font-bold tabular-nums flex items-center justify-end gap-0.5"
+              className="text-m-body font-bold tabular-nums flex items-center justify-end gap-0.5"
               style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
             >
               {gain >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
@@ -2019,49 +2084,49 @@ function SaleCard({ sale: s }: { sale: Sale }) {
   return (
     <Link
       href="/m/sales?tab=collections"
-      className="block rounded-[0.5rem] border p-2.5 press active:scale-[0.99] transition-transform"
+      className="block rounded-[0.5rem] border p-2.5 text-m-body press active:scale-[0.99] transition-transform"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[0.5rem] font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <span className="text-m-caption font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>
           {s.saleNumber}
         </span>
-        <span className="text-[0.5625rem] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "var(--color-go)", backgroundColor: `color-mix(in srgb, var(--color-go) 12%, transparent)` }}>
+        <span className="text-m-caption font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "var(--color-go)", backgroundColor: `color-mix(in srgb, var(--color-go) 12%, transparent)` }}>
           {s.saleStage}
         </span>
       </div>
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
             Parcel
           </p>
-          <p className="text-[0.625rem] font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
             {s.parcelNumber}
           </p>
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
             Buyer
           </p>
-          <p className="text-[0.625rem] font-bold truncate max-w-[80px]" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold truncate max-w-[80px]" style={{ color: "var(--color-ink-950)" }}>
             {s.customerName}
           </p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
             Price
           </p>
-          <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(s.salePrice)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.5rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
             Profit
           </p>
           <p
-            className="text-[0.6875rem] font-bold tabular-nums"
+            className="text-m-body font-bold tabular-nums"
             style={{ color: profitPositive ? "var(--color-go)" : "var(--color-stop)" }}
           >
             {profitPositive ? "+" : ""}{formatCurrencyCompact(s.profit)}
@@ -2140,7 +2205,7 @@ function PartitionSheet({
     <BottomSheet title={`Partition ${parcel.number}`} onClose={onClose}>
       {/* Parent info */}
       <div className="rounded-[0.5rem] border p-2 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
-        <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           Parent: <span className="font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>{parcel.number}</span>
           {" — "}{formatNumber(parcel.area, 0)} {unitShort}
         </p>
@@ -2151,11 +2216,11 @@ function PartitionSheet({
         {children.map((c, i) => (
           <div key={i} className="rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-ink-600)" }}>
+              <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-600)" }}>
                 Sub-parcel {i + 1}
               </span>
               {children.length > 2 ? (
-                <button onClick={() => removeChild(i)} className="press">
+                <button onClick={() => removeChild(i)} className="text-m-body press">
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               ) : null}
@@ -2166,7 +2231,7 @@ function PartitionSheet({
                 placeholder="Number"
                 value={c.number}
                 onChange={(e) => updateChild(i, "number", e.target.value)}
-                className="h-8 rounded border px-2 text-[0.625rem] outline-none"
+                className="h-8 rounded border px-2 text-m-label outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
               <input
@@ -2174,7 +2239,7 @@ function PartitionSheet({
                 placeholder={`Area (${unitShort})`}
                 value={c.area}
                 onChange={(e) => updateChild(i, "area", e.target.value)}
-                className="h-8 rounded border px-2 text-[0.625rem] tabular-nums outline-none"
+                className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
               <input
@@ -2182,7 +2247,7 @@ function PartitionSheet({
                 placeholder="Asking ₹"
                 value={c.askingPrice}
                 onChange={(e) => updateChild(i, "askingPrice", e.target.value)}
-                className="h-8 rounded border px-2 text-[0.625rem] tabular-nums outline-none"
+                className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -2192,7 +2257,7 @@ function PartitionSheet({
 
       <button
         onClick={addChild}
-        className="w-full flex items-center justify-center gap-1 h-8 rounded-[0.5rem] border text-[0.625rem] font-semibold press mb-3"
+        className="w-full flex items-center justify-center gap-1 h-8 rounded-[0.5rem] border text-m-label font-semibold text-m-body press mb-3"
         style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
       >
         <Plus className="size-3" />
@@ -2201,7 +2266,7 @@ function PartitionSheet({
 
       {/* Area check */}
       <div
-        className="rounded-[0.5rem] p-2 mb-3 flex items-center gap-1.5 text-[0.5rem]"
+        className="rounded-[0.5rem] p-2 mb-3 flex items-center gap-1.5 text-m-caption"
         style={{
           backgroundColor: areaMatch ? `color-mix(in srgb, var(--color-go) 8%, transparent)` : `color-mix(in srgb, var(--color-signal) 8%, transparent)`,
           color: areaMatch ? "var(--color-go)" : "var(--color-signal)",
@@ -2213,13 +2278,13 @@ function PartitionSheet({
       </div>
 
       {error ? (
-        <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
+        <p className="text-m-caption mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
       ) : null}
 
       <button
         onClick={handleSubmit}
         disabled={submitting || !areaMatch}
-        className="w-full h-9 rounded-[0.5rem] text-[0.625rem] font-bold press disabled:opacity-50"
+        className="w-full h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
         style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : `Partition into ${children.filter(c => c.number.trim() && c.area).length} parcels`}
@@ -2292,7 +2357,7 @@ function SellSheet({
     <BottomSheet title={`Sell ${parcel.number}`} onClose={onClose}>
       {/* Parcel summary */}
       <div className="rounded-[0.5rem] border p-2 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
-        <div className="flex items-center gap-3 text-[0.5rem]">
+        <div className="flex items-center gap-3 text-m-caption">
           <span style={{ color: "var(--color-ink-500)" }}>
             {formatNumber(parcel.area, 0)} {unitShort}
           </span>
@@ -2310,7 +2375,7 @@ function SellSheet({
       {/* Customer picker */}
       {!selectedCustomer ? (
         <div className="mb-3">
-          <p className="text-[0.625rem] font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
+          <p className="text-m-label font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
             Select Buyer
           </p>
           <div className="relative mb-2">
@@ -2320,13 +2385,13 @@ function SellSheet({
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
               placeholder="Search customers…"
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-[0.625rem] outline-none"
+              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-m-label outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
           <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
             {filteredCustomers.length === 0 ? (
-              <p className="text-[0.5rem] text-center py-3" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-caption text-center py-3" style={{ color: "var(--color-ink-500)" }}>
                 No customers found
               </p>
             ) : (
@@ -2334,10 +2399,10 @@ function SellSheet({
                 <button
                   key={c.id}
                   onClick={() => setSelectedCustomer(c)}
-                  className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 text-left press"
+                  className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 text-left text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
-                  <span className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
                     {c.name}
                   </span>
                   <ChevronRight className="size-3" style={{ color: "var(--color-ink-500)" }} />
@@ -2348,17 +2413,17 @@ function SellSheet({
         </div>
       ) : (
         <div className="mb-3">
-          <p className="text-[0.625rem] font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
+          <p className="text-m-label font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
             Buyer
           </p>
           <div
             className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <span className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
               {selectedCustomer.name}
             </span>
-            <button onClick={() => setSelectedCustomer(null)} className="press">
+            <button onClick={() => setSelectedCustomer(null)} className="text-m-body press">
               <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
             </button>
           </div>
@@ -2367,7 +2432,7 @@ function SellSheet({
 
       {/* Sale price */}
       <div className="mb-3">
-        <p className="text-[0.625rem] font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
           Sale Price (₹)
         </p>
         <input
@@ -2375,11 +2440,11 @@ function SellSheet({
           value={salePrice}
           onChange={(e) => setSalePrice(e.target.value)}
           placeholder="Enter sale price"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums outline-none"
+          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
           style={{ borderColor: salePrice ? "var(--color-ink-950)" : "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
         {price > 0 ? (
-          <p className="text-[0.5rem] mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+          <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
             {profit >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
             Profit: {formatCurrency(profit)} ({profitPct > 0 ? "+" : ""}{profitPct}%)
           </p>
@@ -2388,7 +2453,7 @@ function SellSheet({
 
       {/* Initial payment (optional) */}
       <div className="mb-3">
-        <p className="text-[0.625rem] font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
           Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
         </p>
         <input
@@ -2396,19 +2461,19 @@ function SellSheet({
           value={initialPayment}
           onChange={(e) => setInitialPayment(e.target.value)}
           placeholder="Token / deposit amount"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums outline-none"
+          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
 
       {error ? (
-        <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
+        <p className="text-m-caption mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
       ) : null}
 
       <button
         onClick={handleSubmit}
         disabled={submitting || !selectedCustomer || price <= 0}
-        className="w-full h-9 rounded-[0.5rem] text-[0.625rem] font-bold press disabled:opacity-50"
+        className="w-full h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
         style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Create Sale"}
@@ -2464,31 +2529,31 @@ function ValuationSheet({
   return (
     <BottomSheet title={`Valuate ${parcel.number}`} onClose={onClose}>
       <div className="rounded-[0.5rem] border p-2 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
-        <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           Cost basis: <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>{formatCurrency(parcel.acquisitionCost)}</span>
         </p>
       </div>
 
       <div className="mb-3">
-        <p className="text-[0.625rem] font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
           Current Valuation (₹)
         </p>
         <input
           type="text" inputMode="decimal"
           value={valuation}
           onChange={(e) => setValuation(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums outline-none"
+          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
           style={{ borderColor: valuation ? "var(--color-ink-950)" : "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
         {gain !== 0 ? (
-          <p className="text-[0.5rem] mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+          <p className="text-m-caption mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
             {gain >= 0 ? "+" : ""}{formatCurrency(gain)} ({gainPct > 0 ? "+" : ""}{gainPct}%)
           </p>
         ) : null}
       </div>
 
       <div className="mb-3">
-        <p className="text-[0.625rem] font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
           Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
         </p>
         <input
@@ -2496,19 +2561,19 @@ function ValuationSheet({
           value={askingPrice}
           onChange={(e) => setAskingPrice(e.target.value)}
           placeholder="List price for sale"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums outline-none"
+          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>
 
       {error ? (
-        <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
+        <p className="text-m-caption mb-2" style={{ color: "var(--color-stop)" }}>{error}</p>
       ) : null}
 
       <button
         onClick={handleSubmit}
         disabled={submitting}
-        className="w-full h-9 rounded-[0.5rem] text-[0.625rem] font-bold press disabled:opacity-50"
+        className="w-full h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
         style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Update Valuation"}
@@ -2529,18 +2594,18 @@ function DeleteSheet({
   return (
     <BottomSheet title={`Delete ${parcel.number}?`} onClose={onClose}>
       <div className="rounded-[0.5rem] border p-3 mb-3" style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}>
-        <p className="text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+        <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
           Parcel <span className="font-bold font-mono">{parcel.number}</span> will be permanently deleted.
         </p>
-        <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
           Only available for AVAILABLE or HOLD parcels with no sales.
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2">
         <button
           onClick={onClose}
           disabled={acting}
-          className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+          className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
         >
           Cancel
@@ -2548,7 +2613,7 @@ function DeleteSheet({
         <button
           onClick={onConfirm}
           disabled={acting}
-          className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press disabled:opacity-50"
+          className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
         >
           {acting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Delete"}
@@ -2583,7 +2648,7 @@ function BottomSheet({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
         onClick={onClose}
       />
       {/* Sheet */}
@@ -2596,10 +2661,10 @@ function BottomSheet({
         <div className="sticky top-0 z-10 pt-2 pb-1" style={{ backgroundColor: "var(--color-paper)" }}>
           <div className="w-8 h-0.5 rounded-full mx-auto mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
           <div className="flex items-center justify-between px-3 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
               {title}
             </p>
-            <button onClick={onClose} className="press">
+            <button onClick={onClose} className="text-m-body press">
               <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
             </button>
           </div>
@@ -2826,13 +2891,13 @@ function LandPaymentScheduleModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Payment Plan</h2>
-          <button onClick={onClose} className="press">
+          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Payment Plan</h2>
+          <button onClick={onClose} className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
 
-        <p className="text-[0.5rem] mb-3 rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
+        <p className="text-m-caption mb-3 rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
           Balance to schedule: <span className="font-bold">{formatCurrency(balanceDue)}</span>. Add installments with their percentage of the balance and optional due dates.
         </p>
 
@@ -2842,8 +2907,8 @@ function LandPaymentScheduleModal({
             return (
               <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[0.5rem] font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
-                  <button onClick={() => removeItem(idx)} className="press">
+                  <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
+                  <button onClick={() => removeItem(idx)} className="text-m-body press">
                     <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                   </button>
                 </div>
@@ -2852,32 +2917,32 @@ function LandPaymentScheduleModal({
                   value={item.description}
                   onChange={(e) => updateItem(idx, "description", e.target.value)}
                   placeholder="Description (e.g. On ATS, On Registry)"
-                  className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem] mb-1.5"
+                  className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label mb-1.5"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <div className="flex-1">
-                    <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
+                    <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
                     <input
                       type="number"
                       value={item.percentage}
                       onChange={(e) => updateItem(idx, "percentage", e.target.value)}
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem] tabular-nums"
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label tabular-nums"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
+                    <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
                     <input
                       type="date"
                       value={item.dueDate}
                       onChange={(e) => updateItem(idx, "dueDate", e.target.value)}
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.625rem]"
+                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                     />
                   </div>
                 </div>
-                <p className="text-[0.5rem] mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                   = {formatCurrency(amount)}
                 </p>
               </div>
@@ -2887,26 +2952,26 @@ function LandPaymentScheduleModal({
 
         <button
           onClick={addItem}
-          className="w-full rounded-[0.5rem] border border-dashed py-2 text-[0.625rem] font-bold press mb-3"
+          className="w-full rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press mb-3"
           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
         >
           + Add Installment
         </button>
 
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[0.5625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
           <span
-            className="text-[0.625rem] font-bold tabular-nums"
+            className="text-m-label font-bold tabular-nums"
             style={{ color: pctValid ? "var(--color-go)" : "var(--color-stop)" }}
           >
             {totalPct.toFixed(2)}% {pctValid ? "✓" : "(must be 100%)"}
           </span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded-[0.5rem] border py-2 text-[0.6875rem] font-bold press"
+            className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Cancel
@@ -2914,7 +2979,7 @@ function LandPaymentScheduleModal({
           <button
             onClick={handleSave}
             disabled={saving || !pctValid}
-            className="flex-1 rounded-[0.5rem] py-2 text-[0.6875rem] font-bold press disabled:opacity-50"
+            className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Save Plan"}

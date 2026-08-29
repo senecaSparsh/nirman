@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { Printer } from "lucide-react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileNoAccess,
   MobileEmptyState,
@@ -79,29 +80,41 @@ async function MobileMbDetailContent({
   const canApprove = hasPermission(role, PERM.MB_APPROVE);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
       <div
         className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
             {entry.mbNumber}
           </p>
-          <MobileStatusBadge status={entry.status} />
+          <div className="flex items-center gap-2">
+            <a
+              href={`/print/measurement-book/${entry.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+            >
+              <Printer className="size-3.5" />
+              Print
+            </a>
+            <MobileStatusBadge status={entry.status} />
+          </div>
         </div>
-        <p className="text-[0.875rem] font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
           {entry.boqItem.description}
         </p>
-        <p className="text-[0.625rem] mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mb-2" style={{ color: "var(--color-ink-500)" }}>
           BOQ {entry.boqItem.serialNo}
           {" · "}
           {entry.project.name}
           {entry.phase ? ` · ${entry.phase.name}` : ""}
         </p>
         {entry.description && (
-          <p className="text-[0.625rem] leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
             {entry.description}
           </p>
         )}
@@ -110,11 +123,11 @@ async function MobileMbDetailContent({
       {/* Quantity summary */}
       <div>
         <SectionHead title="Quantity Summary" />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <StatCard label="Measured Qty" value={`${formatNumber(measuredQty, 3)} ${entry.boqItem.unit ?? ""}`} icon={Package} tone="go" />
           <StatCard label="Cumulative Qty" value={`${formatNumber(cumulativeQty, 3)} ${entry.boqItem.unit ?? ""}`} icon={Package} />
-          <StatCard label="Rate" value={formatCurrency(rate)} icon={IndianRupee} />
-          <StatCard label="Amount" value={formatCurrency(amount)} icon={IndianRupee} tone="signal" />
+          <StatCard label="Rate" value={formatCurrencyCompact(rate)} icon={IndianRupee} />
+          <StatCard label="Amount" value={formatCurrencyCompact(amount)} icon={IndianRupee} tone="signal" />
         </div>
       </div>
 
@@ -171,7 +184,7 @@ async function MobileMbDetailContent({
           {entry.approvedAt && <DetailRow label="Approved At" value={formatDate(entry.approvedAt)} icon={Calendar} />}
           {!entry.measuredBy && !entry.verifiedBy && !entry.approvedBy && (
             <div className="px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
-              <p className="text-[0.625rem] text-center" style={{ color: "var(--color-ink-500)" }}>No approval activity yet</p>
+              <p className="text-m-label text-center" style={{ color: "var(--color-ink-500)" }}>No approval activity yet</p>
             </div>
           )}
         </div>
@@ -180,12 +193,12 @@ async function MobileMbDetailContent({
       {/* BOQ item link */}
       <Link
         href={`/m/boq/${entry.boqItem.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BOQ Item</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BOQ Item</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
             {entry.boqItem.serialNo} · {entry.boqItem.description}
           </p>
         </div>
@@ -194,12 +207,12 @@ async function MobileMbDetailContent({
       {/* Project link */}
       <Link
         href={`/m/projects/${entry.project.id}`}
-        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center gap-2"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Project</p>
-          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{entry.project.name}</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Project</p>
+          <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{entry.project.name}</p>
         </div>
       </Link>
 
@@ -234,14 +247,14 @@ function StatCard({
 
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center gap-1 mb-1">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.75rem] font-bold tabular-nums" style={{ color: toneColor }}>{value}</p>
+      <p className="text-m-section font-bold tabular-nums truncate" style={{ color: toneColor }}>{value}</p>
     </div>
   );
 }
@@ -259,9 +272,9 @@ function DetailRow({
     <div className="flex items-center justify-between px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
       <div className="flex items-center gap-1.5">
         {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>{label}</p>
+        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{label}</p>
       </div>
-      <p className="text-[0.625rem] font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
+      <p className="text-m-label font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
     </div>
   );
 }

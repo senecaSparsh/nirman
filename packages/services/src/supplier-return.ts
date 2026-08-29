@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { postSupplierReturn } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { withSerializableTransaction } from "./transaction";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -66,7 +67,7 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
     if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Return qty must be > 0");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ret = await tx.supplierReturn.create({
       data: {
         returnNumber: await generateReturnNumber(tx),
@@ -104,7 +105,7 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
 }
 
 export async function submitSupplierReturn(returnId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({
       where: { id: returnId },
       include: { lines: true, supplier: { select: { name: true } } },
@@ -197,7 +198,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
     // Post to the General Ledger: relieve AP, return stock to inventory, reverse input GST.
     // Uses each material's gstRate (the return line doesn't carry its own rate).
     const materialsForGl = await tx.material.findMany({
-      where: { id: { in: ret.lines.map((l) => l.materialId) } },
+      where: { id: { in: ret.lines.map((l) => l.materialId) }, deletedAt: null },
       select: { id: true, gstRate: true },
     });
     const gstByMaterial = new Map(materialsForGl.map((m) => [m.id, new Decimal(m.gstRate)]));
@@ -232,7 +233,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
 }
 
 export async function cancelSupplierReturn(returnId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+  return withSerializableTransaction(async (tx) => {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed return");

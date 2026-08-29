@@ -5,6 +5,20 @@ import { apiHandler, json, materialCategorySchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
+/** GET /api/material-categories/[id] — fetch a single material category by ID */
+export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  await requirePermission(PERM.INVENTORY_VIEW);
+  const { id } = await params;
+  const category = await prisma.materialCategory.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      _count: { select: { materials: true } },
+    },
+  });
+  if (!category) return json({ error: "Material category not found" }, { status: 404 });
+  return json(category);
+});
+
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;

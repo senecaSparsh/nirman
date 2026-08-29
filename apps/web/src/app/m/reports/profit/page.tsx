@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -110,9 +110,9 @@ async function MobileProfitContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Revenue", value: formatCurrency(totalRevenue) },
-          { label: "Gross Profit", value: formatCurrency(grossProfit), tone: grossProfit >= 0 ? "go" : "stop" },
-          { label: "Net Profit", value: formatCurrency(netProfit), tone: netProfit >= 0 ? "go" : "stop" },
+          { label: "Revenue", value: formatCurrencyCompact(totalRevenue) },
+          { label: "Gross Profit", value: formatCurrencyCompact(grossProfit), tone: grossProfit >= 0 ? "go" : "stop" },
+          { label: "Net Profit", value: formatCurrencyCompact(netProfit), tone: netProfit >= 0 ? "go" : "stop" },
           { label: "Margin", value: `${margin.toFixed(1)}%`, tone: margin >= 0 ? "go" : "stop" },
         ]}
       />
@@ -122,7 +122,7 @@ async function MobileProfitContent() {
           title="Profit & Loss Report"
           rows={monthly as unknown as Record<string, unknown>[]}
           columns={csvColumns}
-          summary={`Revenue: ${formatCurrency(totalRevenue)} · Net Profit: ${formatCurrency(netProfit)} · Margin: ${margin.toFixed(1)}%`}
+          summary={`Revenue: ${formatCurrencyCompact(totalRevenue)} · Net Profit: ${formatCurrency(netProfit)} · Margin: ${margin.toFixed(1)}%`}
         />
       </div>
 
@@ -135,16 +135,16 @@ async function MobileProfitContent() {
             value: m.revenue,
             tone: "go" as const,
           }))}
-          formatValue={(v) => formatCurrency(v)}
+          formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>
 
       {/* Cost breakdown */}
       <MobileSectionTitle>Cost Breakdown</MobileSectionTitle>
       <div className="flex flex-col gap-2 mb-4">
-        <MobileRow icon={TrendingDown} title="COGS" subtitle="Cost of goods sold" meta={formatCurrency(totalCogs)} tone="danger" />
-        <MobileRow icon={Wallet} title="Operating Expenses" subtitle="Admin, utilities, etc." meta={formatCurrency(totalOperating)} tone="danger" />
-        <MobileRow icon={Wallet} title="Salaries" subtitle="Payroll expenses" meta={formatCurrency(totalSalaries)} tone="danger" />
+        <MobileRow icon={TrendingDown} title="COGS" subtitle="Cost of goods sold" meta={formatCurrencyCompact(totalCogs)} tone="danger" />
+        <MobileRow icon={Wallet} title="Operating Expenses" subtitle="Admin, utilities, etc." meta={formatCurrencyCompact(totalOperating)} tone="danger" />
+        <MobileRow icon={Wallet} title="Salaries" subtitle="Payroll expenses" meta={formatCurrencyCompact(totalSalaries)} tone="danger" />
       </div>
 
       {/* Monthly trend */}
@@ -155,7 +155,7 @@ async function MobileProfitContent() {
             key={m.label}
             title={m.label}
             subtitle={`Rev ${formatCurrency(m.revenue)} · GP ${formatCurrency(m.grossProfit)}`}
-            meta={formatCurrency(m.netProfit)}
+            meta={formatCurrencyCompact(m.netProfit)}
             metaSub={m.revenue > 0 ? `${((m.netProfit / m.revenue) * 100).toFixed(0)}%` : "—"}
             tone={m.netProfit >= 0 ? "success" : "danger"}
           />

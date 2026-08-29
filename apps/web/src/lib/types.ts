@@ -855,6 +855,7 @@ export type AssetSaleRow = {
     type: "CLP" | "TLP" | "DPP";
     totalAmount: number;
     items: {
+      id: string;
       installmentNo: number;
       description: string;
       percentage: number;

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
 import { createBuiltUnits } from "@nirman/services";
@@ -101,6 +102,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         hasLoadingDock: u!.hasLoadingDock ?? false,
       })),
     });
+    revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json({ ok: true, count: created.length }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create units") }, { status: 400 });

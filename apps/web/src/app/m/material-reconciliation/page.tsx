@@ -95,7 +95,7 @@ async function MobileMaterialReconContent({
       <MobileMaterialReconProjectSelector projects={projects} selectedId={projectId} />
 
       {/* ── Summary stats ───────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard
           label="Required"
           value={formatNumber(totalRequired, 2)}
@@ -125,7 +125,7 @@ async function MobileMaterialReconContent({
           }}
         >
           <AlertTriangle className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
-          <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+          <p className="text-m-body font-semibold" style={{ color: "var(--color-stop)" }}>
             {overToleranceCount} material{overToleranceCount !== 1 ? "s" : ""} over tolerance
           </p>
         </div>
@@ -135,7 +135,7 @@ async function MobileMaterialReconContent({
       <MobileSectionTitle>
         Materials
         <span
-          className="text-[0.5625rem] font-semibold"
+          className="text-m-caption font-semibold"
           style={{ color: "var(--color-ink-500)" }}
         >
           {items.length} item{items.length !== 1 ? "s" : ""}
@@ -163,7 +163,7 @@ async function MobileMaterialReconContent({
 
       {!canView && (
         <p
-          className="text-[0.5625rem] text-center mt-4"
+          className="text-m-caption text-center mt-4"
           style={{ color: "var(--color-ink-500)" }}
         >
           View-only access — contact an admin for manage permissions.
@@ -214,13 +214,13 @@ function ReconCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0 flex-1">
           <p
-            className="text-[0.75rem] font-bold leading-tight truncate"
+            className="text-m-section font-bold leading-tight truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {item.materialName}
           </p>
           <p
-            className="text-[0.5625rem] mt-0.5"
+            className="text-m-caption mt-0.5"
             style={{ color: "var(--color-ink-500)" }}
           >
             {item.unit}
@@ -235,7 +235,7 @@ function ReconCard({
               />
             )}
             <p
-              className="text-[0.6875rem] font-bold tabular-nums"
+              className="text-m-body font-bold tabular-nums"
               style={{ color: wastageColor }}
             >
               {item.wastagePct > 0 ? "+" : ""}
@@ -243,7 +243,7 @@ function ReconCard({
             </p>
           </div>
           <p
-            className="text-[0.4375rem] mt-0.5"
+            className="text-m-caption mt-0.5"
             style={{ color: "var(--color-ink-500)" }}
           >
             wastage
@@ -264,13 +264,13 @@ function ReconCard({
         style={{ borderColor: "var(--color-line)" }}
       >
         <p
-          className="text-[0.5rem] font-semibold uppercase tracking-wide"
+          className="text-m-caption font-semibold uppercase tracking-wide"
           style={{ color: "var(--color-ink-500)" }}
         >
           Consumption variance
         </p>
         <p
-          className="text-[0.6875rem] font-bold tabular-nums"
+          className="text-m-body font-bold tabular-nums"
           style={{ color: varianceColor }}
         >
           {item.consumptionVariance > 0 ? "+" : ""}
@@ -280,7 +280,7 @@ function ReconCard({
 
       {/* ── Tolerance hint ── */}
       <p
-        className="text-[0.4375rem] mt-1"
+        className="text-m-caption mt-1"
         style={{ color: "var(--color-ink-500)" }}
       >
         Tolerance: ±{formatNumber(item.tolerancePct, 0)}% ·{" "}
@@ -297,13 +297,13 @@ function QtyCell({ label, value }: { label: string; value: string }) {
       style={{ backgroundColor: "var(--color-concrete)" }}
     >
       <p
-        className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+        className="text-m-caption font-semibold uppercase tracking-wide"
         style={{ color: "var(--color-ink-500)" }}
       >
         {label}
       </p>
       <p
-        className="text-[0.6875rem] font-bold tabular-nums leading-tight"
+        className="text-m-body font-bold tabular-nums leading-tight"
         style={{ color: "var(--color-ink-950)" }}
       >
         {value}
