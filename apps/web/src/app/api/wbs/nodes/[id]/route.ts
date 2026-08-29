@@ -4,7 +4,7 @@ import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.WBS_MANAGE);
   const { id } = await params;
   const body = await req.json();
   // Convert date strings to Date, preserve null (clear), drop undefined (don't touch)
@@ -25,7 +25,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.WBS_MANAGE);
   const { id } = await params;
   try {
     await deleteWbsNode(id, user.id);

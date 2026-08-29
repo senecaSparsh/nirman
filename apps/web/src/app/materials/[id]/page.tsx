@@ -44,7 +44,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
 
   const locationIds = material.stockItems.map((s) => s.locationId);
 
-  const [movements, openPOLines, openReqLines, rateContracts, issueLines] = await Promise.all([
+  const [movements, openPOLines, openReqLines, rateContracts, issueLines, suppliers] = await Promise.all([
     // Recent stock movements for this material at this company's locations
     locationIds.length > 0
       ? prisma.stockMovement.findMany({
@@ -116,6 +116,13 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
       orderBy: { materialIssue: { issueDate: "desc" } },
       take: 15,
     }),
+
+    // Suppliers for lot tracking dialog
+    prisma.supplier.findMany({
+      where: { deletedAt: null, companyId: company.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const data: MaterialCockpitData = {
@@ -133,6 +140,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
       reorderPoint: material.reorderPoint ? toNum(material.reorderPoint) : null,
       economicOrderQty: material.economicOrderQty ? toNum(material.economicOrderQty) : null,
       isScrap: material.isScrap,
+      isLotTracked: material.isLotTracked,
       description: material.description,
     },
     stockItems: material.stockItems.map((s) => ({
@@ -186,5 +194,5 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
     })),
   };
 
-  return <MaterialCockpit data={data} />;
+  return <MaterialCockpit data={data} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} />;
 }

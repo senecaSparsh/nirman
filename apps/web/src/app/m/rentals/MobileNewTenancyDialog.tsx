@@ -41,6 +41,11 @@ interface FormState {
   securityDeposit: string;
   rentAgreementNo: string;
   sacCode: string;
+  rentFreeDays: string;
+  escalationPct: string;
+  escalationIntervalMonths: string;
+  draftNotes: string;
+  draftDate: string;
   notes: string;
 }
 
@@ -80,6 +85,11 @@ export function MobileNewTenancyDialog({
     securityDeposit: "",
     rentAgreementNo: "",
     sacCode: "997313", // default: construction equipment rental, 18%
+    rentFreeDays: "",
+    escalationPct: "",
+    escalationIntervalMonths: "12",
+    draftNotes: "",
+    draftDate: "",
     notes: "",
   });
 
@@ -129,9 +139,15 @@ export function MobileNewTenancyDialog({
           startDate: form.startDate,
           endDate: form.endDate,
           monthlyRent: Number(form.monthlyRent),
-          securityDeposit: form.securityDeposit === "" ? 0 : Number(form.securityDeposit),
+          securityDeposit:
+            form.securityDeposit === "" ? 0 : Number(form.securityDeposit),
           rentAgreementNo: form.rentAgreementNo.trim() || null,
           sacCode: form.sacCode.trim() || null,
+          rentFreeDays: form.rentFreeDays === "" ? 0 : Number(form.rentFreeDays),
+          escalationPercent: form.escalationPct === "" ? null : Number(form.escalationPct),
+          escalationIntervalMonths: Number(form.escalationIntervalMonths) || 12,
+          draftNotes: form.draftNotes.trim() || null,
+          draftDate: form.draftDate || null,
           notes: form.notes.trim() || null,
         }),
       });
@@ -151,7 +167,8 @@ export function MobileNewTenancyDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -181,15 +198,21 @@ export function MobileNewTenancyDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <KeyRound className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <KeyRound
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               New Tenancy
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -200,28 +223,54 @@ export function MobileNewTenancyDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Asset Type Toggle */}
           <div>
-            <label className={labelClass} style={labelStyle}>Asset Type</label>
+            <label className={labelClass} style={labelStyle}>
+              Asset Type
+            </label>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { set("assetType", "BUILT_UNIT"); set("assetId", ""); haptic(10); }}
+                onClick={() => {
+                  set("assetType", "BUILT_UNIT");
+                  set("assetId", "");
+                  haptic(10);
+                }}
                 className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.75rem] font-bold press"
                 style={{
-                  borderColor: form.assetType === "BUILT_UNIT" ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: form.assetType === "BUILT_UNIT" ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.assetType === "BUILT_UNIT" ? "#fff" : "var(--color-ink-500)",
+                  borderColor:
+                    form.assetType === "BUILT_UNIT"
+                      ? "var(--color-ink-950)"
+                      : "var(--color-line)",
+                  backgroundColor:
+                    form.assetType === "BUILT_UNIT"
+                      ? "var(--color-ink-950)"
+                      : "var(--color-paper)",
+                  color:
+                    form.assetType === "BUILT_UNIT"
+                      ? "#fff"
+                      : "var(--color-ink-500)",
                 }}
               >
                 Built Unit
               </button>
               <button
                 type="button"
-                onClick={() => { set("assetType", "LAND"); set("assetId", ""); haptic(10); }}
+                onClick={() => {
+                  set("assetType", "LAND");
+                  set("assetId", "");
+                  haptic(10);
+                }}
                 className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.75rem] font-bold press"
                 style={{
-                  borderColor: form.assetType === "LAND" ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: form.assetType === "LAND" ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.assetType === "LAND" ? "#fff" : "var(--color-ink-500)",
+                  borderColor:
+                    form.assetType === "LAND"
+                      ? "var(--color-ink-950)"
+                      : "var(--color-line)",
+                  backgroundColor:
+                    form.assetType === "LAND"
+                      ? "var(--color-ink-950)"
+                      : "var(--color-paper)",
+                  color:
+                    form.assetType === "LAND" ? "#fff" : "var(--color-ink-500)",
                 }}
               >
                 Land Parcel
@@ -232,7 +281,8 @@ export function MobileNewTenancyDialog({
           {/* Asset Selector */}
           <div>
             <label className={labelClass} style={labelStyle}>
-              {form.assetType === "LAND" ? "Land Parcel" : "Built Unit"} <span style={{ color: "var(--color-stop)" }}>*</span>
+              {form.assetType === "LAND" ? "Land Parcel" : "Built Unit"}{" "}
+              <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <select
               value={form.assetId}
@@ -240,15 +290,26 @@ export function MobileNewTenancyDialog({
               className={inputClass}
               style={inputStyle}
             >
-              <option value="">— Select {form.assetType === "LAND" ? "parcel" : "unit"} —</option>
+              <option value="">
+                — Select {form.assetType === "LAND" ? "parcel" : "unit"} —
+              </option>
               {assets.map((a) => (
-                <option key={a.id} value={a.id}>{a.label}</option>
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
               ))}
             </select>
             {assets.length === 0 && (
-              <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-                No {form.assetType === "LAND" ? "land parcels" : "built units"} available.{" "}
-                <Link href={form.assetType === "LAND" ? "/m/land" : "/m/units"} className="underline font-semibold">
+              <p
+                className="text-[0.4375rem] mt-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                No {form.assetType === "LAND" ? "land parcels" : "built units"}{" "}
+                available.{" "}
+                <Link
+                  href={form.assetType === "LAND" ? "/m/land" : "/m/units"}
+                  className="underline font-semibold"
+                >
                   Create one first
                 </Link>
                 .
@@ -276,7 +337,9 @@ export function MobileNewTenancyDialog({
           {/* Tenant Phone + Email */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Tenant Phone</label>
+              <label className={labelClass} style={labelStyle}>
+                Tenant Phone
+              </label>
               <input
                 type="tel"
                 value={form.tenantPhone}
@@ -288,7 +351,9 @@ export function MobileNewTenancyDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Tenant Email</label>
+              <label className={labelClass} style={labelStyle}>
+                Tenant Email
+              </label>
               <input
                 type="email"
                 value={form.tenantEmail}
@@ -375,7 +440,8 @@ export function MobileNewTenancyDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={labelStyle}>
-                Monthly Rent (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
+                Monthly Rent (₹){" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
                 type="number"
@@ -390,7 +456,9 @@ export function MobileNewTenancyDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Security Deposit (₹)</label>
+              <label className={labelClass} style={labelStyle}>
+                Security Deposit (₹)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -407,7 +475,9 @@ export function MobileNewTenancyDialog({
 
           {/* Agreement No */}
           <div>
-            <label className={labelClass} style={labelStyle}>Agreement Reference No.</label>
+            <label className={labelClass} style={labelStyle}>
+              Agreement Reference No.
+            </label>
             <input
               type="text"
               value={form.rentAgreementNo}
@@ -419,27 +489,142 @@ export function MobileNewTenancyDialog({
             />
           </div>
 
+          {/* Rent-free / fit-out period */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Rent-free / fit-out period (days)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={form.rentFreeDays}
+              onChange={(e) => set("rentFreeDays", e.target.value)}
+              placeholder="0 — days before rent starts"
+              inputMode="numeric"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Yearly escalation — client: "इयरली इंक्रीमेंट कितना है? वो ऐड कर दे" */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Yearly Escalation (%)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={form.escalationPct}
+                onChange={(e) => set("escalationPct", e.target.value)}
+                placeholder="e.g. 5"
+                inputMode="decimal"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Every (months)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={form.escalationIntervalMonths}
+                onChange={(e) => set("escalationIntervalMonths", e.target.value)}
+                placeholder="12"
+                inputMode="numeric"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
           {/* SAC Code — determines GST rate on rental income */}
           <div>
-            <label className={labelClass} style={labelStyle}>SAC Code (GST on rent)</label>
+            <label className={labelClass} style={labelStyle}>
+              SAC Code (GST on rent)
+            </label>
             <select
               value={form.sacCode}
               onChange={(e) => set("sacCode", e.target.value)}
               className={inputClass}
               style={inputStyle}
             >
-              <option value="997313">997313 — Construction equipment rental (18%)</option>
-              <option value="997314">997314 — Office machinery rental (18%)</option>
-              <option value="997317">997317 — Other machinery rental (18%)</option>
-              <option value="997319">997319 — Other equipment rental (18%)</option>
-              <option value="997323">997323 — Furniture & fixtures rental (18%)</option>
-              <option value="997329">997329 — General goods rental (18%)</option>
-              <option value="997212">997212 — Non-residential property rent (18%)</option>
-              <option value="997211">997211 — Residential property rent (exempt)</option>
-              <option value="9973">9973 — Leasing/rental (parent heading, 18%)</option>
+              <option value="997313">
+                997313 — Construction equipment rental (18%)
+              </option>
+              <option value="997314">
+                997314 — Office machinery rental (18%)
+              </option>
+              <option value="997317">
+                997317 — Other machinery rental (18%)
+              </option>
+              <option value="997319">
+                997319 — Other equipment rental (18%)
+              </option>
+              <option value="997323">
+                997323 — Furniture & fixtures rental (18%)
+              </option>
+              <option value="997329">
+                997329 — General goods rental (18%)
+              </option>
+              <option value="997212">
+                997212 — Non-residential property rent (18%)
+              </option>
+              <option value="997211">
+                997211 — Residential property rent (exempt)
+              </option>
+              <option value="9973">
+                9973 — Leasing/rental (parent heading, 18%)
+              </option>
             </select>
-            <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-              SAC (Service Accounting Code) determines the GST rate on rental income. Renting equipment/property is a service supply under GST.
+            <p
+              className="text-[0.5rem] mt-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              SAC (Service Accounting Code) determines the GST rate on rental
+              income. Renting equipment/property is a service supply under GST.
+            </p>
+          </div>
+
+          {/* Draft / LOI notes — client: "तेरा मेरा एग्रीमेंट हुआ बैठ के...
+              वो इस पे डाल दूंगा" — informal terms before formal agreement */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Draft / LOI Date
+            </label>
+            <input
+              type="date"
+              value={form.draftDate}
+              onChange={(e) => set("draftDate", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Draft / LOI Notes
+            </label>
+            <textarea
+              value={form.draftNotes}
+              onChange={(e) => set("draftNotes", e.target.value)}
+              placeholder="Informal terms discussed before the formal agreement — what was agreed verbally (e.g. possession date, work tenant will do, escalation terms)…"
+              rows={3}
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
+            />
+            <p
+              className="text-[0.5rem] mt-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              These notes appear on the printable Draft / LOI on company
+              letterhead. Not the registered agreement — just the discussed terms.
             </p>
           </div>
 

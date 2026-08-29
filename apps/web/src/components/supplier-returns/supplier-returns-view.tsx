@@ -115,6 +115,10 @@ function SupplierReturnFormDialog({
   const [supplierId, setSupplierId] = useState("");
   const [locationId, setLocationId] = useState("");
   const [notes, setNotes] = useState("");
+  // Vehicle / dispatch
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
   const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; unitCost: string; reason: string }[]>(
     [{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", reason: "" }],
   );
@@ -202,6 +206,9 @@ function SupplierReturnFormDialog({
           supplierId,
           locationId,
           notes: notes.trim() || null,
+          vehicleNumber: vehicleNumber.trim() || undefined,
+          driverName: driverName.trim() || undefined,
+          driverPhone: driverPhone.trim() || undefined,
           lines: validLines.map((l) => ({
             materialId: l.materialId,
             qty: Number(l.qty),
@@ -215,6 +222,7 @@ function SupplierReturnFormDialog({
       toast.success(`Return ${data.returnNumber} created`);
       onOpenChange(false);
       setSupplierId(""); setLocationId(""); setNotes("");
+      setVehicleNumber(""); setDriverName(""); setDriverPhone("");
       setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", reason: "" }]);
       router.refresh();
     } catch (err: unknown) {
@@ -231,6 +239,7 @@ function SupplierReturnFormDialog({
         onOpenChange(o);
         if (!o) {
           setSupplierId(""); setLocationId(""); setNotes("");
+          setVehicleNumber(""); setDriverName(""); setDriverPhone("");
           setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", reason: "" }]);
         }
       }}
@@ -249,7 +258,7 @@ function SupplierReturnFormDialog({
               createLabel="supplier"
               options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0 }]); onCreated(e); }} />
+                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0, leadTimeDays: null }]); onCreated(e); }} />
               )}
             />
           </div>
@@ -279,11 +288,42 @@ function SupplierReturnFormDialog({
               className="max-h-[40vh]"
             />
           </div>
+          {/* Compact impact strip — debit note value at a glance */}
+          {(() => {
+            const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
+            if (validLines.length === 0) return null;
+            const total = validLines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0), 0);
+            return (
+              <div className="flex items-center justify-end gap-2 text-caption text-muted-foreground">
+                <span className="tnum">{validLines.length} line{validLines.length !== 1 ? "s" : ""}</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-muted-foreground">Debit note value</span>
+                <span className="tnum font-semibold text-foreground">{formatCurrency(total)}</span>
+                <span className="text-muted-foreground">→ stock out + supplier credit</span>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+        </div>
+
+        {/* Vehicle / dispatch (optional) */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label>Vehicle No</Label>
+            <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Driver Name</Label>
+            <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Driver Phone</Label>
+            <Input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
@@ -387,6 +427,35 @@ function SupplierReturnDetailDialog({
         {ret.notes && (
           <div className="rounded-md bg-muted/40 px-3 py-2 text-body text-muted-foreground">
             {ret.notes}
+          </div>
+        )}
+
+        {/* Vehicle / dispatch info */}
+        {(ret.vehicleNumber || ret.driverName) && (
+          <div className="rounded-md border border-border bg-card px-3 py-2">
+            <div className="text-label text-muted-foreground mb-1.5">Dispatch Details</div>
+            <div className="grid grid-cols-2 gap-2 text-body">
+              {ret.vehicleNumber && (
+                <div>
+                  <span className="text-muted-foreground">Vehicle: </span>
+                  <span className="font-mono font-medium">{ret.vehicleNumber}</span>
+                  {ret.vehicleType && <span className="ml-1 text-muted-foreground">({ret.vehicleType.replace(/_/g, " ").toLowerCase()})</span>}
+                </div>
+              )}
+              {ret.driverName && (
+                <div>
+                  <span className="text-muted-foreground">Driver: </span>
+                  <span className="font-medium">{ret.driverName}</span>
+                  {ret.driverPhone && <span className="ml-1 text-muted-foreground">({ret.driverPhone})</span>}
+                </div>
+              )}
+            </div>
+            {ret.vehiclePhotoUrl && (
+              <a href={ret.vehiclePhotoUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ret.vehiclePhotoUrl} alt="Vehicle" className="h-16 w-16 rounded border border-border object-cover" />
+              </a>
+            )}
           </div>
         )}
 

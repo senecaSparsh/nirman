@@ -1,0 +1,275 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { connection } from "next/server";
+import { prisma } from "@nirman/db";
+import { getBudgetVariance } from "@nirman/services";
+import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import {
+  MobileNoAccess,
+  MobileEmptyState,
+  SectionHead,
+} from "@/components/mobile/v2/primitives";
+
+export const metadata = { title: "Budget Variance — Nirman" };
+
+export default function MobileBudgetVarianceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<MobileSkeletonDetail sections={4} />}>
+      <MobileBudgetVarianceDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+async function MobileBudgetVarianceDetailContent({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  await connection();
+  const role = await getUserRole();
+  const company = await getCompany();
+
+  if (!hasPermission(role, PERM.PROJECT_CONTROL_VIEW)) {
+    return <MobileNoAccess what="budget variance analysis" permission={PERM.PROJECT_CONTROL_VIEW} />;
+  }
+
+  const { id } = await params;
+
+  const project = await prisma.project.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true, name: true, totalBudget: true },
+  });
+
+  if (!project) {
+    return (
+      <MobileEmptyState
+        icon={TrendingUp}
+        title="Project not found"
+        hint="This project may have been deleted or doesn't exist."
+      />
+    );
+  }
+
+  let variance;
+  try {
+    variance = await getBudgetVariance(project.id);
+  } catch {
+    return (
+      <MobileEmptyState
+        icon={AlertTriangle}
+        title="No variance data"
+        hint="Add BOQ line items, record material issues, or log project costs to see budget variance."
+      />
+    );
+  }
+
+  const totalBudget = toNum(variance.totalBudget);
+  const totalActual = toNum(variance.totalActual);
+  const totalVariance = toNum(variance.totalVariance);
+  const totalVariancePct = toNum(variance.totalVariancePct);
+  const boqBudget = toNum(variance.boqBudget);
+  const nonBoqBudget = toNum(variance.nonBoqBudget);
+
+  const isOverBudget = totalVariance < 0;
+  const varianceColor = isOverBudget ? "var(--color-stop)" : "var(--color-go)";
+  const VarianceIcon = isOverBudget ? TrendingDown : TrendingUp;
+
+  const items = variance.items.map((i) => ({
+    id: i.id,
+    serialNo: i.serialNo,
+    description: i.description,
+    category: i.category,
+    source: i.source,
+    budgetedAmount: toNum(i.budgetedAmount),
+    actualAmount: toNum(i.actualAmount),
+    variance: toNum(i.variance),
+    variancePct: toNum(i.variancePct),
+    status: i.status,
+  }));
+
+  return (
+    <div className="flex flex-col gap-4 pb-6">
+      {/* Header card */}
+      <div
+        className="rounded-[0.625rem] border p-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-[0.625rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+          Budget Variance Analysis
+        </p>
+        <p className="text-[0.875rem] font-bold leading-tight mb-2" style={{ color: "var(--color-ink-950)" }}>
+          {project.name}
+        </p>
+        {/* Variance headline */}
+        <div className="flex items-center gap-2 mb-2.5">
+          <span
+            className="shrink-0 grid place-items-center w-7 h-7 rounded-[0.375rem]"
+            style={{ backgroundColor: "var(--color-concrete)" }}
+          >
+            <VarianceIcon className="size-4" style={{ color: varianceColor }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.4375rem] uppercase tracking-wide font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              Total Variance
+            </p>
+            <p className="text-[0.9375rem] font-bold tabular-nums leading-none" style={{ color: varianceColor }}>
+              {totalVariance >= 0 ? "+" : ""}{formatCurrency(totalVariance)}
+            </p>
+          </div>
+          <span
+            className="text-[0.5625rem] font-semibold tabular-nums px-2 py-0.5 rounded-[0.375rem]"
+            style={{
+              backgroundColor: isOverBudget
+                ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
+                : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+              color: varianceColor,
+            }}
+          >
+            {isOverBudget ? "OVER" : "UNDER"} {formatNumber(Math.abs(totalVariancePct), 1)}%
+          </span>
+        </div>
+        {/* Budget / Actual / split */}
+        <div className="flex items-center justify-between gap-2">
+          <SummaryStat label="Budget" value={formatCurrency(totalBudget)} />
+          <Divider />
+          <SummaryStat label="Actual" value={formatCurrency(totalActual)} />
+          <Divider />
+          <SummaryStat
+            label="BOQ / Other"
+            value={`${formatCurrencyCompact(boqBudget)} / ${formatCurrencyCompact(nonBoqBudget)}`}
+          />
+        </div>
+      </div>
+
+      {/* Items breakdown */}
+      <div>
+        <SectionHead title={`Line Items (${items.length})`} />
+        {items.length === 0 ? (
+          <div
+            className="rounded-[0.5rem] border p-3 text-center"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>No variance data</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {items.map((item) => {
+              const itemOver = item.variance < 0;
+              const itemColor = itemOver ? "var(--color-stop)" : "var(--color-go)";
+              const ItemIcon = itemOver ? TrendingDown : TrendingUp;
+              const statusLabel =
+                item.status === "OVER"
+                  ? "Over"
+                  : item.status === "UNDER"
+                    ? "Under"
+                    : item.status === "UNBUDGETED"
+                      ? "Unbudgeted"
+                      : "On Track";
+              const statusTone =
+                item.status === "OVER"
+                  ? "var(--color-stop)"
+                  : item.status === "UNDER"
+                    ? "var(--color-go)"
+                    : item.status === "UNBUDGETED"
+                      ? "var(--color-signal-dark)"
+                      : "var(--color-ink-500)";
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-[0.5rem] border p-2.5"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <div className="flex items-start gap-2 mb-1.5">
+                    <span
+                      className="shrink-0 grid place-items-center w-6 h-6 rounded-[0.375rem] mt-0.5"
+                      style={{ backgroundColor: "var(--color-concrete)" }}
+                    >
+                      <ItemIcon className="size-3" style={{ color: itemColor }} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[0.75rem] font-semibold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                        {item.description}
+                      </p>
+                      <p className="text-[0.5625rem] mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                        {item.category}
+                        {item.serialNo !== "—" ? ` · ${item.serialNo}` : ""}
+                      </p>
+                    </div>
+                    <span
+                      className="shrink-0 text-[0.5rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-[0.375rem]"
+                      style={{
+                        backgroundColor: "color-mix(in srgb, var(--color-concrete) 60%, transparent)",
+                        color: statusTone,
+                      }}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pl-8">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Budget</span>
+                      <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {item.budgetedAmount > 0 ? formatCurrency(item.budgetedAmount) : "—"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Actual</span>
+                      <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {formatCurrency(item.actualAmount)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end min-w-0">
+                      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Variance</span>
+                      <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: itemColor }}>
+                        {item.variance >= 0 ? "+" : ""}{formatCurrency(item.variance)}
+                      </span>
+                      <span className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                        {item.budgetedAmount > 0
+                          ? `${item.variance >= 0 ? "+" : ""}${formatNumber(item.variancePct, 1)}%`
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Project link */}
+      <Link
+        href={`/m/projects/${project.id}`}
+        className="rounded-[0.5rem] border p-2.5 press flex items-center gap-2"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>View Project</p>
+          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{project.name}</p>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center min-w-0">
+      <span className="text-[0.4375rem] uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>{label}</span>
+      <span className="text-[0.625rem] font-bold tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>{value}</span>
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="w-px h-6 shrink-0" style={{ backgroundColor: "var(--color-line)" }} />;
+}

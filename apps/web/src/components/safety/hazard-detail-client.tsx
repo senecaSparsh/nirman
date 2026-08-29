@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatDate } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { Shield, Check, Trash2, Loader2, AlertTriangle } from "lucide-react";
 
 interface HazardDetail {
@@ -26,9 +27,6 @@ interface HazardDetail {
 
 const STATUS_LABELS: Record<string, string> = {
   IDENTIFIED: "Identified", MITIGATING: "Mitigating", RESOLVED: "Resolved", CLOSED: "Closed",
-};
-const STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  IDENTIFIED: "warning", MITIGATING: "warning", RESOLVED: "success", CLOSED: "default",
 };
 const RISK_VARIANTS: Record<string, "default" | "warning" | "danger"> = {
   LOW: "default", MEDIUM: "warning", HIGH: "danger", CRITICAL: "danger",
@@ -78,7 +76,7 @@ export function HazardDetailClient({ hazard, canManage }: { hazard: HazardDetail
     <div className="space-y-4">
       {/* Status + risk badges */}
       <div className="flex items-center gap-2">
-        <Badge variant={STATUS_VARIANTS[hazard.status] ?? "default"}>
+        <Badge variant={statusBadgeVariant(hazard.status)}>
           {STATUS_LABELS[hazard.status] ?? hazard.status}
         </Badge>
         <Badge variant={RISK_VARIANTS[hazard.riskLevel] ?? "default"}>

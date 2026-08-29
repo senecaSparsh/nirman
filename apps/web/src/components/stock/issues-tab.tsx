@@ -139,10 +139,34 @@ export function IssuesTab({
                   )}
                 </div>
                 <div className="mt-0.5 text-body text-muted-foreground">{i.fromLocationName}</div>
+                {/* Built unit / phase / subcontractor context */}
+                {(i.builtUnitName || i.phaseName || i.subcontractorName) && (
+                  <div className="mt-0.5 flex flex-wrap gap-1.5 text-micro">
+                    {i.builtUnitName && (
+                      <span className="rounded bg-brand/10 px-1.5 py-0.5 font-medium text-brand">Unit: {i.builtUnitName}</span>
+                    )}
+                    {i.phaseName && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">Phase: {i.phaseName}</span>
+                    )}
+                    {i.subcontractorName && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">Subcon: {i.subcontractorName}</span>
+                    )}
+                    {i.sourceDprId && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">From DPR</span>
+                    )}
+                  </div>
+                )}
                 {i.receiverName && (
                   <div className="mt-0.5 text-caption text-muted-foreground">
                     Received by: <span className="text-foreground">{i.receiverName}</span>
                     {i.receiverMobile && <span className="ml-1 tnum">({i.receiverMobile})</span>}
+                  </div>
+                )}
+                {(i.vehicleNumber || i.driverName) && (
+                  <div className="mt-0.5 text-caption text-muted-foreground">
+                    {i.vehicleNumber && <span className="font-mono">{i.vehicleNumber}</span>}
+                    {i.vehicleNumber && i.driverName && <span className="text-muted-foreground/40"> · </span>}
+                    {i.driverName && <span>{i.driverName}{i.driverPhone ? ` (${i.driverPhone})` : ""}</span>}
                   </div>
                 )}
                 <div className="mt-1 flex items-center gap-2 text-caption">

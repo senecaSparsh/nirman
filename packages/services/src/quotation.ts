@@ -183,6 +183,8 @@ export interface CreateQuotationRequestInput {
   destinationLocationId?: string | null;
   submittedById: string;
   submittedByUserCompanyId: string;
+  /** Optional link to the requisition that triggered this quotation request. */
+  requisitionId?: string | null;
   lines: {
     materialId: string;
     qtyRequired: Decimal | number | string;
@@ -290,6 +292,7 @@ export async function createQuotationRequest(input: CreateQuotationRequestInput)
         destinationLocationId: input.destinationLocationId,
         submittedById: input.submittedById,
         submittedByUserCompanyId: input.submittedByUserCompanyId,
+        requisitionId: input.requisitionId ?? null,
         status: "OPEN",
         lines: {
           create: input.lines.map((l) => {

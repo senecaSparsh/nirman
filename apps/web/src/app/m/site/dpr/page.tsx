@@ -6,6 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 export default function MobileDprPage() {
   return (
@@ -35,17 +36,7 @@ async function MobileDprContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.DPR_SUBMIT)) {
-    return (
-      <div className="flex flex-col items-center text-center px-4 py-7">
-        <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
-          <ClipboardList className="size-5" style={{ color: "var(--color-ink-300)" }} />
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to submit DPRs.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="submit DPRs" permission="dpr.submit" />;
   }
 
   const today = new Date();
@@ -90,6 +81,8 @@ async function MobileDprContent() {
     weather: string | null;
     workSummary: string;
     workType: string | null;
+    workQty: number | null;
+    workUnit: string | null;
     progressPct: number;
     blockers: string | null;
     tomorrowPlan: string | null;
@@ -105,6 +98,8 @@ async function MobileDprContent() {
       weather: d.weather,
       workSummary: d.workSummary,
       workType: d.workType,
+      workQty: d.workQty != null ? toNum(d.workQty) : null,
+      workUnit: d.workUnit,
       progressPct: toNum(d.progressPct),
       blockers: d.blockers,
       tomorrowPlan: d.tomorrowPlan,

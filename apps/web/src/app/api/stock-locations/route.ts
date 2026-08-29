@@ -36,6 +36,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       companyName: l.company?.name ?? null,
       stockValue,
       itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
+      lat: l.lat,
+      lng: l.lng,
+      geoRadius: l.geoRadius,
     };
   });
   return json(rows);

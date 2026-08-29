@@ -5,7 +5,9 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileTransferDetailClient } from "./MobileTransferDetailClient";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/transfers/[id] — stock transfer detail.
@@ -193,5 +195,30 @@ async function MobileTransferDetailContent({
     })),
   };
 
-  return <MobileTransferDetailClient transfer={serialized} canManage={canManage} />;
+  // Pipeline position: DRAFT → IN_TRANSIT → COMPLETED (or CANCELLED)
+  const pipelineSteps: MobilePipelineStep[] = [
+    { label: "Draft", state: "done" },
+    {
+      label: "Dispatch",
+      state: transfer.status === "IN_TRANSIT" || transfer.status === "COMPLETED" ? "done" : transfer.status === "DRAFT" ? "current" : "pending",
+    },
+    {
+      label: "Receive",
+      state: transfer.status === "COMPLETED" ? "done" : transfer.status === "IN_TRANSIT" ? "current" : "pending",
+    },
+  ];
+  if (transfer.status === "CANCELLED") {
+    pipelineSteps[1] = { label: "Dispatch", state: "skipped" };
+    pipelineSteps[2] = { label: "Receive", state: "skipped" };
+  }
+
+  return (
+    <>
+      <RecordRecentItem type="transfer" id={serialized.id} label={`${serialized.fromLocation.name} → ${serialized.toLocation.name}`} href={`/m/transfers/${serialized.id}`} />
+      <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={pipelineSteps} />
+      </div>
+      <MobileTransferDetailClient transfer={serialized} canManage={canManage} />
+    </>
+  );
 }

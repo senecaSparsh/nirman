@@ -2,15 +2,9 @@ import { Suspense } from "react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  MobileSectionTitle,
-  MobileRow,
-  MobileEmptyState,
-  MobileStatCard,
-} from "@/components/mobile/v2/primitives";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 
 export default function MobileEmployeeDetailPage({
   params,
@@ -31,81 +25,64 @@ async function MobileEmployeeDetailContent({
 }) {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.HR_MANAGE);
   const { id } = await params;
 
-  const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
-    include: {
-      crew: { select: { id: true, name: true } },
-      activeProject: { select: { id: true, name: true } },
-      attendances: { orderBy: { date: "desc" }, take: 10 },
-    },
-  });
+  const [employee, projects, stockLocations] = await Promise.all([
+    prisma.employee.findFirst({
+      where: { id, companyId: company.id, deletedAt: null },
+      include: {
+        crew: { select: { id: true, name: true } },
+        activeProject: { select: { id: true, name: true } },
+        attendances: { orderBy: { date: "desc" }, take: 10 },
+      },
+    }),
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.stockLocation.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!employee) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={User} title="Employee not found" />
-      </div>
+      <MobileEmployeeDetailClient notFound canManage={canManage} projects={projects} stockLocations={stockLocations} />
     );
   }
 
-  const presentDays = employee.attendances.filter((a) => a.status === "PRESENT").length;
-  const totalDays = employee.attendances.length;
+  const data = {
+    id: employee.id,
+    name: employee.name,
+    trade: employee.trade,
+    designation: employee.designation,
+    phone: employee.phone,
+    email: employee.email,
+    wageType: employee.wageType as "DAILY" | "MONTHLY" | "FIXED",
+    dailyRate: employee.dailyRate != null ? toNum(employee.dailyRate) : null,
+    monthlySalary: employee.monthlySalary != null ? toNum(employee.monthlySalary) : null,
+    joinDate: employee.joinDate ? employee.joinDate.toISOString() : null,
+    hierarchyLevel: employee.hierarchyLevel,
+    crewName: employee.crew?.name ?? null,
+    activeProjectName: employee.activeProject?.name ?? null,
+    attendances: employee.attendances.map((a) => ({
+      id: a.id,
+      date: a.date.toISOString(),
+      status: a.status,
+    })),
+  };
 
   return (
-    <div>
-      <div className="mb-4">
-      </div>
-
-      <MobileSectionTitle>Contact</MobileSectionTitle>
-      <div className="flex flex-col gap-2.5">
-        {employee.phone && <MobileRow icon={Phone} title="Phone" meta={employee.phone} />}
-        {employee.email && <MobileRow icon={Mail} title="Email" meta={employee.email} />}
-        {employee.trade && <MobileRow icon={Briefcase} title="Trade" meta={employee.trade} />}
-        {employee.crew && (
-          <MobileRow icon={Briefcase} title="Crew" meta={employee.crew.name} />
-        )}
-        {employee.activeProject && (
-          <MobileRow icon={Briefcase} title="Project" meta={employee.activeProject.name} />
-        )}
-        {employee.joinDate && (
-          <MobileRow icon={Calendar} title="Join Date" meta={formatDate(employee.joinDate)} />
-        )}
-      </div>
-
-      <MobileSectionTitle>Salary</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <MobileStatCard
-          label={employee.wageType === "DAILY" ? "Daily Rate" : "Monthly Salary"}
-          value={formatCurrency(toNum(employee.wageType === "DAILY" ? employee.dailyRate : employee.monthlySalary))}
-          icon={IndianRupee}
-          tone="signal"
-        />
-        <MobileStatCard
-          label="Attendance"
-          value={`${presentDays}/${totalDays}`}
-          icon={Clock}
-        />
-      </div>
-
-      {employee.attendances.length > 0 && (
-        <>
-          <MobileSectionTitle>Recent Attendance</MobileSectionTitle>
-          <div className="flex flex-col gap-2.5">
-            {employee.attendances.map((a) => (
-              <MobileRow
-                key={a.id}
-                icon={Calendar}
-                title={formatDate(a.date)}
-                subtitle={a.status}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <MobileEmployeeDetailClient
+      employee={data}
+      canManage={canManage}
+      projects={projects}
+      stockLocations={stockLocations}
+    />
   );
 }

@@ -6,6 +6,7 @@ import { Truck } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 export default function MobileSupplierDetailPage({
   params,
@@ -94,13 +95,17 @@ async function MobileSupplierDetailContent({
   }));
 
   return (
-    <MobileSupplierDetailClient
+    <>
+      <RecordRecentItem type="supplier" id={supplier.id} label={supplier.name} sublabel={supplier.phone ?? undefined} href={`/m/suppliers/${supplier.id}`} />
+      <MobileSupplierDetailClient
       supplierId={supplier.id}
       name={supplier.name}
       gstin={supplier.gstin}
       phone={supplier.phone}
       email={supplier.email}
       address={supplier.address}
+      leadTimeDays={supplier.leadTimeDays ?? null}
+      version={supplier.version}
       balanceOwed={balanceOwed}
       totalPoValue={totalPoValue}
       totalPaid={totalPaid}
@@ -110,5 +115,6 @@ async function MobileSupplierDetailContent({
       payments={payments}
       canManage={canManage}
     />
+    </>
   );
 }

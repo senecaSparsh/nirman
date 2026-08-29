@@ -45,6 +45,7 @@ async function MobileMaterialSaleDetailContent({
         select: {
           id: true, amount: true, paymentDate: true,
           paymentMode: true, referenceNo: true,
+          chequeNo: true, chequeBank: true, chequePhotoUrl: true,
         },
       },
     },
@@ -67,6 +68,10 @@ async function MobileMaterialSaleDetailContent({
         scrapSubtotal={0}
         paymentMode={null}
         notes={null}
+        vehicleNumber={null}
+        vehicleType={null}
+        driverName={null}
+        driverPhone={null}
         customer={null}
         project={null}
         lines={[]}
@@ -102,6 +107,10 @@ async function MobileMaterialSaleDetailContent({
       scrapSubtotal={toNum(sale.scrapSubtotal)}
       paymentMode={sale.paymentMode}
       notes={sale.notes}
+      vehicleNumber={sale.vehicleNumber}
+      vehicleType={sale.vehicleType}
+      driverName={sale.driverName}
+      driverPhone={sale.driverPhone}
       customer={sale.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null}
       project={sale.project ? { id: sale.project.id, name: sale.project.name } : null}
       gatePass={gatePass ? { id: gatePass.id, gatePassNumber: gatePass.gatePassNumber, status: gatePass.status } : null}
@@ -126,6 +135,9 @@ async function MobileMaterialSaleDetailContent({
         paymentDate: p.paymentDate.toISOString(),
         paymentMode: p.paymentMode,
         referenceNo: p.referenceNo,
+        chequeNo: p.chequeNo,
+        chequeBank: p.chequeBank,
+        chequePhotoUrl: p.chequePhotoUrl,
       }))}
       canManage={canManage}
     />

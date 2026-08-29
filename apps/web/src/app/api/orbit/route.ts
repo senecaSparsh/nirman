@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, toNum } from "@/lib/server";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 
 /**
@@ -106,21 +106,37 @@ async function getChildren(searchParams: URLSearchParams, companyId: string): Pr
 
   let children: ChildEntity[] = [];
   switch (category) {
+    case "companies": children = await getSubsidiaryChildren(parentId, companyId); break;
     case "projects": children = await getProjectChildren(parentId, companyId); break;
     case "land": children = await getLandPurchaseChildren(parentId, companyId); break;
     case "departments": children = await getDepartmentChildren(parentId, companyId); break;
     case "inventory": children = await getInventoryChildren(parentId, companyId); break;
     case "hr": children = await getEmployeeChildren(parentId, companyId); break;
     case "equipment": children = await getEquipmentChildren(parentId, companyId); break;
+    case "suppliers": children = await getSupplierChildren(parentId, companyId); break;
+    case "customers": children = await getCustomerChildren(parentId, companyId); break;
+    case "vehicles": children = await getVehicleChildren(parentId, companyId); break;
+    case "subcontractors": children = await getSubcontractorChildren(parentId, companyId); break;
+    case "expenses": children = await getExpenseChildren(parentId, companyId, parentType); break;
+    case "leads": children = await getLeadChildren(parentId, companyId); break;
+    case "tasks": children = await getTaskChildren(parentId, companyId, parentType); break;
+    case "scrapGenerations": children = await getScrapGenerationChildren(parentId, companyId); break;
+    case "stockTransfers": children = await getStockTransferChildren(parentId, companyId, parentType); break;
     case "builtUnits": children = await getBuiltUnitChildren(parentId, companyId, parentType); break;
     case "landParcels": children = await getLandParcelChildren(parentId, companyId, parentType); break;
     case "requisitions": children = await getRequisitionChildren(parentId, companyId, parentType); break;
     case "purchaseOrders": children = await getPurchaseOrderChildren(parentId, companyId, parentType); break;
     case "materialIssues": children = await getMaterialIssueChildren(parentId, companyId, parentType); break;
     case "dprs": children = await getDprChildren(parentId, companyId, parentType); break;
+    case "projectPhases": children = await getProjectPhaseChildren(parentId, companyId); break;
+    case "equipmentAssignments": children = await getEquipmentAssignmentChildren(parentId, companyId, parentType); break;
+    case "crews": children = await getCrewChildren(parentId, companyId, parentType); break;
     case "sales": children = await getSaleChildren(parentId, companyId, parentType); break;
     case "portalListings": children = await getPortalListingChildren(parentId, companyId, parentType); break;
+    case "tenancies": children = await getTenancyChildren(parentId, companyId, parentType); break;
     case "payments": children = await getPaymentChildren(parentId, companyId); break;
+    case "saleExpenses": children = await getSaleExpenseChildren(parentId, companyId); break;
+    case "saleTerms": children = await getSaleTermChildren(parentId, companyId); break;
     case "subParcels": children = await getSubParcelChildren(parentId, companyId); break;
     case "partitions": children = await getPartitionChildren(parentId, companyId); break;
     default: return NextResponse.json({ error: `Unknown category: ${category}` }, { status: 400 });
@@ -135,14 +151,24 @@ async function getChildren(searchParams: URLSearchParams, companyId: string): Pr
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getCompanyNode(id: string, currentCompanyId: string): Promise<OrbitNode> {
-  // Enforce company membership — users can only view their own company node
+  // Enforce company access — users can view:
+  //   1. Their current company
+  //   2. Any company they have a UserCompany membership in
+  //   3. Any company in their current company's group (parent, siblings, children)
   if (id !== currentCompanyId) {
-    // Check if the requested company is a child of the current company (group access)
-    const isChild = await prisma.company.findFirst({
-      where: { id, parentCompanyId: currentCompanyId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!isChild) throw new Error("Company not found");
+    const [user, groupIds] = await Promise.all([
+      getCurrentUser(),
+      getCompanyGroupIds().catch(() => [currentCompanyId]),
+    ]);
+    const hasMembership = user
+      ? await prisma.userCompany.findFirst({
+          where: { userId: user.id, companyId: id },
+          select: { id: true },
+        })
+      : null;
+    if (!hasMembership && !groupIds.includes(id)) {
+      throw new Error("Company not found");
+    }
   }
   const c = await prisma.company.findFirst({
     where: { id, deletedAt: null },
@@ -157,11 +183,38 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
           stockLocations: { where: { deletedAt: null } },
           employees: { where: { active: true } },
           equipment: true,
+          suppliers: { where: { deletedAt: null } },
+          customers: true,
+          vehicles: true,
+          subcontractors: { where: { deletedAt: null } },
+          expenses: true,
+          leads: true,
+          scrapGenerations: true,
+          children: { where: { deletedAt: null } },
         },
       },
     },
   });
   if (!c) throw new Error("Company not found");
+
+  // If this is a parent company, aggregate project count across all children too
+  let totalProjectsIncludingChildren = c._count.projects;
+  if (c._count.children > 0) {
+    const childProjectCount = await prisma.project.count({
+      where: { company: { parentCompanyId: c.id }, deletedAt: null },
+    }).catch(() => 0);
+    totalProjectsIncludingChildren += childProjectCount;
+  }
+
+  // Count entities not directly related to Company
+  const [taskCount, stockTransferCount] = await Promise.all([
+    prisma.task.count({
+      where: { assignedTo: { companyId: c.id }, status: { not: "COMPLETED" } },
+    }).catch(() => 0),
+    prisma.stockTransfer.count({
+      where: { fromLocation: { companyId: c.id } },
+    }).catch(() => 0),
+  ]);
 
   // Aggregate financial data — all 4 queries run in parallel (was sequential).
   const [totalProjectCost, stockValue, landValue, unitValue, parentCompany] = await Promise.all([
@@ -205,19 +258,34 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
     href: "/m/settings",
     details,
     orbits: [
-      { id: "projects", type: "category", label: "Projects", subtitle: "Active developments", count: c._count.projects, href: "" },
+      // If parent company, show subsidiaries first
+      ...(c._count.children > 0 ? [
+        { id: "companies", type: "category" as const, label: "Companies", subtitle: "Subsidiaries & divisions", count: c._count.children, href: "" },
+      ] : []),
+      { id: "projects", type: "category", label: "Projects", subtitle: "Active developments", count: totalProjectsIncludingChildren, href: "" },
       { id: "land", type: "category", label: "Land", subtitle: "Land purchases", count: c._count.landPurchases, href: "" },
       { id: "departments", type: "category", label: "Departments", subtitle: "Cost centers", count: c._count.departments, href: "" },
       { id: "inventory", type: "category", label: "Inventory", subtitle: "Stock locations", count: c._count.stockLocations, href: "" },
       { id: "hr", type: "category", label: "Workforce", subtitle: "Active workers", count: c._count.employees, href: "" },
       { id: "equipment", type: "category", label: "Equipment", subtitle: "Machines & tools", count: c._count.equipment, href: "" },
+      { id: "suppliers", type: "category", label: "Suppliers", subtitle: "Vendors & vendors", count: c._count.suppliers, href: "" },
+      { id: "customers", type: "category", label: "Customers", subtitle: "Buyers & leads", count: c._count.customers, href: "" },
+      { id: "vehicles", type: "category", label: "Vehicles", subtitle: "Transport fleet", count: c._count.vehicles, href: "" },
+      { id: "subcontractors", type: "category", label: "Subcontractors", subtitle: "External crews", count: c._count.subcontractors, href: "" },
+      { id: "expenses", type: "category", label: "Expenses", subtitle: "Direct costs", count: c._count.expenses, href: "" },
+      { id: "leads", type: "category", label: "Leads", subtitle: "Sales pipeline", count: c._count.leads, href: "" },
+      { id: "tasks", type: "category", label: "Tasks", subtitle: "Open work items", count: taskCount, href: "" },
+      { id: "scrapGenerations", type: "category", label: "Scrap", subtitle: "Generated material", count: c._count.scrapGenerations, href: "" },
+      { id: "stockTransfers", type: "category", label: "Transfers", subtitle: "Inter-location moves", count: stockTransferCount, href: "" },
     ],
   };
 }
 
-async function getProjectNode(id: string, companyId: string): Promise<OrbitNode> {
+async function getProjectNode(id: string, _companyId: string): Promise<OrbitNode> {
+  // Don't filter by companyId — the user may be viewing a different company's
+  // orbit. Access control is enforced at the company node level.
   const p = await prisma.project.findFirst({
-    where: { id, companyId, deletedAt: null },
+    where: { id, deletedAt: null },
     select: {
       id: true, name: true, status: true, type: true,
       totalProjectCost: true, totalSellableArea: true, costPerSqft: true,
@@ -228,6 +296,12 @@ async function getProjectNode(id: string, companyId: string): Promise<OrbitNode>
           landParcels: true, materialRequisitions: true,
           purchaseOrders: true, materialIssues: true,
           dailyProgressReports: true,
+          phases: true,
+          expenses: true,
+          equipmentAssignments: true,
+          crews: true,
+          leads: true,
+          scrapGenerations: true,
         },
       },
     },
@@ -258,13 +332,19 @@ async function getProjectNode(id: string, companyId: string): Promise<OrbitNode>
       { id: "purchaseOrders", type: "category", label: "Purchase Orders", subtitle: "Procurement", count: p._count.purchaseOrders, href: "" },
       { id: "materialIssues", type: "category", label: "Material Issues", subtitle: "Materials consumed", count: p._count.materialIssues, href: "" },
       { id: "dprs", type: "category", label: "DPRs", subtitle: "Daily progress reports", count: p._count.dailyProgressReports, href: "" },
+      { id: "projectPhases", type: "category", label: "Phases", subtitle: "Project milestones", count: p._count.phases, href: "" },
+      { id: "expenses", type: "category", label: "Expenses", subtitle: "Project costs", count: p._count.expenses, href: "" },
+      { id: "equipmentAssignments", type: "category", label: "Equipment", subtitle: "Assigned machines", count: p._count.equipmentAssignments, href: "" },
+      { id: "crews", type: "category", label: "Crews", subtitle: "Work teams", count: p._count.crews, href: "" },
+      { id: "leads", type: "category", label: "Leads", subtitle: "Sales pipeline", count: p._count.leads, href: "" },
+      { id: "scrapGenerations", type: "category", label: "Scrap", subtitle: "Generated material", count: p._count.scrapGenerations, href: "" },
     ],
   };
 }
 
-async function getBuiltUnitNode(id: string, companyId: string): Promise<OrbitNode> {
+async function getBuiltUnitNode(id: string, _companyId: string): Promise<OrbitNode> {
   const u = await prisma.builtUnit.findFirst({
-    where: { id, project: { companyId }, deletedAt: null },
+    where: { id, deletedAt: null },
     select: {
       id: true, unitNumber: true, unitType: true, status: true,
       area: true, areaUnit: true, floor: true, wing: true,
@@ -274,6 +354,10 @@ async function getBuiltUnitNode(id: string, companyId: string): Promise<OrbitNod
     },
   });
   if (!u) throw new Error("Built unit not found");
+
+  const tenancyCount = await prisma.tenancy.count({
+    where: { builtUnitId: u.id },
+  }).catch(() => 0);
 
   const details: DetailField[] = [
     { label: "Type", value: u.unitType },
@@ -297,13 +381,14 @@ async function getBuiltUnitNode(id: string, companyId: string): Promise<OrbitNod
       { id: "sales", type: "category", label: "Sales", subtitle: "Offers & payments", count: u._count.assetSales, href: "" },
       { id: "materialIssues", type: "category", label: "Material Issues", subtitle: "Materials consumed", count: u._count.materialIssues, href: "" },
       { id: "portalListings", type: "category", label: "Portal Listings", subtitle: "99acres, MagicBricks", count: u._count.portalListings, href: "" },
+      { id: "tenancies", type: "category", label: "Tenancies", subtitle: "Rental agreements", count: tenancyCount, href: "" },
     ],
   };
 }
 
-async function getLandParcelNode(id: string, companyId: string): Promise<OrbitNode> {
+async function getLandParcelNode(id: string, _companyId: string): Promise<OrbitNode> {
   const l = await prisma.landParcel.findFirst({
-    where: { id, landPurchase: { companyId }, deletedAt: null },
+    where: { id, deletedAt: null },
     select: {
       id: true, number: true, area: true, areaUnit: true,
       status: true, acquisitionCost: true, currentValuation: true,
@@ -340,16 +425,16 @@ async function getLandParcelNode(id: string, companyId: string): Promise<OrbitNo
   };
 }
 
-async function getAssetSaleNode(id: string, companyId: string): Promise<OrbitNode> {
+async function getAssetSaleNode(id: string, _companyId: string): Promise<OrbitNode> {
   const s = await prisma.assetSale.findFirst({
-    where: { id, companyId },
+    where: { id },
     select: {
       id: true, saleNumber: true, salePrice: true, paymentStatus: true,
       saleStage: true, depositAmount: true, profit: true, costBasis: true,
       saleDate: true, finalSaleDate: true,
       builtUnitId: true, landParcelId: true, projectId: true,
       customer: { select: { name: true, phone: true } },
-      _count: { select: { payments: true } },
+      _count: { select: { payments: true, expenses: true, terms: true } },
     },
   });
   if (!s) throw new Error("Sale not found");
@@ -375,6 +460,8 @@ async function getAssetSaleNode(id: string, companyId: string): Promise<OrbitNod
     details,
     orbits: [
       { id: "payments", type: "category", label: "Payments", subtitle: "Received installments", count: s._count.payments, href: "" },
+      { id: "saleExpenses", type: "category", label: "Expenses", subtitle: "Registry, stamp duty", count: s._count.expenses, href: "" },
+      { id: "saleTerms", type: "category", label: "Terms", subtitle: "Sale conditions", count: s._count.terms, href: "" },
     ],
   };
 }
@@ -480,7 +567,7 @@ async function getInventoryChildren(companyId: string, _c: string): Promise<Chil
       title: l.name,
       subtitle: String(l.type),
       meta: `${l._count.stockItems} items`,
-      href: `/m/stock/${l.id}`,
+      href: `/m/stock?locationId=${l.id}`,
       details,
       hasChildren: false,
     };
@@ -872,6 +959,443 @@ async function getPartitionChildren(parcelId: string, _c: string): Promise<Child
       href: `/m/land/${parcelId}`,
       details,
       hasChildren: false,
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EXTENDED CHILDREN RESOLVERS — new orbit categories
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getSupplierChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.supplier.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true, gstin: true, phone: true, email: true, balanceOwed: true, leadTimeDays: true },
+    orderBy: { name: "asc" }, take: 50,
+  });
+  return items.map((s) => {
+    const details: DetailField[] = [];
+    if (s.gstin) details.push({ label: "GSTIN", value: s.gstin });
+    if (s.phone) details.push({ label: "Phone", value: s.phone });
+    if (s.leadTimeDays) details.push({ label: "Lead", value: `${s.leadTimeDays}d` });
+    if (toNum(s.balanceOwed) > 0) details.push({ label: "Owed", value: formatCurrency(toNum(s.balanceOwed)) });
+    return {
+      id: s.id, type: "supplier",
+      title: s.name,
+      subtitle: s.phone ?? s.email ?? "—",
+      meta: toNum(s.balanceOwed) > 0 ? formatCurrency(toNum(s.balanceOwed)) : "",
+      href: `/m/suppliers/${s.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getCustomerChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.customer.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true, phone: true, email: true, gstin: true, address: true },
+    orderBy: { name: "asc" }, take: 50,
+  });
+  return items.map((c) => {
+    const details: DetailField[] = [];
+    if (c.phone) details.push({ label: "Phone", value: c.phone });
+    if (c.email) details.push({ label: "Email", value: c.email });
+    if (c.gstin) details.push({ label: "GSTIN", value: c.gstin });
+    return {
+      id: c.id, type: "customer",
+      title: c.name,
+      subtitle: c.phone ?? "—",
+      meta: "",
+      href: `/m/customers/${c.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getVehicleChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.vehicle.findMany({
+    where: { companyId },
+    select: { id: true, vehicleNumber: true, vehicleType: true, driverName: true, driverPhone: true, tripCount: true, lastUsedAt: true },
+    orderBy: { vehicleNumber: "asc" }, take: 50,
+  });
+  return items.map((v) => {
+    const details: DetailField[] = [
+      { label: "Type", value: v.vehicleType },
+      { label: "Trips", value: String(v.tripCount) },
+    ];
+    if (v.driverName) details.push({ label: "Driver", value: v.driverName });
+    if (v.lastUsedAt) details.push({ label: "Last used", value: formatDate(v.lastUsedAt) });
+    return {
+      id: v.id, type: "vehicle",
+      title: v.vehicleNumber,
+      subtitle: v.vehicleType,
+      meta: v.driverName ?? "",
+      href: `/m/vehicles`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getSubcontractorChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.subcontractor.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true, trade: true, phone: true, gstin: true, address: true },
+    orderBy: { name: "asc" }, take: 50,
+  });
+  return items.map((s) => {
+    const details: DetailField[] = [];
+    if (s.trade) details.push({ label: "Trade", value: s.trade });
+    if (s.phone) details.push({ label: "Phone", value: s.phone });
+    if (s.gstin) details.push({ label: "GSTIN", value: s.gstin });
+    return {
+      id: s.id, type: "subcontractor",
+      title: s.name,
+      subtitle: s.trade ?? "Subcontractor",
+      meta: s.phone ?? "",
+      href: `/m/subcontractors/${s.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getExpenseChildren(parentId: string, companyId: string, parentType: string): Promise<ChildEntity[]> {
+  const where = parentType === "project"
+    ? { projectId: parentId }
+    : { companyId };
+  const items = await prisma.expense.findMany({
+    where,
+    select: { id: true, category: true, amount: true, date: true, notes: true, project: { select: { name: true } } },
+    orderBy: { date: "desc" }, take: 30,
+  });
+  return items.map((e) => {
+    const details: DetailField[] = [
+      { label: "Date", value: formatDate(e.date) },
+      { label: "Category", value: e.category },
+    ];
+    if (e.project) details.push({ label: "Project", value: e.project.name });
+    if (e.notes) details.push({ label: "Notes", value: e.notes.slice(0, 50) });
+    return {
+      id: e.id, type: "expense",
+      title: e.category,
+      subtitle: formatDate(e.date),
+      meta: formatCurrency(toNum(e.amount)),
+      href: `/m/expenses`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getLeadChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.lead.findMany({
+    where: { companyId },
+    select: { id: true, name: true, phone: true, stage: true, priority: true, source: true, nextFollowUpAt: true, project: { select: { name: true } } },
+    orderBy: { createdAt: "desc" }, take: 30,
+  });
+  return items.map((l) => {
+    const details: DetailField[] = [
+      { label: "Stage", value: String(l.stage) },
+      { label: "Priority", value: String(l.priority) },
+    ];
+    if (l.source) details.push({ label: "Source", value: String(l.source) });
+    if (l.project) details.push({ label: "Project", value: l.project.name });
+    if (l.nextFollowUpAt) details.push({ label: "Follow up", value: formatDate(l.nextFollowUpAt) });
+    return {
+      id: l.id, type: "lead",
+      title: l.name,
+      subtitle: l.phone ?? "—",
+      meta: String(l.stage),
+      href: `/m/leads/${l.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getTaskChildren(_parentId: string, companyId: string, _parentType: string): Promise<ChildEntity[]> {
+  const items = await prisma.task.findMany({
+    where: { assignedTo: { companyId } },
+    select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedTo: { select: { name: true } } },
+    orderBy: { createdAt: "desc" }, take: 30,
+  });
+  return items.map((t) => {
+    const details: DetailField[] = [
+      { label: "Status", value: t.status },
+      { label: "Priority", value: t.priority },
+    ];
+    if (t.assignedTo) details.push({ label: "Assignee", value: t.assignedTo.name });
+    if (t.dueDate) details.push({ label: "Due", value: formatDate(t.dueDate) });
+    return {
+      id: t.id, type: "task",
+      title: t.title,
+      subtitle: t.assignedTo?.name ?? "—",
+      meta: t.status,
+      href: `/m/site/tasks`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getScrapGenerationChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.scrapGeneration.findMany({
+    where: { companyId, status: "COMPLETED" },
+    select: { id: true, scrapNumber: true, generationDate: true, toLocation: { select: { name: true } }, project: { select: { name: true } } },
+    orderBy: { generationDate: "desc" }, take: 30,
+  });
+  return items.map((s) => {
+    const details: DetailField[] = [
+      { label: "Date", value: formatDate(s.generationDate) },
+    ];
+    if (s.toLocation) details.push({ label: "Location", value: s.toLocation.name });
+    if (s.project) details.push({ label: "Project", value: s.project.name });
+    return {
+      id: s.id, type: "scrapGeneration",
+      title: `SG-${s.scrapNumber}`,
+      subtitle: formatDate(s.generationDate),
+      meta: s.toLocation?.name ?? "",
+      href: `/m/scrap-generations/${s.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getStockTransferChildren(parentId: string, companyId: string, parentType: string): Promise<ChildEntity[]> {
+  const where = parentType === "project"
+    ? { fromLocation: { projectId: parentId } }
+    : { fromLocation: { companyId } };
+  const items = await prisma.stockTransfer.findMany({
+    where,
+    select: {
+      id: true, status: true, transferDate: true, isInterCompany: true, freight: true,
+      fromLocation: { select: { name: true } },
+      toLocation: { select: { name: true } },
+    },
+    orderBy: { transferDate: "desc" }, take: 30,
+  });
+  return items.map((t) => {
+    const details: DetailField[] = [
+      { label: "Date", value: formatDate(t.transferDate) },
+      { label: "Status", value: String(t.status) },
+    ];
+    if (t.fromLocation) details.push({ label: "From", value: t.fromLocation.name });
+    if (t.toLocation) details.push({ label: "To", value: t.toLocation.name });
+    if (t.isInterCompany) details.push({ label: "Inter-co", value: "Yes" });
+    return {
+      id: t.id, type: "stockTransfer",
+      title: `${t.fromLocation?.name ?? "—"} → ${t.toLocation?.name ?? "—"}`,
+      subtitle: formatDate(t.transferDate),
+      meta: String(t.status),
+      href: `/m/transfers/${t.id}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getProjectPhaseChildren(projectId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.projectPhase.findMany({
+    where: { projectId },
+    select: { id: true, name: true, status: true, startDate: true, endDate: true, budget: true, sortOrder: true },
+    orderBy: { sortOrder: "asc" }, take: 50,
+  });
+  return items.map((ph) => {
+    const details: DetailField[] = [
+      { label: "Status", value: String(ph.status) },
+    ];
+    if (ph.startDate) details.push({ label: "Start", value: formatDate(ph.startDate) });
+    if (ph.endDate) details.push({ label: "End", value: formatDate(ph.endDate) });
+    if (ph.budget) details.push({ label: "Budget", value: formatCurrency(toNum(ph.budget)) });
+    return {
+      id: ph.id, type: "projectPhase",
+      title: ph.name,
+      subtitle: String(ph.status),
+      meta: ph.budget ? formatCurrency(toNum(ph.budget)) : "",
+      href: `/m/projects/${projectId}`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getEquipmentAssignmentChildren(parentId: string, _companyId: string, _parentType: string): Promise<ChildEntity[]> {
+  const items = await prisma.equipmentAssignment.findMany({
+    where: { projectId: parentId, status: "ACTIVE" },
+    select: {
+      id: true, status: true, assignedAt: true, notes: true,
+      equipment: { select: { name: true, category: true, status: true } },
+      location: { select: { name: true } },
+    },
+    orderBy: { assignedAt: "desc" }, take: 30,
+  });
+  return items.map((a) => {
+    const details: DetailField[] = [
+      { label: "Status", value: String(a.status) },
+      { label: "Assigned", value: formatDate(a.assignedAt) },
+    ];
+    if (a.location) details.push({ label: "Location", value: a.location.name });
+    if (a.notes) details.push({ label: "Notes", value: a.notes.slice(0, 50) });
+    return {
+      id: a.id, type: "equipmentAssignment",
+      title: a.equipment?.name ?? "Equipment",
+      subtitle: a.equipment?.category ?? "",
+      meta: String(a.status),
+      href: `/m/equipment`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getCrewChildren(parentId: string, companyId: string, parentType: string): Promise<ChildEntity[]> {
+  const where = parentType === "project"
+    ? { projectId: parentId, active: true }
+    : { companyId, active: true };
+  const items = await prisma.crew.findMany({
+    where,
+    select: { id: true, name: true, active: true, supervisor: { select: { name: true } }, project: { select: { name: true } }, _count: { select: { members: true } } },
+    orderBy: { name: "asc" }, take: 50,
+  });
+  return items.map((cr) => {
+    const details: DetailField[] = [
+      { label: "Members", value: String(cr._count.members) },
+    ];
+    if (cr.supervisor) details.push({ label: "Supervisor", value: cr.supervisor.name });
+    if (cr.project) details.push({ label: "Project", value: cr.project.name });
+    return {
+      id: cr.id, type: "crew",
+      title: cr.name,
+      subtitle: `${cr._count.members} members`,
+      meta: cr.supervisor?.name ?? "",
+      href: `/m/hr`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getTenancyChildren(parentId: string, companyId: string, parentType: string): Promise<ChildEntity[]> {
+  const where = parentType === "builtUnit"
+    ? { builtUnitId: parentId }
+    : parentType === "landParcel"
+      ? { landParcelId: parentId }
+      : { companyId };
+  const items = await prisma.tenancy.findMany({
+    where,
+    select: {
+      id: true, tenantName: true, tenantPhone: true, status: true,
+      startDate: true, endDate: true, monthlyRent: true,
+      assetType: true, builtUnitId: true, landParcelId: true,
+    },
+    orderBy: { startDate: "desc" }, take: 30,
+  });
+  return items.map((t) => {
+    const details: DetailField[] = [
+      { label: "Status", value: String(t.status) },
+      { label: "Start", value: formatDate(t.startDate) },
+    ];
+    if (t.endDate) details.push({ label: "End", value: formatDate(t.endDate) });
+    if (t.tenantPhone) details.push({ label: "Phone", value: t.tenantPhone });
+    if (t.monthlyRent) details.push({ label: "Rent", value: formatCurrency(toNum(t.monthlyRent)) });
+    return {
+      id: t.id, type: "tenancy",
+      title: t.tenantName,
+      subtitle: String(t.assetType),
+      meta: t.monthlyRent ? formatCurrency(toNum(t.monthlyRent)) : String(t.status),
+      href: `/m/rent`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getSaleExpenseChildren(saleId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.saleExpense.findMany({
+    where: { assetSaleId: saleId },
+    select: { id: true, head: true, label: true, amount: true, borneBy: true, isIncluded: true },
+    orderBy: { sortOrder: "asc" }, take: 30,
+  });
+  return items.map((e) => {
+    const details: DetailField[] = [
+      { label: "Head", value: String(e.head) },
+      { label: "Borne by", value: String(e.borneBy) },
+    ];
+    if (e.label) details.push({ label: "Label", value: e.label });
+    return {
+      id: e.id, type: "saleExpense",
+      title: e.label ?? String(e.head),
+      subtitle: String(e.borneBy),
+      meta: formatCurrency(toNum(e.amount)),
+      href: `/m/sales`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+async function getSaleTermChildren(saleId: string, _c: string): Promise<ChildEntity[]> {
+  const items = await prisma.saleTerm.findMany({
+    where: { assetSaleId: saleId },
+    select: { id: true, description: true, extraAmount: true, isIncluded: true, sortOrder: true },
+    orderBy: { sortOrder: "asc" }, take: 30,
+  });
+  return items.map((t) => {
+    const details: DetailField[] = [
+      { label: "Included", value: t.isIncluded ? "In deal" : "Extra" },
+    ];
+    if (t.extraAmount) details.push({ label: "Amount", value: formatCurrency(toNum(t.extraAmount)) });
+    return {
+      id: t.id, type: "saleTerm",
+      title: t.description.slice(0, 60),
+      subtitle: t.isIncluded ? "Included" : "Extra charge",
+      meta: t.extraAmount ? formatCurrency(toNum(t.extraAmount)) : "",
+      href: `/m/sales`,
+      details,
+      hasChildren: false,
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SUBSIDIARY CHILDREN — child companies under a parent company
+//  Each child is a drillable company node (hasChildren: true) so the user
+//  can navigate: Parent → Child Company → Projects → Built Units → ...
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function getSubsidiaryChildren(parentId: string, _companyId: string): Promise<ChildEntity[]> {
+  const items = await prisma.company.findMany({
+    where: { parentCompanyId: parentId, deletedAt: null },
+    select: {
+      id: true, name: true, businessType: true, currency: true,
+      _count: {
+        select: {
+          projects: { where: { deletedAt: null } },
+          children: { where: { deletedAt: null } },
+          employees: { where: { active: true } },
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+  return items.map((c) => {
+    const details: DetailField[] = [];
+    if (c.businessType) details.push({ label: "Type", value: c.businessType });
+    details.push({ label: "Projects", value: String(c._count.projects) });
+    details.push({ label: "Staff", value: String(c._count.employees) });
+    if (c._count.children > 0) details.push({ label: "Subsidiaries", value: String(c._count.children) });
+    return {
+      id: c.id, type: "company",
+      title: c.name,
+      subtitle: c.businessType ?? "Subsidiary",
+      meta: `${c._count.projects} projects`,
+      href: "",
+      details,
+      hasChildren: true,
     };
   });
 }

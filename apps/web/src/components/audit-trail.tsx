@@ -49,7 +49,7 @@ export function AuditTrail({ entityType, entityId }: { entityType: string; entit
     setLoading(true);
     fetch(`/api/audit?entityType=${entityType}&entityId=${entityId}`)
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setEntries(d); })
+      .then(d => { const rows = d.rows ?? d; if (Array.isArray(rows)) setEntries(rows); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [entityType, entityId]);

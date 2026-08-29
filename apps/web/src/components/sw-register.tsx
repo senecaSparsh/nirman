@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { syncQueue } from "@/lib/offline/queue";
 
 /**
@@ -9,6 +10,7 @@ import { syncQueue } from "@/lib/offline/queue";
  * the root layout so every page gets offline app-shell caching + sync.
  */
 export function SwRegister() {
+  const router = useRouter();
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
@@ -43,6 +45,10 @@ export function SwRegister() {
         // Background Sync woke us — flush the queue.
         void syncQueue().catch((err) => console.error("[sw] sync failed:", err));
       }
+      if (event.data?.type === "NAVIGATE" && event.data?.href) {
+        // Notification click — navigate to the target page
+        router.push(event.data.href);
+      }
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     navigator.serviceWorker.addEventListener("message", onMessage);
@@ -52,7 +58,7 @@ export function SwRegister() {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       navigator.serviceWorker.removeEventListener("message", onMessage);
     };
-  }, []);
+  }, [router]);
 
   return null;
 }

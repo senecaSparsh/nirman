@@ -31,6 +31,7 @@ interface AssigneeOption {
 interface FormState {
   title: string;
   description: string;
+  instructions: string;
   assignedToId: string;
   priority: Priority;
   dueDate: string;
@@ -58,6 +59,7 @@ export function MobileNewTaskDialog({
   const [form, setForm] = useState<FormState>({
     title: "",
     description: "",
+    instructions: "",
     assignedToId: "",
     priority: "medium",
     dueDate: "",
@@ -78,7 +80,10 @@ export function MobileNewTaskDialog({
   }
 
   function removeSubtask(idx: number) {
-    set("subtasks", form.subtasks.filter((_, i) => i !== idx));
+    set(
+      "subtasks",
+      form.subtasks.filter((_, i) => i !== idx),
+    );
     haptic(10);
   }
 
@@ -101,10 +106,12 @@ export function MobileNewTaskDialog({
         body: JSON.stringify({
           title: form.title.trim(),
           description: form.description.trim() || null,
+          instructions: form.instructions.trim() || null,
           assignedToId: form.assignedToId,
           priority: form.priority,
           dueDate: form.dueDate || null,
-          estimateMins: form.estimateMins === "" ? null : Number(form.estimateMins),
+          estimateMins:
+            form.estimateMins === "" ? null : Number(form.estimateMins),
           subtasks: form.subtasks,
         }),
       });
@@ -124,7 +131,8 @@ export function MobileNewTaskDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -154,15 +162,21 @@ export function MobileNewTaskDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <CheckSquare className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <CheckSquare
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               Assign Task
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -190,12 +204,29 @@ export function MobileNewTaskDialog({
 
           {/* Description */}
           <div>
-            <label className={labelClass} style={labelStyle}>Description</label>
+            <label className={labelClass} style={labelStyle}>
+              Description
+            </label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={2}
               placeholder="What needs to be done?"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Instructions */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Step-by-step Guidance (optional)
+            </label>
+            <textarea
+              value={form.instructions}
+              onChange={(e) => set("instructions", e.target.value)}
+              rows={3}
+              placeholder="Numbered steps the assignee should follow…"
               className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
               style={inputStyle}
             />
@@ -214,24 +245,34 @@ export function MobileNewTaskDialog({
             >
               <option value="">— Select team member —</option>
               {assignees.map((a) => (
-                <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.role})
+                </option>
               ))}
             </select>
           </div>
 
           {/* Priority */}
           <div>
-            <label className={labelClass} style={labelStyle}>Priority</label>
+            <label className={labelClass} style={labelStyle}>
+              Priority
+            </label>
             <div className="flex gap-1.5">
               {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
                 <button
                   key={p}
                   type="button"
-                  onClick={() => { set("priority", p); haptic(10); }}
+                  onClick={() => {
+                    set("priority", p);
+                    haptic(10);
+                  }}
                   className="flex-1 h-8 rounded-[0.375rem] text-[0.5625rem] font-bold press"
                   style={{
                     color: form.priority === p ? "#fff" : PRIORITY_COLORS[p],
-                    backgroundColor: form.priority === p ? PRIORITY_COLORS[p] : `color-mix(in srgb, ${PRIORITY_COLORS[p]} 8%, transparent)`,
+                    backgroundColor:
+                      form.priority === p
+                        ? PRIORITY_COLORS[p]
+                        : `color-mix(in srgb, ${PRIORITY_COLORS[p]} 8%, transparent)`,
                   }}
                 >
                   {PRIORITY_LABELS[p]}
@@ -243,7 +284,9 @@ export function MobileNewTaskDialog({
           {/* Due Date + Estimate */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Due Date</label>
+              <label className={labelClass} style={labelStyle}>
+                Due Date
+              </label>
               <input
                 type="date"
                 value={form.dueDate}
@@ -253,7 +296,9 @@ export function MobileNewTaskDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Estimate (mins)</label>
+              <label className={labelClass} style={labelStyle}>
+                Estimate (mins)
+              </label>
               <input
                 type="number"
                 min={1}
@@ -269,7 +314,9 @@ export function MobileNewTaskDialog({
 
           {/* Subtasks / Checklist */}
           <div>
-            <label className={labelClass} style={labelStyle}>Checklist (optional)</label>
+            <label className={labelClass} style={labelStyle}>
+              Checklist (optional)
+            </label>
             <div className="flex gap-1.5 mb-1.5">
               <input
                 type="text"
@@ -290,7 +337,11 @@ export function MobileNewTaskDialog({
                 type="button"
                 onClick={addSubtask}
                 className="shrink-0 grid place-items-center size-10 rounded-[0.5rem] border press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+                style={{
+                  borderColor: "var(--color-line)",
+                  color: "var(--color-ink-700)",
+                  backgroundColor: "var(--color-paper)",
+                }}
               >
                 <Plus className="size-4" />
               </button>
@@ -301,9 +352,15 @@ export function MobileNewTaskDialog({
                   <div
                     key={i}
                     className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-1.5"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+                    style={{
+                      borderColor: "var(--color-line)",
+                      backgroundColor: "var(--color-paper-2)",
+                    }}
                   >
-                    <span className="text-[0.6875rem] flex-1" style={{ color: "var(--color-ink-700)" }}>
+                    <span
+                      className="text-[0.6875rem] flex-1"
+                      style={{ color: "var(--color-ink-700)" }}
+                    >
                       {s}
                     </span>
                     <button

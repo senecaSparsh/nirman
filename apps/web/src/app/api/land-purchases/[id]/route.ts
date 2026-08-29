@@ -73,6 +73,8 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     registrationAmount: lp.registrationAmount ? toNum(lp.registrationAmount) : null,
     stampDutyPercent: lp.stampDutyPercent ? toNum(lp.stampDutyPercent) : null,
     stampDutyAmount: lp.stampDutyAmount ? toNum(lp.stampDutyAmount) : null,
+    transferDutyPercent: lp.transferDutyPercent ? toNum(lp.transferDutyPercent) : null,
+    transferDutyAmount: lp.transferDutyAmount ? toNum(lp.transferDutyAmount) : null,
     brokerageAmount: lp.brokerageAmount ? toNum(lp.brokerageAmount) : null,
     legalFees: lp.legalFees ? toNum(lp.legalFees) : null,
     otherCharges: lp.otherCharges ? toNum(lp.otherCharges) : null,
@@ -130,6 +132,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (parsed.data.registrationAmount !== undefined) data.registrationAmount = parsed.data.registrationAmount;
   if (parsed.data.stampDutyPercent !== undefined) data.stampDutyPercent = parsed.data.stampDutyPercent;
   if (parsed.data.stampDutyAmount !== undefined) data.stampDutyAmount = parsed.data.stampDutyAmount;
+  if (parsed.data.transferDutyPercent !== undefined) data.transferDutyPercent = parsed.data.transferDutyPercent;
+  if (parsed.data.transferDutyAmount !== undefined) data.transferDutyAmount = parsed.data.transferDutyAmount;
   if (parsed.data.brokerageAmount !== undefined) data.brokerageAmount = parsed.data.brokerageAmount;
   if (parsed.data.legalFees !== undefined) data.legalFees = parsed.data.legalFees;
   if (parsed.data.otherCharges !== undefined) data.otherCharges = parsed.data.otherCharges;

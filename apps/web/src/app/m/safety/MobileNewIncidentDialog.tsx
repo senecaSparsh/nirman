@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { useWbsOptions } from "@/lib/use-wbs-options";
 
 type IncidentType = "ACCIDENT" | "NEAR_MISS" | "INJURY" | "FATALITY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "FIRE" | "STRUCTURAL" | "OTHER";
 type IncidentSeverity = "FIRST_AID" | "LOST_TIME" | "SERIOUS" | "FATAL" | "PROPERTY_ONLY";
@@ -23,14 +25,17 @@ const SEVERITIES: { value: IncidentSeverity; label: string }[] = [
 export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT" as IncidentType, severity: "FIRST_AID" as IncidentSeverity,
     incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "",
-    injuredCount: "0", fatalities: "0", propertyDamageEstimate: "",
+    injuredCount: "0", fatalities: "0", propertyDamageEstimate: "", wbsNodeId: "",
   });
 
+  const wbsOptions = useWbsOptions(open ? form.projectId : null);
+
   useEffect(() => {
-    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT", severity: "FIRST_AID", incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "", injuredCount: "0", fatalities: "0", propertyDamageEstimate: "" });
+    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT", severity: "FIRST_AID", incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "", injuredCount: "0", fatalities: "0", propertyDamageEstimate: "", wbsNodeId: "" });
   }, [open, projects]);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
@@ -42,8 +47,10 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
       const res = await fetch("/api/safety/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         projectId: form.projectId, title: form.title.trim(), description: form.description.trim(), type: form.type, severity: form.severity,
         incidentDate: form.incidentDate, incidentTime: form.incidentTime || null, location: form.location || null,
+        wbsNodeId: form.wbsNodeId || null,
         peopleInvolved: form.peopleInvolved || null, injuredCount: parseInt(form.injuredCount) || 0, fatalities: parseInt(form.fatalities) || 0,
         propertyDamageEstimate: form.propertyDamageEstimate ? parseFloat(form.propertyDamageEstimate) : null,
+        attachments: attachments.map((a) => a.url),
       }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -100,6 +107,13 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
             <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div>
+            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
+            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
+              <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+              {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>People Involved</label>
             <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
@@ -117,6 +131,15 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
               <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
             </div>
           </div>
+
+          {/* Photo evidence */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+              Photo Evidence
+            </label>
+            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+          </div>
+
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
             <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>

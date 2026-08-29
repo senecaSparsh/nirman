@@ -1,7 +1,21 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { createSupplierPayment, getSupplierPayments } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+
+const paymentSchema = z.object({
+  supplierId: z.string().min(1, "supplierId is required"),
+  purchaseOrderId: z.string().optional(),
+  invoiceId: z.string().optional(),
+  amount: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().positive("amount must be > 0")),
+  tdsAmount: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  tdsSection: z.string().optional(),
+  paymentDate: z.string().optional(),
+  paymentMode: z.string().min(1, "paymentMode is required"),
+  referenceNo: z.string().optional(),
+  notes: z.string().optional(),
+});
 
 /**
  * GET /api/supplier-payments?supplierId=...&purchaseOrderId=...
@@ -48,25 +62,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
-
-  if (!body?.supplierId) return json({ error: "supplierId is required" }, { status: 400 });
-  const amt = Number(body?.amount);
-  if (!body?.amount || !Number.isFinite(amt) || amt <= 0) return json({ error: "amount must be a finite number > 0" }, { status: 400 });
-  if (!body?.paymentMode) return json({ error: "paymentMode is required" }, { status: 400 });
+  const parsed = paymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const data = parsed.data;
 
   try {
     const payment = await createSupplierPayment({
-      supplierId: body.supplierId,
+      supplierId: data.supplierId,
       companyId: company.id,
-      purchaseOrderId: body.purchaseOrderId ?? undefined,
-      invoiceId: body.invoiceId ?? undefined,
-      amount: Number(body.amount),
-      tdsAmount: body.tdsAmount ? Number(body.tdsAmount) : undefined,
-      tdsSection: body.tdsSection,
-      paymentDate: body.paymentDate ? new Date(body.paymentDate) : undefined,
-      paymentMode: body.paymentMode,
-      referenceNo: body.referenceNo,
-      notes: body.notes,
+      purchaseOrderId: data.purchaseOrderId,
+      invoiceId: data.invoiceId,
+      amount: data.amount,
+      tdsAmount: data.tdsAmount,
+      tdsSection: data.tdsSection,
+      paymentDate: data.paymentDate ? new Date(data.paymentDate) : undefined,
+      paymentMode: data.paymentMode,
+      referenceNo: data.referenceNo,
+      notes: data.notes,
       userId: user.id,
     });
 

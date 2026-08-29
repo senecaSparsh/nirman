@@ -6,7 +6,13 @@ import { X, Loader2, Building2, FileText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
-type ProjectType = "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER";
+type ProjectType =
+  | "RESIDENTIAL"
+  | "COMMERCIAL"
+  | "WAREHOUSE"
+  | "MALL"
+  | "LAND"
+  | "OTHER";
 type ProjectStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
 
 const TYPE_LABELS: Record<ProjectType, string> = {
@@ -46,6 +52,7 @@ interface FormState {
   reraRegistrationDate: string;
   reraValidityDate: string;
   reraWebsiteUrl: string;
+  lciThreshold: string;
 }
 
 /** Pre-fill props — numeric fields accept number | string for convenience. */
@@ -98,6 +105,7 @@ export function MobileNewProjectDialog({
     reraRegistrationDate: "",
     reraValidityDate: "",
     reraWebsiteUrl: "",
+    lciThreshold: "",
   });
 
   // Apply initial pre-fill values when dialog opens
@@ -108,8 +116,14 @@ export function MobileNewProjectDialog({
         type: initial.type ?? f.type,
         status: initial.status ?? f.status,
         address: initial.address ?? f.address,
-        totalSellableArea: initial.totalSellableArea != null ? String(initial.totalSellableArea) : f.totalSellableArea,
-        totalBudget: initial.totalBudget != null ? String(initial.totalBudget) : f.totalBudget,
+        totalSellableArea:
+          initial.totalSellableArea != null
+            ? String(initial.totalSellableArea)
+            : f.totalSellableArea,
+        totalBudget:
+          initial.totalBudget != null
+            ? String(initial.totalBudget)
+            : f.totalBudget,
         description: initial.description ?? f.description,
       }));
     }
@@ -138,19 +152,34 @@ export function MobileNewProjectDialog({
           address: form.address.trim() || null,
           startDate: form.startDate || null,
           endDate: form.endDate || null,
-          totalBudget: form.totalBudget === "" ? null : Number(form.totalBudget),
-          totalSellableArea: form.totalSellableArea === "" ? null : Number(form.totalSellableArea),
+          totalBudget:
+            form.totalBudget === "" ? null : Number(form.totalBudget),
+          totalSellableArea:
+            form.totalSellableArea === ""
+              ? null
+              : Number(form.totalSellableArea),
           description: form.description.trim() || null,
           // ATS + registry fields — auto-creates legal docs on the server
           isATS: form.isATS,
-          atsRegistrationAmount: form.isATS && form.atsRegistrationAmount ? Number(form.atsRegistrationAmount) : null,
-          atsExpectedRegistryDate: form.isATS && form.atsExpectedRegistryDate ? form.atsExpectedRegistryDate : null,
-          registryNo: !form.isATS && form.registryNo.trim() ? form.registryNo.trim() : null,
+          atsRegistrationAmount:
+            form.isATS && form.atsRegistrationAmount
+              ? Number(form.atsRegistrationAmount)
+              : null,
+          atsExpectedRegistryDate:
+            form.isATS && form.atsExpectedRegistryDate
+              ? form.atsExpectedRegistryDate
+              : null,
+          registryNo:
+            !form.isATS && form.registryNo.trim()
+              ? form.registryNo.trim()
+              : null,
           // RERA registration
           reraNumber: form.reraNumber.trim() || null,
           reraRegistrationDate: form.reraRegistrationDate || null,
           reraValidityDate: form.reraValidityDate || null,
           reraWebsiteUrl: form.reraWebsiteUrl.trim() || null,
+          lciThreshold:
+            form.lciThreshold === "" ? null : Number(form.lciThreshold),
         }),
       });
       const data = await res.json();
@@ -174,7 +203,8 @@ export function MobileNewProjectDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -204,15 +234,21 @@ export function MobileNewProjectDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <Building2 className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <Building2
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               New Project
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -230,7 +266,12 @@ export function MobileNewProjectDialog({
               type="text"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               placeholder="e.g. Apex Center — Tower One"
               autoFocus
               enterKeyHint="next"
@@ -242,7 +283,9 @@ export function MobileNewProjectDialog({
           {/* Type + Status */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Type</label>
+              <label className={labelClass} style={labelStyle}>
+                Type
+              </label>
               <select
                 value={form.type}
                 onChange={(e) => set("type", e.target.value as ProjectType)}
@@ -250,12 +293,16 @@ export function MobileNewProjectDialog({
                 style={inputStyle}
               >
                 {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
-                  <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>
+                    {TYPE_LABELS[t]}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Status</label>
+              <label className={labelClass} style={labelStyle}>
+                Status
+              </label>
               <select
                 value={form.status}
                 onChange={(e) => set("status", e.target.value as ProjectStatus)}
@@ -263,7 +310,9 @@ export function MobileNewProjectDialog({
                 style={inputStyle}
               >
                 {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
                 ))}
               </select>
             </div>
@@ -271,7 +320,9 @@ export function MobileNewProjectDialog({
 
           {/* Address */}
           <div>
-            <label className={labelClass} style={labelStyle}>Address</label>
+            <label className={labelClass} style={labelStyle}>
+              Address
+            </label>
             <input
               type="text"
               value={form.address}
@@ -286,7 +337,9 @@ export function MobileNewProjectDialog({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Start Date</label>
+              <label className={labelClass} style={labelStyle}>
+                Start Date
+              </label>
               <input
                 type="date"
                 value={form.startDate}
@@ -296,7 +349,9 @@ export function MobileNewProjectDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>End Date</label>
+              <label className={labelClass} style={labelStyle}>
+                End Date
+              </label>
               <input
                 type="date"
                 value={form.endDate}
@@ -310,7 +365,9 @@ export function MobileNewProjectDialog({
           {/* Budget + Area */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Budget (₹)</label>
+              <label className={labelClass} style={labelStyle}>
+                Budget (₹)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -323,7 +380,9 @@ export function MobileNewProjectDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Sellable Area (sq.ft)</label>
+              <label className={labelClass} style={labelStyle}>
+                Sellable Area (sq.ft)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -340,7 +399,9 @@ export function MobileNewProjectDialog({
 
           {/* Description */}
           <div>
-            <label className={labelClass} style={labelStyle}>Description</label>
+            <label className={labelClass} style={labelStyle}>
+              Description
+            </label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
@@ -352,104 +413,230 @@ export function MobileNewProjectDialog({
           </div>
 
           {/* RERA Registration */}
-          <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+          <div
+            className="rounded-[0.5rem] border p-3 space-y-2.5"
+            style={{ borderColor: "var(--color-line)" }}
+          >
             <div className="flex items-start gap-2">
-              <ShieldCheck className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-ink-500)" }} />
+              <ShieldCheck
+                className="size-3.5 shrink-0 mt-0.5"
+                style={{ color: "var(--color-ink-500)" }}
+              />
               <div>
-                <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>RERA Registration</div>
-                <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
-                  Mandatory for projects &gt; 500 sqm or &gt; 8 units. Required before marketing/selling.
+                <div
+                  className="text-[0.6875rem] font-bold"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  RERA Registration
+                </div>
+                <div
+                  className="text-[0.5625rem]"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Mandatory for projects &gt; 500 sqm or &gt; 8 units. Required
+                  before marketing/selling.
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>RERA Number</label>
-                <input type="text" value={form.reraNumber}
+                <label className={labelClass} style={labelStyle}>
+                  RERA Number
+                </label>
+                <input
+                  type="text"
+                  value={form.reraNumber}
                   onChange={(e) => set("reraNumber", e.target.value)}
                   placeholder="e.g. P1234567890"
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Reg. Date</label>
-                <input type="date" value={form.reraRegistrationDate}
+                <label className={labelClass} style={labelStyle}>
+                  Reg. Date
+                </label>
+                <input
+                  type="date"
+                  value={form.reraRegistrationDate}
                   onChange={(e) => set("reraRegistrationDate", e.target.value)}
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>Validity Date</label>
-                <input type="date" value={form.reraValidityDate}
+                <label className={labelClass} style={labelStyle}>
+                  Validity Date
+                </label>
+                <input
+                  type="date"
+                  value={form.reraValidityDate}
                   onChange={(e) => set("reraValidityDate", e.target.value)}
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>RERA URL</label>
-                <input type="text" value={form.reraWebsiteUrl}
+                <label className={labelClass} style={labelStyle}>
+                  RERA URL
+                </label>
+                <input
+                  type="text"
+                  value={form.reraWebsiteUrl}
                   onChange={(e) => set("reraWebsiteUrl", e.target.value)}
                   placeholder="https://..."
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
             </div>
           </div>
 
+          {/* LCI Threshold override */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              LCI Threshold % (optional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="any"
+              value={form.lciThreshold}
+              onChange={(e) => set("lciThreshold", e.target.value)}
+              placeholder="Company default"
+              className={inputClass}
+              style={inputStyle}
+            />
+            <p className="text-[0.5625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              Per-project override for the Logistics Complexity Index threshold that routes procurement between central and direct.
+            </p>
+          </div>
+
           {/* ATS — Agreement to Sell */}
-          <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+          <div
+            className="rounded-[0.5rem] border p-3 space-y-2.5"
+            style={{ borderColor: "var(--color-line)" }}
+          >
             <div className="flex items-start gap-2">
-              <FileText className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-ink-500)" }} />
+              <FileText
+                className="size-3.5 shrink-0 mt-0.5"
+                style={{ color: "var(--color-ink-500)" }}
+              />
               <div>
-                <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Agreement to Sell (ATS)</div>
-                <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
-                  Registry not possible yet? Record an ATS — amount paid now, registry deferred.
+                <div
+                  className="text-[0.6875rem] font-bold"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  Agreement to Sell (ATS)
+                </div>
+                <div
+                  className="text-[0.5625rem]"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Registry not possible yet? Record an ATS — amount paid now,
+                  registry deferred.
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => { set("isATS", false); haptic(10); }}
+              <button
+                type="button"
+                onClick={() => {
+                  set("isATS", false);
+                  haptic(10);
+                }}
                 className="h-9 rounded-[0.375rem] border-2 text-[0.5625rem] font-bold press"
                 style={{
-                  borderColor: !form.isATS ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: !form.isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: !form.isATS ? "var(--color-paper)" : "var(--color-ink-500)",
-                }}>
+                  borderColor: !form.isATS
+                    ? "var(--color-ink-950)"
+                    : "var(--color-line)",
+                  backgroundColor: !form.isATS
+                    ? "var(--color-ink-950)"
+                    : "var(--color-paper)",
+                  color: !form.isATS
+                    ? "var(--color-paper)"
+                    : "var(--color-ink-500)",
+                }}
+              >
                 No ATS
               </button>
-              <button type="button" onClick={() => { set("isATS", true); haptic(10); }}
+              <button
+                type="button"
+                onClick={() => {
+                  set("isATS", true);
+                  haptic(10);
+                }}
                 className="h-9 rounded-[0.375rem] border-2 text-[0.5625rem] font-bold press"
                 style={{
-                  borderColor: form.isATS ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: form.isATS ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.isATS ? "var(--color-paper)" : "var(--color-ink-500)",
-                }}>
+                  borderColor: form.isATS
+                    ? "var(--color-ink-950)"
+                    : "var(--color-line)",
+                  backgroundColor: form.isATS
+                    ? "var(--color-ink-950)"
+                    : "var(--color-paper)",
+                  color: form.isATS
+                    ? "var(--color-paper)"
+                    : "var(--color-ink-500)",
+                }}
+              >
                 Yes, ATS
               </button>
             </div>
             {form.isATS && (
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
-                  <label className={labelClass} style={labelStyle}>Reg. Amount (₹)</label>
-                  <input type="number" min={0} value={form.atsRegistrationAmount}
-                    onChange={(e) => set("atsRegistrationAmount", e.target.value)}
-                    placeholder="e.g. 500000" inputMode="numeric"
-                    className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>
+                    Reg. Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.atsRegistrationAmount}
+                    onChange={(e) =>
+                      set("atsRegistrationAmount", e.target.value)
+                    }
+                    placeholder="e.g. 500000"
+                    inputMode="numeric"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Expected Registry</label>
-                  <input type="date" value={form.atsExpectedRegistryDate}
-                    onChange={(e) => set("atsExpectedRegistryDate", e.target.value)}
-                    className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>
+                    Expected Registry
+                  </label>
+                  <input
+                    type="date"
+                    value={form.atsExpectedRegistryDate}
+                    onChange={(e) =>
+                      set("atsExpectedRegistryDate", e.target.value)
+                    }
+                    className={inputClass}
+                    style={inputStyle}
+                  />
                 </div>
               </div>
             )}
             {!form.isATS && (
               <div className="pt-1">
-                <label className={labelClass} style={labelStyle}>Registry / Sale Deed No.</label>
-                <input type="text" value={form.registryNo}
+                <label className={labelClass} style={labelStyle}>
+                  Registry / Sale Deed No.
+                </label>
+                <input
+                  type="text"
+                  value={form.registryNo}
                   onChange={(e) => set("registryNo", e.target.value)}
                   placeholder="e.g. SR-1234/2025"
-                  className={inputClass} style={inputStyle} />
-                <p className="text-[0.5rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  className={inputClass}
+                  style={inputStyle}
+                />
+                <p
+                  className="text-[0.5rem] mt-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
                   Sale deed / registry number for the land.
                 </p>
               </div>

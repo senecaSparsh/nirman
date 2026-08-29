@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Play, Check, Trash2, ShieldAlert, X } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface HazardDetail {
@@ -29,6 +30,7 @@ const RISK_BG: Record<string, string> = {
 
 export function MobileHazardDetailClient({ hazard, canManage }: { hazard: HazardDetail; canManage: boolean }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showMitigate, setShowMitigate] = useState(false);
   const [mitigationPlan, setMitigationPlan] = useState(hazard.mitigationPlan ?? "");
@@ -134,7 +136,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
             <ActionButton onClick={() => setShowResolve(true)} loading={false} icon={Check} label="Resolve" variant="go" />
           )}
           {hazard.status !== "RESOLVED" && (
-            <ActionButton onClick={async () => { if (!confirm("Delete this hazard?")) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
+            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this hazard?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
         </div>
       )}
@@ -168,6 +170,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
           </div>
         </BottomSheet>
       )}
+      {confirmDialog}
     </div>
   );
 }

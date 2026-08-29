@@ -6,6 +6,7 @@ import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
+import { MobileCustomersLeadsTabs } from "./MobileCustomersLeadsTabs";
 
 /**
  * /m/customers — mobile customer directory.
@@ -31,30 +32,47 @@ async function MobileCustomersContent() {
   const canCreate = hasPermission(role, PERM.SALES_MANAGE);
 
   // Fetch ALL customers for this company (not just those with asset sales)
-  const customers = await prisma.customer.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { name: "asc" },
-    include: {
-      assetSales: {
-        where: { companyId: company.id, status: "ACTIVE" },
-        select: {
-          salePrice: true,
-          gstAmount: true,
-          paymentStatus: true,
-          payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+  const [customers, leads] = await Promise.all([
+    prisma.customer.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      include: {
+        assetSales: {
+          where: { companyId: company.id, status: "ACTIVE" },
+          select: {
+            salePrice: true,
+            gstAmount: true,
+            paymentStatus: true,
+            payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+          },
+        },
+        materialSales: {
+          where: { companyId: company.id, status: "ACTIVE" },
+          select: {
+            totalAmount: true,
+            paymentStatus: true,
+            payments: { select: { amount: true } },
+          },
         },
       },
-      materialSales: {
-        where: { companyId: company.id, status: "ACTIVE" },
-        select: {
-          totalAmount: true,
-          paymentStatus: true,
-          payments: { select: { amount: true } },
-        },
+      take: 200,
+    }),
+    // Fetch leads so they show inside the customers section (client request)
+    prisma.lead.findMany({
+      where: { companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true, name: true, phone: true, email: true,
+        source: true, stage: true, priority: true, score: true,
+        nextFollowUpAt: true, lastContactAt: true, convertedAt: true,
+        createdAt: true, budgetMin: true, budgetMax: true,
+        interestedUnitType: true,
+        project: { select: { name: true } },
+        assignedTo: { select: { name: true } },
       },
-    },
-    take: 200,
-  });
+    }),
+  ]);
 
   const rows: CustomerListItem[] = customers.map((c) => {
     const assetSales = c.assetSales;
@@ -100,28 +118,40 @@ async function MobileCustomersContent() {
   const withDues = rows.filter((r) => r.dueCount > 0);
   const pipelineValue = rows.reduce((s, r) => s + r.totalValue, 0);
 
+  // Lead rows for the inline leads tab
+  const leadRows = leads.map((l) => ({
+    id: l.id,
+    name: l.name,
+    phone: l.phone,
+    email: l.email ?? null,
+    source: l.source,
+    stage: l.stage,
+    priority: l.priority,
+    score: l.score,
+    projectName: l.project?.name ?? null,
+    assignedToName: l.assignedTo?.name ?? null,
+    nextFollowUpAt: l.nextFollowUpAt ? l.nextFollowUpAt.toISOString() : null,
+    lastContactAt: l.lastContactAt ? l.lastContactAt.toISOString() : null,
+    budgetMin: l.budgetMin ? toNum(l.budgetMin) : null,
+    budgetMax: l.budgetMax ? toNum(l.budgetMax) : null,
+    interestedUnitType: l.interestedUnitType,
+    convertedAt: l.convertedAt ? l.convertedAt.toISOString() : null,
+    createdAt: l.createdAt.toISOString(),
+  }));
+
   return (
     <div>
-      <MobileCustomersList
-        items={rows}
+      <MobileCustomersLeadsTabs
+        customers={rows}
+        leads={leadRows}
         canCreate={canCreate}
-        stats={{
+        customerStats={{
           customerCount: rows.length,
           withDues: withDues.length,
           totalOutstanding,
           pipelineValue,
         }}
-        exportTitle="Customers"
-        exportRows={rows as unknown as Record<string, unknown>[]}
-        exportColumns={[
-          { key: "name", label: "Name" },
-          { key: "phone", label: "Phone" },
-          { key: "email", label: "Email" },
-          { key: "totalValue", label: "Total Purchased", format: "currency" },
-          { key: "totalPaid", label: "Total Paid", format: "currency" },
-          { key: "outstanding", label: "Outstanding", format: "currency" },
-        ] as MobileColumnSpec[]}
-        exportSummary={`${rows.length} customers · ${withDues.length} with dues`}
+        leadCount={leadRows.length}
       />
     </div>
   );

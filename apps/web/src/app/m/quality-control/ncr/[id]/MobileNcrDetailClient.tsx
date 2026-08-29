@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck, ClipboardCheck } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface NcrDetail {
@@ -73,6 +74,7 @@ export function MobileNcrDetailClient({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [reviewForm, setReviewForm] = useState({ outcome: "CAPA_REQUIRED" as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED", reviewNotes: "" });
@@ -201,6 +203,29 @@ export function MobileNcrDetailClient({
         {ncr.boqItemSerial && <DetailCard label="BOQ Item" value={`${ncr.boqItemSerial} — ${ncr.boqItemDescription}`} />}
       </div>
 
+      {/* Photo evidence */}
+      {ncr.attachments.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+            Photo Evidence
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {ncr.attachments.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block overflow-hidden rounded-[0.375rem] border"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-[0.625rem] font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
@@ -260,7 +285,8 @@ export function MobileNcrDetailClient({
           {(ncr.status === "OPEN" || ncr.status === "CANCELLED") && (
             <ActionButton
               onClick={async () => {
-                if (!confirm("Delete this NCR? This cannot be undone.")) return;
+                const ok = await confirm({ title: "Delete?", description: "Delete this NCR? This cannot be undone.", confirmLabel: "Delete", variant: "destructive" });
+                if (!ok) return;
                 await ncrAction("delete");
                 router.push("/m/quality-control");
               }}
@@ -305,7 +331,7 @@ export function MobileNcrDetailClient({
               <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Outcome</label>
               <select
                 value={reviewForm.outcome}
-                onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as any }))}
+                onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED" }))}
                 className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
@@ -444,6 +470,7 @@ export function MobileNcrDetailClient({
           </div>
         </BottomSheet>
       )}
+      {confirmDialog}
     </div>
   );
 }

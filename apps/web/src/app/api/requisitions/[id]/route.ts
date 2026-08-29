@@ -21,6 +21,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
+      approvedBy: { select: { id: true, name: true } },
+      rejectedBy: { select: { id: true, name: true } },
       lines: {
         include: {
           material: { select: { id: true, code: true, name: true, unit: true } },
@@ -74,6 +76,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     lineCount: lines.length,
     totalQty,
     createdAt: req.createdAt.toISOString(),
+    // Approval workflow
+    approvedBy: req.approvedBy ? { id: req.approvedBy.id, name: req.approvedBy.name } : null,
+    approvedAt: req.approvedAt?.toISOString() ?? null,
+    approvalNotes: req.approvalNotes,
+    rejectedBy: req.rejectedBy ? { id: req.rejectedBy.id, name: req.rejectedBy.name } : null,
+    rejectedAt: req.rejectedAt?.toISOString() ?? null,
+    rejectReason: req.rejectReason,
+    // Logistics Decision Engine
+    lciDecision: req.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null,
     lines,
     // Comparative Quote Engine summary
     quotes: {

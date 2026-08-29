@@ -370,16 +370,43 @@ export default function MobileNewMaterialClient({
 
         {/* ── Standard cost ── */}
         <FormField label="Standard cost (₹)">
-          <input
-            type="text"
-            inputMode="decimal"
-            enterKeyHint="next"
-            value={standardCost}
-            onChange={(e) => setStandardCost(e.target.value)}
-            placeholder="0"
-            className={`${inputClass} tabular-nums`}
-            style={inputStyle}
-          />
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="next"
+              value={standardCost}
+              onChange={(e) => setStandardCost(e.target.value)}
+              placeholder="0"
+              className={`${inputClass} tabular-nums flex-1`}
+              style={inputStyle}
+            />
+            {isEdit && material && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/materials/${material.id}/last-purchase`);
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error ?? "Failed");
+                    if (data.unitCost > 0) {
+                      setStandardCost(String(data.unitCost));
+                      haptic(10);
+                      toast.success(`Pulled ₹${data.unitCost} from last purchase`);
+                    } else {
+                      toast.info("No previous purchase found");
+                    }
+                  } catch {
+                    toast.error("Could not fetch last purchase price");
+                  }
+                }}
+                className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-[0.5625rem] font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              >
+                Pull last
+              </button>
+            )}
+          </div>
         </FormField>
 
         {/* ── Reorder point ── */}

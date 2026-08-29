@@ -40,6 +40,9 @@ interface CreateDirectPurchaseInput {
   billDate?: Date;
   notes?: string;
   createdById?: string;
+  // Optional link to the requisition that triggered this direct purchase.
+  // Preserves the indent → purchase audit trail even when bypassing the PO flow.
+  requisitionId?: string;
   // Vehicle — how the goods were brought from the local market
   vehicleNumber?: string;
   vehicleType?: string;
@@ -135,6 +138,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
           billDate: input.billDate ?? new Date(),
           notes: input.notes,
           createdById: input.createdById,
+          requisitionId: input.requisitionId,
           vehicleNumber: input.vehicleNumber,
           vehicleType: input.vehicleType,
           vehiclePhotoUrl: input.vehiclePhotoUrl,
@@ -192,6 +196,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         billDate: input.billDate ?? new Date(),
         notes: input.notes,
         createdById: input.createdById,
+        requisitionId: input.requisitionId,
         vehicleNumber: input.vehicleNumber,
         vehicleType: input.vehicleType,
         vehiclePhotoUrl: input.vehiclePhotoUrl,

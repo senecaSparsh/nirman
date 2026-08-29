@@ -1156,7 +1156,7 @@ function RaBillDialog({
             </div>
           ) : (
             <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-700 dark:text-amber-400">
-              <strong>No unbilled MB entries found.</strong> All approved Measurement Book entries for this work order's BOQ items have already been billed. Create and approve new MB entries first.
+              <strong>No unbilled MB entries found.</strong> All approved Measurement Book entries for this work order&apos;s BOQ items have already been billed. Create and approve new MB entries first.
             </div>
           )
         ) : null}
@@ -1211,10 +1211,11 @@ function WorkOrderDialog({
       .then((r) => r.json())
       .then((data) => {
         const items: typeof boqItems = [];
-        function collect(nodes: any[]) {
+        function collect(nodes: unknown[]) {
           for (const n of nodes) {
-            if (n.type === "LINE_ITEM") items.push({ id: n.id, serialNo: n.serialNo, description: n.description, unit: n.unit, rate: n.rate, estimatedQty: n.estimatedQty });
-            if (n.children) collect(n.children);
+            const node = n as Record<string, unknown>;
+            if (node.type === "LINE_ITEM") items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
+            if (node.children) collect(node.children as unknown[]);
           }
         }
         collect(data.tree ?? []);

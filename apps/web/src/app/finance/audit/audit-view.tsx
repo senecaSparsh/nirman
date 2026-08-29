@@ -63,7 +63,7 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
       const res = await fetch(`/api/audit?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load audit trail");
-      setEntries(data);
+      setEntries(data.rows ?? data);
     } catch {
       setEntries([]);
     } finally {

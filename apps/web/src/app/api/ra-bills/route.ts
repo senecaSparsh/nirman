@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, Prisma, type RaBillStatus } from "@nirman/db";
 import { createRaBill } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -60,11 +60,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
           orderBy: { billDate: "desc" },
         },
       },
-    }) as any;
+    });
     if (!wo) return json({ error: "Work order not found" }, { status: 404 });
 
     // Fetch unbilled approved MB entries for all BOQ items in this WO
-    const boqItemIds = wo.lines.map((l: any) => l.boqItem.id);
+    const boqItemIds = wo.lines.map((l) => l.boqItem.id);
     const unbilledEntries = await prisma.measurementBookEntry.findMany({
       where: {
         boqItemId: { in: boqItemIds },
@@ -83,7 +83,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       entriesByBoq.set(e.boqItemId, arr);
     }
 
-    const linesWithEntries = wo.lines.map((l: any) => ({
+    const linesWithEntries = wo.lines.map((l) => ({
       boqItemId: l.boqItem.id,
       serialNo: l.boqItem.serialNo,
       description: l.boqItem.description,
@@ -91,7 +91,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       estimatedQty: toNum(l.boqItem.estimatedQty),
       agreedRate: toNum(l.agreedRate),
       cumulativeQty: toNum(l.cumulativeQty),
-      unbilledEntries: (entriesByBoq.get(l.boqItem.id) ?? []).map((e: any) => ({
+      unbilledEntries: (entriesByBoq.get(l.boqItem.id) ?? []).map((e) => ({
         id: e.id,
         mbNumber: e.mbNumber,
         measuredQty: toNum(e.measuredQty),
@@ -101,11 +101,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
     }));
 
     const totalUnbilledQty = linesWithEntries.reduce(
-      (sum: number, l: any) => sum + l.unbilledEntries.reduce((s: number, e: any) => s + e.measuredQty, 0),
+      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + e.measuredQty, 0),
       0,
     );
     const estimatedGross = linesWithEntries.reduce(
-      (sum: number, l: any) => sum + l.unbilledEntries.reduce((s: number, e: any) => s + e.measuredQty * l.agreedRate, 0),
+      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + e.measuredQty * l.agreedRate, 0),
       0,
     );
 
@@ -117,7 +117,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       advanceRecoveryPct: toNum(wo.advanceRecoveryPct),
       totalPaid: toNum(wo.totalPaid),
       lines: linesWithEntries,
-      previousBills: wo.raBills.map((b: any) => ({
+      previousBills: wo.raBills.map((b) => ({
         id: b.id,
         raBillNumber: b.raBillNumber,
         grossAmount: toNum(b.grossAmount),
@@ -140,7 +140,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       ...(workOrderId ? { workOrderId } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as RaBillStatus } : {}),
     },
     orderBy: { billDate: "desc" },
     include: {

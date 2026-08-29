@@ -5,6 +5,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/customers/[id] — customer detail.
@@ -138,10 +139,13 @@ async function MobileCustomerDetailContent({
   };
 
   return (
-    <MobileCustomerDetailClient
-      data={data}
-      canSell={canSell}
-      canManage={canManage}
-    />
+    <>
+      <RecordRecentItem type="customer" id={customer.id} label={customer.name} sublabel={customer.phone ?? undefined} href={`/m/customers/${customer.id}`} />
+      <MobileCustomerDetailClient
+        data={data}
+        canSell={canSell}
+        canManage={canManage}
+      />
+    </>
   );
 }

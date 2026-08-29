@@ -1,33 +1,40 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { connection } from "next/server";
 import {
-  Receipt,
   Wallet,
-  IndianRupee,
-  TrendingUp,
   AlertCircle,
-  BookOpen,
+  RefreshCw,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
 import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileEmptyState,
-  MobileCta,
   SectionHead,
-  MobileStatCard,
+  Badge,
 } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
+import { AccountsInteractive } from "./accounts-interactive";
+import { CashFlowSnapshot, type PayableNode } from "./CashFlowSnapshot";
 
 /**
  * Accounts / Tally module home — the third tab.
  *
- * Covers: payables, receipts, ledger, Tally sync, reports.
+ * Visual architecture (mirrors the inventory and HR homes):
+ *   1. Attention banner carousel — Tally failures, pending syncs, overdue payables, draft payroll
+ *   2. KPI strip (4-col) — payables / receipts / tally pending / tally failed
+ *   3. Cash / Books toggle + quick actions grid
+ *   4. Cash flow snapshot — inflow vs outflow bars + top payables
+ *   5. Pending queue — Tally failures, overdue payables, draft payroll (sync action inline)
+ *   6. Recent receipts — latest payments received
+ *
+ * Covers: payables, receipts, ledger, Tally sync, GST, TDS, expenses, reports.
  * The Tally integration is the defining feature of this module.
  */
 export default function AccountsHomePage() {
@@ -42,45 +49,101 @@ async function AccountsContent() {
   await connection();
   const company = await getCompany();
 
-  const [tallyStats, recentReceipts, allSupplierOutstanding, draftPayroll, ,] =
-    await Promise.all([
-      getTallySyncStats(company.id).catch(() => ({
-        total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
-      })),
-      prisma.assetSalePayment.findMany({
+  const [
+    tallyStats,
+    recentReceipts,
+    allSupplierOutstanding,
+    draftPayroll,
+    recentExpenses,
+    recentProjectCosts,
+  ] = await Promise.all([
+    getTallySyncStats(company.id).catch(() => ({
+      total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
+    })),
+    prisma.assetSalePayment
+      .findMany({
         where: { assetSale: { companyId: company.id } },
         orderBy: { paymentDate: "desc" },
         take: 5,
-        include: { assetSale: { select: { customer: { select: { name: true } } } } },
-      }).catch(() => []),
-      // Use the same service function as Settings page for consistency
-      getSupplierOutstanding(company.id).catch(() => []),
-      prisma.payrollPeriod.findFirst({
+        include: {
+          assetSale: { select: { customer: { select: { name: true } } } },
+        },
+      })
+      .catch(() => []),
+    // Use the same service function as Settings page for consistency
+    getSupplierOutstanding(company.id).catch(() => []),
+    prisma.payrollPeriod
+      .findFirst({
         where: { companyId: company.id, status: "DRAFT" },
         orderBy: [{ year: "desc" }, { month: "desc" }],
         select: { id: true, month: true, year: true, totalNet: true },
-      }).catch(() => null),
-      prisma.expense.findMany({
+      })
+      .catch(() => null),
+    prisma.expense
+      .findMany({
         where: { companyId: company.id },
         orderBy: { date: "desc" },
-        take: 3,
-        select: { id: true, category: true, amount: true, project: { select: { name: true } } },
-      }).catch(() => []),
-    ]);
+        take: 5,
+        select: {
+          id: true,
+          category: true,
+          amount: true,
+          date: true,
+          project: { select: { name: true } },
+        },
+      })
+      .catch(() => []),
+    prisma.projectCost
+      .findMany({
+        where: { project: { companyId: company.id } },
+        orderBy: { date: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          costType: true,
+          amount: true,
+          date: true,
+          project: { select: { name: true } },
+        },
+      })
+      .catch(() => []),
+  ]);
 
   // Only suppliers with outstanding balance > 0 are "payable"
   const payableSuppliers = allSupplierOutstanding
     .filter((s) => toNum(s.balanceOwed) > 0)
-    .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed))
-    .slice(0, 5);
-  const totalPayables = allSupplierOutstanding.reduce((s, x) => s + toNum(x.balanceOwed), 0);
-  const payableVendorCount = allSupplierOutstanding.filter((s) => toNum(s.balanceOwed) > 0).length;
-  const totalReceipts = recentReceipts.reduce((s, r) => s + toNum(r.amount), 0);
+    .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed));
+  const totalPayables = payableSuppliers.reduce(
+    (s, x) => s + toNum(x.balanceOwed),
+    0,
+  );
+  const payableVendorCount = payableSuppliers.length;
+  const totalReceipts = recentReceipts.reduce(
+    (s, r) => s + toNum(r.amount),
+    0,
+  );
+
+  // ── Compute outflow (expenses + project costs) ──
+  const totalExpenses = recentExpenses.reduce((s, e) => s + toNum(e.amount), 0);
+  const totalProjectCosts = recentProjectCosts.reduce(
+    (s, c) => s + toNum(c.amount),
+    0,
+  );
+  const totalOutflow = totalExpenses + totalProjectCosts;
+
+  // Serialize payables for the snapshot component
+  const payableNodes: PayableNode[] = payableSuppliers
+    .slice(0, 6)
+    .map((s) => ({
+      supplierId: s.supplierId,
+      name: s.name,
+      balanceOwed: toNum(s.balanceOwed),
+    }));
 
   // ── Build attention banners ──
   const attentionBanners: AttentionBanner[] = [];
 
-  // Tally sync failures
+  // Tally sync failures (highest severity)
   if (tallyStats.failed > 0) {
     attentionBanners.push({
       id: "tally-failed",
@@ -121,7 +184,11 @@ async function AccountsContent() {
 
   // Draft payroll
   if (draftPayroll) {
-    const monthName = new Date(2000, draftPayroll.month - 1, 1).toLocaleString("en-IN", { month: "short" });
+    const monthName = new Date(
+      2000,
+      draftPayroll.month - 1,
+      1,
+    ).toLocaleString("en-IN", { month: "short" });
     attentionBanners.push({
       id: "draft-payroll",
       title: `Payroll draft — ${monthName} ${draftPayroll.year}`,
@@ -148,55 +215,109 @@ async function AccountsContent() {
     });
   }
 
+  const totalPending =
+    tallyStats.failed + tallyStats.pending + (draftPayroll ? 1 : 0);
+
   return (
     <div>
-      {/* ── Attention banner carousel ── */}
-      <AttentionBannerCarousel banners={attentionBanners} />
+      {/* ── 1. Attention banner carousel ── */}
+      <AttentionBannerCarousel
+        banners={attentionBanners}
+        approvalsCount={totalPending}
+      />
 
-      {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <MobileStatCard label="Payables" value={formatCurrency(totalPayables)} hint={`${payableVendorCount} vendors`} icon={Receipt} tone={totalPayables > 0 ? "signal" : "neutral"} />
-        <MobileStatCard label="Receipts" value={formatCurrency(totalReceipts)} hint={`${recentReceipts.length} recent`} icon={Wallet} tone="go" />
-        <MobileStatCard label="Tally Pending" value={formatNumber(tallyStats.pending, 0)} icon={AlertCircle} tone={tallyStats.pending > 0 ? "signal" : "neutral"} />
-        <MobileStatCard label="Tally Failed" value={formatNumber(tallyStats.failed, 0)} icon={AlertCircle} tone={tallyStats.failed > 0 ? "stop" : "neutral"} />
-      </div>
+      {/* ── 2. Cash / Books toggle + quick actions ── */}
+      <AccountsInteractive />
 
-      {/* ── Tally sync action ── */}
-      <div className="mb-3">
-        <TallySyncButton pendingCount={tallyStats.pending} />
-      </div>
+      {/* ── 4. Cash flow snapshot ── */}
+      <SectionHead title="Cash Flow" />
+      <CashFlowSnapshot
+        inflow={totalReceipts}
+        outflow={totalOutflow}
+        payables={payableNodes}
+      />
 
-      {/* ── Quick actions ── */}
-      <SectionHead title="Quick actions" />
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <MobileCta href="/m/books/receipts" icon={Wallet} variant="secondary">
-          Record Receipt
-        </MobileCta>
-        <MobileCta href="/m/books/finance" icon={IndianRupee} variant="secondary">
-          Record Payment
-        </MobileCta>
-        <MobileCta href="/m/books/gl" icon={BookOpen} variant="secondary">
-          General Ledger
-        </MobileCta>
-        <MobileCta href="/m/books/reports" icon={TrendingUp} variant="secondary">
-          Reports
-        </MobileCta>
-      </div>
+      {/* ── 5. Pending queue ── */}
+      {totalPending > 0 ? (
+        <>
+          <MobileSectionTitle>Pending actions</MobileSectionTitle>
+          <div className="flex flex-col gap-2 mb-3">
+            {tallyStats.failed > 0 && (
+              <MobileRow
+                href="/m/books/gl"
+                icon={AlertCircle}
+                title="Tally sync failures"
+                subtitle={`${tallyStats.failed} journal entries failed to sync — review and retry`}
+                meta={String(tallyStats.failed)}
+                metaSub="failed"
+                tone="danger"
+                badge={<Badge tone="stop">failed</Badge>}
+              />
+            )}
+            {tallyStats.pending > 0 && (
+              <MobileRow
+                href="/m/books/gl"
+                icon={RefreshCw}
+                title="Entries pending Tally sync"
+                subtitle={`${tallyStats.pending} posted entries not yet pushed to Tally ERP`}
+                meta={String(tallyStats.pending)}
+                metaSub="pending"
+                tone="warning"
+                badge={<Badge tone="signal">pending</Badge>}
+              />
+            )}
+            {/* Tally sync action — lives here next to the rows it resolves */}
+            {(tallyStats.pending > 0 || tallyStats.failed > 0) && (
+              <TallySyncButton pendingCount={tallyStats.pending} />
+            )}
+            {draftPayroll && (
+              <MobileRow
+                href="/m/books/payroll"
+                icon={Wallet}
+                title={`Payroll draft — ${new Date(2000, draftPayroll.month - 1, 1).toLocaleString("en-IN", { month: "short" })} ${draftPayroll.year}`}
+                subtitle={
+                  draftPayroll.totalNet
+                    ? `Net: ${formatCurrency(toNum(draftPayroll.totalNet))}`
+                    : "Awaiting processing"
+                }
+                meta="Draft"
+                metaSub="payroll"
+                tone="warning"
+                badge={<Badge tone="signal">draft</Badge>}
+              />
+            )}
+          </div>
+        </>
+      ) : null}
 
-      {/* ── Recent receipts ── */}
+      {/* ── 7. Recent receipts ── */}
       {recentReceipts.length > 0 ? (
         <>
-          <MobileSectionTitle>Recent receipts</MobileSectionTitle>
+          <MobileSectionTitle
+            right={
+              <Link
+                href="/m/books/receipts"
+                className="text-[0.625rem] font-semibold press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                View all
+              </Link>
+            }
+          >
+            Recent receipts
+          </MobileSectionTitle>
           <div className="flex flex-col gap-2">
             {recentReceipts.map((r) => (
               <MobileRow
                 key={r.id}
                 href={`/m/books/receipts/${r.id}?kind=ASSET`}
+                icon={Wallet}
                 title={r.assetSale?.customer?.name ?? "—"}
                 subtitle={`${formatDate(r.paymentDate)} · ${r.mode}`}
                 meta={formatCurrency(toNum(r.amount))}
                 metaSub="Property Sale"
                 tone="success"
+                badge={<Badge tone="go">received</Badge>}
               />
             ))}
           </div>
@@ -205,7 +326,16 @@ async function AccountsContent() {
         <MobileEmptyState
           icon={Wallet}
           title="No receipts yet"
-          hint="Payments received will appear here"
+          hint="Payments received from sales will appear here"
+          action={
+            <Link
+              href="/m/books/receipts"
+              className="text-[0.625rem] font-semibold press"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Go to receipts →
+            </Link>
+          }
         />
       )}
     </div>

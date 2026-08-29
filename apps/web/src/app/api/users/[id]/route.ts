@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getSession, json, userRoleSchema } from "@/lib/server";
+import { apiHandler, requireUser, json, userRoleSchema } from "@/lib/server";
 import { canAssignRole } from "@/lib/roles";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * PATCH /api/users/[id] — update a user's role, profile, or active status.
@@ -17,9 +18,9 @@ import { canAssignRole } from "@/lib/roles";
  * All role changes are written to the AuditLog for compliance.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const session = await getSession();
-  const actorRole = (session?.user as { role?: string })?.role ?? "PROJECT_MANAGER";
-  const actorId = (session?.user as { id?: string })?.id;
+  const actor = await requireUser();
+  const actorRole = actor.role;
+  const actorId = actor.id;
 
   const { id: userId } = await params;
   const body = await req.json();
@@ -88,7 +89,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.role !== undefined) update.role = body.role;
   if (body.active !== undefined) update.active = body.active;
   if (body.name !== undefined) update.name = body.name;
-  if (body.phone !== undefined) update.phone = body.phone;
+  if (body.phone !== undefined) {
+    update.phone = body.phone;
+    update.phoneNormalized = body.phone ? normalizePhone(body.phone) : null;
+  }
   if (body.designation !== undefined) update.designation = body.designation || null;
   if (body.department !== undefined) update.department = body.department || null;
   if (body.employeeCode !== undefined) update.employeeCode = body.employeeCode || null;

@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileNewRequisitionClient } from "./MobileNewRequisitionClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 export default function MobileNewRequisitionPage() {
   return (
@@ -19,18 +20,7 @@ async function MobileNewRequisitionContent() {
   const role = await getUserRole();
 
   if (!hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          New Material Indent
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to create material indents.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="create material indents" permission="procurement.manage" />;
   }
 
   const company = await getCompany();

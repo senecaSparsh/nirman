@@ -27,6 +27,7 @@ interface TaskItem {
   priority: string;
   dueDate: string | null;
   description: string | null;
+  instructions: string | null;
 }
 
 type TaskStatusFilter = "ALL" | "PENDING" | "IN_PROGRESS" | "BLOCKED";
@@ -367,6 +368,19 @@ function TaskRow({
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >
               {task.description}
+            </div>
+          )}
+          {task.instructions && (
+            <div className="mb-2.5">
+              <p className="text-[0.5rem] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-steel)" }}>
+                Step-by-step Guidance
+              </p>
+              <pre
+                className="whitespace-pre-wrap rounded-[0.375rem] border p-2.5 text-[0.5625rem] font-mono"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
+              >
+                {task.instructions}
+              </pre>
             </div>
           )}
 

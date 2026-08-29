@@ -1,4 +1,4 @@
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { reallocateProjectCosts } from "./valuation";
@@ -7,6 +7,18 @@ import { postMaterialIssue, postMaterialIssueToDepartment, reverseJournalEntry }
 import { autoSyncEntryToTally } from "./auto-sync";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+
+/**
+ * Generate the next SA-YYMMDD-NNNN slip number for a material issue.
+ * Called inside a transaction so the count is consistent.
+ */
+async function generateIssueNumber(tx: Prisma.TransactionClient): Promise<string> {
+  const d = new Date();
+  const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const prefix = `SA-${ymd}-`;
+  const count = await tx.materialIssue.count({ where: { issueNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+}
 
 /**
  * Issue Service — issue materials from a stock location to a project.
@@ -107,6 +119,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     // Create MaterialIssue + lines (audit record)
     const materialIssue = await tx.materialIssue.create({
       data: {
+        issueNumber: await generateIssueNumber(tx),
         projectId: input.projectId,
         fromLocationId: input.fromLocationId,
         issuedById: input.issuedById,
@@ -211,6 +224,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
     // Create MaterialIssue in PENDING state (no stock movements yet)
     const materialIssue = await tx.materialIssue.create({
       data: {
+        issueNumber: await generateIssueNumber(tx),
         projectId: input.projectId,
         fromLocationId: input.fromLocationId,
         issuedById: input.issuedById,
@@ -433,6 +447,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
     // Create MaterialIssue + lines (audit record) — department target
     const materialIssue = await tx.materialIssue.create({
       data: {
+        issueNumber: await generateIssueNumber(tx),
         departmentId: input.departmentId,
         fromLocationId: input.fromLocationId,
         issuedById: input.issuedById,

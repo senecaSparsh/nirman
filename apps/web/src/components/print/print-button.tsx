@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Printer,
   FileDown,
@@ -128,7 +129,7 @@ export function PrintToolbar({
         await navigator.clipboard.write([
           new ClipboardItem({ "image/png": blob }),
         ]);
-        alert("Image copied to clipboard! Paste it anywhere.");
+        toast.success("Image copied to clipboard! Paste it anywhere.");
       }
     } catch (err) {
       console.error("Share failed:", err);

@@ -42,6 +42,9 @@ type CompanyInfo = {
   phone: string | null;
   email: string | null;
   currency: string;
+  lciThresholdDefault: number | null;
+  poApprovalThresholdManager: number | null;
+  poApprovalThresholdAdmin: number | null;
 };
 
 export function SettingsView({
@@ -164,7 +167,7 @@ export function SettingsView({
 
   // Location form
   const [locFormOpen, setLocFormOpen] = useState(false);
-  const [locForm, setLocForm] = useState({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "" });
+  const [locForm, setLocForm] = useState({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "", lat: "", lng: "", geoRadius: "" });
   const [savingLoc, setSavingLoc] = useState(false);
   const [deletingLoc, setDeletingLoc] = useState<StockLocationRow | null>(null);
 
@@ -188,6 +191,9 @@ export function SettingsView({
           phone: companyForm.phone?.trim() || null,
           email: companyForm.email?.trim() || null,
           currency: companyForm.currency,
+          lciThresholdDefault: companyForm.lciThresholdDefault ?? null,
+          poApprovalThresholdManager: companyForm.poApprovalThresholdManager ?? null,
+          poApprovalThresholdAdmin: companyForm.poApprovalThresholdAdmin ?? null,
         }),
       });
       const data = await res.json();
@@ -214,13 +220,16 @@ export function SettingsView({
           name: locForm.name.trim(),
           address: locForm.address.trim() || null,
           projectId: locForm.type === "PROJECT_SITE" ? locForm.projectId || null : null,
+          lat: locForm.lat ? parseFloat(locForm.lat) : null,
+          lng: locForm.lng ? parseFloat(locForm.lng) : null,
+          geoRadius: locForm.geoRadius ? parseInt(locForm.geoRadius) : null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create location");
       toast.success("Location created");
       setLocFormOpen(false);
-      setLocForm({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "" });
+      setLocForm({ type: "COMPANY_WAREHOUSE", name: "", address: "", projectId: "", lat: "", lng: "", geoRadius: "" });
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Something went wrong"));
@@ -295,6 +304,55 @@ export function SettingsView({
                   <Select value={companyForm.currency} onChange={(e) => setCompanyForm((f) => ({ ...f, currency: e.target.value }))}>
                     {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
                   </Select>
+                </div>
+
+                {/* ── Procurement Config ── */}
+                <div className="rounded-md border border-border p-4 space-y-3">
+                  <div>
+                    <div className="text-body font-semibold">Procurement Configuration</div>
+                    <div className="text-caption text-muted-foreground">
+                      LCI threshold and PO approval routing — controls how purchase orders are routed for approval.
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>LCI Threshold Default (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      value={companyForm.lciThresholdDefault ?? ""}
+                      onChange={(e) => setCompanyForm((f) => ({ ...f, lciThresholdDefault: e.target.value === "" ? null : Number(e.target.value) }))}
+                      placeholder="e.g. 2 (items below 2% of budget auto-procured)"
+                    />
+                    <p className="text-caption text-muted-foreground">
+                      Default Low-Cost Item threshold for projects without an explicit override. Items below this % of project budget are auto-procured without PO.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>PO Approval — Manager Threshold (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={companyForm.poApprovalThresholdManager ?? ""}
+                        onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdManager: e.target.value === "" ? null : Number(e.target.value) }))}
+                        placeholder="50000"
+                      />
+                      <p className="text-caption text-muted-foreground">POs below this amount can be approved by a Manager.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>PO Approval — Admin Threshold (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={companyForm.poApprovalThresholdAdmin ?? ""}
+                        onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdAdmin: e.target.value === "" ? null : Number(e.target.value) }))}
+                        placeholder="500000"
+                      />
+                      <p className="text-caption text-muted-foreground">POs at or above this amount require the Owner.</p>
+                    </div>
+                  </div>
                 </div>
                 <Button type="submit" disabled={savingCompany}>
                   {savingCompany ? "Saving…" : "Save Changes"}
@@ -374,6 +432,21 @@ export function SettingsView({
               <div className="space-y-1.5">
                 <Label>Address</Label>
                 <Input value={locForm.address} onChange={(e) => setLocForm((f) => ({ ...f, address: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Latitude</Label>
+                  <Input type="number" step="any" value={locForm.lat} onChange={(e) => setLocForm((f) => ({ ...f, lat: e.target.value }))} placeholder="Optional" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Longitude</Label>
+                  <Input type="number" step="any" value={locForm.lng} onChange={(e) => setLocForm((f) => ({ ...f, lng: e.target.value }))} placeholder="Optional" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Geo-fence Radius (metres)</Label>
+                <Input type="number" min="0" value={locForm.geoRadius} onChange={(e) => setLocForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="Default: 500" />
+                <p className="text-xs text-muted-foreground">GPS-tagged receipts are flagged if received outside this radius from the location center.</p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setLocFormOpen(false)}>Cancel</Button>

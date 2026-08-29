@@ -75,6 +75,29 @@ export default async function DirectPurchaseVoucherPage({
         </div>
       </div>
 
+      {/* Vehicle / transport info */}
+      {(purchase.vehicleNumber || purchase.driverName) && (
+        <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Transport</div>
+          <div className="grid grid-cols-3 gap-2">
+            {purchase.vehicleNumber && (
+              <div>
+                <span className="text-gray-600">Vehicle: </span>
+                <span className="font-mono font-medium">{purchase.vehicleNumber}</span>
+                {purchase.vehicleType && <span className="ml-1 text-xs text-gray-500">({purchase.vehicleType})</span>}
+              </div>
+            )}
+            {purchase.driverName && (
+              <div>
+                <span className="text-gray-600">Driver: </span>
+                <span className="font-medium">{purchase.driverName}</span>
+                {purchase.driverPhone && <span className="ml-1 text-xs text-gray-500">({purchase.driverPhone})</span>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Line items table */}
       <table className="mt-4 w-full border-collapse text-sm">
         <thead>

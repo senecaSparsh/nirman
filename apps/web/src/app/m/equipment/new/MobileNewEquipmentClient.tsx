@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, CheckCircle2, Send, Wrench, Tag,
@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 /**
  * /m/equipment/new — mobile form to register new equipment.
@@ -15,6 +18,7 @@ import { toast } from "sonner";
  */
 export default function MobileNewEquipmentClient() {
   const router = useRouter();
+  const submitLongPress = useLongPressNav("/m/equipment", "Equipment list");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ id: string } | null>(null);
 
@@ -26,6 +30,29 @@ export default function MobileNewEquipmentClient() {
   const [acquisitionCost, setAcquisitionCost] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [notes, setNotes] = useState("");
+
+  // ── Draft auto-save ──
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<Record<string, string>>("equipment", "equipment-new");
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    if (success) return;
+    saveDraft({ assetTag, name, model, serialNumber, category, acquisitionCost, purchaseDate, notes });
+  }, [assetTag, name, model, serialNumber, category, acquisitionCost, purchaseDate, notes, success, saveDraft]);
+
+  useEffect(() => {
+    if (draft && !draftRestored && hasDraft) {
+      if (draft.assetTag) setAssetTag(draft.assetTag);
+      if (draft.name) setName(draft.name);
+      if (draft.model) setModel(draft.model);
+      if (draft.serialNumber) setSerialNumber(draft.serialNumber);
+      if (draft.category) setCategory(draft.category);
+      if (draft.acquisitionCost) setAcquisitionCost(draft.acquisitionCost);
+      if (draft.purchaseDate) setPurchaseDate(draft.purchaseDate);
+      if (draft.notes) setNotes(draft.notes);
+      setDraftRestored(true);
+    }
+  }, [draft, hasDraft, draftRestored]);
 
   const cost = Number(acquisitionCost) || 0;
 
@@ -62,6 +89,7 @@ export default function MobileNewEquipmentClient() {
       }
 
       const data = await res.json();
+      clearDraft();
       setSuccess({ id: data.id });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create equipment");
@@ -121,6 +149,14 @@ export default function MobileNewEquipmentClient() {
 
   return (
     <div className="pb-32">
+      {hasDraft && !draftRestored && !success ? (
+        <DraftBanner
+          formName="equipment-new"
+          updatedAt={draftUpdatedAt}
+          onRestore={() => setDraftRestored(true)}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      ) : null}
 
       {/* ── Section: Identity ── */}
       <SectionHeader icon={Tag} label="Identity" />
@@ -258,10 +294,11 @@ export default function MobileNewEquipmentClient() {
           {/* Submit */}
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => { if (submitLongPress.wasLongPress()) return; handleSubmit(); }}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

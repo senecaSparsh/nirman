@@ -7,9 +7,10 @@ import { Cloud, Hammer, Users, AlertTriangle, CheckCircle2, XCircle, Printer } f
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { MobileDprActions } from "./MobileDprActions";
 import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 export default function MobileDprDetailPage({
   params,
@@ -72,11 +73,7 @@ async function MobileDprDetailContent({
     dpr.approvalStatus === "APPROVED" ? "approved" :
     dpr.approvalStatus === "REJECTED" ? "rejected" : "submitted";
 
-  const statusColor =
-    status === "approved" ? "var(--color-go)" :
-    status === "subAdmin" ? "var(--color-steel)" :
-    status === "rejected" ? "var(--color-stop)" :
-    "var(--color-signal)";
+  const statusColor = mobileStatusColor(dpr.approvalStatus);
 
   const pct = Math.min(toNum(dpr.progressPct), 100);
 
@@ -110,6 +107,8 @@ async function MobileDprDetailContent({
 
   return (
     <div>
+      <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
+
       {/* ── Report header banner ── */}
       <div
         className="rounded-[0.75rem] overflow-hidden mb-4"
@@ -218,6 +217,28 @@ async function MobileDprDetailContent({
           <p className="text-[0.75rem]" style={{ color: "var(--color-ink-700)" }}>
             {dpr.tomorrowPlan}
           </p>
+        </div>
+      ) : null}
+
+      {dpr.photoUrls && dpr.photoUrls.length > 0 ? (
+        <div className="mb-4">
+          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+            Site Photos
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {dpr.photoUrls.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block overflow-hidden rounded-[0.375rem] border"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
+              </a>
+            ))}
+          </div>
         </div>
       ) : null}
 

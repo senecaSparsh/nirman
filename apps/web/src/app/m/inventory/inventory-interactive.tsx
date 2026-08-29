@@ -38,10 +38,11 @@ interface QuickAction {
 }
 
 const RAW_MATERIAL_ACTIONS: QuickAction[] = [
+  { href: "/m/requisitions", icon: ShoppingCart, label: "Indents" },
   { href: "/m/quotations", icon: FileText, label: "Quotations" },
   { href: "/m/procurement", icon: Truck, label: "Purchase Orders" },
   { href: "/m/site/receive", icon: ScanLine, label: "Receive" },
-  { href: "/m/site/issue", icon: Send, label: "Issue" },
+  { href: "/m/stock-out", icon: Send, label: "Stock Out" },
   { href: "/m/transfers", icon: ArrowLeftRight, label: "Transfers" },
   { href: "/m/materials", icon: PackagePlus, label: "Materials" },
   { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Inventory" },
@@ -124,6 +125,11 @@ export function InventoryInteractive() {
 
   return (
     <>
+      {/* ── Quick actions label ── */}
+      <p className="text-[0.5625rem] font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
+        Quick actions
+      </p>
+
       {/* ── Toggle tabs — Raw Material / Real Estate ── */}
       <div
         className="grid grid-cols-2 gap-1 rounded-[0.625rem] border p-1 mb-3"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
@@ -128,8 +129,9 @@ export function MobileWorkOrdersList({
 
 function WorkOrderCard({ wo: w }: { wo: WorkOrderListItem }) {
   return (
-    <div
-      className="rounded-[0.5rem] border p-2.5"
+    <Link
+      href={`/m/work-orders/${w.id}`}
+      className="block rounded-[0.5rem] border p-2.5 press"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
@@ -170,6 +172,6 @@ function WorkOrderCard({ wo: w }: { wo: WorkOrderListItem }) {
           </>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

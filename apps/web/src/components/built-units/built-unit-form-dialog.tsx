@@ -148,7 +148,18 @@ export function BuiltUnitFormDialog({
   }
 
   function updateRow(idx: number, key: keyof UnitRow, value: string | boolean) {
-    setRows((r) => r.map((row, i) => (i === idx ? { ...row, [key]: value } : row)));
+    setRows((r) =>
+      r.map((row, i) => {
+        if (i !== idx) return row;
+        const next = { ...row, [key]: value };
+        // Auto-flow: when area changes, mirror it into superBuiltUpArea
+        // if the user hasn't explicitly set a different value.
+        if (key === "area" && !row.superBuiltUpArea && typeof value === "string") {
+          next.superBuiltUpArea = value;
+        }
+        return next;
+      }),
+    );
   }
 
   // Detect duplicate unit numbers within the batch (client-side UX)

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Play, Check, Ban, Trash2, ClipboardCheck, X } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface InspectionDetail {
@@ -31,6 +32,7 @@ const RESULT_BG: Record<string, string> = {
 
 export function MobileInspectionDetailClient({ inspection, canManage }: { inspection: InspectionDetail; canManage: boolean }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showComplete, setShowComplete] = useState(false);
   const [completeForm, setCompleteForm] = useState<{ result: InspResult; findings: string; complianceNotes: string; followUpActions: string }>({ result: "PASSED", findings: "", complianceNotes: "", followUpActions: "" });
@@ -98,6 +100,22 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
         </div>
       )}
 
+      {/* Photo evidence */}
+      {inspection.attachments.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+            Photo Evidence ({inspection.attachments.length})
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {inspection.attachments.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-[0.375rem] border" style={{ borderColor: "var(--color-line)" }}>
+                <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-[0.625rem] font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
@@ -120,7 +138,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
             <ActionButton onClick={() => doAction("cancel")} loading={acting === "cancel"} icon={Ban} label="Cancel" variant="secondary" />
           )}
           {(inspection.status === "SCHEDULED" || inspection.status === "CANCELLED") && (
-            <ActionButton onClick={async () => { if (!confirm("Delete this inspection?")) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
+            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this inspection?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
         </div>
       )}
@@ -155,6 +173,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
           </div>
         </BottomSheet>
       )}
+      {confirmDialog}
     </div>
   );
 }

@@ -50,7 +50,7 @@ async function SupplierReturnsContent() {
     prisma.supplier.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, gstin: true, phone: true, email: true, address: true, balanceOwed: true },
+      select: { id: true, name: true, gstin: true, phone: true, email: true, address: true, balanceOwed: true, leadTimeDays: true },
     }),
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
@@ -60,7 +60,7 @@ async function SupplierReturnsContent() {
     prisma.material.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, unit: true, standardCost: true, gstRate: true },
+      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, standardCost: true, gstRate: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },
     }),
   ]);
 
@@ -76,6 +76,11 @@ async function SupplierReturnsContent() {
     returnDate: r.returnDate.toISOString(),
     creditNoteNo: r.creditNoteNo,
     notes: r.notes,
+    vehicleNumber: r.vehicleNumber,
+    vehicleType: r.vehicleType,
+    vehiclePhotoUrl: r.vehiclePhotoUrl,
+    driverName: r.driverName,
+    driverPhone: r.driverPhone,
     lines: r.lines.map((l) => ({
       id: l.id,
       materialId: l.materialId,
@@ -102,6 +107,7 @@ async function SupplierReturnsContent() {
     balanceOwed: toNum(s.balanceOwed),
     openPOs: 0,
     poCount: 0,
+    leadTimeDays: s.leadTimeDays,
   }));
 
   const locationRows: StockLocationRow[] = locations.map((l) => ({
@@ -115,12 +121,17 @@ async function SupplierReturnsContent() {
     itemCount: 0,
     companyId: company.id,
     companyName: company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   const materialRows: MaterialRow[] = materials.map((m) => ({
     id: m.id,
     code: m.code,
     name: m.name,
+    grade: m.grade,
+    specification: m.specification,
     categoryId: null,
     categoryName: null,
     unit: m.unit,
@@ -133,6 +144,11 @@ async function SupplierReturnsContent() {
     volumetricDensity: null,
     bulkDiscountPct: null,
     isCorporateCommodity: false,
+    isLotTracked: m.isLotTracked ?? false,
+    isScrap: m.isScrap ?? false,
+    baseUnit: m.baseUnit,
+    secondaryUnit: m.secondaryUnit,
+    uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
     description: null,
     totalQty: 0,
     totalValue: 0,

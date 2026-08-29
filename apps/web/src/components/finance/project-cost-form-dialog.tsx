@@ -10,6 +10,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
@@ -51,6 +52,7 @@ export function ProjectCostFormDialog({
     subcontractorId: "",
     notes: "",
   });
+  const [receiptPhotos, setReceiptPhotos] = useState<{ url: string; fileName?: string }[]>([]);
 
   // Local copy so freshly created projects appear in the dropdown without
   // waiting for router.refresh.
@@ -69,8 +71,10 @@ export function ProjectCostFormDialog({
         subcontractorId: editing.subcontractorId ?? "",
         notes: editing.notes ?? "",
       });
+      setReceiptPhotos(editing.receiptUrl ? [{ url: editing.receiptUrl }] : []);
     } else if (open && !editing) {
       setForm({ projectId: defaults?.projectId ?? "", costType: "LABOUR", amount: "", date: todayISO(), vendor: "", subcontractorId: "", notes: "" });
+      setReceiptPhotos([]);
     }
   }, [open, editing, defaults]);
 
@@ -123,6 +127,7 @@ export function ProjectCostFormDialog({
         vendor: form.vendor.trim() || null,
         subcontractorId: form.subcontractorId || null,
         notes: form.notes.trim() || null,
+        receiptUrl: receiptPhotos.length > 0 ? receiptPhotos[0]!.url : null,
       };
       const res = await fetch(
         editing ? `/api/project-costs/${editing.id}` : "/api/project-costs",
@@ -213,6 +218,10 @@ export function ProjectCostFormDialog({
         <div className="space-y-1.5">
           <Label htmlFor="pc-notes">Notes</Label>
           <Textarea id="pc-notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Optional" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Receipt Photo</Label>
+          <PhotoUploader photos={receiptPhotos} onChange={setReceiptPhotos} maxPhotos={1} />
         </div>
 
         {/* GL Impact Preview — collapsible inline panel before submit */}

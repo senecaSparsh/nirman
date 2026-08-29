@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type IncidentStatus, type IncidentSeverity } from "@nirman/db";
 import { createIncident } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -26,8 +26,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const projectId = req.nextUrl.searchParams.get("projectId") ?? undefined;
-  const status = req.nextUrl.searchParams.get("status") as any;
-  const severity = req.nextUrl.searchParams.get("severity") as any;
+  const status = req.nextUrl.searchParams.get("status") as IncidentStatus | undefined;
+  const severity = req.nextUrl.searchParams.get("severity") as IncidentSeverity | undefined;
 
   const incidents = await prisma.safetyIncident.findMany({
     where: { companyId: company.id, ...(projectId ? { projectId } : {}), ...(status ? { status } : {}), ...(severity ? { severity } : {}) },

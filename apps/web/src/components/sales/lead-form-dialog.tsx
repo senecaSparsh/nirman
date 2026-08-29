@@ -17,6 +17,20 @@ const SOURCES = [
   ["OTHER", "Other"],
 ] as const;
 
+const UNIT_TYPES = [
+  ["", "Any type"],
+  ["1BHK", "1 BHK"],
+  ["2BHK", "2 BHK"],
+  ["3BHK", "3 BHK"],
+  ["4BHK", "4 BHK"],
+  ["SHOP", "Shop"],
+  ["OFFICE", "Office"],
+  ["WAREHOUSE", "Warehouse unit"],
+  ["VILLA", "Villa"],
+  ["PLOT", "Plot"],
+  ["OTHER", "Other"],
+] as const;
+
 export function LeadFormDialog({
   open,
   onOpenChange,
@@ -40,6 +54,7 @@ export function LeadFormDialog({
     priority: "MEDIUM",
     projectId: "",
     interestedUnitId: "",
+    interestedUnitType: "",
     budgetMin: "",
     budgetMax: "",
     assignedToId: "",
@@ -72,6 +87,7 @@ export function LeadFormDialog({
           email: form.email || undefined,
           projectId: form.projectId || undefined,
           interestedUnitId: form.interestedUnitId || undefined,
+          interestedUnitType: form.interestedUnitType || undefined,
           budgetMin: form.budgetMin || undefined,
           budgetMax: form.budgetMax || undefined,
           assignedToId: form.assignedToId || undefined,
@@ -90,6 +106,7 @@ export function LeadFormDialog({
         priority: "MEDIUM",
         projectId: "",
         interestedUnitId: "",
+        interestedUnitType: "",
         budgetMin: "",
         budgetMax: "",
         assignedToId: "",
@@ -159,6 +176,12 @@ export function LeadFormDialog({
             <Select id="lead-unit" value={form.interestedUnitId} onChange={(event) => set("interestedUnitId", event.target.value)}>
               <option value="">Not decided</option>
               {filteredUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.projectName} · {unit.label}</option>)}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="lead-unit-type">Unit type preference</Label>
+            <Select id="lead-unit-type" value={form.interestedUnitType} onChange={(event) => set("interestedUnitType", event.target.value)}>
+              {UNIT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </Select>
           </div>
         </div>

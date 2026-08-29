@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight, Lock, type LucideIcon } from "lucide-react";
+import { statusMeaning } from "@/components/page";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE V2 PRIMITIVES — "site-grade" warm palette
@@ -32,8 +33,8 @@ const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  md: "h-10 px-4 text-[0.75rem]",
-  lg: "h-11 px-5 text-[0.875rem]",
+  md: "h-11 px-4 text-[0.75rem]",
+  lg: "h-12 px-5 text-[0.875rem]",
   xl: "h-14 px-6 text-[1.0625rem] font-bold",
 };
 
@@ -105,7 +106,7 @@ export function Badge({
       {...props}
       className={[
         "inline-flex items-center gap-1 rounded-[0.375rem] px-2 py-0.5",
-        "text-[0.5625rem] font-semibold uppercase tracking-wide",
+        "text-m-label",
         className ?? "",
       ].filter(Boolean).join(" ")}
       style={{ ...BADGE_TONES[tone], ...style }}
@@ -135,14 +136,14 @@ export function Stat({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-[0.5625rem] uppercase tracking-wide font-semibold" style={{ color: "var(--color-ink-500)" }}>
+      <dt className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </dt>
-      <dd className="text-[1.0625rem] font-bold tabular-nums" style={{ color: toneColor }}>
+      <dd className="text-m-figure" style={{ color: toneColor }}>
         {value}
       </dd>
       {hint ? (
-        <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>{hint}</p>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{hint}</p>
       ) : null}
     </div>
   );
@@ -159,7 +160,7 @@ export function SectionHead({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 mb-1.5">
-      <h2 className="text-[0.8125rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+      <h2 className="text-m-section" style={{ color: "var(--color-ink-950)" }}>
         {title}
       </h2>
       {action}
@@ -234,11 +235,11 @@ export function MobileRow({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[0.75rem] font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+        <p className="truncate text-m-strong" style={{ color: "var(--color-ink-950)" }}>
           {title}
         </p>
         {subtitle && (
-          <p className="truncate text-[0.625rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <p className="truncate text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
             {subtitle}
           </p>
         )}
@@ -246,11 +247,11 @@ export function MobileRow({
       {badge}
       {meta && (
         <div className="shrink-0 text-right">
-          <p className="text-[0.75rem] font-bold tabular-nums leading-tight" style={{ color: toneColor }}>
+          <p className="text-m-strong tabular-nums" style={{ color: toneColor }}>
             {meta}
           </p>
           {metaSub && (
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-300)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-300)" }}>
               {metaSub}
             </p>
           )}
@@ -302,13 +303,13 @@ export function MobileStatCard({
 
   const body = (
     <>
-      <p className="text-[0.5rem] uppercase tracking-wide font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <p className="text-m-label mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
-      <p className="text-[0.9375rem] font-bold tabular-nums leading-none" style={{ color: toneColor }}>
+      <p className="text-m-figure" style={{ color: toneColor }}>
         {value}
       </p>
-      {hint && <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
+      {hint && <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
     </>
   );
 
@@ -339,7 +340,7 @@ export function MobileSectionTitle({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 mb-2 mt-4">
-      <h2 className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+      <h2 className="text-m-section" style={{ color: "var(--color-ink-950)" }}>
         {children}
       </h2>
       {right && <div className="shrink-0">{right}</div>}
@@ -365,9 +366,63 @@ export function MobileEmptyState({
       <div className="grid place-items-center w-11 h-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
         <Icon className="size-5" style={{ color: "var(--color-ink-300)" }} />
       </div>
-      <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-      {hint && <p className="text-[0.625rem] mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
+      <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+      {hint && <p className="text-m-caption mt-1.5 max-w-[18rem]" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
       {action && <div className="mt-3">{action}</div>}
+    </div>
+  );
+}
+
+// ─── Mobile no-access (permission denied) ─────────────────────────────────
+
+/**
+ * What a role-gated mobile page shows instead of its content.
+ *
+ * The desktop NoAccess component uses desktop tokens (border-border,
+ * bg-card, text-foreground) that don't exist in the mobile warm palette.
+ * This is the mobile equivalent — same UX contract (name what's
+ * restricted, say who can unlock it, give a way out) but using the
+ * --color-ink-* / --color-paper tokens the /m surface uses.
+ */
+export function MobileNoAccess({
+  what = "this page",
+  permission,
+}: {
+  what?: string;
+  permission?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center px-4 py-10">
+      <div
+        className="grid place-items-center w-11 h-11 rounded-full mb-2.5"
+        style={{ backgroundColor: "var(--color-concrete)" }}
+      >
+        <Lock className="size-5" style={{ color: "var(--color-ink-300)" }} />
+      </div>
+      <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>
+        {what.charAt(0).toUpperCase() + what.slice(1)} isn&apos;t part of your role
+      </p>
+      <p className="text-m-caption mt-1.5 max-w-[18rem]" style={{ color: "var(--color-ink-500)" }}>
+        Your account doesn&apos;t include access to {what}. An owner or administrator can
+        grant it from Setup &rarr; Who Sees What
+        {permission ? (
+          <>
+            {" "}
+            (<span className="font-mono text-[0.625rem]">{permission}</span>)
+          </>
+        ) : null}
+        .
+      </p>
+      <Link
+        href="/m/home"
+        className="mt-3 inline-flex items-center justify-center h-11 px-4 rounded-[0.5rem] text-[0.75rem] font-semibold press"
+        style={{
+          backgroundColor: "var(--color-concrete)",
+          color: "var(--color-ink-950)",
+        }}
+      >
+        Back to Home
+      </Link>
     </div>
   );
 }
@@ -399,7 +454,7 @@ export function MobileCta({
       style={styles[variant]}
     >
       <Icon className="size-4 shrink-0" />
-      <span className="flex-1 text-[0.75rem]">{children}</span>
+      <span className="flex-1 text-m-strong">{children}</span>
       <ChevronRight className="size-3.5 shrink-0 opacity-60" />
     </Link>
   );
@@ -407,39 +462,168 @@ export function MobileCta({
 
 // ─── Mobile status badge (warm style) ──────────────────────────────────────
 
+/**
+ * Maps a StatusMeaning (from the single source of truth in
+ * @/components/page) to a v2 BadgeTone. This is the ONLY place mobile
+ * v2 status colours are decided — every status flows through
+ * statusMeaning() first, so this badge can never disagree with the
+ * desktop StatusPill on what a status *means*.
+ *
+ * Meaning → tone:
+ *   neutral  → neutral  (grey — not started / inactive)
+ *   active   → signal   (amber — in flight, someone is working on it)
+ *   waiting  → steel    (blue-grey — blocked on a human decision)
+ *   good     → go       (green — finished successfully)
+ *   bad      → stop     (red — cancelled / rejected / failed)
+ *   alert    → stop     (red — needs attention now)
+ */
+const MEANING_TO_TONE: Record<string, BadgeTone> = {
+  neutral: "neutral",
+  active: "signal",
+  waiting: "steel",
+  good: "go",
+  bad: "stop",
+  alert: "stop",
+};
+
+/** Title-case a status enum value: "IN_TRANSIT" → "In Transit". */
+function titleCaseStatus(s: string): string {
+  return s
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function MobileStatusBadge({ status, label }: { status: string; label?: string }) {
-  const toneMap: Record<string, BadgeTone> = {
-    DRAFT: "neutral",
-    PENDING: "neutral",
-    SUBMITTED: "signal",
-    APPROVED: "go",
-    ORDERED: "go",
-    ACTIVE: "go",
-    COMPLETED: "go",
-    DELIVERED: "go",
-    PARTIAL: "signal",
-    RECEIVED: "go",
-    PROCESSED: "go",
-    CANCELLED: "stop",
-    REJECTED: "stop",
-    FAILED: "stop",
-    OVERDUE: "stop",
-    SYNCED: "go",
-    PENDING_SYNC: "signal",
-    // Legal doc statuses
-    NOT_REQUIRED: "neutral",
-    EXPIRED: "stop",
-    RENEWAL_DUE: "signal",
-    // Attendance statuses
-    PRESENT: "go",
-    LATE: "signal",
-    ABSENT: "stop",
-    HALF_DAY: "signal",
-    OVERTIME: "signal",
-    LEAVE: "neutral",
-    PAID_LEAVE: "neutral",
-    NON_PAID_LEAVE: "stop",
-  };
-  const tone = toneMap[status] ?? "neutral";
-  return <Badge tone={tone}>{label ?? status}</Badge>;
+  const meaning = statusMeaning(status);
+  const tone = MEANING_TO_TONE[meaning] ?? "neutral";
+  return <Badge tone={tone}>{label ?? titleCaseStatus(status)}</Badge>;
+}
+
+/**
+ * The raw v2 CSS colour for a status's meaning — for dots, progress
+ * rings, left-border accents and background tints where a Badge would
+ * be too heavy. Draws from the SAME statusMeaning() map as
+ * MobileStatusBadge and the desktop StatusPill, so a dot here can
+ * never disagree with a pill there.
+ *
+ * Pass `wash: true` for the light background variant (e.g. for chip
+ * backgrounds); pass `dark: true` for the text-on-light variant.
+ */
+const MEANING_TO_COLOR: Record<string, { base: string; wash: string; dark: string }> = {
+  neutral: { base: "var(--color-ink-400)", wash: "var(--color-concrete)", dark: "var(--color-ink-700)" },
+  active: { base: "var(--color-signal)", wash: "var(--color-signal-wash)", dark: "var(--color-signal-dark)" },
+  waiting: { base: "var(--color-steel)", wash: "var(--color-steel-wash)", dark: "var(--color-steel)" },
+  good: { base: "var(--color-go)", wash: "var(--color-go-wash)", dark: "var(--color-go)" },
+  bad: { base: "var(--color-stop)", wash: "var(--color-stop-wash)", dark: "var(--color-stop)" },
+  alert: { base: "var(--color-stop)", wash: "var(--color-stop-wash)", dark: "var(--color-stop)" },
+};
+
+export function mobileStatusColor(status: string, variant: "base" | "wash" | "dark" = "base"): string {
+  const meaning = statusMeaning(status);
+  const entry = MEANING_TO_COLOR[meaning] ?? MEANING_TO_COLOR.neutral;
+  if (!entry) return "var(--color-ink-400)";
+  return entry[variant] ?? "var(--color-ink-400)";
+}
+
+// ─── Mobile pipeline stepper (warm palette) ───────────────────────────────
+
+/**
+ * Mobile version of the desktop PipelineStepper. Same concept — a
+ * compact "you are here" strip — but using the warm --color-ink-*
+ * tokens and inline styles that the /m surface uses.
+ *
+ * Dots are 14px (slightly smaller than desktop's 16px to fit mobile
+ * density), labels are text-[0.5625rem], connectors are 12px wide.
+ */
+export type MobilePipelineStep = {
+  label: string;
+  state: "done" | "current" | "pending" | "skipped";
+  href?: string;
+};
+
+export function MobilePipelineStepper({
+  steps,
+}: {
+  steps: MobilePipelineStep[];
+}) {
+  if (steps.length === 0) return null;
+
+  return (
+    <nav aria-label="Pipeline position" className="flex items-center">
+      {steps.map((step, i) => {
+        const isLast = i === steps.length - 1;
+        const lineDone = step.state === "done";
+
+        const dotColor =
+          step.state === "done" ? "var(--color-ink-900)" :
+          step.state === "current" ? "var(--color-signal)" :
+          "transparent";
+
+        const borderColor =
+          step.state === "done" ? "var(--color-ink-900)" :
+          step.state === "current" ? "var(--color-signal)" :
+          step.state === "skipped" ? "var(--color-line)" :
+          "var(--color-ink-300)";
+
+        const labelColor =
+          step.state === "current" ? "var(--color-ink-950)" :
+          step.state === "done" ? "var(--color-ink-700)" :
+          "var(--color-ink-400)";
+
+        const dot = (
+          <span
+            className="flex shrink-0 items-center justify-center rounded-full border"
+            style={{
+              width: 14, height: 14, borderColor,
+              backgroundColor: dotColor,
+              borderStyle: step.state === "skipped" ? "dashed" : "solid",
+              borderWidth: 1.5,
+            }}
+          >
+            {step.state === "done" && (
+              <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "var(--color-paper)" }} />
+            )}
+            {step.state === "current" && (
+              <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "var(--color-ink-950)" }} />
+            )}
+          </span>
+        );
+
+        const content = (
+          <>
+            {dot}
+            <span
+              className="whitespace-nowrap font-medium ml-1"
+              style={{ fontSize: "0.5625rem", color: labelColor }}
+            >
+              {step.label}
+            </span>
+          </>
+        );
+
+        return (
+          <div key={i} className="flex items-center">
+            {step.href && step.state !== "pending" ? (
+              <a href={step.href} className="flex items-center press">
+                {content}
+              </a>
+            ) : (
+              <div className="flex items-center">{content}</div>
+            )}
+            {!isLast && (
+              <span
+                className="mx-1 h-px shrink-0"
+                style={{
+                  width: 12,
+                  backgroundColor: lineDone ? "var(--color-ink-700)" : "var(--color-line)",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
 }

@@ -88,12 +88,27 @@ export function MobileNewBoqItemDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.serialNo.trim()) { toast.error("Serial number is required (e.g. 1, 1.1, 1.1.1)"); return; }
-    if (!form.description.trim()) { toast.error("Description is required"); return; }
+    if (!form.serialNo.trim()) {
+      toast.error("Serial number is required (e.g. 1, 1.1, 1.1.1)");
+      return;
+    }
+    if (!form.description.trim()) {
+      toast.error("Description is required");
+      return;
+    }
     if (form.type === "LINE_ITEM") {
-      if (!form.unit.trim()) { toast.error("Unit is required for line items"); return; }
-      if (!form.estimatedQty || Number(form.estimatedQty) <= 0) { toast.error("Estimated qty must be > 0 for line items"); return; }
-      if (!form.rate || Number(form.rate) < 0) { toast.error("Rate is required for line items"); return; }
+      if (!form.unit.trim()) {
+        toast.error("Unit is required for line items");
+        return;
+      }
+      if (!form.estimatedQty || Number(form.estimatedQty) <= 0) {
+        toast.error("Estimated qty must be > 0 for line items");
+        return;
+      }
+      if (!form.rate || Number(form.rate) < 0) {
+        toast.error("Rate is required for line items");
+        return;
+      }
     }
 
     setSaving(true);
@@ -110,13 +125,17 @@ export function MobileNewBoqItemDialog({
           description: form.description.trim(),
           materialId: form.materialId || undefined,
           unit: form.type === "LINE_ITEM" ? form.unit.trim() : undefined,
-          estimatedQty: form.type === "LINE_ITEM" ? Number(form.estimatedQty) : undefined,
+          estimatedQty:
+            form.type === "LINE_ITEM" ? Number(form.estimatedQty) : undefined,
           rate: form.type === "LINE_ITEM" ? Number(form.rate) : undefined,
           notes: form.notes.trim() || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create Bill of Quantities item");
+      if (!res.ok)
+        throw new Error(
+          data.error ?? "Failed to create Bill of Quantities item",
+        );
       haptic([10, 40, 80]);
       toast.success("Bill of Quantities item added");
       onClose();
@@ -131,24 +150,56 @@ export function MobileNewBoqItemDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+    color: "var(--color-ink-950)",
+  };
   const labelClass = "text-[0.5625rem] font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
   const isLineItem = form.type === "LINE_ITEM";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={onClose}>
-      <div className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="grid place-items-center size-7 rounded-[0.375rem]" style={{ backgroundColor: "var(--color-concrete)" }}>
-              <FileText className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+            <span
+              className="grid place-items-center size-7 rounded-[0.375rem]"
+              style={{ backgroundColor: "var(--color-concrete)" }}
+            >
+              <FileText
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Add Bill of Quantities Item</p>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              Add Bill of Quantities Item
+            </p>
           </div>
-          <button onClick={onClose} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }} aria-label="Close">
+          <button
+            onClick={onClose}
+            className="touch grid place-items-center rounded-[0.375rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+            aria-label="Close"
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -156,18 +207,32 @@ export function MobileNewBoqItemDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Type selector */}
           <div>
-            <label className={labelClass} style={labelStyle}>Item Type</label>
+            <label className={labelClass} style={labelStyle}>
+              Item Type
+            </label>
             <div className="flex gap-2">
               {(Object.keys(TYPE_LABELS) as BoqItemType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
-                  onClick={() => { set("type", t); haptic(10); }}
+                  onClick={() => {
+                    set("type", t);
+                    haptic(10);
+                  }}
                   className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.5625rem] font-bold press"
                   style={{
-                    borderColor: form.type === t ? "var(--color-ink-950)" : "var(--color-line)",
-                    backgroundColor: form.type === t ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: form.type === t ? "var(--color-paper)" : "var(--color-ink-500)",
+                    borderColor:
+                      form.type === t
+                        ? "var(--color-ink-950)"
+                        : "var(--color-line)",
+                    backgroundColor:
+                      form.type === t
+                        ? "var(--color-ink-950)"
+                        : "var(--color-paper)",
+                    color:
+                      form.type === t
+                        ? "var(--color-paper)"
+                        : "var(--color-ink-500)",
                   }}
                 >
                   {TYPE_LABELS[t]}
@@ -179,11 +244,20 @@ export function MobileNewBoqItemDialog({
           {/* Parent (optional) */}
           {parentItems.length > 0 && (
             <div>
-              <label className={labelClass} style={labelStyle}>Parent (optional)</label>
-              <select value={form.parentId} onChange={(e) => set("parentId", e.target.value)} className={inputClass} style={inputStyle}>
+              <label className={labelClass} style={labelStyle}>
+                Parent (optional)
+              </label>
+              <select
+                value={form.parentId}
+                onChange={(e) => set("parentId", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
                 <option value="">— Top-level (no parent) —</option>
                 {parentItems.map((p) => (
-                  <option key={p.id} value={p.id}>{p.serialNo} · {p.description}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.serialNo} · {p.description}
+                  </option>
                 ))}
               </select>
             </div>
@@ -194,7 +268,16 @@ export function MobileNewBoqItemDialog({
             <label className={labelClass} style={labelStyle}>
               Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input type="text" value={form.serialNo} onChange={(e) => set("serialNo", e.target.value)} placeholder="e.g. 1, 1.1, 1.1.1" autoFocus enterKeyHint="next" className={inputClass} style={inputStyle} />
+            <input
+              type="text"
+              value={form.serialNo}
+              onChange={(e) => set("serialNo", e.target.value)}
+              placeholder="e.g. 1, 1.1, 1.1.1"
+              autoFocus
+              enterKeyHint="next"
+              className={inputClass}
+              style={inputStyle}
+            />
           </div>
 
           {/* Description */}
@@ -202,7 +285,15 @@ export function MobileNewBoqItemDialog({
             <label className={labelClass} style={labelStyle}>
               Description <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input type="text" value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="e.g. Civil Works, Concrete PCC, Cement bags" enterKeyHint="next" className={inputClass} style={inputStyle} />
+            <input
+              type="text"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="e.g. Civil Works, Concrete PCC, Cement bags"
+              enterKeyHint="next"
+              className={inputClass}
+              style={inputStyle}
+            />
           </div>
 
           {/* Line item specific fields */}
@@ -216,11 +307,19 @@ export function MobileNewBoqItemDialog({
                   value={form.materialId}
                   onChange={(v) => onMaterialChange(v)}
                   placeholder="— None —"
-                  options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.unit})` }))}
+                  options={materials.map((m) => ({
+                    value: m.id,
+                    label: `${m.name} (${m.unit})`,
+                  }))}
                   inputClass={inputClass}
                   inputStyle={inputStyle}
                   renderDialog={({ open, onClose, onCreated }) => (
-                    <MobileNewMaterialDialog open={open} onClose={onClose} categories={[]} onCreated={(m) => onCreated(m.id, m.name)} />
+                    <MobileNewMaterialDialog
+                      open={open}
+                      onClose={onClose}
+                      categories={[]}
+                      onCreated={(m) => onCreated(m.id, m.name)}
+                    />
                   )}
                 />
               )}
@@ -228,16 +327,51 @@ export function MobileNewBoqItemDialog({
               {/* Unit + Qty + Rate */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className={labelClass} style={labelStyle}>Unit <span style={{ color: "var(--color-stop)" }}>*</span></label>
-                  <input type="text" value={form.unit} onChange={(e) => set("unit", e.target.value)} placeholder="CUM" enterKeyHint="next" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>
+                    Unit <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.unit}
+                    onChange={(e) => set("unit", e.target.value)}
+                    placeholder="CUM"
+                    enterKeyHint="next"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Qty <span style={{ color: "var(--color-stop)" }}>*</span></label>
-                  <input type="number" min={0.001} step="any" value={form.estimatedQty} onChange={(e) => set("estimatedQty", e.target.value)} placeholder="0" inputMode="decimal" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>
+                    Qty <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0.001}
+                    step="any"
+                    value={form.estimatedQty}
+                    onChange={(e) => set("estimatedQty", e.target.value)}
+                    placeholder="0"
+                    inputMode="decimal"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Rate (₹) <span style={{ color: "var(--color-stop)" }}>*</span></label>
-                  <input type="number" min={0} step="any" value={form.rate} onChange={(e) => set("rate", e.target.value)} placeholder="0" inputMode="decimal" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>
+                    Rate (₹){" "}
+                    <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={form.rate}
+                    onChange={(e) => set("rate", e.target.value)}
+                    placeholder="0"
+                    inputMode="decimal"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
                 </div>
               </div>
             </>
@@ -245,16 +379,43 @@ export function MobileNewBoqItemDialog({
 
           {/* Notes */}
           <div>
-            <label className={labelClass} style={labelStyle}>Notes (optional)</label>
-            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Additional context…" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none" style={inputStyle} />
+            <label className={labelClass} style={labelStyle}>
+              Notes (optional)
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              rows={2}
+              placeholder="Additional context…"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              style={inputStyle}
+            />
           </div>
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+              style={{
+                borderColor: "var(--color-line)",
+                color: "var(--color-ink-500)",
+                backgroundColor: "transparent",
+              }}
+            >
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               {saving ? "Adding…" : "Add Item"}
             </button>
@@ -285,7 +446,8 @@ export function MobileBoqFab({
         onClick={() => setOpen(true)}
         className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+          bottom:
+            "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
           backgroundColor: "var(--color-ink-950)",
           color: "var(--color-paper)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",

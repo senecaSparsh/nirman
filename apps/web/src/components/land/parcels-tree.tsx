@@ -150,7 +150,8 @@ export function ParcelsTree({
     },
     {
       key: "purpose",
-      label: "Purpose",
+      label: "Intent",
+      hint: "What this parcel is for: Sell (liquidate), Project (build on), or Hold (retain)",
       render: (p) => {
         if (!p.purpose || p.status === "PARTITIONED") {
           return <span className="text-muted-foreground">—</span>;
@@ -162,7 +163,7 @@ export function ParcelsTree({
         };
         const m = meta[p.purpose];
         return m ? (
-          <span className={cn("text-caption font-medium", m.className)}>{m.label}</span>
+          <span className={cn("text-caption font-medium", m.className)} title={`Intent: ${m.label}`}>{m.label}</span>
         ) : (
           <span className="text-muted-foreground">—</span>
         );

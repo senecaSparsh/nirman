@@ -168,22 +168,24 @@ export function MeasurementBookView({
       fetch(`/api/wbs/tree?projectId=${projectId}`).then((r) => r.json()),
     ]).then(([boq, wbs]) => {
       const items: BoqItem[] = [];
-      function collect(nodes: any[]) {
+      function collect(nodes: unknown[]) {
         for (const n of nodes) {
-          if (n.type === "LINE_ITEM") {
-            items.push({ id: n.id, serialNo: n.serialNo, description: n.description, unit: n.unit, rate: n.rate, estimatedQty: n.estimatedQty });
+          const node = n as Record<string, unknown>;
+          if (node.type === "LINE_ITEM") {
+            items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
           }
-          if (n.children) collect(n.children);
+          if (node.children) collect(node.children as unknown[]);
         }
       }
       collect(boq.tree ?? []);
-      setBoqItems(items);
 
       const nodes: WbsNode[] = [];
-      function collectWbs(ns: any[]) {
+      function collectWbs(ns: unknown[]) {
         for (const n of ns) {
-          nodes.push({ id: n.id, code: n.code, name: n.name, boqItemId: n.boqItem?.id ?? null });
-          if (n.children) collectWbs(n.children);
+          const node = n as Record<string, unknown>;
+          const boqItem = node.boqItem as Record<string, unknown> | undefined;
+          nodes.push({ id: node.id as string, code: node.code as string, name: node.name as string, boqItemId: boqItem?.id as string | null ?? null });
+          if (node.children) collectWbs(node.children as unknown[]);
         }
       }
       collectWbs(wbs ?? []);
@@ -433,7 +435,7 @@ function MbEntryDialog({
             )}
             {!suggestedWbsNode && form.boqItemId && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                This BOQ item isn't linked to any WBS activity. Link it in the WBS page for auto-progress.
+                This BOQ item isn&apos;t linked to any WBS activity. Link it in the WBS page for auto-progress.
               </p>
             )}
           </Field>

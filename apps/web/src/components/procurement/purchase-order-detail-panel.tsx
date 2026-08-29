@@ -36,7 +36,7 @@ export function PurchaseOrderDetailPanel({
   const [loading, setLoading] = useState(false);
   const [recvOpen, setRecvOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
-  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
+  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
@@ -145,6 +145,28 @@ export function PurchaseOrderDetailPanel({
               </Link>
             )}
           </div>
+
+          {/* Approval / rejection audit trail */}
+          {detail.approvedAt && (
+            <div className="rounded-md border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 p-3 text-meta">
+              <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+                <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName ?? "Unknown"} on {formatDate(detail.approvedAt)}
+              </div>
+              {detail.approvalNotes && (
+                <div className="mt-1 text-muted-foreground">Notes: {detail.approvalNotes}</div>
+              )}
+            </div>
+          )}
+          {detail.rejectedAt && (
+            <div className="rounded-md border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-3 text-meta">
+              <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400 font-medium">
+                <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName ?? "Unknown"} on {formatDate(detail.rejectedAt)}
+              </div>
+              {detail.rejectionReason && (
+                <div className="mt-1 text-muted-foreground">Reason: {detail.rejectionReason}</div>
+              )}
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
@@ -261,6 +283,8 @@ export function PurchaseOrderDetailPanel({
                       <TH>Date</TH>
                       <TH>Inspection</TH>
                       <TH>Lines</TH>
+                      <TH>Delivery</TH>
+                      <TH>Docs</TH>
                       <TH>Notes</TH>
                       <TH className="w-16">Challan</TH>
                     </TR>
@@ -271,8 +295,34 @@ export function PurchaseOrderDetailPanel({
                         <TD>{formatDate(r.receiptDate)}</TD>
                         <TD>
                           <StatusPill status={r.inspectionStatus} />
+                          {r.inspectionNotes && (
+                            <p className="mt-0.5 max-w-[160px] truncate text-micro text-muted-foreground" title={r.inspectionNotes}>
+                              {r.inspectionNotes}
+                            </p>
+                          )}
                         </TD>
                         <TD className="tnum">{r.lineCount}</TD>
+                        <TD className="text-caption text-muted-foreground">
+                          {r.deliveryMode || r.vehicleNumber || r.driverName ? (
+                            <div className="space-y-0.5">
+                              {r.deliveryMode && <div className="text-micro">{r.deliveryMode.replaceAll("_", " ").toLowerCase()}</div>}
+                              {r.vehicleNumber && <div className="font-mono text-micro">{r.vehicleNumber}</div>}
+                              {r.driverName && <div className="text-micro">{r.driverName}</div>}
+                              {r.transporterName && <div className="text-micro text-muted-foreground/70">{r.transporterName}</div>}
+                            </div>
+                          ) : "—"}
+                        </TD>
+                        <TD className="text-caption text-muted-foreground">
+                          {(r.challanNumber || r.invoiceNumber || r.ewayBillNumber || r.lrNumber || r.packageCount != null) ? (
+                            <div className="space-y-0.5">
+                              {r.challanNumber && <div className="text-micro">Challan: <span className="font-mono">{r.challanNumber}</span></div>}
+                              {r.invoiceNumber && <div className="text-micro">Invoice: <span className="font-mono">{r.invoiceNumber}</span></div>}
+                              {r.ewayBillNumber && <div className="text-micro">E-Way: <span className="font-mono">{r.ewayBillNumber}</span></div>}
+                              {r.lrNumber && <div className="text-micro">LR: <span className="font-mono">{r.lrNumber}</span></div>}
+                              {r.packageCount != null && <div className="text-micro">{r.packageCount} pkg</div>}
+                            </div>
+                          ) : "—"}
+                        </TD>
                         <TD className="max-w-[200px] truncate text-muted-foreground">{r.notes ?? "—"}</TD>
                         <TD>
                           <a
@@ -311,6 +361,8 @@ export function PurchaseOrderDetailPanel({
                       <TH>Mode</TH>
                       <TH>Reference</TH>
                       <TH className="text-right">Amount</TH>
+                      <TH className="text-right">TDS</TH>
+                      <TH className="text-right">Net Paid</TH>
                     </TR>
                   </THead>
                   <TBody>
@@ -323,6 +375,10 @@ export function PurchaseOrderDetailPanel({
                         <TD><Badge variant="outline">{p.paymentMode}</Badge></TD>
                         <TD className="text-muted-foreground">{p.referenceNo ?? "—"}</TD>
                         <TD className="tnum text-right font-medium">{formatCurrency(p.amount)}</TD>
+                        <TD className="tnum text-right text-muted-foreground">
+                          {p.tdsAmount > 0 ? `${formatCurrency(p.tdsAmount)}${p.tdsSection ? ` (${p.tdsSection})` : ""}` : "—"}
+                        </TD>
+                        <TD className="tnum text-right font-medium">{formatCurrency(p.netPaidAmount)}</TD>
                       </TR>
                     ))}
                   </TBody>

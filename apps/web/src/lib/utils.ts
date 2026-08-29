@@ -141,3 +141,90 @@ export function formatRelativeTime(date: Date): string {
   if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
   return formatDate(date);
 }
+
+/**
+ * Convert a raw audit log action code (e.g. "MATERIAL_ISSUE_CREATE") into a
+ * human-readable label (e.g. "Material issue created"). Used in activity feeds
+ * so users don't see technical codes.
+ */
+export function humanizeAuditAction(action: string): string {
+  // Special cases with irregular verbs
+  const SPECIAL: Record<string, string> = {
+    DPR_SUB_ADMIN_APPROVE: "DPR sub-admin approved",
+    DPR_ADMIN_APPROVE: "DPR admin approved",
+    DPR_REJECT: "DPR rejected",
+    DPR_RESUBMIT: "DPR resubmitted",
+    DPR_COST_POSTED: "DPR cost posted",
+    DPR_GENERATE_MATERIAL_ISSUE: "Material issue generated from DPR",
+    PAYROLL_GENERATE: "Payroll generated",
+    PAYROLL_LINE_ADJUST: "Payroll line adjusted",
+    PAYROLL_PROCESS: "Payroll processed",
+    PAYROLL_PAID: "Payroll paid",
+    RENT_ESCALATION_APPLIED: "Rent escalation applied",
+    RENT_SCHEDULE_GENERATE: "Rent schedule generated",
+    RENT_AGREEMENT_UPLOAD: "Rent agreement uploaded",
+    TENANCY_DRAFT_UPLOAD: "Tenancy draft uploaded",
+    TENANT_CHANGE: "Tenant changed",
+    BANK_SMS_INGESTED: "Bank SMS ingested",
+    BANK_SMS_MANUAL_MATCH: "Bank SMS manually matched",
+    SCHEDULE_PAYMENT_RECORD: "Scheduled payment recorded",
+    LAND_UNPARTITION: "Land un-partitioned",
+    USER_ROLE_CHANGE: "User role changed",
+    USER_ACTIVATE: "User activated",
+    USER_DEACTIVATE: "User deactivated",
+  };
+  if (SPECIAL[action]) return SPECIAL[action];
+
+  // Generic: split on underscore, map known verbs to past tense
+  const parts = action.toLowerCase().split("_");
+  const verbMap: Record<string, string> = {
+    create: "created",
+    update: "updated",
+    delete: "deleted",
+    approve: "approved",
+    reject: "rejected",
+    cancel: "cancelled",
+    submit: "submitted",
+    convert: "converted",
+    receive: "received",
+    order: "ordered",
+    issue: "issued",
+    transfer: "transferred",
+    sell: "sold",
+    pay: "paid",
+    record: "recorded",
+    activate: "activated",
+    terminate: "terminated",
+    complete: "completed",
+    upload: "uploaded",
+    log: "logged",
+    generate: "generated",
+    assign: "assigned",
+    return: "returned",
+    retire: "retired",
+    confirm: "confirmed",
+    reconcile: "reconciled",
+    waive: "waived",
+    select: "selected",
+    partition: "partitioned",
+    valuate: "valuated",
+    possess: "possession marked",
+    escalate: "escalated",
+    adjust: "adjusted",
+    process: "processed",
+    resubmit: "resubmitted",
+    add: "added",
+    change: "changed",
+    post: "posted",
+    ingest: "ingested",
+    match: "matched",
+    revoke: "revoked",
+  };
+
+  // Last part is usually the verb
+  const verb = parts[parts.length - 1] ?? "";
+  const subject = parts.slice(0, -1).join(" ");
+  const pastTense = verbMap[verb] ?? verb;
+
+  return `${subject} ${pastTense}`.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}

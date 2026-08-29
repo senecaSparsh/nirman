@@ -34,6 +34,8 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
       project: { select: { name: true } },
       department: { select: { code: true, name: true } },
       builtUnit: { select: { unitNumber: true } },
+      subcontractor: { select: { name: true } },
+      phase: { select: { name: true } },
       fromLocation: { select: { name: true } },
       issuedBy: { select: { name: true } },
       lines: {
@@ -71,6 +73,12 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
             {issue.builtUnit && (
               <div className="text-xs text-gray-500">Unit: {issue.builtUnit.unitNumber}</div>
             )}
+            {issue.phase && (
+              <div className="text-xs text-gray-500">Phase: {issue.phase.name}</div>
+            )}
+            {issue.subcontractor && (
+              <div className="text-xs text-gray-500">Subcontractor: {issue.subcontractor.name}</div>
+            )}
             {issue.receiverName && (
               <div className="text-xs text-gray-500">Receiver: {issue.receiverName}</div>
             )}
@@ -84,6 +92,29 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
             <div className="text-xs text-gray-500">Issued by: {issue.issuedBy?.name ?? "—"}</div>
           </div>
         </div>
+
+        {/* Vehicle / transport info */}
+        {(issue.vehicleNumber || issue.driverName) && (
+          <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Transport</div>
+            <div className="grid grid-cols-3 gap-2">
+              {issue.vehicleNumber && (
+                <div>
+                  <span className="text-gray-600">Vehicle: </span>
+                  <span className="font-mono font-medium">{issue.vehicleNumber}</span>
+                  {issue.vehicleType && <span className="ml-1 text-xs text-gray-500">({issue.vehicleType})</span>}
+                </div>
+              )}
+              {issue.driverName && (
+                <div>
+                  <span className="text-gray-600">Driver: </span>
+                  <span className="font-medium">{issue.driverName}</span>
+                  {issue.driverPhone && <span className="ml-1 text-xs text-gray-500">({issue.driverPhone})</span>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Line items */}
         <table className="mt-4 w-full border-collapse text-sm">

@@ -7,6 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileLandList } from "./MobileLandList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/land — mobile land portfolio. Shows land purchases with parcel
@@ -27,11 +28,7 @@ async function MobileLandContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
-    return (
-      <div className="p-4 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-        No access to land parcels.
-      </div>
-    );
+    return <MobileNoAccess what="land parcels" permission="assets.view" />;
   }
 
   const canManage = hasPermission(role, PERM.ASSETS_MANAGE);

@@ -69,6 +69,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     // Sale deed / registry tracking
     saleDeedNo: s.saleDeedNo,
     expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+    // ATS (Agreement to Sell) — merged with registry
+    atsNo: s.atsNo,
+    atsDate: s.atsDate ? s.atsDate.toISOString() : null,
+    allowRegistryBeforeFullPayment: s.allowRegistryBeforeFullPayment,
     // Document uploads
     atsDocumentUrl: s.atsDocumentUrl,
     atsDocumentName: s.atsDocumentName,
@@ -78,6 +82,11 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     registryDocumentName: s.registryDocumentName,
     allotmentDocumentUrl: s.allotmentDocumentUrl,
     allotmentDocumentName: s.allotmentDocumentName,
+    // Draft / LOI
+    draftDocumentUrl: s.draftDocumentUrl,
+    draftDocumentName: s.draftDocumentName,
+    draftNotes: s.draftNotes,
+    draftDate: s.draftDate ? s.draftDate.toISOString() : null,
     // Sale compliance documents
     allotmentLetterNo: s.allotmentLetterNo,
     allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
@@ -277,6 +286,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         paymentMode: parsed.data.paymentMode,
         reference: parsed.data.reference ?? undefined,
         saleDeedNo: parsed.data.saleDeedNo ?? undefined,
+        // ATS fields — either atsNo OR saleDeedNo is the registered document
+        atsNo: parsed.data.atsNo ?? undefined,
+        atsDate: parsed.data.atsDate ?? undefined,
         // Compliance fields captured at completion
         allotmentLetterNo: parsed.data.allotmentLetterNo ?? undefined,
         allotmentDate: parsed.data.allotmentDate ?? undefined,

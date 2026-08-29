@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { formatNumber } from "@/lib/utils";
 import {
   CheckCircle,
@@ -62,6 +63,7 @@ export function GatePassDetailDialog({
   const [rejectReason, setRejectReason] = useState("");
   const [exitOpen, setExitOpen] = useState(false);
   const [exitNotes, setExitNotes] = useState("");
+  const [exitPhotos, setExitPhotos] = useState<{ url: string; fileName?: string }[]>([]);
   const cfg = STATUS_CONFIG[gatePass.status];
 
   return (
@@ -133,6 +135,32 @@ export function GatePassDetailDialog({
               </dl>
             </div>
           </div>
+
+          {/* Exit notes + photos */}
+          {gatePass.exitNotes && (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-caption">
+              <span className="font-medium text-muted-foreground">Exit Notes:</span> {gatePass.exitNotes}
+            </div>
+          )}
+          {gatePass.exitPhotos && gatePass.exitPhotos.length > 0 && (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+              <div className="text-label text-muted-foreground mb-1.5">Exit Photos</div>
+              <div className="flex flex-wrap gap-2">
+                {gatePass.exitPhotos.map((photo, i) => (
+                  <a
+                    key={i}
+                    href={photo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded border border-border overflow-hidden hover:opacity-80"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.url} alt={photo.fileName ?? `Photo ${i + 1}`} className="h-16 w-16 object-cover" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Approval notes */}
           {gatePass.approvalNotes && (
@@ -258,15 +286,24 @@ export function GatePassDetailDialog({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              onAction(gatePass.id, "confirmExit", { exitNotes: exitNotes.trim() || undefined });
+              onAction(gatePass.id, "confirmExit", {
+                exitNotes: exitNotes.trim() || undefined,
+                exitPhotos: exitPhotos.length > 0 ? exitPhotos : undefined,
+              });
               setExitOpen(false);
               setExitNotes("");
+              setExitPhotos([]);
             }}
             className="space-y-3"
           >
             <div className="space-y-1.5">
               <Label htmlFor="exit-notes">Exit Notes</Label>
               <Textarea id="exit-notes" value={exitNotes} onChange={(e) => setExitNotes(e.target.value)} rows={2} placeholder="Optional — any observations at the gate" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Exit Photos</Label>
+              <PhotoUploader photos={exitPhotos} onChange={setExitPhotos} maxPhotos={4} />
+              <p className="text-caption text-muted-foreground">Photograph the loaded vehicle as it exits the gate.</p>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setExitOpen(false)}>Cancel</Button>

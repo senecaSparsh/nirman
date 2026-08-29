@@ -179,7 +179,17 @@ export function ParcelDetailDialog({
             <TBody>
               {parcels.map((p) => (
                 <TR key={p.id}>
-                  <TD className="font-mono text-caption font-medium">{p.number}</TD>
+                  <TD className="font-mono text-caption font-medium">
+                    {p.number}
+                    {p.isInfrastructure && (
+                      <span className="ml-1.5 inline-flex items-center rounded bg-muted px-1 py-0 text-micro text-muted-foreground align-middle" title="Infrastructure plot — non-saleable">Infra</span>
+                    )}
+                    {p.purpose && p.purpose !== "HOLD" && (
+                      <span className={`ml-1.5 inline-flex items-center rounded px-1 py-0 text-micro font-medium align-middle ${p.purpose === "SELL" ? "bg-brand/10 text-brand" : "bg-info/10 text-info"}`}>
+                        {p.purpose === "SELL" ? "Sell" : "Project"}
+                      </span>
+                    )}
+                  </TD>
                   <TD className="tnum text-right">{formatNumber(p.area, 0)} {p.areaUnit}</TD>
                   <TD><StatusPill status={p.status} /></TD>
                   <TD className="tnum text-right">{formatCurrency(p.acquisitionCost)}</TD>

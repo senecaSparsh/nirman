@@ -6,6 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 export default function MobileAttendancePage() {
   return (
@@ -35,17 +36,7 @@ async function MobileAttendanceContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.HR_MANAGE)) {
-    return (
-      <div className="flex flex-col items-center text-center px-4 py-7">
-        <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
-          <Users className="size-5" style={{ color: "var(--color-ink-300)" }} />
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to log attendance.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="log attendance" permission="hr.manage" />;
   }
 
   const today = new Date();

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import {
   activateTenancy, terminateTenancy, updateTenancy,
   applyRentEscalation, changeTenant, generateRentSchedule,
-  uploadRentAgreement,
+  uploadRentAgreement, uploadDraft,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -90,7 +90,21 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       revalidatePath("/m/rentals");
       return json({ ok: true, id: t.id });
     }
-    return json({ error: "Unknown action. Use activate, terminate, escalate, changeTenant, generateSchedule, or uploadAgreement." }, { status: 400 });
+    if (action === "uploadDraft") {
+      const t = await uploadDraft({
+        tenancyId: id,
+        companyId: company.id,
+        documentUrl: body?.documentUrl,
+        documentName: body?.documentName,
+        draftNotes: body?.draftNotes,
+        draftDate: body?.draftDate,
+        userId: user.id,
+      });
+      revalidatePath("/rentals");
+      revalidatePath("/m/rentals");
+      return json({ ok: true, id: t.id });
+    }
+    return json({ error: "Unknown action. Use activate, terminate, escalate, changeTenant, generateSchedule, uploadAgreement, or uploadDraft." }, { status: 400 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update tenancy") }, { status: 400 });
   }
@@ -122,6 +136,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       notes: parsed.data.notes ?? null,
       customerId: parsed.data.customerId ?? null,
       escalationPercent: parsed.data.escalationPercent ?? null,
+      rentFreeDays: parsed.data.rentFreeDays,
+      draftDocumentUrl: parsed.data.draftDocumentUrl ?? null,
+      draftDocumentName: parsed.data.draftDocumentName ?? null,
+      draftNotes: parsed.data.draftNotes ?? null,
+      draftDate: parsed.data.draftDate ?? null,
       userId: user.id,
     });
     revalidatePath("/rentals");

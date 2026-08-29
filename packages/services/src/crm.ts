@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postPaymentReceived, postDepositReceived } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
+import { createSalePaymentSchedule, type PaymentScheduleItemInput } from "./sale";
 
 /**
  * Real Estate CRM + Sales Workflow Service.
@@ -466,99 +467,69 @@ export interface GeneratePaymentScheduleInput {
  *   Large upfront payment (typically 30-50%) + small installments.
  */
 export async function generatePaymentSchedule(input: GeneratePaymentScheduleInput) {
-  return prisma.$transaction(async (tx) => {
-    const sale = await tx.assetSale.findUnique({
-      where: { id: input.assetSaleId },
-      include: { paymentSchedule: true },
-    });
-    if (!sale) throw new ServiceError("Asset sale not found", 404);
-    if (sale.paymentSchedule) {
-      throw new ServiceError("Payment schedule already exists for this sale", 409);
-    }
+  if (!input.milestones || input.milestones.length === 0) {
+    throw new ServiceError("At least one payment milestone is required", 400);
+  }
 
-    if (!input.milestones || input.milestones.length === 0) {
-      throw new ServiceError("At least one payment milestone is required", 400);
-    }
+  // Validate percentages sum to 100
+  const totalPct = input.milestones.reduce(
+    (sum, m) => sum.plus(new Decimal(m.percentage)),
+    new Decimal(0),
+  );
+  if (!totalPct.eq(100)) {
+    throw new ServiceError(`Payment percentages must sum to 100, got ${totalPct}%`, 400);
+  }
 
-    // Validate percentages sum to 100
-    const totalPct = input.milestones.reduce(
-      (sum, m) => sum.plus(new Decimal(m.percentage)),
-      new Decimal(0),
-    );
-    if (!totalPct.eq(100)) {
-      throw new ServiceError(`Payment percentages must sum to 100, got ${totalPct}%`, 400);
-    }
-
-    // Compute GST split for real estate
-    // For residential: 1/3 of price is land (exempt), 2/3 is construction (taxable)
-    // For commercial: full price is taxable at 18%
-    // Standalone land sales (no project) default to commercial-rate GST.
-    const project = sale.projectId
-      ? await tx.project.findUnique({
-          where: { id: sale.projectId },
-          select: { type: true },
-        })
-      : null;
-    const isResidential = project?.type === "RESIDENTIAL";
-    const gstRate = isResidential ? new Decimal(5) : new Decimal(18);
-    const taxablePortion = isResidential ? new Decimal(2).div(3) : new Decimal(1);
-    const effectiveGstRate = gstRate.times(taxablePortion);
-
-    const baseAmount = new Decimal(sale.salePrice);
-    const gstAmount = baseAmount.times(effectiveGstRate).div(100).toDecimalPlaces(2);
-    const grandTotal = baseAmount.plus(gstAmount);
-
-    // Create the schedule
-    const schedule = await tx.paymentSchedule.create({
-      data: {
-        assetSaleId: sale.id,
-        type: input.type,
-        totalAmount: baseAmount.toString(),
-        gstAmount: gstAmount.toString(),
-        grandTotal: grandTotal.toString(),
-      },
-    });
-
-    // Create schedule items
-    for (let i = 0; i < input.milestones.length; i++) {
-      const m = input.milestones[i]!;
-      const pct = new Decimal(m.percentage);
-      const amount = baseAmount.times(pct).div(100).toDecimalPlaces(2);
-      const itemGst = gstAmount.times(pct).div(100).toDecimalPlaces(2);
-      const itemTotal = amount.plus(itemGst).toDecimalPlaces(2);
-
-      await tx.paymentScheduleItem.create({
-        data: {
-          paymentScheduleId: schedule.id,
-          wbsNodeId: m.wbsNodeId ?? null,
-          installmentNo: i + 1,
-          description: m.description,
-          percentage: pct.toDecimalPlaces(2).toString(),
-          amount: amount.toString(),
-          gstPercentage: effectiveGstRate.toDecimalPlaces(2).toString(),
-          gstAmount: itemGst.toString(),
-          totalAmount: itemTotal.toString(),
-          dueDate: m.dueDate ?? null,
-          status: m.dueDate && m.dueDate <= new Date() ? "DUE" : "PENDING",
-        },
-      });
-    }
-
-    if (input.userId) {
-      await logAction(tx, {
-        userId: input.userId,
-        action: "PAYMENT_SCHEDULE_GENERATE",
-        entityType: "PaymentSchedule",
-        entityId: schedule.id,
-        after: { assetSaleId: sale.id, type: input.type, grandTotal: grandTotal.toString(), installmentCount: input.milestones.length },
-      });
-    }
-
-    return tx.paymentSchedule.findUnique({
-      where: { id: schedule.id },
-      include: { items: { orderBy: { installmentNo: "asc" } } },
-    });
+  // Fetch the sale to compute per-item amounts (including GST split).
+  // We compute the GST-aware amounts here, then delegate to the canonical
+  // createSalePaymentSchedule() which handles the DB writes + audit log.
+  const sale = await prisma.assetSale.findUnique({
+    where: { id: input.assetSaleId },
+    select: { salePrice: true, gstAmount: true, projectId: true, status: true, saleStage: true },
   });
+  if (!sale) throw new ServiceError("Asset sale not found", 404);
+  if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
+
+  // Compute GST split for real estate:
+  // For residential: 1/3 of price is land (exempt), 2/3 is construction (taxable at 5%)
+  // For commercial: full price is taxable at 18%
+  // Standalone land sales (no project) default to commercial-rate GST.
+  const project = sale.projectId
+    ? await prisma.project.findUnique({
+        where: { id: sale.projectId },
+        select: { type: true },
+      })
+    : null;
+  const isResidential = project?.type === "RESIDENTIAL";
+  const gstRate = isResidential ? new Decimal(5) : new Decimal(18);
+  const taxablePortion = isResidential ? new Decimal(2).div(3) : new Decimal(1);
+  const effectiveGstRate = gstRate.times(taxablePortion);
+
+  const baseAmount = new Decimal(sale.salePrice);
+  const gstAmount = baseAmount.times(effectiveGstRate).div(100).toDecimalPlaces(2);
+  const grandTotal = baseAmount.plus(gstAmount);
+
+  // Build schedule items with GST-aware amounts
+  const items: PaymentScheduleItemInput[] = input.milestones.map((m, i) => {
+    const pct = new Decimal(m.percentage);
+    const amount = grandTotal.times(pct).div(100).toDecimalPlaces(2);
+    return {
+      installmentNo: i + 1,
+      description: m.description,
+      percentage: pct,
+      amount,
+      dueDate: m.dueDate ? m.dueDate.toISOString() : null,
+      wbsNodeId: m.wbsNodeId ?? null,
+    };
+  });
+
+  // Delegate to the canonical schedule creator (handles delete-existing,
+  // validation, DB writes, and audit logging in one transaction).
+  return createSalePaymentSchedule(
+    input.assetSaleId,
+    { type: input.type, items },
+    input.userId,
+  );
 }
 
 /**

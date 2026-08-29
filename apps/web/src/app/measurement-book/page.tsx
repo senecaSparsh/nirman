@@ -24,7 +24,7 @@ async function MbContent() {
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.MB_VIEW)) {
     return <NoAccess what="measurement book" />;
   }
 
@@ -39,7 +39,7 @@ async function MbContent() {
     select: { id: true, name: true, type: true, status: true },
   });
 
-  const canCreate = hasPermission(role, PERM.STOCK_ISSUE);
+  const canCreate = hasPermission(role, PERM.MB_VERIFY);
 
   return (
     <>

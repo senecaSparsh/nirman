@@ -106,6 +106,9 @@ async function EquipmentContent() {
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
     companyId: company.id,
     companyName: company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({

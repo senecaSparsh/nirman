@@ -32,9 +32,16 @@ export default async function SaleInvoicePage({
     where: { id, companyId: company.id },
     include: {
       customer: { select: { name: true, phone: true, email: true, address: true, gstin: true } },
-      project: { select: { name: true } },
+      project: { select: { name: true, reraNumber: true } },
       payments: { orderBy: { paymentDate: "asc" } },
       createdBy: { select: { name: true } },
+      terms: { orderBy: { sortOrder: "asc" } },
+      expenses: { orderBy: { createdAt: "asc" } },
+      paymentSchedule: {
+        include: {
+          items: { orderBy: { installmentNo: "asc" } },
+        },
+      },
     },
   });
 
@@ -102,6 +109,12 @@ export default async function SaleInvoicePage({
             <span className="text-gray-600">Project: </span>
             <span>{sale.project?.name ?? "Standalone"}</span>
           </div>
+          {sale.project?.reraNumber && (
+            <div>
+              <span className="text-gray-600">RERA No.: </span>
+              <span>{sale.project.reraNumber}</span>
+            </div>
+          )}
           {builtUnit && (
             <div>
               <span className="text-gray-600">Unit Type: </span>
@@ -218,16 +231,89 @@ export default async function SaleInvoicePage({
         </div>
       )}
 
-      {/* Terms & Conditions */}
+      {/* Payment Schedule (if defined) */}
+      {sale.paymentSchedule && sale.paymentSchedule.items.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-1 text-sm font-semibold">Payment Schedule</div>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-400">
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">#</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">Milestone</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-right font-semibold">%</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-right font-semibold">Amount</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">Due</th>
+                <th className="px-2 py-1 text-center font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sale.paymentSchedule.items.map((item) => (
+                <tr key={item.id} className="border-b border-gray-200">
+                  <td className="border-r border-gray-300 px-2 py-1">{item.installmentNo}</td>
+                  <td className="border-r border-gray-300 px-2 py-1">{item.description}</td>
+                  <td className="border-r border-gray-300 px-2 py-1 text-right">{toNum(item.percentage)}%</td>
+                  <td className="border-r border-gray-300 px-2 py-1 text-right tnum">{formatCurrency(toNum(item.totalAmount))}</td>
+                  <td className="border-r border-gray-300 px-2 py-1">{item.dueDate ? formatDate(item.dueDate) : "—"}</td>
+                  <td className="px-2 py-1 text-center text-xs">
+                    {item.status === "PAID" ? "✓ Paid" : item.status === "PARTIAL" ? "Partial" : item.status === "WAIVED" ? "Waived" : "Pending"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Sale Expenses (cost components borne by client/seller) */}
+      {sale.expenses.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-1 text-sm font-semibold">Cost Components</div>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-400">
+                <th className="border-r border-gray-300 px-2 py-1 text-left font-semibold">Expense</th>
+                <th className="border-r border-gray-300 px-2 py-1 text-right font-semibold">Amount</th>
+                <th className="px-2 py-1 text-center font-semibold">Borne By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sale.expenses.map((exp) => (
+                <tr key={exp.id} className="border-b border-gray-200">
+                  <td className="border-r border-gray-300 px-2 py-1">{exp.head.replace(/_/g, " ")}</td>
+                  <td className="border-r border-gray-300 px-2 py-1 text-right tnum">{formatCurrency(toNum(exp.amount))}</td>
+                  <td className="px-2 py-1 text-center text-xs">{exp.borneBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Terms & Conditions — actual sale-specific terms from DB */}
       <div className="mt-4 border-t border-gray-300 pt-2 text-xs text-gray-600">
         <div className="font-semibold text-gray-700">Terms &amp; Conditions:</div>
-        <ol className="ml-4 list-decimal space-y-0.5">
-          <li>This allotment is subject to receipt of full payment as per the agreed schedule.</li>
-          <li>Registration charges, stamp duty, and other statutory fees are payable by the allottee.</li>
-          <li>Possession will be handed over after full payment and completion of the unit.</li>
-          <li>Any modifications to the unit must be approved in writing.</li>
-          <li>This is a computer-generated document and does not require a physical signature.</li>
-        </ol>
+        {sale.terms.length > 0 ? (
+          <ol className="ml-4 list-decimal space-y-0.5">
+            {sale.terms.map((term) => (
+              <li key={term.id}>
+                {term.description}
+                {term.extraAmount != null && toNum(term.extraAmount) > 0 && (
+                  <span className="ml-1 text-gray-500">
+                    — {formatCurrency(toNum(term.extraAmount))} ({term.isIncluded ? "included" : "extra"})
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ol className="ml-4 list-decimal space-y-0.5">
+            <li>This allotment is subject to receipt of full payment as per the agreed schedule.</li>
+            <li>Registration charges, stamp duty, and other statutory fees are payable by the allottee.</li>
+            <li>Possession will be handed over after full payment and completion of the unit.</li>
+            <li>Any modifications to the unit must be approved in writing.</li>
+            <li>This is a computer-generated document and does not require a physical signature.</li>
+          </ol>
+        )}
       </div>
 
       {sale.notes && (

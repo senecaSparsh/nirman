@@ -7,6 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { ShoppingCart } from "lucide-react";
 import { MobileNewSaleForm } from "@/components/mobile/mobile-new-sale-form";
 import { MobileNoCustomersState } from "./MobileNoCustomersState";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/sales/new — mobile new-sale form. Replaces every desktop `/sales`
@@ -36,27 +37,10 @@ async function MobileNewSaleContent({
   const { builtUnitId, landParcelId, customerId } = await searchParams;
 
   if (!hasPermission(role, PERM.SALE_CREATE)) {
-    return (
-      <div className="pb-32">
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-[0.875rem] font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-            New Sale
-          </p>
-        </div>
-        <div className="flex flex-col items-center text-center px-4 py-7">
-          <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <ShoppingCart className="size-5" style={{ color: "var(--color-ink-300)" }} />
-          </div>
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
-          <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-            You don&apos;t have permission to create sales.
-          </p>
-        </div>
-      </div>
-    );
+    return <MobileNoAccess what="create sales" permission="sale.create" />;
   }
 
-  const [units, parcels, customers, projects, allProjectsForSale] = await Promise.all([
+  const [units, parcels, customers, projects, allProjectsForSale, brokers] = await Promise.all([
     prisma.builtUnit.findMany({
       where: {
         deletedAt: null,
@@ -92,6 +76,11 @@ async function MobileNewSaleContent({
         builtUnits: { where: { deletedAt: null }, select: { id: true, status: true, saleId: true } },
       },
       orderBy: { name: "asc" },
+    }),
+    prisma.broker.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, phone: true, agency: true, defaultCommissionPercent: true },
     }),
   ]);
 
@@ -154,6 +143,7 @@ async function MobileNewSaleContent({
           customers={customerItems}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
           sellableProjects={sellableProjects}
+          brokers={brokers.map((b) => ({ id: b.id, name: b.name, phone: b.phone ?? "", agency: b.agency ?? "", defaultCommissionPercent: b.defaultCommissionPercent ? toNum(b.defaultCommissionPercent) : null }))}
           initialBuiltUnitId={builtUnitId}
           initialLandParcelId={landParcelId}
           initialCustomerId={customerId}

@@ -1,0 +1,485 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { X, Loader2, ListTree, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { haptic } from "@/lib/haptic";
+
+type WbsNodeType = "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE";
+
+const TYPE_LABELS: Record<WbsNodeType, string> = {
+  PROJECT_NODE: "Project",
+  PHASE_NODE: "Phase",
+  ACTIVITY: "Activity",
+  SUB_ACTIVITY: "Sub-Activity",
+  MILESTONE: "Milestone",
+};
+
+// Allowed child types per parent type (matches desktop wbs-view)
+const CHILD_TYPES: Record<WbsNodeType | "ROOT", WbsNodeType[]> = {
+  ROOT: ["PROJECT_NODE", "PHASE_NODE"],
+  PROJECT_NODE: ["PHASE_NODE"],
+  PHASE_NODE: ["ACTIVITY", "MILESTONE"],
+  ACTIVITY: ["SUB_ACTIVITY", "MILESTONE"],
+  SUB_ACTIVITY: ["MILESTONE"],
+  MILESTONE: [],
+};
+
+interface ParentOption {
+  id: string;
+  code: string;
+  name: string;
+  type: WbsNodeType;
+}
+
+interface BoqItemOption {
+  id: string;
+  serialNo: string;
+  description: string;
+}
+
+interface FormState {
+  type: WbsNodeType;
+  parentId: string;
+  code: string;
+  name: string;
+  description: string;
+  plannedStart: string;
+  plannedEnd: string;
+  isCritical: boolean;
+  boqItemId: string;
+}
+
+/**
+ * MobileNewWbsNodeDialog — bottom-sheet form for adding a WBS node
+ * from the mobile surface. Submits POST /api/wbs/nodes.
+ */
+export function MobileNewWbsNodeDialog({
+  open,
+  onClose,
+  projectId,
+  parentNodes,
+  boqItems,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+  parentNodes: ParentOption[];
+  boqItems: BoqItemOption[];
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<FormState>({
+    type: "ACTIVITY",
+    parentId: "",
+    code: "",
+    name: "",
+    description: "",
+    plannedStart: "",
+    plannedEnd: "",
+    isCritical: false,
+    boqItemId: "",
+  });
+
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // When parent changes, reset type to first allowed child type
+  function onParentChange(parentId: string) {
+    const parent = parentNodes.find((p) => p.id === parentId);
+    const allowed = parent ? CHILD_TYPES[parent.type] ?? [] : CHILD_TYPES.ROOT;
+    const firstAllowed = allowed[0] ?? "ACTIVITY";
+    setForm((f) => ({ ...f, parentId, type: firstAllowed }));
+  }
+
+  const selectedParent = parentNodes.find((p) => p.id === form.parentId);
+  const allowedTypes = selectedParent
+    ? CHILD_TYPES[selectedParent.type] ?? []
+    : CHILD_TYPES.ROOT;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.code.trim()) {
+      toast.error("Code is required (e.g. 1, 1.1, A-1)");
+      return;
+    }
+    if (!form.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    if (form.plannedStart && form.plannedEnd && form.plannedEnd < form.plannedStart) {
+      toast.error("Planned end must be after planned start");
+      return;
+    }
+
+    setSaving(true);
+    haptic(10);
+    try {
+      const res = await fetch("/api/wbs/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          parentId: form.parentId || undefined,
+          type: form.type,
+          code: form.code.trim(),
+          name: form.name.trim(),
+          description: form.description.trim() || undefined,
+          plannedStart: form.plannedStart
+            ? new Date(form.plannedStart).toISOString()
+            : undefined,
+          plannedEnd: form.plannedEnd
+            ? new Date(form.plannedEnd).toISOString()
+            : undefined,
+          isCritical: form.isCritical || undefined,
+          boqItemId: form.boqItemId || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error ?? "Failed to create WBS node");
+      haptic([10, 40, 80]);
+      toast.success("WBS node added");
+      onClose();
+      router.refresh();
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+    color: "var(--color-ink-950)",
+  };
+  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelStyle = { color: "var(--color-ink-500)" };
+  const isMilestone = form.type === "MILESTONE";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="grid place-items-center size-7 rounded-[0.375rem]"
+              style={{ backgroundColor: "var(--color-concrete)" }}
+            >
+              <ListTree
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
+            </span>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              Add WBS Node
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="touch grid place-items-center rounded-[0.375rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Parent (optional) */}
+          {parentNodes.length > 0 && (
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Parent (optional)
+              </label>
+              <select
+                value={form.parentId}
+                onChange={(e) => onParentChange(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="">— Top-level (no parent) —</option>
+                {parentNodes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name} ({TYPE_LABELS[p.type]})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Type selector */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Node Type
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {allowedTypes.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    set("type", t);
+                    haptic(10);
+                  }}
+                  className="flex-1 min-w-[5rem] h-10 rounded-[0.5rem] border-2 text-[0.5625rem] font-bold press"
+                  style={{
+                    borderColor:
+                      form.type === t
+                        ? "var(--color-ink-950)"
+                        : "var(--color-line)",
+                    backgroundColor:
+                      form.type === t
+                        ? "var(--color-ink-950)"
+                        : "var(--color-paper)",
+                    color:
+                      form.type === t
+                        ? "var(--color-paper)"
+                        : "var(--color-ink-500)",
+                  }}
+                >
+                  {TYPE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Code + Name */}
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Code <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.code}
+                onChange={(e) => set("code", e.target.value)}
+                placeholder="1.1"
+                autoFocus
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className={labelClass} style={labelStyle}>
+                Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Foundation Works"
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Description (optional)
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              rows={2}
+              placeholder="Additional context…"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Planned Start
+              </label>
+              <input
+                type="date"
+                value={form.plannedStart}
+                onChange={(e) => set("plannedStart", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Planned End{isMilestone ? " (= start)" : ""}
+              </label>
+              <input
+                type="date"
+                value={isMilestone ? form.plannedStart : form.plannedEnd}
+                onChange={(e) => set("plannedEnd", e.target.value)}
+                disabled={isMilestone}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* BOQ link (for ACTIVITY / SUB_ACTIVITY) */}
+          {(form.type === "ACTIVITY" || form.type === "SUB_ACTIVITY") &&
+            boqItems.length > 0 && (
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Link to BOQ Item (optional)
+                </label>
+                <select
+                  value={form.boqItemId}
+                  onChange={(e) => set("boqItemId", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option value="">— None —</option>
+                  {boqItems.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.serialNo} — {b.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+          {/* Critical path toggle */}
+          <label
+            className="flex items-center gap-2 cursor-pointer touch"
+            onClick={() => {
+              set("isCritical", !form.isCritical);
+              haptic(10);
+            }}
+          >
+            <span
+              className="grid place-items-center size-5 rounded-[0.375rem] border-2"
+              style={{
+                borderColor: form.isCritical
+                  ? "var(--color-stop)"
+                  : "var(--color-line)",
+                backgroundColor: form.isCritical
+                  ? "var(--color-stop)"
+                  : "transparent",
+              }}
+            >
+              {form.isCritical ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  className="size-3"
+                >
+                  <path d="M5 12l5 5L20 7" />
+                </svg>
+              ) : null}
+            </span>
+            <span
+              className="text-[0.6875rem] font-semibold"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              Critical path node
+            </span>
+          </label>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press disabled:opacity-50"
+              style={{
+                borderColor: "var(--color-line)",
+                color: "var(--color-ink-500)",
+                backgroundColor: "transparent",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-[2] h-11 rounded-[0.5rem] text-[0.75rem] font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? "Adding…" : "Add Node"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * MobileWbsFab — floating action button + dialog launcher for adding WBS nodes.
+ */
+export function MobileWbsFab({
+  projectId,
+  parentNodes,
+  boqItems,
+}: {
+  projectId: string;
+  parentNodes: ParentOption[];
+  boqItems: BoqItemOption[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+        style={{
+          bottom:
+            "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+        }}
+        aria-label="Add WBS node"
+      >
+        <Plus className="size-5" />
+      </button>
+
+      {open && (
+        <MobileNewWbsNodeDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          projectId={projectId}
+          parentNodes={parentNodes}
+          boqItems={boqItems}
+        />
+      )}
+    </>
+  );
+}

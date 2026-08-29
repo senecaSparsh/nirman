@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Package, Download, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { Package, Download, FileSpreadsheet, ChevronDown, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -328,6 +328,20 @@ function MovementDetailPanel({ movement }: { movement: StockMovementRow }) {
           <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
             <span className="text-label text-muted-foreground/70">Recorded By</span>
             <span className="text-body text-foreground">{movement.userName}</span>
+          </div>
+        )}
+        {movement.latitude != null && movement.longitude != null && (
+          <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
+            <span className="text-label text-muted-foreground/70">GPS Location</span>
+            <a
+              href={`https://www.google.com/maps?q=${movement.latitude},${movement.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-body text-info hover:underline"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              {movement.latitude.toFixed(5)}, {movement.longitude.toFixed(5)}
+            </a>
           </div>
         )}
       </div>

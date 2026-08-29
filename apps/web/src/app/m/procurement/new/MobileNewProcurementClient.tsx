@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
@@ -17,10 +18,13 @@ import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDial
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { ScanButton } from "@/components/mobile/v2/scan-button";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 
 interface SupplierItem { id: string; name: string; phone?: string | null; }
 interface ProjectItem { id: string; name: string; }
-interface MaterialItem { id: string; name: string; code: string; unit: string; gstRate: number; }
+interface MaterialItem { id: string; name: string; code: string; unit: string; gstRate: number; barcode?: string | null; }
 interface LocationItem { id: string; name: string; type: string; projectId: string | null; }
 interface CategoryItem { id: string; name: string; unit: string; }
 
@@ -80,9 +84,11 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   );
   const [charges, setCharges] = useState<PoCharge[]>([]);
 
-  const [success, setSuccess] = useState<{ poNumber: string; total: number } | null>(null);
+  const [success, setSuccess] = useState<{ poId: string; poNumber: string; total: number } | null>(null);
   // Track last-purchase-price source per line for the "auto-filled from last PO" hint
   const [lastPriceHint, setLastPriceHint] = useState<Record<number, { poNumber: string; date: string } | null>>({});
+  // Empty-data guard dialog state (declared early to respect rules-of-hooks)
+  const [guardDialog, setGuardDialog] = useState<"supplier" | "material" | "location" | null>(null);
 
   // Draft auto-save
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<PoDraft>(
@@ -90,6 +96,37 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
     "purchase-order-new",
   );
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // ── Smart defaults — pre-fill from last-used values (if no draft to restore) ──
+  const { getDefault, recordDefaults, hasDefaults: hasSmartDefaults } = useSmartDefaults("po");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+
+  useEffect(() => {
+    // Only apply smart defaults if there's no draft to restore (draft takes priority)
+    if (hasDraft || draftRestored || defaultsApplied) return;
+    const defSupplier = getDefault("supplierId");
+    const defScope = getDefault("scope") as Scope | undefined;
+    const defProject = getDefault("projectId");
+    const defLocation = getDefault("locationId");
+    let applied = false;
+    if (defSupplier && suppliers.some((s) => s.id === defSupplier)) {
+      setSupplierId(defSupplier);
+      applied = true;
+    }
+    if (defScope && (defScope === "COMPANY" || defScope === "PROJECT")) {
+      setScope(defScope);
+      applied = true;
+    }
+    if (defProject && projects.some((p) => p.id === defProject)) {
+      setProjectId(defProject);
+      applied = true;
+    }
+    if (defLocation && locations.some((l) => l.id === defLocation)) {
+      setLocationId(defLocation);
+      applied = true;
+    }
+    if (applied) setDefaultsApplied(true);
+  }, [hasDraft, draftRestored, defaultsApplied, getDefault, suppliers, projects, locations]);
 
   // Locations available for the selected scope
   const availableLocations = useMemo(() => {
@@ -127,6 +164,17 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
 
   const handleAddLine = () => {
     setLines([...lines, { materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
+  };
+
+  // Scan barcode → find material → add a line pre-filled with it
+  const handleScan = (code: string) => {
+    const matched = materials.find((m) => m.barcode === code || m.code === code);
+    if (!matched) {
+      toast.error(`No material found for: ${code}`);
+      return;
+    }
+    setLines((prev) => [...prev, { materialId: matched.id, qty: "", unitCost: "", gstRate: String(matched.gstRate) }]);
+    toast.success(`Added: ${matched.name}`);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -197,6 +245,14 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
 
     setSubmitting(true);
     try {
+      // Record smart defaults for next time
+      recordDefaults({
+        supplierId,
+        scope,
+        projectId: scope === "PROJECT" ? projectId : undefined,
+        locationId,
+      });
+
       const payload = {
         supplierId,
         procurementScope: scope,
@@ -219,7 +275,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       if (!online) {
         await enqueue("purchase-order", payload);
         clearDraft();
-        setSuccess({ poNumber: "QUEUED", total });
+        setSuccess({ poId: "", poNumber: "QUEUED", total });
         toast.success("Purchase order queued offline", {
           description: "Will sync when back online",
         });
@@ -237,7 +293,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       }
       const data = await res.json();
       clearDraft();
-      setSuccess({ poNumber: data.poNumber, total });
+      setSuccess({ poId: data.id, poNumber: data.poNumber, total });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create purchase order");
     } finally {
@@ -275,6 +331,17 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
             : "Purchase Order is in DRAFT. Submit for approval from the Purchase Order detail page."}
         </p>
         <div className="flex gap-2">
+          {!isQueued && success.poId ? (
+            <button
+              onClick={() => {
+                router.push(`/m/procurement/${success.poId}`);
+              }}
+              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              View {success.poNumber}
+            </button>
+          ) : null}
           <button
             onClick={() => {
               router.refresh();
@@ -304,7 +371,6 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   }
 
   /* ── Empty-data guard — with inline create dialogs (no redirection) ── */
-  const [guardDialog, setGuardDialog] = useState<"supplier" | "material" | "location" | null>(null);
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -386,6 +452,9 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
           onDiscard={() => { clearDraft(); setDraftRestored(true); }}
         />
       )}
+      {defaultsApplied && !hasDraft && (
+        <SmartDefaultsBadge onDismiss={() => setDefaultsApplied(false)} />
+      )}
       <PoForm
       suppliers={suppliers}
       projects={projects}
@@ -412,6 +481,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
       onAddLine={handleAddLine}
       onRemoveLine={handleRemoveLine}
       onLineChange={handleLineChange}
+      onScan={handleScan}
       onSubmit={handleSubmit}
       submitting={submitting}
       online={online}
@@ -443,7 +513,7 @@ function PoForm({
   expectedDate, setExpectedDate,
   notes, setNotes,
   lines,
-  onAddLine, onRemoveLine, onLineChange,
+  onAddLine, onRemoveLine, onLineChange, onScan,
   onSubmit, submitting, online,
   subtotal, gstTotal, miscChargesTotal, total,
   selectedSupplier, selectedProject, selectedLocation,
@@ -475,6 +545,7 @@ function PoForm({
   onAddLine: () => void;
   onRemoveLine: (i: number) => void;
   onLineChange: (i: number, field: keyof PoLine, val: string) => void;
+  onScan: (code: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   online: boolean;
@@ -489,6 +560,7 @@ function PoForm({
   charges: PoCharge[];
   setCharges: React.Dispatch<React.SetStateAction<PoCharge[]>>;
 }) {
+  const submitLongPress = useLongPressNav("/m/procurement", "POs list");
   const [modal, setModal] = useState<{
     type: "supplier" | "project" | "location" | "material";
     lineIndex?: number;
@@ -707,15 +779,18 @@ function PoForm({
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={onAddLine}
-          className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-        >
-          <Plus className="size-3.5" />
-          <span className="text-[0.6875rem] font-bold">Add another item</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddLine}
+            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] border border-dashed py-2.5 press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          >
+            <Plus className="size-3.5" />
+            <span className="text-[0.6875rem] font-bold">Add another item</span>
+          </button>
+          <ScanButton onScan={onScan} label="Scan" />
+        </div>
 
         {/* ══════ SECTION: CHARGES (Freight, Loading, Misc) ══════ */}
         <SectionHeader icon={Truck} label="Charges & Freight" />
@@ -831,10 +906,11 @@ function PoForm({
           </div>
           <button
             type="button"
-            onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
+            onClick={(e) => { if (submitLongPress.wasLongPress()) return; onSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

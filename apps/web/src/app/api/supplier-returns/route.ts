@@ -39,6 +39,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
       returnDate: r.returnDate.toISOString(),
       creditNoteNo: r.creditNoteNo,
       notes: r.notes,
+      vehicleNumber: r.vehicleNumber,
+      vehicleType: r.vehicleType,
+      vehiclePhotoUrl: r.vehiclePhotoUrl,
+      driverName: r.driverName,
+      driverPhone: r.driverPhone,
       lines: r.lines.map((l) => ({
         id: l.id,
         materialId: l.materialId,

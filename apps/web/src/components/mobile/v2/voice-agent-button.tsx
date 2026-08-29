@@ -101,6 +101,9 @@ export function VoiceAgentButton() {
   // ── Whether we should auto-listen after TTS (follow-up question) ──
   const shouldAutoListenRef = useRef(false);
 
+  // ── Ref to startListening (declared later via useCallback) to break circular dependency ──
+  const startListeningRef = useRef<(() => void) | null>(null);
+
   // ── Silence detection refs ──
   // Tracks when we last received speech data. If no new speech for
   // SILENCE_MS after speech has started, we auto-stop and submit.
@@ -279,7 +282,7 @@ export function VoiceAgentButton() {
             // Small delay to let the user process the question
             setTimeout(() => {
               if (shouldAutoListenRef.current) {
-                startListening();
+                startListeningRef.current?.();
               }
             }, 500);
           } else if (hasMoreSteps && cards && cards.length > 0) {
@@ -495,6 +498,11 @@ export function VoiceAgentButton() {
     }
   }, [voiceLang, sendToAssistant, speak]);
 
+  // Keep ref in sync so sendToAssistant can call startListening without circular dependency
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
+
   // ── Tap handler ──
   const onTap = useCallback(() => {
     // Cancel auto-listen if user taps manually
@@ -654,7 +662,7 @@ export function VoiceAgentButton() {
             {/* Response text (what Sahayak said) */}
             <p
               className="mb-3 text-[0.8125rem] leading-relaxed whitespace-pre-wrap"
-              style={{ color: "var(--color-ink-800)" }}
+              style={{ color: "var(--color-ink-900)" }}
             >
               {pendingAction.responseText}
             </p>
@@ -662,7 +670,7 @@ export function VoiceAgentButton() {
             {/* Action label */}
             <div
               className="mb-4 rounded-lg p-3"
-              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-line)" }}
+              style={{ backgroundColor: "var(--color-concrete)", border: "1px solid var(--color-line)" }}
             >
               <p className="text-[0.6875rem] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
                 {pendingAction.card.type === "link" ? "Open page" : "Execute action"}
@@ -683,7 +691,7 @@ export function VoiceAgentButton() {
                 disabled={executing}
                 className="press flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[0.8125rem] font-semibold disabled:opacity-50"
                 style={{
-                  backgroundColor: "var(--color-surface)",
+                  backgroundColor: "var(--color-concrete)",
                   color: "var(--color-ink-700)",
                   border: "1px solid var(--color-line)",
                 }}

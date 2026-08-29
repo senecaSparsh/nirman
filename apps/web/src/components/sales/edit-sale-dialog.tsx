@@ -37,8 +37,10 @@ export function EditSaleDialog({
     salePrice: "",
     gstRate: "",
     notes: "",
-    // Compliance
+    // Compliance — ATS / Registry (merged: either atsNo OR saleDeedNo)
     saleDeedNo: "",
+    atsNo: "",
+    atsDate: "",
     allotmentLetterNo: "",
     allotmentDate: "",
     bbaNo: "",
@@ -58,6 +60,9 @@ export function EditSaleDialog({
     expectedRegistryDate: "",
     dealMaturityMonths: "",
     paymentCycle: "",
+    // Draft / LOI
+    draftNotes: "",
+    draftDate: "",
   });
 
   // Sync form from sale when opened
@@ -82,8 +87,10 @@ export function EditSaleDialog({
       if (canEditPrice && form.salePrice) payload.salePrice = Number(form.salePrice);
       if (form.gstRate) payload.gstRate = Number(form.gstRate);
       if (form.notes !== s.notes) payload.notes = form.notes.trim() || null;
-      // Compliance
+      // Compliance — ATS / Registry (merged)
       if (form.saleDeedNo !== (s.saleDeedNo ?? "")) payload.saleDeedNo = form.saleDeedNo.trim() || null;
+      if (form.atsNo !== (s.atsNo ?? "")) payload.atsNo = form.atsNo.trim() || null;
+      if (form.atsDate) payload.atsDate = form.atsDate;
       if (form.allotmentLetterNo !== (s.allotmentLetterNo ?? "")) payload.allotmentLetterNo = form.allotmentLetterNo.trim() || null;
       if (form.allotmentDate) payload.allotmentDate = form.allotmentDate;
       if (form.bbaNo !== (s.bbaNo ?? "")) payload.bbaNo = form.bbaNo.trim() || null;
@@ -103,6 +110,9 @@ export function EditSaleDialog({
       if (form.expectedRegistryDate) payload.expectedRegistryDate = form.expectedRegistryDate;
       if (form.dealMaturityMonths) payload.dealMaturityMonths = Number(form.dealMaturityMonths);
       if (form.paymentCycle !== (s.paymentCycle ?? "")) payload.paymentCycle = form.paymentCycle.trim() || null;
+      // Draft / LOI
+      if (form.draftNotes !== (s.draftNotes ?? "")) payload.draftNotes = form.draftNotes.trim() || null;
+      if (form.draftDate !== (s.draftDate ? s.draftDate.split("T")[0]! : "")) payload.draftDate = form.draftDate || null;
 
       const res = await fetch(`/api/sales/${s.id}`, {
         method: "PATCH",
@@ -184,7 +194,16 @@ export function EditSaleDialog({
           <h3 className="text-section text-foreground">Compliance Documents</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="es-deed">Sale Deed No.</Label>
+              <Label htmlFor="es-ats-no">ATS Registration No.</Label>
+              <Input id="es-ats-no" value={form.atsNo || (sale.atsNo ?? "")} onChange={(e) => set("atsNo", e.target.value)} placeholder="ATS-1234/2025" />
+              <p className="text-caption text-muted-foreground">If ATS (registry deferred), enter the ATS registration number.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="es-ats-date">ATS Date</Label>
+              <Input id="es-ats-date" type="date" value={form.atsDate || (sale.atsDate ? sale.atsDate.split("T")[0] : "")} onChange={(e) => set("atsDate", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="es-deed">Sale Deed / Registry No.</Label>
               <Input id="es-deed" value={form.saleDeedNo || (sale.saleDeedNo ?? "")} onChange={(e) => set("saleDeedNo", e.target.value)} placeholder="SR-1234/2025" />
             </div>
             <div className="space-y-1.5">
@@ -273,6 +292,30 @@ export function EditSaleDialog({
             <div className="space-y-1.5 col-span-2">
               <Label htmlFor="es-cycle">Payment Cycle</Label>
               <Input id="es-cycle" value={form.paymentCycle || (sale.paymentCycle ?? "")} onChange={(e) => set("paymentCycle", e.target.value)} placeholder="e.g. Quarterly, 25% every month" />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Draft / LOI ── */}
+        <section className="space-y-3">
+          <h3 className="text-section text-foreground">Draft / LOI (Letter of Intent)</h3>
+          <p className="text-caption text-muted-foreground">
+            Informal terms discussed before the formal ATS or sale deed. Printable on company letterhead.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5 col-span-2">
+              <Label htmlFor="es-draft-notes">Draft Notes</Label>
+              <Textarea
+                id="es-draft-notes"
+                rows={3}
+                value={form.draftNotes || (sale.draftNotes ?? "")}
+                onChange={(e) => set("draftNotes", e.target.value)}
+                placeholder="Terms discussed verbally — e.g. price agreed, possession date, inclusions…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="es-draft-date">Draft Date</Label>
+              <Input id="es-draft-date" type="date" value={form.draftDate || (sale.draftDate ? sale.draftDate.split("T")[0]! : "")} onChange={(e) => set("draftDate", e.target.value)} />
             </div>
           </div>
         </section>

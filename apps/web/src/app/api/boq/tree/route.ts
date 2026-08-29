@@ -3,7 +3,26 @@ import { getBoqTree } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-function serializeNode(node: any): any {
+type BoqTreeNode = {
+  id: string;
+  parentId: string | null;
+  serialNo: string;
+  description: string;
+  type: string;
+  unit: string | null;
+  estimatedQty: unknown;
+  rate: unknown;
+  estimatedAmount: unknown;
+  materialId: string | null;
+  material: { id: string; code: string; name: string; unit: string | null } | null;
+  rateAnalysis: { id: string; totalRate: unknown } | null;
+  notes: string | null;
+  sortOrder: number;
+  children: BoqTreeNode[];
+  _count: { mbEntries: number; wbsNodes: number };
+};
+
+function serializeNode(node: BoqTreeNode): Record<string, unknown> {
   return {
     id: node.id,
     parentId: node.parentId,
@@ -25,14 +44,14 @@ function serializeNode(node: any): any {
 }
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.BOQ_VIEW);
   await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
   const { tree, totalEstimatedAmount } = await getBoqTree(projectId);
   return json({
-    tree: tree.map(serializeNode),
+    tree: (tree as BoqTreeNode[]).map(serializeNode),
     totalEstimatedAmount: toNum(totalEstimatedAmount),
   });
 });

@@ -37,7 +37,7 @@ async function MaterialsContent() {
     canDelete: hasPermission(role, PERM.INVENTORY_MANAGE),
   };
 
-  const [categories, materials, lowStockMaterials] = await Promise.all([
+  const [categories, materials, lowStockMaterials, suppliers] = await Promise.all([
     // Global entity — shared across companies (no companyId on MaterialCategory).
     prisma.materialCategory.findMany({
       where: { deletedAt: null },
@@ -67,6 +67,11 @@ async function MaterialsContent() {
         },
       },
     }),
+    prisma.supplier.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   const materialRows: MaterialRow[] = materials.map((m) => {
@@ -79,6 +84,8 @@ async function MaterialsContent() {
       id: m.id,
       code: m.code,
       name: m.name,
+      grade: m.grade,
+      specification: m.specification,
       categoryId: m.categoryId,
       categoryName: m.category.name,
       unit: m.unit,
@@ -91,6 +98,11 @@ async function MaterialsContent() {
       volumetricDensity: m.volumetricDensity == null ? null : toNum(m.volumetricDensity),
       bulkDiscountPct: m.bulkDiscountPct == null ? null : toNum(m.bulkDiscountPct),
       isCorporateCommodity: m.isCorporateCommodity ?? false,
+      isLotTracked: m.isLotTracked ?? false,
+      isScrap: m.isScrap ?? false,
+      baseUnit: m.baseUnit,
+      secondaryUnit: m.secondaryUnit,
+      uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
       description: m.description,
       totalQty,
       totalValue,
@@ -102,6 +114,7 @@ async function MaterialsContent() {
     id: c.id,
     name: c.name,
     unit: c.unit,
+    class: c.class,
     _count: { materials: c._count.materials },
   }));
 
@@ -142,6 +155,7 @@ async function MaterialsContent() {
         categories={categoryRows}
         lowStock={lowStockRows}
         permissions={perms}
+        suppliers={suppliers}
       />
     </>
   );

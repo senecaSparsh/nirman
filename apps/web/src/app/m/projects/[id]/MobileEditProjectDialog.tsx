@@ -6,7 +6,13 @@ import { X, Loader2, Pencil, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
-type ProjectType = "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER";
+type ProjectType =
+  | "RESIDENTIAL"
+  | "COMMERCIAL"
+  | "WAREHOUSE"
+  | "MALL"
+  | "LAND"
+  | "OTHER";
 type ProjectStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
 
 const TYPE_LABELS: Record<ProjectType, string> = {
@@ -40,6 +46,7 @@ export interface ProjectEditData {
   reraRegistrationDate: string | null;
   reraValidityDate: string | null;
   reraWebsiteUrl: string | null;
+  lciThreshold: number | null;
 }
 
 interface FormState {
@@ -56,6 +63,7 @@ interface FormState {
   reraRegistrationDate: string;
   reraValidityDate: string;
   reraWebsiteUrl: string;
+  lciThreshold: string;
 }
 
 /**
@@ -78,15 +86,20 @@ export function MobileEditProjectDialog({
     type: project.type,
     status: project.status,
     address: project.address ?? "",
-    startDate: project.startDate ? project.startDate.split("T")[0] ?? "" : "",
-    endDate: project.endDate ? project.endDate.split("T")[0] ?? "" : "",
+    startDate: project.startDate ? (project.startDate.split("T")[0] ?? "") : "",
+    endDate: project.endDate ? (project.endDate.split("T")[0] ?? "") : "",
     totalBudget: project.totalBudget?.toString() ?? "",
     totalSellableArea: project.totalSellableArea?.toString() ?? "",
     description: project.description ?? "",
     reraNumber: project.reraNumber ?? "",
-    reraRegistrationDate: project.reraRegistrationDate ? project.reraRegistrationDate.split("T")[0] ?? "" : "",
-    reraValidityDate: project.reraValidityDate ? project.reraValidityDate.split("T")[0] ?? "" : "",
+    reraRegistrationDate: project.reraRegistrationDate
+      ? (project.reraRegistrationDate.split("T")[0] ?? "")
+      : "",
+    reraValidityDate: project.reraValidityDate
+      ? (project.reraValidityDate.split("T")[0] ?? "")
+      : "",
     reraWebsiteUrl: project.reraWebsiteUrl ?? "",
+    lciThreshold: project.lciThreshold?.toString() ?? "",
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -112,13 +125,19 @@ export function MobileEditProjectDialog({
           address: form.address.trim() || null,
           startDate: form.startDate || null,
           endDate: form.endDate || null,
-          totalBudget: form.totalBudget === "" ? null : Number(form.totalBudget),
-          totalSellableArea: form.totalSellableArea === "" ? null : Number(form.totalSellableArea),
+          totalBudget:
+            form.totalBudget === "" ? null : Number(form.totalBudget),
+          totalSellableArea:
+            form.totalSellableArea === ""
+              ? null
+              : Number(form.totalSellableArea),
           description: form.description.trim() || null,
           reraNumber: form.reraNumber.trim() || null,
           reraRegistrationDate: form.reraRegistrationDate || null,
           reraValidityDate: form.reraValidityDate || null,
           reraWebsiteUrl: form.reraWebsiteUrl.trim() || null,
+          lciThreshold:
+            form.lciThreshold === "" ? null : Number(form.lciThreshold),
         }),
       });
       const data = await res.json();
@@ -137,7 +156,8 @@ export function MobileEditProjectDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -167,15 +187,21 @@ export function MobileEditProjectDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <Pencil className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <Pencil
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               Edit Project
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -203,7 +229,9 @@ export function MobileEditProjectDialog({
           {/* Type + Status */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Type</label>
+              <label className={labelClass} style={labelStyle}>
+                Type
+              </label>
               <select
                 value={form.type}
                 onChange={(e) => set("type", e.target.value as ProjectType)}
@@ -211,12 +239,16 @@ export function MobileEditProjectDialog({
                 style={inputStyle}
               >
                 {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
-                  <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>
+                    {TYPE_LABELS[t]}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Status</label>
+              <label className={labelClass} style={labelStyle}>
+                Status
+              </label>
               <select
                 value={form.status}
                 onChange={(e) => set("status", e.target.value as ProjectStatus)}
@@ -224,7 +256,9 @@ export function MobileEditProjectDialog({
                 style={inputStyle}
               >
                 {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
                 ))}
               </select>
             </div>
@@ -232,7 +266,9 @@ export function MobileEditProjectDialog({
 
           {/* Address */}
           <div>
-            <label className={labelClass} style={labelStyle}>Address</label>
+            <label className={labelClass} style={labelStyle}>
+              Address
+            </label>
             <input
               type="text"
               value={form.address}
@@ -247,7 +283,9 @@ export function MobileEditProjectDialog({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Start Date</label>
+              <label className={labelClass} style={labelStyle}>
+                Start Date
+              </label>
               <input
                 type="date"
                 value={form.startDate}
@@ -257,7 +295,9 @@ export function MobileEditProjectDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>End Date</label>
+              <label className={labelClass} style={labelStyle}>
+                End Date
+              </label>
               <input
                 type="date"
                 value={form.endDate}
@@ -271,7 +311,9 @@ export function MobileEditProjectDialog({
           {/* Budget + Area */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Budget (₹)</label>
+              <label className={labelClass} style={labelStyle}>
+                Budget (₹)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -284,7 +326,9 @@ export function MobileEditProjectDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Sellable Area (sq.ft)</label>
+              <label className={labelClass} style={labelStyle}>
+                Sellable Area (sq.ft)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -301,7 +345,9 @@ export function MobileEditProjectDialog({
 
           {/* Description */}
           <div>
-            <label className={labelClass} style={labelStyle}>Description</label>
+            <label className={labelClass} style={labelStyle}>
+              Description
+            </label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
@@ -313,43 +359,99 @@ export function MobileEditProjectDialog({
           </div>
 
           {/* RERA Registration */}
-          <div className="rounded-[0.5rem] border p-3 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
+          <div
+            className="rounded-[0.5rem] border p-3 space-y-2.5"
+            style={{ borderColor: "var(--color-line)" }}
+          >
             <div>
-              <div className="text-[0.6875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>RERA Registration</div>
-              <div className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              <div
+                className="text-[0.6875rem] font-bold"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                RERA Registration
+              </div>
+              <div
+                className="text-[0.5625rem]"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 Mandatory for projects &gt; 500 sqm or &gt; 8 units.
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>RERA Number</label>
-                <input type="text" value={form.reraNumber}
+                <label className={labelClass} style={labelStyle}>
+                  RERA Number
+                </label>
+                <input
+                  type="text"
+                  value={form.reraNumber}
                   onChange={(e) => set("reraNumber", e.target.value)}
                   placeholder="e.g. P1234567890"
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Reg. Date</label>
-                <input type="date" value={form.reraRegistrationDate}
+                <label className={labelClass} style={labelStyle}>
+                  Reg. Date
+                </label>
+                <input
+                  type="date"
+                  value={form.reraRegistrationDate}
                   onChange={(e) => set("reraRegistrationDate", e.target.value)}
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>Validity Date</label>
-                <input type="date" value={form.reraValidityDate}
+                <label className={labelClass} style={labelStyle}>
+                  Validity Date
+                </label>
+                <input
+                  type="date"
+                  value={form.reraValidityDate}
                   onChange={(e) => set("reraValidityDate", e.target.value)}
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>RERA URL</label>
-                <input type="text" value={form.reraWebsiteUrl}
+                <label className={labelClass} style={labelStyle}>
+                  RERA URL
+                </label>
+                <input
+                  type="text"
+                  value={form.reraWebsiteUrl}
                   onChange={(e) => set("reraWebsiteUrl", e.target.value)}
                   placeholder="https://..."
-                  className={inputClass} style={inputStyle} />
+                  className={inputClass}
+                  style={inputStyle}
+                />
               </div>
             </div>
+          </div>
+
+          {/* LCI Threshold override */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              LCI Threshold % (optional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="any"
+              value={form.lciThreshold}
+              onChange={(e) => set("lciThreshold", e.target.value)}
+              placeholder="Company default"
+              className={inputClass}
+              style={inputStyle}
+            />
+            <p className="text-[0.5625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              Per-project override for the Logistics Complexity Index threshold that routes procurement between central and direct.
+            </p>
           </div>
 
           {/* Actions */}

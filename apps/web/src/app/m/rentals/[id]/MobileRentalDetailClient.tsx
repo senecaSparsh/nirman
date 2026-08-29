@@ -7,10 +7,11 @@ import {
   Phone, Mail, KeyRound, Calendar, FileText,
   IndianRupee, Wallet, AlertCircle, Home, Maximize, Clock,
   CheckCircle2, Plus, Loader2, Banknote, User,
-  PlayCircle, XCircle as XIcon,
+  PlayCircle, XCircle as XIcon, Printer, ExternalLink,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
+import { MobileDocUploader } from "../../MobileDocUploader";
 
 /* ─── Types ─── */
 
@@ -47,7 +48,15 @@ interface TenancyData {
   monthlyRent: number;
   securityDeposit: number;
   rentAgreementNo: string | null;
+  rentAgreementDocumentUrl: string | null;
+  rentAgreementDocumentName: string | null;
   notes: string | null;
+  rentFreeDays: number;
+  sacCode: string | null;
+  escalationPercent: number | null;
+  escalationIntervalMonths: number;
+  draftNotes: string | null;
+  draftDate: string | null;
   totalReceived: number;
   totalExpectedRent: number;
   overdueAmount: number;
@@ -166,6 +175,27 @@ export function MobileRentalDetailClient({
       toast.success("Tenancy terminated");
       router.refresh();
       setShowAction(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const uploadAgreement = async (documentUrl: string, documentName: string) => {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/tenancies/${data.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "uploadAgreement", documentUrl, documentName }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to upload agreement");
+      }
+      toast.success("Rent agreement uploaded");
+      router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -303,6 +333,15 @@ export function MobileRentalDetailClient({
           {data.rentAgreementNo ? (
             <Field icon={<FileText className="size-2.5" />} label="Agreement No" value={data.rentAgreementNo} mono />
           ) : null}
+          {data.rentFreeDays > 0 ? (
+            <Field icon={<Clock className="size-2.5" />} label="Rent-free" value={`${data.rentFreeDays} days`} />
+          ) : null}
+          {data.escalationPercent != null ? (
+            <Field icon={<Calendar className="size-2.5" />} label="Escalation" value={`${data.escalationPercent}% / ${data.escalationIntervalMonths}mo`} />
+          ) : null}
+          {data.sacCode ? (
+            <Field icon={<FileText className="size-2.5" />} label="SAC Code" value={data.sacCode} mono />
+          ) : null}
           <Field
             icon={<Clock className="size-2.5" />}
             label="Lease Duration"
@@ -332,6 +371,69 @@ export function MobileRentalDetailClient({
             </p>
           </div>
         ) : null}
+        {/* Draft / LOI info */}
+        {data.draftNotes ? (
+          <div className="px-3 pb-3">
+            <p className="text-[0.375rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+              Draft / LOI {data.draftDate ? `· ${formatDate(data.draftDate)}` : ""}
+            </p>
+            <p className="text-[0.625rem] whitespace-pre-wrap" style={{ color: "var(--color-ink-700)" }}>
+              {data.draftNotes}
+            </p>
+          </div>
+        ) : null}
+        {/* Print Draft / LOI */}
+        <div className="px-3 pb-3">
+          <a
+            href={`/print/tenancy-draft/${data.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[0.5625rem] font-semibold"
+            style={{ color: "var(--color-brand)" }}
+          >
+            <Printer className="size-3" /> Print Draft / LOI
+          </a>
+        </div>
+
+        {/* Rent Agreement Document */}
+        <div className="px-3 pb-3" style={{ borderTop: "1px solid var(--color-line)" }}>
+          <div className="flex items-center justify-between pt-2 mb-1">
+            <p className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Rent Agreement
+            </p>
+            {data.rentAgreementDocumentUrl ? (
+              <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-go)" }}>
+                Uploaded
+              </span>
+            ) : (
+              <span className="text-[0.4375rem] font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>
+                Not uploaded
+              </span>
+            )}
+          </div>
+          {data.rentAgreementDocumentUrl ? (
+            <a
+              href={data.rentAgreementDocumentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[0.5rem] press"
+              style={{ color: "var(--color-ink-600)" }}
+            >
+              <ExternalLink className="size-2.5" />
+              <span className="truncate">{data.rentAgreementDocumentName || "View agreement"}</span>
+            </a>
+          ) : null}
+          {canManage && data.status !== "TERMINATED" ? (
+            <div className="mt-1.5">
+              <MobileDocUploader
+                url={data.rentAgreementDocumentUrl ?? ""}
+                fileName={data.rentAgreementDocumentName}
+                label={data.rentAgreementDocumentUrl ? "Replace Agreement" : "Upload Agreement"}
+                onUpload={(url, name) => uploadAgreement(url, name)}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* ── Tenant contact ── */}
@@ -500,6 +602,10 @@ function PaymentSheet({
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState("BANK");
   const [reference, setReference] = useState("");
+  const [tdsAmount, setTdsAmount] = useState("");
+  const [tdsCert, setTdsCert] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
@@ -519,6 +625,10 @@ function PaymentSheet({
           dueDate,
           mode,
           reference: reference || undefined,
+          tdsAmount: tdsAmount ? Number(tdsAmount) : undefined,
+          tdsCertificateNo: tdsCert || undefined,
+          periodStart: periodStart || undefined,
+          periodEnd: periodEnd || undefined,
         }),
       });
       if (!res.ok) {
@@ -624,6 +734,64 @@ function PaymentSheet({
               className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.625rem] outline-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
+          </div>
+
+          {/* TDS */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                TDS Deducted (₹)
+              </label>
+              <input
+                type="text" inputMode="decimal"
+                value={tdsAmount}
+                onChange={(e) => setTdsAmount(e.target.value)}
+                placeholder="0"
+                className="w-full h-9 rounded-[0.5rem] border px-2 text-[0.625rem] tabular-nums outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                TDS Cert. No.
+              </label>
+              <input
+                type="text"
+                value={tdsCert}
+                onChange={(e) => setTdsCert(e.target.value)}
+                placeholder="Form 16C"
+                className="w-full h-9 rounded-[0.5rem] border px-2 text-[0.625rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </div>
+
+          {/* Rent period */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Period Start
+              </label>
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                className="w-full h-9 rounded-[0.5rem] border px-2 text-[0.625rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <div>
+              <label className="text-[0.4375rem] font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Period End
+              </label>
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                className="w-full h-9 rounded-[0.5rem] border px-2 text-[0.625rem] outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              />
+            </div>
           </div>
 
           {/* Actions */}

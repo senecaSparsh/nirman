@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Save, CheckCircle2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 interface CompanyData {
   id: string;
@@ -94,24 +95,7 @@ export function MobileCompanyEditClient({
   }
 
   if (!canManage) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <div
-          className="rounded-[0.625rem] border p-4 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Building2 className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.75rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-            No permission
-          </p>
-          <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
-            Only owners and admins can edit company details.
-          </p>
-        </div>
-      </div>
-    );
+    return <MobileNoAccess what="company details editing" />;
   }
 
   if (saved) {

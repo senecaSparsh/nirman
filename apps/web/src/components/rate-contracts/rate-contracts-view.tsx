@@ -232,7 +232,7 @@ function RateContractDialog({
 
   useEffect(() => {
     fetch("/api/suppliers").then((r) => r.json()).then((d) => setSuppliers(d.suppliers ?? d ?? [])).catch(() => {});
-    fetch("/api/materials").then((r) => r.json()).then((d) => setMaterials(d.materials ?? d ?? [])).catch(() => {});
+    fetch("/api/materials").then((r) => r.json()).then((d) => setMaterials(d.rows ?? d.materials ?? d ?? [])).catch(() => {});
   }, []);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {

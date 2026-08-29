@@ -35,7 +35,7 @@ async function SupplierDetailContent({ params }: { params: Promise<{ id: string 
   });
   if (!supplier) notFound();
 
-  const [purchaseOrders, rateContracts, supplierReturns, recentGRNs] = await Promise.all([
+  const [purchaseOrders, rateContracts, supplierReturns, recentGRNs, invoices, payments] = await Promise.all([
     // All POs for this supplier (company-scoped)
     prisma.purchaseOrder.findMany({
       where: { supplierId: id, companyId: company.id },
@@ -70,6 +70,23 @@ async function SupplierDetailContent({ params }: { params: Promise<{ id: string 
         purchaseOrder: { select: { poNumber: true } },
         lines: { select: { qtyReceived: true, material: { select: { name: true } } } },
       },
+    }),
+
+    // Supplier invoices
+    prisma.supplierInvoice.findMany({
+      where: { supplierId: id, companyId: company.id },
+      orderBy: { invoiceDate: "desc" },
+      take: 20,
+      include: {
+        payments: { select: { amount: true, tdsAmount: true, netPaidAmount: true } },
+      },
+    }),
+
+    // Supplier payments
+    prisma.supplierPayment.findMany({
+      where: { supplierId: id, companyId: company.id },
+      orderBy: { paymentDate: "desc" },
+      take: 20,
     }),
   ]);
 
@@ -147,6 +164,30 @@ async function SupplierDetailContent({ params }: { params: Promise<{ id: string 
       poNumber: gr.purchaseOrder.poNumber,
       date: gr.createdAt.toISOString(),
       lineCount: gr.lines.length,
+    })),
+    invoices: invoices.map((inv) => {
+      const totalPaid = inv.payments.reduce((s, p) => s + toNum(p.amount), 0);
+      return {
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        invoiceDate: inv.invoiceDate.toISOString(),
+        dueDate: inv.dueDate?.toISOString() ?? null,
+        status: inv.status,
+        matchStatus: inv.matchStatus,
+        totalAmount: toNum(inv.totalAmount),
+        totalPaid,
+        balanceDue: toNum(inv.totalAmount) - totalPaid,
+      };
+    }),
+    payments: payments.map((p) => ({
+      id: p.id,
+      paymentNumber: p.paymentNumber,
+      paymentDate: p.paymentDate.toISOString(),
+      paymentMode: p.paymentMode,
+      amount: toNum(p.amount),
+      tdsAmount: toNum(p.tdsAmount),
+      netPaid: toNum(p.netPaidAmount),
+      referenceNo: p.referenceNo,
     })),
     topMaterials,
   };

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Send, Check, X, Ban, Play, Trash2 } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface ChangeOrderDetail {
@@ -78,6 +79,7 @@ export function MobileChangeOrderDetailClient({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -310,7 +312,8 @@ export function MobileChangeOrderDetailClient({
           {(co.status === "DRAFT" || co.status === "REJECTED" || co.status === "CANCELLED") && (
             <ActionButton
               onClick={async () => {
-                if (!confirm("Delete this change order? This cannot be undone.")) return;
+                const ok = await confirm({ title: "Delete?", description: "Delete this change order? This cannot be undone.", confirmLabel: "Delete", variant: "destructive" });
+                if (!ok) return;
                 await doAction("delete");
                 router.push("/m/change-orders");
               }}
@@ -383,6 +386,7 @@ export function MobileChangeOrderDetailClient({
           </div>
         </BottomSheet>
       )}
+      {confirmDialog}
     </div>
   );
 }

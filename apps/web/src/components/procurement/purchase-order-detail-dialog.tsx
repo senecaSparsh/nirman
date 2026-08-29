@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
+import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
@@ -37,7 +38,7 @@ export function PurchaseOrderDetailDialog({
   const [loading, setLoading] = useState(false);
   const [recvOpen, setRecvOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
-  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
+  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
@@ -62,6 +63,36 @@ export function PurchaseOrderDetailDialog({
       trackRecent({ type: "po", id: po.id, label: po.poNumber, href: `/procurement/${po.id}` });
     }
   }, [open, po, trackRecent]);
+
+  // ── Single-key action mnemonics (Linear-style) ────────────────
+  // A = Approve, O = Mark as Ordered, R = Receive Goods, P = Print
+  // Only fires when the dialog is open, detail is loaded, and the
+  // user is not typing in an input/textarea/select.
+  useEffect(() => {
+    if (!open || !detail) return;
+    const d = detail;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "a" && d.status === "DRAFT" && canApprove && !showApproveField) {
+        e.preventDefault();
+        setShowApproveField(true);
+      } else if (key === "o" && d.status === "APPROVED" && !acting) {
+        e.preventDefault();
+        doAction("order");
+      } else if (key === "r" && (d.status === "ORDERED" || d.status === "PARTIAL")) {
+        e.preventDefault();
+        setRecvOpen(true);
+      } else if (key === "p") {
+        e.preventDefault();
+        window.open(`/print/purchase-order/${d.id}`, "_blank");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, detail, canApprove, showApproveField, acting]);
 
   async function doAction(action: "approve" | "order" | "cancel") {
     if (!po) return;
@@ -104,6 +135,32 @@ export function PurchaseOrderDetailDialog({
 
   if (!po) return null;
 
+  // ── Pipeline position: Indent → Quote → PO → GRN → Issue ──────
+  // The PO is the current step. Indent/Quote are done if the PO was
+  // converted from a requisition (which requires quotes). GRN is done
+  // if any receipt exists. Issue is downstream — not tracked here.
+  const pipelineSteps: PipelineStep[] = detail
+    ? [
+        {
+          label: "Indent",
+          state: detail.sourceRequisition ? "done" : "skipped",
+          href: detail.sourceRequisition
+            ? `/requisitions?req=${detail.sourceRequisition.id}`
+            : undefined,
+        },
+        {
+          label: "Quote",
+          state: detail.sourceRequisition ? "done" : "skipped",
+        },
+        { label: "PO", state: "current" },
+        {
+          label: "GRN",
+          state: detail.receipts.length > 0 ? "done" : "pending",
+        },
+        { label: "Issue", state: "pending" },
+      ]
+    : [];
+
   return (
     <>
       <Dialog
@@ -125,6 +182,11 @@ export function PurchaseOrderDetailDialog({
                 Destination: {detail.destinationLocation.name}
               </span>
             </div>
+
+            {/* Pipeline position — where this PO sits in the flow */}
+            {pipelineSteps.length > 0 && (
+              <PipelineStepper steps={pipelineSteps} />
+            )}
 
             {/* Source links — traceability to requisition + project */}
             <div className="flex flex-wrap items-center gap-3 text-meta">
@@ -150,21 +212,43 @@ export function PurchaseOrderDetailDialog({
               )}
             </div>
 
+            {/* Approval / rejection audit trail */}
+            {detail.approvedAt && (
+              <div className="rounded-md border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 p-3 text-meta">
+                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+                  <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName ?? "Unknown"} on {formatDate(detail.approvedAt)}
+                </div>
+                {detail.approvalNotes && (
+                  <div className="mt-1 text-muted-foreground">Notes: {detail.approvalNotes}</div>
+                )}
+              </div>
+            )}
+            {detail.rejectedAt && (
+              <div className="rounded-md border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-3 text-meta">
+                <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400 font-medium">
+                  <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName ?? "Unknown"} on {formatDate(detail.rejectedAt)}
+                </div>
+                {detail.rejectionReason && (
+                  <div className="mt-1 text-muted-foreground">Reason: {detail.rejectionReason}</div>
+                )}
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
               {detail.status === "DRAFT" && canApprove && !showApproveField && (
                 <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
-                  <Check className="h-4 w-4" /> Approve
+                  <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                 </Button>
               )}
               {detail.status === "APPROVED" && (
                 <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
-                  <ArrowRight className="h-4 w-4" /> Mark as Ordered
+                  <ArrowRight className="h-4 w-4" /> Mark as Ordered <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">O</kbd>
                 </Button>
               )}
               {(detail.status === "ORDERED" || detail.status === "PARTIAL") && (
                 <Button size="sm" onClick={() => setRecvOpen(true)}>
-                  <Package className="h-4 w-4" /> Receive Goods
+                  <Package className="h-4 w-4" /> Receive Goods <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
                 </Button>
               )}
               {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
@@ -265,6 +349,8 @@ export function PurchaseOrderDetailDialog({
                         <TH>Date</TH>
                         <TH>Inspection</TH>
                         <TH>Lines</TH>
+                        <TH>Delivery</TH>
+                        <TH>Docs</TH>
                         <TH>Notes</TH>
                         <TH className="w-16">Challan</TH>
                       </TR>
@@ -275,8 +361,34 @@ export function PurchaseOrderDetailDialog({
                           <TD>{formatDate(r.receiptDate)}</TD>
                           <TD>
                             <StatusPill status={r.inspectionStatus} />
+                            {r.inspectionNotes && (
+                              <p className="mt-0.5 max-w-[160px] truncate text-micro text-muted-foreground" title={r.inspectionNotes}>
+                                {r.inspectionNotes}
+                              </p>
+                            )}
                           </TD>
                           <TD className="tnum">{r.lineCount}</TD>
+                          <TD className="text-caption text-muted-foreground">
+                            {r.deliveryMode || r.vehicleNumber || r.driverName ? (
+                              <div className="space-y-0.5">
+                                {r.deliveryMode && <div className="text-micro">{r.deliveryMode.replaceAll("_", " ").toLowerCase()}</div>}
+                                {r.vehicleNumber && <div className="font-mono text-micro">{r.vehicleNumber}</div>}
+                                {r.driverName && <div className="text-micro">{r.driverName}</div>}
+                                {r.transporterName && <div className="text-micro text-muted-foreground/70">{r.transporterName}</div>}
+                              </div>
+                            ) : "—"}
+                          </TD>
+                          <TD className="text-caption text-muted-foreground">
+                            {(r.challanNumber || r.invoiceNumber || r.ewayBillNumber || r.lrNumber || r.packageCount != null) ? (
+                              <div className="space-y-0.5">
+                                {r.challanNumber && <div className="text-micro">Challan: <span className="font-mono">{r.challanNumber}</span></div>}
+                                {r.invoiceNumber && <div className="text-micro">Invoice: <span className="font-mono">{r.invoiceNumber}</span></div>}
+                                {r.ewayBillNumber && <div className="text-micro">E-Way: <span className="font-mono">{r.ewayBillNumber}</span></div>}
+                                {r.lrNumber && <div className="text-micro">LR: <span className="font-mono">{r.lrNumber}</span></div>}
+                                {r.packageCount != null && <div className="text-micro">{r.packageCount} pkg</div>}
+                              </div>
+                            ) : "—"}
+                          </TD>
                           <TD className="max-w-[200px] truncate text-muted-foreground">{r.notes ?? "—"}</TD>
                           <TD>
                             <a
@@ -315,6 +427,8 @@ export function PurchaseOrderDetailDialog({
                         <TH>Mode</TH>
                         <TH>Reference</TH>
                         <TH className="text-right">Amount</TH>
+                        <TH className="text-right">TDS</TH>
+                        <TH className="text-right">Net Paid</TH>
                       </TR>
                     </THead>
                     <TBody>
@@ -327,6 +441,10 @@ export function PurchaseOrderDetailDialog({
                           <TD><Badge variant="outline">{p.paymentMode}</Badge></TD>
                           <TD className="text-muted-foreground">{p.referenceNo ?? "—"}</TD>
                           <TD className="tnum text-right font-medium">{formatCurrency(p.amount)}</TD>
+                          <TD className="tnum text-right text-muted-foreground">
+                            {p.tdsAmount > 0 ? `${formatCurrency(p.tdsAmount)}${p.tdsSection ? ` (${p.tdsSection})` : ""}` : "—"}
+                          </TD>
+                          <TD className="tnum text-right font-medium">{formatCurrency(p.netPaidAmount)}</TD>
                         </TR>
                       ))}
                     </TBody>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Wrench, MapPin, Calendar, Settings, IndianRupee,
@@ -271,7 +272,13 @@ export function MobileEquipmentDetailClient({
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
                 <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-                  {equipment.activeAssignment.projectName ?? equipment.activeAssignment.locationName}
+                  {equipment.activeAssignment.projectId ? (
+                    <Link href={`/m/projects/${equipment.activeAssignment.projectId}`} className="underline underline-offset-2 press">
+                      {equipment.activeAssignment.projectName ?? equipment.activeAssignment.locationName}
+                    </Link>
+                  ) : (
+                    equipment.activeAssignment.projectName ?? equipment.activeAssignment.locationName
+                  )}
                 </p>
                 <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
                   {equipment.activeAssignment.locationName} · since {formatDate(equipment.activeAssignment.assignedAt)}

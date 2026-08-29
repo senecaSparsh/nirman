@@ -1,4 +1,5 @@
-import { Suspense } from "react";
+import { Suspense, type ComponentType, type CSSProperties } from "react";
+import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
@@ -106,6 +107,16 @@ async function MobileProjectControlContent({
     <div>
       <MobileProjectControlSelector projects={projects} selectedId={projectId} />
 
+      {/* Link to detail page */}
+      <Link
+        href={`/m/project-control/${projectId}`}
+        className="rounded-[0.5rem] border p-2.5 press flex items-center justify-between mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
+        <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>→</p>
+      </Link>
+
       {/* % Complete Hero */}
       <div
         className="rounded-[0.875rem] border p-4 mb-3 text-center"
@@ -176,7 +187,7 @@ async function MobileProjectControlContent({
   );
 }
 
-function EvmCard({ label, sublabel, value, icon: Icon, tone }: { label: string; sublabel: string; value: string; icon: any; tone?: string }) {
+function EvmCard({ label, sublabel, value, icon: Icon, tone }: { label: string; sublabel: string; value: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tone?: string }) {
   const color = tone === "go" ? "var(--color-go)" : tone === "signal" ? "var(--color-signal)" : "var(--color-ink-950)";
   return (
     <div
@@ -195,7 +206,7 @@ function EvmCard({ label, sublabel, value, icon: Icon, tone }: { label: string; 
   );
 }
 
-function VarianceCard({ label, value, sublabel, color, icon: Icon }: { label: string; value: string; sublabel: string; color: string; icon: any }) {
+function VarianceCard({ label, value, sublabel, color, icon: Icon }: { label: string; value: string; sublabel: string; color: string; icon: ComponentType<{ className?: string; style?: CSSProperties }> }) {
   return (
     <div
       className="rounded-[0.625rem] border p-2.5"

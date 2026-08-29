@@ -10,23 +10,27 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get("categoryId");
   const q = searchParams.get("q")?.trim();
+  const limit = Math.min(Number(searchParams.get("limit") ?? 200), 500);
 
   // Material is a global catalog entity (no companyId); stock is scoped per
   // company via the stockItems relation → StockLocation.companyId.
+  const where = {
+    deletedAt: null,
+    ...(categoryId ? { categoryId } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { code: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  // Fetch one extra row to detect truncation without a separate count query.
   const materials = await prisma.material.findMany({
-    take: 200,
-    where: {
-      deletedAt: null,
-      ...(categoryId ? { categoryId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { code: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    },
+    take: limit + 1,
+    where,
     orderBy: { name: "asc" },
     include: {
       category: { select: { id: true, name: true, unit: true } },
@@ -37,7 +41,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
   });
 
-  const rows = materials.map((m) => {
+  const hasMore = materials.length > limit;
+  const page = hasMore ? materials.slice(0, limit) : materials;
+
+  const rows = page.map((m) => {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
     const totalValue = m.stockItems.reduce(
       (s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost),
@@ -48,6 +55,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       id: m.id,
       code: m.code,
       name: m.name,
+      grade: m.grade,
+      specification: m.specification,
       categoryId: m.categoryId,
       categoryName: m.category.name,
       unit: m.unit,
@@ -60,6 +69,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
       volumetricDensity: m.volumetricDensity == null ? null : toNum(m.volumetricDensity),
       bulkDiscountPct: m.bulkDiscountPct == null ? null : toNum(m.bulkDiscountPct),
       isCorporateCommodity: m.isCorporateCommodity ?? false,
+      isLotTracked: m.isLotTracked ?? false,
+      isScrap: m.isScrap ?? false,
+      baseUnit: m.baseUnit,
+      secondaryUnit: m.secondaryUnit,
+      uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
       description: m.description,
       version: m.version,
       totalQty,
@@ -68,7 +82,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     };
   });
 
-  return json(rows);
+  return json({ rows, hasMore, count: rows.length });
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

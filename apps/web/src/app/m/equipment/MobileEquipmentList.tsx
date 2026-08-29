@@ -7,14 +7,21 @@ import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
-import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import {
+  MobileExportShareIcons,
+  type MobileColumnSpec,
+} from "@/components/mobile/v2/export-share-bar";
 
-type EquipmentFilter = "ALL" | "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
+type EquipmentFilter =
+  | "ALL"
+  | "AVAILABLE"
+  | "ASSIGNED"
+  | "IN_MAINTENANCE"
+  | "RETIRED";
 
 export type EquipmentItem = {
   id: string;
@@ -53,7 +60,14 @@ export function MobileEquipmentList({
   exportSummary,
 }: {
   items: EquipmentItem[];
-  counts: { total: number; available: number; assigned: number; inMaintenance: number; retired: number; totalValue: number };
+  counts: {
+    total: number;
+    available: number;
+    assigned: number;
+    inMaintenance: number;
+    retired: number;
+    totalValue: number;
+  };
   canCreate: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
@@ -77,7 +91,12 @@ export function MobileEquipmentList({
       );
     }
     // Smart sort: AVAILABLE > ASSIGNED > IN_MAINTENANCE > RETIRED, then by name
-    const statusOrder: Record<string, number> = { AVAILABLE: 0, ASSIGNED: 1, IN_MAINTENANCE: 2, RETIRED: 3 };
+    const statusOrder: Record<string, number> = {
+      AVAILABLE: 0,
+      ASSIGNED: 1,
+      IN_MAINTENANCE: 2,
+      RETIRED: 3,
+    };
     return [...result].sort((a, b) => {
       const so = (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4);
       if (so !== 0) return so;
@@ -92,8 +111,16 @@ export function MobileEquipmentList({
         stats={[
           { label: "Available", value: String(counts.available), tone: "go" },
           { label: "In Use", value: String(counts.assigned), tone: "default" },
-          { label: "Maint.", value: String(counts.inMaintenance), tone: "signal" },
-          { label: "Value", value: formatCurrencyCompact(counts.totalValue), tone: "default" },
+          {
+            label: "Maint.",
+            value: String(counts.inMaintenance),
+            tone: "signal",
+          },
+          {
+            label: "Value",
+            value: formatCurrencyCompact(counts.totalValue),
+            tone: "default",
+          },
         ]}
       />
 
@@ -118,27 +145,44 @@ export function MobileEquipmentList({
                 summary={exportSummary}
               />
             ) : null}
-            {canCreate && <MobileHeaderAction href="/m/equipment/new">New</MobileHeaderAction>}
           </div>
         }
         showClear={filter !== "ALL" || query !== ""}
-        onClear={() => { setQuery(""); setFilter("ALL"); }}
+        onClear={() => {
+          setQuery("");
+          setFilter("ALL");
+        }}
       />
 
       {/* ── Equipment cards grid ── */}
       {filtered.length === 0 ? (
-        (query || filter !== "ALL") ? (
-          <MobileNoResults title="No matching equipment" hint="Try a different search or filter" />
+        query || filter !== "ALL" ? (
+          <MobileNoResults
+            title="No matching equipment"
+            hint="Try a different search or filter"
+          />
         ) : (
           <div
             className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper-2)",
+            }}
           >
-            <Wrench className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            <Wrench
+              className="size-6 mb-2"
+              style={{ color: "var(--color-ink-300)" }}
+            />
+            <p
+              className="text-[0.75rem] font-semibold"
+              style={{ color: "var(--color-ink-700)" }}
+            >
               No equipment
             </p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p
+              className="text-[0.625rem]"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Add equipment to track assets
             </p>
           </div>
@@ -170,8 +214,20 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
         ? "var(--color-steel)"
         : "var(--color-go)";
 
-  const StatusIcon = isAvailable ? CheckCircle2 : isAssigned ? MapPin : isMaintenance ? Settings : Archive;
-  const statusLabel = isAvailable ? "Available" : isAssigned ? "Assigned" : isMaintenance ? "Maintenance" : "Retired";
+  const StatusIcon = isAvailable
+    ? CheckCircle2
+    : isAssigned
+      ? MapPin
+      : isMaintenance
+        ? Settings
+        : Archive;
+  const statusLabel = isAvailable
+    ? "Available"
+    : isAssigned
+      ? "Assigned"
+      : isMaintenance
+        ? "Maintenance"
+        : "Retired";
 
   return (
     <Link
@@ -196,18 +252,27 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
             <StatusIcon className="size-2.5" />
             {statusLabel}
           </span>
-          <span className="text-[0.4375rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+          <span
+            className="text-[0.4375rem] font-mono"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             {e.assetTag}
           </span>
         </div>
 
         {/* Row 2: Equipment name */}
-        <p className="text-[0.5625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p
+          className="text-[0.5625rem] font-bold leading-tight truncate"
+          style={{ color: "var(--color-ink-950)" }}
+        >
           {e.name}
         </p>
 
         {/* Row 3: Category or model */}
-        <span className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+        <span
+          className="text-[0.5rem] truncate"
+          style={{ color: "var(--color-ink-500)" }}
+        >
           {e.category ?? "Uncategorized"}
         </span>
 
@@ -215,17 +280,29 @@ function EquipmentCard({ e }: { e: EquipmentItem }) {
         <div className="mt-auto pt-1 h-[1.625rem] flex flex-col justify-end">
           {isAssigned && e.assignedProjectName ? (
             <div className="flex items-center gap-0.5">
-              <MapPin className="size-2 shrink-0" style={{ color: "var(--color-steel)" }} />
-              <span className="text-[0.4375rem] font-semibold truncate" style={{ color: "var(--color-steel)" }}>
+              <MapPin
+                className="size-2 shrink-0"
+                style={{ color: "var(--color-steel)" }}
+              />
+              <span
+                className="text-[0.4375rem] font-semibold truncate"
+                style={{ color: "var(--color-steel)" }}
+              >
                 {e.assignedProjectName}
               </span>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              <span
+                className="text-[0.4375rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 Value
               </span>
-              <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <span
+                className="text-[0.5625rem] font-bold tabular-nums"
+                style={{ color: "var(--color-ink-950)" }}
+              >
                 {formatCurrencyCompact(e.currentValue)}
               </span>
             </div>

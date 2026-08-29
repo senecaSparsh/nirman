@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type ProjectType, type ProjectStatus } from "@nirman/db";
 import { apiHandler, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -16,8 +16,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       deletedAt: null,
-      ...(type ? { type: type as any } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(type ? { type: type as ProjectType } : {}),
+      ...(status ? { status: status as ProjectStatus } : {}),
       ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
     },
     orderBy: { createdAt: "desc" },

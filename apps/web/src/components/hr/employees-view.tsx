@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -33,6 +33,9 @@ export type EmployeeRow = {
   activeProjectId: string | null;
   activeProjectName: string | null;
   active: boolean;
+  hierarchyLevel: number | null;
+  reportingLocationId: string | null;
+  reportingLocationName: string | null;
 };
 
 const WAGE_TYPES = ["DAILY", "MONTHLY", "FIXED"] as const;
@@ -143,6 +146,19 @@ const employeeColumns: Column<EmployeeRow>[] = [
     exportValue: (e) => e.activeProjectName ?? "",
   },
   {
+    key: "reportingLocationName",
+    label: "Reporting Loc.",
+    sortable: true,
+    filterable: true,
+    render: (e) => e.reportingLocationName ? (
+      <span className="flex items-center gap-1 text-body text-foreground">
+        <MapPin className="h-3 w-3 text-muted-foreground" /> {e.reportingLocationName}
+      </span>
+    ) : <span className="text-muted-foreground">—</span>,
+    filterValue: (e) => e.reportingLocationName ?? "—",
+    exportValue: (e) => e.reportingLocationName ?? "",
+  },
+  {
     key: "active",
     label: "Status",
     sortable: true,
@@ -151,6 +167,30 @@ const employeeColumns: Column<EmployeeRow>[] = [
     render: (e) => <StatusPill status={e.active ? "ACTIVE" : "INACTIVE"} />,
     filterValue: (e) => (e.active ? "ACTIVE" : "INACTIVE"),
     exportValue: (e) => (e.active ? "ACTIVE" : "INACTIVE"),
+  },
+  {
+    key: "hierarchyLevel",
+    label: "Hierarchy",
+    sortable: true,
+    filterable: true,
+    sortValue: (e) => e.hierarchyLevel ?? 99,
+    render: (e) => {
+      if (e.hierarchyLevel == null) return <span className="text-muted-foreground">—</span>;
+      const labels = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
+      const label = labels[e.hierarchyLevel - 1] ?? `Level ${e.hierarchyLevel}`;
+      return (
+        <span className={cn(
+          "rounded px-1.5 py-0.5 text-micro font-medium",
+          e.hierarchyLevel <= 2 && "bg-brand/10 text-brand",
+          e.hierarchyLevel >= 3 && e.hierarchyLevel <= 4 && "bg-info/10 text-info",
+          e.hierarchyLevel >= 5 && "bg-muted text-muted-foreground",
+        )}>
+          H{e.hierarchyLevel} · {label}
+        </span>
+      );
+    },
+    filterValue: (e) => e.hierarchyLevel != null ? `H${e.hierarchyLevel}` : "—",
+    exportValue: (e) => e.hierarchyLevel != null ? `H${e.hierarchyLevel}` : "",
   },
 ];
 
@@ -197,6 +237,7 @@ export function EmployeesView({
   crewRows,
   crewEmployees,
   projects,
+  locations,
   permissions,
 }: {
   employees: EmployeeRow[];
@@ -204,6 +245,7 @@ export function EmployeesView({
   crewRows: CrewRow[];
   crewEmployees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
+  locations?: { id: string; name: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canManage?: boolean };
 }) {
   const router = useRouter();
@@ -322,6 +364,7 @@ export function EmployeesView({
           employee={editTarget}
           crews={crews}
           projects={projects}
+          locations={locations ?? []}
           onClose={() => setFormOpen(false)}
           onSaved={() => { setFormOpen(false); router.refresh(); }}
         />
@@ -346,12 +389,14 @@ function EmployeeFormDialog({
   employee,
   crews,
   projects,
+  locations,
   onClose,
   onSaved,
 }: {
   employee: EmployeeRow | null;
   crews: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  locations: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -370,6 +415,8 @@ function EmployeeFormDialog({
     activeProjectId: employee?.activeProjectId ?? "",
     joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : new Date().toISOString().slice(0, 10),
     active: employee?.active ?? true,
+    hierarchyLevel: employee?.hierarchyLevel?.toString() ?? "",
+    reportingLocationId: employee?.reportingLocationId ?? "",
   });
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
@@ -391,6 +438,8 @@ function EmployeeFormDialog({
       activeProjectId: form.activeProjectId || null,
       joinDate: form.joinDate || null,
       active: form.active,
+      hierarchyLevel: form.hierarchyLevel ? Number(form.hierarchyLevel) : null,
+      reportingLocationId: form.reportingLocationId || null,
     };
     try {
       const res = isEdit
@@ -429,6 +478,18 @@ function EmployeeFormDialog({
             <div>
               <Label>Designation</Label>
               <Input value={form.designation} onChange={(e) => set("designation", e.target.value)} placeholder="Site Engineer…" />
+            </div>
+            <div className="col-span-2">
+              <Label>Hierarchy Level</Label>
+              <Select value={form.hierarchyLevel} onChange={(e) => set("hierarchyLevel", e.target.value)}>
+                <option value="">Unassigned</option>
+                <option value="1">H1 — Management</option>
+                <option value="2">H2 — Manager</option>
+                <option value="3">H3 — Engineer</option>
+                <option value="4">H4 — Supervisor</option>
+                <option value="5">H5 — Skilled Labor</option>
+                <option value="6">H6 — Labor</option>
+              </Select>
             </div>
           </div>
         </div>
@@ -500,6 +561,13 @@ function EmployeeFormDialog({
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </div>
+          </div>
+          <div>
+            <Label>Reporting Location (GPS Attendance)</Label>
+            <Select value={form.reportingLocationId} onChange={(e) => set("reportingLocationId", e.target.value)}>
+              <option value="">None — manual attendance</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
           </div>
         </div>
 

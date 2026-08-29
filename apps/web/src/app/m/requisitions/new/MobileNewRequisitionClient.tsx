@@ -7,12 +7,15 @@ import {
   ShoppingCart, Plus, Trash2, Send, Loader2, ChevronLeft, WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 
 interface ProjectItem { id: string; name: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; }
@@ -53,9 +56,14 @@ const inputStyle = {
 export function MobileNewRequisitionClient({ data }: { data: FormData }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
+  const submitLongPress = useLongPressNav("/m/requisitions", "Indents list");
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<ReqDraft>("requisition", "requisition-new");
   const [draftRestored, setDraftRestored] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Smart defaults — pre-fill project from last-used (if no draft) ──
+  const { getDefault, recordDefaults } = useSmartDefaults("requisition");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   const [projectId, setProjectId] = useState(data.projects[0]?.id ?? "");
   const [neededByDate, setNeededByDate] = useState("");
@@ -65,6 +73,16 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
       ? [{ materialId: data.materials[0]!.id, qty: "", notes: "", preferredSupplierId: "" }]
       : [{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }],
   );
+
+  // Apply smart defaults on mount (if no draft to restore)
+  useEffect(() => {
+    if (hasDraft || draftRestored || defaultsApplied) return;
+    const defProject = getDefault("projectId");
+    if (defProject && data.projects.some((p) => p.id === defProject)) {
+      setProjectId(defProject);
+      setDefaultsApplied(true);
+    }
+  }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects]);
 
   function addLine() {
     const defaultMat = data.materials[0]?.id ?? "";
@@ -106,6 +124,9 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
     }
     setSubmitting(true);
     try {
+      // Record smart defaults for next time
+      recordDefaults({ projectId });
+
       const payload = {
         projectId,
         neededByDate: neededByDate || null,
@@ -139,8 +160,12 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
       toast.success(`Indent ${result.reqNumber ?? "created"} submitted`);
       clearDraft();
-      router.push("/m/requisitions");
-      router.refresh();
+      if (result.id) {
+        router.push(`/m/requisitions/${result.id}`);
+      } else {
+        router.push("/m/requisitions");
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error creating indent");
     } finally {
@@ -186,6 +211,9 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           onRestore={() => { restoreDraftState(); setDraftRestored(true); }}
           onDiscard={() => { clearDraft(); setDraftRestored(true); }}
         />
+      )}
+      {defaultsApplied && !hasDraft && (
+        <SmartDefaultsBadge onDismiss={() => setDefaultsApplied(false)} />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -352,23 +380,37 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           />
         </div>
 
-        {/* ── Submit ── */}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-        >
-          {submitting ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Send className="size-4" />
-              <span>Submit Indent</span>
-            </>
-          )}
-        </button>
+        {/* ── Submit (sticky bottom) ── */}
       </form>
+
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t backdrop-blur-sm"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          borderColor: "var(--color-line)",
+          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="max-w-[34rem] mx-auto px-3.5 py-2.5">
+          <button
+            type="button"
+            onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
+            disabled={submitting}
+            {...submitLongPress.longPressProps}
+            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-[0.8125rem] font-bold press transition-transform active:scale-95 disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="size-4" />
+                <span>Submit Indent</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

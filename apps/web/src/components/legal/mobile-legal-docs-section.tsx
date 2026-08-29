@@ -12,6 +12,7 @@ import {
   MobileSectionTitle, MobileEmptyState, MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import type { LegalDocRow, LegalDocType, LegalDocStatus } from "@/components/legal/legal-docs-section";
 import {
   LEGAL_DOC_FLOW, LEGAL_DOC_FLOW_MAP, STAGE_LABELS, STAGE_ORDER,
@@ -52,6 +53,7 @@ export function MobileLegalDocsSection({
   context: "LAND" | "PROJECT";
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [docs, setDocs] = useState(initialDocs);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<LegalDocRow | null>(null);
@@ -66,7 +68,8 @@ export function MobileLegalDocsSection({
   }, [router]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this legal document?")) return;
+    const ok = await confirm({ title: "Confirm?", description: "Delete this legal document?", confirmLabel: "Confirm", variant: "destructive" });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/legal-documents/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -262,6 +265,7 @@ export function MobileLegalDocsSection({
           onSaved={handleSaved}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -444,7 +448,7 @@ function MobileChecklistRow({
             </>
           ) : (
             <p className="text-[0.5625rem] italic" style={{ color: "var(--color-ink-400)" }}>
-              Tap "Yes" to record this permission.
+              Tap &quot;Yes&quot; to record this permission.
             </p>
           )}
         </div>

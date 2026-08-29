@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Trash2, Package, AlertTriangle, Tags, X, Upload } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Package, AlertTriangle, Tags, X, Upload, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { MaterialFormDialog } from "./material-form-dialog";
 import { CategoryFormDialog } from "./category-form-dialog";
 import { CsvImportDialog } from "./csv-import-dialog";
+import { LotTrackingDialog } from "./lot-tracking-dialog";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { MaterialCategory, MaterialRow, LowStockRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -23,11 +24,13 @@ export function MaterialsView({
   categories,
   lowStock,
   permissions,
+  suppliers,
 }: {
   materials: MaterialRow[];
   categories: MaterialCategory[];
   lowStock: LowStockRow[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canDelete?: boolean };
+  suppliers?: { id: string; name: string }[];
 }) {
   const [tab, setTab] = useTabParam(["catalog","low-stock","categories"] as const, "catalog");
   const canCreate = permissions?.canCreate ?? false;
@@ -61,7 +64,7 @@ export function MaterialsView({
         </TabsList>
 
         <TabsContent value="catalog">
-          <CatalogTab materials={materials} categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
+          <CatalogTab materials={materials} categories={categories} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} suppliers={suppliers} />
         </TabsContent>
         <TabsContent value="low-stock">
           <LowStockTab lowStock={lowStock} />
@@ -84,12 +87,14 @@ function CatalogTab({
   canCreate,
   canEdit,
   canDelete,
+  suppliers,
 }: {
   materials: MaterialRow[];
   categories: MaterialCategory[];
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  suppliers?: { id: string; name: string }[];
 }) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -97,6 +102,7 @@ function CatalogTab({
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialRow | null>(null);
   const [deleting, setDeleting] = useState<MaterialRow | null>(null);
+  const [lotTarget, setLotTarget] = useState<MaterialRow | null>(null);
   const [rows, setRows] = useState<MaterialRow[]>([]);
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -157,6 +163,22 @@ function CatalogTab({
         compute: (row) => (row.lowStock ? "Low" : "OK"),
         cellClassName: (row) => (row.lowStock ? "text-danger font-semibold" : "text-muted-foreground"),
       },
+      {
+        key: "isLotTracked",
+        label: "Lot",
+        type: "computed",
+        width: "50px",
+        compute: (row) => (row.isLotTracked ? "Lot" : "—"),
+        cellClassName: (row) => (row.isLotTracked ? "text-info font-medium" : "text-faint"),
+      },
+      {
+        key: "isScrap",
+        label: "Scrap",
+        type: "computed",
+        width: "50px",
+        compute: (row) => (row.isScrap ? "Scrap" : "—"),
+        cellClassName: (row) => (row.isScrap ? "text-warning font-medium" : "text-faint"),
+      },
     );
     return cols;
   }, [canEdit, categoryOptions, categoryFilter]);
@@ -178,6 +200,11 @@ function CatalogTab({
         volumetricDensity: m.volumetricDensity ?? null,
         bulkDiscountPct: m.bulkDiscountPct ?? null,
         isCorporateCommodity: m.isCorporateCommodity ?? false,
+        isLotTracked: m.isLotTracked ?? false,
+        isScrap: m.isScrap ?? false,
+        baseUnit: m.baseUnit ?? "NOS",
+        secondaryUnit: m.secondaryUnit ?? null,
+        uomConversionFactor: m.uomConversionFactor ?? null,
         description: m.description ?? null,
       };
       try {
@@ -226,6 +253,8 @@ function CatalogTab({
         id: `new-${Date.now()}`,
         code: "",
         name: "",
+        grade: null,
+        specification: null,
         categoryId: null,
         categoryName: null,
         unit: "NOS",
@@ -238,6 +267,11 @@ function CatalogTab({
         volumetricDensity: null,
         bulkDiscountPct: null,
         isCorporateCommodity: false,
+        isLotTracked: false,
+        isScrap: false,
+        baseUnit: "NOS",
+        secondaryUnit: null,
+        uomConversionFactor: null,
         description: null,
         totalQty: 0,
         totalValue: 0,
@@ -263,6 +297,13 @@ function CatalogTab({
     className?: string;
     show?: (row: MaterialRow) => boolean;
   }[] = [];
+  // Lots button — shows for lot-tracked materials (and any material with existing lots)
+  gridActions.push({
+    icon: <Layers className="h-3.5 w-3.5" />,
+    title: "View lots",
+    onClick: (r) => setLotTarget(r),
+    show: (r) => !r.id.startsWith("new-") && (r.isLotTracked || false),
+  });
   if (canEdit) {
     gridActions.push({
       icon: <Pencil className="h-3.5 w-3.5" />,
@@ -373,6 +414,13 @@ function CatalogTab({
         onOpenChange={setFormOpen}
         categories={categories}
         material={editing}
+      />
+
+      <LotTrackingDialog
+        open={!!lotTarget}
+        onOpenChange={(o) => { if (!o) setLotTarget(null); }}
+        material={lotTarget}
+        suppliers={suppliers ?? []}
       />
       <CsvImportDialog
         open={importOpen}
@@ -527,6 +575,31 @@ function CategoriesTab({ categories, canCreate, canEdit, canDelete }: { categori
                 label: "Category",
                 sortable: true,
                 render: (c) => <span className="font-medium text-foreground">{c.name}</span>,
+              },
+              {
+                key: "class",
+                label: "Class",
+                sortable: true,
+                render: (c) => {
+                  const cls = c.class ?? "RAW_MATERIAL";
+                  const colors: Record<string, string> = {
+                    RAW_MATERIAL: "bg-blue-10 text-blue",
+                    CONSUMABLE: "bg-amber-10 text-amber",
+                    MRO: "bg-purple-10 text-purple",
+                    TEMPORARY: "bg-teal-10 text-teal",
+                  };
+                  const labels: Record<string, string> = {
+                    RAW_MATERIAL: "Raw Material",
+                    CONSUMABLE: "Consumable",
+                    MRO: "MRO",
+                    TEMPORARY: "Temporary",
+                  };
+                  return (
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium ${colors[cls] ?? "bg-muted text-muted-foreground"}`}>
+                      {labels[cls] ?? cls}
+                    </span>
+                  );
+                },
               },
               {
                 key: "unit",

@@ -146,6 +146,8 @@ async function StockContent() {
         fromLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
         toLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
         lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
+        dispatchedBy: { select: { id: true, name: true } },
+        receivedBy: { select: { id: true, name: true } },
       },
     }),
     // ── Issues ──
@@ -162,6 +164,9 @@ async function StockContent() {
         department: { select: { name: true, code: true } },
         fromLocation: { select: { name: true } },
         lines: { select: { id: true } },
+        builtUnit: { select: { unitNumber: true } },
+        subcontractor: { select: { name: true } },
+        phase: { select: { name: true } },
       },
     }),
     // ── Materials (for issue dialog options) ──
@@ -257,6 +262,9 @@ async function StockContent() {
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
     companyId: company.id,
     companyName: company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   // ── Group location rows (inter-company STO destinations) ──
@@ -271,6 +279,9 @@ async function StockContent() {
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
     companyId: l.company.id,
     companyName: l.company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   // Transfers use the full group so cross-company destinations are selectable.
@@ -306,6 +317,8 @@ async function StockContent() {
       refId: m.refId,
       userName: m.user?.name ?? null,
       timestamp: m.timestamp.toISOString(),
+      latitude: m.latitude,
+      longitude: m.longitude,
     }));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
@@ -336,6 +349,18 @@ async function StockContent() {
     materials: t.lines.map((l) => `${l.material.code} (${toNum(l.qty)} ${l.material.unit})`),
     isInterCompany: t.isInterCompany,
     transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
+    vehicleNumber: t.vehicleNumber,
+    vehicleType: t.vehicleType,
+    driverName: t.driverName,
+    driverPhone: t.driverPhone,
+    transporterName: t.transporterName,
+    challanNumber: t.challanNumber,
+    deliveryMode: t.deliveryMode,
+    packageCount: t.packageCount,
+    dispatchedAt: t.dispatchedAt ? t.dispatchedAt.toISOString() : null,
+    dispatchedByName: t.dispatchedBy?.name ?? null,
+    receivedAt: t.receivedAt ? t.receivedAt.toISOString() : null,
+    receivedByName: t.receivedBy?.name ?? null,
   }));
 
   // ── Issue rows ──
@@ -358,6 +383,17 @@ async function StockContent() {
     roundOff: toNum(i.roundOff),
     totalAmount: toNum(i.totalAmount),
     lineCount: i.lines.length,
+    builtUnitId: i.builtUnitId,
+    builtUnitName: i.builtUnit?.unitNumber ?? null,
+    subcontractorId: i.subcontractorId,
+    subcontractorName: i.subcontractor?.name ?? null,
+    phaseId: i.phaseId,
+    phaseName: i.phase?.name ?? null,
+    sourceDprId: i.sourceDprId,
+    vehicleNumber: i.vehicleNumber,
+    vehicleType: i.vehicleType,
+    driverName: i.driverName,
+    driverPhone: i.driverPhone,
   }));
 
   // ── Material / location options for the issue dialog ──

@@ -79,6 +79,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
         finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
         saleDeedNo: s.saleDeedNo,
         expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+        // ATS (Agreement to Sell) — merged with registry
+        atsNo: s.atsNo,
+        atsDate: s.atsDate ? s.atsDate.toISOString() : null,
+        allowRegistryBeforeFullPayment: s.allowRegistryBeforeFullPayment,
         // Document uploads
         atsDocumentUrl: s.atsDocumentUrl,
         atsDocumentName: s.atsDocumentName,
@@ -88,6 +92,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
         registryDocumentName: s.registryDocumentName,
         allotmentDocumentUrl: s.allotmentDocumentUrl,
         allotmentDocumentName: s.allotmentDocumentName,
+        // Draft / LOI
+        draftDocumentUrl: s.draftDocumentUrl,
+        draftDocumentName: s.draftDocumentName,
+        draftNotes: s.draftNotes,
+        draftDate: s.draftDate ? s.draftDate.toISOString() : null,
         // Sale compliance documents
         allotmentLetterNo: s.allotmentLetterNo,
         allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
@@ -182,6 +191,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
       initialPaymentMode: parsed.data.initialPaymentMode,
       saleDeedNo: parsed.data.saleDeedNo ?? undefined,
       expectedRegistryDate: parsed.data.expectedRegistryDate ?? undefined,
+      // ATS (Agreement to Sell) — merged with registry
+      atsNo: parsed.data.atsNo ?? undefined,
+      atsDate: parsed.data.atsDate ?? undefined,
+      allowRegistryBeforeFullPayment: parsed.data.allowRegistryBeforeFullPayment ?? false,
       // Sale compliance documents
       allotmentLetterNo: parsed.data.allotmentLetterNo ?? undefined,
       allotmentDate: parsed.data.allotmentDate ?? undefined,
@@ -219,6 +232,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
       // ATS document upload
       atsDocumentUrl: parsed.data.atsDocumentUrl ?? undefined,
       atsDocumentName: parsed.data.atsDocumentName ?? undefined,
+      // Draft / LOI
+      draftDocumentUrl: parsed.data.draftDocumentUrl ?? undefined,
+      draftDocumentName: parsed.data.draftDocumentName ?? undefined,
+      draftNotes: parsed.data.draftNotes ?? undefined,
+      draftDate: parsed.data.draftDate ?? undefined,
       // Audit logging
       userId: user.id,
     });

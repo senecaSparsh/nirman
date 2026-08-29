@@ -5,6 +5,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileTransfersList } from "./MobileTransfersList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -27,6 +28,7 @@ async function TransfersContent() {
   const role = await getUserRole();
   const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
 
+  const BATCH_SIZE = 60;
   const transfers = await prisma.stockTransfer.findMany({
     where: {
       OR: [
@@ -34,8 +36,8 @@ async function TransfersContent() {
         { toLocation: { companyId: company.id, deletedAt: null } },
       ],
     },
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1,
     include: {
       fromLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
       toLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
@@ -43,7 +45,14 @@ async function TransfersContent() {
     },
   });
 
-  const items = transfers.map((t) => ({
+  const hasMore = transfers.length > BATCH_SIZE;
+  const batch = hasMore ? transfers.slice(0, BATCH_SIZE) : transfers;
+  const lastItem = batch[batch.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+    : null;
+
+  const items = batch.map((t) => ({
     id: t.id,
     fromLocationName: t.fromLocation.name,
     fromLocationType: t.fromLocation.type,
@@ -81,11 +90,16 @@ async function TransfersContent() {
         items={items}
         canCreate={canTransfer}
         currentCompanyId={company.id}
+        loadMoreUrl="/api/mobile/list/transfers"
+        nextCursor={nextCursor}
         exportTitle="Stock Transfers"
         exportRows={items as unknown as Record<string, unknown>[]}
         exportColumns={csvColumns}
         exportSummary={`${items.length} transfers`}
       />
+      {canTransfer && (
+        <MobileFab href="/m/stock-out?mode=transfer" label="New stock transfer" />
+      )}
     </>
   );
 }

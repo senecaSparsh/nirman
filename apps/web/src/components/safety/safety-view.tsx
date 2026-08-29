@@ -9,8 +9,10 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
 import { computeRiskLevel } from "@nirman/services/safety";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 type Tab = "incidents" | "hazards" | "inspections";
 
@@ -35,15 +37,6 @@ const TABS: { value: Tab; label: string; icon: React.ComponentType<{ className?:
   { value: "inspections", label: "Inspections", icon: ClipboardCheck },
 ];
 
-const INCIDENT_STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  REPORTED: "warning", UNDER_INVESTIGATION: "warning", INVESTIGATED: "default", CLOSED: "success", CANCELLED: "default",
-};
-const HAZARD_STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  IDENTIFIED: "warning", MITIGATING: "warning", RESOLVED: "success",
-};
-const INSPECTION_STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  SCHEDULED: "default", IN_PROGRESS: "warning", COMPLETED: "success", CANCELLED: "default",
-};
 const RISK_VARIANTS: Record<string, "default" | "warning" | "danger" | "success"> = {
   LOW: "success", MEDIUM: "warning", HIGH: "danger", CRITICAL: "danger",
 };
@@ -188,7 +181,7 @@ function IncidentTable({ items, totalCount, onRowClick }: { items: IncidentItem[
           <div className="text-xs text-muted-foreground self-center truncate">{i.projectName}</div>
           <div className="text-xs self-center">{TYPE_LABELS[i.type] ?? i.type}</div>
           <div className="self-center"><Badge variant={SEVERITY_VARIANTS[i.severity] ?? "default"}>{i.severity.replace("_", " ")}</Badge></div>
-          <div className="self-center"><Badge variant={INCIDENT_STATUS_VARIANTS[i.status] ?? "default"}>{i.status.replace(/_/g, " ")}</Badge></div>
+          <div className="self-center"><Badge variant={statusBadgeVariant(i.status)}>{i.status.replace(/_/g, " ")}</Badge></div>
           <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(i.incidentDate)}</div>
         </button>
       ))}
@@ -215,7 +208,7 @@ function HazardTable({ items, totalCount, onRowClick }: { items: HazardItem[]; t
           <div className="text-xs text-muted-foreground self-center truncate">{h.projectName}</div>
           <div className="self-center"><Badge variant={RISK_VARIANTS[h.riskLevel] ?? "default"}>{h.riskLevel}</Badge></div>
           <div className="text-xs self-center tabular-nums">{h.likelihood * h.severity}</div>
-          <div className="self-center"><Badge variant={HAZARD_STATUS_VARIANTS[h.status] ?? "default"}>{h.status}</Badge></div>
+          <div className="self-center"><Badge variant={statusBadgeVariant(h.status)}>{h.status}</Badge></div>
           <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{h.targetResolutionDate ? formatDate(h.targetResolutionDate) : "—"}</div>
         </button>
       ))}
@@ -240,7 +233,7 @@ function InspectionTable({ items, totalCount, onRowClick }: { items: InspectionI
             <div className="truncate text-xs text-muted-foreground">{i.inspectorName ?? ""}</div>
           </div>
           <div className="text-xs text-muted-foreground self-center truncate">{i.projectName}</div>
-          <div className="self-center"><Badge variant={INSPECTION_STATUS_VARIANTS[i.status] ?? "default"}>{i.status.replace(/_/g, " ")}</Badge></div>
+          <div className="self-center"><Badge variant={statusBadgeVariant(i.status)}>{i.status.replace(/_/g, " ")}</Badge></div>
           <div className="self-center">{i.result ? <Badge variant={RESULT_VARIANTS[i.result] ?? "default"}>{i.result.replace(/_/g, " ")}</Badge> : <span className="text-xs text-muted-foreground">—</span>}</div>
           <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(i.scheduledDate)}</div>
           <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{i.conductedDate ? formatDate(i.conductedDate) : "—"}</div>
@@ -264,6 +257,7 @@ type IncidentSeverity = "FIRST_AID" | "LOST_TIME" | "SERIOUS" | "FATAL" | "PROPE
 
 function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; projects: Project[]; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT" as IncidentType, severity: "FIRST_AID" as IncidentSeverity,
     incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "",
@@ -281,6 +275,7 @@ function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: bo
         incidentDate: form.incidentDate, incidentTime: form.incidentTime || null, location: form.location || null,
         peopleInvolved: form.peopleInvolved || null, injuredCount: parseInt(form.injuredCount) || 0, fatalities: parseInt(form.fatalities) || 0,
         propertyDamageEstimate: form.propertyDamageEstimate ? parseFloat(form.propertyDamageEstimate) : null,
+        attachments: attachments.map((a) => a.url),
       }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -328,6 +323,10 @@ function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: bo
           <Field label="Fatalities"><Input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} /></Field>
           <Field label="Property Damage ₹"><Input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" /></Field>
         </div>
+        <div>
+          <p className="text-sm font-medium mb-1.5">Photo Evidence</p>
+          <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" disabled={saving}>{saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}{saving ? "Reporting…" : "Report"}</Button>
@@ -339,6 +338,7 @@ function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: bo
 
 function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; projects: Project[]; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2",
     location: "", mitigationPlan: "", targetResolutionDate: "",
@@ -356,6 +356,7 @@ function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: bool
         projectId: form.projectId, title: form.title.trim(), description: form.description.trim(),
         likelihood: lk, severity: sv, location: form.location || null,
         mitigationPlan: form.mitigationPlan || null, targetResolutionDate: form.targetResolutionDate || null,
+        attachments: attachments.map((a) => a.url),
       }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -391,6 +392,10 @@ function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: bool
         <Field label="Location"><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" /></Field>
         <Field label="Mitigation Plan (optional)"><Textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" /></Field>
         <Field label="Target Resolution Date"><Input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} /></Field>
+        <div>
+          <p className="text-sm font-medium mb-1.5">Photo Evidence</p>
+          <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" disabled={saving}>{saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}{saving ? "Reporting…" : "Report"}</Button>

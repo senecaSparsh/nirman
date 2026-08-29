@@ -47,7 +47,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       location: { companyId: company.id },
     },
     include: {
-      material: { select: { id: true, code: true, name: true, unit: true } },
+      material: { select: { id: true, code: true, name: true, unit: true, barcode: true } },
     },
     orderBy: { material: { name: "asc" } },
   });
@@ -57,6 +57,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     materialCode: i.material.code,
     materialName: i.material.name,
     unit: i.material.unit,
+    barcode: i.material.barcode,
     qty: toNum(i.qty),
     mac: toNum(i.movingAvgCost),
   }));

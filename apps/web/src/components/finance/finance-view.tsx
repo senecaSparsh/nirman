@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, humanizeAuditAction } from "@/lib/utils";
 import { entityUrl } from "@/lib/entity-url";
 import { ProjectCostFormDialog } from "./project-cost-form-dialog";
 import { ExpenseFormDialog } from "./expense-form-dialog";
@@ -419,7 +419,7 @@ const auditLogColumns: Column<AuditLogRow>[] = [
     label: "Action",
     sortable: true,
     filterable: true,
-    render: (log) => <span className="font-medium text-foreground">{log.action}</span>,
+    render: (log) => <span className="font-medium text-foreground">{humanizeAuditAction(log.action)}</span>,
     filterValue: (log) => log.action,
     exportValue: (log) => log.action,
   },

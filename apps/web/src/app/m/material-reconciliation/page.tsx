@@ -42,7 +42,7 @@ async function MobileMaterialReconContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canView = hasPermission(role, PERM.ASSETS_VIEW);
+  const canView = hasPermission(role, PERM.PROJECT_CONTROL_VIEW);
   const { project: projectId } = await searchParams;
 
   const projects = await prisma.project.findMany({

@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import { getUserRole, getCompany, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import MobileNewProcurementClient from "./MobileNewProcurementClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/procurement/new — mobile purchase order creation.
@@ -13,18 +14,7 @@ export default async function MobileNewProcurementPage() {
   const role = await getUserRole();
 
   if (!hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          New Purchase Order
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to create purchase orders.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="create purchase orders" permission="procurement.manage" />;
   }
 
   const company = await getCompany();
@@ -42,7 +32,7 @@ export default async function MobileNewProcurementPage() {
     }),
     prisma.material.findMany({
       where: { deletedAt: null },
-      select: { id: true, name: true, code: true, unit: true, gstRate: true },
+      select: { id: true, name: true, code: true, unit: true, gstRate: true, barcode: true },
       orderBy: { name: "asc" },
     }),
     prisma.stockLocation.findMany({
@@ -66,6 +56,7 @@ export default async function MobileNewProcurementPage() {
       code: m.code,
       unit: m.unit,
       gstRate: toNum(m.gstRate),
+      barcode: m.barcode,
     })),
     locations: locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId })),
     categories: categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit })),

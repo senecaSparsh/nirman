@@ -2,38 +2,54 @@ import { NextRequest } from "next/server";
 import { writeFile, unlink, mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { apiHandler, json, requirePermission, requireUser } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-const UPLOAD_DIR = join(process.cwd(), "public", "uploads");
+// Files are stored OUTSIDE public/ so they are not served as static assets.
+// Access is mediated by GET /api/uploads/[id] which checks auth + company ownership.
+const UPLOAD_DIR = join(process.cwd(), "storage", "uploads");
 const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
 
-// Allowed MIME prefixes — broad enough for docs, images, sheets, PDFs, archives.
-const ALLOWED_PREFIXES = [
-  "image/", "video/", "audio/",
+// Strict allow-list of MIME types. We do NOT allow:
+//   - application/octet-stream (catch-all that bypasses the allow-list)
+//   - text/html, text/javascript (stored XSS when served from the app origin)
+//   - application/json (can be rendered as HTML in some browsers)
+//   - SVG (can carry embedded <script>)
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  // Documents
   "application/pdf",
+  // Office
   "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml",
-  "application/vnd.openxmlformats-officedocument.presentationml",
-  "application/vnd.oasis.opendocument",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.presentation",
   "application/msword",
   "application/vnd.ms-powerpoint",
+  // Archives
   "application/zip",
   "application/x-zip-compressed",
-  "application/json",
-  "text/",
-  "text/csv",
-  "application/csv",
+  "application/vnd.rar",
   "application/x-rar-compressed",
   "application/x-7z-compressed",
-  "application/octet-stream",
-];
+  // Plain text (explicit — NOT text/html or text/javascript)
+  "text/plain",
+  "text/csv",
+  "application/csv",
+]);
 
 function isAllowed(mime: string): boolean {
-  if (ALLOWED_PREFIXES.some((p) => mime.startsWith(p))) return true;
-  // octet-stream is a catch-all; allow it (browsers often send it for unknown types)
-  return mime === "application/octet-stream";
+  return ALLOWED_MIME_TYPES.has(mime.toLowerCase());
 }
 
 /** Sanitize a filename: strip path components, replace unsafe chars. */
@@ -44,10 +60,13 @@ function sanitize(name: string): string {
 
 /**
  * POST /api/uploads  (multipart/form-data, field name: "file")
- * Stores the file on disk in public/uploads/ and returns its public URL + metadata.
+ * Stores the file on disk in storage/uploads/ (outside public/) and
+ * creates an Upload record tracking ownership. Returns the auth-gated URL
+ * (/api/uploads/<id>) + metadata.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requireUser();
+  const user = await requireUser();
+  const company = await getCompany(); // may be a synthetic company in AUTH_BYPASS
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -64,9 +83,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (file.size > MAX_SIZE) {
     return json({ error: `File too large (max ${Math.round(MAX_SIZE / 1024 / 1024)} MB).` }, { status: 413 });
   }
-  const mime = file.type || "application/octet-stream";
+  const mime = (file.type || "application/octet-stream").toLowerCase();
   if (!isAllowed(mime)) {
-    return json({ error: `File type "${mime}" is not allowed.` }, { status: 415 });
+    return json({ error: `File type "${mime}" is not allowed. If you need this file type, contact your administrator.` }, { status: 415 });
   }
 
   // Ensure upload dir exists
@@ -79,34 +98,67 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   await writeFile(filePath, bytes);
 
-  const url = `/uploads/${storedName}`;
+  // Create the Upload record for ownership tracking + auth-gated serving.
+  const upload = await prisma.upload.create({
+    data: {
+      storedName,
+      originalName: file.name,
+      mimeType: mime,
+      size: file.size,
+      url: "", // placeholder — set below after we have the id
+      companyId: company.id,
+      uploadedById: user.id,
+    },
+  });
+
+  // Update the url to the auth-gated endpoint.
+  const url = `/api/uploads/${upload.id}`;
+  await prisma.upload.update({ where: { id: upload.id }, data: { url } });
+
   return json({
     url,
     fileName: file.name, // original name (for display)
     mimeType: mime,
     size: file.size,
+    uploadId: upload.id,
   }, { status: 201 });
 });
 
 /**
- * DELETE /api/uploads?url=/uploads/xxx
- * Removes a file from disk. Only deletes files inside public/uploads/.
+ * DELETE /api/uploads?id=<uploadId>
+ * Removes a file from disk + deletes the Upload record.
+ * Only the uploader or a company admin can delete.
  */
 export const DELETE = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
-  const url = req.nextUrl.searchParams.get("url");
-  if (!url || !url.startsWith("/uploads/")) {
-    return json({ error: "Invalid URL." }, { status: 400 });
+  const user = await requireUser();
+  const company = await getCompany();
+  const uploadId = req.nextUrl.searchParams.get("id");
+  if (!uploadId) {
+    return json({ error: "Upload id is required." }, { status: 400 });
   }
-  const fileName = url.replace("/uploads/", "");
-  if (fileName.includes("..") || fileName.includes("/")) {
-    return json({ error: "Invalid filename." }, { status: 400 });
+
+  const upload = await prisma.upload.findUnique({ where: { id: uploadId } });
+  if (!upload) {
+    return json({ error: "Upload not found." }, { status: 404 });
   }
-  const filePath = join(UPLOAD_DIR, fileName);
+
+  // Authorization: uploader or company admin can delete.
+  const isUploader = upload.uploadedById === user.id;
+  const isCompanyAdmin =
+    upload.companyId === company.id &&
+    (user.role === "OWNER" || user.role === "ADMIN");
+  const hasManagePerm = await requirePermission(PERM.COMPANY_MANAGE).then(() => true).catch(() => false);
+  if (!isUploader && !isCompanyAdmin && !hasManagePerm) {
+    return json({ error: "Forbidden — you can only delete your own uploads." }, { status: 403 });
+  }
+
+  // Remove from disk (best-effort) + delete the record.
+  const filePath = join(UPLOAD_DIR, upload.storedName);
   try {
     await unlink(filePath);
   } catch {
     // Already deleted or never existed — treat as success
   }
+  await prisma.upload.delete({ where: { id: uploadId } });
   return json({ ok: true });
 });

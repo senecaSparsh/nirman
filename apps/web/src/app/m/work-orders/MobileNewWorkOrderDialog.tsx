@@ -96,19 +96,23 @@ export function MobileNewWorkOrderDialog({
       const data = await res.json();
       // Flatten the tree to LINE_ITEM type only
       const lines: BoqLineItem[] = [];
-      function walk(nodes: any[]) {
+      function walk(nodes: unknown[]) {
         for (const n of nodes) {
-          if (n.type === "LINE_ITEM") {
+          if (typeof n === "object" && n !== null && "type" in n && (n as Record<string, unknown>).type === "LINE_ITEM") {
+            const node = n as Record<string, unknown>;
             lines.push({
-              id: n.id,
-              serialNo: n.serialNo,
-              description: n.description,
-              unit: n.unit,
-              estimatedQty: n.estimatedQty,
-              rate: n.rate,
+              id: node.id as string,
+              serialNo: node.serialNo as string,
+              description: node.description as string,
+              unit: node.unit as string | null,
+              estimatedQty: node.estimatedQty as number | null,
+              rate: node.rate as number | null,
             });
           }
-          if (n.children && n.children.length > 0) walk(n.children);
+          if (typeof n === "object" && n !== null && "children" in n) {
+            const children = (n as Record<string, unknown>).children;
+            if (Array.isArray(children)) walk(children);
+          }
         }
       }
       walk(data.tree ?? []);

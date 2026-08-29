@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { PageLoading } from "@/components/page-loading";
 import { MobileCompanyEditClient } from "./MobileCompanyEditClient";
 
 /**
@@ -10,7 +12,15 @@ import { MobileCompanyEditClient } from "./MobileCompanyEditClient";
  * printed bill, invoice, receipt, and purchase order. Only OWNER/ADMIN
  * can edit (COMPANY_MANAGE permission).
  */
-export default async function MobileCompanyEditPage() {
+export default function MobileCompanyEditPage() {
+  return (
+    <Suspense fallback={<PageLoading label="Loading company details…" />}>
+      <MobileCompanyEditContent />
+    </Suspense>
+  );
+}
+
+async function MobileCompanyEditContent() {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();

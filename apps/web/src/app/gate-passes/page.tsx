@@ -55,12 +55,12 @@ async function GatePassesContent() {
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
-      select: { id: true, type: true, name: true, projectId: true },
+      select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true },
     }),
     prisma.material.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, unit: true },
+      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },
     }),
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null },
@@ -100,6 +100,8 @@ async function GatePassesContent() {
     approvedByName: gp.approvedBy?.name ?? null,
     rejectedByName: gp.rejectedBy?.name ?? null,
     exitedByName: gp.exitedBy?.name ?? null,
+    exitNotes: gp.exitNotes,
+    exitPhotos: gp.exitPhotos as { url: string; fileName?: string }[] | null,
     lineCount: gp.lines.length,
     lines: gp.lines.map((l) => ({
       id: l.id,
@@ -123,12 +125,17 @@ async function GatePassesContent() {
     itemCount: 0,
     companyId: company.id,
     companyName: company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   const materialRows: MaterialRow[] = materials.map((m) => ({
     id: m.id,
     code: m.code,
     name: m.name,
+    grade: m.grade,
+    specification: m.specification,
     categoryId: null,
     categoryName: null,
     unit: m.unit,
@@ -141,6 +148,11 @@ async function GatePassesContent() {
     volumetricDensity: null,
     bulkDiscountPct: null,
     isCorporateCommodity: false,
+    isLotTracked: m.isLotTracked ?? false,
+    isScrap: m.isScrap ?? false,
+    baseUnit: m.baseUnit,
+    secondaryUnit: m.secondaryUnit,
+    uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
     description: null,
     totalQty: 0,
     totalValue: 0,

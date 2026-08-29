@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Download, Share2, FileSpreadsheet, FileText, Check } from "lucide-react";
+import {
+  Download,
+  Share2,
+  FileSpreadsheet,
+  FileText,
+  Check,
+} from "lucide-react";
 
 /**
  * MobileExportShareBar — sticky action bar for downloading and sharing
@@ -39,13 +45,21 @@ interface MobileExportShareBarProps {
    *  If omitted, only CSV download is available. */
   exportType?: string;
   /** Optional params for server-side export (from, to, asOn, projectId) */
-  exportParams?: { from?: string; to?: string; asOn?: string; projectId?: string };
+  exportParams?: {
+    from?: string;
+    to?: string;
+    asOn?: string;
+    projectId?: string;
+  };
   /** Optional summary text for sharing (e.g. "Total: ₹1,23,456 · 5 deals") */
   summary?: string;
 }
 
 /** Format a value based on the format type. */
-function formatValue(value: unknown, format?: MobileColumnSpec["format"]): string {
+function formatValue(
+  value: unknown,
+  format?: MobileColumnSpec["format"],
+): string {
   if (value == null) return "";
   switch (format) {
     case "currency":
@@ -77,7 +91,11 @@ function formatCurrency(n: number): string {
 function formatDate(s: string): string {
   const d = new Date(s);
   if (isNaN(d.getTime())) return s;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /** Get nested value from object by dotted path. */
@@ -99,7 +117,10 @@ function escapeCell(val: string): string {
 }
 
 /** Convert rows + columns to a CSV string (client-side). */
-function toCSV(rows: Record<string, unknown>[], columns: MobileColumnSpec[]): string {
+function toCSV(
+  rows: Record<string, unknown>[],
+  columns: MobileColumnSpec[],
+): string {
   if (rows.length === 0) {
     return columns.map((c) => escapeCell(c.label)).join(",") + "\n";
   }
@@ -119,7 +140,11 @@ function toCSV(rows: Record<string, unknown>[], columns: MobileColumnSpec[]): st
 }
 
 /** Trigger a CSV file download in the browser. */
-function downloadCSVFile(filename: string, rows: Record<string, unknown>[], columns: MobileColumnSpec[]): void {
+function downloadCSVFile(
+  filename: string,
+  rows: Record<string, unknown>[],
+  columns: MobileColumnSpec[],
+): void {
   const csv = toCSV(rows, columns);
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -162,7 +187,8 @@ export function MobileExportShareBar({
       if (exportParams?.from) searchParams.set("from", exportParams.from);
       if (exportParams?.to) searchParams.set("to", exportParams.to);
       if (exportParams?.asOn) searchParams.set("asOn", exportParams.asOn);
-      if (exportParams?.projectId) searchParams.set("projectId", exportParams.projectId);
+      if (exportParams?.projectId)
+        searchParams.set("projectId", exportParams.projectId);
 
       const res = await fetch(`/api/export?${searchParams.toString()}`);
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
@@ -172,7 +198,9 @@ export function MobileExportShareBar({
       link.href = url;
       const disposition = res.headers.get("Content-Disposition") ?? "";
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
-      link.download = filenameMatch?.[1] ?? `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.download =
+        filenameMatch?.[1] ??
+        `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -222,7 +250,10 @@ export function MobileExportShareBar({
       {/* Action bar */}
       <div
         className="flex items-center gap-1.5 rounded-[0.625rem] border p-1.5"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
       >
         <button
           onClick={() => setShowMenu(!showMenu)}
@@ -230,8 +261,14 @@ export function MobileExportShareBar({
           className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 press active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "var(--color-concrete)" }}
         >
-          <Download className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
-          <span className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+          <Download
+            className="size-3.5"
+            style={{ color: "var(--color-ink-700)" }}
+          />
+          <span
+            className="text-m-body font-semibold"
+            style={{ color: "var(--color-ink-700)" }}
+          >
             {downloading ? "Exporting…" : "Export"}
           </span>
         </button>
@@ -244,9 +281,15 @@ export function MobileExportShareBar({
           {shared ? (
             <Check className="size-3.5" style={{ color: "var(--color-go)" }} />
           ) : (
-            <Share2 className="size-3.5" style={{ color: "var(--color-paper)" }} />
+            <Share2
+              className="size-3.5"
+              style={{ color: "var(--color-paper)" }}
+            />
           )}
-          <span className="text-[0.6875rem] font-semibold" style={{ color: shared ? "var(--color-go)" : "var(--color-paper)" }}>
+          <span
+            className="text-m-body font-semibold"
+            style={{ color: shared ? "var(--color-go)" : "var(--color-paper)" }}
+          >
             {shared ? "Shared" : "Share"}
           </span>
         </button>
@@ -255,21 +298,36 @@ export function MobileExportShareBar({
       {/* Export dropdown */}
       {showMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowMenu(false)}
+          />
           <div
             className="absolute z-50 top-full left-0 right-0 mt-1 rounded-[0.625rem] border overflow-hidden"
-            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
           >
             <button
               onClick={handleCSV}
               className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left"
             >
-              <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-600)" }} />
+              <FileText
+                className="size-4 shrink-0"
+                style={{ color: "var(--color-ink-600)" }}
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                <p
+                  className="text-m-strong"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
                   Download CSV
                 </p>
-                <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p
+                  className="text-m-caption"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
                   {rows.length} rows · opens in Excel/Sheets
                 </p>
               </div>
@@ -281,12 +339,21 @@ export function MobileExportShareBar({
                 className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left border-t disabled:opacity-40"
                 style={{ borderColor: "var(--color-line)" }}
               >
-                <FileSpreadsheet className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+                <FileSpreadsheet
+                  className="size-4 shrink-0"
+                  style={{ color: "var(--color-go)" }}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  <p
+                    className="text-m-strong"
+                    style={{ color: "var(--color-ink-950)" }}
+                  >
                     {downloading ? "Generating…" : "Download Excel"}
                   </p>
-                  <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                  <p
+                    className="text-m-caption"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
                     Formatted workbook with summary
                   </p>
                 </div>
@@ -334,7 +401,8 @@ export function MobileExportShareIcons({
       if (exportParams?.from) searchParams.set("from", exportParams.from);
       if (exportParams?.to) searchParams.set("to", exportParams.to);
       if (exportParams?.asOn) searchParams.set("asOn", exportParams.asOn);
-      if (exportParams?.projectId) searchParams.set("projectId", exportParams.projectId);
+      if (exportParams?.projectId)
+        searchParams.set("projectId", exportParams.projectId);
 
       const res = await fetch(`/api/export?${searchParams.toString()}`);
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
@@ -344,7 +412,9 @@ export function MobileExportShareIcons({
       link.href = url;
       const disposition = res.headers.get("Content-Disposition") ?? "";
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
-      link.download = filenameMatch?.[1] ?? `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.download =
+        filenameMatch?.[1] ??
+        `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -390,50 +460,75 @@ export function MobileExportShareIcons({
         onClick={() => setShowMenu(!showMenu)}
         disabled={downloading}
         aria-label="Export"
-        className="grid place-items-center size-8 rounded-[0.5rem] border press active:opacity-80 disabled:opacity-40"
+        className="grid place-items-center size-9 rounded-[0.5rem] border press active:opacity-80 disabled:opacity-40"
         style={{
           borderColor: showMenu ? "var(--color-ink-950)" : "var(--color-line)",
-          backgroundColor: showMenu ? "var(--color-concrete)" : "var(--color-paper)",
+          backgroundColor: showMenu
+            ? "var(--color-concrete)"
+            : "var(--color-paper)",
         }}
       >
-        <Download className="size-4" style={{ color: "var(--color-ink-700)" }} />
+        <Download
+          className="size-4"
+          style={{ color: "var(--color-ink-700)" }}
+        />
       </button>
 
       {/* Share icon */}
       <button
         onClick={handleShare}
         aria-label="Share"
-        className="grid place-items-center size-8 rounded-[0.5rem] border press active:opacity-80"
+        className="grid place-items-center size-9 rounded-[0.5rem] border press active:opacity-80"
         style={{
           borderColor: shared ? "var(--color-go)" : "var(--color-line)",
-          backgroundColor: shared ? "color-mix(in srgb, var(--color-go) 8%, transparent)" : "var(--color-paper)",
+          backgroundColor: shared
+            ? "color-mix(in srgb, var(--color-go) 8%, transparent)"
+            : "var(--color-paper)",
         }}
       >
         {shared ? (
           <Check className="size-4" style={{ color: "var(--color-go)" }} />
         ) : (
-          <Share2 className="size-4" style={{ color: "var(--color-ink-700)" }} />
+          <Share2
+            className="size-4"
+            style={{ color: "var(--color-ink-700)" }}
+          />
         )}
       </button>
 
       {/* Export dropdown */}
       {showMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowMenu(false)}
+          />
           <div
             className="absolute z-50 top-full right-0 mt-1 w-48 rounded-[0.625rem] border overflow-hidden shadow-lg"
-            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
           >
             <button
               onClick={handleCSV}
               className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left"
             >
-              <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-600)" }} />
+              <FileText
+                className="size-4 shrink-0"
+                style={{ color: "var(--color-ink-600)" }}
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                <p
+                  className="text-m-strong"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
                   Download CSV
                 </p>
-                <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+                <p
+                  className="text-m-caption"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
                   {rows.length} rows
                 </p>
               </div>
@@ -445,9 +540,15 @@ export function MobileExportShareIcons({
                 className="flex items-center gap-2.5 w-full px-3 py-2.5 press active:opacity-80 text-left border-t disabled:opacity-40"
                 style={{ borderColor: "var(--color-line)" }}
               >
-                <FileSpreadsheet className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+                <FileSpreadsheet
+                  className="size-4 shrink-0"
+                  style={{ color: "var(--color-go)" }}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  <p
+                    className="text-m-strong"
+                    style={{ color: "var(--color-ink-950)" }}
+                  >
                     {downloading ? "Generating…" : "Download Excel"}
                   </p>
                 </div>

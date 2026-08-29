@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ComponentType, type CSSProperties } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -73,8 +73,11 @@ async function MobileReportsHubContent() {
   const totalReceived = pendingPayments.reduce((s, p) => s + toNum(p.amount), 0);
   const totalProjectCosts = projectCosts.reduce((s, c) => s + toNum(c.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
-  const totalCosts = totalProjectCosts + totalExpenses + purchaseSpend;
-  const netProfit = salesRevenue - totalCosts;
+  // Net profit = received revenue − explicit project costs − operating expenses.
+  // NOTE: purchaseSpend is NOT subtracted — POs acquire inventory (an asset),
+  // not an expense. Cost is recognized when materials are issued to projects
+  // (tracked per-project on the project detail page, not here).
+  const netProfit = salesRevenue - totalProjectCosts - totalExpenses;
 
   const allZero = inventoryValue === 0 && salesRevenue === 0 && salesBooked === 0 && purchaseSpend === 0 && totalProjectCosts === 0 && totalExpenses === 0;
 
@@ -118,8 +121,10 @@ async function MobileReportsHubContent() {
       >
         <strong style={{ color: "var(--color-ink-700)" }}>Note:</strong> Revenue = cash received (not booked).
         Project Costs = explicit cost entries only (equipment, contractor, overhead).
+        Purchase Spend = inventory acquisitions (not an expense — cost is recognized when materials are issued).
         Land + material issues are tracked per-project on the project detail page.
-        Net Profit = received revenue − explicit costs − purchases − expenses.
+        Net Profit = received revenue − project costs − operating expenses.
+        For full P&L (COGS, salaries, GL-based), see the Profit & Loss report.
       </div>
 
       {/* ── Revenue breakdown ── */}
@@ -195,7 +200,7 @@ function ReportLink({
   sublabel,
 }: {
   href: string;
-  icon: any;
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>;
   label: string;
   sublabel: string;
 }) {

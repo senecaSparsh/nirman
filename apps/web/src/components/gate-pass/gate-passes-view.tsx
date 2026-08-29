@@ -48,6 +48,8 @@ export type GatePassRow = {
   approvedByName: string | null;
   rejectedByName: string | null;
   exitedByName: string | null;
+  exitNotes: string | null;
+  exitPhotos: { url: string; fileName?: string }[] | null;
   lineCount: number;
   lines: {
     id: string;

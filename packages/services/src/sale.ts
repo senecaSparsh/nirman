@@ -61,6 +61,10 @@ export interface SellAssetInput {
   // Sale deed / registry tracking
   saleDeedNo?: string;          // sale deed / registry number (if registry is done at creation)
   expectedRegistryDate?: string; // ISO date — when registry is expected (if ATS / deferred)
+  // ATS (Agreement to Sell) — either atsNo OR saleDeedNo is the registered document
+  atsNo?: string;               // ATS registration number (alternative to saleDeedNo)
+  atsDate?: string;             // ISO date — when ATS was executed
+  allowRegistryBeforeFullPayment?: boolean; // allow registry even if full payment pending
   // Sale compliance documents
   allotmentLetterNo?: string;
   allotmentDate?: string;       // ISO date
@@ -104,6 +108,11 @@ export interface SellAssetInput {
   registryDocumentName?: string;
   allotmentDocumentUrl?: string;
   allotmentDocumentName?: string;
+  // ── Draft / LOI (Letter of Intent) ──
+  draftDocumentUrl?: string;
+  draftDocumentName?: string;
+  draftNotes?: string;
+  draftDate?: string; // ISO date — when the LOI was signed
 }
 
 export interface SaleExpenseInput {
@@ -304,6 +313,10 @@ export async function sellAsset(input: SellAssetInput) {
         saleStage: "PENDING",
         saleDeedNo: input.saleDeedNo ?? null,
         expectedRegistryDate: input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null,
+        // ATS (Agreement to Sell) — merged with registry
+        atsNo: input.atsNo ?? null,
+        atsDate: input.atsDate ? new Date(input.atsDate) : null,
+        allowRegistryBeforeFullPayment: input.allowRegistryBeforeFullPayment ?? false,
         // Sale compliance documents
         allotmentLetterNo: input.allotmentLetterNo ?? null,
         allotmentDate: input.allotmentDate ? new Date(input.allotmentDate) : null,
@@ -337,6 +350,11 @@ export async function sellAsset(input: SellAssetInput) {
         registryDocumentName: input.registryDocumentName ?? null,
         allotmentDocumentUrl: input.allotmentDocumentUrl ?? null,
         allotmentDocumentName: input.allotmentDocumentName ?? null,
+        // Draft / LOI
+        draftDocumentUrl: input.draftDocumentUrl ?? null,
+        draftDocumentName: input.draftDocumentName ?? null,
+        draftNotes: input.draftNotes ?? null,
+        draftDate: input.draftDate ? new Date(input.draftDate) : null,
       },
     });
 
@@ -440,6 +458,45 @@ export async function sellAsset(input: SellAssetInput) {
           },
         },
       });
+    } else if (input.dealMaturityMonths && input.dealMaturityMonths > 0) {
+      // ── Auto-generate a TLP schedule from deal terms ──
+      // If the user provided dealMaturityMonths but no explicit schedule,
+      // auto-generate equal monthly installments from the deal terms.
+      const advanceAmount = initAmount;
+      const autoItems = autoGenerateScheduleItems(
+        salePrice,
+        gstAmount,
+        advanceAmount,
+        input.dealMaturityMonths,
+      );
+      if (autoItems.length > 0) {
+        const scheduleTotal = autoItems.reduce(
+          (sum, item) => sum.plus(new Decimal(item.amount)),
+          new Decimal(0),
+        );
+        await tx.paymentSchedule.create({
+          data: {
+            assetSaleId: sale.id,
+            type: "TLP",
+            totalAmount: scheduleTotal,
+            gstAmount: new Decimal(0),
+            grandTotal: scheduleTotal,
+            items: {
+              create: autoItems.map((item) => ({
+                installmentNo: item.installmentNo,
+                description: item.description,
+                percentage: new Decimal(item.percentage),
+                amount: new Decimal(item.amount),
+                gstPercentage: new Decimal(0),
+                gstAmount: new Decimal(0),
+                totalAmount: new Decimal(item.amount),
+                dueDate: item.dueDate ? new Date(item.dueDate) : null,
+                wbsNodeId: item.wbsNodeId ?? null,
+              })),
+            },
+          },
+        });
+      }
     }
 
     if (isImmediateFullPayment) {
@@ -611,7 +668,7 @@ export interface RecordDepositInput {
 }
 
 export async function recordDeposit(input: RecordDepositInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
       include: { payments: true },
@@ -684,8 +741,21 @@ export async function recordDeposit(input: RecordDepositInput) {
       });
     }
 
-    return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus };
+    return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus, companyId: sale.companyId };
   }, { isolationLevel: "Serializable" });
+
+  // Auto-sync the deposit GL entry to Tally (best-effort, outside the tx)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: input.saleId, sourceType: "ASSET_SALE_DEPOSIT" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result;
 }
 
 // ───────────────────────────────────────────────────────────
@@ -699,6 +769,9 @@ export interface CompleteSaleInput {
   reference?: string;
   userId?: string;
   saleDeedNo?: string; // sale deed / registry number — captured at completion
+  // ATS (Agreement to Sell) — either atsNo OR saleDeedNo is the registered document
+  atsNo?: string;       // ATS registration number (alternative to saleDeedNo)
+  atsDate?: string;     // date the ATS was executed
   // Compliance fields that can be captured at completion
   allotmentLetterNo?: string;
   allotmentDate?: string;
@@ -790,6 +863,9 @@ export async function completeSale(input: CompleteSaleInput) {
         finalSaleDate: new Date(),
         paymentStatus: "PAID",
         ...(input.saleDeedNo ? { saleDeedNo: input.saleDeedNo } : {}),
+        // ATS fields — either atsNo OR saleDeedNo is the registered document
+        ...(input.atsNo ? { atsNo: input.atsNo } : {}),
+        ...(input.atsDate ? { atsDate: new Date(input.atsDate) } : {}),
         // Registry document
         ...(input.registryDocumentUrl ? { registryDocumentUrl: input.registryDocumentUrl, registryDocumentName: input.registryDocumentName ?? null } : {}),
         // Compliance fields captured at completion
@@ -1024,6 +1100,17 @@ export async function recordPayment(input: RecordPaymentInput) {
     timestamp: new Date(),
   });
 
+  // Auto-sync the payment GL entry to Tally (best-effort, outside the tx)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: result.payment.id, sourceType: "PAYMENT_RECEIVED" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
   return { payment: result.payment, paymentStatus: result.paymentStatus };
 }
 
@@ -1041,6 +1128,9 @@ export interface UpdateSaleInput {
   notes?: string | null;
   // Compliance documents
   saleDeedNo?: string | null;
+  atsNo?: string | null;
+  atsDate?: string | null;
+  allowRegistryBeforeFullPayment?: boolean;
   allotmentLetterNo?: string | null;
   allotmentDate?: string | null;
   bbaNo?: string | null;
@@ -1070,6 +1160,11 @@ export interface UpdateSaleInput {
   registryDocumentName?: string | null;
   allotmentDocumentUrl?: string | null;
   allotmentDocumentName?: string | null;
+  // Draft / LOI
+  draftDocumentUrl?: string | null;
+  draftDocumentName?: string | null;
+  draftNotes?: string | null;
+  draftDate?: string | null;
 }
 
 /**
@@ -1128,6 +1223,9 @@ export async function updateSale(input: UpdateSaleInput) {
     // ── Always-editable metadata ──
     if (input.notes !== undefined) data.notes = input.notes ?? null;
     if (input.saleDeedNo !== undefined) data.saleDeedNo = input.saleDeedNo ?? null;
+    if (input.atsNo !== undefined) data.atsNo = input.atsNo ?? null;
+    if (input.atsDate !== undefined) data.atsDate = input.atsDate ? new Date(input.atsDate) : null;
+    if (input.allowRegistryBeforeFullPayment !== undefined) data.allowRegistryBeforeFullPayment = input.allowRegistryBeforeFullPayment;
     if (input.allotmentLetterNo !== undefined) data.allotmentLetterNo = input.allotmentLetterNo ?? null;
     if (input.allotmentDate !== undefined) data.allotmentDate = input.allotmentDate ? new Date(input.allotmentDate) : null;
     if (input.bbaNo !== undefined) data.bbaNo = input.bbaNo ?? null;
@@ -1151,6 +1249,10 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.bbaDocumentUrl !== undefined) { data.bbaDocumentUrl = input.bbaDocumentUrl; data.bbaDocumentName = input.bbaDocumentName ?? null; }
     if (input.registryDocumentUrl !== undefined) { data.registryDocumentUrl = input.registryDocumentUrl; data.registryDocumentName = input.registryDocumentName ?? null; }
     if (input.allotmentDocumentUrl !== undefined) { data.allotmentDocumentUrl = input.allotmentDocumentUrl; data.allotmentDocumentName = input.allotmentDocumentName ?? null; }
+    // Draft / LOI
+    if (input.draftDocumentUrl !== undefined) { data.draftDocumentUrl = input.draftDocumentUrl; data.draftDocumentName = input.draftDocumentName ?? null; }
+    if (input.draftNotes !== undefined) data.draftNotes = input.draftNotes ?? null;
+    if (input.draftDate !== undefined) data.draftDate = input.draftDate ? new Date(input.draftDate) : null;
 
     const updated = await tx.assetSale.update({
       where: { id: input.saleId },
@@ -1558,7 +1660,7 @@ export interface UploadSaleDocumentInput {
 /** Upload a document (ATS, BBA, Registry, or Allotment) for a sale.
  *  The registry document is REQUIRED before the sale can be completed. */
 export async function uploadSaleDocument(input: UploadSaleDocumentInput) {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({ where: { id: input.saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot upload documents for a cancelled sale");
@@ -1593,6 +1695,26 @@ export async function uploadSaleDocument(input: UploadSaleDocumentInput) {
 
     return updated;
   });
+
+  // Auto-complete the sale if: registry doc was just uploaded AND payment is
+  // fully received AND sale is not already completed. This removes the need
+  // for the user to manually click "Complete" after both conditions are met.
+  if (input.documentType === "REGISTRY" && updated.saleStage !== "COMPLETED" && updated.paymentStatus === "PAID") {
+    try {
+      return await completeSale({
+        saleId: input.saleId,
+        userId: input.userId,
+        registryDocumentUrl: input.documentUrl,
+        registryDocumentName: input.documentName,
+      });
+    } catch (err) {
+      // If auto-completion fails (e.g. remaining balance), just return the
+      // document upload result — the user can manually complete later.
+      console.error("[sale] Auto-complete after registry upload failed:", err);
+    }
+  }
+
+  return updated;
 }
 
 // ───────────────────────────────────────────────────────────

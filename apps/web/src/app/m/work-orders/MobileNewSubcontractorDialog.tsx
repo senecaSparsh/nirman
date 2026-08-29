@@ -51,10 +51,15 @@ export function MobileNewSubcontractorDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create subcontractor");
+      if (!res.ok)
+        throw new Error(data.error ?? "Failed to create subcontractor");
       haptic([10, 40, 80]);
       toast.success(`${name.trim()} subcontractor created`);
-      onCreated({ id: data.id, name: name.trim(), trade: trade.trim() || null });
+      onCreated({
+        id: data.id,
+        name: name.trim(),
+        trade: trade.trim() || null,
+      });
       setName("");
       setTrade("");
       setGstin("");
@@ -73,29 +78,49 @@ export function MobileNewSubcontractorDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+    >
       <div
         className="w-full max-w-[34rem] rounded-t-[1rem] border-t p-4 pb-safe"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h2
+            className="text-[0.875rem] font-bold"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             New Subcontractor
           </h2>
-          <button onClick={onClose} className="press grid place-items-center size-7 rounded-[0.375rem]" style={{ color: "var(--color-ink-500)" }}>
+          <button
+            onClick={onClose}
+            className="touch press grid place-items-center rounded-[0.375rem]"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             <X className="size-4" />
           </button>
         </div>
 
-        <p className="text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
-          Add a subcontractor to issue work orders to. Only the name is required.
+        <p
+          className="text-[0.5625rem] mb-4"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          Add a subcontractor to issue work orders to. Only the name is
+          required.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Name */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -105,13 +130,20 @@ export function MobileNewSubcontractorDialog({
               placeholder="e.g. ABC Plumbing Works"
               autoFocus
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
           {/* Trade */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Trade
             </label>
             <input
@@ -120,13 +152,20 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setTrade(e.target.value)}
               placeholder="e.g. Plumbing, Electrical, Masonry"
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
           {/* GSTIN */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               GSTIN
             </label>
             <input
@@ -135,13 +174,20 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setGstin(e.target.value.toUpperCase())}
               placeholder="22AAAAA0000A1Z5"
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Phone
             </label>
             <input
@@ -150,13 +196,20 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setPhone(e.target.value)}
               placeholder="9876543210"
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
           {/* Email */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Email
             </label>
             <input
@@ -165,13 +218,20 @@ export function MobileNewSubcontractorDialog({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contact@abcworks.com"
               className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
           {/* Address */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Address
             </label>
             <textarea
@@ -180,7 +240,11 @@ export function MobileNewSubcontractorDialog({
               placeholder="Shop 12, Market Road, City"
               rows={2}
               className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] outline-none resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
 
@@ -189,7 +253,10 @@ export function MobileNewSubcontractorDialog({
             type="submit"
             disabled={saving}
             className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />

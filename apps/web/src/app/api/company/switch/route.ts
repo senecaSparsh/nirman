@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@nirman/db";
-import { getCurrentUser } from "@/lib/server";
+import { getCurrentUser, getCompany } from "@/lib/server";
 
 /**
  * POST /api/company/switch
  * Sets the nirman-company-id cookie to switch the active company.
- * Validates that the user has a membership in the target company.
+ *
+ * Access control:
+ *   - OWNER/ADMIN at the top of the hierarchy (no parent company) can
+ *     switch to any company they have a membership in.
+ *   - Users in a child company (has a parent) CANNOT switch — they are
+ *     scoped to their subsidiary.
+ *   - Non-owner/admin users CANNOT switch.
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -19,8 +25,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "companyId required" }, { status: 400 });
   }
 
-  // Verify the company exists and user has access
+  // Enforce: only OWNER/ADMIN at the top of the hierarchy can switch
   const isDevBypass = process.env.AUTH_BYPASS === "true";
+  if (!isDevBypass) {
+    const current = await getCompany();
+    const isOwnerAdmin = user.role === "OWNER" || user.role === "ADMIN";
+    if (!isOwnerAdmin || current.parentCompanyId) {
+      return NextResponse.json(
+        { error: "Only owners at the top of the hierarchy can switch companies" },
+        { status: 403 },
+      );
+    }
+  }
+
+  // Verify the company exists and user has access
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,

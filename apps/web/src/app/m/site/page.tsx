@@ -131,7 +131,7 @@ async function SiteContent() {
 
       {/* ── Quick actions — 6-col single row with live context badges ── */}
       <div className="grid grid-cols-6 gap-1.5">
-        <ActionCard href="/m/site/issue" icon={Package} label="Quick Issue" sub="Material challan" />
+        <ActionCard href="/m/stock-out?mode=issue" icon={Package} label="Quick Issue" sub="Material challan" />
         <ActionCard href="/m/site/receive" icon={Truck} label="Receive Stock" sub="Scan PO / gate entry" badge={inTransitPOs.length > 0 ? String(inTransitPOs.length) : undefined} badgeTone={overduePOs.length > 0 ? "stop" : "steel"} />
         <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit Daily Progress Report" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
         <ActionCard href="/m/site/attendance" icon={CalendarCheck} label="Attendance" sub="GPS tagged" badge={attendanceToday > 0 ? String(attendanceToday) : undefined} badgeTone="steel" />

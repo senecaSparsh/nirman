@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Send, Check, Ban, Trash2, AlertTriangle, X } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface IncidentDetail {
@@ -34,6 +35,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export function MobileIncidentDetailClient({ incident, canManage }: { incident: IncidentDetail; canManage: boolean }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [acting, setActing] = useState<string | null>(null);
   const [showInvestigate, setShowInvestigate] = useState(false);
   const [investigateForm, setInvestigateForm] = useState({ rootCause: "", correctiveActions: "" });
@@ -72,6 +74,20 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-[0.625rem] font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
         <p className="text-[0.75rem] leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{incident.description}</p>
+        {incident.attachments.length > 0 && (
+          <div className="mt-2">
+            <p className="text-[0.5625rem] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+              Photo Evidence ({incident.attachments.length})
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {incident.attachments.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-[0.375rem] border" style={{ borderColor: "var(--color-line)" }}>
+                  <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Details grid */}
@@ -125,7 +141,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
             <ActionButton onClick={() => doAction("cancel")} loading={acting === "cancel"} icon={Ban} label="Cancel" variant="secondary" />
           )}
           {(incident.status === "REPORTED" || incident.status === "CANCELLED") && (
-            <ActionButton onClick={async () => { if (!confirm("Delete this incident?")) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
+            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this incident?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
         </div>
       )}
@@ -163,6 +179,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
           </div>
         </BottomSheet>
       )}
+      {confirmDialog}
     </div>
   );
 }

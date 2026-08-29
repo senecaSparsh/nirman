@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { StatusPill } from "@/components/page";
+import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
 import { AssignDialog } from "./assign-dialog";
 import { MaintenanceDialog } from "./maintenance-dialog";
 import { EquipmentEditDialog } from "./equipment-edit-dialog";
@@ -192,6 +193,22 @@ export function EquipmentDetailDialog({
     : null;
   const maintDue = (status === "AVAILABLE" || status === "ASSIGNED") && (daysSinceMaint === null || daysSinceMaint > 90);
 
+  // Lifecycle pipeline: Available → Assigned → Maintenance → Retired
+  const hasBeenAssigned = (detail?.assignments.length ?? 0) > 0;
+  const hasBeenInMaintenance = (detail?.maintenance.length ?? 0) > 0;
+  const pipelineSteps: PipelineStep[] = [
+    { label: "Available", state: status === "AVAILABLE" ? "current" : "done" },
+    {
+      label: "Assigned",
+      state: status === "ASSIGNED" ? "current" : hasBeenAssigned ? "done" : "pending",
+    },
+    {
+      label: "Maintenance",
+      state: status === "IN_MAINTENANCE" ? "current" : hasBeenInMaintenance ? "done" : "pending",
+    },
+    { label: "Retired", state: status === "RETIRED" ? "current" : "pending" },
+  ];
+
   return (
     <>
       <Dialog
@@ -210,6 +227,9 @@ export function EquipmentDetailDialog({
               <StatusPill status={status} />
               {detail.category && <Badge variant="outline">{detail.category}</Badge>}
             </div>
+
+            {/* Lifecycle position */}
+            <PipelineStepper steps={pipelineSteps} />
 
             {/* Maintenance due alert */}
             {maintDue && (

@@ -13,6 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { EmployeeQuickCreateDialog } from "@/components/hr/employee-quick-create-dialog";
 import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
@@ -110,6 +111,7 @@ export interface DprDetail {
   blockers: string | null;
   tomorrowPlan: string | null;
   notes: string | null;
+  photoUrls: string[];
   varianceAnalysis: Array<{
     materialId: string;
     materialCode: string;
@@ -504,6 +506,9 @@ function DprFormDialog({
     tomorrowPlan: editTarget?.tomorrowPlan ?? "",
     notes: editTarget?.notes ?? "",
   });
+  const [fPhotos, setFPhotos] = useState<{ url: string; fileName?: string }[]>(
+    editTarget?.photoUrls?.map((url) => ({ url })) ?? [],
+  );
   const [materialLines, setMaterialLines] = useState<Array<{ materialId: string; qty: string; unitCost: string }>>(
     editTarget?.materialLines?.map((l) => ({ materialId: l.materialId, qty: String(l.qty), unitCost: String(l.unitCost) })) ?? []
   );
@@ -542,6 +547,7 @@ function DprFormDialog({
         blockers: form.blockers || null,
         tomorrowPlan: form.tomorrowPlan || null,
         notes: form.notes || null,
+        photoUrls: fPhotos.map((p) => p.url),
         materialLines: materialLines
           .filter((l) => l.materialId && l.qty)
           .map((l) => ({ materialId: l.materialId, qty: parseFloat(l.qty), unitCost: parseFloat(l.unitCost) || 0 })),
@@ -703,6 +709,16 @@ function DprFormDialog({
                 <button type="button" onClick={() => setLaborLines((l) => l.filter((_, j) => j !== i))} className="rounded p-1 text-muted-foreground hover:text-danger">×</button>
               </div>
             ))}
+          </div>
+
+          <div>
+            <Label>Notes</Label>
+            <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Additional notes…" />
+          </div>
+
+          <div>
+            <Label>Site Photos</Label>
+            <PhotoUploader photos={fPhotos} onChange={setFPhotos} maxPhotos={8} label="Add Site Photo" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -957,6 +973,18 @@ function DprDetailDialog({
               <div>
                 <Label>Tomorrow&apos;s Plan</Label>
                 <p className="mt-1 text-body">{detail.tomorrowPlan}</p>
+              </div>
+            )}
+            {detail.photoUrls && detail.photoUrls.length > 0 && (
+              <div>
+                <Label>Site Photos</Label>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {detail.photoUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
+                      <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
             {(detail.materialLines?.length ?? 0) > 0 && (

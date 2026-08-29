@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
-import { recordAttendance, bulkRecordAttendance, combineTimeWithDate } from "@nirman/services";
+import { recordAttendance, bulkRecordAttendance, combineTimeWithDate, computeAttendanceTier } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -37,27 +37,71 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
   });
 
+  // ── Traffic-light tier computation ──────────────────────────
+  // For each attendance record, check if a DPR exists for the same
+  // project+date and whether it's approved. Then compute the tier:
+  //   RED    = absent / not at location
+  //   YELLOW = present but DPR not approved yet
+  //   GREEN  = present + DPR approved (or paid leave)
+  const projectDateKeys = new Set(
+    records
+      .filter((r) => r.projectId)
+      .map((r) => `${r.projectId}|${r.date.toISOString().slice(0, 10)}`),
+  );
+  const dprApprovalMap = new Map<string, boolean>();
+  if (projectDateKeys.size > 0) {
+    const dprs = await prisma.dailyProgressReport.findMany({
+      where: {
+        companyId: company.id,
+        // We'll filter by project+date in JS since the composite lookup
+        // is simpler than building a complex OR clause
+      },
+      select: { projectId: true, date: true, approvalStatus: true },
+    });
+    for (const dpr of dprs) {
+      const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
+      if (projectDateKeys.has(key)) {
+        dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
+      }
+    }
+  }
+
   return json(
-    records.map((r) => ({
-      id: r.id,
-      employeeId: r.employeeId,
-      employeeName: r.employee.name,
-      trade: r.employee.trade,
-      date: r.date,
-      projectId: r.projectId,
-      projectName: r.project?.name ?? null,
-      checkIn: r.checkIn,
-      checkOut: r.checkOut,
-      hoursWorked: r.hoursWorked ? toNum(r.hoursWorked) : null,
-      status: r.status,
-      notes: r.notes,
-      checkInLat: r.checkInLat,
-      checkInLng: r.checkInLng,
-      checkOutLat: r.checkOutLat,
-      checkOutLng: r.checkOutLng,
-      checkInLocation: r.checkInLocation,
-      checkOutLocation: r.checkOutLocation,
-    })),
+    records.map((r) => {
+      const dprKey = r.projectId ? `${r.projectId}|${r.date.toISOString().slice(0, 10)}` : null;
+      const dprApproved = dprKey ? (dprApprovalMap.get(dprKey) ?? false) : false;
+      const hasGpsCheckIn = r.checkInLat != null && r.checkInLng != null;
+      const tier = computeAttendanceTier({
+        status: r.status,
+        hasGpsCheckIn,
+        dprApproved,
+        geoFenceOk: r.geoFenceOk,
+      });
+      return {
+        id: r.id,
+        employeeId: r.employeeId,
+        employeeName: r.employee.name,
+        trade: r.employee.trade,
+        date: r.date,
+        projectId: r.projectId,
+        projectName: r.project?.name ?? null,
+        checkIn: r.checkIn,
+        checkOut: r.checkOut,
+        hoursWorked: r.hoursWorked ? toNum(r.hoursWorked) : null,
+        status: r.status,
+        tier,
+        dprApproved,
+        notes: r.notes,
+        checkInLat: r.checkInLat,
+        checkInLng: r.checkInLng,
+        checkOutLat: r.checkOutLat,
+        checkOutLng: r.checkOutLng,
+        checkInLocation: r.checkInLocation,
+        checkOutLocation: r.checkOutLocation,
+        geoFenceOk: r.geoFenceOk,
+        geoFenceDistance: r.geoFenceDistance,
+      };
+    }),
   );
 });
 
@@ -126,6 +170,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     checkOutLng: parsed.data.checkOutLng ?? undefined,
     checkInLocation: parsed.data.checkInLocation ?? undefined,
     checkOutLocation: parsed.data.checkOutLocation ?? undefined,
+    geoFenceOk: parsed.data.geoFenceOk ?? undefined,
+    geoFenceDistance: parsed.data.geoFenceDistance ?? undefined,
   });
   return json({ ok: true, id: attendance.id }, { status: 201 });
 });

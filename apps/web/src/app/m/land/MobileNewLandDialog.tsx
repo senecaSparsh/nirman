@@ -8,7 +8,14 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
-type AreaUnit = "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
+type AreaUnit =
+  | "SQFT"
+  | "SQM"
+  | "SQYD"
+  | "ACRE"
+  | "BIGHA"
+  | "KATHA"
+  | "HECTARE";
 
 const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
   SQFT: "sq.ft",
@@ -109,7 +116,8 @@ export function MobileNewLandDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create land purchase");
+      if (!res.ok)
+        throw new Error(data.error ?? "Failed to create land purchase");
       haptic([10, 40, 80]);
       toast.success("Land purchase recorded");
       onClose();
@@ -124,7 +132,8 @@ export function MobileNewLandDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -154,15 +163,21 @@ export function MobileNewLandDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <MapPin className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <MapPin
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               New Land Purchase
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -190,7 +205,9 @@ export function MobileNewLandDialog({
 
           {/* Seller Contact */}
           <div>
-            <label className={labelClass} style={labelStyle}>Seller Contact</label>
+            <label className={labelClass} style={labelStyle}>
+              Seller Contact
+            </label>
             <input
               type="tel"
               value={form.sellerContact}
@@ -212,13 +229,19 @@ export function MobileNewLandDialog({
             inputClass={inputClass}
             inputStyle={inputStyle}
             renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
+              />
             )}
           />
 
           {/* Location */}
           <div>
-            <label className={labelClass} style={labelStyle}>Location</label>
+            <label className={labelClass} style={labelStyle}>
+              Location
+            </label>
             <input
               type="text"
               value={form.location}
@@ -232,7 +255,9 @@ export function MobileNewLandDialog({
 
           {/* Purchase Date */}
           <div>
-            <label className={labelClass} style={labelStyle}>Purchase Date</label>
+            <label className={labelClass} style={labelStyle}>
+              Purchase Date
+            </label>
             <input
               type="date"
               value={form.purchaseDate}
@@ -261,7 +286,9 @@ export function MobileNewLandDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Unit</label>
+              <label className={labelClass} style={labelStyle}>
+                Unit
+              </label>
               <select
                 value={form.areaUnit}
                 onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
@@ -269,7 +296,9 @@ export function MobileNewLandDialog({
                 style={inputStyle}
               >
                 {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                  <option key={u} value={u}>{AREA_UNIT_LABELS[u]}</option>
+                  <option key={u} value={u}>
+                    {AREA_UNIT_LABELS[u]}
+                  </option>
                 ))}
               </select>
             </div>
@@ -278,7 +307,8 @@ export function MobileNewLandDialog({
           {/* Total Cost */}
           <div>
             <label className={labelClass} style={labelStyle}>
-              Total Cost (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
+              Total Cost (₹){" "}
+              <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
               type="number"
@@ -295,7 +325,9 @@ export function MobileNewLandDialog({
 
           {/* Registry No */}
           <div>
-            <label className={labelClass} style={labelStyle}>Registry / Sale Deed No.</label>
+            <label className={labelClass} style={labelStyle}>
+              Registry / Sale Deed No.
+            </label>
             <input
               type="text"
               value={form.registryNo}
@@ -310,7 +342,8 @@ export function MobileNewLandDialog({
           {/* Initial Parcel Number */}
           <div>
             <label className={labelClass} style={labelStyle}>
-              Parcel Number <span style={{ color: "var(--color-stop)" }}>*</span>
+              Parcel Number{" "}
+              <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
               type="text"
@@ -321,8 +354,12 @@ export function MobileNewLandDialog({
               className={inputClass}
               style={inputStyle}
             />
-            <p className="text-[0.4375rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-              The default parcel created for this purchase. You can partition it later.
+            <p
+              className="text-[0.4375rem] mt-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              The default parcel created for this purchase. You can partition it
+              later.
             </p>
           </div>
 

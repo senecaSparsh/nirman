@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 
 interface PoPayload {
   id: string;
@@ -79,58 +80,60 @@ export function MobilePoActions({
   if (!showApprove && !showOrder && !showCancel) return null;
 
   return (
-    <div className="space-y-2 px-4 pb-6 pt-3">
-      {showApprove && showCancel ? (
-        <div className="flex gap-2">
-          <ActionButton
-            onClick={() => approveAction.execute()}
-            busy={approveAction.isPending}
-            icon={CheckCircle2}
-            label="Approve"
-            variant="primary"
-            className="flex-1"
-          />
-          <ActionButton
-            onClick={() => cancelAction.execute()}
-            busy={cancelAction.isPending}
-            icon={XCircle}
-            label="Cancel PO"
-            variant="outline"
-            className="flex-1"
-          />
-        </div>
-      ) : (
-        <>
-          {showApprove && (
+    <ActionBar>
+      <div className="space-y-2">
+        {showApprove && showCancel ? (
+          <div className="flex gap-2">
             <ActionButton
               onClick={() => approveAction.execute()}
               busy={approveAction.isPending}
               icon={CheckCircle2}
               label="Approve"
               variant="primary"
+              className="flex-1"
             />
-          )}
-          {showOrder && (
-            <ActionButton
-              onClick={() => orderAction.execute()}
-              busy={orderAction.isPending}
-              icon={Truck}
-              label="Mark as ordered"
-              variant="primary"
-            />
-          )}
-          {showCancel && (
             <ActionButton
               onClick={() => cancelAction.execute()}
               busy={cancelAction.isPending}
               icon={XCircle}
               label="Cancel PO"
               variant="outline"
+              className="flex-1"
             />
-          )}
-        </>
-      )}
-    </div>
+          </div>
+        ) : (
+          <>
+            {showApprove && (
+              <ActionButton
+                onClick={() => approveAction.execute()}
+                busy={approveAction.isPending}
+                icon={CheckCircle2}
+                label="Approve"
+                variant="primary"
+              />
+            )}
+            {showOrder && (
+              <ActionButton
+                onClick={() => orderAction.execute()}
+                busy={orderAction.isPending}
+                icon={Truck}
+                label="Mark as ordered"
+                variant="primary"
+              />
+            )}
+            {showCancel && (
+              <ActionButton
+                onClick={() => cancelAction.execute()}
+                busy={cancelAction.isPending}
+                icon={XCircle}
+                label="Cancel PO"
+                variant="outline"
+              />
+            )}
+          </>
+        )}
+      </div>
+    </ActionBar>
   );
 }
 

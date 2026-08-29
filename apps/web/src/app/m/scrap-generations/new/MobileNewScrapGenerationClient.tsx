@@ -63,7 +63,7 @@ export default function MobileNewScrapGenerationClient() {
         const [locRes, projRes, matRes] = await Promise.all([
           fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/materials").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
         ]);
         if (cancelled) return;
         if (Array.isArray(locRes)) {
@@ -71,9 +71,10 @@ export default function MobileNewScrapGenerationClient() {
           if (locRes.length > 0) setToLocationId(locRes[0].id);
         }
         if (Array.isArray(projRes)) setProjects(projRes);
-        if (Array.isArray(matRes)) {
-          setMaterials(matRes);
-          if (matRes.length > 0) setLines([{ materialId: matRes[0].id, qty: "", unitCost: "" }]);
+        const mats = matRes?.rows ?? [];
+        if (mats.length > 0) {
+          setMaterials(mats);
+          setLines([{ materialId: mats[0].id, qty: "", unitCost: "" }]);
         }
       } catch (err) {
         console.error("Failed to load form options:", err);

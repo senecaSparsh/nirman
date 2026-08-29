@@ -23,6 +23,7 @@ const directPurchaseSchema = z.object({
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
   notes: z.string().max(2000).optional().nullable(),
+  requisitionId: z.string().optional().nullable(),
   lines: z.array(directPurchaseLineSchema).optional().nullable(),
 });
 
@@ -89,6 +90,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       billDate: parsed.data.billDate ? new Date(parsed.data.billDate) : undefined,
       notes: parsed.data.notes ?? undefined,
       createdById: user.id,
+      requisitionId: parsed.data.requisitionId ?? undefined,
       vehicleNumber: parsed.data.vehicleNumber ?? undefined,
       vehicleType: parsed.data.vehicleType ?? undefined,
       vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,

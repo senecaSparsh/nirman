@@ -16,6 +16,7 @@ import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-sec
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
+import { mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
 
@@ -600,11 +601,7 @@ export function MobileLandDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {data.paymentSchedule.items.map((item, i) => {
-              const statusColor =
-                item.status === "PAID" ? "var(--color-go)" :
-                item.status === "PARTIAL" ? "var(--color-signal)" :
-                item.status === "DUE" ? "var(--color-stop)" :
-                "var(--color-ink-400)";
+              const statusColor = mobileStatusColor(item.status);
               return (
                 <div
                   key={item.id}

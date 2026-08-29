@@ -1110,7 +1110,7 @@ function createPoResponse(): AssistantResponse {
     text: `Naya Purchase Order banani hai?\n\nSupplier, material, quantity, aur cost bataiye. Ya direct form kholein:`,
     intent: "CREATE_PO",
     confidence: 0.8,
-    cards: [{ type: "link", label: "➕ New PO Form", href: "/m/purchase-orders/new", variant: "primary" }],
+    cards: [{ type: "link", label: "➕ New PO Form", href: "/m/procurement/new", variant: "primary" }],
   };
 }
 
@@ -1597,7 +1597,7 @@ async function supplierPaymentResponse(companyId: string): Promise<AssistantResp
     return { text: "✅ Kisi supplier ko kuch nahi dena!", intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
   }
 
-  let text = `💸 **Supplier Payment:**\n\nKaunse supplier ko pay karna hai?\n\n`;
+  const text = `💸 **Supplier Payment:**\n\nKaunse supplier ko pay karna hai?\n\n`;
   const cards: ActionCard[] = suppliers.slice(0, 5).map((s) => ({
     type: "link" as const,
     label: `Pay ${s.name} (${formatCurrency(toNum(s.balanceOwed))})`,

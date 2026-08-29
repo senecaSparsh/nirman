@@ -77,6 +77,35 @@ export default async function MaterialSaleInvoicePage({
         </div>
       </div>
 
+      {/* Vehicle / dispatch info */}
+      {(sale.vehicleNumber || sale.driverName) && (
+        <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Dispatch Details</div>
+          <div className="grid grid-cols-3 gap-2">
+            {sale.vehicleNumber && (
+              <div>
+                <span className="text-gray-600">Vehicle: </span>
+                <span className="font-medium">{sale.vehicleNumber}</span>
+                {sale.vehicleType && <span className="ml-1 text-xs text-gray-500">({sale.vehicleType})</span>}
+              </div>
+            )}
+            {sale.driverName && (
+              <div>
+                <span className="text-gray-600">Driver: </span>
+                <span className="font-medium">{sale.driverName}</span>
+                {sale.driverPhone && <span className="ml-1 text-xs text-gray-500">({sale.driverPhone})</span>}
+              </div>
+            )}
+            {sale.project && (
+              <div>
+                <span className="text-gray-600">Project: </span>
+                <span className="font-medium">{sale.project.name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Line items table */}
       <table className="mt-4 w-full border-collapse text-sm">
         <thead>

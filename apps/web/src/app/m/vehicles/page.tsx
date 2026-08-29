@@ -16,6 +16,15 @@ interface Vehicle {
   lastUsedAt?: string | null;
 }
 
+interface VehicleTrip {
+  id: string;
+  movementType: string;
+  timestamp: string;
+  driverName?: string | null;
+  fromLocationName?: string | null;
+  toLocationName?: string | null;
+}
+
 const TYPE_LABELS: Record<string, string> = {
   TRUCK: "Truck", TEMPO: "Tempo", PICKUP: "Pickup", TRACTOR: "Tractor",
   MINI_TRUCK: "Mini Truck", AUTO: "Auto", CAR: "Car", BIKE: "Bike",
@@ -27,12 +36,8 @@ export default function MobileVehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Vehicle | null>(null);
-  const [trips, setTrips] = useState<any[] | null>(null);
+  const [trips, setTrips] = useState<VehicleTrip[] | null>(null);
   const [tripsLoading, setTripsLoading] = useState(false);
-
-  useEffect(() => {
-    loadVehicles();
-  }, []);
 
   async function loadVehicles() {
     setLoading(true);
@@ -52,6 +57,10 @@ export default function MobileVehiclesPage() {
     } catch { /* best-effort */ }
     setTripsLoading(false);
   }
+
+  useEffect(() => {
+    loadVehicles();
+  }, []);
 
   const filtered = query
     ? vehicles.filter((v) => v.vehicleNumber.toLowerCase().includes(query.toLowerCase()))

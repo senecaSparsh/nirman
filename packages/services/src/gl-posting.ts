@@ -167,6 +167,20 @@ export async function postJournalEntry(
     return null;
   }
 
+  // Defensive: ensure all account codes exist in GlAccount before creating lines.
+  // If the database was reset (db:push) without re-seeding, the GlAccount table
+  // would be empty and the FK constraint on JournalLine.accountCode would fail
+  // with a cryptic error. Give a clear error message instead.
+  const accountCodes = [...new Set(lines.map((l) => l.accountCode))];
+  const existingCount = await tx.glAccount.count({
+    where: { code: { in: accountCodes } },
+  });
+  if (existingCount < accountCodes.length) {
+    throw new ServiceError(
+      `Chart of accounts is not seeded — account codes [${accountCodes.join(", ")}] are missing from GlAccount. Run \`pnpm --filter @nirman/db seed\` or call seedChartOfAccounts() to fix this.`,
+    );
+  }
+
   const d = input.entryDate ?? new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `JE-${ymd}-`;
@@ -1517,35 +1531,42 @@ export async function postSecurityDepositRefunded(
  * Trial balance: per account, sum of all posted journal lines.
  * Returns { code, name, type, debit, credit } with the running balance
  * (debit-positive for assets/expenses, credit-positive for liabilities/equity/revenue).
+ *
+ * Uses SQL groupBy for O(1) memory regardless of journal line count —
+ * the aggregation happens in Postgres, not in JS.
  */
 export async function trialBalance(companyId: string) {
-  const rows = await prisma.journalLine.findMany({
+  // Aggregate debit/credit sums per account at the DB level.
+  const grouped = await prisma.journalLine.groupBy({
+    by: ["accountCode"],
     where: { journalEntry: { companyId, status: "POSTED" } },
-    include: { account: { select: { code: true, name: true, type: true } } },
+    _sum: { debit: true, credit: true },
+    orderBy: { accountCode: "asc" },
   });
 
-  const byAccount = new Map<string, { code: string; name: string; type: string; debit: Decimal; credit: Decimal }>();
-  for (const l of rows) {
-    const key = l.accountCode;
-    const cur = byAccount.get(key) ?? {
-      code: l.account.code,
-      name: l.account.name,
-      type: l.account.type,
-      debit: new Decimal(0),
-      credit: new Decimal(0),
-    };
-    cur.debit = cur.debit.plus(new Decimal(l.debit));
-    cur.credit = cur.credit.plus(new Decimal(l.credit));
-    byAccount.set(key, cur);
-  }
+  // Fetch account metadata for the accounts that have entries.
+  const accountCodes = grouped.map((g) => g.accountCode);
+  const accounts = await prisma.glAccount.findMany({
+    where: { code: { in: accountCodes } },
+    select: { code: true, name: true, type: true },
+  });
+  const accountMap = new Map(accounts.map((a) => [a.code, a]));
 
-  const accounts = [...byAccount.values()].sort((a, b) => a.code.localeCompare(b.code));
-  // Balance: for assets/expenses, balance = debit - credit; for liabilities/equity/revenue, credit - debit.
-  const result = accounts.map((a) => {
-    // Contra-expense accounts have a credit-normal balance (they reduce expenses).
-    const isDebitNormal = a.type === "ASSET" || a.type === "EXPENSE";
-    const balance = isDebitNormal ? a.debit.minus(a.credit) : a.credit.minus(a.debit);
-    return { ...a, balance };
+  const result = grouped.map((g) => {
+    const acct = accountMap.get(g.accountCode);
+    const debit = new Decimal(g._sum.debit ?? 0);
+    const credit = new Decimal(g._sum.credit ?? 0);
+    // Balance: for assets/expenses, balance = debit - credit; for liabilities/equity/revenue, credit - debit.
+    const isDebitNormal = acct?.type === "ASSET" || acct?.type === "EXPENSE";
+    const balance = isDebitNormal ? debit.minus(credit) : credit.minus(debit);
+    return {
+      code: g.accountCode,
+      name: acct?.name ?? "Unknown",
+      type: acct?.type ?? "UNKNOWN",
+      debit,
+      credit,
+      balance,
+    };
   });
 
   const totalDebit = result.reduce((s, a) => s.plus(a.debit), new Decimal(0));
@@ -1554,25 +1575,79 @@ export async function trialBalance(companyId: string) {
 }
 
 /**
- * Account ledger: all posted journal lines for a single account, newest first.
+ * Account ledger: posted journal lines for a single account, newest first.
+ * Supports cursor-based pagination + optional date range filter.
+ *
+ * Pass `cursor` (a journal line ID) to fetch the next page after that line.
+ * Pass `limit` (default 100, max 500) to control page size.
+ * Pass `startDate`/`endDate` to filter by entry date.
  */
-export async function accountLedger(companyId: string, accountCode: string) {
+export async function accountLedger(
+  companyId: string,
+  accountCode: string,
+  opts?: {
+    cursor?: string;
+    limit?: number;
+    startDate?: Date;
+    endDate?: Date;
+  },
+) {
+  const limit = Math.min(opts?.limit ?? 100, 500);
+  const where: Prisma.JournalLineWhereInput = {
+    accountCode,
+    journalEntry: {
+      companyId,
+      status: "POSTED",
+      ...(opts?.startDate || opts?.endDate
+        ? {
+            entryDate: {
+              ...(opts?.startDate ? { gte: opts.startDate } : {}),
+              ...(opts?.endDate ? { lte: opts.endDate } : {}),
+            },
+          }
+        : {}),
+    },
+  };
+
+  // Cursor pagination: fetch lines after the cursor line's (entryDate, id).
+  // We use take+1 to detect if there are more rows.
+  let cursorObj: { id: string } | undefined;
+  if (opts?.cursor) {
+    // The cursor is a journal line ID — we need to find its entry date to
+    // paginate correctly. But since we order by entryDate desc, we can
+    // use skip+take with cursor for a simpler approach.
+    cursorObj = { id: opts.cursor };
+  }
+
   const lines = await prisma.journalLine.findMany({
-    where: { accountCode, journalEntry: { companyId, status: "POSTED" } },
+    where,
     include: { journalEntry: { select: { entryNumber: true, entryDate: true, sourceType: true, memo: true } } },
     orderBy: { journalEntry: { entryDate: "desc" } },
+    take: limit + 1, // +1 to check if there are more
+    ...(cursorObj
+      ? { skip: 1, cursor: cursorObj }
+      : {}),
   });
-  return lines.map((l) => ({
-    id: l.id,
-    entryNumber: l.journalEntry.entryNumber,
-    entryDate: l.journalEntry.entryDate,
-    sourceType: l.journalEntry.sourceType,
-    memo: l.memo ?? l.journalEntry.memo,
-    debit: new Decimal(l.debit),
-    credit: new Decimal(l.credit),
-    entityType: l.entityType,
-    entityId: l.entityId,
-  }));
+
+  const hasMore = lines.length > limit;
+  const page = hasMore ? lines.slice(0, limit) : lines;
+  const nextCursor = hasMore && page.length > 0 ? page[page.length - 1]!.id : null;
+
+  return {
+    lines: page.map((l) => ({
+      id: l.id,
+      entryNumber: l.journalEntry.entryNumber,
+      entryDate: l.journalEntry.entryDate,
+      sourceType: l.journalEntry.sourceType,
+      memo: l.memo ?? l.journalEntry.memo,
+      debit: new Decimal(l.debit),
+      credit: new Decimal(l.credit),
+      entityType: l.entityType,
+      entityId: l.entityId,
+    })),
+    hasMore,
+    nextCursor,
+  };
 }
 
 /**

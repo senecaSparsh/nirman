@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { prisma } from "@nirman/db";
+import { prisma, type AttendanceStatus } from "@nirman/db";
 import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 
 /**
@@ -71,7 +71,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       checkOutLng: parsed.data.checkOutLng,
       checkOutLocation: parsed.data.checkOutLocation ?? null,
       hoursWorked: hoursWorked,
-      status: finalStatus as any,
+      status: finalStatus as AttendanceStatus,
     },
   });
 

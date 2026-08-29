@@ -227,8 +227,8 @@ export function GeneralLedgerView({
     }
     setLoadingLedger(true);
     fetch(`/api/gl/ledger?account=${encodeURIComponent(selectedAccount)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d: LedgerLine[]) => setLedger(d))
+      .then((r) => (r.ok ? r.json() : { lines: [] }))
+      .then((d: { lines: LedgerLine[]; hasMore: boolean; nextCursor: string | null }) => setLedger(d.lines))
       .catch(() => {
         toast.error("Failed to load account ledger");
         setLedger([]);

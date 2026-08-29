@@ -34,6 +34,15 @@ export type AttendanceRow = {
   hoursWorked: number | null;
   status: AttendanceStatus;
   notes: string | null;
+  /** Traffic-light tier (D10): RED = absent, YELLOW = present+DPR pending, GREEN = present+DPR approved */
+  tier?: "RED" | "YELLOW" | "GREEN";
+  /** GPS-tagged check-in/check-out (from mobile app) */
+  checkInLat: number | null;
+  checkInLng: number | null;
+  checkOutLat: number | null;
+  checkOutLng: number | null;
+  checkInLocation: string | null;
+  checkOutLocation: string | null;
 };
 
 const STATUS_CONFIG: Record<AttendanceStatus, { label: string; short: string; activeClass: string; dotClass: string }> = {
@@ -252,6 +261,45 @@ export function AttendanceView({
       exportValue: (r) => r.hoursWorked ?? "",
     },
     {
+      key: "checkIn",
+      label: "Check-In",
+      sortable: true,
+      render: (r) => r.checkIn ? (
+        <span className="flex items-center gap-1 text-caption tnum text-muted-foreground">
+          {new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          {r.checkInLat != null && r.checkInLng != null && (
+            <MapPin className="h-3 w-3 text-success" aria-label="GPS verified" />
+          )}
+        </span>
+      ) : <span className="text-faint">—</span>,
+      sortValue: (r) => r.checkIn ?? "",
+      exportValue: (r) => r.checkIn ?? "",
+    },
+    {
+      key: "checkOut",
+      label: "Check-Out",
+      sortable: true,
+      render: (r) => r.checkOut ? (
+        <span className="flex items-center gap-1 text-caption tnum text-muted-foreground">
+          {new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          {r.checkOutLat != null && r.checkOutLng != null && (
+            <MapPin className="h-3 w-3 text-success" aria-label="GPS verified" />
+          )}
+        </span>
+      ) : <span className="text-faint">—</span>,
+      sortValue: (r) => r.checkOut ?? "",
+      exportValue: (r) => r.checkOut ?? "",
+      defaultHidden: true,
+    },
+    {
+      key: "checkInLocation",
+      label: "Location",
+      sortable: true,
+      render: (r) => r.checkInLocation ? <span className="text-caption text-muted-foreground">{r.checkInLocation}</span> : <span className="text-faint">—</span>,
+      exportValue: (r) => r.checkInLocation ?? "",
+      defaultHidden: true,
+    },
+    {
       key: "status",
       label: "Status",
       sortable: true,
@@ -267,6 +315,29 @@ export function AttendanceView({
       },
       filterValue: (r) => STATUS_CONFIG[r.status]?.label ?? r.status,
       exportValue: (r) => r.status,
+    },
+    {
+      key: "tier",
+      label: "Tier",
+      sortable: true,
+      filterable: true,
+      render: (r) => {
+        if (!r.tier) return <span className="text-faint">—</span>;
+        const tierConfig = {
+          RED: { label: "Absent", color: "text-danger", bg: "bg-danger/15", dot: "bg-danger" },
+          YELLOW: { label: "Waiting", color: "text-warning", bg: "bg-warning/15", dot: "bg-warning" },
+          GREEN: { label: "Clear", color: "text-success", bg: "bg-success/15", dot: "bg-success" },
+        };
+        const cfg = tierConfig[r.tier];
+        return (
+          <span className={cn("inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-caption font-medium", cfg.bg, cfg.color)}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
+            {cfg.label}
+          </span>
+        );
+      },
+      filterValue: (r) => r.tier ?? "—",
+      exportValue: (r) => r.tier ?? "",
     },
   ];
 

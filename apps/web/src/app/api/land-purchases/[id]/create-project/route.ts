@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -49,7 +49,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       data: {
         companyId: company.id,
         name: parsed.data.name,
-        type: (parsed.data.type ?? "RESIDENTIAL") as any,
+        type: (parsed.data.type ?? "RESIDENTIAL") as ProjectType,
         status: "PLANNED",
         address: landPurchase.location ?? null,
         totalBudget: landPurchase.totalCost,

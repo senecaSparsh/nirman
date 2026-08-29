@@ -2,10 +2,40 @@ import { createAuthClient } from "better-auth/react";
 
 // Use NEXT_PUBLIC_APP_URL if set (set in render.yaml for production).
 // Otherwise let Better-Auth auto-detect from window.location.origin.
+
+// Custom fetch wrapper that guarantees Content-Type: application/json on
+// all POST requests. The @better-fetch/fetch library should set this
+// automatically from the body, but for empty-body POSTs (like signOut())
+// the header is sometimes not set, causing a 415 Unsupported Media Type
+// from better-call's server-side body parser. This wraps the actual
+// native fetch call at the lowest level to ensure the header is present.
+const authFetch: typeof fetch = (input, init) => {
+  if (init?.method === "POST") {
+    // better-auth's signOut() sends an empty-body POST with no headers, so
+    // init.headers can be undefined. We must still attach a Headers object
+    // and set content-type, or better-call's body parser returns 415.
+    const headers = new Headers(init.headers);
+    if (!headers.has("content-type")) {
+      headers.set("content-type", "application/json");
+    }
+    return fetch(input, { ...init, headers });
+  }
+  return fetch(input, init);
+};
+
 export const authClient = createAuthClient(
   process.env.NEXT_PUBLIC_APP_URL
-    ? { baseURL: process.env.NEXT_PUBLIC_APP_URL }
-    : {}
+    ? {
+        baseURL: process.env.NEXT_PUBLIC_APP_URL,
+        fetchOptions: {
+          customFetchImpl: authFetch,
+        },
+      }
+    : {
+        fetchOptions: {
+          customFetchImpl: authFetch,
+        },
+      },
 );
 
 export const { signIn, signOut, signUp, useSession } = authClient;

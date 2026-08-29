@@ -1,14 +1,18 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
+import { PageLoading } from "@/components/page-loading";
 import { DprFinanceReconciliationView } from "@/components/dpr/dpr-finance-reconciliation-view";
 
 export default function DprReconciliationPage() {
   return (
     <div className="space-y-6">
-      <DprReconciliationContent />
+      <Suspense fallback={<PageLoading label="Loading reconciliation…" variant="list" />}>
+        <DprReconciliationContent />
+      </Suspense>
     </div>
   );
 }

@@ -36,6 +36,9 @@ type PaymentItem = {
   paymentDate: string;
   paymentMode: string;
   referenceNo: string | null;
+  chequeNo: string | null;
+  chequeBank: string | null;
+  chequePhotoUrl: string | null;
 };
 
 const PAYMENT_MODES = ["CASH", "BANK", "UPI", "CHEQUE"];
@@ -58,6 +61,10 @@ export function MobileMaterialSaleDetailClient({
   scrapSubtotal,
   paymentMode,
   notes,
+  vehicleNumber,
+  vehicleType,
+  driverName,
+  driverPhone,
   customer,
   project,
   lines,
@@ -79,6 +86,10 @@ export function MobileMaterialSaleDetailClient({
   scrapSubtotal: number;
   paymentMode: string | null;
   notes: string | null;
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
   customer: { id: string; name: string; phone: string | null } | null;
   project: { id: string; name: string } | null;
   lines: LineItem[];
@@ -401,6 +412,22 @@ export function MobileMaterialSaleDetailClient({
             <p className="text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>{notes}</p>
           </div>
         ) : null}
+
+        {(vehicleNumber || driverName) ? (
+          <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <p className="text-[0.5rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+              Dispatch
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[0.625rem]" style={{ color: "var(--color-ink-700)" }}>
+              {vehicleNumber && (
+                <span>Vehicle: <span className="font-mono font-bold">{vehicleNumber}</span>{vehicleType ? ` (${vehicleType})` : ""}</span>
+              )}
+              {driverName && (
+                <span>Driver: <span className="font-bold">{driverName}</span>{driverPhone ? ` (${driverPhone})` : ""}</span>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Financial summary ── */}
@@ -542,6 +569,12 @@ export function MobileMaterialSaleDetailClient({
                   <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(p.paymentDate)}
                   </p>
+                  {p.paymentMode === "CHEQUE" && p.chequeNo && (
+                    <p className="text-[0.4375rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                      Chq: {p.chequeNo}{p.chequeBank ? ` · ${p.chequeBank}` : ""}
+                      {p.chequePhotoUrl ? " · 📷" : ""}
+                    </p>
+                  )}
                 </div>
                 <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
                   {formatCurrencyCompact(p.amount)}

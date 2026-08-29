@@ -1,6 +1,7 @@
 import { getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import MobileNewStockCountClient from "./MobileNewStockCountClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/stock-counts/new — mobile stock count creation.
@@ -10,18 +11,7 @@ export default async function MobileNewStockCountPage() {
   const role = await getUserRole();
 
   if (!hasPermission(role, PERM.INVENTORY_MANAGE)) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          New Stock Inventory
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to create stock inventories.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="create stock inventories" permission="inventory.manage" />;
   }
 
   return <MobileNewStockCountClient />;

@@ -32,6 +32,9 @@ export function CompleteSaleDialog({
     paymentMode: "BANK_TRANSFER",
     reference: "",
     saleDeedNo: "",
+    // ATS fields — if the sale was ATS, capture ATS no here (if not already)
+    atsNo: "",
+    atsDate: "",
     // Compliance fields
     allotmentLetterNo: "",
     allotmentDate: "",
@@ -76,6 +79,9 @@ export function CompleteSaleDialog({
           paymentMode: form.paymentMode,
           reference: form.reference.trim() || null,
           saleDeedNo: form.saleDeedNo.trim() || null,
+          // ATS fields — either atsNo OR saleDeedNo is the registered document
+          atsNo: form.atsNo.trim() || null,
+          atsDate: form.atsDate || null,
           // Compliance fields
           allotmentLetterNo: form.allotmentLetterNo.trim() || null,
           allotmentDate: form.allotmentDate || null,
@@ -171,12 +177,32 @@ export function CompleteSaleDialog({
           <Input id="c-ref" value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="Cheque no, UTR, etc." />
         </div>
         {isCheque && <ChequeFields value={cheque} onChange={setCheque} />}
-        <div className="space-y-1.5">
-          <Label htmlFor="c-deed">Sale Deed / Registry No.</Label>
-          <Input id="c-deed" value={form.saleDeedNo} onChange={(e) => set("saleDeedNo", e.target.value)} placeholder="e.g. SR-1234/2025" />
+        {/* ATS / Registry — merged: either ATS no or registry no */}
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <div className="text-body font-semibold">ATS / Registry</div>
           <p className="text-caption text-muted-foreground">
-            The registered sale deed number from the sub-registrar. Captured at completion when the title is transferred.
+            Either ATS number or Registry number — one of the two is the registered document for this sale.
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-ats-no">ATS Registration No.</Label>
+              <Input id="c-ats-no" value={form.atsNo} onChange={(e) => set("atsNo", e.target.value)} placeholder="e.g. ATS-1234/2025" />
+              <p className="text-caption text-muted-foreground">
+                If the sale is ATS (registry deferred), enter the ATS registration number.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="c-ats-date">ATS Date</Label>
+              <Input id="c-ats-date" type="date" value={form.atsDate} onChange={(e) => set("atsDate", e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="c-deed">Sale Deed / Registry No.</Label>
+            <Input id="c-deed" value={form.saleDeedNo} onChange={(e) => set("saleDeedNo", e.target.value)} placeholder="e.g. SR-1234/2025" />
+            <p className="text-caption text-muted-foreground">
+              The registered sale deed number from the sub-registrar. Captured at completion when the title is transferred.
+            </p>
+          </div>
         </div>
         <div className="space-y-1.5 rounded-md border border-dashed border-warning/40 bg-warning/5 p-3">
           <Label>Registry Document Upload *</Label>

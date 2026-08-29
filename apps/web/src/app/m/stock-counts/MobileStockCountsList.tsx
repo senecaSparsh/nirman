@@ -7,7 +7,6 @@ import { formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileHeaderAction,
   MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
@@ -65,7 +64,11 @@ export function MobileStockCountsList({
       );
     }
     // Smart sort: DRAFT > COUNTED > RECONCILED, then by date desc
-    const statusOrder: Record<string, number> = { DRAFT: 0, COUNTED: 1, RECONCILED: 2 };
+    const statusOrder: Record<string, number> = {
+      DRAFT: 0,
+      COUNTED: 1,
+      RECONCILED: 2,
+    };
     return [...result].sort((a, b) => {
       const so = (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
       if (so !== 0) return so;
@@ -78,7 +81,11 @@ export function MobileStockCountsList({
       {/* ── Summary strip ── */}
       <MobileSummaryStrip
         stats={[
-          { label: "Pending", value: String(counts.draft + counts.counted), tone: "signal" },
+          {
+            label: "Pending",
+            value: String(counts.draft + counts.counted),
+            tone: "signal",
+          },
           { label: "Drafts", value: String(counts.draft), tone: "signal" },
           { label: "Reconciled", value: String(counts.reconciled), tone: "go" },
           { label: "Total", value: String(counts.total), tone: "default" },
@@ -98,27 +105,44 @@ export function MobileStockCountsList({
               defaultValue="ALL"
               onChange={setFilter}
             />
-            {canCreate && <MobileHeaderAction href="/m/stock-counts/new">New</MobileHeaderAction>}
           </div>
         }
         showClear={filter !== "ALL" || query !== ""}
-        onClear={() => { setQuery(""); setFilter("ALL"); }}
+        onClear={() => {
+          setQuery("");
+          setFilter("ALL");
+        }}
       />
 
       {/* ── Count cards grid ── */}
       {filtered.length === 0 ? (
-        (query || filter !== "ALL") ? (
-          <MobileNoResults title="No matching counts" hint="Try a different search or filter" />
+        query || filter !== "ALL" ? (
+          <MobileNoResults
+            title="No matching counts"
+            hint="Try a different search or filter"
+          />
         ) : (
           <div
             className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper-2)",
+            }}
           >
-            <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            <ScanLine
+              className="size-6 mb-2"
+              style={{ color: "var(--color-ink-300)" }}
+            />
+            <p
+              className="text-[0.75rem] font-semibold"
+              style={{ color: "var(--color-ink-700)" }}
+            >
               No stock inventories
             </p>
-            <p className="text-[0.625rem]" style={{ color: "var(--color-ink-500)" }}>
+            <p
+              className="text-[0.625rem]"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Start a physical verification
             </p>
           </div>
@@ -135,11 +159,11 @@ export function MobileStockCountsList({
               </span>
             </div>
           )}
-        <MobileCardGrid>
-          {filtered.map((c) => (
-            <CountCard key={c.id} c={c} />
-          ))}
-        </MobileCardGrid>
+          <MobileCardGrid>
+            {filtered.map((c) => (
+              <CountCard key={c.id} c={c} />
+            ))}
+          </MobileCardGrid>
         </div>
       )}
     </div>
@@ -162,7 +186,12 @@ function CountCard({ c }: { c: StockCountItem }) {
   const statusLabel = isDraft ? "Draft" : isCounted ? "Counted" : "Reconciled";
 
   const hasVariance = c.itemsWithVariance > 0;
-  const varianceColor = c.totalVariance < 0 ? "var(--color-stop)" : c.totalVariance > 0 ? "var(--color-signal)" : "var(--color-go)";
+  const varianceColor =
+    c.totalVariance < 0
+      ? "var(--color-stop)"
+      : c.totalVariance > 0
+        ? "var(--color-signal)"
+        : "var(--color-go)";
 
   return (
     <Link
@@ -186,18 +215,27 @@ function CountCard({ c }: { c: StockCountItem }) {
             <StatusIcon className="size-2.5" />
             {statusLabel}
           </span>
-          <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <span
+            className="text-[0.4375rem] font-semibold"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             {c.lineCount} items
           </span>
         </div>
 
         {/* Row 2: Location name */}
-        <p className="text-[0.5625rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p
+          className="text-[0.5625rem] font-bold leading-tight truncate"
+          style={{ color: "var(--color-ink-950)" }}
+        >
           {c.locationName}
         </p>
 
         {/* Row 3: Date */}
-        <span className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+        <span
+          className="text-[0.5rem] tabular-nums"
+          style={{ color: "var(--color-ink-500)" }}
+        >
           {formatDate(c.countDate)}
         </span>
 
@@ -205,22 +243,32 @@ function CountCard({ c }: { c: StockCountItem }) {
         <div className="mt-auto pt-1 h-[1.625rem] flex flex-col justify-end">
           {hasVariance ? (
             <div className="flex items-center justify-between">
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              <span
+                className="text-[0.4375rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 {c.itemsWithVariance} mismatch
               </span>
               <span
                 className="text-[0.5625rem] font-bold tabular-nums"
                 style={{ color: varianceColor }}
               >
-                {c.totalVariance > 0 ? "+" : ""}{formatNumber(c.totalVariance, 0)}
+                {c.totalVariance > 0 ? "+" : ""}
+                {formatNumber(c.totalVariance, 0)}
               </span>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <span className="text-[0.4375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              <span
+                className="text-[0.4375rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 All match
               </span>
-              <CheckCircle2 className="size-3" style={{ color: "var(--color-go)" }} />
+              <CheckCircle2
+                className="size-3"
+                style={{ color: "var(--color-go)" }}
+              />
             </div>
           )}
         </div>

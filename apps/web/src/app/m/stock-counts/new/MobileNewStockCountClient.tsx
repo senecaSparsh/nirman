@@ -9,15 +9,18 @@ import {
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { ScanButton } from "@/components/mobile/v2/scan-button";
 
 interface LocationItem { id: string; name: string; type: string; }
 interface StockItem {
   materialId: string;
   materialName: string;
   materialCode: string;
+  barcode?: string | null;
   unit: string;
   qty: number;
 }
@@ -45,6 +48,7 @@ interface StockCountDraft {
 export default function MobileNewStockCountClient() {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
+  const submitLongPress = useLongPressNav("/m/stock-counts", "Stock counts list");
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -190,6 +194,24 @@ export default function MobileNewStockCountClient() {
         countedQty: "",
       },
     ]);
+  };
+
+  // Scan barcode → find matching material in stock → add to count + focus qty
+  const handleScan = (code: string) => {
+    const matched = stock.find(
+      (s) => s.barcode === code || s.materialCode === code,
+    );
+    if (!matched) {
+      toast.error(`No material found for barcode: ${code}`);
+      return;
+    }
+    if (lines.some((l) => l.materialId === matched.materialId)) {
+      // Already in count — focus its qty input
+      toast.info(`${matched.materialName} already in count`);
+      return;
+    }
+    handleAddMaterial(matched);
+    toast.success(`Added: ${matched.materialName}`);
   };
 
   // Calculate variances
@@ -507,17 +529,20 @@ export default function MobileNewStockCountClient() {
         </div>
       )}
 
-      {/* Add material button */}
+      {/* Add material + optional scan */}
       {stock.length > 0 ? (
-        <button
-          type="button"
-          onClick={() => setShowMaterialModal(true)}
-          className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-        >
-          <Plus className="size-3" />
-          <span className="text-[0.625rem] font-semibold">Add material</span>
-        </button>
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => setShowMaterialModal(true)}
+            className="flex-1 flex items-center justify-center gap-1 rounded-[0.375rem] border border-dashed py-2 press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          >
+            <Plus className="size-3" />
+            <span className="text-[0.625rem] font-semibold">Add material</span>
+          </button>
+          <ScanButton onScan={handleScan} label="Scan" />
+        </div>
       ) : null}
 
       {/* ── Notes ── */}
@@ -573,10 +598,11 @@ export default function MobileNewStockCountClient() {
           {/* Submit */}
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => { if (submitLongPress.wasLongPress()) return; handleSubmit(); }}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

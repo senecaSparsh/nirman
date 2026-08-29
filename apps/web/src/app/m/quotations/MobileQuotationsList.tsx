@@ -8,10 +8,12 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileHeaderAction,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
-import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import {
+  MobileExportShareIcons,
+  type MobileColumnSpec,
+} from "@/components/mobile/v2/export-share-bar";
 import { MobileNewQuotationClient } from "./new/MobileNewQuotationClient";
 import { MobileQuotationDetail } from "./[id]/MobileQuotationDetail";
 
@@ -35,7 +37,14 @@ export type QuotationListItem = {
 
 type Catalog = {
   projects: { id: string; name: string }[];
-  materials: { id: string; name: string; code: string; unit: string; hsnCode: string | null; gstRate: number }[];
+  materials: {
+    id: string;
+    name: string;
+    code: string;
+    unit: string;
+    hsnCode: string | null;
+    gstRate: number;
+  }[];
 };
 
 type TabKey = "all" | "mine" | "pending";
@@ -128,7 +137,10 @@ export function MobileQuotationsList({
                 type="button"
                 onClick={openNew}
                 className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
-                style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+                style={{
+                  borderColor: "var(--color-signal)",
+                  color: "var(--color-signal-dark)",
+                }}
               >
                 <Plus className="size-3.5" />
                 New Quotation Request
@@ -138,7 +150,11 @@ export function MobileQuotationsList({
           <MobileEmptyState
             icon={FileText}
             title="No quotation requests"
-            hint={canCreate ? "Tap above to create your first quotation request" : "Quotation requests will appear here"}
+            hint={
+              canCreate
+                ? "Tap above to create your first quotation request"
+                : "Quotation requests will appear here"
+            }
           />
         </div>
       ) : (
@@ -153,7 +169,10 @@ export function MobileQuotationsList({
                   options={[
                     { label: "All", value: "all" },
                     { label: "Mine", value: "mine" },
-                    { label: `Pending Approval${pendingCount > 0 ? ` (${pendingCount})` : ""}`, value: "pending" },
+                    {
+                      label: `Pending Approval${pendingCount > 0 ? ` (${pendingCount})` : ""}`,
+                      value: "pending",
+                    },
                   ]}
                   active={tab}
                   defaultValue="all"
@@ -167,7 +186,6 @@ export function MobileQuotationsList({
                     summary={exportSummary}
                   />
                 ) : null}
-                {canCreate && <MobileHeaderAction onClick={openNew}>New</MobileHeaderAction>}
               </div>
             }
             showClear={query !== "" || tab !== "all"}
@@ -179,9 +197,17 @@ export function MobileQuotationsList({
 
           {filtered.length === 0 ? (
             <MobileNoResults
-              title={tab === "pending" ? "No pending approvals" : "No quotation requests found"}
+              title={
+                tab === "pending"
+                  ? "No pending approvals"
+                  : "No quotation requests found"
+              }
               query={query || undefined}
-              hint={tab === "pending" ? "You have no quotation requests awaiting your approval" : "Try a different filter."}
+              hint={
+                tab === "pending"
+                  ? "You have no quotation requests awaiting your approval"
+                  : "Try a different filter."
+              }
             />
           ) : (
             <div>
@@ -195,18 +221,25 @@ export function MobileQuotationsList({
                   </span>
                 </div>
               )}
-            <div className="space-y-2">
-              {filtered.map((r) => (
-                <QuotationCard key={r.id} req={r} onOpen={() => openDetail(r.id)} />
-              ))}
-            </div>
+              <div className="space-y-2">
+                {filtered.map((r) => (
+                  <QuotationCard
+                    key={r.id}
+                    req={r}
+                    onOpen={() => openDetail(r.id)}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </>
       )}
 
       {showNew ? (
-        <div className="fixed inset-0 z-50 overflow-y-auto p-3.5" style={{ backgroundColor: "var(--color-paper)" }}>
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto p-3.5"
+          style={{ backgroundColor: "var(--color-paper)" }}
+        >
           <MobileNewQuotationClient
             data={catalog}
             onClose={() => {
@@ -247,7 +280,13 @@ export function MobileQuotationsList({
   );
 }
 
-function QuotationCard({ req, onOpen }: { req: QuotationListItem; onOpen: () => void }) {
+function QuotationCard({
+  req,
+  onOpen,
+}: {
+  req: QuotationListItem;
+  onOpen: () => void;
+}) {
   const style = STATUS_STYLE[req.status] ?? STATUS_STYLE.OPEN!;
   const accentColor = style.color;
 
@@ -257,14 +296,19 @@ function QuotationCard({ req, onOpen }: { req: QuotationListItem; onOpen: () => 
       onClick={onOpen}
       className="flex w-full text-left rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
       style={{
-        borderColor: req.isPendingMyApproval ? "var(--color-signal)" : "var(--color-line)",
+        borderColor: req.isPendingMyApproval
+          ? "var(--color-signal)"
+          : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
       <div className="w-1 shrink-0" style={{ backgroundColor: accentColor }} />
       <div className="p-2.5 flex flex-col gap-1 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className="text-[0.5625rem] font-mono font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <span
+            className="text-[0.5625rem] font-mono font-bold truncate"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             {req.requestNumber}
           </span>
           <span
@@ -274,10 +318,16 @@ function QuotationCard({ req, onOpen }: { req: QuotationListItem; onOpen: () => 
             {style.label}
           </span>
         </div>
-        <p className="text-[0.6875rem] font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p
+          className="text-[0.6875rem] font-bold leading-tight truncate"
+          style={{ color: "var(--color-ink-950)" }}
+        >
           {req.title}
         </p>
-        <span className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+        <span
+          className="text-[0.5625rem] truncate"
+          style={{ color: "var(--color-ink-500)" }}
+        >
           {req.projectName ?? "No project"} · {req.submittedByName}
         </span>
         <div className="flex items-center justify-between gap-1 mt-0.5">
@@ -285,8 +335,12 @@ function QuotationCard({ req, onOpen }: { req: QuotationListItem; onOpen: () => 
             <span
               className="text-[0.5rem] font-bold tabular-nums px-1.5 py-0.5 rounded-[0.25rem]"
               style={{
-                backgroundColor: req.quotesMet ? "var(--color-go-wash)" : "var(--color-concrete)",
-                color: req.quotesMet ? "var(--color-go)" : "var(--color-ink-500)",
+                backgroundColor: req.quotesMet
+                  ? "var(--color-go-wash)"
+                  : "var(--color-concrete)",
+                color: req.quotesMet
+                  ? "var(--color-go)"
+                  : "var(--color-ink-500)",
               }}
             >
               {req.quoteCount}/{req.minQuotesRequired} quotes
@@ -294,30 +348,45 @@ function QuotationCard({ req, onOpen }: { req: QuotationListItem; onOpen: () => 
             {req.isPendingMyApproval ? (
               <span
                 className="text-[0.5rem] font-bold px-1.5 py-0.5 rounded-[0.25rem]"
-                style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
+                style={{
+                  backgroundColor: "var(--color-signal-wash)",
+                  color: "var(--color-signal-dark)",
+                }}
               >
                 Your approval
               </span>
             ) : null}
             {req.convertedPo ? (
-              <span className="flex items-center gap-0.5 text-[0.5rem] font-bold" style={{ color: "var(--color-go)" }}>
+              <span
+                className="flex items-center gap-0.5 text-[0.5rem] font-bold"
+                style={{ color: "var(--color-go)" }}
+              >
                 <Trophy className="size-2.5" /> {req.convertedPo.poNumber}
               </span>
             ) : req.selectedQuoteId ? (
-              <span className="flex items-center gap-0.5 text-[0.5rem] font-bold" style={{ color: "var(--color-go)" }}>
+              <span
+                className="flex items-center gap-0.5 text-[0.5rem] font-bold"
+                style={{ color: "var(--color-go)" }}
+              >
                 <Trophy className="size-2.5" /> Winner
               </span>
             ) : null}
           </div>
           {req.cheapestLandedTotal != null ? (
-            <span className="text-[0.5625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+            <span
+              className="text-[0.5625rem] font-bold tabular-nums"
+              style={{ color: "var(--color-ink-700)" }}
+            >
               {formatCurrency(req.cheapestLandedTotal)}
             </span>
           ) : null}
         </div>
       </div>
       <div className="flex items-center pr-2 shrink-0">
-        <ChevronRight className="size-4" style={{ color: "var(--color-ink-300)" }} />
+        <ChevronRight
+          className="size-4"
+          style={{ color: "var(--color-ink-300)" }}
+        />
       </div>
     </button>
   );
@@ -376,116 +445,136 @@ function QuotationAnalysisOverlay({
             isUrgent: data.isUrgent ?? false,
             daysUntilRequired: data.daysUntilRequired ?? null,
           },
-          lines: (data.materials ?? []).map((m: {
-            materialId: string;
-            materialName: string;
-            materialCode: string;
-            unit: string;
-            qtyRequired: number;
-            hsnCode: string | null;
-            gstRate: number;
-            lastRate: { unitCost: number; poNumber: string; poDate: string; supplierName: string; projectName: string | null } | null;
-            allQuotesAboveLastRate: boolean;
-            minVariancePct: number | null;
-          }) => ({
-            id: m.materialId,
-            materialId: m.materialId,
-            materialName: m.materialName,
-            materialCode: m.materialCode,
-            unit: m.unit,
-            qtyRequired: m.qtyRequired,
-            hsnCode: m.hsnCode,
-            gstRate: m.gstRate,
-            lastRate: m.lastRate ?? null,
-            allQuotesAboveLastRate: m.allQuotesAboveLastRate ?? false,
-            minVariancePct: m.minVariancePct ?? null,
-          })),
-          quotes: (data.quotes ?? []).map((q: {
-            id: string;
-            supplierId: string;
-            supplierName: string;
-            supplierPhone: string | null;
-            supplierGstin: string | null;
-            fileUrl: string | null;
-            fileName: string | null;
-            quoteSource: string;
-            sourceNote: string | null;
-            isCheapest: boolean;
-            isSelected: boolean;
-            subtotal: number;
-            gstTotal: number;
-            freightTotal: number;
-            handlingTotal: number;
-            discountTotal: number;
-            packingTotal: number;
-            loadingTotal: number;
-            insuranceTotal: number;
-            landedTotal: number;
-            buyerTransportTotal: number;
-            validUntil: string | null;
-            paymentTerms: string | null;
-            deliveryTerms: string | null;
-            deliveryTermsType: "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM" | null;
-            leadTimeDays: number | null;
-            warranty: string | null;
-            notes: string | null;
-            createdAt: string;
-            isExpired: boolean;
-            daysUntilExpiry: number | null;
-          }) => ({
-            ...q,
-            deliveryTermsType: q.deliveryTermsType ?? "DELIVERED_SITE",
-            status: q.isSelected ? "SELECTED" : "PENDING",
-            lines: (data.materials ?? []).map((m: {
+          lines: (data.materials ?? []).map(
+            (m: {
               materialId: string;
+              materialName: string;
+              materialCode: string;
+              unit: string;
+              qtyRequired: number;
               hsnCode: string | null;
-            quotes: Array<{
-                quoteId: string;
-                qty: number;
-                unitPrice: number;
-                gstRate: number;
-                gstAmount: number;
-                discountPerUnit: number;
-                packingPerUnit: number;
-                freightPerUnit: number;
-                loadingPerUnit: number;
-                insurancePerUnit: number;
-                handlingPerUnit: number;
-                buyerTransportPerUnit: number;
-                taxableValuePerUnit: number;
-                unitLandedCost: number;
-                lineSubtotal: number;
-                lineTotal: number;
-              }>;
-            }) => {
-              const line = m.quotes.find((l) => l.quoteId === q.id);
-              if (!line) return null;
-              return {
-                materialId: m.materialId,
-                qty: line.qty,
-                unitPrice: line.unitPrice,
-                hsnCode: m.hsnCode ?? null,
-                gstRate: line.gstRate,
-                gstAmount: line.gstAmount,
-                discountPerUnit: line.discountPerUnit,
-                packingPerUnit: line.packingPerUnit,
-                freightPerUnit: line.freightPerUnit,
-                loadingPerUnit: line.loadingPerUnit,
-                insurancePerUnit: line.insurancePerUnit,
-                handlingPerUnit: line.handlingPerUnit,
-                buyerTransportPerUnit: line.buyerTransportPerUnit ?? 0,
-                taxableValuePerUnit: line.taxableValuePerUnit,
-                unitLandedCost: line.unitLandedCost,
-                lineSubtotal: line.lineSubtotal,
-                lineTotal: line.lineTotal,
-              };
-            }).filter(Boolean),
-          })),
+              gstRate: number;
+              lastRate: {
+                unitCost: number;
+                poNumber: string;
+                poDate: string;
+                supplierName: string;
+                projectName: string | null;
+              } | null;
+              allQuotesAboveLastRate: boolean;
+              minVariancePct: number | null;
+            }) => ({
+              id: m.materialId,
+              materialId: m.materialId,
+              materialName: m.materialName,
+              materialCode: m.materialCode,
+              unit: m.unit,
+              qtyRequired: m.qtyRequired,
+              hsnCode: m.hsnCode,
+              gstRate: m.gstRate,
+              lastRate: m.lastRate ?? null,
+              allQuotesAboveLastRate: m.allQuotesAboveLastRate ?? false,
+              minVariancePct: m.minVariancePct ?? null,
+            }),
+          ),
+          quotes: (data.quotes ?? []).map(
+            (q: {
+              id: string;
+              supplierId: string;
+              supplierName: string;
+              supplierPhone: string | null;
+              supplierGstin: string | null;
+              fileUrl: string | null;
+              fileName: string | null;
+              quoteSource: string;
+              sourceNote: string | null;
+              isCheapest: boolean;
+              isSelected: boolean;
+              subtotal: number;
+              gstTotal: number;
+              freightTotal: number;
+              handlingTotal: number;
+              discountTotal: number;
+              packingTotal: number;
+              loadingTotal: number;
+              insuranceTotal: number;
+              landedTotal: number;
+              buyerTransportTotal: number;
+              validUntil: string | null;
+              paymentTerms: string | null;
+              deliveryTerms: string | null;
+              deliveryTermsType:
+                | "DELIVERED_SITE"
+                | "EX_WORKS"
+                | "FOR_STATION"
+                | "CUSTOM"
+                | null;
+              leadTimeDays: number | null;
+              warranty: string | null;
+              notes: string | null;
+              createdAt: string;
+              isExpired: boolean;
+              daysUntilExpiry: number | null;
+            }) => ({
+              ...q,
+              deliveryTermsType: q.deliveryTermsType ?? "DELIVERED_SITE",
+              status: q.isSelected ? "SELECTED" : "PENDING",
+              lines: (data.materials ?? [])
+                .map(
+                  (m: {
+                    materialId: string;
+                    hsnCode: string | null;
+                    quotes: Array<{
+                      quoteId: string;
+                      qty: number;
+                      unitPrice: number;
+                      gstRate: number;
+                      gstAmount: number;
+                      discountPerUnit: number;
+                      packingPerUnit: number;
+                      freightPerUnit: number;
+                      loadingPerUnit: number;
+                      insurancePerUnit: number;
+                      handlingPerUnit: number;
+                      buyerTransportPerUnit: number;
+                      taxableValuePerUnit: number;
+                      unitLandedCost: number;
+                      lineSubtotal: number;
+                      lineTotal: number;
+                    }>;
+                  }) => {
+                    const line = m.quotes.find((l) => l.quoteId === q.id);
+                    if (!line) return null;
+                    return {
+                      materialId: m.materialId,
+                      qty: line.qty,
+                      unitPrice: line.unitPrice,
+                      hsnCode: m.hsnCode ?? null,
+                      gstRate: line.gstRate,
+                      gstAmount: line.gstAmount,
+                      discountPerUnit: line.discountPerUnit,
+                      packingPerUnit: line.packingPerUnit,
+                      freightPerUnit: line.freightPerUnit,
+                      loadingPerUnit: line.loadingPerUnit,
+                      insurancePerUnit: line.insurancePerUnit,
+                      handlingPerUnit: line.handlingPerUnit,
+                      buyerTransportPerUnit: line.buyerTransportPerUnit ?? 0,
+                      taxableValuePerUnit: line.taxableValuePerUnit,
+                      unitLandedCost: line.unitLandedCost,
+                      lineSubtotal: line.lineSubtotal,
+                      lineTotal: line.lineTotal,
+                    };
+                  },
+                )
+                .filter(Boolean),
+            }),
+          ),
           suppliers: data.suppliers ?? [],
         });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Failed to load");
       });
     return () => {
       cancelled = true;
@@ -493,17 +582,33 @@ function QuotationAnalysisOverlay({
   }, [id]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto p-3.5" style={{ backgroundColor: "var(--color-paper)" }}>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto p-3.5"
+      style={{ backgroundColor: "var(--color-paper)" }}
+    >
       {!payload && !error ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+          <Loader2
+            className="size-5 animate-spin"
+            style={{ color: "var(--color-ink-500)" }}
+          />
         </div>
       ) : error ? (
         <div className="space-y-3">
-          <button type="button" onClick={onClose} className="p-1" style={{ color: "var(--color-ink-700)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1"
+            style={{ color: "var(--color-ink-700)" }}
+          >
             <X className="size-5" />
           </button>
-          <p className="text-[0.8125rem] font-semibold" style={{ color: "var(--color-stop)" }}>{error}</p>
+          <p
+            className="text-[0.8125rem] font-semibold"
+            style={{ color: "var(--color-stop)" }}
+          >
+            {error}
+          </p>
         </div>
       ) : payload ? (
         <MobileQuotationDetail

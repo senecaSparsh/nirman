@@ -11,12 +11,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const projectId = url.searchParams.get("projectId");
   const startDate = url.searchParams.get("startDate");
   const endDate = url.searchParams.get("endDate");
+  const approvalStatus = url.searchParams.get("approvalStatus");
 
   const dprs = await prisma.dailyProgressReport.findMany({
     where: {
       companyId: company.id,
       ...(projectId ? { projectId } : {}),
       ...(startDate && endDate ? { date: { gte: new Date(startDate), lte: new Date(endDate) } } : {}),
+      ...(approvalStatus ? { approvalStatus: approvalStatus as "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED" } : {}),
     },
     orderBy: { date: "desc" },
     take: 500,

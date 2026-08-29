@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
@@ -98,8 +99,9 @@ export function MobileRateContractsList({
 
 function ContractCard({ contract: c }: { contract: RateContractListItem }) {
   return (
-    <div
-      className="rounded-[0.5rem] border p-2.5"
+    <Link
+      href={`/m/rate-contracts/${c.id}`}
+      className="rounded-[0.5rem] border p-2.5 press block"
       style={{
         borderColor: c.isExpired ? "var(--color-line)" : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -137,6 +139,6 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
           {c.maxQty ? `Max: ${c.maxQty} ${c.materialUnit}` : ""}
         </p>
       )}
-    </div>
+    </Link>
   );
 }

@@ -70,6 +70,27 @@ export type SupplierCockpitData = {
     date: string;
     lineCount: number;
   }[];
+  invoices: {
+    id: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string | null;
+    status: string;
+    matchStatus: string | null;
+    totalAmount: number;
+    totalPaid: number;
+    balanceDue: number;
+  }[];
+  payments: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    paymentMode: string;
+    amount: number;
+    tdsAmount: number;
+    netPaid: number;
+    referenceNo: string | null;
+  }[];
   topMaterials: { name: string; qty: number; amount: number }[];
 };
 
@@ -142,6 +163,8 @@ export function SupplierCockpit({ data }: { data: SupplierCockpitData }) {
           <TabsTrigger value="contracts">Rate Contracts <CountBadge n={data.rateContracts.length} /></TabsTrigger>
           <TabsTrigger value="receipts">Receipts <CountBadge n={data.recentGRNs.length} /></TabsTrigger>
           <TabsTrigger value="returns">Returns <CountBadge n={data.supplierReturns.length} /></TabsTrigger>
+          <TabsTrigger value="invoices">Invoices <CountBadge n={data.invoices.length} /></TabsTrigger>
+          <TabsTrigger value="payments">Payments <CountBadge n={data.payments.length} /></TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab data={data} /></TabsContent>
@@ -149,6 +172,8 @@ export function SupplierCockpit({ data }: { data: SupplierCockpitData }) {
         <TabsContent value="contracts"><ContractsTab data={data} /></TabsContent>
         <TabsContent value="receipts"><ReceiptsTab data={data} /></TabsContent>
         <TabsContent value="returns"><ReturnsTab data={data} /></TabsContent>
+        <TabsContent value="invoices"><InvoicesTab data={data} /></TabsContent>
+        <TabsContent value="payments"><PaymentsTab data={data} /></TabsContent>
       </Tabs>
     </div>
   );
@@ -240,6 +265,38 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
             <ActionLink href="/rate-contracts" label="Create Rate Contract" icon={<FileText className="h-3.5 w-3.5" />} />
           </div>
         </div>
+
+        {/* Outstanding invoices summary */}
+        {data.invoices.length > 0 && (() => {
+          const outstanding = data.invoices.filter((i) => i.balanceDue > 0);
+          const totalOutstanding = outstanding.reduce((s, i) => s + i.balanceDue, 0);
+          const overdue = outstanding.filter((i) => i.dueDate && new Date(i.dueDate) < new Date());
+          return (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="mb-3 text-label text-muted-foreground">Invoice Summary</h2>
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Total Invoiced</span>
+                  <span className="tnum text-body font-medium">{formatCurrency(data.invoices.reduce((s, i) => s + i.totalAmount, 0))}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Outstanding</span>
+                  <span className={`tnum text-body font-semibold ${totalOutstanding > 0 ? "text-warning" : "text-success"}`}>{formatCurrency(totalOutstanding)}</span>
+                </div>
+                {overdue.length > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-caption text-muted-foreground">Overdue</span>
+                    <span className="tnum text-body font-semibold text-danger">{overdue.length} invoice{overdue.length > 1 ? "s" : ""}</span>
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between">
+                  <span className="text-caption text-muted-foreground">Total Paid (all-time)</span>
+                  <span className="tnum text-body font-medium text-success">{formatCurrency(data.payments.reduce((s, p) => s + p.netPaid, 0))}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Active rate contracts */}
         {data.rateContracts.length > 0 && (
@@ -390,6 +447,132 @@ function ReturnsTab({ data }: { data: SupplierCockpitData }) {
               <span className="w-24 shrink-0 text-right text-caption text-muted-foreground">{formatDate(r.date)}</span>
             </Link>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Invoices tab
+// ───────────────────────────────────────────────────────────
+
+function InvoicesTab({ data }: { data: SupplierCockpitData }) {
+  const { invoices } = data;
+  const totalInv = invoices.reduce((s, i) => s + i.totalAmount, 0);
+  const totalOutstanding = invoices.reduce((s, i) => s + i.balanceDue, 0);
+  return (
+    <div className="space-y-3">
+      {invoices.length > 0 && (
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Total Invoiced</span>
+            <span className="tnum text-body font-semibold">{formatCurrency(totalInv)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Outstanding</span>
+            <span className={`tnum text-body font-semibold ${totalOutstanding > 0 ? "text-warning" : "text-success"}`}>{formatCurrency(totalOutstanding)}</span>
+          </div>
+        </div>
+      )}
+      {invoices.length === 0 ? (
+        <EmptyState icon={<FileText className="h-5 w-5" />} title="No invoices" description="Supplier invoices will appear here once goods are received and bills are booked." />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-body">
+            <thead className="border-b border-border bg-muted/30">
+              <tr>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Invoice No.</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Date</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Due</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Status</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">Total</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">Paid</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => (
+                <tr key={inv.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                  <td className="px-3 py-2 font-mono text-caption font-medium text-foreground">{inv.invoiceNumber}</td>
+                  <td className="px-3 py-2 text-caption text-muted-foreground">{formatDate(inv.invoiceDate)}</td>
+                  <td className="px-3 py-2 text-caption text-muted-foreground">{inv.dueDate ? formatDate(inv.dueDate) : "—"}</td>
+                  <td className="px-3 py-2">
+                    <StatusPill status={inv.status} />
+                    {inv.matchStatus && inv.matchStatus !== "THREE_WAY_MATCH" && (
+                      <span className="ml-1 text-micro text-warning">{inv.matchStatus.replace(/_/g, " ")}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right tnum">{formatCurrency(inv.totalAmount)}</td>
+                  <td className="px-3 py-2 text-right tnum text-success">{formatCurrency(inv.totalPaid)}</td>
+                  <td className={`px-3 py-2 text-right tnum font-medium ${inv.balanceDue > 0 ? "text-warning" : "text-muted-foreground"}`}>{formatCurrency(inv.balanceDue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Payments tab
+// ───────────────────────────────────────────────────────────
+
+function PaymentsTab({ data }: { data: SupplierCockpitData }) {
+  const { payments } = data;
+  const totalGross = payments.reduce((s, p) => s + p.amount, 0);
+  const totalTds = payments.reduce((s, p) => s + p.tdsAmount, 0);
+  const totalNet = payments.reduce((s, p) => s + p.netPaid, 0);
+  return (
+    <div className="space-y-3">
+      {payments.length > 0 && (
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Total Gross</span>
+            <span className="tnum text-body font-semibold">{formatCurrency(totalGross)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">TDS Deducted</span>
+            <span className="tnum text-body font-semibold text-muted-foreground">{formatCurrency(totalTds)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label text-muted-foreground/70">Net Paid</span>
+            <span className="tnum text-body font-semibold text-success">{formatCurrency(totalNet)}</span>
+          </div>
+        </div>
+      )}
+      {payments.length === 0 ? (
+        <EmptyState icon={<FileText className="h-5 w-5" />} title="No payments" description="Payments made to this supplier will appear here." />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-body">
+            <thead className="border-b border-border bg-muted/30">
+              <tr>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Payment No.</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Date</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Mode</th>
+                <th className="px-3 py-2 text-left text-label font-semibold text-muted-foreground">Ref.</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">Gross</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">TDS</th>
+                <th className="px-3 py-2 text-right text-label font-semibold text-muted-foreground">Net Paid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => (
+                <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                  <td className="px-3 py-2 font-mono text-caption font-medium text-foreground">{p.paymentNumber}</td>
+                  <td className="px-3 py-2 text-caption text-muted-foreground">{formatDate(p.paymentDate)}</td>
+                  <td className="px-3 py-2 text-caption text-muted-foreground">{p.paymentMode}</td>
+                  <td className="px-3 py-2 font-mono text-caption text-muted-foreground">{p.referenceNo ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tnum">{formatCurrency(p.amount)}</td>
+                  <td className="px-3 py-2 text-right tnum text-muted-foreground">{p.tdsAmount > 0 ? `−${formatCurrency(p.tdsAmount)}` : "—"}</td>
+                  <td className="px-3 py-2 text-right tnum font-medium text-success">{formatCurrency(p.netPaid)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

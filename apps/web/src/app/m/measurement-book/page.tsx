@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
@@ -13,6 +14,7 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileMbProjectSelector } from "./MobileMbProjectSelector";
+import { MobileMbFab } from "./MobileNewMbEntryDialog";
 
 /**
  * /m/measurement-book — mobile measurement book entries.
@@ -38,7 +40,7 @@ async function MobileMbContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canView = hasPermission(role, PERM.ASSETS_VIEW);
+  const canView = hasPermission(role, PERM.MB_VIEW);
   const { project: projectId } = await searchParams;
 
   const projects = await prisma.project.findMany({
@@ -60,7 +62,7 @@ async function MobileMbContent({
     );
   }
 
-  const [entries, boqItems] = await Promise.all([
+  const [entries, boqItems, wbsNodes, canCreate] = await Promise.all([
     prisma.measurementBookEntry.findMany({
       where: { projectId },
       orderBy: { measureDate: "desc" },
@@ -75,6 +77,12 @@ async function MobileMbContent({
       orderBy: { serialNo: "asc" },
       select: { id: true, serialNo: true, description: true, unit: true, rate: true },
     }),
+    prisma.wbsNode.findMany({
+      where: { projectId },
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, name: true, boqItemId: true },
+    }),
+    Promise.resolve(hasPermission(role, PERM.MB_VERIFY)),
   ]);
 
   const totalMeasured = entries.reduce((s, e) => s + toNum(e.measuredQty), 0);
@@ -115,7 +123,9 @@ async function MobileMbContent({
           title="No measurement entries"
           hint={boqItems.length === 0
             ? "Add Bill of Quantities line items first, then measure work against them"
-            : "Measurement book entries will appear here as work is measured"}
+            : canCreate
+              ? "Tap + to record the first measurement entry"
+              : "Measurement book entries will appear here as work is measured"}
           action={boqItems.length === 0 ? (
             <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
               Go to Bill of Quantities
@@ -129,14 +139,50 @@ async function MobileMbContent({
           ))}
         </div>
       )}
+
+      {/* FAB for adding MB entries */}
+      {canCreate && boqItems.length > 0 && (
+        <MobileMbFab
+          projectId={projectId}
+          boqItems={boqItems.map((b) => ({
+            id: b.id,
+            serialNo: b.serialNo,
+            description: b.description,
+            unit: b.unit,
+            rate: b.rate ? toNum(b.rate) : null,
+          }))}
+          wbsNodes={wbsNodes.map((w) => ({
+            id: w.id,
+            code: w.code,
+            name: w.name,
+            boqItemId: w.boqItemId,
+          }))}
+        />
+      )}
     </div>
   );
 }
 
-function MbEntryCard({ entry: e }: { entry: any }) {
+type MbEntryCardData = {
+  id: string;
+  mbNumber: string;
+  boqSerialNo: string;
+  boqDescription: string;
+  unit: string;
+  measuredQty: number;
+  rate: number;
+  amount: number;
+  measureDate: string;
+  description: string | null;
+  measuredByName: string;
+  status: string;
+};
+
+function MbEntryCard({ entry: e }: { entry: MbEntryCardData }) {
   return (
-    <div
-      className="rounded-[0.5rem] border p-2.5"
+    <Link
+      href={`/m/measurement-book/${e.id}`}
+      className="rounded-[0.5rem] border p-2.5 press block"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
@@ -180,6 +226,6 @@ function MbEntryCard({ entry: e }: { entry: any }) {
           {e.description}
         </p>
       )}
-    </div>
+    </Link>
   );
 }

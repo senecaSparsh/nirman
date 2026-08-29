@@ -13,6 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import {
   LEGAL_DOC_FLOW, LEGAL_DOC_FLOW_MAP, STAGE_LABELS, STAGE_ORDER,
   getFlowStepsForContext, isPrerequisiteMet, daysUntilExpiry, getExpiryStatus,
@@ -90,6 +91,7 @@ export function LegalDocsSection({
   context: "LAND" | "PROJECT";
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [docs, setDocs] = useState(initialDocs);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<LegalDocRow | null>(null);
@@ -104,7 +106,8 @@ export function LegalDocsSection({
   }, [router]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this legal document?")) return;
+    const ok = await confirm({ title: "Confirm?", description: "Delete this legal document?", confirmLabel: "Confirm", variant: "destructive" });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/legal-documents/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -333,6 +336,7 @@ export function LegalDocsSection({
           onSaved={handleSaved}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -542,7 +546,7 @@ function LegalChecklistRow({
             </>
           ) : (
             <div className="text-caption text-faint italic mt-1">
-              Click "Yes" to record this permission, or "No" to track it as pending.
+              Click &quot;Yes&quot; to record this permission, or &quot;No&quot; to track it as pending.
             </div>
           )}
         </div>

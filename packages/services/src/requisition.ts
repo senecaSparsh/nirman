@@ -1,11 +1,12 @@
 import { prisma, type Prisma, type RequisitionStatus } from "@nirman/db";
 import Decimal from "decimal.js";
-import { createPurchaseOrderTx } from "./procurement";
+import { createPurchaseOrderTx, orderPurchaseOrder } from "./procurement";
 import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 import { isQuoteGateSatisfied } from "./quote-comparison";
 import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { createQuotationRequest } from "./quotation";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -241,6 +242,74 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     timestamp: new Date(),
   });
 
+  // ── Auto-create a quotation request from the approved requisition ──
+  // This links the indent → quotation request → PO audit trail. The purchaser
+  // still needs to fill in the destination location before the quotation
+  // request becomes actionable, but the material lines are pre-filled.
+  // We only auto-create if the requisition has a neededByDate (required by
+  // the quotation request) and we can find a default project site location.
+  if (approvedById) {
+    try {
+      const reqWithLines = await prisma.materialRequisition.findUnique({
+        where: { id: reqId },
+        include: {
+          lines: true,
+          project: { select: { id: true, name: true } },
+        },
+      });
+      if (reqWithLines && reqWithLines.lines.length > 0 && reqWithLines.neededByDate) {
+        // Resolve the submitter's UserCompany membership
+        const submitterUserCompany = reqWithLines.requestedById
+          ? await prisma.userCompany.findFirst({
+              where: { userId: reqWithLines.requestedById, companyId },
+              select: { id: true },
+            })
+          : null;
+
+        // Use the approver as the submitter if the original requester has no UserCompany
+        const approverUserCompany = await prisma.userCompany.findFirst({
+          where: { userId: approvedById, companyId },
+          select: { id: true },
+        });
+
+        const submitterId = reqWithLines.requestedById ?? approvedById;
+        const submitterUCId = submitterUserCompany?.id ?? approverUserCompany?.id;
+
+        // Find a default destination location: the project's site location
+        let destLocationId: string | null = null;
+        if (reqWithLines.projectId) {
+          const projectLocation = await prisma.stockLocation.findFirst({
+            where: { projectId: reqWithLines.projectId, type: "PROJECT_SITE", deletedAt: null },
+            select: { id: true },
+          });
+          destLocationId = projectLocation?.id ?? null;
+        }
+
+        if (submitterId && submitterUCId && destLocationId) {
+          await createQuotationRequest({
+            companyId,
+            projectId: reqWithLines.projectId,
+            title: `Auto-generated from Requisition ${reqWithLines.reqNumber}`,
+            notes: `Auto-created when requisition ${reqWithLines.reqNumber} was approved.`,
+            minQuotesRequired: reqWithLines.minQuotesRequired,
+            requisitionId: reqId,
+            submittedById: submitterId,
+            submittedByUserCompanyId: submitterUCId,
+            requiredByDate: reqWithLines.neededByDate,
+            destinationLocationId: destLocationId,
+            lines: reqWithLines.lines.map((l) => ({
+              materialId: l.materialId,
+              qtyRequired: l.qtyRequested,
+            })),
+          });
+        }
+      }
+    } catch (err) {
+      // Auto-creation is best-effort — don't fail the approval if it breaks.
+      console.error("[requisition] Auto-create quotation request failed:", err);
+    }
+  }
+
   return updated;
 }
 
@@ -305,6 +374,11 @@ interface ConvertRequisitionInput {
    *  before deciding scope (refines S_lead/D once a supplier is known). */
   distanceKm?: Decimal | number | string;
   userId?: string;
+  /** When true, the PO is created as APPROVED and immediately marked ORDERED,
+   *  skipping the two manual steps (approve + mark as ordered). This is safe
+   *  because the requisition was already approved and the winning quote was
+   *  already selected by an approver. Default: false (preserve existing behavior). */
+  autoOrder?: boolean;
 }
 
 export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
@@ -435,6 +509,9 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       notes: input.notes,
       lines: poLines,
       charges: poCharges,
+      // When autoOrder is requested, create the PO as APPROVED so we can
+      // immediately mark it ORDERED after the transaction commits.
+      ...(input.autoOrder ? { initialStatus: "APPROVED" as const, approvedById: input.userId } : {}),
     });
 
     // Link the PO to the winning quote (if any) + mark requisition CONVERTED
@@ -474,6 +551,19 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     variables: { requisitionId: input.requisitionId, poId: po.id, poNumber: po.poNumber ?? po.id },
     timestamp: new Date(),
   });
+
+  // Auto-order the PO if requested — the requisition was already approved and
+  // the winning quote was already selected, so the two extra manual steps
+  // (approve PO + mark as ordered) are redundant. This removes 2 clicks.
+  if (input.autoOrder) {
+    try {
+      const ordered = await orderPurchaseOrder(po.id, input.userId);
+      return ordered;
+    } catch (err) {
+      // If auto-ordering fails, return the APPROVED PO — user can manually order.
+      console.error("[requisition] Auto-order after convert failed:", err);
+    }
+  }
 
   return po;
 }

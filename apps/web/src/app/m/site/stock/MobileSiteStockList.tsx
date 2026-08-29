@@ -148,7 +148,7 @@ export function MobileSiteStockList({
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <Link
-          href="/m/site/issue"
+          href="/m/stock-out?mode=issue"
           className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >

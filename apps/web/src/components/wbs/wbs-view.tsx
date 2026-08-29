@@ -557,7 +557,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
         />
       ) : search.trim() && visibleTree.length === 0 ? (
         <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
-          No nodes match "<strong className="text-foreground">{search}</strong>". Try a different search.
+          No nodes match &quot;<strong className="text-foreground">{search}</strong>&quot;. Try a different search.
         </div>
       ) : (
         <div className={cn("rounded-lg border border-border overflow-hidden", loading && "pointer-events-none opacity-60 transition-opacity")}>

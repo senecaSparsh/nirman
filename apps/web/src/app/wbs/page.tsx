@@ -24,7 +24,7 @@ async function WbsContent() {
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.WBS_VIEW)) {
     return <NoAccess what="WBS" />;
   }
 
@@ -39,7 +39,7 @@ async function WbsContent() {
     select: { id: true, name: true },
   });
 
-  const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
+  const canEdit = hasPermission(role, PERM.WBS_MANAGE);
 
   return (
     <>

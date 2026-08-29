@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
@@ -91,7 +92,7 @@ async function MobileBoqContent({
 }) {
   await connection();
   const role = await getUserRole();
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) notFound();
+  if (!hasPermission(role, PERM.BOQ_VIEW)) notFound();
   const company = await getCompany();
 
   const params = await searchParams;
@@ -129,14 +130,14 @@ async function MobileBoqContent({
   // Fetch the BOQ tree for the selected project.
   const [boqResult, materials, canManage] = await Promise.all([
     getBoqTree(projectId),
-    hasPermission(role, PERM.ASSETS_MANAGE)
+    hasPermission(role, PERM.BOQ_MANAGE)
       ? prisma.material.findMany({
           where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
           orderBy: { name: "asc" },
           select: { id: true, name: true, unit: true },
         })
       : [],
-    Promise.resolve(hasPermission(role, PERM.ASSETS_MANAGE)),
+    Promise.resolve(hasPermission(role, PERM.BOQ_MANAGE)),
   ]);
 
   const { tree, totalEstimatedAmount } = boqResult;
@@ -215,8 +216,9 @@ function BoqRowCard({ row }: { row: BoqRow }) {
     row.type === "SECTION" ? "neutral" : row.type === "SUBSECTION" ? "signal" : "go";
 
   return (
-    <div
-      className="rounded-[0.5rem] border p-2.5"
+    <Link
+      href={`/m/boq/${row.id}`}
+      className="rounded-[0.5rem] border p-2.5 press block"
       style={{
         backgroundColor: "var(--color-paper)",
         borderColor: "var(--color-line)",
@@ -276,6 +278,6 @@ function BoqRowCard({ row }: { row: BoqRow }) {
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

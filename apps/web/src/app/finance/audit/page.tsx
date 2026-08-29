@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { hasPermission } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
+import { PageLoading } from "@/components/page-loading";
 import { AuditTrailView } from "./audit-view";
 
 /**
@@ -12,7 +14,11 @@ import { AuditTrailView } from "./audit-view";
  * Fetches the user list for the filter dropdown and passes it to the client view.
  */
 export default function AuditTrailPage() {
-  return <AuditTrailContent />;
+  return (
+    <Suspense fallback={<PageLoading label="Loading audit trail…" variant="list" />}>
+      <AuditTrailContent />
+    </Suspense>
+  );
 }
 
 async function AuditTrailContent() {

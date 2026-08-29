@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileEquipmentDetailClient } from "./MobileEquipmentDetailClient";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/equipment/[id] — equipment detail. Shows asset info, valuation,
@@ -122,11 +123,14 @@ async function MobileEquipmentDetailContent({
   };
 
   return (
-    <MobileEquipmentDetailClient
-      equipment={serialized}
-      canManage={canManage}
-      locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-    />
+    <>
+      <RecordRecentItem type="equipment" id={serialized.id} label={serialized.name} sublabel={serialized.serialNumber ?? undefined} href={`/m/equipment/${serialized.id}`} />
+      <MobileEquipmentDetailClient
+        equipment={serialized}
+        canManage={canManage}
+        locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+      />
+    </>
   );
 }

@@ -7,9 +7,10 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, mobileStatusColor, MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
 import { MobileQuotePanel } from "./MobileQuotePanel";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/requisitions/[id] — requisition detail as a workflow document.
@@ -48,7 +49,18 @@ async function MobileRequisitionDetailContent({
       requestedBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
       rejectedBy: { select: { name: true } },
-      vendorQuotes: { select: { id: true } },
+      vendorQuotes: {
+        select: {
+          id: true,
+          status: true,
+          isCheapest: true,
+          landedTotal: true,
+          supplier: { select: { id: true, name: true } },
+          selectedAt: true,
+          selectionReason: true,
+          lines: { select: { materialId: true, unitPrice: true, unitLandedCost: true } },
+        },
+      },
       lines: {
         include: {
           material: { select: { id: true, code: true, name: true, unit: true, currentCost: true } },
@@ -118,13 +130,25 @@ async function MobileRequisitionDetailContent({
   const quoteCount = req.vendorQuotes.length;
   const quotesMet = quoteCount >= req.minQuotesRequired || req.quotesWaived;
 
-  // Status colors
-  const statusColor =
-    req.status === "CONVERTED" ? "var(--color-go)" :
-    req.status === "APPROVED" ? "var(--color-steel)" :
-    req.status === "SUBMITTED" ? "var(--color-signal)" :
-    req.status === "REJECTED" ? "var(--color-stop)" :
-    "var(--color-ink-400)";
+  // ── Winning quote (SELECTED status) — passed to ConvertForm for display ──
+  const winningQuote = req.vendorQuotes.find((q) => q.status === "SELECTED");
+  const winningQuoteData = winningQuote
+    ? {
+        id: winningQuote.id,
+        supplierName: winningQuote.supplier.name,
+        supplierId: winningQuote.supplier.id,
+        landedTotal: toNum(winningQuote.landedTotal),
+        selectedAt: winningQuote.selectedAt?.toISOString() ?? null,
+        selectionReason: winningQuote.selectionReason,
+        isCheapest: winningQuote.isCheapest,
+        lineCosts: Object.fromEntries(
+          winningQuote.lines.map((l) => [l.materialId, toNum(l.unitPrice)]),
+        ),
+      }
+    : null;
+
+  // Status color — derived from the single source of truth in @/components/page
+  const statusColor = mobileStatusColor(req.status);
 
   // Needed-by urgency
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -139,8 +163,23 @@ async function MobileRequisitionDetailContent({
     else { neededText = formatDate(req.neededByDate); }
   }
 
+  // Pipeline position: Indent → Quote → PO → GRN → Issue
+  const pipelineSteps: MobilePipelineStep[] = [
+    { label: "Indent", state: "current" },
+    { label: "Quote", state: quoteCount > 0 ? "done" : "pending" },
+    {
+      label: "PO",
+      state: req.convertedPoId ? "done" : "pending",
+      href: req.convertedPoId ? `/m/procurement/${req.convertedPoId}` : undefined,
+    },
+    { label: "GRN", state: "pending" },
+    { label: "Issue", state: "pending" },
+  ];
+
   return (
     <div>
+      <RecordRecentItem type="requisition" id={req.id} label={req.reqNumber} sublabel={req.project?.name} href={`/m/requisitions/${req.id}`} />
+
       {/* Req number + status + print in one compact header row */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
@@ -182,6 +221,11 @@ async function MobileRequisitionDetailContent({
             </span>
           ) : null}
         </div>
+      </div>
+
+      {/* Pipeline position — where this indent sits in the macro flow */}
+      <div className="mb-4 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <MobilePipelineStepper steps={pipelineSteps} />
       </div>
 
       {/* ── Workflow timeline ── */}
@@ -371,6 +415,10 @@ async function MobileRequisitionDetailContent({
             locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
             canApprove={canApprove}
             canManage={canManage}
+            quoteCount={quoteCount}
+            minQuotesRequired={req.minQuotesRequired}
+            quotesWaived={req.quotesWaived}
+            winningQuote={winningQuoteData}
           />
         </div>
       </div>

@@ -160,6 +160,8 @@ export async function getVehicleHistory(vehicleId: string, limit = 50) {
     where: { vehicleId },
     include: {
       vehicle: { select: { vehicleNumber: true, vehicleType: true, photoUrl: true } },
+      fromLocation: { select: { name: true } },
+      toLocation: { select: { name: true } },
     },
     orderBy: { timestamp: "desc" },
     take: limit,

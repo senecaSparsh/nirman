@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -98,6 +99,18 @@ async function MobileBudgetVarianceContent({
           selectedId={selectedProject?.id}
         />
       </div>
+
+      {/* Link to detail page */}
+      {selectedProject && (
+        <Link
+          href={`/m/budget-variance/${selectedProject.id}`}
+          className="rounded-[0.5rem] border p-2.5 press flex items-center justify-between mb-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-[0.625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
+          <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>→</p>
+        </Link>
+      )}
 
       {/* ── No project selected ── */}
       {!selectedProject ? (

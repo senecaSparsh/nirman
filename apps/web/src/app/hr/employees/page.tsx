@@ -33,13 +33,14 @@ async function EmployeesContent() {
     canManage: hasPermission(role, PERM.HR_MANAGE),
   };
 
-  const [employees, crews, crewRows, projects] = await Promise.all([
+  const [employees, crews, crewRows, projects, locations] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
         crew: { select: { id: true, name: true } },
         activeProject: { select: { id: true, name: true } },
+        reportingLocation: { select: { id: true, name: true } },
       },
     }),
     prisma.crew.findMany({
@@ -65,6 +66,11 @@ async function EmployeesContent() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.stockLocation.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const rows = employees.map((e) => ({
@@ -83,6 +89,9 @@ async function EmployeesContent() {
     activeProjectId: e.activeProjectId,
     activeProjectName: e.activeProject?.name ?? null,
     active: e.active,
+    hierarchyLevel: e.hierarchyLevel,
+    reportingLocationId: e.reportingLocationId,
+    reportingLocationName: e.reportingLocation?.name ?? null,
   }));
 
   const crewRowsMapped = crewRows.map((c) => ({
@@ -120,6 +129,7 @@ async function EmployeesContent() {
         crewRows={crewRowsMapped}
         crewEmployees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
         projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         permissions={perms}
       />
     </>

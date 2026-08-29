@@ -13,8 +13,10 @@ import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileCta,
+  MobileNoAccess,
 } from "@/components/mobile/v2/primitives";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/materials/[id] — material detail page.
@@ -47,13 +49,7 @@ async function MobileMaterialDetailContent({
   const company = await getCompany();
   const role = await getUserRole();
   if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
-    return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={Package} title="Access denied" hint="You don't have permission to view material details" />
-      </div>
-    );
+    return <MobileNoAccess what="material details" permission={PERM.INVENTORY_VIEW} />;
   }
   const { id } = await params;
 
@@ -105,6 +101,8 @@ async function MobileMaterialDetailContent({
 
   return (
     <div>
+      <RecordRecentItem type="material" id={material.id} label={material.name} sublabel={material.code} href={`/m/materials/${material.id}`} />
+
       {/* ── Back ── */}
       <div className="mb-3">
       </div>

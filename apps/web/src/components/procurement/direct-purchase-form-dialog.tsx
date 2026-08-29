@@ -3,13 +3,14 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Truck, ChevronDown, ChevronRight } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { formatCurrency } from "@/lib/utils";
 import type { MaterialOption, StockLocationOption } from "@/lib/types";
+import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 
 type SupplierOption = { id: string; name: string };
 
@@ -100,6 +101,10 @@ export function DirectPurchaseFormDialog({
   const [notes, setNotes] = useState("");
   const [lines, setLinesState] = useState<Line[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
 
+  // Vehicle capture — how goods were brought from the market
+  const [showVehicle, setShowVehicle] = useState(false);
+  const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
+
   // Wrap setLines to auto-fill gstRate & unitCost from the selected material.
   function setLines(updater: Line[] | ((prev: Line[]) => Line[])) {
     setLinesState((prev) => {
@@ -151,6 +156,12 @@ export function DirectPurchaseFormDialog({
           locationId,
           billDate: billDate || null,
           notes: notes.trim() || null,
+          // Vehicle / transport
+          vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+          vehicleType: vehicle.vehicleType || undefined,
+          vehiclePhotoUrl: vehicle.photoUrl,
+          driverName: vehicle.driverName?.trim() || undefined,
+          driverPhone: vehicle.driverPhone?.trim() || undefined,
           lines: validLines.length > 0
             ? validLines.map((l) => ({
                 materialId: l.materialId,
@@ -166,6 +177,7 @@ export function DirectPurchaseFormDialog({
       toast.success(`Direct purchase ${data.billNumber} created`);
       onOpenChange(false);
       setSupplierId(""); setSupplierName(""); setLocationId(""); setBillDate(""); setNotes("");
+      setVehicle({ vehicleNumber: "", vehicleType: "" });
       setLinesState([{ id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]);
       router.refresh();
     } catch (err: unknown) {
@@ -252,6 +264,25 @@ export function DirectPurchaseFormDialog({
             <span className="text-muted-foreground">Subtotal: <span className="tnum">{formatCurrency(subtotal)}</span></span>
             <span className="text-muted-foreground">GST: <span className="tnum">{formatCurrency(gstTotal)}</span></span>
             <span className="font-semibold">Total: <span className="tnum">{formatCurrency(total)}</span></span>
+          </div>
+        )}
+
+        {/* ── Vehicle / transport (collapsible) ── */}
+        <button
+          type="button"
+          onClick={() => setShowVehicle((v) => !v)}
+          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          {showVehicle ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          <Truck className="size-4" />
+          Vehicle / Transport
+          {vehicle.vehicleNumber ? (
+            <span className="ml-1 text-xs font-bold text-success">✓ {vehicle.vehicleNumber}</span>
+          ) : null}
+        </button>
+        {showVehicle && (
+          <div className="rounded-lg border border-border p-3 bg-muted/30">
+            <VehicleCapture value={vehicle} onChange={setVehicle} />
           </div>
         )}
 

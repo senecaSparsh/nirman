@@ -140,6 +140,7 @@ export function LandPurchaseWizardDialog({
     gstPercent: "",
     registrationPercent: "",
     stampDutyPercent: "",
+    transferDutyPercent: "",
     // Additional acquisition costs
     brokerageAmount: "",
     legalFees: "",
@@ -161,7 +162,7 @@ export function LandPurchaseWizardDialog({
         landType: "FREEHOLD", leaseType: "ONE_TIME",
         leasePeriodYears: "", leaseStartDate: "", leaseEndDate: "",
         baseCost: "", leaseRentPercent: "", gstPercent: "",
-        registrationPercent: "", stampDutyPercent: "",
+        registrationPercent: "", stampDutyPercent: "", transferDutyPercent: "",
         brokerageAmount: "", legalFees: "", otherCharges: "",
       });
       setMode("WHOLE");
@@ -254,10 +255,12 @@ export function LandPurchaseWizardDialog({
     ? (baseCostNum * Number(land.registrationPercent)) / 100 : 0;
   const stampDutyAmount = baseCostNum > 0 && Number(land.stampDutyPercent) > 0
     ? (baseCostNum * Number(land.stampDutyPercent)) / 100 : 0;
+  const transferDutyAmount = baseCostNum > 0 && Number(land.transferDutyPercent) > 0
+    ? (baseCostNum * Number(land.transferDutyPercent)) / 100 : 0;
   const brokerageNum = Number(land.brokerageAmount) || 0;
   const legalFeesNum = Number(land.legalFees) || 0;
   const otherChargesNum = Number(land.otherCharges) || 0;
-  const calculatedTotal = baseCostNum + leaseRentAmount + gstAmount + registrationAmount + stampDutyAmount + brokerageNum + legalFeesNum + otherChargesNum;
+  const calculatedTotal = baseCostNum + leaseRentAmount + gstAmount + registrationAmount + stampDutyAmount + transferDutyAmount + brokerageNum + legalFeesNum + otherChargesNum;
 
   // Total lease rent over the full term (informational only — not part of acquisition cost)
   const leasePeriodNum = Number(land.leasePeriodYears) || 0;
@@ -396,6 +399,8 @@ export function LandPurchaseWizardDialog({
         registrationAmount: registrationAmount || null,
         stampDutyPercent: land.stampDutyPercent ? Number(land.stampDutyPercent) : null,
         stampDutyAmount: stampDutyAmount || null,
+        transferDutyPercent: land.transferDutyPercent ? Number(land.transferDutyPercent) : null,
+        transferDutyAmount: transferDutyAmount || null,
         // Additional acquisition costs
         brokerageAmount: brokerageNum || null,
         legalFees: legalFeesNum || null,
@@ -704,6 +709,20 @@ export function LandPurchaseWizardDialog({
               </div>
             </div>
 
+            {/* Transfer duty (authority land — DDA, HUDCO, etc.) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Transfer Duty (%) <span className="text-xs text-muted-foreground">(authority land)</span></Label>
+                <Input type="number" min={0} step="any" value={land.transferDutyPercent} onChange={(e) => setLandField("transferDutyPercent", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Transfer Duty Amount (₹)</Label>
+                <div className="flex h-9 items-center rounded-md border border-border bg-muted/30 px-3 text-body text-muted-foreground">
+                  {transferDutyAmount > 0 ? formatCurrency(transferDutyAmount) : "—"}
+                </div>
+              </div>
+            </div>
+
             {/* Additional acquisition costs */}
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
@@ -881,6 +900,9 @@ export function LandPurchaseWizardDialog({
               )}
               {stampDutyAmount > 0 && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Stamp Duty ({land.stampDutyPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(stampDutyAmount)}</strong></div>
+              )}
+              {transferDutyAmount > 0 && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Transfer Duty ({land.transferDutyPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(transferDutyAmount)}</strong></div>
               )}
               {brokerageNum > 0 && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Brokerage:</span> <strong className="text-foreground tabular-nums">{formatCurrency(brokerageNum)}</strong></div>
@@ -1073,7 +1095,7 @@ function SectionEditor({
             />
           </div>
           <div className="text-caption text-muted-foreground">
-            The project will be linked to this parcel. Land cost ({formatCurrency(cost)}) will flow into the project's cost allocation.
+            The project will be linked to this parcel. Land cost ({formatCurrency(cost)}) will flow into the project&apos;s cost allocation.
             {landLocation && " Address pre-filled from land location."}
           </div>
         </div>

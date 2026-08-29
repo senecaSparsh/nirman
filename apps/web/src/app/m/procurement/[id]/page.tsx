@@ -12,8 +12,11 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
+  MobilePipelineStepper,
+  type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { MobilePoActions } from "@/components/mobile/mobile-po-actions";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
 
 /**
@@ -63,8 +66,22 @@ async function MobilePoDetailContent({
         include: { lines: { select: { qtyReceived: true } } },
         orderBy: { receiptDate: "desc" },
       },
+      supplierPayments: {
+        orderBy: { paymentDate: "desc" },
+        select: {
+          id: true, paymentNumber: true, amount: true,
+          tdsAmount: true, tdsSection: true, netPaidAmount: true,
+          paymentDate: true, paymentMode: true, referenceNo: true,
+        },
+      },
     },
   });
+
+  // Look up the source requisition (if this PO was converted from one)
+  const sourceRequisition = po ? await prisma.materialRequisition.findFirst({
+    where: { convertedPoId: po.id },
+    select: { id: true, reqNumber: true },
+  }) : null;
 
   if (!po) {
     return (
@@ -106,6 +123,19 @@ async function MobilePoDetailContent({
     qty: gr.lines.reduce((s, l) => s + toNum(l.qtyReceived), 0),
   }));
 
+  const payments = po.supplierPayments.map((p) => ({
+    id: p.id,
+    paymentNumber: p.paymentNumber,
+    amount: toNum(p.amount),
+    tdsAmount: toNum(p.tdsAmount),
+    tdsSection: p.tdsSection,
+    netPaidAmount: toNum(p.netPaidAmount),
+    paymentDate: p.paymentDate.toISOString(),
+    paymentMode: p.paymentMode,
+    referenceNo: p.referenceNo,
+  }));
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+
   const poPayload = {
     id: po.id,
     poNumber: po.poNumber,
@@ -119,6 +149,9 @@ async function MobilePoDetailContent({
     orderDate: po.orderDate?.toISOString() ?? null,
     rejectedAt: po.rejectedAt?.toISOString() ?? null,
     rejectionReason: po.rejectionReason,
+    approvedAt: po.approvedAt?.toISOString() ?? null,
+    approvedByName: po.approvedBy?.name ?? null,
+    approvalNotes: po.approvalNotes,
     subtotal: toNum(po.subtotal),
     gstTotal: toNum(po.gstTotal),
     freightTotal: toNum(po.freightTotal),
@@ -169,11 +202,29 @@ async function MobilePoDetailContent({
     overdueDays = Math.floor((now - new Date(po.expectedDate).getTime()) / (1000 * 60 * 60 * 24));
   }
 
+  // Pipeline position: Indent → Quote → PO → GRN → Issue
+  const pipelineSteps: MobilePipelineStep[] = [
+    {
+      label: "Indent",
+      state: sourceRequisition ? "done" : "skipped",
+      href: sourceRequisition ? `/m/requisitions/${sourceRequisition.id}` : undefined,
+    },
+    { label: "Quote", state: sourceRequisition ? "done" : "skipped" },
+    { label: "PO", state: "current" },
+    {
+      label: "GRN",
+      state: po.goodsReceipts.length > 0 ? "done" : "pending",
+    },
+    { label: "Issue", state: "pending" },
+  ];
+
   return (
-    <div>
+    <div className="pb-20">
       {/* ── Back ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
       </div>
+
+      <RecordRecentItem type="po" id={po.id} label={po.poNumber} sublabel={po.supplier.name} href={`/m/procurement/${po.id}`} />
 
       {/* ── Hero card — identity + receive progress ── */}
       <div
@@ -250,6 +301,18 @@ async function MobilePoDetailContent({
           </Link>
         ) : null}
 
+        {/* Source requisition link (if PO was converted from a requisition) */}
+        {sourceRequisition ? (
+          <Link
+            href={`/m/requisitions/${sourceRequisition.id}`}
+            className="flex items-center gap-1.5 text-[0.625rem] mt-1.5 press"
+            style={{ color: "var(--color-steel)" }}
+          >
+            <ClipboardList className="size-3 shrink-0" />
+            <span className="truncate underline underline-offset-2">From indent {sourceRequisition.reqNumber}</span>
+          </Link>
+        ) : null}
+
         {/* Inline overdue alert */}
         {overdueDays > 0 ? (
           <div
@@ -260,6 +323,11 @@ async function MobilePoDetailContent({
             Overdue by {overdueDays} day{overdueDays !== 1 ? "s" : ""}
           </div>
         ) : null}
+
+        {/* Pipeline position — where this PO sits in the flow */}
+        <div className="mt-2.5">
+          <MobilePipelineStepper steps={pipelineSteps} />
+        </div>
 
         {/* Receive progress bar — the key visual */}
         {totalQtyOrdered > 0 ? (
@@ -401,6 +469,26 @@ async function MobilePoDetailContent({
           )}
         </div>
       </div>
+
+      {/* Approval notes banner */}
+      {po.approvedAt && po.approvalNotes ? (
+        <div
+          className="rounded-[0.5rem] border p-2.5 mb-2"
+          style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)" }}
+        >
+          <p className="text-[0.6875rem] font-bold" style={{ color: "var(--color-go)" }}>
+            Approval Notes
+          </p>
+          <p className="text-[0.5625rem] mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+            {po.approvalNotes}
+          </p>
+          {po.approvedBy?.name ? (
+            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              — {po.approvedBy.name} · {formatDate(po.approvedAt)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Financials + Logistics — 2-col grid (no overlap with hero) ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -615,6 +703,61 @@ async function MobilePoDetailContent({
             {insuranceTotal > 0 && !charges.some((c) => c.heading.includes("Insurance")) ? (
               <ChargeRow heading="Transit Insurance" amount={insuranceTotal} />
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Payments ── */}
+      {payments.length > 0 ? (
+        <div className="mb-3">
+          <h3 className="text-[0.6875rem] font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+            Payments ({payments.length})
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {payments.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-[0.5rem] border px-2.5 py-2"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="min-w-0">
+                  <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    {p.paymentNumber}
+                  </p>
+                  <p className="text-[0.5rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                    {formatDate(p.paymentDate)} · {p.paymentMode}
+                    {p.referenceNo ? ` · ${p.referenceNo}` : ""}
+                  </p>
+                  {p.tdsAmount > 0 ? (
+                    <p className="text-[0.4375rem] truncate" style={{ color: "var(--color-signal)" }}>
+                      TDS: {formatCurrency(p.tdsAmount)}{p.tdsSection ? ` (${p.tdsSection})` : ""}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[0.6875rem] font-bold tabular-nums block" style={{ color: "var(--color-steel)" }}>
+                    {formatCurrency(p.amount)}
+                  </span>
+                  {p.tdsAmount > 0 ? (
+                    <span className="text-[0.5rem] tabular-nums block" style={{ color: "var(--color-go)" }}>
+                      Net: {formatCurrency(p.netPaidAmount)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {/* Payment summary */}
+            <div
+              className="flex items-center justify-between rounded-[0.5rem] border px-2.5 py-2"
+              style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-concrete)" }}
+            >
+              <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+                Total Paid
+              </p>
+              <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                {formatCurrency(totalPaid)} / {formatCurrency(total)}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}

@@ -330,6 +330,12 @@ export function HrDashboard({
                 ))}
               </div>
             )}
+            <Link
+              href="/hr/pending"
+              className="mt-3 flex items-center justify-center gap-1 text-caption text-brand hover:underline"
+            >
+              View all pending items <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
         </div>
 

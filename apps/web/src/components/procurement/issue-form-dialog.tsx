@@ -12,7 +12,8 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
-import { formatNumber } from "@/lib/utils";
+import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import { required, type ValidationErrors } from "@/lib/validate";
 import type { DepartmentOption, MaterialCategory, MaterialOption, ProjectOption, StockLocationOption } from "@/lib/types";
 
@@ -58,18 +59,19 @@ export function IssueFormDialog({
   const [receiverMobile, setReceiverMobile] = useState("");
   const [roundOff, setRoundOff] = useState("");
   const [notes, setNotes] = useState("");
+  const [vehicle, setVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
   const [lines, setLines] = useState<IssueLine[]>([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
-  // Stock available at the from-location: materialId → qty
-  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  // Stock at the from-location: materialId → { qty, mac }
+  const [stockMap, setStockMap] = useState<Record<string, { qty: number; mac: number }>>({});
 
   // Fetch stock at from-location when it changes
   useEffect(() => {
     if (!fromLocationId) { setStockMap({}); return; }
     fetch(`/api/stock/available?locationId=${fromLocationId}`)
       .then((r) => r.json())
-      .then((data: { materialId: string; qty: number }[]) => {
-        const map: Record<string, number> = {};
-        for (const item of data) map[item.materialId] = item.qty;
+      .then((data: { materialId: string; qty: number; mac: number }[]) => {
+        const map: Record<string, { qty: number; mac: number }> = {};
+        for (const item of data) map[item.materialId] = { qty: item.qty, mac: item.mac };
         setStockMap(map);
       })
       .catch(() => setStockMap({}));
@@ -144,6 +146,25 @@ export function IssueFormDialog({
     },
   ], [materialOptions]);
 
+  // ── Issue impact computation ──────────────────────────────────
+  // Total value at MAC (the cost that will hit WIP or OpEx), plus a
+  // count of lines that would push stock negative. Shown as a compact
+  // one-line strip below the grid so the user sees the consequence
+  // before confirming — without a heavy panel.
+  const { totalValue, negativeCount, validLineCount } = useMemo(() => {
+    let value = 0, neg = 0, count = 0;
+    for (const l of lines) {
+      const qty = Number(l.qty);
+      if (!l.materialId || !(qty > 0)) continue;
+      count++;
+      const mac = stockMap[l.materialId]?.mac ?? 0;
+      value += qty * mac;
+      const onHand = stockMap[l.materialId]?.qty ?? 0;
+      if (qty > onHand) neg++;
+    }
+    return { totalValue: value, negativeCount: neg, validLineCount: count };
+  }, [lines, stockMap]);
+
   // Apply defaults when the dialog opens
   useEffect(() => {
     if (open && defaults) {
@@ -159,7 +180,7 @@ export function IssueFormDialog({
     const synced = newLines.map((l) => {
       if (l.materialId) {
         const mat = localMaterials.find((m) => m.id === l.materialId);
-        if (mat) return { ...l, materialName: mat.name, unit: mat.unit, available: stockMap[l.materialId] ?? null };
+        if (mat) return { ...l, materialName: mat.name, unit: mat.unit, available: stockMap[l.materialId]?.qty ?? null };
       }
       return { ...l, available: null };
     });
@@ -193,6 +214,11 @@ export function IssueFormDialog({
           notes: notes.trim() || null,
           receiverName: receiverName.trim() || null,
           receiverMobile: receiverMobile.trim() || null,
+          vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+          vehicleType: vehicle.vehicleType || undefined,
+          vehiclePhotoUrl: vehicle.photoUrl,
+          driverName: vehicle.driverName,
+          driverPhone: vehicle.driverPhone,
           roundOff: roundOff ? Number(roundOff) : null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
           requireGatePass: target === "PROJECT",
@@ -222,6 +248,7 @@ export function IssueFormDialog({
       onOpenChange(false);
       setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
       setReceiverName(""); setReceiverMobile(""); setRoundOff(""); setErrors({});
+      setVehicle(EMPTY_VEHICLE);
       setLines([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
       router.refresh();
     } catch (err: unknown) {
@@ -335,6 +362,8 @@ export function IssueFormDialog({
           </div>
         </div>
 
+        <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Materials</Label>
@@ -355,9 +384,34 @@ export function IssueFormDialog({
           </div>
           {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
           {lines.some((l) => l.materialId && l.available !== null && Number(l.qty) > l.available) && (
-            <p className="text-caption text-warning flex items-center gap-1" role="alert">
-              ⚠ Some lines exceed available stock — issuing will create negative stock.
-            </p>
+            <div className="flex items-center justify-between gap-2 text-caption text-warning" role="alert">
+              <span className="flex items-center gap-1">
+                ⚠ Some lines exceed available stock — issuing will create negative stock.
+              </span>
+              {target === "PROJECT" && projectId && (
+                <a
+                  href={`/requisitions?new=1&project=${projectId}`}
+                  className="shrink-0 rounded border border-warning/40 px-2 py-0.5 font-medium text-warning transition-colors hover:bg-warning/10"
+                >
+                  Raise indent →
+                </a>
+              )}
+            </div>
+          )}
+          {/* Compact impact strip — one line, the consequence of confirming */}
+          {validLineCount > 0 && (
+            <div className="flex items-center justify-end gap-2 text-caption text-muted-foreground">
+              <span className="tnum">{validLineCount} line{validLineCount !== 1 ? "s" : ""}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="tnum font-semibold text-foreground">{formatCurrency(totalValue)}</span>
+              <span className="text-muted-foreground">at MAC → {target === "PROJECT" ? "Project WIP" : "Operating Expense"}</span>
+              {negativeCount > 0 && (
+                <>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span className="font-medium text-warning">{negativeCount} go negative</span>
+                </>
+              )}
+            </div>
           )}
         </div>
 

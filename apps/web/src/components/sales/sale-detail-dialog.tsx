@@ -182,6 +182,9 @@ export function SaleDetailDialog({
     balanceDue: d?.balanceDue ?? sale.balanceDue,
     paymentCount: d?.paymentCount ?? sale.paymentCount,
     saleDeedNo: d?.saleDeedNo ?? sale.saleDeedNo,
+    atsNo: d?.atsNo ?? sale.atsNo,
+    atsDate: d?.atsDate ?? sale.atsDate,
+    allowRegistryBeforeFullPayment: d?.allowRegistryBeforeFullPayment ?? sale.allowRegistryBeforeFullPayment,
   };
   const assetLabel = cur.assetType === "LAND"
     ? `Plot ${cur.landParcelNumber ?? "—"}`
@@ -269,6 +272,15 @@ export function SaleDetailDialog({
               >
                 <Printer className="h-4 w-4" /> Print Invoice
               </a>
+              <a
+                href={`/print/sale-draft/${sale.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+                title="Print draft / LOI (Letter of Intent)"
+              >
+                <Printer className="h-4 w-4" /> Print Draft / LOI
+              </a>
             </div>
 
             {/* Sale summary */}
@@ -324,7 +336,9 @@ export function SaleDetailDialog({
                     Sale completed on {formatDate(cur.finalSaleDate)}
                   </p>
                   {cur.saleDeedNo ? (
-                    <p className="text-caption text-muted-foreground">Sale Deed No: <strong className="text-foreground">{cur.saleDeedNo}</strong> · Revenue + COGS recognised. Title transferred.</p>
+                    <p className="text-caption text-muted-foreground">Sale Deed No: <strong className="text-foreground">{cur.saleDeedNo}</strong>{cur.atsNo ? ` · ATS No: ${cur.atsNo}` : ""} · Revenue + COGS recognised. Title transferred.</p>
+                  ) : cur.atsNo ? (
+                    <p className="text-caption text-muted-foreground">ATS No: <strong className="text-foreground">{cur.atsNo}</strong> · Revenue + COGS recognised. Title transferred.</p>
                   ) : (
                     <p className="text-caption text-muted-foreground">Revenue + COGS recognised. Title transferred.</p>
                   )}
@@ -333,14 +347,18 @@ export function SaleDetailDialog({
             )}
 
             {/* ATS / expected registry info */}
-            {!isCompleted && !isCancelled && sale.expectedRegistryDate && (
+            {!isCompleted && !isCancelled && (sale.expectedRegistryDate || sale.atsNo) && (
               <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-soft/30 p-3">
                 <FileText className="h-4 w-4 shrink-0 text-warning" />
                 <div className="min-w-0 flex-1">
                   <p className="text-body font-medium text-foreground">
-                    ATS — registry expected by {formatDate(sale.expectedRegistryDate)}
+                    ATS{sale.atsNo ? ` · ${sale.atsNo}` : ""}{sale.atsDate ? ` · ${formatDate(sale.atsDate)}` : ""}
+                    {sale.expectedRegistryDate ? ` — registry expected by ${formatDate(sale.expectedRegistryDate)}` : ""}
                   </p>
-                  <p className="text-caption text-muted-foreground">Booking recorded. Complete the sale when the sale deed is registered.</p>
+                  <p className="text-caption text-muted-foreground">
+                    {sale.allowRegistryBeforeFullPayment ? "Registry allowed before full payment. " : ""}
+                    Booking recorded. Complete the sale when the sale deed is registered.
+                  </p>
                 </div>
               </div>
             )}
@@ -760,7 +778,19 @@ export function SaleDetailDialog({
                           <TD>{formatDate(p.paymentDate)}</TD>
                           <TD className="tnum text-right font-medium">{formatCurrency(p.amount)}</TD>
                           <TD>{p.mode.replace("_", " ")}</TD>
-                          <TD className="text-muted-foreground">{p.reference ?? "—"}</TD>
+                          <TD className="text-muted-foreground">
+                            {p.mode === "CHEQUE" && p.chequeNo ? (
+                              <div className="space-y-0.5">
+                                <div className="font-mono text-xs">{p.chequeNo}</div>
+                                {p.chequeBank && <div className="text-micro">{p.chequeBank}</div>}
+                                {p.chequePhotoUrl && (
+                                  <a href={p.chequePhotoUrl} target="_blank" rel="noopener noreferrer" className="text-micro text-blue-600 hover:underline">View Photo</a>
+                                )}
+                              </div>
+                            ) : (
+                              p.reference ?? "—"
+                            )}
+                          </TD>
                           <TD>
                             <StatusPill status={p.status} />
                             {p.chequeStatus === "PENDING" && (
@@ -835,6 +865,31 @@ export function SaleDetailDialog({
             {sale.notes && (
               <div className="rounded-lg bg-muted/50 p-3 text-body">
                 <span className="font-medium">Notes: </span>{sale.notes}
+              </div>
+            )}
+
+            {/* Draft / LOI info */}
+            {(sale.draftNotes || sale.draftDate || sale.draftDocumentUrl) && (
+              <div className="rounded-lg border border-border/60 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-label text-muted-foreground">Draft / LOI {sale.draftDate ? `· ${formatDate(sale.draftDate)}` : ""}</p>
+                  <a
+                    href={`/print/sale-draft/${sale.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-caption text-primary hover:underline"
+                  >
+                    <Printer className="h-3 w-3" /> Print
+                  </a>
+                </div>
+                {sale.draftNotes && (
+                  <p className="text-body whitespace-pre-wrap text-foreground">{sale.draftNotes}</p>
+                )}
+                {sale.draftDocumentUrl && (
+                  <a href={sale.draftDocumentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-caption text-primary hover:underline">
+                    <ExternalLink className="h-3 w-3" /> {sale.draftDocumentName ?? "View draft document"}
+                  </a>
+                )}
               </div>
             )}
           </div>

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Plus, Package,
+  ArrowRight, Package,
   CheckCircle2, Clock, AlertTriangle,
   ArrowDownToLine, ArrowUpFromLine,
 } from "lucide-react";
@@ -12,9 +12,9 @@ import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/prim
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileDashedCreateButton,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 export interface TransferItem {
   id: string;
@@ -62,9 +62,11 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 };
 
 export function MobileTransfersList({
-  items,
+  items: initialItems,
   canCreate,
   currentCompanyId,
+  loadMoreUrl,
+  nextCursor: initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -73,6 +75,8 @@ export function MobileTransfersList({
   items: TransferItem[];
   canCreate: boolean;
   currentCompanyId: string;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -81,6 +85,12 @@ export function MobileTransfersList({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TransferFilter>("ALL");
   const [dirFilter, setDirFilter] = useState<DirectionFilter>("ALL");
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<TransferItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     let result = items;
@@ -131,15 +141,6 @@ export function MobileTransfersList({
           </div>
         </div>
       </div>
-
-      {/* ── Create button ── */}
-      {canCreate && (
-        <div className="mb-3">
-          <MobileDashedCreateButton href="/m/transfers/new">
-            New Stock Transfer
-          </MobileDashedCreateButton>
-        </div>
-      )}
 
       {/* ── Search + filters ── */}
       <MobileSearchHeader
@@ -304,19 +305,17 @@ export function MobileTransfersList({
         <MobileEmptyState
           icon={ArrowRight}
           title={query || filter !== "ALL" ? "No transfers found" : "No stock transfers yet"}
-          hint={query || filter !== "ALL" ? "Try a different search or filter" : "Move stock between warehouses or project sites"}
-          action={canCreate && !query && filter === "ALL" ? (
-            <Link
-              href="/m/transfers/new"
-              className="flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2 text-[0.6875rem] font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" />
-              New Transfer
-            </Link>
-          ) : undefined}
+          hint={query || filter !== "ALL" ? "Try a different search or filter" : canCreate ? "Tap the + button below to create your first transfer" : "Stock transfers will appear here"}
         />
       )}
+      {loadMoreUrl && filtered.length > 0 ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,7 @@ export type MaterialCategory = {
   id: string;
   name: string;
   unit: string;
+  class?: string;
   _count?: { materials: number };
 };
 
@@ -11,6 +12,8 @@ export type MaterialRow = {
   id: string;
   code: string;
   name: string;
+  grade: string | null;
+  specification: string | null;
   categoryId: string | null;
   categoryName: string | null;
   unit: string;
@@ -23,6 +26,11 @@ export type MaterialRow = {
   volumetricDensity: number | null;
   bulkDiscountPct: number | null;
   isCorporateCommodity: boolean;
+  isLotTracked: boolean;
+  isScrap: boolean;
+  baseUnit: string;
+  secondaryUnit: string | null;
+  uomConversionFactor: number | null;
   description: string | null;
   totalQty: number;
   totalValue: number;
@@ -42,6 +50,10 @@ export type StockLocationRow = {
   // by company and label cross-company (inter-company STO) destinations.
   companyId: string;
   companyName: string;
+  // Geo-fence for GPS-tagged receipt validation
+  lat: number | null;
+  lng: number | null;
+  geoRadius: number | null;
 };
 
 export type StockRow = {
@@ -92,6 +104,7 @@ export type SupplierRow = {
   balanceOwed: number;
   openPOs: number;
   poCount: number; // alias for openPOs (used by procurement view)
+  leadTimeDays: number | null;
 };
 
 export type PurchaseOrderRow = {
@@ -149,6 +162,13 @@ export type PurchaseOrderDetail = {
   total: number;
   notes: string | null;
   createdAt: string;
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  approvalNotes: string | null;
+  rejectedAt: string | null;
+  rejectedByName: string | null;
+  rejectionReason: string | null;
   sourceRequisition: { id: string; reqNumber: string } | null;
   charges: {
     id: string;
@@ -176,8 +196,18 @@ export type PurchaseOrderDetail = {
     id: string;
     receiptDate: string;
     inspectionStatus: string;
+    inspectionNotes: string | null;
     notes: string | null;
     lineCount: number;
+    deliveryMode: string | null;
+    vehicleNumber: string | null;
+    driverName: string | null;
+    transporterName: string | null;
+    challanNumber: string | null;
+    invoiceNumber: string | null;
+    ewayBillNumber: string | null;
+    lrNumber: string | null;
+    packageCount: number | null;
   }[];
 };
 
@@ -203,6 +233,20 @@ export type TransferRow = {
   // transferPriceTotal = Σ line transfer totals (set on completion).
   isInterCompany: boolean;
   transferPriceTotal: number | null;
+  // Vehicle / dispatch
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  transporterName: string | null;
+  challanNumber: string | null;
+  // Dispatch / receive lifecycle
+  deliveryMode: string | null;
+  packageCount: number | null;
+  dispatchedAt: string | null;
+  dispatchedByName: string | null;
+  receivedAt: string | null;
+  receivedByName: string | null;
 };
 
 export type StockMovementRow = {
@@ -226,6 +270,8 @@ export type StockMovementRow = {
   refId: string | null;
   userName: string | null;
   timestamp: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type AvailableStockRow = {
@@ -382,6 +428,19 @@ export type MaterialIssueListRow = {
   roundOff: number;
   totalAmount: number;
   lineCount: number;
+  // Optional links
+  builtUnitId: string | null;
+  builtUnitName: string | null;
+  subcontractorId: string | null;
+  subcontractorName: string | null;
+  phaseId: string | null;
+  phaseName: string | null;
+  sourceDprId: string | null;
+  // Vehicle / dispatch
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
 };
 
 export type DirectPurchaseRow = {
@@ -399,6 +458,13 @@ export type DirectPurchaseRow = {
   billAmount: number;
   notes: string | null;
   lineCount: number;
+  status: "COMPLETED" | "CANCELLED";
+  cancelledAt: string | null;
+  // Vehicle / dispatch
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
   lines: {
     id: string;
     materialId: string;
@@ -628,6 +694,22 @@ export type CustomerRow = {
   activeSales: number;
 };
 
+// ───────────────────────────────────────────────────────────
+//  Brokers module
+// ───────────────────────────────────────────────────────────
+
+export type BrokerRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  agency: string | null;
+  defaultCommissionPercent: number | null;
+  notes: string | null;
+  dealCount: number;
+  totalCommission: number;
+  commissionPaid: number;
+};
+
 export type LeadSource = "PORTAL" | "WALK_IN" | "REFERRAL" | "BROKER" | "DIGITAL_AD" | "OTHER";
 export type LeadStage = "NEW" | "CONTACTED" | "SITE_VISIT" | "NEGOTIATION" | "BOOKED" | "LOST";
 export type LeadPriority = "LOW" | "MEDIUM" | "HIGH" | "HOT";
@@ -721,6 +803,10 @@ export type AssetSaleRow = {
   finalSaleDate: string | null;
   saleDeedNo: string | null;
   expectedRegistryDate: string | null;
+  // ATS (Agreement to Sell) — merged with registry
+  atsNo: string | null;
+  atsDate: string | null;
+  allowRegistryBeforeFullPayment: boolean;
   // Sale compliance documents
   allotmentLetterNo: string | null;
   allotmentDate: string | null;
@@ -793,6 +879,11 @@ export type AssetSaleRow = {
   registryDocumentName: string | null;
   allotmentDocumentUrl: string | null;
   allotmentDocumentName: string | null;
+  // Draft / LOI (Letter of Intent)
+  draftDocumentUrl: string | null;
+  draftDocumentName: string | null;
+  draftNotes: string | null;
+  draftDate: string | null;
 };
 
 export type AssetSaleDetail = AssetSaleRow & {
@@ -993,9 +1084,17 @@ export type RequisitionRow = {
   quoteCount?: number;
   minQuotesRequired?: number;
   quotesWaived?: boolean;
+  lciDecision?: { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null;
 };
 
 export type RequisitionDetail = RequisitionRow & {
+  approvedBy: { id: string; name: string } | null;
+  approvedAt: string | null;
+  approvalNotes: string | null;
+  rejectedBy: { id: string; name: string } | null;
+  rejectedAt: string | null;
+  rejectReason: string | null;
+  lciDecision: { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null;
   lines: {
     id: string;
     materialId: string;
@@ -1112,6 +1211,11 @@ export type SubcontractorRow = {
   email: string | null;
   address: string | null;
   trade: string | null;
+  workOrderCount?: number;
+  activeWorkOrderCount?: number;
+  totalWorkDone?: number;
+  totalPaid?: number;
+  retentionBalance?: number;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -1142,6 +1246,12 @@ export type SupplierReturnRow = {
   returnDate: string;
   creditNoteNo: string | null;
   notes: string | null;
+  // Vehicle / dispatch
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  vehiclePhotoUrl: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
   lines: SupplierReturnLineRow[];
 };
 

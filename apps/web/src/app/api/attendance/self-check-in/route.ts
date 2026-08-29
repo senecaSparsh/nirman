@@ -95,6 +95,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     checkInLat: parsed.data.checkInLat,
     checkInLng: parsed.data.checkInLng,
     checkInLocation: parsed.data.checkInLocation ?? undefined,
+    geoFenceOk,
+    geoFenceDistance,
     recordedById: user.id,
     userId: user.id,
   });

@@ -11,6 +11,7 @@ import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { formatCurrency } from "@/lib/utils";
 import type { AvailableStockRow, DepartmentOption, ProjectOption, StockLocationRow } from "@/lib/types";
 
@@ -42,7 +43,10 @@ export function IssueMaterialsDialog({
   const [builtUnitId, setBuiltUnitId] = useState("");
   const [builtUnits, setBuiltUnits] = useState<Array<{ id: string; unitNumber: string; unitType: string }>>([]);
   const [fromLocationId, setFromLocationId] = useState("");
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverMobile, setReceiverMobile] = useState("");
   const [notes, setNotes] = useState("");
+  const [vehicle, setVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
   const [available, setAvailable] = useState<AvailableStockRow[]>([]);
@@ -121,14 +125,31 @@ export function IssueMaterialsDialog({
           builtUnitId: target === "PROJECT" && builtUnitId ? builtUnitId : null,
           fromLocationId,
           notes: notes.trim() || null,
+          receiverName: receiverName.trim() || null,
+          receiverMobile: receiverMobile.trim() || null,
+          vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+          vehicleType: vehicle.vehicleType || undefined,
+          vehiclePhotoUrl: vehicle.photoUrl,
+          driverName: vehicle.driverName,
+          driverPhone: vehicle.driverPhone,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
+          requireGatePass: target === "PROJECT",
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to issue materials");
-      toast.success(target === "PROJECT" ? "Materials issued to project" : "Materials issued to department");
+      if (data.pending) {
+        toast.success(`Gate pass created — awaiting approval`, {
+          description: data.message ?? "Items cannot leave the gate until the gate pass is approved.",
+          action: { label: "View Gate Passes", onClick: () => router.push("/gate-passes") },
+        });
+      } else {
+        toast.success(target === "PROJECT" ? "Materials issued to project" : "Materials issued to department");
+      }
       onOpenChange(false);
-      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes(""); setLines([newLine()]);
+      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
+      setReceiverName(""); setReceiverMobile(""); setVehicle(EMPTY_VEHICLE);
+      setLines([newLine()]);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -221,6 +242,27 @@ export function IssueMaterialsDialog({
             />
           </Field>
         </div>
+
+        {/* Receiver accountability — who physically picked up the stock */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={`Receiver Name${target === "DEPARTMENT" ? " *" : ""}`}>
+            <Input
+              value={receiverName}
+              onChange={(e) => setReceiverName(e.target.value)}
+              placeholder="Who is picking up the stock"
+            />
+          </Field>
+          <Field label="Receiver Mobile">
+            <Input
+              value={receiverMobile}
+              onChange={(e) => setReceiverMobile(e.target.value)}
+              placeholder="Contact number"
+              maxLength={20}
+            />
+          </Field>
+        </div>
+
+        <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
 
         {fromLocationId && (
           <div className="space-y-2">

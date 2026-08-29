@@ -1,9 +1,43 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
+
+const transferActionSchema = z.object({
+  action: z.enum(["dispatch", "complete", "cancel", "returnToSource"]),
+  // Dispatch fields
+  vehicleNumber: z.string().optional(),
+  vehicleType: z.string().optional(),
+  driverName: z.string().optional(),
+  driverPhone: z.string().optional(),
+  transporterName: z.string().optional(),
+  challanNumber: z.string().optional(),
+  packageCount: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  dispatchPhotos: z.array(z.string()).optional(),
+  dispatchSignature: z.string().optional(),
+  // Complete (receive) fields
+  receiverSignature: z.string().optional(),
+  receiverLat: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  receiverLng: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  receiverLocation: z.string().optional(),
+  photos: z.array(z.string()).optional(),
+  deliveryMode: z.string().optional(),
+  shortageRemarks: z.string().optional(),
+  damageRemarks: z.string().optional(),
+  supervisorSignature: z.string().optional(),
+  supervisorId: z.string().optional(),
+  weighbridgeTicketNo: z.string().optional(),
+  grossWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  tareWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  netWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  lineReceipts: z.array(z.any()).optional(),
+  // Return/cancel
+  reason: z.string().optional(),
+  notes: z.string().optional(),
+});
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -42,6 +76,16 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     handlingFee: toNum(transfer.handlingFee),
     markupPct: toNum(transfer.markupPct),
     transferPriceTotal: transfer.transferPriceTotal ? toNum(transfer.transferPriceTotal) : null,
+    deliveryMode: transfer.deliveryMode,
+    vehicleNumber: transfer.vehicleNumber,
+    vehicleType: transfer.vehicleType,
+    driverName: transfer.driverName,
+    driverPhone: transfer.driverPhone,
+    transporterName: transfer.transporterName,
+    challanNumber: transfer.challanNumber,
+    packageCount: transfer.packageCount,
+    dispatchedAt: transfer.dispatchedAt ? transfer.dispatchedAt.toISOString() : null,
+    receivedAt: transfer.receivedAt ? transfer.receivedAt.toISOString() : null,
     lines: transfer.lines.map((l) => ({
       id: l.id,
       materialId: l.materialId,
@@ -60,8 +104,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const user = await requirePermission(PERM.STOCK_TRANSFER);
   const company = await getCompany();
   const { id } = await ctx.params;
-  const body = await req.json();
-  const action = body?.action as string;
+  const raw = await req.json();
+  const parsed = transferActionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const { action, ...body } = parsed.data;
 
   // Fetch the transfer to check company context
   const transfer = await prisma.stockTransfer.findUnique({

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
-  Printer, FileSpreadsheet, ChevronDown,
+  Printer, FileSpreadsheet, ChevronDown, Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -240,20 +241,39 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
     render: (p) => <span className="tnum font-semibold text-foreground">{formatCurrency(p.billAmount)}</span>,
   },
   {
+    key: "vehicleNumber",
+    label: "Vehicle",
+    sortable: true,
+    render: (p) => p.vehicleNumber ? <span className="font-mono text-caption text-muted-foreground">{p.vehicleNumber}</span> : <span className="text-faint">—</span>,
+    defaultHidden: true,
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    render: (p) => p.status === "CANCELLED"
+      ? <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-600">Cancelled</span>
+      : <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600">Completed</span>,
+    filterValue: (p) => p.status,
+    exportValue: (p) => p.status,
+  },
+  {
     key: "print",
     label: "",
     align: "right",
     render: (p) => (
-      <a
-        href={`/print/direct-purchase/${p.id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center text-muted-foreground hover:text-foreground"
-        title="Print voucher"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Printer className="h-3.5 w-3.5" />
-      </a>
+      <div className="flex items-center gap-0.5">
+        <a
+          href={`/print/direct-purchase/${p.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center text-muted-foreground hover:text-foreground p-1"
+          title="Print voucher"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Printer className="h-3.5 w-3.5" />
+        </a>
+      </div>
     ),
   },
 ];
@@ -350,6 +370,12 @@ function PurchaseOrdersTab({
   );
   const trailingButtons = (
     <>
+      {/* New PO — primary action in toolbar (not buried in table footer) */}
+      {canCreate && suppliers.length > 0 && locations.length > 0 && (
+        <Button onClick={() => setFormOpen(true)} size="sm">
+          <Plus className="h-4 w-4" /> New PO
+        </Button>
+      )}
       {/* Export CSV (icon-only) */}
       <div className="group relative">
         <button
@@ -721,10 +747,66 @@ function DirectPurchasesTab({
   materials: MaterialOption[];
   canCreate: boolean;
 }) {
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const totalAmount = directPurchases.reduce((s, p) => s + p.billAmount, 0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const totalAmount = directPurchases.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
 
   const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
+
+  async function cancelPurchase() {
+    if (!cancellingId) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/direct-purchases/${cancellingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
+      toast.success("Direct purchase cancelled");
+      setCancellingId(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const columnsWithActions: Column<DirectPurchaseRow>[] = [
+    ...directPurchaseColumns.slice(0, -1),
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      render: (p) => (
+        <div className="flex items-center gap-0.5">
+          <a
+            href={`/print/direct-purchase/${p.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-muted-foreground hover:text-foreground p-1"
+            title="Print voucher"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </a>
+          {canCreate && p.status === "COMPLETED" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setCancellingId(p.id); }}
+              className="inline-flex items-center text-muted-foreground hover:text-red-600 p-1"
+              title="Cancel purchase"
+            >
+              <Ban className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -744,7 +826,7 @@ function DirectPurchasesTab({
           <DataTable
             data={directPurchases}
             initialSort={{ key: "billDate", direction: "desc" }}
-            columns={directPurchaseColumns}
+            columns={columnsWithActions}
             searchable
             searchPlaceholder="Search by bill no, supplier, location…"
             showTotals
@@ -765,6 +847,22 @@ function DirectPurchasesTab({
         locations={locations}
         materials={materials}
       />
+
+      {cancellingId && (
+        <Dialog
+          open={true}
+          onOpenChange={(o) => { if (!o) setCancellingId(null); }}
+          title="Cancel Direct Purchase?"
+          description="This will reverse the stock receipt and mark the purchase as cancelled. The bill number is preserved for audit."
+        >
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setCancellingId(null)}>Keep</Button>
+            <Button variant="outline" size="sm" onClick={cancelPurchase} disabled={actionLoading} className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300">
+              {actionLoading ? "Cancelling…" : "Cancel Purchase"}
+            </Button>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

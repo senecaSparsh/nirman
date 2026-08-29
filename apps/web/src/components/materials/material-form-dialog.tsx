@@ -14,6 +14,8 @@ import type { MaterialCategory, MaterialRow } from "@/lib/types";
 type FormState = {
   code: string;
   name: string;
+  grade: string;
+  specification: string;
   categoryId: string | null;
   unit: string;
   hsnCode: string;
@@ -25,12 +27,19 @@ type FormState = {
   volumetricDensity: string;
   bulkDiscountPct: string;
   isCorporateCommodity: boolean;
+  isLotTracked: boolean;
+  isScrap: boolean;
+  baseUnit: string;
+  secondaryUnit: string;
+  uomConversionFactor: string;
   description: string;
 };
 
 const empty: FormState = {
   code: "",
   name: "",
+  grade: "",
+  specification: "",
   categoryId: "",
   unit: "NOS",
   hsnCode: "",
@@ -42,6 +51,11 @@ const empty: FormState = {
   volumetricDensity: "",
   bulkDiscountPct: "",
   isCorporateCommodity: false,
+  isLotTracked: false,
+  isScrap: false,
+  baseUnit: "",
+  secondaryUnit: "",
+  uomConversionFactor: "",
   description: "",
 };
 
@@ -66,6 +80,8 @@ export function MaterialFormDialog({
       ? {
           code: material.code,
           name: material.name,
+          grade: material.grade ?? "",
+          specification: material.specification ?? "",
           categoryId: material.categoryId ?? "",
           unit: material.unit,
           hsnCode: material.hsnCode ?? "",
@@ -77,6 +93,11 @@ export function MaterialFormDialog({
           volumetricDensity: material.volumetricDensity == null ? "" : String(material.volumetricDensity),
           bulkDiscountPct: material.bulkDiscountPct == null ? "" : String(material.bulkDiscountPct),
           isCorporateCommodity: material.isCorporateCommodity ?? false,
+          isLotTracked: material.isLotTracked ?? false,
+          isScrap: material.isScrap ?? false,
+          baseUnit: material.baseUnit ?? "",
+          secondaryUnit: material.secondaryUnit ?? "",
+          uomConversionFactor: material.uomConversionFactor == null ? "" : String(material.uomConversionFactor),
           description: material.description ?? "",
         }
       : empty,
@@ -97,6 +118,8 @@ export function MaterialFormDialog({
         ? {
             code: material.code,
             name: material.name,
+            grade: material.grade ?? "",
+            specification: material.specification ?? "",
             categoryId: material.categoryId ?? "",
             unit: material.unit,
             hsnCode: material.hsnCode ?? "",
@@ -108,6 +131,11 @@ export function MaterialFormDialog({
             volumetricDensity: material.volumetricDensity == null ? "" : String(material.volumetricDensity),
             bulkDiscountPct: material.bulkDiscountPct == null ? "" : String(material.bulkDiscountPct),
             isCorporateCommodity: material.isCorporateCommodity ?? false,
+            isLotTracked: material.isLotTracked ?? false,
+            isScrap: material.isScrap ?? false,
+            baseUnit: material.baseUnit ?? "",
+            secondaryUnit: material.secondaryUnit ?? "",
+            uomConversionFactor: material.uomConversionFactor == null ? "" : String(material.uomConversionFactor),
             description: material.description ?? "",
           }
         : empty,
@@ -141,6 +169,8 @@ export function MaterialFormDialog({
       const payload = {
         code: form.code.trim(),
         name: form.name.trim(),
+        grade: form.grade.trim() || null,
+        specification: form.specification.trim() || null,
         categoryId: form.categoryId,
         unit: form.unit.trim(),
         hsnCode: form.hsnCode.trim() || null,
@@ -152,6 +182,11 @@ export function MaterialFormDialog({
         volumetricDensity: form.volumetricDensity.trim() === "" ? null : Number(form.volumetricDensity),
         bulkDiscountPct: form.bulkDiscountPct.trim() === "" ? null : Number(form.bulkDiscountPct),
         isCorporateCommodity: form.isCorporateCommodity,
+        isLotTracked: form.isLotTracked,
+        isScrap: form.isScrap,
+        baseUnit: form.baseUnit.trim() || null,
+        secondaryUnit: form.secondaryUnit.trim() || null,
+        uomConversionFactor: form.uomConversionFactor.trim() === "" ? null : Number(form.uomConversionFactor),
         description: form.description.trim() || null,
       };
       const res = await fetch(
@@ -189,13 +224,48 @@ export function MaterialFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Code" required>
-            <Input
-              value={form.code}
-              onChange={(e) => set("code", e.target.value)}
-              placeholder="CEM-OPC53"
-              required
-              disabled={isEdit}
-            />
+            <div className="flex gap-2">
+              <Input
+                value={form.code}
+                onChange={(e) => set("code", e.target.value)}
+                placeholder="CEM-OPC53"
+                required
+                disabled={isEdit}
+              />
+              {!isEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={async () => {
+                    if (!form.categoryId) {
+                      toast.error("Select a category first");
+                      return;
+                    }
+                    const cat = localCategories.find((c) => c.id === form.categoryId);
+                    if (!cat) return;
+                    try {
+                      const res = await fetch("/api/materials/auto-code", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ categoryName: cat.name, grade: form.grade.trim() || null }),
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.code) {
+                        set("code", data.code);
+                        toast.success(`Auto-generated: ${data.code}`);
+                      } else {
+                        toast.error(data.error ?? "Failed to generate code");
+                      }
+                    } catch {
+                      toast.error("Failed to generate code");
+                    }
+                  }}
+                >
+                  Auto
+                </Button>
+              )}
+            </div>
           </Field>
           <Field label="Name" required>
             <Input
@@ -203,6 +273,20 @@ export function MaterialFormDialog({
               onChange={(e) => set("name", e.target.value)}
               placeholder="Cement OPC 53 Grade"
               required
+            />
+          </Field>
+          <Field label="Grade" hint="Used for auto-code generation (e.g. Fe500D, OPC 53, 20mm)">
+            <Input
+              value={form.grade}
+              onChange={(e) => set("grade", e.target.value)}
+              placeholder="Fe500D / OPC 53 / 20mm"
+            />
+          </Field>
+          <Field label="Specification">
+            <Input
+              value={form.specification}
+              onChange={(e) => set("specification", e.target.value)}
+              placeholder="IS 1786 / IS 269"
             />
           </Field>
           <Field label="Category" required>
@@ -244,13 +328,46 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Standard Cost (₹)">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.standardCost}
-              onChange={(e) => set("standardCost", e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.standardCost}
+                onChange={(e) => set("standardCost", e.target.value)}
+                className="flex-1"
+              />
+              {material && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/materials/${material.id}/last-purchase`);
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error ?? "Failed to fetch");
+                      if (data.unitCost > 0) {
+                        set("standardCost", String(data.unitCost));
+                        const srcLabel = data.source === "receipt"
+                          ? `last PO ${data.poNumber ?? ""} (${new Date(data.date).toLocaleDateString()})`
+                          : data.source === "standard"
+                            ? "existing standard cost"
+                            : "";
+                        toast.success(`Pulled ₹${data.unitCost} from ${srcLabel}`);
+                      } else {
+                        toast.info("No previous purchase found for this material");
+                      }
+                    } catch {
+                      toast.error("Could not fetch last purchase price");
+                    }
+                  }}
+                >
+                  Pull last purchase
+                </Button>
+              )}
+            </div>
           </Field>
           <Field label="Min Stock (reorder threshold)">
             <Input
@@ -314,6 +431,43 @@ export function MaterialFormDialog({
               <span className="text-muted-foreground">Force central procurement</span>
             </label>
           </Field>
+          <Field label="Lot Tracked">
+            <label className="flex h-9 items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                checked={form.isLotTracked}
+                onChange={(e) => set("isLotTracked", e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className="text-muted-foreground">Enable batch/lot compliance</span>
+            </label>
+          </Field>
+          <Field label="Scrap Material">
+            <label className="flex h-9 items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                checked={form.isScrap}
+                onChange={(e) => set("isScrap", e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className="text-muted-foreground">Internally generated / by-product</span>
+            </label>
+          </Field>
+        </div>
+        <div className="rounded-lg border border-border p-3 bg-muted/30">
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">UOM Conversion (optional)</p>
+          <p className="text-xs text-muted-foreground mb-2">Convert between base and secondary units (e.g. 1 BAG = 50 KG). Enables quantity entry in either unit during goods receipt.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Base Unit">
+              <Input value={form.baseUnit} onChange={(e) => set("baseUnit", e.target.value)} placeholder="e.g. KG" />
+            </Field>
+            <Field label="Secondary Unit">
+              <Input value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" />
+            </Field>
+            <Field label="1 secondary = N base">
+              <Input type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} placeholder="e.g. 50" />
+            </Field>
+          </div>
         </div>
         <Field label="Description">
           <Textarea

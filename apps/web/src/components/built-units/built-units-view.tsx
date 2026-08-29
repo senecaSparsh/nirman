@@ -983,8 +983,27 @@ function UnitCard({
                 (carpet: {formatNumber(u.carpetArea, 0)})
               </span>
             )}
+            {u.balconyArea != null && u.balconyArea > 0 && (
+              <span className="ml-1 text-faint" title="Balcony area">
+                · balcony: {formatNumber(u.balconyArea, 0)}
+              </span>
+            )}
           </span>
         </div>
+
+        {/* Industrial / warehouse specs */}
+        {(u.clearHeight != null || u.hasLoadingDock) && (
+          <div className="mt-0.5 flex items-center gap-2 text-micro text-muted-foreground/70">
+            {u.clearHeight != null && (
+              <span title="Floor-to-ceiling clear height">
+                Clear height: {formatNumber(u.clearHeight, 1)} m
+              </span>
+            )}
+            {u.hasLoadingDock && (
+              <span className="rounded bg-info/10 px-1 text-info">Loading dock</span>
+            )}
+          </div>
+        )}
 
         {/* Margin — compact, only if available */}
         {marginVal != null && u.productionCost > 0 && (

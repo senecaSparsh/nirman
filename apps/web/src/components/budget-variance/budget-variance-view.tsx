@@ -9,6 +9,7 @@ import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable } from "@/components/ui/data-table";
 import { formatCurrency, cn } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { BarChart3 } from "lucide-react";
 
 type Project = { id: string; name: string };
@@ -34,13 +35,6 @@ type VarianceData = {
   totalVariancePct: number;
   boqBudget: number;
   nonBoqBudget: number;
-};
-
-const STATUS_VARIANT: Record<VarianceItem["status"], "danger" | "success" | "muted" | "warning"> = {
-  OVER: "danger",
-  UNDER: "success",
-  ON_TRACK: "muted",
-  UNBUDGETED: "warning",
 };
 
 const STATUS_LABEL: Record<VarianceItem["status"], string> = {
@@ -319,7 +313,7 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
                     label: "Status",
                     sortable: true,
                     render: (i) => (
-                      <Badge variant={STATUS_VARIANT[i.status]}>
+                      <Badge variant={statusBadgeVariant(i.status)}>
                         {STATUS_LABEL[i.status]}
                       </Badge>
                     ),

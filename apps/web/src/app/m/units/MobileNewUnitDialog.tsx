@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Home } from "lucide-react";
+import { X, Loader2, Home, Sparkles, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -19,7 +19,14 @@ type UnitType =
   | "VILLA"
   | "OTHER";
 
-type AreaUnit = "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
+type AreaUnit =
+  | "SQFT"
+  | "SQM"
+  | "SQYD"
+  | "ACRE"
+  | "BIGHA"
+  | "KATHA"
+  | "HECTARE";
 
 const UNIT_TYPE_LABELS: Record<UnitType, string> = {
   BHK_1: "1 BHK",
@@ -83,6 +90,13 @@ export function MobileNewUnitDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  // "single" = create one unit; "bulk" = generate many identical units with auto-numbering
+  const [mode, setMode] = useState<"single" | "bulk">("single");
+  // Bulk generator fields
+  const [genPrefix, setGenPrefix] = useState("SHOP-");
+  const [genStart, setGenStart] = useState("1");
+  const [genCount, setGenCount] = useState("10");
+  const [genUnitsPerFloor, setGenUnitsPerFloor] = useState("0");
   const [form, setForm] = useState<FormState>({
     projectId: defaultProjectId ?? "",
     unitType: "BHK_2",
@@ -101,7 +115,16 @@ export function MobileNewUnitDialog({
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      // Auto-flow: when area changes, mirror it into superBuiltUpArea
+      // if the user hasn't explicitly set a different value. This matches
+      // the client's request: "ये जो एरिया है, ये सुपर बिल्ड अप में आ जाए अपने आप"
+      if (key === "area" && !f.superBuiltUpArea && typeof value === "string") {
+        next.superBuiltUpArea = value;
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -110,43 +133,83 @@ export function MobileNewUnitDialog({
       toast.error("Project is required");
       return;
     }
-    if (!form.unitNumber.trim()) {
-      toast.error("Unit number is required");
-      return;
-    }
     if (!form.area || Number(form.area) <= 0) {
       toast.error("Area must be greater than 0");
       return;
     }
+
+    // ── Build the units array ──
+    let units: Array<Record<string, unknown>>;
+
+    if (mode === "bulk") {
+      const start = parseInt(genStart) || 1;
+      const count = parseInt(genCount) || 1;
+      const perFloor = parseInt(genUnitsPerFloor) || 0;
+      if (count <= 0 || count > 200) {
+        toast.error("Count must be between 1 and 200");
+        return;
+      }
+      units = [];
+      for (let i = 0; i < count; i++) {
+        const num = start + i;
+        const unitNumber = `${genPrefix}${num}`;
+        const floor = perFloor > 0 ? Math.floor(i / perFloor) + 1 : null;
+        units.push({
+          projectId: form.projectId,
+          unitType: form.unitType,
+          unitNumber,
+          floor,
+          wing: form.wing.trim() || null,
+          area: Number(form.area),
+          areaUnit: form.areaUnit,
+          askingPrice: form.askingPrice === "" ? null : Number(form.askingPrice),
+          carpetArea: form.carpetArea === "" ? null : Number(form.carpetArea),
+          superBuiltUpArea: form.superBuiltUpArea === "" ? null : Number(form.superBuiltUpArea),
+          balconyArea: form.balconyArea === "" ? null : Number(form.balconyArea),
+          clearHeight: form.clearHeight === "" ? null : Number(form.clearHeight),
+          hasLoadingDock: form.hasLoadingDock,
+        });
+      }
+    } else {
+      if (!form.unitNumber.trim()) {
+        toast.error("Unit number is required");
+        return;
+      }
+      units = [
+        {
+          projectId: form.projectId,
+          unitType: form.unitType,
+          unitNumber: form.unitNumber.trim(),
+          floor: form.floor === "" ? null : Number(form.floor),
+          wing: form.wing.trim() || null,
+          area: Number(form.area),
+          areaUnit: form.areaUnit,
+          askingPrice: form.askingPrice === "" ? null : Number(form.askingPrice),
+          carpetArea: form.carpetArea === "" ? null : Number(form.carpetArea),
+          superBuiltUpArea: form.superBuiltUpArea === "" ? null : Number(form.superBuiltUpArea),
+          balconyArea: form.balconyArea === "" ? null : Number(form.balconyArea),
+          clearHeight: form.clearHeight === "" ? null : Number(form.clearHeight),
+          hasLoadingDock: form.hasLoadingDock,
+        },
+      ];
+    }
+
     setSaving(true);
     haptic(10);
     try {
       const res = await fetch("/api/built-units", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([
-          {
-            projectId: form.projectId,
-            unitType: form.unitType,
-            unitNumber: form.unitNumber.trim(),
-            floor: form.floor === "" ? null : Number(form.floor),
-            wing: form.wing.trim() || null,
-            area: Number(form.area),
-            areaUnit: form.areaUnit,
-            askingPrice: form.askingPrice === "" ? null : Number(form.askingPrice),
-            // RERA fields
-            carpetArea: form.carpetArea === "" ? null : Number(form.carpetArea),
-            superBuiltUpArea: form.superBuiltUpArea === "" ? null : Number(form.superBuiltUpArea),
-            balconyArea: form.balconyArea === "" ? null : Number(form.balconyArea),
-            clearHeight: form.clearHeight === "" ? null : Number(form.clearHeight),
-            hasLoadingDock: form.hasLoadingDock,
-          },
-        ]),
+        body: JSON.stringify(units),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create unit");
+      if (!res.ok) throw new Error(data.error ?? "Failed to create unit(s)");
       haptic([10, 40, 80]);
-      toast.success("Unit created");
+      toast.success(
+        units.length === 1
+          ? "Unit created"
+          : `${units.length} units created`,
+      );
       onClose();
       router.refresh();
     } catch (err) {
@@ -159,7 +222,8 @@ export function MobileNewUnitDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -189,19 +253,54 @@ export function MobileNewUnitDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <Home className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <Home
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-              New Built Unit
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              {mode === "bulk" ? "Generate Units" : "New Built Unit"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
             <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Mode toggle — Single vs Generate Multiple */}
+        <div
+          className="grid grid-cols-2 gap-1 rounded-[0.5rem] p-1 mb-1"
+          style={{ backgroundColor: "var(--color-concrete)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setMode("single")}
+            className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.625rem] font-bold transition-colors"
+            style={{
+              backgroundColor: mode === "single" ? "var(--color-paper)" : "transparent",
+              color: mode === "single" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+            }}
+          >
+            <Home className="size-3" /> Single
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("bulk")}
+            className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-[0.625rem] font-bold transition-colors"
+            style={{
+              backgroundColor: mode === "bulk" ? "var(--color-paper)" : "transparent",
+              color: mode === "bulk" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+            }}
+          >
+            <Layers className="size-3" /> Generate Multiple
           </button>
         </div>
 
@@ -217,15 +316,125 @@ export function MobileNewUnitDialog({
             inputClass={inputClass}
             inputStyle={inputStyle}
             renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
+              />
             )}
           />
 
+          {/* ── Bulk mode: generator fields ── */}
+          {mode === "bulk" ? (
+            <>
+              {/* Unit Type (full width in bulk mode) */}
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Unit Type
+                </label>
+                <select
+                  value={form.unitType}
+                  onChange={(e) => set("unitType", e.target.value as UnitType)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {UNIT_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prefix + Start No */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Number Prefix
+                  </label>
+                  <input
+                    type="text"
+                    value={genPrefix}
+                    onChange={(e) => setGenPrefix(e.target.value)}
+                    placeholder="SHOP-"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Start No.
+                  </label>
+                  <input
+                    type="number"
+                    value={genStart}
+                    onChange={(e) => setGenStart(e.target.value)}
+                    placeholder="1"
+                    inputMode="numeric"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Count + Units per floor */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Count <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={genCount}
+                    onChange={(e) => setGenCount(e.target.value)}
+                    placeholder="10"
+                    inputMode="numeric"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Units / Floor
+                  </label>
+                  <input
+                    type="number"
+                    value={genUnitsPerFloor}
+                    onChange={(e) => setGenUnitsPerFloor(e.target.value)}
+                    placeholder="0 = no auto-floor"
+                    inputMode="numeric"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div
+                className="rounded-[0.5rem] p-2 text-[0.5625rem]"
+                style={{
+                  backgroundColor: "var(--color-concrete)",
+                  color: "var(--color-ink-600)",
+                }}
+              >
+                <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal)" }} />
+                Preview:{" "}
+                <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  {genPrefix}{genStart || "1"}
+                  {" – "}
+                  {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
+                </span>
+                {"  "}({parseInt(genCount) || 0} units)
+              </div>
+            </>
+          ) : (
+            <>
           {/* Unit Number + Type */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} style={labelStyle}>
-                Unit Number <span style={{ color: "var(--color-stop)" }}>*</span>
+                Unit Number{" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
                 type="text"
@@ -239,7 +448,9 @@ export function MobileNewUnitDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Type</label>
+              <label className={labelClass} style={labelStyle}>
+                Type
+              </label>
               <select
                 value={form.unitType}
                 onChange={(e) => set("unitType", e.target.value as UnitType)}
@@ -247,7 +458,9 @@ export function MobileNewUnitDialog({
                 style={inputStyle}
               >
                 {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
-                  <option key={t} value={t}>{UNIT_TYPE_LABELS[t]}</option>
+                  <option key={t} value={t}>
+                    {UNIT_TYPE_LABELS[t]}
+                  </option>
                 ))}
               </select>
             </div>
@@ -256,7 +469,9 @@ export function MobileNewUnitDialog({
           {/* Floor + Wing */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Floor</label>
+              <label className={labelClass} style={labelStyle}>
+                Floor
+              </label>
               <input
                 type="number"
                 value={form.floor}
@@ -268,7 +483,9 @@ export function MobileNewUnitDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Wing / Section</label>
+              <label className={labelClass} style={labelStyle}>
+                Wing / Section
+              </label>
               <input
                 type="text"
                 value={form.wing}
@@ -300,7 +517,9 @@ export function MobileNewUnitDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Unit</label>
+              <label className={labelClass} style={labelStyle}>
+                Unit
+              </label>
               <select
                 value={form.areaUnit}
                 onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
@@ -308,7 +527,9 @@ export function MobileNewUnitDialog({
                 style={inputStyle}
               >
                 {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                  <option key={u} value={u}>{AREA_UNIT_LABELS[u]}</option>
+                  <option key={u} value={u}>
+                    {AREA_UNIT_LABELS[u]}
+                  </option>
                 ))}
               </select>
             </div>
@@ -316,7 +537,9 @@ export function MobileNewUnitDialog({
 
           {/* Asking Price */}
           <div>
-            <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
+            <label className={labelClass} style={labelStyle}>
+              Asking Price (₹)
+            </label>
             <input
               type="number"
               min={0}
@@ -332,11 +555,24 @@ export function MobileNewUnitDialog({
           </div>
 
           {/* RERA areas (optional) */}
-          <div className="rounded-[0.5rem] border p-2.5 space-y-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
-            <p className="text-[0.5rem] font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>RERA Areas (optional)</p>
+          <div
+            className="rounded-[0.5rem] border p-2.5 space-y-2.5"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper-2)",
+            }}
+          >
+            <p
+              className="text-[0.5rem] font-bold uppercase"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              RERA Areas (optional)
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>Carpet Area</label>
+                <label className={labelClass} style={labelStyle}>
+                  Carpet Area
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -350,7 +586,9 @@ export function MobileNewUnitDialog({
                 />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Super Built-Up</label>
+                <label className={labelClass} style={labelStyle}>
+                  Super Built-Up
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -366,7 +604,9 @@ export function MobileNewUnitDialog({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>Balcony Area</label>
+                <label className={labelClass} style={labelStyle}>
+                  Balcony Area
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -380,7 +620,9 @@ export function MobileNewUnitDialog({
                 />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Clear Height</label>
+                <label className={labelClass} style={labelStyle}>
+                  Clear Height
+                </label>
                 <input
                   type="number"
                   min={0}
@@ -394,7 +636,10 @@ export function MobileNewUnitDialog({
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-[0.5625rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            <label
+              className="flex items-center gap-2 text-[0.5625rem] font-semibold"
+              style={{ color: "var(--color-ink-700)" }}
+            >
               <input
                 type="checkbox"
                 checked={form.hasLoadingDock}
@@ -404,6 +649,8 @@ export function MobileNewUnitDialog({
               Has Loading Dock
             </label>
           </div>
+            </>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">
@@ -430,7 +677,11 @@ export function MobileNewUnitDialog({
               }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Creating…" : "Create Unit"}
+              {saving
+                ? "Creating…"
+                : mode === "bulk"
+                  ? `Generate ${parseInt(genCount) || 0} Units`
+                  : "Create Unit"}
             </button>
           </div>
         </form>

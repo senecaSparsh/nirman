@@ -1,15 +1,22 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import {
+  FileText, ShoppingCart, Building2, Boxes, Truck, Users,
+  Package, LandPlot, ClipboardList, Wrench, ArrowLeftRight,
+  TrendingUp, Clock, type LucideIcon,
+} from "lucide-react";
 import { OrbitNavigator } from "@/components/mobile/v2/orbit-navigator";
+import { useRecentItems, type RecentItem } from "@/lib/use-recent-items";
+import { MobileCompanyFab } from "./MobileCompanyFab";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE HOME — Orbit Navigation Hub
 
-   If the user has only 1 company: show the OrbitNavigator inline on the
-   page (no popup) — the company is the center card with its orbit ring.
-   If multiple companies: show a 3-col grid of company cards. Tapping one
-   opens the OrbitNavigator as a full-screen popup.
+   Shows the orbit for the currently selected company directly on the page.
+   Company switching happens via the header/settings switcher — the
+   nirman-company-switched event updates the orbit here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export interface CompanyCardData {
@@ -22,111 +29,176 @@ export interface CompanyCardData {
   employeeCount: number;
 }
 
-export function MobileHomeClient({ companies }: { companies: CompanyCardData[] }) {
-  const [popupNode, setPopupNode] = React.useState<{
-    id: string;
-    type: string;
-    title: string;
-    subtitle: string;
-    meta: string;
-  } | null>(null);
+interface CurrentCompany {
+  id: string;
+  name: string;
+  businessType: string | null;
+  currency: string;
+}
 
-  // ── Single company: render orbit inline ──
-  if (companies.length === 1) {
-    const c = companies[0];
-    if (!c) return null;
-    return (
+export function MobileHomeClient({
+  currentCompany: initialCompany,
+  companies,
+  canCreateCompany,
+}: {
+  currentCompany: CurrentCompany;
+  companies: CompanyCardData[];
+  canCreateCompany: boolean;
+}) {
+  const [activeCompany, setActiveCompany] = React.useState<CurrentCompany>(initialCompany);
+
+  // ── Listen for company-switched events from the header/settings switcher ──
+  React.useEffect(() => {
+    function onCompanySwitched() {
+      fetch("/api/company")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((c) => {
+          if (c?.id) {
+            setActiveCompany({
+              id: c.id,
+              name: c.name,
+              businessType: c.businessType,
+              currency: c.currency,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("nirman-company-switched", onCompanySwitched);
+    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched);
+  }, []);
+
+  // Key forces OrbitNavigator to re-mount when company changes
+  const orbitKey = activeCompany.id;
+  const router = useRouter();
+  const { items: recentItems } = useRecentItems();
+
+  return (
+    <div>
+      {/* ── Recent items ("Jump Back In") ── */}
+      {recentItems.length > 0 ? (
+        <RecentItemsCarousel items={recentItems} onSelect={(href) => router.push(href)} />
+      ) : null}
+
+      {/* ── Orbit for the active company (always visible, no grid) ── */}
       <OrbitNavigator
+        key={orbitKey}
         initialNode={{
-          id: c.id,
+          id: activeCompany.id,
           type: "company",
-          title: c.name,
-          subtitle: c.businessType ?? "Construction & Real Estate",
-          meta: c.currency,
+          title: activeCompany.name,
+          subtitle: activeCompany.businessType ?? "Construction & Real Estate",
+          meta: activeCompany.currency,
         }}
         inline={true}
         open={true}
       />
-    );
-  }
 
-  // ── Multiple companies: grid + popup ──
-  const openOrbit = (company: CompanyCardData) => {
-    setPopupNode({
-      id: company.id,
-      type: "company",
-      title: company.name,
-      subtitle: company.businessType ?? "Construction & Real Estate",
-      meta: company.currency,
-    });
-  };
+      {/* ── FAB: Create new company (owner/admin only) ── */}
+      {canCreateCompany ? (
+        <MobileCompanyFab
+          parentOptions={companies.map((c) => ({ id: c.id, name: c.name }))}
+        />
+      ) : null}
+    </div>
+  );
+}
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   RECENT ITEMS CAROUSEL — "Jump Back In"
+   Horizontal scroll of recently viewed entities. Tap to navigate.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const RECENT_ICONS: Record<string, LucideIcon> = {
+  po: FileText,
+  requisition: ShoppingCart,
+  project: Building2,
+  material: Boxes,
+  supplier: Truck,
+  customer: Users,
+  unit: Package,
+  land: LandPlot,
+  dpr: ClipboardList,
+  employee: Users,
+  equipment: Wrench,
+  sale: TrendingUp,
+  transfer: ArrowLeftRight,
+};
+
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
+function RecentItemsCarousel({
+  items,
+  onSelect,
+}: {
+  items: RecentItem[];
+  onSelect: (href: string) => void;
+}) {
   return (
-    <div>
-      <div className="grid grid-cols-3 gap-1.5 mb-3">
-        {companies.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => openOrbit(c)}
-            className="block rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform press text-left"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <div
-              className="aspect-square grid place-items-center relative"
-              style={{ backgroundColor: "var(--color-paper-2)" }}
+    <div className="mb-4">
+      <div className="flex items-center gap-1.5 mb-2 px-1">
+        <Clock className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
+        <span
+          className="text-[0.625rem] font-bold uppercase tracking-wide"
+          style={{ color: "var(--color-ink-400)" }}
+        >
+          Recent
+        </span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+        {items.slice(0, 10).map((item) => {
+          const Icon = RECENT_ICONS[item.type] ?? FileText;
+          return (
+            <button
+              key={`${item.type}:${item.id}`}
+              onClick={() => onSelect(item.href)}
+              className="press shrink-0 w-[8.5rem] rounded-[0.625rem] border p-2.5 text-left"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+              }}
             >
-              <span className="text-[1.5rem]">🏢</span>
-              <span
-                className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: "var(--color-go)" }}
-              />
-            </div>
-            <div className="p-1.5">
-              <p
-                className="text-[0.5rem] font-semibold uppercase tracking-wide truncate"
-                style={{ color: "var(--color-steel)" }}
-              >
-                {c.businessType ?? "Company"}
-              </p>
-              <p
-                className="font-semibold text-[0.625rem] leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                {c.name}
-              </p>
-              <div className="mt-1 flex items-baseline justify-between gap-1">
-                <div className="min-w-0">
-                  <p className="numeric text-[0.625rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
-                    {c.projectCount} proj
-                  </p>
-                  <p className="numeric text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
-                    {c.employeeCount} staff
-                  </p>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div
+                  className="flex items-center justify-center size-6 rounded-md shrink-0"
+                  style={{ backgroundColor: "var(--color-surface)" }}
+                >
+                  <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
                 </div>
                 <span
-                  className="text-[0.5rem] font-bold uppercase shrink-0"
-                  style={{ color: "var(--color-go)" }}
+                  className="text-[0.5rem] font-medium uppercase tracking-wide"
+                  style={{ color: "var(--color-ink-400)" }}
                 >
-                  {c.currency}
+                  {timeAgo(item.ts)}
                 </span>
               </div>
-            </div>
-          </button>
-        ))}
+              <div
+                className="text-xs font-semibold truncate"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                {item.label}
+              </div>
+              {item.sublabel ? (
+                <div
+                  className="text-[0.625rem] truncate mt-0.5"
+                  style={{ color: "var(--color-ink-400)" }}
+                >
+                  {item.sublabel}
+                </div>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
-
-      <p className="text-center text-[0.5625rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
-        Tap a company to explore its projects, units, land, and more →
-      </p>
-
-      {popupNode && (
-        <OrbitNavigator
-          initialNode={popupNode}
-          inline={false}
-          open={true}
-          onClose={() => setPopupNode(null)}
-        />
-      )}
     </div>
   );
 }

@@ -31,6 +31,8 @@ export type ProjectFormValues = {
   reraRegistrationDate?: string | null;
   reraValidityDate?: string | null;
   reraWebsiteUrl?: string | null;
+  // ── LCI threshold override ──
+  lciThreshold?: number | null;
 };
 
 const TYPE_LABELS: Record<ProjectFormValues["type"], string> = {
@@ -83,6 +85,7 @@ export function ProjectFormDialog({
     reraRegistrationDate: initial?.reraRegistrationDate ?? "",
     reraValidityDate: initial?.reraValidityDate ?? "",
     reraWebsiteUrl: initial?.reraWebsiteUrl ?? "",
+    lciThreshold: initial?.lciThreshold ?? undefined,
   });
 
   function set<K extends keyof ProjectFormValues>(key: K, value: ProjectFormValues[K]) {
@@ -223,6 +226,23 @@ export function ProjectFormDialog({
           <Textarea id="p-desc" value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Optional notes" />
         </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="p-lci">LCI Threshold (%) — optional</Label>
+          <Input
+            id="p-lci"
+            type="number"
+            min={0}
+            max={100}
+            step="any"
+            value={form.lciThreshold ?? ""}
+            onChange={(e) => set("lciThreshold", e.target.value === "" ? undefined : Number(e.target.value))}
+            placeholder="Company default"
+          />
+          <p className="text-caption text-muted-foreground">
+            Per-project LCI (Low-Cost Item) threshold override. Items below this % of project budget are auto-procured without PO. Leave blank to use company default.
+          </p>
+        </div>
+
         {/* ── RERA Registration ── */}
         <div className="rounded-md border border-border p-3 space-y-3">
           <div className="flex items-start gap-2">
@@ -284,7 +304,7 @@ export function ProjectFormDialog({
               <div className="min-w-0">
                 <div className="text-body font-semibold">Agreement to Sell (ATS)</div>
                 <div className="text-caption text-muted-foreground">
-                  If the land registry isn't possible yet (e.g. registry window closed, pending conversion), record an ATS instead — a legal substitute where the registration amount is paid now but the full registry happens later.
+                  If the land registry isn&apos;t possible yet (e.g. registry window closed, pending conversion), record an ATS instead — a legal substitute where the registration amount is paid now but the full registry happens later.
                 </div>
               </div>
             </div>

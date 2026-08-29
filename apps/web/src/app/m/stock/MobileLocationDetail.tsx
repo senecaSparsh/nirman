@@ -210,7 +210,7 @@ export function MobileLocationDetail({
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-3 gap-1.5 mb-3">
         <Link
-          href="/m/site/issue"
+          href="/m/stock-out?mode=issue"
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >

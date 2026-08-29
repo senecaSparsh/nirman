@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/alerts/lease-expiry — mobile lease expiry alerts.
@@ -26,11 +27,7 @@ async function LeaseExpiryContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
-    return (
-      <div className="p-4 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-        No access to land alerts.
-      </div>
-    );
+    return <MobileNoAccess what="land alerts" permission="assets.view" />;
   }
 
   const alerts = await leaseExpiryAlerts(company.id);

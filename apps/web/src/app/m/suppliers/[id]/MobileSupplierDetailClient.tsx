@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Phone, Mail, MapPin, BadgeCheck,
-  FileText, Banknote,
+  FileText, Banknote, Pencil, X, Loader2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { mobileStatusColor } from "@/components/mobile/v2/primitives";
+import { toast } from "sonner";
+import { haptic } from "@/lib/haptic";
 
 type PoStatus = "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
 
@@ -27,15 +31,6 @@ type PaymentItem = {
   paymentMode: string;
 };
 
-const STATUS_COLORS: Record<PoStatus, string> = {
-  DRAFT: "var(--color-steel)",
-  APPROVED: "var(--color-signal)",
-  ORDERED: "var(--color-signal)",
-  PARTIAL: "var(--color-signal)",
-  RECEIVED: "var(--color-go)",
-  CANCELLED: "var(--color-stop)",
-};
-
 const STATUS_LABELS: Record<PoStatus, string> = {
   DRAFT: "Draft",
   APPROVED: "Approved",
@@ -50,11 +45,14 @@ const STATUS_LABELS: Record<PoStatus, string> = {
  * tabbed activity (POs / Payments).
  */
 export function MobileSupplierDetailClient({
+  supplierId,
   name,
   gstin,
   phone,
   email,
   address,
+  leadTimeDays,
+  version,
   balanceOwed,
   totalPoValue,
   totalPaid,
@@ -70,6 +68,8 @@ export function MobileSupplierDetailClient({
   phone: string | null;
   email: string | null;
   address: string | null;
+  leadTimeDays: number | null;
+  version: number;
   balanceOwed: number;
   totalPoValue: number;
   totalPaid: number;
@@ -79,7 +79,9 @@ export function MobileSupplierDetailClient({
   payments: PaymentItem[];
   canManage?: boolean;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<"pos" | "payments">("pos");
+  const [showEdit, setShowEdit] = useState(false);
   const hasDues = balanceOwed > 0;
   const accentColor = hasDues ? "var(--color-stop)" : "var(--color-go)";
 
@@ -92,6 +94,15 @@ export function MobileSupplierDetailClient({
             {name}
           </p>
         </div>
+        {canManage ? (
+          <button
+            onClick={() => setShowEdit(true)}
+            className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] press"
+            style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
+          >
+            <Pencil className="size-3.5" />
+          </button>
+        ) : null}
       </div>
 
       {/* ── Balance banner ── */}
@@ -269,6 +280,25 @@ export function MobileSupplierDetailClient({
 
       {/* ── Tab content ── */}
       {tab === "pos" ? <PosTab pos={pos} /> : <PaymentsTab payments={payments} />}
+
+      {/* ── Edit sheet ── */}
+      {showEdit ? (
+        <SupplierEditSheet
+          supplierId={supplierId}
+          initialName={name}
+          initialGstin={gstin ?? ""}
+          initialPhone={phone ?? ""}
+          initialEmail={email ?? ""}
+          initialAddress={address ?? ""}
+          initialLeadTimeDays={leadTimeDays != null ? String(leadTimeDays) : ""}
+          version={version}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => {
+            setShowEdit(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -295,7 +325,7 @@ function PosTab({ pos }: { pos: PoItem[] }) {
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       {pos.map((po, i) => {
-        const color = STATUS_COLORS[po.status] ?? "var(--color-steel)";
+        const color = mobileStatusColor(po.status);
         return (
           <Link
             key={po.id}
@@ -378,6 +408,151 @@ function PaymentsTab({ payments }: { payments: PaymentItem[] }) {
           </p>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── Edit sheet (bottom sheet) ─── */
+function SupplierEditSheet({
+  supplierId,
+  initialName,
+  initialGstin,
+  initialPhone,
+  initialEmail,
+  initialAddress,
+  initialLeadTimeDays,
+  version,
+  onClose,
+  onSaved,
+}: {
+  supplierId: string;
+  initialName: string;
+  initialGstin: string;
+  initialPhone: string;
+  initialEmail: string;
+  initialAddress: string;
+  initialLeadTimeDays: string;
+  version: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [gstin, setGstin] = useState(initialGstin);
+  const [phone, setPhone] = useState(initialPhone);
+  const [email, setEmail] = useState(initialEmail);
+  const [address, setAddress] = useState(initialAddress);
+  const [leadTimeDays, setLeadTimeDays] = useState(initialLeadTimeDays);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!name.trim()) return toast.error("Name is required");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/suppliers/${supplierId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          gstin: gstin.trim() || null,
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          address: address.trim() || null,
+          leadTimeDays: leadTimeDays ? Number(leadTimeDays) : null,
+          version,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      haptic([10, 40, 80]);
+      toast.success("Supplier updated");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none";
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+    color: "var(--color-ink-950)",
+  };
+  const labelClass = "text-[0.5625rem] font-semibold block mb-1";
+  const labelStyle = { color: "var(--color-ink-500)" };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end"
+      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+        </div>
+        <div className="flex items-center justify-between px-3 pb-2">
+          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            Edit Supplier
+          </p>
+          <button onClick={onClose} className="press p-1">
+            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+          </button>
+        </div>
+        <div className="px-3 pb-4 flex flex-col gap-3">
+          <div>
+            <label className={labelClass} style={labelStyle}>Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelClass} style={labelStyle}>GSTIN</label>
+              <input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Lead Time (days)</label>
+              <input type="number" min="0" step="1" inputMode="numeric" value={leadTimeDays} onChange={(e) => setLeadTimeDays(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelClass} style={labelStyle}>Phone</label>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass} style={labelStyle}>Address</label>
+            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-[0.75rem] resize-none outline-none" style={inputStyle} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 h-9 rounded-[0.5rem] border text-[0.625rem] font-bold press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving || !name.trim()}
+              className="flex-1 h-9 rounded-[0.5rem] text-[0.625rem] font-bold press flex items-center justify-center gap-1"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: saving || !name.trim() ? 0.5 : 1 }}
+            >
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

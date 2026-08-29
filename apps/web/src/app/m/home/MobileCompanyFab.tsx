@@ -1,0 +1,44 @@
+"use client";
+
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { MobileNewCompanyDialog } from "./MobileNewCompanyDialog";
+
+/**
+ * MobileCompanyFab — floating action button + dialog launcher for
+ * creating a new company from the mobile home page.
+ */
+export function MobileCompanyFab({
+  parentOptions = [],
+}: {
+  parentOptions?: { id: string; name: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+        style={{
+          bottom:
+            "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+        }}
+        aria-label="Create new company"
+      >
+        <Plus className="size-5" />
+      </button>
+
+      {open && (
+        <MobileNewCompanyDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          parentOptions={parentOptions}
+        />
+      )}
+    </>
+  );
+}

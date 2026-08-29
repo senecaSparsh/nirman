@@ -84,11 +84,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { purchaseOrderId, locationId, notes, lines } = body as {
-    purchaseOrderId: string;
-    locationId: string;
-    notes?: string | null;
-    lines: { purchaseOrderLineId: string; materialId: string; qtyReceived: number; unitCost: number }[];
+  // purchaseOrderId + locationId are validated separately (not in receiveGoodsSchema
+  // because they're path-level required fields, not optional delivery metadata).
+  const { purchaseOrderId, locationId } = body as {
+    purchaseOrderId?: string;
+    locationId?: string;
   };
   if (!purchaseOrderId) return json({ error: "purchaseOrderId is required" }, { status: 400 });
   if (!locationId) return json({ error: "locationId is required" }, { status: 400 });
@@ -103,12 +103,22 @@ export const POST = apiHandler(async (req: NextRequest) => {
       purchaseOrderId,
       locationId,
       receivedById: user.id,
-      notes: notes ?? undefined,
-      lines: lines.map((l) => ({
+      // Pass ALL validated delivery/transport/weighbridge fields through to the
+      // service — the schema validates them, the service persists them, and the
+      // owner explicitly requires vehicle/transport info on every stock movement.
+      ...parsed.data,
+      notes: parsed.data.notes ?? undefined,
+      lines: parsed.data.lines.map((l) => ({
         purchaseOrderLineId: l.purchaseOrderLineId,
         materialId: l.materialId,
         qtyReceived: l.qtyReceived,
         unitCost: l.unitCost,
+        lotNumber: l.lotNumber ?? undefined,
+        batchCode: l.batchCode ?? undefined,
+        expiryDate: l.expiryDate ?? undefined,
+        manufacturingDate: l.manufacturingDate ?? undefined,
+        inspectionStatus: l.inspectionStatus ?? undefined,
+        inspectionRemarks: l.inspectionRemarks ?? undefined,
       })),
     });
     return json(

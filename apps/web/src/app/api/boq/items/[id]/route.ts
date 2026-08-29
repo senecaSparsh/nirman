@@ -17,7 +17,7 @@ const updateSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.BOQ_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify the BOQ item's project belongs to the user's company
@@ -49,7 +49,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.BOQ_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify the BOQ item's project belongs to the user's company

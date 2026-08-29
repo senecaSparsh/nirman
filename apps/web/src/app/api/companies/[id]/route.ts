@@ -14,6 +14,10 @@ const companyUpdateSchema = z.object({
   currency: z.string().optional(),
   businessType: z.string().optional().nullable(),
   parentCompanyId: z.string().optional().nullable(),
+  // Procurement config
+  lciThresholdDefault: z.coerce.number().min(0).max(100).optional().nullable(),
+  poApprovalThresholdManager: z.coerce.number().min(0).optional().nullable(),
+  poApprovalThresholdAdmin: z.coerce.number().min(0).optional().nullable(),
 });
 
 /**

@@ -38,6 +38,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       referenceNo: p.referenceNo,
       notes: p.notes,
       createdByName: p.createdBy?.name ?? null,
+      chequeNo: p.chequeNo,
+      chequeBank: p.chequeBank,
+      chequePhotoUrl: p.chequePhotoUrl,
     })),
   );
 });

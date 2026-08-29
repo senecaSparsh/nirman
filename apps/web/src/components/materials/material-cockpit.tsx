@@ -14,6 +14,8 @@ import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { LotTrackingDialog } from "./lot-tracking-dialog";
+import type { MaterialRow } from "@/lib/types";
 
 // ───────────────────────────────────────────────────────────
 //  Types
@@ -34,6 +36,7 @@ export type MaterialCockpitData = {
     reorderPoint: number | null;
     economicOrderQty: number | null;
     isScrap: boolean;
+    isLotTracked: boolean;
     description: string | null;
   };
   stockItems: {
@@ -105,8 +108,9 @@ const MOVEMENT_LABELS: Record<string, string> = {
 //  Main component
 // ───────────────────────────────────────────────────────────
 
-export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
+export function MaterialCockpit({ data, suppliers }: { data: MaterialCockpitData; suppliers?: { id: string; name: string }[] }) {
   const [tab, setTab] = useState("overview");
+  const [lotOpen, setLotOpen] = useState(false);
   const { material } = data;
   const totalQty = data.stockItems.reduce((s, si) => s + si.qty, 0);
   const totalValue = data.stockItems.reduce((s, si) => s + si.totalValue, 0);
@@ -143,6 +147,14 @@ export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
         {material.hsnCode && <span>HSN: {material.hsnCode}</span>}
         <span>GST: {material.gstRate}%</span>
         {material.isScrap && <Badge variant="warning">Scrap</Badge>}
+        {material.isLotTracked && (
+          <>
+            <Badge variant="info">Lot-tracked</Badge>
+            <Button variant="outline" size="sm" onClick={() => setLotOpen(true)}>
+              <Package className="h-3.5 w-3.5" /> View Lots
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Stats strip */}
@@ -205,6 +217,14 @@ export function MaterialCockpit({ data }: { data: MaterialCockpitData }) {
         <TabsContent value="procurement"><ProcurementTab data={data} /></TabsContent>
         <TabsContent value="consumption"><ConsumptionTab data={data} /></TabsContent>
       </Tabs>
+
+      {/* Lot tracking dialog */}
+      <LotTrackingDialog
+        open={lotOpen}
+        onOpenChange={setLotOpen}
+        material={material as unknown as MaterialRow}
+        suppliers={suppliers ?? []}
+      />
     </div>
   );
 }

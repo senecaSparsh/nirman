@@ -10,8 +10,10 @@ import { MobileNewEmployeeDialog } from "./MobileNewEmployeeDialog";
  */
 export function MobileEmployeesFab({
   projects,
+  stockLocations,
 }: {
   projects: { id: string; name: string }[];
+  stockLocations: { id: string; name: string; type: string }[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -36,6 +38,7 @@ export function MobileEmployeesFab({
           open={open}
           onClose={() => setOpen(false)}
           projects={projects}
+          stockLocations={stockLocations}
         />
       )}
     </>

@@ -22,6 +22,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const materialId = searchParams.get("materialId");
   const locationId = searchParams.get("locationId");
   const type = searchParams.get("type");
+  const cursor = searchParams.get("cursor") ?? undefined;
   const limit = Math.min(Number(searchParams.get("limit") ?? 100), 500);
 
   // Get all location IDs for this company — used to filter movements at the DB level
@@ -54,7 +55,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const movements = await prisma.stockMovement.findMany({
     where,
     orderBy: { timestamp: "desc" },
-    take: limit,
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: {
       material: { select: { id: true, code: true, name: true, unit: true } },
       fromLocation: { select: { id: true, name: true } },
@@ -63,7 +65,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
   });
 
-  const rows = movements.map((m) => ({
+  const hasMore = movements.length > limit;
+  const page = hasMore ? movements.slice(0, limit) : movements;
+  const nextCursor = hasMore && page.length > 0 ? page[page.length - 1]!.id : null;
+
+  const rows = page.map((m) => ({
     id: m.id,
     materialId: m.materialId,
     materialCode: m.material.code,
@@ -84,7 +90,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     refId: m.refId,
     userName: m.user?.name ?? null,
     timestamp: m.timestamp.toISOString(),
+    latitude: m.latitude,
+    longitude: m.longitude,
   }));
 
-  return json(rows);
+  return json({ rows, hasMore, nextCursor });
 });

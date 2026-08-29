@@ -13,3 +13,15 @@ Screenshot 2026-07-30 at 7.29.34 PM.png
 
 # Root-level dev screenshots
 /*.png
+
+# Uploaded files — stored outside public/ for auth-gated access
+storage/
+
+# Source audio + raw transcripts (large, not code)
+*.m4a
+*.m4a.json
+*_raw/
+
+# Python bytecode cache
+__pycache__/
+*.pyc

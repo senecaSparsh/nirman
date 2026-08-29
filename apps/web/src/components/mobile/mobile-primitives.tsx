@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { statusMeaning } from "@/components/page";
 
 // Re-export interactive client primitives so existing imports from
 // "@/components/mobile/mobile-primitives" continue to work.
@@ -520,63 +521,29 @@ export function MobileActionBar({ children }: { children: React.ReactNode }) {
 /* ============================================================
  * Status badge — pure render, no hooks. Kept here as a shared
  * component so Server Components can use it directly.
+ *
+ * Derives tone from statusMeaning() in @/components/page — the SAME
+ * map the desktop StatusPill uses. This badge can never disagree with
+ * the desktop on what a status *means*.
  * ============================================================ */
 
-/** Map a raw status string (e.g. "DRAFT", "SUBMITTED") to a
- *  Badge variant with the right semantic colour. */
-const STATUS_VARIANT: Record<string, "default" | "brand" | "success" | "warning" | "danger" | "info" | "muted"> = {
-  DRAFT: "warning",
-  SUBMITTED: "info",
-  PENDING: "warning",
-  PARTIAL: "warning",
-  APPROVED: "success",
-  ORDERED: "info",
-  IN_TRANSIT: "info",
-  RECEIVED: "success",
-  COMPLETED: "success",
-  COUNTED: "info",
-  RECONCILED: "success",
-  ACTIVE: "success",
-  PAID: "success",
-  PROCESSED: "info",
-  CANCELLED: "danger",
-  REJECTED: "danger",
-  ON_HOLD: "warning",
-  PLANNED: "info",
-  // Project / unit / DPR statuses
-  UNDER_CONSTRUCTION: "info",
-  AVAILABLE: "success",
-  HOLD: "warning",
-  SOLD: "success",
-  PARTITIONED: "info",
-  RENTED: "brand",
-  BOOKED: "warning",
-  SUB_ADMIN_APPROVED: "info",
-  // Tenancy statuses
-  ENDED: "muted",
-  // Payment / rental-payment statuses
-  OVERDUE: "danger",
-  // Portal listing statuses
-  LISTED: "success",
-  DELISTED: "muted",
-  SYNC_FAILED: "danger",
-  CLEAR: "success",
-  // Attendance statuses
-  PRESENT: "success",
-  ABSENT: "danger",
-  HALF_DAY: "warning",
-  LEAVE: "info",
-  OVERTIME: "brand",
-  // Equipment statuses
-  ASSIGNED: "info",
-  IN_MAINTENANCE: "warning",
-  RETIRED: "muted",
-  // Task statuses
-  IN_PROGRESS: "info",
-  BLOCKED: "danger",
-  // Wage types
-  DAILY: "info",
-  MONTHLY: "brand",
+/**
+ * Maps a StatusMeaning to a ui/badge variant. The 6 meaning groups
+ * cover every status across every module:
+ *   neutral  → muted    (grey — not started / inactive)
+ *   active   → info     (blue — in flight, someone is working on it)
+ *   waiting  → warning  (amber — blocked on a human decision)
+ *   good     → success  (green — finished successfully)
+ *   bad      → danger   (red — cancelled / rejected / failed)
+ *   alert    → danger   (red — needs attention now)
+ */
+const MEANING_TO_VARIANT: Record<string, "default" | "brand" | "success" | "warning" | "danger" | "info" | "muted"> = {
+  neutral: "muted",
+  active: "info",
+  waiting: "warning",
+  good: "success",
+  bad: "danger",
+  alert: "danger",
 };
 
 /** Title-case a status enum value: "IN_TRANSIT" → "In Transit". */
@@ -595,7 +562,8 @@ function titleCaseStatus(s: string): string {
  * `muted` variant for unknown statuses.
  */
 export function MobileStatusBadge({ status, label }: { status: string; label?: string }) {
-  const variant = STATUS_VARIANT[status] ?? "muted";
+  const meaning = statusMeaning(status);
+  const variant = MEANING_TO_VARIANT[meaning] ?? "muted";
   return (
     <Badge variant={variant} dot className="shrink-0">
       {label ?? titleCaseStatus(status)}

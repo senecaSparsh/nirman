@@ -10,6 +10,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { formatCurrency } from "@/lib/utils";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { ProjectOption, LandPurchaseRow } from "@/lib/types";
 
@@ -244,6 +245,18 @@ export function LandPurchaseFormDialog({
           <Label className={errors.totalCost ? "text-danger" : undefined}>Total Cost (₹) *</Label>
           <Input type="number" min={0} step="any" value={form.totalCost} onChange={(e) => set("totalCost", e.target.value)} onBlur={() => onBlur("totalCost")} placeholder="e.g. 5000000" required aria-invalid={!!errors.totalCost} className={errors.totalCost ? errorBorder : undefined} />
           {errors.totalCost && <p className="text-caption text-danger" role="alert">{errors.totalCost}</p>}
+          {/* Compact impact strip — cost per sqft + GL destination */}
+          {Number(form.totalCost) > 0 && Number(form.totalArea) > 0 && (
+            <div className="flex items-center gap-2 text-caption text-muted-foreground">
+              <span className="tnum font-semibold text-foreground">
+                {formatCurrency(Number(form.totalCost) / Number(form.totalArea))}/{form.areaUnit === "SQFT" ? "sqft" : form.areaUnit.toLowerCase()}
+              </span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-muted-foreground">
+                {form.projectId ? "→ Project land cost" : "→ Land inventory asset"}
+              </span>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

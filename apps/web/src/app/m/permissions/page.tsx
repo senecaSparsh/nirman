@@ -8,6 +8,7 @@ import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
+  MobileNoAccess,
   Badge,
 } from "@/components/mobile/v2/primitives";
 import {
@@ -39,13 +40,7 @@ async function MobilePermissionsContent() {
   const company = await getCompany();
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
-    return (
-      <MobileEmptyState
-        icon={ShieldCheck}
-        title="No access"
-        hint="You don't have permission to view permissions & legal documents"
-      />
-    );
+    return <MobileNoAccess what="permissions & legal documents" permission={PERM.ASSETS_VIEW} />;
   }
 
   const canManage = hasPermission(role, PERM.LEGAL_MANAGE);

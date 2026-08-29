@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { computeAttendanceTier } from "@nirman/services";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
@@ -86,20 +87,58 @@ async function AttendanceContent() {
     }),
   ]);
 
-  const attendanceRows = recentAttendance.map((r) => ({
-    id: r.id,
-    employeeId: r.employeeId,
-    employeeName: r.employee.name,
-    trade: r.employee.trade,
-    date: r.date.toISOString(),
-    projectId: r.projectId,
-    projectName: r.project?.name ?? null,
-    checkIn: r.checkIn?.toISOString() ?? null,
-    checkOut: r.checkOut?.toISOString() ?? null,
-    hoursWorked: r.hoursWorked ? toNum(r.hoursWorked) : null,
-    status: r.status,
-    notes: r.notes,
-  }));
+  // ── Traffic-light tier computation (D10) ──────────────────────
+  // Fetch DPR approval status for the projects+dates in the attendance records
+  const projectDateKeys = new Set(
+    recentAttendance
+      .filter((r) => r.projectId)
+      .map((r) => `${r.projectId}|${r.date.toISOString().slice(0, 10)}`),
+  );
+  const dprApprovalMap = new Map<string, boolean>();
+  if (projectDateKeys.size > 0) {
+    const dprs = await prisma.dailyProgressReport.findMany({
+      where: { project: { companyId: company.id } },
+      select: { projectId: true, date: true, approvalStatus: true },
+    });
+    for (const dpr of dprs) {
+      const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
+      if (projectDateKeys.has(key)) {
+        dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
+      }
+    }
+  }
+
+  const attendanceRows = recentAttendance.map((r) => {
+    const dprKey = r.projectId ? `${r.projectId}|${r.date.toISOString().slice(0, 10)}` : null;
+    const dprApproved = dprKey ? (dprApprovalMap.get(dprKey) ?? false) : false;
+    const hasGpsCheckIn = r.checkInLat != null && r.checkInLng != null;
+    const tier = computeAttendanceTier({
+      status: r.status,
+      hasGpsCheckIn,
+      dprApproved,
+    });
+    return {
+      id: r.id,
+      employeeId: r.employeeId,
+      employeeName: r.employee.name,
+      trade: r.employee.trade,
+      date: r.date.toISOString(),
+      projectId: r.projectId,
+      projectName: r.project?.name ?? null,
+      checkIn: r.checkIn?.toISOString() ?? null,
+      checkOut: r.checkOut?.toISOString() ?? null,
+      hoursWorked: r.hoursWorked ? toNum(r.hoursWorked) : null,
+      status: r.status,
+      tier,
+      notes: r.notes,
+      checkInLat: r.checkInLat,
+      checkInLng: r.checkInLng,
+      checkOutLat: r.checkOutLat,
+      checkOutLng: r.checkOutLng,
+      checkInLocation: r.checkInLocation,
+      checkOutLocation: r.checkOutLocation,
+    };
+  });
 
   const leaveRows = leaves.map((l) => ({
     id: l.id,

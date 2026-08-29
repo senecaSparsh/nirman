@@ -3,10 +3,16 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 
-import { getCompany, getCompanyGroupIds, toNum, getUserRole } from "@/lib/server";
+import {
+  getCompany,
+  getCompanyGroupIds,
+  toNum,
+  getUserRole,
+} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileProcurementList } from "./MobileProcurementList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 export default function MobileProcurementPage() {
   return (
@@ -25,17 +31,25 @@ async function MobileProcurementContent() {
 
   // Show POs from the entire company group — quotation-approved POs may
   // be created in a different company (parent/child) than the user's current.
+  const BATCH_SIZE = 60;
   const pos = await prisma.purchaseOrder.findMany({
     where: { companyId: { in: groupCompanyIds } },
-    orderBy: { createdAt: "desc" },
-    take: 60,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1, // +1 to detect if there are more
     include: {
       supplier: { select: { name: true } },
       lines: { select: { qtyOrdered: true, qtyReceived: true } },
     },
   });
 
-  const serialized = pos.map((p) => {
+  const hasMore = pos.length > BATCH_SIZE;
+  const batch = hasMore ? pos.slice(0, BATCH_SIZE) : pos;
+  const lastItem = batch[batch.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+    : null;
+
+  const serialized = batch.map((p) => {
     const qtyOrdered = p.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
     const qtyReceived = p.lines.reduce(
       (s, l) => s + (l.qtyReceived ? toNum(l.qtyReceived) : 0),
@@ -64,17 +78,24 @@ async function MobileProcurementContent() {
       <MobileProcurementList
         items={serialized}
         canCreate={canCreate}
+        loadMoreUrl="/api/mobile/list/procurement"
+        nextCursor={nextCursor}
         exportTitle="Purchase Orders"
         exportRows={serialized as unknown as Record<string, unknown>[]}
-        exportColumns={[
-          { key: "poNumber", label: "PO Number" },
-          { key: "supplierName", label: "Supplier" },
-          { key: "status", label: "Status" },
-          { key: "total", label: "Amount", format: "currency" },
-          { key: "createdAt", label: "Created Date", format: "date" },
-        ] as MobileColumnSpec[]}
+        exportColumns={
+          [
+            { key: "poNumber", label: "PO Number" },
+            { key: "supplierName", label: "Supplier" },
+            { key: "status", label: "Status" },
+            { key: "total", label: "Amount", format: "currency" },
+            { key: "createdAt", label: "Created Date", format: "date" },
+          ] as MobileColumnSpec[]
+        }
         exportSummary={`${serialized.length} purchase orders`}
       />
+      {canCreate && (
+        <MobileFab href="/m/procurement/new" label="New purchase order" />
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       address: s.address,
       balanceOwed: toNum(s.balanceOwed),
       openPOs: s._count.purchaseOrders,
+      leadTimeDays: s.leadTimeDays,
     })),
   );
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { formatNumber } from "@/lib/utils";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -106,8 +107,9 @@ export function MobileStandardConsumptionsList({
 
 function BenchmarkCard({ benchmark: b }: { benchmark: StandardConsumptionListItem }) {
   return (
-    <div
-      className="rounded-[0.5rem] border p-2.5"
+    <Link
+      href={`/m/standard-consumptions/${b.id}`}
+      className="rounded-[0.5rem] border p-2.5 press block"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <p className="text-[0.75rem] font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
@@ -131,6 +133,6 @@ function BenchmarkCard({ benchmark: b }: { benchmark: StandardConsumptionListIte
       {b.notes && (
         <p className="text-[0.5rem] mt-1.5" style={{ color: "var(--color-ink-500)" }}>{b.notes}</p>
       )}
-    </div>
+    </Link>
   );
 }

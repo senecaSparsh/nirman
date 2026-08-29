@@ -2,22 +2,41 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Check, ChevronDown } from "lucide-react";
+import { startTransition } from "react";
+import { Check, ChevronDown } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   COMPANY SWITCHER
-   For owners/managers with multiple company memberships.
-   Sets the nirman-company-id cookie and refreshes the page.
+   COMPANY SWITCHER / HEADER
+
+   Renders as the company context header (avatar + name + currency/role).
+   When there are multiple companies, the header is tappable and opens a
+   dropdown to switch. When there's only one company, it renders as a
+   static header (no chevron, no dropdown).
+
+   Sets the nirman-company-id cookie and refreshes the page on switch.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function CompanySwitcher({
   currentCompanyId,
   companies,
+  currency,
+  role,
+  parentCompanyId,
 }: {
   currentCompanyId: string;
   companies: { id: string; name: string; role: string }[];
+  currency: string;
+  role: string;
+  parentCompanyId: string | null;
 }) {
   const router = useRouter();
+  // Switching is only for OWNER/ADMIN at the top of the hierarchy (no parent).
+  // Child company users see a static header — they can't switch to siblings.
+  const canSwitch =
+    (role === "OWNER" || role === "ADMIN") &&
+    !parentCompanyId &&
+    companies.length > 1;
+  const hasMultiple = canSwitch;
   const [open, setOpen] = React.useState(false);
   const [switching, setSwitching] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -40,56 +59,51 @@ export function CompanySwitcher({
       return;
     }
     setSwitching(true);
-    // Set the cookie via a fetch to an API endpoint
     await fetch("/api/company/switch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ companyId: id }),
     }).catch(() => {});
-    // Notify all client-side components (AppShell, MobileShell) that
-    // the active company changed so they can re-fetch the company
-    // name and update the document title + brand mark.
     window.dispatchEvent(new CustomEvent("nirman-company-switched"));
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
     setSwitching(false);
     setOpen(false);
   }
 
   const current = companies.find((c) => c.id === currentCompanyId);
+  const displayName = current?.name ?? companies[0]?.name ?? "—";
 
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press"
+  const headerContent = (
+    <>
+      {/* Avatar */}
+      <span
+        className="grid place-items-center w-10 h-10 rounded-[0.5rem] shrink-0 text-[1.125rem] font-bold"
         style={{
-          borderColor: open ? "var(--color-ink-950)" : "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
         }}
       >
-        <span
-          className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0"
-          style={{ backgroundColor: "var(--color-concrete)" }}
+        {displayName.slice(0, 2).toUpperCase()}
+      </span>
+      {/* Name + meta */}
+      <div className="min-w-0 flex-1 text-left">
+        <p
+          className="font-bold text-[0.875rem] truncate"
+          style={{ color: "var(--color-ink-950)" }}
         >
-          <Building2
-            className="size-3.5"
-            style={{ color: "var(--color-ink-500)" }}
-          />
-        </span>
-        <div className="min-w-0 flex-1 text-left">
-          <p
-            className="text-[0.5625rem] uppercase tracking-wide font-semibold"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            Switch company
-          </p>
-          <p
-            className="text-[0.75rem] font-semibold truncate"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {current?.name ?? "Select…"}
-          </p>
-        </div>
+          {displayName}
+        </p>
+        <p
+          className="text-[0.5625rem] mt-0.5"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {currency} · {role}
+        </p>
+      </div>
+      {/* Chevron — only when switchable */}
+      {hasMultiple ? (
         <ChevronDown
           className="size-4 shrink-0 transition-transform"
           style={{
@@ -97,9 +111,35 @@ export function CompanySwitcher({
             transform: open ? "rotate(180deg)" : "none",
           }}
         />
-      </button>
+      ) : null}
+    </>
+  );
 
-      {open ? (
+  const headerCls =
+    "w-full flex items-center gap-2.5 rounded-[0.625rem] border p-3";
+  const headerStyle: React.CSSProperties = {
+    borderColor: open ? "var(--color-ink-950)" : "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      {hasMultiple ? (
+        <button
+          onClick={() => setOpen(!open)}
+          className={`${headerCls} press`}
+          style={headerStyle}
+        >
+          {headerContent}
+        </button>
+      ) : (
+        <div className={headerCls} style={headerStyle}>
+          {headerContent}
+        </div>
+      )}
+
+      {/* Dropdown — only when multiple companies */}
+      {hasMultiple && open ? (
         <div
           className="absolute top-full left-0 right-0 z-30 mt-1 rounded-[0.625rem] border-2 shadow-lg overflow-hidden"
           style={{

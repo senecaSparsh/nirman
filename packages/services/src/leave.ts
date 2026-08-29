@@ -178,6 +178,39 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       },
     });
 
+    // When approving, auto-create WorkerAttendance rows for each working day
+    // in the leave range so payroll picks them up correctly. UNPAID leave →
+    // NON_PAID_LEAVE (counts as 0 in payroll); all other types → PAID_LEAVE
+    // (counts as a full paid day). Uses upsert so re-approval is idempotent.
+    if (input.approve) {
+      const attendanceStatus = leave.type === "UNPAID" ? "NON_PAID_LEAVE" : "PAID_LEAVE";
+      const cur = new Date(leave.startDate.getFullYear(), leave.startDate.getMonth(), leave.startDate.getDate());
+      const last = new Date(leave.endDate.getFullYear(), leave.endDate.getMonth(), leave.endDate.getDate());
+      while (cur <= last) {
+        const dow = cur.getDay();
+        if (dow !== 0 && dow !== 6) { // skip Sundays and Saturdays (working days only)
+          await tx.workerAttendance.upsert({
+            where: {
+              employeeId_date: { employeeId: leave.employeeId, date: new Date(cur) },
+            },
+            create: {
+              employeeId: leave.employeeId,
+              companyId: input.companyId,
+              date: new Date(cur),
+              status: attendanceStatus,
+              hoursWorked: new Decimal(0),
+              notes: `Auto-created from approved ${leave.type} leave (${leave.id})`,
+            },
+            update: {
+              status: attendanceStatus,
+              notes: `Updated from approved ${leave.type} leave (${leave.id})`,
+            },
+          });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
     await logAction(tx, {
       userId: input.approvedById,
       action: input.approve ? "LEAVE_REQUEST_APPROVE" : "LEAVE_REQUEST_REJECT",

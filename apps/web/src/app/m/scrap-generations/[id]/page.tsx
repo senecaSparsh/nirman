@@ -6,8 +6,10 @@ import { prisma } from "@nirman/db";
 import {
   Recycle, Zap, Hand, Printer,
 } from "lucide-react";
-import { toNum, getCompany } from "@/lib/server";
+import { toNum, getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { MobileScrapCancelBtn } from "./MobileScrapCancelBtn";
 
 export default function MobileScrapDetailPage({
   params,
@@ -29,6 +31,8 @@ async function MobileScrapDetailContent({
   await connection();
   const { id } = await params;
   const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
 
   const scrap = await prisma.scrapGeneration.findFirst({
     where: { id, companyId: company.id },
@@ -62,6 +66,7 @@ async function MobileScrapDetailContent({
   }
 
   const isAuto = !!scrap.dprAutoScrap;
+  const isCancelled = scrap.status === "CANCELLED";
   const totalValue = scrap.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0);
   const totalQty = scrap.lines.reduce((s, l) => s + toNum(l.qty), 0);
   const accentColor = isAuto ? "var(--color-signal)" : "var(--color-steel)";
@@ -86,6 +91,14 @@ async function MobileScrapDetailContent({
           <SourceIcon className="size-2.5" />
           {isAuto ? "Auto" : "Manual"}
         </span>
+        {isCancelled ? (
+          <span
+            className="text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
+            style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+          >
+            Cancelled
+          </span>
+        ) : null}
         <Link
           href={`/print/scrap/${scrap.id}`}
           className="flex items-center gap-1 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-[0.5rem] border press shrink-0"
@@ -243,6 +256,28 @@ async function MobileScrapDetailContent({
           ))}
         </div>
       )}
+
+      {/* ── Cancel action ── */}
+      {canManage && !isCancelled ? (
+        <div className="mt-3">
+          <MobileScrapCancelBtn scrapId={scrap.id} scrapNumber={scrap.scrapNumber} />
+        </div>
+      ) : null}
+
+      {/* ── Cancelled banner ── */}
+      {isCancelled && scrap.cancelledAt ? (
+        <div
+          className="rounded-[0.5rem] border p-2.5 mt-3"
+          style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}
+        >
+          <p className="text-[0.625rem] font-bold" style={{ color: "var(--color-stop)" }}>
+            Cancelled
+          </p>
+          <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            {formatDate(scrap.cancelledAt)}
+          </p>
+        </div>
+      ) : null}
 
     </div>
   );

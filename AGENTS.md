@@ -1,5 +1,11 @@
 # Nirman Inventory OS — Agent Guide
 
+> **Read `DECISIONS.md` (repo root) before scoping any work.** It is the single
+> routing index that merges owner transcripts + competitor research + UX research
+> into one ranked backlog, and tells you where to drill for evidence. The #1
+> finding: the schema is ~95% complete — most "gaps" are UI-wiring gaps, not
+> missing modules. Check the schema before assuming anything needs building.
+
 ## Commands
 
 - `pnpm dev` — run web dev server (Turbopack). Uses port 3000, falls back to 3001.
@@ -413,6 +419,14 @@
 Derived from the owner's hand-drawn system map (`docs/source-material/IMG_0871–0873`).
 Read this before changing any UI. If a page needs something not described here, the
 thing probably belongs here rather than in the page.
+
+> **Voice-of-customer reference**: `docs/source-material/USER_SESSION_BUSINESS_LOGIC.md`
+> distills 6 real onboarding transcripts (Alpha Road 1–5 + Amoria Cafe) into the
+> owner's actual workflows — procurement quotation gates, land cost breakups,
+> sale→BBA→registry lifecycle, GPS attendance traffic-light, rent/CRM needs. It
+> includes a 23-item gap summary cross-referenced against the wayfinder backlog.
+> Consult it before scoping any module work so the build matches how the business
+> really runs.
 
 ## The three ideas
 

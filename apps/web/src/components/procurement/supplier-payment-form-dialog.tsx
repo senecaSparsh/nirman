@@ -149,7 +149,7 @@ export function SupplierPaymentFormDialog({
             createLabel="supplier"
             options={localSuppliers.map((s) => ({ value: s.id, label: s.balanceOwed > 0 ? `${s.name} (Owes: ${formatCurrency(s.balanceOwed)})` : s.name }))}
             renderCreateDialog={({ open: o, onCreated, onClose }) => (
-              <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0 }]); onCreated(e); }} supplier={null} />
+              <SupplierFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalSuppliers((p) => [...p, { id: e.id, name: e.label ?? "", gstin: null, phone: null, email: null, address: null, balanceOwed: 0, openPOs: 0, poCount: 0, leadTimeDays: null }]); onCreated(e); }} supplier={null} />
             )}
           />
         </Field>

@@ -10,6 +10,18 @@ import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { postMaterialIssue } from "./gl-posting";
 
 /**
+ * Generate the next SA-YYMMDD-NNNN slip number for a DPR-generated material issue.
+ * Called inside a transaction so the count is consistent.
+ */
+async function generateDprIssueNumber(tx: Prisma.TransactionClient): Promise<string> {
+  const d = new Date();
+  const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const prefix = `SA-${ymd}-`;
+  const count = await tx.materialIssue.count({ where: { issueNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+}
+
+/**
  * HR & Field Workforce Service — crews, attendance, payroll, and Daily
  * Progress Reports (DPR).
  *
@@ -96,6 +108,36 @@ export function computeOvertimeHours(
 //  Below 85% = half-day (handled as HALF_DAY status directly).
 // ───────────────────────────────────────────────────────────
 
+/**
+ * Compute the attendance status from hours worked, using the owner's
+ * 85% rule:
+ *   ≥ 100% of standard hours → PRESENT (or OVERTIME if > 100%)
+ *   ≥ 85% but < 100%         → LATE
+ *   > 0 but < 85%            → HALF_DAY
+ *   0                         → ABSENT
+ *
+ * This is a pure helper — callers should use it when recording
+ * attendance with check-in/check-out times to auto-classify the
+ * status instead of requiring the supervisor to manually pick.
+ */
+export function computeStatusFromHours(
+  hoursWorked: Decimal | number | string | null,
+  standardHours: Decimal | number | string = STANDARD_HOURS_PER_DAY,
+): "PRESENT" | "LATE" | "HALF_DAY" | "ABSENT" | "OVERTIME" {
+  if (hoursWorked == null) return "ABSENT";
+  const hrs = new Decimal(hoursWorked);
+  const std = new Decimal(standardHours);
+  if (hrs.lte(0)) return "ABSENT";
+  const pct = hrs.div(std);
+  if (pct.gte(1)) {
+    // More than 100% — check if it's overtime (>8h standard)
+    if (hrs.gt(std)) return "OVERTIME";
+    return "PRESENT";
+  }
+  if (pct.gte(0.85)) return "LATE";
+  return "HALF_DAY";
+}
+
 /** Count the number of LATE days in an attendance list. */
 export function countLateDays(
   attendances: { status: string }[],
@@ -136,6 +178,7 @@ export function computeAttendanceTier(input: {
   status: string;
   hasGpsCheckIn?: boolean;
   dprApproved?: boolean;
+  geoFenceOk?: boolean | null;
 }): AttendanceTier {
   // Authorized leave counts as green
   if (input.status === "PAID_LEAVE") return "GREEN";
@@ -143,16 +186,163 @@ export function computeAttendanceTier(input: {
   if (input.status === "ABSENT" || input.status === "NON_PAID_LEAVE" || input.status === "LEAVE") return "RED";
   // Present / late / overtime / half-day → check DPR approval
   if (input.status === "PRESENT" || input.status === "LATE" || input.status === "OVERTIME" || input.status === "HALF_DAY") {
+    // If geofence was checked and the worker was OUTSIDE the geofence → RED
+    // (they checked in but weren't at the site)
+    if (input.geoFenceOk === false) return "RED";
     // If we have GPS data, use the three-tier logic
-    if (input.hasGpsCheckIn !== undefined) {
-      if (!input.hasGpsCheckIn) return "RED"; // not at location
+    if (input.hasGpsCheckIn === true) {
       if (input.dprApproved) return "GREEN";
       return "YELLOW";
     }
-    // No GPS data — fall back to status-only
-    return "GREEN"; // present is green by default
+    // No GPS data (manual entry by supervisor) — fall back to status-based logic.
+    // A manually-marked PRESENT is still present; don't penalize as RED just
+    // because no GPS was captured. Use DPR approval to determine yellow vs green.
+    if (input.dprApproved) return "GREEN";
+    return "YELLOW";
   }
   return "RED";
+}
+
+// ───────────────────────────────────────────────────────────
+//  Traffic-light rollup — queries DPR approval status for each
+//  attendance record's project+date and computes the tier.
+//  This is the "genuine new build" — the pure function above
+//  exists, but nothing in the UI calls it because there was no
+//  DB query that joined attendance → DPR approval.
+// ───────────────────────────────────────────────────────────
+
+export type AttendanceWithTier = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: Date;
+  status: string;
+  projectId: string | null;
+  projectName: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  hoursWorked: number | null;
+  checkInLat: number | null;
+  checkInLng: number | null;
+  geoFenceOk: boolean | null;
+  geoFenceDistance: number | null;
+  tier: AttendanceTier;
+  dprApproved: boolean;
+};
+
+/**
+ * Fetch attendance records for a company+date range with their
+ * traffic-light tier computed. For each record, looks up whether
+ * a DPR exists for the record's project+date with approvalStatus
+ * = APPROVED, and passes that flag to `computeAttendanceTier`.
+ *
+ * Records without a project are always YELLOW (present) or RED
+ * (absent) — no DPR to link to.
+ */
+export async function getAttendanceWithTiers(opts: {
+  companyId: string;
+  from: Date;
+  to: Date;
+  projectId?: string;
+}): Promise<AttendanceWithTier[]> {
+  const records = await prisma.workerAttendance.findMany({
+    where: {
+      companyId: opts.companyId,
+      date: { gte: opts.from, lte: opts.to },
+      ...(opts.projectId ? { projectId: opts.projectId } : {}),
+    },
+    include: {
+      employee: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  if (records.length === 0) return [];
+
+  // Collect unique project+date combos to batch-query DPR approval status
+  const projectDateKeys = new Set<string>();
+  for (const r of records) {
+    if (r.projectId) {
+      const dateKey = r.date.toISOString().slice(0, 10);
+      projectDateKeys.add(`${r.projectId}|${dateKey}`);
+    }
+  }
+
+  // Query approved DPRs for all relevant project+date combos
+  const projectIds = [...new Set(
+    records.map((r) => r.projectId).filter(Boolean) as string[]
+  )];
+  const dateFrom = opts.from;
+  const dateTo = opts.to;
+
+  const approvedDprs = projectIds.length > 0
+    ? await prisma.dailyProgressReport.findMany({
+        where: {
+          projectId: { in: projectIds },
+          date: { gte: dateFrom, lte: dateTo },
+          approvalStatus: "APPROVED",
+        },
+        select: { projectId: true, date: true },
+      })
+    : [];
+
+  // Build a set of "projectId|dateKey" for quick lookup
+  const approvedDprKeys = new Set<string>();
+  for (const d of approvedDprs) {
+    approvedDprKeys.add(`${d.projectId}|${d.date.toISOString().slice(0, 10)}`);
+  }
+
+  return records.map((r) => {
+    const dateKey = r.date.toISOString().slice(0, 10);
+    const dprApproved = r.projectId
+      ? approvedDprKeys.has(`${r.projectId}|${dateKey}`)
+      : false;
+
+    const tier = computeAttendanceTier({
+      status: r.status,
+      hasGpsCheckIn: !!(r.checkInLat != null && r.checkInLng != null),
+      dprApproved,
+      geoFenceOk: r.geoFenceOk,
+    });
+
+    return {
+      id: r.id,
+      employeeId: r.employeeId,
+      employeeName: r.employee?.name ?? "Unknown",
+      date: r.date,
+      status: r.status,
+      projectId: r.projectId,
+      projectName: r.project?.name ?? null,
+      checkIn: r.checkIn,
+      checkOut: r.checkOut,
+      hoursWorked: r.hoursWorked ? Number(r.hoursWorked) : null,
+      checkInLat: r.checkInLat,
+      checkInLng: r.checkInLng,
+      geoFenceOk: r.geoFenceOk,
+      geoFenceDistance: r.geoFenceDistance,
+      tier,
+      dprApproved,
+    };
+  });
+}
+
+/**
+ * Get tier counts for a company+date range — powers dashboard tiles.
+ * Returns { RED, YELLOW, GREEN } counts.
+ */
+export async function getAttendanceTierCounts(opts: {
+  companyId: string;
+  from: Date;
+  to: Date;
+  projectId?: string;
+}): Promise<{ RED: number; YELLOW: number; GREEN: number }> {
+  const records = await getAttendanceWithTiers(opts);
+  const counts = { RED: 0, YELLOW: 0, GREEN: 0 };
+  for (const r of records) {
+    counts[r.tier]++;
+  }
+  return counts;
 }
 
 /** Count working days (Mon–Sat, excluding Sunday) in a date range. */
@@ -536,6 +726,9 @@ export interface LogAttendanceInput {
   checkOutLng?: number;
   checkInLocation?: string;
   checkOutLocation?: string;
+  // Geofence enforcement (computed by caller from project site boundary)
+  geoFenceOk?: boolean;
+  geoFenceDistance?: number;
   userId?: string;
 }
 
@@ -556,6 +749,27 @@ export async function recordAttendance(input: LogAttendanceInput) {
 
     const dateOnly = dateOnlyUTC(input.date);
 
+    // ── Auto-compute hoursWorked from check-in/check-out if not provided ──
+    let hoursWorked = input.hoursWorked;
+    let status = input.status;
+    if (input.checkIn && input.checkOut && hoursWorked == null) {
+      const diffMs = input.checkOut.getTime() - input.checkIn.getTime();
+      if (diffMs > 0) {
+        hoursWorked = new Decimal(diffMs).div(1000 * 60 * 60); // ms → hours
+      }
+    }
+    // ── Auto-classify status from hours using the 85% rule ──
+    // Only override if the caller passed a generic PRESENT but we have
+    // enough data to be more precise. Don't override explicit ABSENT/LEAVE/etc.
+    if (hoursWorked != null && (status === "PRESENT" || status === "LATE" || status === "HALF_DAY" || status === "OVERTIME")) {
+      const autoStatus = computeStatusFromHours(hoursWorked);
+      // Only upgrade from PRESENT to a more specific status (LATE/HALF_DAY/OVERTIME)
+      // Don't downgrade an explicit OVERTIME to PRESENT, etc.
+      if (autoStatus === "LATE" || autoStatus === "HALF_DAY" || autoStatus === "OVERTIME") {
+        status = autoStatus;
+      }
+    }
+
     // Upsert on [employeeId, date]
     const existing = await tx.workerAttendance.findUnique({
       where: { employeeId_date: { employeeId: input.employeeId, date: dateOnly } },
@@ -566,8 +780,8 @@ export async function recordAttendance(input: LogAttendanceInput) {
       projectId: input.projectId ?? null,
       checkIn: input.checkIn ?? null,
       checkOut: input.checkOut ?? null,
-      hoursWorked: input.hoursWorked != null ? new Decimal(input.hoursWorked) : null,
-      status: input.status,
+      hoursWorked: hoursWorked != null ? new Decimal(hoursWorked) : null,
+      status,
       notes: input.notes ?? null,
       recordedById: input.recordedById ?? null,
       checkInLat: input.checkInLat ?? null,
@@ -576,6 +790,8 @@ export async function recordAttendance(input: LogAttendanceInput) {
       checkOutLng: input.checkOutLng ?? null,
       checkInLocation: input.checkInLocation ?? null,
       checkOutLocation: input.checkOutLocation ?? null,
+      geoFenceOk: input.geoFenceOk ?? null,
+      geoFenceDistance: input.geoFenceDistance ?? null,
     };
 
     let record;
@@ -762,7 +978,11 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       if (attendances.length === 0) continue;
 
       const daysWorked = computeDaysWorked(attendances);
-      const basicAmount = computeBasicAmount(emp, daysWorked, workingDays);
+      // Apply the "4 lates = 1 half-day" deduction rule (owner's explicit policy).
+      // Each 4 LATE days in the month deducts 0.5 from daysWorked.
+      const lateHalfDayDeductions = computeLateHalfDayDeductions(attendances);
+      const adjustedDaysWorked = daysWorked.minus(new Decimal(lateHalfDayDeductions * 0.5));
+      const basicAmount = computeBasicAmount(emp, adjustedDaysWorked, workingDays);
       const otHours = computeOvertimeHours(attendances);
       const hr = hourlyRateFor(emp, workingDays);
       const overtimeAmount = otHours.times(hr).times(OVERTIME_MULTIPLIER);
@@ -774,7 +994,9 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       const esi = new Decimal(0);
       const professionTax = new Decimal(0);
       const tax = new Decimal(0);
-      const deductions = new Decimal(0);
+      // Late-half-day deduction is tracked as a separate deduction line item
+      const lateDeductionAmount = basicAmount.minus(computeBasicAmount(emp, daysWorked, workingDays));
+      const deductions = lateDeductionAmount.gt(0) ? lateDeductionAmount : new Decimal(0);
       const grossPay = computeGrossPay(basicAmount, overtimeAmount, allowance, bonus);
       const lineTotalDeductions = computeTotalDeductions(deductions, pf, esi, professionTax, tax);
       const netPay = computeNetPay(basicAmount, overtimeAmount, deductions, allowance, bonus, pf, esi, professionTax, tax);
@@ -783,7 +1005,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         data: {
           payrollPeriodId: period.id,
           employeeId: emp.id,
-          daysWorked,
+          daysWorked: adjustedDaysWorked,
           basicAmount,
           overtimeAmount,
           allowance,
@@ -1845,6 +2067,7 @@ export async function generateMaterialIssueFromDPR(
 
     const materialIssue = await tx.materialIssue.create({
       data: {
+        issueNumber: await generateDprIssueNumber(tx),
         projectId: dpr.projectId,
         fromLocationId: siteLocation.id,
         sourceDprId: dprId,

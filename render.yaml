@@ -36,14 +36,15 @@ services:
     branch: main
     healthCheckPath: /sign-in
 
-    # Node + pnpm setup, build, then run migrations only (no seed data)
+    # Node + pnpm setup, build, then run migrations and production seed
     buildCommand: |
       corepack enable &&
       corepack prepare pnpm@latest --activate &&
       pnpm install --frozen-lockfile &&
       pnpm build &&
       pnpm --filter @nirman/db generate &&
-      pnpm --filter @nirman/db migrate:deploy
+      pnpm --filter @nirman/db migrate:deploy &&
+      pnpm --filter @nirman/web seed:prod
 
     # Start the production Next.js server
     startCommand: cd apps/web && pnpm start
@@ -62,6 +63,8 @@ services:
         value: "1"
       - key: TURBO_TELEMETRY_DISABLED
         value: "1"
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=440"
       - key: BETTER_AUTH_URL
         value: https://nirman-inventory.onrender.com
       - key: NEXT_PUBLIC_APP_URL

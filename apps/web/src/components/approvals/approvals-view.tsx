@@ -136,42 +136,44 @@ export function ApprovalsView({
 
   async function bulkApprovePOs(pos: ApprovalPORow[]) {
     setBulkApproving(true);
-    let ok = 0;
-    let fail = 0;
-    await Promise.all(pos.map(async (po) => {
-      try {
-        const res = await fetch(`/api/purchase-orders/${po.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve" }),
-        });
-        if (res.ok) ok++; else fail++;
-      } catch { fail++; }
-    }));
-    setBulkApproving(false);
-    if (ok > 0) toast.success(`Approved ${ok} PO${ok === 1 ? "" : "s"}`);
-    if (fail > 0) toast.error(`${fail} PO${fail === 1 ? "" : "s"} failed to approve`);
-    router.refresh();
+    try {
+      const res = await fetch("/api/approvals/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: pos.map((po) => ({ type: "po", id: po.id })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Batch approve failed");
+      const { succeeded, failed } = data.summary;
+      if (succeeded > 0) toast.success(`Approved ${succeeded} PO${succeeded === 1 ? "" : "s"}`);
+      if (failed > 0) toast.error(`${failed} PO${failed === 1 ? "" : "s"} failed to approve`);
+    } catch {
+      toast.error("Batch approve failed");
+    } finally {
+      setBulkApproving(false);
+      router.refresh();
+    }
   }
 
   async function bulkApproveReqs(reqs: ApprovalReqRow[]) {
     setBulkApproving(true);
-    let ok = 0;
-    let fail = 0;
-    await Promise.all(reqs.map(async (r) => {
-      try {
-        const res = await fetch(`/api/requisitions/${r.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve" }),
-        });
-        if (res.ok) ok++; else fail++;
-      } catch { fail++; }
-    }));
-    setBulkApproving(false);
-    if (ok > 0) toast.success(`Approved ${ok} indent${ok === 1 ? "" : "s"}`);
-    if (fail > 0) toast.error(`${fail} indent${fail === 1 ? "" : "s"} failed to approve`);
-    router.refresh();
+    try {
+      const res = await fetch("/api/approvals/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: reqs.map((r) => ({ type: "requisition", id: r.id })) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Batch approve failed");
+      const { succeeded, failed } = data.summary;
+      if (succeeded > 0) toast.success(`Approved ${succeeded} indent${succeeded === 1 ? "" : "s"}`);
+      if (failed > 0) toast.error(`${failed} indent${failed === 1 ? "" : "s"} failed to approve`);
+    } catch {
+      toast.error("Batch approve failed");
+    } finally {
+      setBulkApproving(false);
+      router.refresh();
+    }
   }
 
   const filteredPOs = useMemo(() => {

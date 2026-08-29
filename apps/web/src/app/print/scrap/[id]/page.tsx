@@ -4,6 +4,7 @@ import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
@@ -51,6 +52,7 @@ export default async function ScrapGenerationPrintPage({
     0,
   );
   const totalQty = scrap.lines.reduce((sum, l) => sum + toNum(l.qty), 0);
+  const words = amountInWords(totalValue);
 
   return (<>
           <PrintToolbar title="Scrap Generation Slip" />
@@ -130,6 +132,12 @@ export default async function ScrapGenerationPrintPage({
           </tr>
         </tfoot>
       </table>
+
+      {/* Amount in words */}
+      <div className="mt-2 text-sm">
+        <span className="font-semibold">Scrap Value in words: </span>
+        <span className="italic">Rupees {words} Only</span>
+      </div>
 
       {/* Notes */}
       {scrap.notes && (

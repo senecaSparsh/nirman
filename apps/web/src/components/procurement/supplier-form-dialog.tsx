@@ -32,6 +32,7 @@ export function SupplierFormDialog({
     phone: supplier?.phone ?? "",
     email: supplier?.email ?? "",
     address: supplier?.address ?? "",
+    leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
   });
 
   // Sync form fields when the edit target changes or the dialog opens fresh.
@@ -43,6 +44,7 @@ export function SupplierFormDialog({
       phone: supplier?.phone ?? "",
       email: supplier?.email ?? "",
       address: supplier?.address ?? "",
+      leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
     });
   }, [open, supplier]);
 
@@ -64,6 +66,7 @@ export function SupplierFormDialog({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
+        leadTimeDays: form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays),
       };
       const url = supplier ? `/api/suppliers/${supplier.id}` : "/api/suppliers";
       const method = supplier ? "PATCH" : "POST";
@@ -115,9 +118,16 @@ export function SupplierFormDialog({
             <Input id="s-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="s-email">Email</Label>
-          <Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="supplier@example.com" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-email">Email</Label>
+            <Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="supplier@example.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-lead">Lead Time (days)</Label>
+            <Input id="s-lead" type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} placeholder="e.g. 7" />
+            <p className="text-caption text-muted-foreground">Average vendor lead time — used by the Logistics Decision Engine (S_lead).</p>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="s-address">Address</Label>

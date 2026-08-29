@@ -7,6 +7,7 @@ import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEquipmentList } from "./MobileEquipmentList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/equipment — mobile equipment list. Shows all company equipment
@@ -72,28 +73,33 @@ async function MobileEquipmentContent() {
   }));
 
   return (
-    <MobileEquipmentList
-      items={serialized}
-      counts={{
-        total: equipment.length,
-        available: available.length,
-        assigned: assigned.length,
-        inMaintenance: inMaintenance.length,
-        retired: retired.length,
-        totalValue,
-      }}
-      canCreate={canCreate}
-      exportTitle="Equipment"
-      exportRows={serialized as unknown as Record<string, unknown>[]}
-      exportColumns={[
-        { key: "name", label: "Name" },
-        { key: "assetTag", label: "Asset Tag" },
-        { key: "category", label: "Category" },
-        { key: "status", label: "Status" },
-        { key: "currentValue", label: "Value", format: "currency" },
-        { key: "assignedProjectName", label: "Assigned To" },
-      ] as MobileColumnSpec[]}
-      exportSummary={`${equipment.length} items · ${formatCurrencyCompact(totalValue)} total value`}
-    />
+    <div>
+      <MobileEquipmentList
+        items={serialized}
+        counts={{
+          total: equipment.length,
+          available: available.length,
+          assigned: assigned.length,
+          inMaintenance: inMaintenance.length,
+          retired: retired.length,
+          totalValue,
+        }}
+        canCreate={canCreate}
+        exportTitle="Equipment"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={
+          [
+            { key: "name", label: "Name" },
+            { key: "assetTag", label: "Asset Tag" },
+            { key: "category", label: "Category" },
+            { key: "status", label: "Status" },
+            { key: "currentValue", label: "Value", format: "currency" },
+            { key: "assignedProjectName", label: "Assigned To" },
+          ] as MobileColumnSpec[]
+        }
+        exportSummary={`${equipment.length} items · ${formatCurrencyCompact(totalValue)} total value`}
+      />
+      {canCreate && <MobileFab href="/m/equipment/new" label="Add equipment" />}
+    </div>
   );
 }

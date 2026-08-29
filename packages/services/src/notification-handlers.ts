@@ -57,6 +57,18 @@ export async function processPendingNotifications(): Promise<{
   let sent = 0;
   let failed = 0;
 
+  // Batch-fetch user contact info for all pending notifications (avoids N+1)
+  // The `recipient` field in NotificationLog stores a userId (set by the event bus),
+  // but sendNotification expects a phone (WhatsApp) or email (EMAIL) string.
+  const userIds = [...new Set(pending.map((l) => l.recipient))];
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, phone: true, email: true, name: true },
+      })
+    : [];
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
   for (const log of pending) {
     try {
       const metadata = JSON.parse((log.metadata as string) || "{}") as Record<string, unknown>;
@@ -68,6 +80,18 @@ export async function processPendingNotifications(): Promise<{
         continue;
       }
 
+      // Resolve userId → contact info for WhatsApp/EMAIL channels
+      const user = userMap.get(log.recipient);
+      if (!user && channels.some((c) => c !== "IN_APP")) {
+        // Cannot resolve recipient — mark as failed to avoid reprocessing
+        await prisma.notificationLog.update({
+          where: { id: log.id },
+          data: { status: "FAILED", error: "Could not resolve user contact info" },
+        }).catch(() => {});
+        failed++;
+        continue;
+      }
+
       // Send via each enabled channel
       for (const channel of channels) {
         if (channel === "IN_APP") {
@@ -75,6 +99,10 @@ export async function processPendingNotifications(): Promise<{
           // and surfaced via the /api/notifications/in-app endpoint
           continue;
         }
+
+        // Resolve the correct contact for the channel
+        const contact = channel === "WHATSAPP" ? user?.phone : user?.email;
+        if (!contact) continue; // User has no contact info for this channel
 
         // Look up template from the pre-fetched map (no per-iteration query)
         const template = log.companyId
@@ -84,11 +112,24 @@ export async function processPendingNotifications(): Promise<{
         if (template) {
           const message = renderTemplate(template.template, metadata as Record<string, string>);
           await sendNotification({
-            recipient: log.recipient,
+            recipient: contact,
+            recipientName: user?.name,
             channel: channel as "WHATSAPP" | "EMAIL",
             message,
             companyId: log.companyId,
             eventType: log.eventType,
+            userId: log.recipient,
+          });
+        } else {
+          // No template — send the pre-rendered message from the event bus
+          await sendNotification({
+            recipient: contact,
+            recipientName: user?.name,
+            channel: channel as "WHATSAPP" | "EMAIL",
+            message: log.message,
+            companyId: log.companyId,
+            eventType: log.eventType,
+            userId: log.recipient,
           });
         }
       }

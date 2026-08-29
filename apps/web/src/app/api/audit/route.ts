@@ -24,6 +24,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const filterAction = searchParams.get("action");
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
+  const cursor = searchParams.get("cursor") ?? undefined;
   const limit = Math.min(Number(searchParams.get("limit") ?? "100"), 500);
 
   const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
@@ -60,14 +61,19 @@ export const GET = apiHandler(async (req: NextRequest) => {
     const entries = await prisma.auditLog.findMany({
       where,
       orderBy: { timestamp: "desc" },
-      take: limit,
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       include: {
         user: { select: { id: true, name: true } },
       },
     });
 
-    return json(
-      entries.map((e) => ({
+    const hasMore = entries.length > limit;
+    const page = hasMore ? entries.slice(0, limit) : entries;
+    const nextCursor = hasMore && page.length > 0 ? page[page.length - 1]!.id : null;
+
+    return json({
+      rows: page.map((e) => ({
         id: e.id,
         action: e.action,
         entityType: e.entityType,
@@ -78,7 +84,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         after: e.after,
         createdAt: e.timestamp.toISOString(),
       })),
-    );
+      hasMore,
+      nextCursor,
+    });
   }
 
   // Entity-scoped view (existing behavior)
@@ -96,20 +104,26 @@ export const GET = apiHandler(async (req: NextRequest) => {
       { companyId: null },
     ];
   } else if (!isSuperuser) {
-    return json([]);
+    return json({ rows: [], hasMore: false, nextCursor: null });
   }
 
+  const entityLimit = Math.min(limit, 50);
   const entries = await prisma.auditLog.findMany({
     where,
     orderBy: { timestamp: "desc" },
-    take: 50,
+    take: entityLimit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: {
       user: { select: { id: true, name: true } },
     },
   });
 
-  return json(
-    entries.map((e) => ({
+  const hasMore = entries.length > entityLimit;
+  const page = hasMore ? entries.slice(0, entityLimit) : entries;
+  const nextCursor = hasMore && page.length > 0 ? page[page.length - 1]!.id : null;
+
+  return json({
+    rows: page.map((e) => ({
       id: e.id,
       action: e.action,
       userId: e.userId,
@@ -118,5 +132,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       after: e.after,
       createdAt: e.timestamp.toISOString(),
     })),
-  );
+    hasMore,
+    nextCursor,
+  });
 });

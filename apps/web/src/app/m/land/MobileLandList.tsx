@@ -538,27 +538,27 @@ function PurchaseCard({
         style={{ borderTop: "1px solid var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         {p.availableCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-go)" }}>
+          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-go)" }} title={`${p.availableCount} Available`}>
             <CheckCircle2 className="size-1.5" />
-            {p.availableCount}
+            {p.availableCount} Avail
           </span>
         ) : null}
         {p.holdCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }}>
+          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-signal)" }} title={`${p.holdCount} Hold`}>
             <PauseCircle className="size-1.5" />
-            {p.holdCount}
+            {p.holdCount} Hold
           </span>
         ) : null}
         {p.soldCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-stop)" }}>
+          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-stop)" }} title={`${p.soldCount} Sold`}>
             <DollarSign className="size-1.5" />
-            {p.soldCount}
+            {p.soldCount} Sold
           </span>
         ) : null}
         {p.partitionedCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-steel)" }}>
+          <span className="flex items-center gap-0.5 text-[0.4375rem] font-semibold" style={{ color: "var(--color-steel)" }} title={`${p.partitionedCount} Partitioned`}>
             <Split className="size-1.5" />
-            {p.partitionedCount}
+            {p.partitionedCount} Part
           </span>
         ) : null}
 

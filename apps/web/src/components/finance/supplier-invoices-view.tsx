@@ -544,6 +544,10 @@ function SupplierInvoiceFormDialog({
     gstAmount: "",
     totalAmount: "",
   });
+  // Invoice lines for three-way matching — auto-filled from PO when selected
+  type InvLine = { materialId: string; materialName: string; unit: string; quantity: string; unitPrice: string; gstRate: string };
+  const [invLines, setInvLines] = useState<InvLine[]>([]);
+  const [poLinesLoading, setPoLinesLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -557,8 +561,38 @@ function SupplierInvoiceFormDialog({
         gstAmount: "",
         totalAmount: "",
       });
+      setInvLines([]);
     }
   }, [open]);
+
+  // When a PO is selected, fetch its lines and auto-fill invoice lines
+  useEffect(() => {
+    if (!form.purchaseOrderId) {
+      setInvLines([]);
+      return;
+    }
+    setPoLinesLoading(true);
+    fetch(`/api/purchase-orders/${form.purchaseOrderId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.lines) {
+          setInvLines(data.lines.map((l: { materialId: string; materialName: string; unit: string | null; qtyOrdered: number; unitCost: number; gstRate: number }) => ({
+            materialId: l.materialId,
+            materialName: l.materialName,
+            unit: l.unit ?? "",
+            quantity: String(l.qtyOrdered),
+            unitPrice: String(l.unitCost),
+            gstRate: String(l.gstRate),
+          })));
+          // Auto-fill subtotal from lines
+          const sub = data.lines.reduce((s: number, l: { qtyOrdered: number; unitCost: number }) => s + l.qtyOrdered * l.unitCost, 0);
+          const gst = data.lines.reduce((s: number, l: { qtyOrdered: number; unitCost: number; gstRate: number }) => s + l.qtyOrdered * l.unitCost * (l.gstRate / 100), 0);
+          setForm((f) => ({ ...f, subtotal: sub.toFixed(2), gstAmount: gst.toFixed(2), totalAmount: (sub + gst).toFixed(2) }));
+        }
+      })
+      .catch(() => { /* best-effort */ })
+      .finally(() => setPoLinesLoading(false));
+  }, [form.purchaseOrderId]);
 
   // Filter POs by selected supplier
   const filteredPos = form.supplierId
@@ -597,6 +631,17 @@ function SupplierInvoiceFormDialog({
       if (form.purchaseOrderId) payload.purchaseOrderId = form.purchaseOrderId;
       if (form.dueDate) payload.dueDate = form.dueDate;
       if (form.gstAmount) payload.gstAmount = Number(form.gstAmount);
+      // Send invoice lines for three-way matching (only if we have them)
+      if (invLines.length > 0) {
+        payload.lines = invLines
+          .filter((l) => l.materialId && l.quantity && l.unitPrice)
+          .map((l) => ({
+            materialId: l.materialId,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+            gstRate: l.gstRate ? Number(l.gstRate) : undefined,
+          }));
+      }
 
       const res = await fetch("/api/supplier-invoices", {
         method: "POST",
@@ -682,6 +727,75 @@ function SupplierInvoiceFormDialog({
             <p className="text-micro text-muted-foreground">No purchase orders for this supplier.</p>
           )}
         </div>
+
+        {/* Invoice lines — auto-filled from PO, editable for three-way matching */}
+        {form.purchaseOrderId && (
+          <div className="space-y-1.5">
+            <Label>Invoice Lines (for three-way match)</Label>
+            {poLinesLoading ? (
+              <p className="text-micro text-muted-foreground">Loading PO lines…</p>
+            ) : invLines.length > 0 ? (
+              <div className="rounded-md border border-border overflow-hidden">
+                <table className="w-full text-meta">
+                  <thead className="bg-muted/30 text-muted-foreground">
+                    <tr>
+                      <th className="px-2 py-1.5 text-left font-medium">Material</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Qty</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Rate</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invLines.map((l, i) => (
+                      <tr key={i} className="border-t border-border">
+                        <td className="px-2 py-1.5 text-foreground">
+                          {l.materialName}
+                          {l.unit && <span className="text-muted-foreground"> /{l.unit}</span>}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={l.quantity}
+                            onChange={(e) => {
+                              const next = [...invLines];
+                              next[i] = { ...l, quantity: e.target.value };
+                              setInvLines(next);
+                            }}
+                            className="w-20 rounded border border-border px-1.5 py-0.5 text-right tnum text-sm"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={l.unitPrice}
+                            onChange={(e) => {
+                              const next = [...invLines];
+                              next[i] = { ...l, unitPrice: e.target.value };
+                              setInvLines(next);
+                            }}
+                            className="w-24 rounded border border-border px-1.5 py-0.5 text-right tnum text-sm"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 text-right tnum text-foreground">
+                          {(Number(l.quantity) * Number(l.unitPrice)).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-micro text-muted-foreground">No lines on this PO.</p>
+            )}
+            <p className="text-micro text-muted-foreground">
+              Adjust qty/rate to match the actual invoice. The system will run three-way matching against the PO and GRN.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">

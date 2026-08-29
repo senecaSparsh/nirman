@@ -886,8 +886,8 @@ async function main() {
   }
   unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-01", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 8000000, currentValuation: 8000000 });
   unitDefs.push({ phase: "Tower A", type: "SHOP", unitNumber: "S-02", floor: 0, area: 400, status: "AVAILABLE", askingPrice: 8000000, currentValuation: 8000000 });
-  unitDefs.push({ phase: "Tower B", type: "BHK_2", unitNumber: "B-101", floor: 1, wing: "B", area: 850, status: "PLANNED", currentValuation: 0 });
-  unitDefs.push({ phase: "Tower B", type: "BHK_3", unitNumber: "B-102", floor: 1, wing: "B", area: 1200, status: "PLANNED", currentValuation: 0 });
+  unitDefs.push({ phase: "Tower B", type: "BHK_2", unitNumber: "B-101", floor: 1, wing: "B", area: 850, status: "PLANNED", askingPrice: 16000000, currentValuation: 16000000 });
+  unitDefs.push({ phase: "Tower B", type: "BHK_3", unitNumber: "B-102", floor: 1, wing: "B", area: 1200, status: "PLANNED", askingPrice: 22000000, currentValuation: 22000000 });
 
   const phaseByName: Record<string, string> = { "Tower A": phase1A.id, "Tower B": phase1B.id };
   await prisma.builtUnit.createMany({
@@ -1547,8 +1547,750 @@ async function main() {
     );
   }
 
+  // ── 29. MULTI-COMPANY GROUP ─────────────────────────────────
+  // A parent group "Nirman Group" with 3 child companies to exercise
+  // the company hierarchy (parentCompanyId), inter-company transfers,
+  // and the company switcher with multiple entities.
+  console.log("Seeding multi-company group…");
+
+  const group = await ensure<{ id: string; name: string }>(
+    "company",
+    { deletedAt: null, name: "Nirman Group" },
+    {
+      name: "Nirman Group",
+      currency: "INR",
+      businessType: "Holding Company",
+      gstin: "27AABCN1234F1Z5",
+      address: "BKC, Mumbai 400051",
+      phone: "+91 22 6666 7777",
+      email: "accounts@nirmangroup.in",
+    },
+  );
+
+  const childCompanies = [
+    {
+      name: "Nirman Realty",
+      businessType: "Real Estate Development",
+      gstin: "27AABCN2001F1Z1",
+      address: "Baner, Pune 411045",
+      phone: "+91 98220 10001",
+      email: "ops@nirmanrealty.in",
+      currency: "INR",
+    },
+    {
+      name: "Nirman Infrastructure",
+      businessType: "Infrastructure & Roads",
+      gstin: "27AABCN2002F1Z2",
+      address: "Talegaon, Pune 410507",
+      phone: "+91 98220 20002",
+      email: "ops@nirmaninfra.in",
+      currency: "INR",
+    },
+    {
+      name: "Nirman Interiors",
+      businessType: "Interior Fit-Out",
+      gstin: "27AABCN2003F1Z3",
+      address: "Koregaon Park, Pune 411001",
+      phone: "+91 98220 30003",
+      email: "studio@nirmaninteriors.in",
+      currency: "INR",
+    },
+  ];
+
+  const childCompanyMap: Record<string, string> = {};
+  for (const cc of childCompanies) {
+    const row = await ensure<{ id: string; name: string }>(
+      "company",
+      { deletedAt: null, name: cc.name },
+      { ...cc, parentCompanyId: group.id },
+    );
+    childCompanyMap[cc.name] = row.id;
+  }
+
+  // Link the owner + admin to all child companies (they're group-level execs)
+  for (const email of ["amit@nirman.in", "anita@nirman.in"]) {
+    const uid = userMap[email];
+    if (!uid) continue;
+    for (const ccName of Object.keys(childCompanyMap)) {
+      await ensure("userCompany", { userId: uid, companyId: childCompanyMap[ccName] }, {
+        userId: uid,
+        companyId: childCompanyMap[ccName],
+        role: email === "amit@nirman.in" ? "OWNER" : "ADMIN",
+      });
+    }
+  }
+  // Also link the group itself
+  for (const email of ["amit@nirman.in", "anita@nirman.in"]) {
+    const uid = userMap[email];
+    if (!uid) continue;
+    await ensure("userCompany", { userId: uid, companyId: group.id }, {
+      userId: uid,
+      companyId: group.id,
+      role: email === "amit@nirman.in" ? "OWNER" : "ADMIN",
+    });
+  }
+
+  // ── 30. Nirman Realty — projects, units, land ───────────────
+  const realtyId = childCompanyMap["Nirman Realty"];
+
+  // Employees for Nirman Realty
+  const realtyEmps = [
+    { name: "Vikram Patil", trade: "Masonry", phone: "+91 98220 31001", dailyRate: 900 },
+    { name: "Sandeep Kale", trade: "Electrical", phone: "+91 98220 31002", dailyRate: 1000 },
+    { name: "Raj Pawar", trade: "Plumbing", phone: "+91 98220 31003", dailyRate: 850 },
+  ];
+  for (const e of realtyEmps) {
+    await ensure("employee", { name: e.name, companyId: realtyId }, { ...e, companyId: realtyId });
+  }
+
+  // Projects for Nirman Realty
+  const realtyProj1 = await ensure(
+    "project",
+    { companyId: realtyId, name: "Skyline Heights" },
+    {
+      companyId: realtyId,
+      name: "Skyline Heights",
+      type: "RESIDENTIAL",
+      status: "ACTIVE",
+      address: "Wagholi, Pune 412207",
+      totalBudget: 120000000,
+      startDate: new Date("2024-06-01"),
+      description: "G+12 premium residential tower with 3BHK + 4BHK units",
+    },
+  );
+  const realtyProj2 = await ensure(
+    "project",
+    { companyId: realtyId, name: "Riverside Villas" },
+    {
+      companyId: realtyId,
+      name: "Riverside Villas",
+      type: "RESIDENTIAL",
+      status: "ACTIVE",
+      address: "Baner, Pune 411045",
+      totalBudget: 95000000,
+      startDate: new Date("2024-03-15"),
+      description: "12 independent luxury villas with private gardens",
+    },
+  );
+
+  // Phases for Skyline Heights
+  const skylinePhase1 = await ensure(
+    "projectPhase",
+    { projectId: realtyProj1.id, name: "Tower 1" },
+    { projectId: realtyProj1.id, name: "Tower 1", status: "ACTIVE", budget: 70000000, startDate: new Date("2024-06-15"), sortOrder: 1 },
+  );
+  const skylinePhase2 = await ensure(
+    "projectPhase",
+    { projectId: realtyProj1.id, name: "Tower 2" },
+    { projectId: realtyProj1.id, name: "Tower 2", status: "PLANNED", budget: 50000000, sortOrder: 2 },
+  );
+  // Phase for Riverside Villas
+  const villaPhase1 = await ensure(
+    "projectPhase",
+    { projectId: realtyProj2.id, name: "Villa Block A" },
+    { projectId: realtyProj2.id, name: "Villa Block A", status: "ACTIVE", budget: 50000000, startDate: new Date("2024-04-01"), sortOrder: 1 },
+  );
+
+  // Stock locations for Nirman Realty
+  const realtyWarehouse = await ensure(
+    "stockLocation",
+    { companyId: realtyId, type: "COMPANY_WAREHOUSE", name: "Realty Central Store" },
+    { companyId: realtyId, type: "COMPANY_WAREHOUSE", name: "Realty Central Store", address: "Baner, Pune 411045" },
+  );
+  const skylineSite = await ensure(
+    "stockLocation",
+    { companyId: realtyId, projectId: realtyProj1.id, name: "Skyline Site Yard" },
+    { companyId: realtyId, type: "PROJECT_SITE", projectId: realtyProj1.id, name: "Skyline Site Yard" },
+  );
+  const villaSite = await ensure(
+    "stockLocation",
+    { companyId: realtyId, projectId: realtyProj2.id, name: "Riverside Site" },
+    { companyId: realtyId, type: "PROJECT_SITE", projectId: realtyProj2.id, name: "Riverside Site" },
+  );
+
+  // Built units for Skyline Heights (Tower 1: 8 floors × 2 units = 16 — created as AVAILABLE/UC/PLANNED, sold via sellAsset)
+  const skylineUnits: { unitNumber: string; floor: number; wing: string; area: number; type: "BHK_3" | "BHK_4"; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE"; askingPrice?: number; currentValuation: number }[] = [];
+  for (let f = 1; f <= 8; f++) {
+    skylineUnits.push({ unitNumber: `T1-${f}01`, floor: f, wing: "1", area: 1450, type: "BHK_3", status: f <= 3 ? "AVAILABLE" : f <= 5 ? "UNDER_CONSTRUCTION" : "PLANNED", askingPrice: 22000000, currentValuation: 22000000 });
+    skylineUnits.push({ unitNumber: `T1-${f}02`, floor: f, wing: "1", area: 1850, type: "BHK_4", status: f <= 4 ? "AVAILABLE" : f <= 6 ? "UNDER_CONSTRUCTION" : "PLANNED", askingPrice: 32000000, currentValuation: 32000000 });
+  }
+  await prisma.builtUnit.createMany({
+    data: skylineUnits.map((u) => ({
+      projectId: realtyProj1.id,
+      phaseId: skylinePhase1.id,
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      wing: u.wing,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: u.askingPrice ?? null,
+      currentValuation: u.currentValuation,
+    })),
+  });
+
+  // Built units for Riverside Villas (12 villas — created as AVAILABLE, sold via sellAsset below)
+  const villaUnits: { unitNumber: string; floor: number; area: number; type: "BHK_3"; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE"; askingPrice?: number; currentValuation: number }[] = [];
+  for (let i = 1; i <= 12; i++) {
+    const status = i <= 7 ? "AVAILABLE" : i <= 10 ? "UNDER_CONSTRUCTION" : "PLANNED";
+    villaUnits.push({ unitNumber: `V-${String(i).padStart(2, "0")}`, floor: 0, area: 2400, type: "BHK_3", status: status as "AVAILABLE" | "UNDER_CONSTRUCTION" | "PLANNED", askingPrice: 45000000, currentValuation: 45000000 });
+  }
+  await prisma.builtUnit.createMany({
+    data: villaUnits.map((u) => ({
+      projectId: realtyProj2.id,
+      phaseId: villaPhase1.id,
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: u.askingPrice ?? null,
+      currentValuation: u.currentValuation,
+    })),
+  });
+
+  // Land for Nirman Realty
+  const realtyLand = await prisma.landPurchase.create({
+    data: {
+      companyId: realtyId,
+      projectId: realtyProj1.id,
+      sellerName: "Wagholi Land Holdings Pvt Ltd",
+      sellerContact: "+91 98220 41000",
+      totalArea: 50000,
+      areaUnit: "SQFT",
+      totalCost: 150000000,
+      registryNo: "REG/PUN/2024/07890",
+      location: "Wagholi, Pune",
+      purchaseDate: new Date("2024-01-20"),
+      parcels: {
+        create: {
+          number: "RLP-1",
+          area: 50000,
+          areaUnit: "SQFT",
+          status: "AVAILABLE",
+          acquisitionCost: 150000000,
+          askingPrice: 200000000,
+          currentValuation: 180000000,
+          projectId: realtyProj1.id,
+        },
+      },
+    },
+  });
+
+  // Customers for Nirman Realty
+  const realtyCustomers = [
+    { name: "Amitabh Bose", phone: "+91 98300 51001", email: "abose@gmail.com", address: "Worli, Mumbai" },
+    { name: "Kavita Reddy", phone: "+91 98490 52002", email: "kavita.reddy@gmail.com", address: "Jubilee Hills, Hyderabad" },
+    { name: "Pinnacle Investments", phone: "+91 98220 53003", email: "invest@pinnacle.in", gstin: "27AAFCP5678N1Z3", address: "BKC, Mumbai" },
+  ];
+  const realtyCustMap: Record<string, string> = {};
+  for (const c of realtyCustomers) {
+    const row = await ensure("customer", { name: c.name, companyId: realtyId }, { ...c, companyId: realtyId });
+    realtyCustMap[c.name] = row.id;
+  }
+
+  // Suppliers for Nirman Realty
+  const realtySuppliers = [
+    { name: "Birla Cement Pune", gstin: "27AABCB1234F1Z1", phone: "+91 98220 61001", email: "b2b@birlacement.in", address: "Chakan, Pune", leadTimeDays: 3 },
+    { name: "Shree Steel Mart", gstin: "27AABCS5678K1Z2", phone: "+91 98220 62002", email: "sales@shreesteel.in", address: "Bhosari, Pune", leadTimeDays: 5 },
+    { name: "Premium Paints & Coatings", gstin: "27AABCP9012P1Z3", phone: "+91 98220 63003", email: "b2b@premiumcoatings.in", address: "Pimpri, Pune", leadTimeDays: 4 },
+  ];
+  const realtySuppMap: Record<string, string> = {};
+  for (const s of realtySuppliers) {
+    const row = await ensure("supplier", { name: s.name, companyId: realtyId }, { ...s, companyId: realtyId } as any);
+    realtySuppMap[s.name] = row.id;
+  }
+
+  // Opening stock for Nirman Realty warehouse
+  const realtyOpeningStock = [
+    { code: "CEM-OPC53", loc: realtyWarehouse.id, qty: 500, cost: 385 },
+    { code: "STL-TMT12", loc: realtyWarehouse.id, qty: 3000, cost: 79 },
+    { code: "STL-TMT16", loc: realtyWarehouse.id, qty: 2000, cost: 81 },
+    { code: "BRK-RED", loc: skylineSite.id, qty: 20000, cost: 7.5 },
+    { code: "SND-RIVER", loc: realtyWarehouse.id, qty: 800, cost: 46 },
+  ];
+  for (const s of realtyOpeningStock) {
+    const mid = matMap[s.code];
+    if (!mid) continue;
+    await withStockTransaction(async (tx) => {
+      await recordMovement(tx, {
+        materialId: mid,
+        movementType: "PURCHASE_RECEIPT",
+        toLocationId: s.loc,
+        qty: new Decimal(s.qty),
+        unitCost: new Decimal(s.cost),
+        reason: "Opening stock — Nirman Realty",
+        refType: "SEED",
+      });
+    });
+  }
+
+  // Equipment for Nirman Realty
+  const realtyEquipment = [
+    { assetTag: "RTL-JCB-01", name: "JCB 4DX Excavator", model: "4DX", serialNumber: "JCB4DX2024001", category: "Heavy Machinery", acquisitionCost: 4200000, currentValue: 3500000, purchaseDate: new Date("2024-01-15") },
+    { assetTag: "RTL-TWR-01", name: "Tower Crane 6T", model: "TC-6T", serialNumber: "TC6T001", category: "Heavy Machinery", acquisitionCost: 8500000, currentValue: 7800000, purchaseDate: new Date("2024-02-01") },
+    { assetTag: "RTL-MIX-01", name: "Batching Plant 30m³", model: "BP-30", serialNumber: "BP30001", category: "Heavy Machinery", acquisitionCost: 2500000, currentValue: 2200000, purchaseDate: new Date("2024-01-20") },
+  ];
+  for (const e of realtyEquipment) {
+    await ensure("equipment", { assetTag: e.assetTag }, { ...e, companyId: realtyId });
+  }
+
+  // Project costs for Nirman Realty
+  await prisma.projectCost.createMany({
+    data: [
+      { projectId: realtyProj1.id, costType: "LABOUR", amount: 3500000, date: new Date("2024-07-15"), vendor: "Skyline Labour Corp", notes: "Foundation + 3 floors labour" },
+      { projectId: realtyProj1.id, costType: "OVERHEAD", amount: 1200000, date: new Date("2024-07-01"), notes: "Site office + security Q3" },
+      { projectId: realtyProj1.id, costType: "PERMIT", amount: 850000, date: new Date("2024-05-20"), vendor: "PMC", notes: "Building permission" },
+      { projectId: realtyProj2.id, costType: "LABOUR", amount: 2800000, date: new Date("2024-05-10"), vendor: "Villa Construction Co", notes: "Villa Block A structure" },
+      { projectId: realtyProj2.id, costType: "CONTRACTOR", amount: 1500000, date: new Date("2024-06-01"), notes: "Plumbing + electrical for villas 1-7" },
+    ],
+  });
+
+  // Asset sales for Nirman Realty (2 sold units in Skyline + 3 sold villas)
+  const skylineT1_101 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj1.id, unitNumber: "T1-101" } });
+  const skylineT1_201 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj1.id, unitNumber: "T1-201" } });
+  const villa01 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj2.id, unitNumber: "V-01" } });
+  const villa02 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj2.id, unitNumber: "V-02" } });
+  const villa03 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj2.id, unitNumber: "V-03" } });
+
+  const realtySale1 = await sellAsset({
+    assetType: "BUILT_UNIT",
+    builtUnitId: skylineT1_101.id,
+    customerId: realtyCustMap["Amitabh Bose"],
+    companyId: realtyId,
+    salePrice: 22000000,
+    paymentMode: "Home Loan (ICICI)",
+    notes: "Booking + 2 installments",
+  });
+  await recordPayment({ assetSaleId: realtySale1.id, amount: 2200000, mode: "RTGS", reference: "UTR-RTL-001" });
+  await recordPayment({ assetSaleId: realtySale1.id, amount: 5000000, mode: "Cheque", reference: "CHQ-RTL-001" });
+
+  const realtySale2 = await sellAsset({
+    assetType: "BUILT_UNIT",
+    builtUnitId: skylineT1_201.id,
+    customerId: realtyCustMap["Kavita Reddy"],
+    companyId: realtyId,
+    salePrice: 22000000,
+    paymentMode: "Bank Transfer",
+    notes: "Full payment",
+  });
+  await recordPayment({ assetSaleId: realtySale2.id, amount: 22000000, mode: "NEFT", reference: "NEFT-RTL-002" });
+
+  const villaSale1 = await sellAsset({
+    assetType: "BUILT_UNIT",
+    builtUnitId: villa01.id,
+    customerId: realtyCustMap["Pinnacle Investments"],
+    companyId: realtyId,
+    salePrice: 45000000,
+    paymentMode: "Bank Transfer",
+    notes: "Investment purchase — full payment",
+  });
+  await recordPayment({ assetSaleId: villaSale1.id, amount: 45000000, mode: "RTGS", reference: "UTR-VILLA-01" });
+
+  const villaSale2 = await sellAsset({
+    assetType: "BUILT_UNIT",
+    builtUnitId: villa02.id,
+    customerId: realtyCustMap["Amitabh Bose"],
+    companyId: realtyId,
+    salePrice: 45000000,
+    paymentMode: "Home Loan (HDFC)",
+    notes: "Booking amount received",
+  });
+  await recordPayment({ assetSaleId: villaSale2.id, amount: 9000000, mode: "RTGS", reference: "UTR-VILLA-02" });
+
+  const villaSale3 = await sellAsset({
+    assetType: "BUILT_UNIT",
+    builtUnitId: villa03.id,
+    customerId: realtyCustMap["Kavita Reddy"],
+    companyId: realtyId,
+    salePrice: 45000000,
+    paymentMode: "Bank Transfer",
+    notes: "Partial payment — balance in 30 days",
+  });
+  await recordPayment({ assetSaleId: villaSale3.id, amount: 15000000, mode: "Cheque", reference: "CHQ-VILLA-03" });
+
+  // Reallocate costs for Nirman Realty projects
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, realtyProj1.id);
+  });
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, realtyProj2.id);
+  });
+
+  // ── 31. Nirman Infrastructure — projects, units ─────────────
+  const infraId = childCompanyMap["Nirman Infrastructure"];
+
+  // Employees for Nirman Infrastructure
+  const infraEmps = [
+    { name: "Ganesh More", trade: "Road Work", phone: "+91 98220 41001", dailyRate: 950 },
+    { name: "Prakash Jadhav", trade: "Heavy Equipment", phone: "+91 98220 41002", dailyRate: 1300 },
+    { name: "Nilesh Shinde", trade: "Surveying", phone: "+91 98220 41003", dailyRate: 1100 },
+  ];
+  for (const e of infraEmps) {
+    await ensure("employee", { name: e.name, companyId: infraId }, { ...e, companyId: infraId });
+  }
+
+  // Projects for Nirman Infrastructure
+  const infraProj1 = await ensure(
+    "project",
+    { companyId: infraId, name: "Alpha Road Highway Extension" },
+    {
+      companyId: infraId,
+      name: "Alpha Road Highway Extension",
+      type: "COMMERCIAL",
+      status: "ACTIVE",
+      address: "Talegaon to Chakan, Pune 410507",
+      totalBudget: 350000000,
+      startDate: new Date("2024-04-01"),
+      description: "12km highway extension with 4 lanes + 2 service roads",
+    },
+  );
+  const infraProj2 = await ensure(
+    "project",
+    { companyId: infraId, name: "Mula Canal Bridge" },
+    {
+      companyId: infraId,
+      name: "Mula Canal Bridge",
+      type: "COMMERCIAL",
+      status: "ACTIVE",
+      address: "Aundh, Pune 411007",
+      totalBudget: 65000000,
+      startDate: new Date("2024-05-15"),
+      description: "3-span RCC bridge over Mula canal",
+    },
+  );
+
+  // Phases for Alpha Road
+  const alphaPhase1 = await ensure(
+    "projectPhase",
+    { projectId: infraProj1.id, name: "Section A (0-4km)" },
+    { projectId: infraProj1.id, name: "Section A (0-4km)", status: "ACTIVE", budget: 120000000, startDate: new Date("2024-04-15"), sortOrder: 1 },
+  );
+  const alphaPhase2 = await ensure(
+    "projectPhase",
+    { projectId: infraProj1.id, name: "Section B (4-8km)" },
+    { projectId: infraProj1.id, name: "Section B (4-8km)", status: "ACTIVE", budget: 130000000, startDate: new Date("2024-06-01"), sortOrder: 2 },
+  );
+  const alphaPhase3 = await ensure(
+    "projectPhase",
+    { projectId: infraProj1.id, name: "Section C (8-12km)" },
+    { projectId: infraProj1.id, name: "Section C (8-12km)", status: "PLANNED", budget: 100000000, sortOrder: 3 },
+  );
+
+  // Stock locations for Nirman Infrastructure
+  const infraWarehouse = await ensure(
+    "stockLocation",
+    { companyId: infraId, type: "COMPANY_WAREHOUSE", name: "Infra Central Depot" },
+    { companyId: infraId, type: "COMPANY_WAREHOUSE", name: "Infra Central Depot", address: "Talegaon, Pune 410507" },
+  );
+  const alphaSite = await ensure(
+    "stockLocation",
+    { companyId: infraId, projectId: infraProj1.id, name: "Alpha Road Site A" },
+    { companyId: infraId, type: "PROJECT_SITE", projectId: infraProj1.id, name: "Alpha Road Site A" },
+  );
+  const bridgeSite = await ensure(
+    "stockLocation",
+    { companyId: infraId, projectId: infraProj2.id, name: "Bridge Construction Site" },
+    { companyId: infraId, type: "PROJECT_SITE", projectId: infraProj2.id, name: "Bridge Construction Site" },
+  );
+
+  // Built "units" for Alpha Road — toll booths + commercial shops at the highway plaza
+  const alphaUnits: { unitNumber: string; floor: number; area: number; type: "SHOP"; status: "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE"; currentValuation: number }[] = [];
+  for (let i = 1; i <= 6; i++) {
+    alphaUnits.push({ unitNumber: `PLAZA-S${i}`, floor: 0, area: 500, type: "SHOP", status: i <= 2 ? "UNDER_CONSTRUCTION" : "AVAILABLE", currentValuation: 5000000 });
+  }
+  await prisma.builtUnit.createMany({
+    data: alphaUnits.map((u) => ({
+      projectId: infraProj1.id,
+      phaseId: alphaPhase1.id,
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: null,
+      currentValuation: u.currentValuation,
+    })),
+  });
+
+  // Suppliers for Nirman Infrastructure
+  const infraSuppliers = [
+    { name: "Road Materials Supply Co", gstin: "27AABCR1234M1Z1", phone: "+91 98220 71001", email: "sales@roadmaterials.in", address: "Chakan, Pune", leadTimeDays: 2 },
+    { name: "Bridge Components India", gstin: "27AABCB5678N1Z2", phone: "+91 98220 72002", email: "b2b@bridgeindia.in", address: "Talegaon, Pune", leadTimeDays: 10 },
+    { name: "Bitumen Express", gstin: "27AABCB9012P1Z3", phone: "+91 98220 73003", email: "orders@bitumenexpress.in", address: "Bhosari, Pune", leadTimeDays: 3 },
+  ];
+  const infraSuppMap: Record<string, string> = {};
+  for (const s of infraSuppliers) {
+    const row = await ensure("supplier", { name: s.name, companyId: infraId }, { ...s, companyId: infraId } as any);
+    infraSuppMap[s.name] = row.id;
+  }
+
+  // Opening stock for Nirman Infrastructure
+  const infraOpeningStock = [
+    { code: "CEM-OPC53", loc: infraWarehouse.id, qty: 2000, cost: 382 },
+    { code: "STL-TMT16", loc: infraWarehouse.id, qty: 5000, cost: 80 },
+    { code: "AGG-20MM", loc: alphaSite.id, qty: 5000, cost: 56 },
+    { code: "SND-RIVER", loc: alphaSite.id, qty: 3000, cost: 47 },
+  ];
+  for (const s of infraOpeningStock) {
+    const mid = matMap[s.code];
+    if (!mid) continue;
+    await withStockTransaction(async (tx) => {
+      await recordMovement(tx, {
+        materialId: mid,
+        movementType: "PURCHASE_RECEIPT",
+        toLocationId: s.loc,
+        qty: new Decimal(s.qty),
+        unitCost: new Decimal(s.cost),
+        reason: "Opening stock — Nirman Infrastructure",
+        refType: "SEED",
+      });
+    });
+  }
+
+  // Equipment for Nirman Infrastructure
+  const infraEquipment = [
+    { assetTag: "INF-EXC-01", name: "Hitachi Excavator ZX350", model: "ZX350", serialNumber: "ZX350001", category: "Heavy Machinery", acquisitionCost: 5500000, currentValue: 4800000, purchaseDate: new Date("2024-01-10") },
+    { assetTag: "INF-RLR-01", name: "Vibratory Road Roller", model: "VR-12T", serialNumber: "VR12T001", category: "Heavy Machinery", acquisitionCost: 2800000, currentValue: 2400000, purchaseDate: new Date("2024-02-01") },
+    { assetTag: "INF-APH-01", name: "Asphalt Paver Finisher", model: "APF-180", serialNumber: "APF180001", category: "Heavy Machinery", acquisitionCost: 6500000, currentValue: 6000000, purchaseDate: new Date("2024-01-25") },
+    { assetTag: "INF-CMP-01", name: "Soil Compactor", model: "SC-8T", serialNumber: "SC8T001", category: "Heavy Machinery", acquisitionCost: 1800000, currentValue: 1600000, purchaseDate: new Date("2024-03-01") },
+  ];
+  for (const e of infraEquipment) {
+    await ensure("equipment", { assetTag: e.assetTag }, { ...e, companyId: infraId });
+  }
+  // Assign excavator + roller to Alpha Road site
+  const infraExc = await prisma.equipment.findFirstOrThrow({ where: { assetTag: "INF-EXC-01" } });
+  const infraRoller = await prisma.equipment.findFirstOrThrow({ where: { assetTag: "INF-RLR-01" } });
+  await prisma.equipmentAssignment.create({
+    data: { equipmentId: infraExc.id, locationId: alphaSite.id, projectId: infraProj1.id, status: "ACTIVE", assignedAt: new Date("2024-04-10") },
+  });
+  await prisma.equipment.update({ where: { id: infraExc.id }, data: { status: "ASSIGNED" } });
+  await prisma.equipmentAssignment.create({
+    data: { equipmentId: infraRoller.id, locationId: alphaSite.id, projectId: infraProj1.id, status: "ACTIVE", assignedAt: new Date("2024-04-12") },
+  });
+  await prisma.equipment.update({ where: { id: infraRoller.id }, data: { status: "ASSIGNED" } });
+
+  // Project costs for Nirman Infrastructure
+  await prisma.projectCost.createMany({
+    data: [
+      { projectId: infraProj1.id, costType: "LABOUR", amount: 8500000, date: new Date("2024-05-01"), vendor: "Highway Labour Corp", notes: "Section A earthwork + subgrade" },
+      { projectId: infraProj1.id, costType: "EQUIPMENT", amount: 3500000, date: new Date("2024-05-15"), notes: "Equipment diesel + operator charges" },
+      { projectId: infraProj1.id, costType: "PERMIT", amount: 2500000, date: new Date("2024-03-20"), vendor: "NHAI", notes: "Highway extension clearance" },
+      { projectId: infraProj2.id, costType: "LABOUR", amount: 2200000, date: new Date("2024-06-01"), vendor: "Bridge Construction Co", notes: "Pier + abutment construction" },
+      { projectId: infraProj2.id, costType: "CONTRACTOR", amount: 1800000, date: new Date("2024-06-15"), notes: "Pre-stressed girder fabrication" },
+    ],
+  });
+
+  // Material issues for Alpha Road (from the site where stock was placed)
+  await issueMaterialsToProject({
+    projectId: infraProj1.id,
+    fromLocationId: alphaSite.id,
+    issuedById: U.supervisor,
+    notes: "Section A subgrade — aggregate from site",
+    lines: [
+      { materialId: matMap["AGG-20MM"], qty: 2000 },
+      { materialId: matMap["SND-RIVER"], qty: 1000 },
+    ],
+  });
+  // Also issue cement + steel from warehouse (where they have opening stock)
+  await issueMaterialsToProject({
+    projectId: infraProj1.id,
+    fromLocationId: infraWarehouse.id,
+    issuedById: U.supervisor,
+    notes: "Section A — cement + steel from warehouse",
+    lines: [
+      { materialId: matMap["CEM-OPC53"], qty: 500 },
+      { materialId: matMap["STL-TMT16"], qty: 2000 },
+    ],
+  });
+
+  // Reallocate costs for Nirman Infrastructure projects
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, infraProj1.id);
+  });
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, infraProj2.id);
+  });
+
+  // ── 32. Nirman Interiors — projects, units ──────────────────
+  const interiorsId = childCompanyMap["Nirman Interiors"];
+
+  // Employees for Nirman Interiors
+  const interiorsEmps = [
+    { name: "Arjun Nair", trade: "Carpentry", phone: "+91 98220 81001", dailyRate: 1200 },
+    { name: "Meera Kapoor", trade: "Interior Design", phone: "+91 98220 81002", dailyRate: 1500 },
+    { name: "Sahil Khan", trade: "Painting", phone: "+91 98220 81003", dailyRate: 900 },
+  ];
+  for (const e of interiorsEmps) {
+    await ensure("employee", { name: e.name, companyId: interiorsId }, { ...e, companyId: interiorsId });
+  }
+
+  // Projects for Nirman Interiors
+  const interiorsProj1 = await ensure(
+    "project",
+    { companyId: interiorsId, name: "TechPark Office Fit-Out" },
+    {
+      companyId: interiorsId,
+      name: "TechPark Office Fit-Out",
+      type: "COMMERCIAL",
+      status: "ACTIVE",
+      address: "Hinjewadi Phase 2, Pune 411057",
+      totalBudget: 25000000,
+      startDate: new Date("2024-07-01"),
+      description: "50,000 sqft IT office fit-out — workstations, cabins, conference rooms",
+    },
+  );
+  const interiorsProj2 = await ensure(
+    "project",
+    { companyId: interiorsId, name: "Luxury Penthouse Reno" },
+    {
+      companyId: interiorsId,
+      name: "Luxury Penthouse Reno",
+      type: "RESIDENTIAL",
+      status: "ACTIVE",
+      address: "Koregaon Park, Pune 411001",
+      totalBudget: 8500000,
+      startDate: new Date("2024-08-01"),
+      description: "4500 sqft penthouse — Italian marble, smart home, custom furniture",
+    },
+  );
+
+  // Phases
+  const techparkPhase1 = await ensure(
+    "projectPhase",
+    { projectId: interiorsProj1.id, name: "Floor 1 Workstations" },
+    { projectId: interiorsProj1.id, name: "Floor 1 Workstations", status: "ACTIVE", budget: 12000000, startDate: new Date("2024-07-15"), sortOrder: 1 },
+  );
+  const techparkPhase2 = await ensure(
+    "projectPhase",
+    { projectId: interiorsProj1.id, name: "Floor 2 Conference" },
+    { projectId: interiorsProj1.id, name: "Floor 2 Conference", status: "PLANNED", budget: 13000000, sortOrder: 2 },
+  );
+  const penthousePhase = await ensure(
+    "projectPhase",
+    { projectId: interiorsProj2.id, name: "Full Floor Reno" },
+    { projectId: interiorsProj2.id, name: "Full Floor Reno", status: "ACTIVE", budget: 8500000, startDate: new Date("2024-08-01"), sortOrder: 1 },
+  );
+
+  // Stock location for Nirman Interiors
+  const interiorsStore = await ensure(
+    "stockLocation",
+    { companyId: interiorsId, type: "COMPANY_WAREHOUSE", name: "Interiors Studio Store" },
+    { companyId: interiorsId, type: "COMPANY_WAREHOUSE", name: "Interiors Studio Store", address: "Koregaon Park, Pune 411001" },
+  );
+  const techparkSite = await ensure(
+    "stockLocation",
+    { companyId: interiorsId, projectId: interiorsProj1.id, name: "TechPark Site" },
+    { companyId: interiorsId, type: "PROJECT_SITE", projectId: interiorsProj1.id, name: "TechPark Site" },
+  );
+
+  // Built "units" for TechPark — conference rooms as sellable units
+  const techparkUnits: { unitNumber: string; floor: number; area: number; type: "SHOP"; status: "UNDER_CONSTRUCTION" | "AVAILABLE" | "PLANNED"; currentValuation: number }[] = [];
+  for (let f = 1; f <= 2; f++) {
+    for (let r = 1; r <= 4; r++) {
+      techparkUnits.push({ unitNumber: `F${f}-R${r}`, floor: f, area: 800, type: "SHOP", status: f === 1 && r <= 2 ? "UNDER_CONSTRUCTION" : f === 1 ? "AVAILABLE" : "PLANNED", currentValuation: 3000000 });
+    }
+  }
+  await prisma.builtUnit.createMany({
+    data: techparkUnits.map((u) => ({
+      projectId: interiorsProj1.id,
+      phaseId: u.floor === 1 ? techparkPhase1.id : techparkPhase2.id,
+      unitType: u.type,
+      unitNumber: u.unitNumber,
+      floor: u.floor,
+      area: u.area,
+      areaUnit: "SQFT",
+      status: u.status,
+      productionCost: 0,
+      askingPrice: null,
+      currentValuation: u.currentValuation,
+    })),
+  });
+
+  // Suppliers for Nirman Interiors
+  const interiorsSuppliers = [
+    { name: "Italian Marble Imports", gstin: "27AABCI1234M1Z1", phone: "+91 98220 91001", email: "imports@italianmarble.in", address: "BKC, Mumbai", leadTimeDays: 30 },
+    { name: "Smart Home Systems India", gstin: "27AABCS5678N1Z2", phone: "+91 98220 92002", email: "b2b@smarthome.in", address: "Baner, Pune", leadTimeDays: 14 },
+    { name: "Office Furniture Mart", gstin: "27AABCF9012P1Z3", phone: "+91 98220 93003", email: "b2b@furnituremart.in", address: "Pimpri, Pune", leadTimeDays: 7 },
+  ];
+  const interiorsSuppMap: Record<string, string> = {};
+  for (const s of interiorsSuppliers) {
+    const row = await ensure("supplier", { name: s.name, companyId: interiorsId }, { ...s, companyId: interiorsId } as any);
+    interiorsSuppMap[s.name] = row.id;
+  }
+
+  // Opening stock for Nirman Interiors
+  const interiorsOpeningStock = [
+    { code: "PNT-EMULSION", loc: interiorsStore.id, qty: 200, cost: 185 },
+    { code: "PNT-ACPRM", loc: interiorsStore.id, qty: 150, cost: 122 },
+    { code: "ELC-WIRE25", loc: interiorsStore.id, qty: 1000, cost: 19 },
+  ];
+  for (const s of interiorsOpeningStock) {
+    const mid = matMap[s.code];
+    if (!mid) continue;
+    await withStockTransaction(async (tx) => {
+      await recordMovement(tx, {
+        materialId: mid,
+        movementType: "PURCHASE_RECEIPT",
+        toLocationId: s.loc,
+        qty: new Decimal(s.qty),
+        unitCost: new Decimal(s.cost),
+        reason: "Opening stock — Nirman Interiors",
+        refType: "SEED",
+      });
+    });
+  }
+
+  // Equipment for Nirman Interiors
+  const interiorsEquipment = [
+    { assetTag: "INT-CNC-01", name: "CNC Wood Router", model: "CNC-WR-48", serialNumber: "CNCWR001", category: "Power Tool", acquisitionCost: 850000, currentValue: 720000, purchaseDate: new Date("2023-12-01") },
+    { assetTag: "INT-LAS-01", name: "Laser Cutting Machine", model: "LCM-1500", serialNumber: "LCM001", category: "Power Tool", acquisitionCost: 1200000, currentValue: 1050000, purchaseDate: new Date("2024-01-15") },
+    { assetTag: "INT-DRN-01", name: "Dust Extraction System", model: "DES-2000", serialNumber: "DES001", category: "Equipment", acquisitionCost: 350000, currentValue: 300000, purchaseDate: new Date("2024-02-01") },
+  ];
+  for (const e of interiorsEquipment) {
+    await ensure("equipment", { assetTag: e.assetTag }, { ...e, companyId: interiorsId });
+  }
+
+  // Customers for Nirman Interiors
+  const interiorsCustomers = [
+    { name: "TechFirst Solutions", phone: "+91 98220 94001", email: "facilities@techfirst.in", gstin: "27AAFCT1234M1Z5", address: "Hinjewadi, Pune" },
+    { name: "Aditya Kapoor", phone: "+91 98220 95002", email: "aditya.kapoor@gmail.com", address: "Koregaon Park, Pune" },
+  ];
+  const interiorsCustMap: Record<string, string> = {};
+  for (const c of interiorsCustomers) {
+    const row = await ensure("customer", { name: c.name, companyId: interiorsId }, { ...c, companyId: interiorsId });
+    interiorsCustMap[c.name] = row.id;
+  }
+
+  // Project costs for Nirman Interiors
+  await prisma.projectCost.createMany({
+    data: [
+      { projectId: interiorsProj1.id, costType: "LABOUR", amount: 1800000, date: new Date("2024-07-20"), vendor: "Interiors Labour Team", notes: "Floor 1 workstation installation" },
+      { projectId: interiorsProj1.id, costType: "CONTRACTOR", amount: 2200000, date: new Date("2024-08-01"), notes: "Electrical + data cabling Floor 1" },
+      { projectId: interiorsProj2.id, costType: "LABOUR", amount: 950000, date: new Date("2024-08-10"), vendor: "Premium Interiors Team", notes: "Marble laying + carpentry" },
+      { projectId: interiorsProj2.id, costType: "OVERHEAD", amount: 300000, date: new Date("2024-08-05"), notes: "Design + project management" },
+    ],
+  });
+
+  // Reallocate costs for Nirman Interiors projects
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, interiorsProj1.id);
+  });
+  await withStockTransaction(async (tx) => {
+    await reallocateProjectCosts(tx, interiorsProj2.id);
+  });
+
   // ── Summary ─────────────────────────────────────────────────
   const unitCount = await prisma.builtUnit.count({ where: { projectId: project1.id } });
+  const totalUnits = await prisma.builtUnit.count();
+  const totalProjects = await prisma.project.count({ where: { deletedAt: null } });
+  const totalCompanies = await prisma.company.count({ where: { deletedAt: null } });
   const poCount = await prisma.purchaseOrder.count();
   const grCount = await prisma.goodsReceipt.count();
   const issueCount = await prisma.materialIssue.count();
@@ -1556,20 +2298,22 @@ async function main() {
   const reqCount = await prisma.materialRequisition.count();
   const quoteCount = await prisma.vendorQuote.count();
   const returnCount = await prisma.supplierReturn.count();
+  const saleCount = await prisma.assetSale.count();
+  const equipCount = await prisma.equipment.count();
   console.log("Seed complete.");
-  console.log(`  Company: ${company.name}`);
-  console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${Object.keys(empMap).length}`);
-  console.log(`  Projects: 2 · Phases: 3 · Locations: 4`);
+  console.log(`  Companies: ${totalCompanies} (1 parent group + 3 children + 1 standalone)`);
+  console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${Object.keys(empMap).length + realtyEmps.length + infraEmps.length + interiorsEmps.length}`);
+  console.log(`  Projects: ${totalProjects} · Phases: 9 · Locations: 11`);
   console.log(`  Categories: ${categories.length} · Materials: ${materials.length}`);
-  console.log(`  Suppliers: ${suppliers.length} · Subcontractors: ${subcontractors.length}`);
+  console.log(`  Suppliers: ${suppliers.length + realtySuppliers.length + infraSuppliers.length + interiorsSuppliers.length} · Subcontractors: ${subcontractors.length}`);
   console.log(`  Requisitions: ${reqCount} · Purchase Orders: ${poCount} · Goods Receipts: ${grCount}`);
   console.log(`  Vendor Quotes: ${quoteCount} · Supplier Returns: ${returnCount}`);
   console.log(`  Material Issues: ${issueCount} · Stock Movements: ${movementCount}`);
   console.log(`  Stock Transfers: 2 · Stock Counts: 1`);
-  console.log(`  Equipment: ${equipmentItems.length} · Maintenance: 2`);
-  console.log(`  Land: 1 (1 partitioned parent → 3 children) · Built Units: ${unitCount}`);
-  console.log(`  Customers: ${customers.length} · Asset Sales: 3`);
-  console.log(`  Project Costs: 7 · Expenses: 5 · Audit Logs: 21`);
+  console.log(`  Equipment: ${equipCount} · Maintenance: 2`);
+  console.log(`  Land: 2 parcels · Built Units: ${totalUnits} (across all companies)`);
+  console.log(`  Customers: ${customers.length + realtyCustomers.length + interiorsCustomers.length} · Asset Sales: ${saleCount}`);
+  console.log(`  Project Costs: 16 · Expenses: 5 · Audit Logs: 21`);
   console.log(`  Consumption Benchmarks: ${benchmarks.length}`);
   console.log(`  BOQ Items: ${boqSections.length + boqLines.length} · MB Entries: ${mbEntries.length}`);
 }

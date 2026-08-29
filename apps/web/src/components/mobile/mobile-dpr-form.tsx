@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send } from "lucide-react";
+import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
@@ -10,6 +10,8 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { formatRelativeTime } from "@/lib/utils";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { useNearestProject } from "@/lib/use-nearest-project";
 
 type MaterialLine = { materialId: string; qty: string; unitCost: string };
 type LaborLine = { employeeId: string; crewId: string; hoursWorked: string; taskDescription: string };
@@ -21,6 +23,8 @@ type ExistingDpr = {
   weather: string | null;
   workSummary: string;
   workType: string | null;
+  workQty: number | null;
+  workUnit: string | null;
   progressPct: number;
   blockers: string | null;
   tomorrowPlan: string | null;
@@ -83,12 +87,16 @@ export function MobileDprForm({
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const { getDefault, recordDefaults } = useSmartDefaults("dpr");
+  const { nearestProjectId, nearestProjectName, distanceMeters, loading: gpsLoading, request: requestGps } = useNearestProject();
 
   const today = new Date().toISOString().split("T")[0] ?? "";
   const [fProject, setFProject] = useState("");
   const [fDate, setFDate] = useState(today);
-  const [fWorkType, setFWorkType] = useState("Foundation");
-  const [fWeather, setFWeather] = useState("");
+  const [fWorkType, setFWorkType] = useState(getDefault("workType") ?? "Foundation");
+  const [fWorkQty, setFWorkQty] = useState("");
+  const [fWorkUnit, setFWorkUnit] = useState("sqft");
+  const [fWeather, setFWeather] = useState(getDefault("weather") ?? "");
   const [fWorkSummary, setFWorkSummary] = useState("");
   const [fProgress, setFProgress] = useState("");
   const [fBlockers, setFBlockers] = useState("");
@@ -106,6 +114,8 @@ export function MobileDprForm({
     fProject: string;
     fDate: string;
     fWorkType: string;
+    fWorkQty: string;
+    fWorkUnit: string;
     fWeather: string;
     fWorkSummary: string;
     fProgress: string;
@@ -119,6 +129,27 @@ export function MobileDprForm({
 
   const draftKey = `dpr:${fDate}`;
   const { draft, hasDraft, draftUpdatedAt, saveStatus, saveDraft, clearDraft } = useDrafts<DprDraft>("dpr", draftKey);
+
+  // ── Smart defaults: pre-select last-used project if no draft ──
+  useEffect(() => {
+    if (!fProject && !hasDraft) {
+      const lastProject = getDefault("project");
+      if (lastProject && projects.some((p) => p.id === lastProject)) {
+        setFProject(lastProject);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getDefault, hasDraft, projects]);
+
+  // ── GPS auto-select: when nearest project is found, auto-select it ──
+  useEffect(() => {
+    if (nearestProjectId && projects.some((p) => p.id === nearestProjectId)) {
+      onProjectChange(nearestProjectId);
+      haptic(10);
+      toast.success(`Auto-selected ${nearestProjectName} (${Math.round(distanceMeters ?? 0)}m away)`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearestProjectId, nearestProjectName, distanceMeters, projects]);
 
   // Auto-save form state (debounced via the hook's internal timer)
   useEffect(() => {
@@ -134,17 +165,19 @@ export function MobileDprForm({
       fPhotos.length > 0;
     if (hasChanges && !editingDprId) {
       saveDraft({
-        fProject, fDate, fWorkType, fWeather, fWorkSummary, fProgress,
+        fProject, fDate, fWorkType, fWorkQty, fWorkUnit, fWeather, fWorkSummary, fProgress,
         fBlockers, fTomorrow, fNotes, fPhotos, materialLines, laborLines,
       });
     }
-  }, [fProject, fDate, fWorkType, fWeather, fWorkSummary, fProgress, fBlockers, fTomorrow, fNotes, fPhotos, materialLines, laborLines, editingDprId, saveDraft]);
+  }, [fProject, fDate, fWorkType, fWorkQty, fWorkUnit, fWeather, fWorkSummary, fProgress, fBlockers, fTomorrow, fNotes, fPhotos, materialLines, laborLines, editingDprId, saveDraft]);
 
   function restoreDraft() {
     if (!draft) return;
     if (draft.fProject) setFProject(draft.fProject);
     if (draft.fDate) setFDate(draft.fDate);
     if (draft.fWorkType) setFWorkType(draft.fWorkType);
+    if (draft.fWorkQty !== undefined) setFWorkQty(draft.fWorkQty);
+    if (draft.fWorkUnit !== undefined) setFWorkUnit(draft.fWorkUnit);
     if (draft.fWeather !== undefined) setFWeather(draft.fWeather);
     if (draft.fWorkSummary) setFWorkSummary(draft.fWorkSummary);
     if (draft.fProgress !== undefined) setFProgress(draft.fProgress);
@@ -169,6 +202,8 @@ export function MobileDprForm({
       setFWeather(existing.weather ?? "");
       setFWorkSummary(existing.workSummary);
       setFWorkType(existing.workType ?? "Foundation");
+      setFWorkQty(existing.workQty != null ? String(existing.workQty) : "");
+      setFWorkUnit(existing.workUnit ?? "sqft");
       setFProgress(String(existing.progressPct));
       setFBlockers(existing.blockers ?? "");
       setFTomorrow(existing.tomorrowPlan ?? "");
@@ -292,6 +327,8 @@ export function MobileDprForm({
           weather: fWeather || null,
           workSummary: fWorkSummary,
           workType: fWorkType || null,
+          workQty: fWorkQty ? Number(fWorkQty) : null,
+          workUnit: fWorkUnit || null,
           progressPct: fProgress ? Number(fProgress) : null,
           blockers: fBlockers || null,
           tomorrowPlan: fTomorrow || null,
@@ -318,6 +355,8 @@ export function MobileDprForm({
       if (!res.ok) throw new Error(data.error ?? "Failed to submit DPR");
       haptic([10, 40, 80]);
       toast.success(editingDprId ? "DPR updated" : "DPR submitted");
+      // Record smart defaults for next time
+      recordDefaults({ project: fProject, workType: fWorkType, weather: fWeather });
       clearDraft();
       router.push("/m/site");
     } catch (err) {
@@ -380,10 +419,22 @@ export function MobileDprForm({
 
       {/* ══════ SECTION: Basic info ══════ */}
       <FormField label="Project" required>
-        <select value={fProject} onChange={(e) => onProjectChange(e.target.value)} className={inputClass} style={inputStyle}>
-          <option value="">Select project…</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <div className="flex gap-1.5">
+          <select value={fProject} onChange={(e) => onProjectChange(e.target.value)} className={`${inputClass} flex-1`} style={inputStyle}>
+            <option value="">Select project…</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <button
+            type="button"
+            onClick={requestGps}
+            disabled={gpsLoading}
+            className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-[0.5625rem] font-bold press disabled:opacity-50"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+            title="Use my location to auto-select project"
+          >
+            {gpsLoading ? <Loader2 className="size-3 animate-spin" /> : <MapPin className="size-3" />}
+          </button>
+        </div>
       </FormField>
 
       <FormField label="Work type" required>
@@ -396,6 +447,36 @@ export function MobileDprForm({
           <option value="Electrical">Electrical Works</option>
         </select>
       </FormField>
+
+      <div className="grid grid-cols-2 gap-2">
+        <FormField label="Work Qty">
+          <input
+            type="number"
+            step="any"
+            min="0"
+            inputMode="numeric"
+            value={fWorkQty}
+            onChange={(e) => setFWorkQty(e.target.value)}
+            placeholder="e.g. 500"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </FormField>
+        <FormField label="Unit">
+          <select value={fWorkUnit} onChange={(e) => setFWorkUnit(e.target.value)} className={inputClass} style={inputStyle}>
+            <option value="sqft">sqft</option>
+            <option value="sqm">sqm</option>
+            <option value="cubic meter">cubic meter</option>
+            <option value="cubic ft">cubic ft</option>
+            <option value="rmt">rmt (running metre)</option>
+            <option value="nos">nos</option>
+            <option value="kg">kg</option>
+            <option value="ton">ton</option>
+            <option value="bag">bag</option>
+            <option value="set">set</option>
+          </select>
+        </FormField>
+      </div>
 
       <div className="grid grid-cols-2 gap-2">
         <FormField label="Date" required>

@@ -37,6 +37,7 @@ async function SiteTasksContent() {
         priority: true,
         dueDate: true,
         description: true,
+        instructions: true,
       },
     }),
     canAssign
@@ -55,6 +56,7 @@ async function SiteTasksContent() {
     priority: t.priority,
     dueDate: t.dueDate?.toISOString() ?? null,
     description: t.description,
+    instructions: t.instructions,
   }));
 
   const pending = tasks.filter((t) => t.status === "PENDING").length;

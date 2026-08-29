@@ -11,17 +11,26 @@ import { haptic } from "@/lib/haptic";
  * PhotoCapture — mandatory proof-of-delivery photos
  * Uses file input with accept="image/*" + capture="environment"
  * for mobile camera access. Uploads to /api/uploads.
+ *
+ * When `geoTag` is true, captures GPS coordinates at the moment
+ * the photo is taken and includes them in the photo metadata.
+ * The GPS pin is shown on each photo thumbnail.
  * ═══════════════════════════════════════════════════════════ */
+export type GeoTaggedPhoto = { url: string; fileName?: string; lat?: number; lng?: number; capturedAt?: string };
+
 export function PhotoCapture({
   photos,
   onChange,
   mandatory,
   compact,
+  geoTag,
 }: {
-  photos: { url: string; fileName?: string }[];
-  onChange: (photos: { url: string; fileName?: string }[]) => void;
+  photos: GeoTaggedPhoto[];
+  onChange: (photos: GeoTaggedPhoto[]) => void;
   mandatory?: boolean;
   compact?: boolean;
+  /** When true, captures GPS coordinates alongside each photo. */
+  geoTag?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -29,13 +38,33 @@ export function PhotoCapture({
   async function handleFile(file: File) {
     setUploading(true);
     try {
+      // Capture GPS coordinates at the moment the photo is taken
+      let geo: { lat?: number; lng?: number } = {};
+      if (geoTag && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 8000,
+              maximumAge: 0,
+            });
+          });
+          geo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch {
+          // GPS capture failed — photo still uploads, just without geo-tag
+        }
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/uploads", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
       haptic(5);
-      onChange([...photos, { url: data.url, fileName: file.name }]);
+      onChange([
+        ...photos,
+        { url: data.url, fileName: file.name, ...geo, capturedAt: new Date().toISOString() },
+      ]);
     } catch {
       toast.error("Failed to upload photo");
     } finally {
@@ -55,12 +84,25 @@ export function PhotoCapture({
         {mandatory && photos.length === 0 ? (
           <span className="ml-1 normal-case" style={{ color: "var(--color-stop)" }}>1 req</span>
         ) : null}
+        {geoTag ? (
+          <span className="ml-1 normal-case inline-flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
+            <MapPin className="size-2.5" /> GPS
+          </span>
+        ) : null}
       </label>
       <div className={compact ? "flex gap-1 flex-wrap rounded-[0.5rem] border-2 border-dashed" : "flex gap-1.5 flex-wrap"} style={compact ? { borderColor: "var(--color-line)", height: "84px", padding: "4px" } : undefined}>
         {photos.map((p, i) => (
           <div key={i} className={compact ? "relative size-14 rounded-[0.375rem] overflow-hidden shrink-0" : "relative size-20 rounded-[0.375rem] overflow-hidden shrink-0"} style={{ border: "1px solid var(--color-line)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.fileName ?? "proof"} className="w-full h-full object-cover" />
+            {p.lat != null && p.lng != null ? (
+              <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+                <MapPin className="size-2 shrink-0 text-white" />
+                <span className="text-[0.375rem] font-semibold text-white truncate">
+                  {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
+                </span>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => removePhoto(i)}

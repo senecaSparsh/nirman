@@ -368,6 +368,78 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
         </div>
       )}
 
+      {/* Vehicle / dispatch info */}
+      {(transfer.vehicleNumber || transfer.driverName || transfer.transporterName || transfer.deliveryMode || transfer.packageCount != null) && (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <div className="text-label text-muted-foreground mb-2">Dispatch Details</div>
+          <div className="grid grid-cols-2 gap-3 text-body">
+            {transfer.deliveryMode && (
+              <div>
+                <span className="text-muted-foreground">Mode: </span>
+                <span className="font-medium">{transfer.deliveryMode.replace(/_/g, " ").toLowerCase()}</span>
+              </div>
+            )}
+            {transfer.vehicleNumber && (
+              <div>
+                <span className="text-muted-foreground">Vehicle: </span>
+                <span className="font-mono font-medium">{transfer.vehicleNumber}</span>
+                {transfer.vehicleType && <span className="ml-1 text-muted-foreground">({transfer.vehicleType.replace(/_/g, " ").toLowerCase()})</span>}
+              </div>
+            )}
+            {transfer.driverName && (
+              <div>
+                <span className="text-muted-foreground">Driver: </span>
+                <span className="font-medium">{transfer.driverName}</span>
+                {transfer.driverPhone && <span className="ml-1 text-muted-foreground">({transfer.driverPhone})</span>}
+              </div>
+            )}
+            {transfer.transporterName && (
+              <div>
+                <span className="text-muted-foreground">Transporter: </span>
+                <span className="font-medium">{transfer.transporterName}</span>
+              </div>
+            )}
+            {transfer.challanNumber && (
+              <div>
+                <span className="text-muted-foreground">Challan: </span>
+                <span className="font-mono font-medium">{transfer.challanNumber}</span>
+              </div>
+            )}
+            {transfer.packageCount != null && (
+              <div>
+                <span className="text-muted-foreground">Packages: </span>
+                <span className="font-medium tnum">{transfer.packageCount}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch / Receive timeline */}
+      {(transfer.dispatchedAt || transfer.receivedAt) && (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <div className="text-label text-muted-foreground mb-2">Dispatch / Receive Timeline</div>
+          <div className="space-y-2 text-body">
+            {transfer.dispatchedAt && (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex size-2 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground">Dispatched</span>
+                <span className="font-medium">{formatDate(transfer.dispatchedAt)}</span>
+                {transfer.dispatchedByName && <span className="text-muted-foreground">· {transfer.dispatchedByName}</span>}
+              </div>
+            )}
+            {transfer.receivedAt && (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex size-2 rounded-full bg-emerald-500" />
+                <span className="text-muted-foreground">Received</span>
+                <span className="font-medium">{formatDate(transfer.receivedAt)}</span>
+                {transfer.receivedByName && <span className="text-muted-foreground">· {transfer.receivedByName}</span>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Print */}
       <div className="border-t border-border pt-3">
         <a

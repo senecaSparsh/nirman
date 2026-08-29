@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -28,6 +28,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 type GatePassRow = {
   id: string;
@@ -120,6 +121,20 @@ export function MobileGatePassList({
   const [rejectTarget, setRejectTarget] = useState<GatePassRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelTarget, setCancelTarget] = useState<GatePassRow | null>(null);
+  const [exitTarget, setExitTarget] = useState<GatePassRow | null>(null);
+  const [exitNotes, setExitNotes] = useState("");
+  const [exitPhotos, setExitPhotos] = useState<{ url: string; fileName?: string }[]>([]);
+
+  // ── Optimistic updates: maintain a local copy of gate passes that
+  // updates immediately on action, then syncs with server. If the server
+  // fails, we revert to the original prop data.
+  const [localGps, setLocalGps] = useState<GatePassRow[]>(gatePasses);
+  // Keep local state in sync when server data changes (e.g. after router.refresh())
+  useEffect(() => { setLocalGps(gatePasses); }, [gatePasses]);
+
+  function updateGpStatus(id: string, status: GatePassRow["status"]) {
+    setLocalGps((prev) => prev.map((gp) => gp.id === id ? { ...gp, status } : gp));
+  }
 
   const toggle = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -131,18 +146,32 @@ export function MobileGatePassList({
   }, []);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return gatePasses;
+    if (!query.trim()) return localGps;
     const q = query.toLowerCase();
-    return gatePasses.filter((gp) =>
+    return localGps.filter((gp) =>
       gp.gatePassNumber.toLowerCase().includes(q) ||
       (gp.vehicleNumber ?? "").toLowerCase().includes(q) ||
       (gp.driverName ?? "").toLowerCase().includes(q) ||
       (gp.destination ?? "").toLowerCase().includes(q),
     );
-  }, [gatePasses, query]);
+  }, [localGps, query]);
 
   const handleAction = useCallback(
     async (id: string, action: string, body?: Record<string, unknown>) => {
+      // ── Optimistic update: immediately update the status in local state ──
+      const optimisticStatus: GatePassRow["status"] | null =
+        action === "submit" ? "PENDING"
+        : action === "approve" ? "APPROVED"
+        : action === "reject" ? "REJECTED"
+        : action === "confirmExit" ? "EXITED"
+        : action === "resubmit" ? "PENDING"
+        : action === "cancel" ? "CANCELLED"
+        : null;
+
+      if (optimisticStatus) {
+        updateGpStatus(id, optimisticStatus);
+      }
+
       setActionLoading(id);
       try {
         const res = await fetch(`/api/gate-passes/${id}`, {
@@ -155,12 +184,15 @@ export function MobileGatePassList({
         toast.success(`Gate pass ${action}ed`);
         router.refresh();
       } catch (err: unknown) {
+        // ── Revert: restore the original status from server props ──
+        const original = gatePasses.find((gp) => gp.id === id);
+        if (original) updateGpStatus(id, original.status);
         toast.error(err instanceof Error ? err.message : "Action failed");
       } finally {
         setActionLoading(null);
       }
     },
-    [router],
+    [router, gatePasses],
   );
 
   const submitReject = useCallback(() => {
@@ -380,7 +412,11 @@ export function MobileGatePassList({
                   {gp.status === "APPROVED" && canExit && (
                     <button
                       disabled={actionLoading === gp.id}
-                      onClick={() => handleAction(gp.id, "confirmExit")}
+                      onClick={() => {
+                        setExitTarget(gp);
+                        setExitNotes("");
+                        setExitPhotos([]);
+                      }}
                       className="flex items-center gap-1 rounded-md bg-info px-2 py-1 text-caption text-white hover:bg-info/90"
                     >
                       {actionLoading === gp.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
@@ -477,6 +513,75 @@ export function MobileGatePassList({
                 className="rounded-md bg-danger px-3 py-1.5 text-caption text-white hover:bg-danger/90 disabled:opacity-50"
               >
                 {actionLoading === cancelTarget.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Cancel Gate Pass"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit confirmation dialog with photo capture */}
+      {exitTarget && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setExitTarget(null)}>
+          <div className="w-full max-w-md rounded-t-lg bg-card p-4 space-y-3 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <div className="text-subhead font-semibold">Confirm Exit — {exitTarget.gatePassNumber}</div>
+              <div className="text-caption text-muted-foreground">
+                Confirm items have physically left the gate.
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-caption font-semibold">Exit Notes</label>
+              <textarea
+                value={exitNotes}
+                onChange={(e) => setExitNotes(e.target.value)}
+                rows={2}
+                placeholder="Optional — any observations at the gate"
+                className="w-full rounded-md border border-border bg-background px-2.5 py-2 text-caption outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-caption font-semibold">Exit Photos</label>
+              <PhotoUploader photos={exitPhotos} onChange={setExitPhotos} maxPhotos={4} />
+              <p className="text-caption text-muted-foreground">Photograph the loaded vehicle as it exits.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setExitTarget(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-caption hover:bg-muted/20"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={actionLoading === exitTarget.id}
+                onClick={async () => {
+                  setActionLoading(exitTarget.id);
+                  try {
+                    const res = await fetch(`/api/gate-passes/${exitTarget.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        action: "confirmExit",
+                        exitNotes: exitNotes.trim() || undefined,
+                        exitPhotos: exitPhotos.length > 0 ? exitPhotos : undefined,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error ?? "Action failed");
+                    toast.success("Gate pass exited");
+                    setExitTarget(null);
+                    setExitNotes("");
+                    setExitPhotos([]);
+                    router.refresh();
+                  } catch (err: unknown) {
+                    toast.error(err instanceof Error ? err.message : "Action failed");
+                  } finally {
+                    setActionLoading(null);
+                  }
+                }}
+                className="flex items-center gap-1 rounded-md bg-info px-3 py-1.5 text-caption text-white hover:bg-info/90 disabled:opacity-50"
+              >
+                {actionLoading === exitTarget.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+                Confirm Exit
               </button>
             </div>
           </div>

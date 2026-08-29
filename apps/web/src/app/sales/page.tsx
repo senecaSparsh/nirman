@@ -148,6 +148,10 @@ async function SalesContent() {
       finalSaleDate: s.finalSaleDate ? s.finalSaleDate.toISOString() : null,
       saleDeedNo: s.saleDeedNo,
       expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
+      // ATS (Agreement to Sell) — merged with registry
+      atsNo: s.atsNo,
+      atsDate: s.atsDate ? s.atsDate.toISOString() : null,
+      allowRegistryBeforeFullPayment: s.allowRegistryBeforeFullPayment,
       // Sale compliance documents
       allotmentLetterNo: s.allotmentLetterNo,
       allotmentDate: s.allotmentDate ? s.allotmentDate.toISOString() : null,
@@ -222,6 +226,11 @@ async function SalesContent() {
       registryDocumentName: s.registryDocumentName,
       allotmentDocumentUrl: s.allotmentDocumentUrl,
       allotmentDocumentName: s.allotmentDocumentName,
+      // Draft / LOI
+      draftDocumentUrl: s.draftDocumentUrl,
+      draftDocumentName: s.draftDocumentName,
+      draftNotes: s.draftNotes,
+      draftDate: s.draftDate ? s.draftDate.toISOString() : null,
     };
   });
 

@@ -6,6 +6,7 @@ import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/material-sales — mobile material/scrap sales. Shows recent sales with
@@ -26,14 +27,16 @@ async function MobileMaterialSalesContent() {
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.SALE_CREATE);
 
+  const BATCH_SIZE = 60;
   const sales = await prisma.materialSale.findMany({
     where: { companyId: company.id },
-    orderBy: { createdAt: "desc" },
-    take: 80,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1,
     select: {
       id: true,
       saleNumber: true,
       saleDate: true,
+      createdAt: true,
       subtotal: true,
       totalAmount: true,
       totalCost: true,
@@ -47,12 +50,22 @@ async function MobileMaterialSalesContent() {
     },
   });
 
-  const active = sales.filter((s) => s.status === "ACTIVE");
+  const hasMore = sales.length > BATCH_SIZE;
+  const batch = hasMore ? sales.slice(0, BATCH_SIZE) : sales;
+  const lastItem = batch[batch.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+    : null;
+
+  const active = batch.filter((s) => s.status === "ACTIVE");
   const pendingPayment = active.filter((s) => s.paymentStatus === "PENDING");
   const totalRevenue = active.reduce((s, sale) => s + toNum(sale.subtotal), 0);
-  const totalProfit = active.reduce((s, sale) => s + toNum(sale.grossProfit), 0);
+  const totalProfit = active.reduce(
+    (s, sale) => s + toNum(sale.grossProfit),
+    0,
+  );
 
-  const serialized = sales.map((s) => ({
+  const serialized = batch.map((s) => ({
     id: s.id,
     saleNumber: s.saleNumber,
     status: s.status,
@@ -78,16 +91,23 @@ async function MobileMaterialSalesContent() {
   ];
 
   return (
-    <MobileMaterialSalesList
-      items={serialized}
-      totalRevenue={totalRevenue}
-      totalProfit={totalProfit}
-      pendingCount={pendingPayment.length}
-      canCreate={canCreate}
-      exportTitle="Material Sales"
-      exportRows={serialized as unknown as Record<string, unknown>[]}
-      exportColumns={csvColumns}
-      exportSummary={`${serialized.length} sales`}
-    />
+    <div>
+      <MobileMaterialSalesList
+        items={serialized}
+        totalRevenue={totalRevenue}
+        totalProfit={totalProfit}
+        pendingCount={pendingPayment.length}
+        canCreate={canCreate}
+        loadMoreUrl="/api/mobile/list/sales"
+        nextCursor={nextCursor}
+        exportTitle="Material Sales"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={csvColumns}
+        exportSummary={`${serialized.length} sales`}
+      />
+      {canCreate && (
+        <MobileFab href="/m/material-sales/new" label="New material sale" />
+      )}
+    </div>
   );
 }

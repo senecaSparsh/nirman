@@ -99,6 +99,8 @@ async function QuotationsContent() {
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Request</th>
                 <th className="text-left px-4 py-3 font-semibold">Project</th>
+                <th className="text-left px-4 py-3 font-semibold">Work Activity</th>
+                <th className="text-left px-4 py-3 font-semibold">Required By</th>
                 <th className="text-left px-4 py-3 font-semibold">Submitted by</th>
                 <th className="text-center px-4 py-3 font-semibold">Quotes</th>
                 <th className="text-right px-4 py-3 font-semibold">Cheapest</th>
@@ -122,6 +124,14 @@ async function QuotationsContent() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.project?.name ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{r.workActivity ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {r.requiredByDate ? (
+                        <span className={new Date(r.requiredByDate) < new Date() ? "text-danger font-medium" : ""}>
+                          {formatDate(r.requiredByDate)}
+                        </span>
+                      ) : "—"}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.submittedBy?.name ?? "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold ${quotesMet ? "text-green-600" : "text-amber-600"}`}>

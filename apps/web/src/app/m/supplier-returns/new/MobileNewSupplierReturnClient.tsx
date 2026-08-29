@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,10 +9,14 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 
 interface SupplierItem { id: string; name: string; }
 interface LocationItem { id: string; name: string; type: string; }
@@ -28,6 +32,14 @@ interface ReturnLine {
 }
 
 const REASONS = ["Defective", "Excess", "Wrong item", "Damaged", "Other"] as const;
+
+interface SupplierReturnDraft {
+  supplierId: string;
+  locationId: string;
+  purchaseOrderId: string;
+  notes: string;
+  lines: { materialId: string; qty: string; unitCost: string; reason: string }[];
+}
 
 export default function MobileNewSupplierReturnClient({
   suppliers: initialSuppliers,
@@ -45,6 +57,8 @@ export default function MobileNewSupplierReturnClient({
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const [submitting, setSubmitting] = useState(false);
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<SupplierReturnDraft>("supplier-return", "supplier-return-new");
+  const [draftRestored, setDraftRestored] = useState(false);
 
   // Mutable copies so inline-created entities appear without a full reload
   const [suppliers, setSuppliers] = useState<SupplierItem[]>(initialSuppliers);
@@ -59,8 +73,28 @@ export default function MobileNewSupplierReturnClient({
   const [lines, setLines] = useState<ReturnLine[]>(
     [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", reason: "" }],
   );
+  // Vehicle — how returned goods are transported back to supplier
+  const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
 
-  const [success, setSuccess] = useState<{ returnNumber: string; total: number } | null>(null);
+  const [success, setSuccess] = useState<{ returnId?: string; returnNumber: string; total: number } | null>(null);
+
+  // ── Draft auto-save (IndexedDB) ──
+  useEffect(() => {
+    if (success) return;
+    saveDraft({ supplierId, locationId, purchaseOrderId, notes, lines });
+  }, [supplierId, locationId, purchaseOrderId, notes, lines, success, saveDraft]);
+
+  // ── Restore draft on mount ──
+  useEffect(() => {
+    if (draft && !draftRestored && hasDraft) {
+      if (draft.supplierId) setSupplierId(draft.supplierId);
+      if (draft.locationId) setLocationId(draft.locationId);
+      if (draft.purchaseOrderId) setPurchaseOrderId(draft.purchaseOrderId);
+      if (draft.notes) setNotes(draft.notes);
+      if (draft.lines?.length > 0) setLines(draft.lines);
+      setDraftRestored(true);
+    }
+  }, [draft, hasDraft, draftRestored]);
 
   // POs filtered to the selected supplier
   const availablePOs = useMemo(() => {
@@ -103,6 +137,12 @@ export default function MobileNewSupplierReturnClient({
         purchaseOrderId: purchaseOrderId || null,
         locationId,
         notes: notes || null,
+        // Vehicle / transport — how returned goods are sent back
+        vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+        vehicleType: vehicle.vehicleType || undefined,
+        vehiclePhotoUrl: vehicle.photoUrl,
+        driverName: vehicle.driverName?.trim() || undefined,
+        driverPhone: vehicle.driverPhone?.trim() || undefined,
         lines: validLines.map((l) => ({
           materialId: l.materialId,
           qty: Number(l.qty),
@@ -120,7 +160,8 @@ export default function MobileNewSupplierReturnClient({
         toast.success("Supplier return queued offline", {
           description: "Will sync when back online",
         });
-        setSuccess({ returnNumber: "QUEUED", total });
+        setSuccess({ returnId: "", returnNumber: "QUEUED", total });
+        clearDraft();
         return;
       }
 
@@ -134,7 +175,8 @@ export default function MobileNewSupplierReturnClient({
         throw new Error(err.error ?? "Failed to create supplier return");
       }
       const data = await res.json();
-      setSuccess({ returnNumber: data.returnNumber, total });
+      setSuccess({ returnId: data.id, returnNumber: data.returnNumber, total });
+      clearDraft();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create supplier return");
     } finally {
@@ -180,24 +222,32 @@ export default function MobileNewSupplierReturnClient({
           </>
         )}
         <div className="flex gap-2">
-          {!isQueued && (
+          {!isQueued && success.returnId ? (
             <button
-              onClick={() => {
-                router.refresh();
-                router.push("/m/supplier-returns");
-              }}
+              onClick={() => router.push(`/m/supplier-returns/${success.returnId}`)}
               className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
-              View All Returns
+              View {success.returnNumber}
             </button>
-          )}
+          ) : null}
+          <button
+            onClick={() => {
+              router.refresh();
+              router.push("/m/supplier-returns");
+            }}
+            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            View All Returns
+          </button>
           <button
             onClick={() => {
               setSuccess(null);
               setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", reason: "" }]);
               setNotes("");
               setPurchaseOrderId("");
+              setVehicle({ vehicleNumber: "", vehicleType: "" });
             }}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
@@ -277,7 +327,16 @@ export default function MobileNewSupplierReturnClient({
   }
 
   return (
-    <ReturnForm
+    <>
+      {hasDraft && !draftRestored && !success ? (
+        <DraftBanner
+          formName="supplier-return-new"
+          updatedAt={draftUpdatedAt}
+          onRestore={() => setDraftRestored(true)}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      ) : null}
+      <ReturnForm
       suppliers={suppliers}
       locations={locations}
       materials={materials}
@@ -301,7 +360,10 @@ export default function MobileNewSupplierReturnClient({
       selectedSupplier={selectedSupplier}
       selectedLocation={selectedLocation}
       selectedPO={selectedPO}
+      vehicle={vehicle}
+      setVehicle={setVehicle}
     />
+    </>
   );
 }
 
@@ -320,6 +382,7 @@ function ReturnForm({
   online,
   total,
   selectedSupplier, selectedLocation, selectedPO,
+  vehicle, setVehicle,
 }: {
   suppliers: SupplierItem[];
   locations: LocationItem[];
@@ -344,7 +407,10 @@ function ReturnForm({
   selectedSupplier?: SupplierItem;
   selectedLocation?: LocationItem;
   selectedPO?: PurchaseOrderItem;
+  vehicle: VehicleData;
+  setVehicle: (v: VehicleData) => void;
 }) {
+  const submitLongPress = useLongPressNav("/m/supplier-returns", "Returns list");
   const [modal, setModal] = useState<{
     type: "supplier" | "location" | "po" | "material";
     lineIndex?: number;
@@ -535,6 +601,20 @@ function ReturnForm({
           <span className="text-[0.6875rem] font-bold">Add another item</span>
         </button>
 
+        {/* Vehicle / Carrier — how returned goods are transported back */}
+        <div>
+          <div
+            className="flex items-center gap-1.5 border-b pb-2"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
+            <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Vehicle / Carrier
+            </span>
+          </div>
+          <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+        </div>
+
         {/* Notes */}
         <div>
           <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
@@ -571,10 +651,11 @@ function ReturnForm({
           </div>
           <button
             type="button"
-            onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
+            onClick={(e) => { if (submitLongPress.wasLongPress()) return; onSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />

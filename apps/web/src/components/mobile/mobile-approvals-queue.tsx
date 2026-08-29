@@ -13,10 +13,13 @@ import {
   ClipboardCheck,
   CalendarCheck,
   ShieldCheck,
+  CheckCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useSnooze } from "@/lib/use-snooze";
+import { SnoozeButton } from "@/components/mobile/v2/snooze-button";
 
 // ── Types (mirrors the server-component payload) ───────────────
 
@@ -99,6 +102,7 @@ export function MobileApprovalsQueue({
   dprs?: DprRow[];
 }) {
   const router = useRouter();
+  const { isSnoozed } = useSnooze();
   const [poStates, setPoStates] = useState<Record<string, ItemState>>({});
   const [reqStates, setReqStates] = useState<Record<string, ItemState>>({});
   const [gpStates, setGpStates] = useState<Record<string, ItemState>>({});
@@ -106,20 +110,122 @@ export function MobileApprovalsQueue({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [rejectGp, setRejectGp] = useState<GatePassRow | null>(null);
   const [gpRejectReason, setGpRejectReason] = useState("");
+  const [batchApproving, setBatchApproving] = useState(false);
+
+  // ── Batch approve: approve all visible items of a given type ──
+  async function batchApprove(type: "po" | "requisition" | "gatePass" | "dpr") {
+    haptic(10);
+    setBatchApproving(true);
+
+    let items: { type: "po" | "requisition" | "gatePass"; id: string }[] = [];
+    if (type === "po") {
+      items = visiblePOs.map((po) => ({ type: "po" as const, id: po.id }));
+      // Optimistically mark all as approving
+      setPoStates((s) => {
+        const next = { ...s };
+        for (const po of visiblePOs) next[po.id] = "approving";
+        return next;
+      });
+    } else if (type === "requisition") {
+      items = visibleReqs.map((r) => ({ type: "requisition" as const, id: r.id }));
+      setReqStates((s) => {
+        const next = { ...s };
+        for (const r of visibleReqs) next[r.id] = "approving";
+        return next;
+      });
+    } else if (type === "gatePass") {
+      items = visibleGps.map((g) => ({ type: "gatePass" as const, id: g.id }));
+      setGpStates((s) => {
+        const next = { ...s };
+        for (const g of visibleGps) next[g.id] = "approving";
+        return next;
+      });
+    } else if (type === "dpr") {
+      items = visibleDprs.map((d) => ({ type: "gatePass" as const, id: d.id }));
+      // DPRs don't have a batch API yet — approve individually
+      setBatchApproving(false);
+      // Fall back to individual approves
+      for (const dpr of visibleDprs) {
+        await approveDpr(dpr);
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/approvals/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Batch approve failed");
+
+      const { succeeded, failed } = data.summary;
+      if (succeeded > 0) {
+        haptic([10, 40, 80]);
+        toast.success(`Approved ${succeeded} ${type === "po" ? "PO" : type === "requisition" ? "indent" : "gate pass"}${succeeded === 1 ? "" : "s"}`);
+      }
+      if (failed > 0) {
+        toast.error(`${failed} item${failed === 1 ? "" : "s"} failed to approve`);
+      }
+
+      // Update local states based on results
+      for (const result of data.results) {
+        if (result.type === "po") {
+          setPoStates((s) => ({ ...s, [result.id]: result.success ? "approved" : "pending" }));
+        } else if (result.type === "requisition") {
+          setReqStates((s) => ({ ...s, [result.id]: result.success ? "approved" : "pending" }));
+        } else if (result.type === "gatePass") {
+          setGpStates((s) => ({ ...s, [result.id]: result.success ? "approved" : "pending" }));
+        }
+      }
+
+      router.refresh();
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Batch approve failed");
+      // Revert all optimistic states
+      if (type === "po") {
+        setPoStates((s) => {
+          const next = { ...s };
+          for (const po of visiblePOs) if (next[po.id] === "approving") next[po.id] = "pending";
+          return next;
+        });
+      } else if (type === "requisition") {
+        setReqStates((s) => {
+          const next = { ...s };
+          for (const r of visibleReqs) if (next[r.id] === "approving") next[r.id] = "pending";
+          return next;
+        });
+      } else if (type === "gatePass") {
+        setGpStates((s) => {
+          const next = { ...s };
+          for (const g of visibleGps) if (next[g.id] === "approving") next[g.id] = "pending";
+          return next;
+        });
+      }
+    } finally {
+      setBatchApproving(false);
+    }
+  }
 
   const visiblePOs = purchaseOrders.filter((po) => {
+    if (isSnoozed(`approval:po:${po.id}`)) return false;
     const s = poStates[po.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
   const visibleReqs = requisitions.filter((r) => {
+    if (isSnoozed(`approval:req:${r.id}`)) return false;
     const s = reqStates[r.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
   const visibleGps = gatePasses.filter((g) => {
+    if (isSnoozed(`approval:gp:${g.id}`)) return false;
     const s = gpStates[g.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
   const visibleDprs = dprs.filter((d) => {
+    if (isSnoozed(`approval:dpr:${d.id}`)) return false;
     const s = dprStates[d.id];
     return !s || s === "pending" || s === "approving" || s === "rejecting";
   });
@@ -295,9 +401,21 @@ export function MobileApprovalsQueue({
     <div>
       {/* ── Purchase Orders ──────────────────────────────────── */}
       {purchaseOrders.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
-          Purchase Orders ({visiblePOs.length})
-        </h2>
+        <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
+          <h2 className="text-label text-muted-foreground/75">
+            Purchase Orders ({visiblePOs.length})
+          </h2>
+          {visiblePOs.length > 1 && (
+            <button
+              disabled={batchApproving}
+              onClick={() => batchApprove("po")}
+              className="flex items-center gap-1 rounded-md bg-success px-2 py-1 text-caption font-semibold text-white press disabled:opacity-50"
+            >
+              {batchApproving ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+              Approve All
+            </button>
+          )}
+        </div>
       )}
       {visiblePOs.map((po) => {
         const state = poStates[po.id] ?? "pending";
@@ -315,6 +433,8 @@ export function MobileApprovalsQueue({
             state={state}
             onApprove={() => approvePo(po)}
             onReject={() => rejectPo(po)}
+            snoozeId={`approval:po:${po.id}`}
+            snoozeLabel={`PO ${po.poNumber}`}
           >
             <div className="space-y-1.5">
               {po.lines.map((l, i) => (
@@ -346,9 +466,21 @@ export function MobileApprovalsQueue({
 
       {/* ── Requisitions ─────────────────────────────────────── */}
       {requisitions.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
-          Requisitions ({visibleReqs.length})
-        </h2>
+        <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
+          <h2 className="text-label text-muted-foreground/75">
+            Requisitions ({visibleReqs.length})
+          </h2>
+          {visibleReqs.length > 1 && (
+            <button
+              disabled={batchApproving}
+              onClick={() => batchApprove("requisition")}
+              className="flex items-center gap-1 rounded-md bg-success px-2 py-1 text-caption font-semibold text-white press disabled:opacity-50"
+            >
+              {batchApproving ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+              Approve All
+            </button>
+          )}
+        </div>
       )}
       {visibleReqs.map((req) => {
         const state = reqStates[req.id] ?? "pending";
@@ -366,6 +498,8 @@ export function MobileApprovalsQueue({
             state={state}
             onApprove={() => approveReq(req)}
             onReject={() => rejectReq(req)}
+            snoozeId={`approval:req:${req.id}`}
+            snoozeLabel={`Req ${req.requisitionNumber}`}
           >
             <div className="space-y-1.5">
               {req.lines.map((l, i) => (
@@ -392,9 +526,21 @@ export function MobileApprovalsQueue({
 
       {/* ── Gate Passes ──────────────────────────────────────── */}
       {gatePasses.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-5 text-label text-muted-foreground/75">
-          Gate Passes ({visibleGps.length})
-        </h2>
+        <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
+          <h2 className="text-label text-muted-foreground/75">
+            Gate Passes ({visibleGps.length})
+          </h2>
+          {visibleGps.length > 1 && (
+            <button
+              disabled={batchApproving}
+              onClick={() => batchApprove("gatePass")}
+              className="flex items-center gap-1 rounded-md bg-success px-2 py-1 text-caption font-semibold text-white press disabled:opacity-50"
+            >
+              {batchApproving ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+              Approve All
+            </button>
+          )}
+        </div>
       )}
       {visibleGps.map((gp) => {
         const state = gpStates[gp.id] ?? "pending";
@@ -417,6 +563,8 @@ export function MobileApprovalsQueue({
             state={state}
             onApprove={() => approveGp(gp)}
             onReject={() => { setRejectGp(gp); setGpRejectReason(""); }}
+            snoozeId={`approval:gp:${gp.id}`}
+            snoozeLabel={`GP ${gp.gatePassNumber}`}
           >
             <div className="space-y-1.5">
               {gp.lines.map((l, i) => (
@@ -471,6 +619,8 @@ export function MobileApprovalsQueue({
             state={state}
             onApprove={() => approveDpr(dpr)}
             onReject={() => rejectDpr(dpr)}
+            snoozeId={`approval:dpr:${dpr.id}`}
+            snoozeLabel={`DPR ${dpr.date}`}
           >
             <div className="space-y-2">
               {dpr.submittedByName ? (
@@ -560,6 +710,8 @@ function ApprovalCard({
   state,
   onApprove,
   onReject,
+  snoozeId,
+  snoozeLabel,
   children,
 }: {
   kind: ItemKind;
@@ -572,6 +724,8 @@ function ApprovalCard({
   state: ItemState;
   onApprove: () => void;
   onReject?: () => void;
+  snoozeId?: string;
+  snoozeLabel?: string;
   children: React.ReactNode;
 }) {
   const busy = state === "approving" || state === "rejecting";
@@ -602,7 +756,7 @@ function ApprovalCard({
           </div>
 
           {/* Action buttons */}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex gap-2 items-center">
             <button
               onClick={onApprove}
               disabled={busy}
@@ -634,6 +788,9 @@ function ApprovalCard({
                 Reject
               </button>
             )}
+            {snoozeId && snoozeLabel ? (
+              <SnoozeButton itemId={snoozeId} label={snoozeLabel} size="md" />
+            ) : null}
           </div>
         </div>
       )}

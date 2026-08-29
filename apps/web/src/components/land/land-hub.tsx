@@ -30,6 +30,7 @@ import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption, SellableAssetRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useConfirm } from "@/lib/use-confirm";
 
 export type LandHubData = {
   purchase: {
@@ -62,6 +63,8 @@ export type LandHubData = {
     registrationAmount?: number | null;
     stampDutyPercent?: number | null;
     stampDutyAmount?: number | null;
+    transferDutyPercent?: number | null;
+    transferDutyAmount?: number | null;
     brokerageAmount?: number | null;
     legalFees?: number | null;
     otherCharges?: number | null;
@@ -210,6 +213,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createProjectLoading, setCreateProjectLoading] = useState(false);
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
 
   const isBooked = purchase.purchaseStage === "BOOKED";
   const isCompleted = purchase.purchaseStage === "COMPLETED";
@@ -289,7 +293,8 @@ export function LandHub({ data }: { data: LandHubData }) {
   }
 
   async function handleUnpartition(p: LandParcelRow) {
-    if (!confirm(`Un-divide this parcel? This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`)) return;
+    const ok = await confirm({ title: "Confirm?", description: `Un-divide this parcel? This will remove all ${p.childCount} sub-parcels and restore "${p.number}" to Available.`, confirmLabel: "Confirm", variant: "destructive" });
+    if (!ok) return;
     try {
       const res = await fetch("/api/land-parcels", {
         method: "POST",
@@ -556,6 +561,9 @@ export function LandHub({ data }: { data: LandHubData }) {
                 {purchase.stampDutyAmount != null && purchase.stampDutyAmount > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Stamp Duty ({purchase.stampDutyPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.stampDutyAmount)}</strong></div>
                 )}
+                {purchase.transferDutyAmount != null && purchase.transferDutyAmount > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Transfer Duty ({purchase.transferDutyPercent}%):</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.transferDutyAmount)}</strong></div>
+                )}
                 {purchase.brokerageAmount != null && purchase.brokerageAmount > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Brokerage:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.brokerageAmount)}</strong></div>
                 )}
@@ -593,20 +601,22 @@ export function LandHub({ data }: { data: LandHubData }) {
 
           {/* KPI row — single clean band of stats */}
           <div className="mt-4 grid grid-cols-3 gap-x-4 gap-y-3 border-t border-border/70 pt-3 sm:grid-cols-6">
-            <KpiItem label="Area" value={`${formatNumber(purchase.totalArea, 0)} ${purchase.areaUnit}`} />
-            <KpiItem label="Cost" value={formatCurrency(purchase.totalCost)} sub={`${formatCurrency(costPerUnit)}/${purchase.areaUnit}`} />
-            <KpiItem label="Available" value={String(stats.availableCount)} />
-            <KpiItem label="Unsold" value={formatCurrency(stats.unsoldValue)} />
+            <KpiItem label="Area" value={`${formatNumber(purchase.totalArea, 0)} ${purchase.areaUnit}`} title="Total land area" />
+            <KpiItem label="Cost" value={formatCurrency(purchase.totalCost)} sub={`${formatCurrency(costPerUnit)}/${purchase.areaUnit}`} title="Total acquisition cost (incl. registration, stamp duty, legal, broker)" />
+            <KpiItem label="Available" value={String(stats.availableCount)} title="Parcels available for sale" />
+            <KpiItem label="Unsold" value={formatCurrency(stats.unsoldValue)} title="Current valuation of parcels not yet sold" />
             <KpiItem
               label="Unrealized"
               value={`${gainPositive ? "+" : ""}${formatCurrency(stats.valuationGain)}`}
               tone={gainPositive ? "positive" : "negative"}
+              title="Valuation gain/loss on unsold parcels (current valuation − acquisition cost)"
             />
             <KpiItem
               label="Realized"
               value={`${profitPositive ? "+" : ""}${formatCurrency(stats.soldProfit)}`}
               sub={stats.soldCount > 0 ? `${stats.soldCount} sold` : undefined}
               tone={profitPositive ? "positive" : "negative"}
+              title="Actual profit/loss from sold parcels (sale price − acquisition cost)"
             />
           </div>
         </div>
@@ -947,6 +957,7 @@ export function LandHub({ data }: { data: LandHubData }) {
         balanceDue={balanceDue}
         onSuccess={() => router.refresh()}
       />
+      {confirmDialog}
     </div>
   );
 }
@@ -987,15 +998,16 @@ function FieldItem({
 
 /** A KPI in the stats band. */
 function KpiItem({
-  label, value, sub, tone,
+  label, value, sub, tone, title,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "positive" | "negative";
+  title?: string;
 }) {
   return (
-    <div className="min-w-0 text-center">
+    <div className="min-w-0 text-center" title={title}>
       <div className="text-label leading-none text-muted-foreground/60">{label}</div>
       <div className={`mt-1.5 tnum text-body font-semibold leading-none ${tone === "positive" ? "text-success" : tone === "negative" ? "text-danger" : "text-foreground"}`}>
         {value}

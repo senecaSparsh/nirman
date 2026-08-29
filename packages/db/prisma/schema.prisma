@@ -84,6 +84,7 @@ model Company {
   notificationLogs      NotificationLog[]
   notificationPreferences NotificationPreference[]
   inAppNotifications   InAppNotification[]
+  pushSubscriptions     PushSubscription[]
   portalListings        PortalListing[]
   subcontractorWorkOrders SubcontractorWorkOrder[]
   raBills                RaBill[]
@@ -103,6 +104,9 @@ model Company {
   gatePasses             GatePass[]
   legalDocuments         LegalDocument[]
   brokers                Broker[]
+  bankSms                BankSms[]
+  uploads                Upload[]
+  entityAttachments      EntityAttachment[]
 
   @@index([parentCompanyId])
 }
@@ -258,6 +262,7 @@ model User {
   emailVerified Boolean   @default(false)
   image         String?
   phone         String?   // phone number for WhatsApp notifications
+  phoneNormalized String? // digits-only normalized phone (for OTP lookup); indexed
   role          String    @default("PROJECT_MANAGER") // See roles.ts for full list
   active        Boolean   @default(true)
   // Enterprise employee fields
@@ -366,6 +371,7 @@ model User {
   // Notification system — preferences + in-app notifications
   notificationPreferences NotificationPreference[]
   inAppNotifications      InAppNotification[]
+  pushSubscriptions       PushSubscription[] @relation("PushSubUser")
   // Standalone Quotation Requests — submission + approval
   submittedQuotationRequests  QuotationRequest[] @relation("QuotationRequestSubmitter")
   approvedQuotationRequests   QuotationRequest[] @relation("QuotationRequestApprover")
@@ -378,6 +384,10 @@ model User {
   rejectedGatePasses    GatePass[]              @relation("GatePassRejectedBy")
   exitedGatePasses      GatePass[]              @relation("GatePassExitedBy")
   createdLegalDocuments LegalDocument[]         @relation("LegalDocCreatedBy")
+  uploadedFiles     Upload[]                   @relation("UploadUploader")
+  createdEntityAttachments EntityAttachment[]   @relation("EntityAttachmentCreatedBy")
+
+  @@index([phoneNormalized])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -450,6 +460,27 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+}
+
+// Phone OTP login — stores 6-digit codes for phone-based authentication.
+// Each code has a 5-minute TTL and is invalidated (usedAt set) on successful
+// verification. Prior unused codes for the same phone are invalidated on
+// resend so only the newest code is valid.
+model PhoneOtp {
+  id        String    @id @default(cuid())
+  phone     String    // normalised phone (digits only)
+  code      String    // 6-digit OTP code
+  expiresAt DateTime  // 5 minutes from creation
+  usedAt    DateTime? // set when successfully verified
+  attempts  Int       @default(0) // incremented on each wrong attempt; locks at 5
+  userId    String?   // resolved user ID at send time (null if no user found)
+  clientIp  String    @default("unknown") // for per-IP rate limiting
+  createdAt DateTime  @default(now())
+
+  @@index([phone])
+  @@index([expiresAt])
+  @@index([clientIp])
+  @@index([createdAt])
 }
 
 enum ProjectType {
@@ -637,6 +668,8 @@ model VehicleTrip {
   // Route
   fromLocationId  String?
   toLocationId    String?
+  fromLocation    StockLocation? @relation("VehicleTripFrom", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocation      StockLocation? @relation("VehicleTripTo", fields: [toLocationId], references: [id], onDelete: SetNull)
   // Driver info for this specific trip (may differ from vehicle master)
   driverName      String?
   driverPhone     String?
@@ -692,6 +725,8 @@ model StockLocation {
   quotationRequestDestinations QuotationRequest[] @relation("QuotationRequestDestination")
   gatePasses       GatePass[]
   employeeReportingLocations Employee[] @relation("EmployeeReportingLocation")
+  vehicleTripsFrom VehicleTrip[] @relation("VehicleTripFrom")
+  vehicleTripsTo   VehicleTrip[] @relation("VehicleTripTo")
 
   @@index([companyId])
   @@index([projectId])
@@ -877,6 +912,10 @@ model Supplier {
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([name])
+  // Prevent duplicate suppliers with the same GSTIN within a company.
+  // NULL gstin (unregistered suppliers) are allowed to duplicate —
+  // Postgres treats NULLs as distinct in unique indexes.
+  @@unique([companyId, gstin])
 }
 
 model Subcontractor {
@@ -901,6 +940,7 @@ model Subcontractor {
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([name])
+  @@unique([companyId, gstin])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -993,6 +1033,9 @@ model WorkerAttendance {
   checkOutLng  Float?
   checkInLocation  String?  // reverse-geocoded or manual location label
   checkOutLocation String?
+  // Geofence enforcement (computed from project site boundary)
+  geoFenceOk        Boolean?  // true if check-in was within project geofence
+  geoFenceDistance  Float?    // distance (meters) from project site center, null if no GPS
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -2425,6 +2468,8 @@ model MaterialRequisition {
   quotesWaivedBy User?         @relation("ReqQuoteWaiver", fields: [quotesWaivedById], references: [id], onDelete: SetNull)
   lines       MaterialRequisitionLine[]
   vendorQuotes VendorQuote[]
+  directPurchases DirectPurchase[]
+  quotationRequests QuotationRequest[] @relation("QuotationRequestRequisition")
 
   @@index([projectId])
   @@index([departmentId])
@@ -2694,6 +2739,9 @@ model QuotationRequest {
   selectedQuoteId String? @unique
   // Auto-created PO after hierarchical approval — null until approved.
   convertedPoId   String?  @unique
+  // Optional link to the requisition that triggered this quotation request.
+  // When set, the quotation request is auto-created from an approved requisition.
+  requisitionId   String?
 
   company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   convertedPo    PurchaseOrder? @relation("QuotationConvertedPo", fields: [convertedPoId], references: [id], onDelete: SetNull)
@@ -2701,6 +2749,7 @@ model QuotationRequest {
   destinationLocation StockLocation? @relation("QuotationRequestDestination", fields: [destinationLocationId], references: [id], onDelete: SetNull)
   submittedBy    User      @relation("QuotationRequestSubmitter", fields: [submittedById], references: [id], onDelete: Cascade)
   approvedBy     User?     @relation("QuotationRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  requisition    MaterialRequisition? @relation("QuotationRequestRequisition", fields: [requisitionId], references: [id], onDelete: SetNull)
   lines          QuotationRequestLine[]
   quotes         VendorQuote[]           @relation("QuotationRequestQuotes")
   selectedQuote  VendorQuote?            @relation("QuotationRequestSelectedQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
@@ -2709,6 +2758,7 @@ model QuotationRequest {
   @@index([projectId])
   @@index([submittedById])
   @@index([status])
+  @@index([requisitionId])
 }
 
 model QuotationRequestLine {
@@ -2819,17 +2869,23 @@ model DirectPurchase {
   status         DirectPurchaseStatus @default(COMPLETED)
   cancelledAt    DateTime?
   cancelledById  String?
+  // Optional link back to the requisition that triggered this purchase.
+  // Direct purchases bypass the formal PO flow, but this preserves the
+  // indent → purchase audit trail when a requisition exists.
+  requisitionId  String?
 
   supplier     Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   location     StockLocation  @relation(fields: [locationId], references: [id])
   createdBy    User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
   cancelledBy  User?          @relation("DirectPurchaseCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  requisition  MaterialRequisition? @relation(fields: [requisitionId], references: [id], onDelete: SetNull)
   lines        DirectPurchaseLine[]
 
   @@index([companyId])
   @@index([supplierId])
   @@index([billDate])
+  @@index([requisitionId])
 }
 
 model DirectPurchaseLine {
@@ -3045,8 +3101,20 @@ model AssetSale {
   // ── Sale deed / registry tracking ──
   // A sale starts as an ATS (Agreement to Sell) — booking amount paid, registry deferred.
   // When the sale deed is registered, saleDeedNo is captured and saleStage → COMPLETED.
+  // The client's model: "एटीएस स्लैश रजिस्ट्री। जहां रजिस्ट्री नहीं है वहां एटीएस
+  // होता है। दोनों में से एक चीज आती है। बट फिर रजिस्ट्री पेंडिंग होनी जरूरी है
+  // अगर एटीएस हो गया।" — either ATS OR registry, not both. If ATS is done,
+  // registry is pending (future). Both have a number like a registered document.
   saleDeedNo        String?                           // sale deed / registry number (set when registry is done)
   expectedRegistryDate DateTime?                     // when the full registry is expected (if ATS / not yet registered)
+  // ── ATS (Agreement to Sell) tracking ──
+  // ATS is a registered agreement that substitutes for registry when full
+  // payment hasn't been received or land conversion/sanction is pending.
+  // Either atsNo OR saleDeedNo should be set — one of the two is the
+  // registered document for this sale.
+  atsNo             String?    // ATS registration number (like saleDeedNo but for ATS)
+  atsDate           DateTime?  // date the ATS was executed/registered
+  allowRegistryBeforeFullPayment Boolean @default(false) // allow registry even if full payment is pending
   // ── Sale compliance documents ──
   allotmentLetterNo  String?    // allotment letter number (issued at booking)
   allotmentDate      DateTime?  // date allotment letter was issued
@@ -3086,6 +3154,15 @@ model AssetSale {
   commissionIsPartOfDeal Boolean @default(false)    // deducted from proceeds or paid separately
   commissionPaid      Boolean   @default(false)
   commissionPaidDate  DateTime?
+  // ── Draft / LOI (Letter of Intent) ──
+  // A sale can start as an informal draft / LOI capturing the terms
+  // discussed before the formal ATS or sale deed is registered. It has
+  // no legal validity but records the agreed terms. Printable on company
+  // letterhead. Mirrors the tenancy draft feature.
+  draftDocumentUrl    String?    // uploaded PDF/image of the LOI/draft
+  draftDocumentName   String?    // original filename for display
+  draftNotes          String?    // informal terms — what was agreed verbally
+  draftDate           DateTime?  @db.Date  // when the LOI was signed
   createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -3546,6 +3623,29 @@ model InAppNotification {
   @@index([companyId, createdAt])
 }
 
+// ── Web Push Subscription ──
+// Stores the browser push subscription endpoint + keys for each user.
+// The server uses these to send web push notifications (approvals due,
+// low stock alerts, task assignments, etc.) via the Web Push API.
+model PushSubscription {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String
+  endpoint    String   @unique // the push service endpoint URL
+  p256dhKey   String?  // public key for encryption
+  authKey     String?  // auth secret for encryption
+  userAgent   String?  // browser/device info for debugging
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation("PushSubUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, userId])
+  @@index([userId, isActive])
+}
+
 // ───────────────────────────────────────────────────────────
 //  TASKS — assigned by admin/manager to signed-in users.
 //  The admin creates a task, adds instructions/guidance, and the
@@ -3839,6 +3939,21 @@ model Tenancy {
   escalationIntervalMonths Int      @default(12)
   nextEscalationDate      DateTime? @db.Date
   lastEscalatedAt         DateTime? @db.Date
+  // ── Rent-free / fit-out period ──
+  // Days before rent starts billing. The tenant moves in and sets up
+  // (painting, fixtures, etc.) without paying rent. Rent billing begins
+  // after rentFreeDays from the tenancy start date.
+  rentFreeDays            Int      @default(0)
+  // ── Draft / LOI (Letter of Intent) ──
+  // Before the registered rent agreement, the owner and tenant often
+  // sign an informal "tera-mera" document — like a PO for rentals.
+  // It has no legal validity but records the agreed terms. Printable
+  // on company letterhead. Once the registered agreement is uploaded,
+  // the tenancy is activated.
+  draftDocumentUrl        String?  // uploaded PDF/image of the LOI/draft
+  draftDocumentName       String?  // original filename for display
+  draftNotes              String?  // informal terms — what was agreed verbally
+  draftDate               DateTime? @db.Date  // when the LOI was signed
   status        TenancyStatus  @default(PENDING)
   notes         String?
   createdById   String?
@@ -3877,6 +3992,9 @@ model RentalPayment {
   // ── Rent period this payment covers ──
   periodStart DateTime? @db.Date  // first day of the billing month
   periodEnd   DateTime?  @db.Date  // last day of the billing month
+  // ── Reminder tracking (avoids resetting OVERDUE → PENDING after sending) ──
+  reminderSentAt  DateTime?
+  reminderCount   Int      @default(0)
   createdAt   DateTime @default(now())
 
   tenancy Tenancy @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
@@ -5366,6 +5484,108 @@ model LegalDocument {
   @@index([status])
   @@index([appliesTo])
   @@index([sortOrder])
+}
+
+// ───────────────────────────────────────────────────────────
+//  BANK SMS PARSING — auto payment entry from SMS notifications
+//  Indian banks send SMS alerts for every transaction. This model
+//  stores parsed SMS messages so we can auto-create payment records
+//  and prevent duplicate entries. The client's request: "जो मुझे
+//  मैसेज आते हैं टेक्स्ट पे पेमेंट रिसीव्ड वो ये पढ़ लो और क्रिएट
+//  कर दे" — read payment received SMS and auto-create entries.
+// ───────────────────────────────────────────────────────────
+
+model BankSms {
+  id            String   @id @default(cuid())
+  companyId     String
+  // Raw SMS data
+  sender        String   // sender ID (e.g. "HD-FIBANK", "ICICIB")
+  message       String   // full SMS body
+  receivedAt    DateTime // timestamp from the SMS
+  // Parsed fields
+  amount        Decimal? @db.Decimal(14, 2)  // payment amount
+  upiRef        String?  // UPI reference number
+  accountNo     String?  // bank account number (masked)
+  bankName      String?  // detected bank name
+  txnType       String?  // CREDIT | DEBIT | REFUND
+  counterparty  String?  // who sent/received the money
+  // Matching + status
+  status        String   @default("UNMATCHED") // UNMATCHED | MATCHED | IGNORED | ERROR
+  matchedEntityType  String?  // "ASSET_SALE" | "MATERIAL_SALE" | "TENANCY" | "SUPPLIER" | null
+  matchedEntityId    String?  // ID of the matched entity
+  paymentRecordId    String?  // ID of the created payment record
+  matchConfidence    Decimal? @db.Decimal(5, 2)  // 0-100 confidence score
+  matchReason        String?  // why it was matched (or not)
+  // Dedup — the same SMS can be forwarded multiple times
+  smsHash       String   @unique  // hash of sender+message+receivedAt for dedup
+  createdAt     DateTime @default(now())
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([matchedEntityType])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Upload — tracks every file uploaded through /api/uploads.
+//  Files are stored OUTSIDE public/ (in storage/uploads/) and served
+//  via GET /api/uploads/[id], which checks auth + company ownership.
+//  This prevents unauthenticated access to sensitive documents
+//  (vendor quotes, land purchase docs, DPR photos, cheque images).
+// ───────────────────────────────────────────────────────────────
+model Upload {
+  id              String   @id @default(cuid())
+  storedName      String   @unique // UUID-prefixed filename on disk
+  originalName    String   // user-facing filename (sanitized)
+  mimeType        String
+  size            Int      // bytes
+  url             String   @unique // /api/uploads/<id> — the auth-gated URL
+  companyId       String?
+  uploadedById    String?
+  createdAt       DateTime @default(now())
+
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  uploadedBy      User?    @relation("UploadUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  entityAttachments EntityAttachment[]
+
+  @@index([companyId])
+  @@index([uploadedById])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  EntityAttachment — generic polymorphic document attachment.
+//  Links any Upload to any entity via entityType + entityId.
+//  This replaces per-entity photo/document fields with a single
+//  reusable infrastructure. Categories let callers group attachments
+//  (e.g. "photo", "invoice", "contract", "report", "other").
+//
+//  Usage:
+//    POST /api/attachments { entityType, entityId, uploadId, category, label }
+//    GET  /api/attachments?entityType=X&entityId=Y
+//    DELETE /api/attachments/[id]
+// ───────────────────────────────────────────────────────────────
+
+model EntityAttachment {
+  id          String   @id @default(cuid())
+  companyId   String
+  uploadId    String
+  entityType  String   // "PurchaseOrder" | "AssetSale" | "LandPurchase" | "Project" | "DailyProgressReport" | "GatePass" | "MaterialIssue" | etc.
+  entityId    String   // the related entity's ID
+  category    String   @default("other") // "photo" | "invoice" | "contract" | "report" | "other"
+  label       String?  // optional user-facing label
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  upload      Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy   User?    @relation("EntityAttachmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([uploadId, entityType, entityId]) // prevent duplicate links
+  @@index([companyId])
+  @@index([entityType, entityId])
+  @@index([uploadId])
 }
 
 

@@ -12,11 +12,13 @@ import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileHeaderAction,
   MobileNoResults,
-  MobileDashedCreateButton,
 } from "@/components/mobile/v2/scaffold";
-import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import {
+  MobileExportShareIcons,
+  type MobileColumnSpec,
+} from "@/components/mobile/v2/export-share-bar";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 type DprApprovalFilter =
   | "ALL"
@@ -45,16 +47,25 @@ const FILTER_CHIPS: { label: string; value: DprApprovalFilter }[] = [
 ];
 
 /* ── Approval status → color + label + step index ── */
-const STATUS_INFO: Record<string, { color: string; label: string; step: number }> = {
-  SUBMITTED:          { color: "var(--color-signal)", label: "Submitted",      step: 1 },
-  SUB_ADMIN_APPROVED: { color: "var(--color-steel)",  label: "Sub-Admin OK",   step: 2 },
-  APPROVED:           { color: "var(--color-go)",     label: "Approved",       step: 3 },
-  REJECTED:           { color: "var(--color-stop)",   label: "Rejected",       step: 0 },
+const STATUS_INFO: Record<
+  string,
+  { color: string; label: string; step: number }
+> = {
+  SUBMITTED: { color: "var(--color-signal)", label: "Submitted", step: 1 },
+  SUB_ADMIN_APPROVED: {
+    color: "var(--color-steel)",
+    label: "Sub-Admin OK",
+    step: 2,
+  },
+  APPROVED: { color: "var(--color-go)", label: "Approved", step: 3 },
+  REJECTED: { color: "var(--color-stop)", label: "Rejected", step: 0 },
 };
 
 export function MobileDprsList({
-  items,
+  items: initialItems,
   canSubmit,
+  loadMoreUrl,
+  nextCursor: initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -62,6 +73,8 @@ export function MobileDprsList({
 }: {
   items: DprListItem[];
   canSubmit?: boolean;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -70,6 +83,12 @@ export function MobileDprsList({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DprApprovalFilter>("ALL");
   const router = useRouter();
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<DprListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     let result = items;
@@ -90,7 +109,8 @@ export function MobileDprsList({
   // Group by date label
   const grouped = useMemo(() => {
     const today = newDate();
-    const yesterday = newDate(); yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = newDate();
+    yesterday.setDate(yesterday.getDate() - 1);
     const groups: { label: string; items: DprListItem[] }[] = [];
     const map = new Map<string, DprListItem[]>();
 
@@ -111,18 +131,16 @@ export function MobileDprsList({
   }, [filtered]);
 
   if (items.length === 0) {
-    // Still render the "Today" (New DPR) button even when there are no DPRs
     return (
       <div>
-        {canSubmit ? (
-          <MobileDashedCreateButton href="/m/site/dpr">
-            Submit Today&apos;s Daily Progress Report
-          </MobileDashedCreateButton>
-        ) : null}
         <MobileEmptyState
           icon={ClipboardList}
           title="No Daily Progress Reports yet"
-          hint={canSubmit ? "Tap above to submit your first Daily Progress Report" : "Daily progress reports will appear here"}
+          hint={
+            canSubmit
+              ? "Tap the + button below to submit your first Daily Progress Report"
+              : "Daily progress reports will appear here"
+          }
         />
       </div>
     );
@@ -151,7 +169,6 @@ export function MobileDprsList({
                 summary={exportSummary}
               />
             ) : null}
-            {canSubmit && <MobileHeaderAction href="/m/site/dpr">Today</MobileHeaderAction>}
           </div>
         }
         showClear={statusFilter !== "ALL" || query !== ""}
@@ -184,20 +201,33 @@ export function MobileDprsList({
                   className="text-[0.5625rem] font-semibold"
                   style={{ color: "var(--color-ink-500)" }}
                 >
-                  {group.items.length} report{group.items.length !== 1 ? "s" : ""}
+                  {group.items.length} report
+                  {group.items.length !== 1 ? "s" : ""}
                 </span>
               </div>
 
               {/* DPR strips */}
               <div className="flex flex-col gap-2">
                 {group.items.map((d) => (
-                  <DprStrip key={d.id} dpr={d} onAction={() => router.refresh()} />
+                  <DprStrip
+                    key={d.id}
+                    dpr={d}
+                    onAction={() => router.refresh()}
+                  />
                 ))}
               </div>
             </div>
           ))}
         </div>
       )}
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }
@@ -205,15 +235,25 @@ export function MobileDprsList({
 /* ═══════════════════════════════════════════════════════════════════════════
    DPR STRIP — full-width horizontal card with progress ring + approval dots.
    ═══════════════════════════════════════════════════════════════════════════ */
-function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }) {
+function DprStrip({
+  dpr,
+  onAction,
+}: {
+  dpr: DprListItem;
+  onAction?: () => void;
+}) {
   const info = STATUS_INFO[dpr.approvalStatus] ?? STATUS_INFO.SUBMITTED!;
   const isRejected = dpr.approvalStatus === "REJECTED";
   const pct = Math.min(dpr.progressPct, 100);
 
   // Swipe actions for submitted / sub-admin approved DPRs
-  const canSwipeApprove = dpr.approvalStatus === "SUBMITTED" || dpr.approvalStatus === "SUB_ADMIN_APPROVED";
-  const approveAction = dpr.approvalStatus === "SUBMITTED" ? "subAdminApprove" : "adminApprove";
-  const approveLabel = dpr.approvalStatus === "SUBMITTED" ? "Sub-Approve" : "Approve";
+  const canSwipeApprove =
+    dpr.approvalStatus === "SUBMITTED" ||
+    dpr.approvalStatus === "SUB_ADMIN_APPROVED";
+  const approveAction =
+    dpr.approvalStatus === "SUBMITTED" ? "subAdminApprove" : "adminApprove";
+  const approveLabel =
+    dpr.approvalStatus === "SUBMITTED" ? "Sub-Approve" : "Approve";
 
   const handleApprove = useCallback(async () => {
     haptic(10);
@@ -251,7 +291,11 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
 
   const swipeActions = canSwipeApprove
     ? [
-        { label: approveLabel, color: "var(--color-go)", onPress: handleApprove },
+        {
+          label: approveLabel,
+          color: "var(--color-go)",
+          onPress: handleApprove,
+        },
         { label: "Reject", color: "var(--color-stop)", onPress: handleReject },
       ]
     : [];
@@ -272,7 +316,10 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
       <div className="flex-1 min-w-0 p-2.5">
         {/* Row 1: Project + status label */}
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p
+            className="text-[0.75rem] font-bold truncate"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             {dpr.projectName}
           </p>
           <span
@@ -284,7 +331,10 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
         </div>
 
         {/* Row 2: Submitter + work type */}
-        <p className="text-[0.5625rem] truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+        <p
+          className="text-[0.5625rem] truncate mb-1.5"
+          style={{ color: "var(--color-ink-500)" }}
+        >
           {dpr.submittedByName ?? "—"}
           {dpr.workType ? ` · ${dpr.workType}` : ""}
         </p>
@@ -307,11 +357,23 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
 
         {/* Row 4: 3-dot approval step indicator */}
         <div className="flex items-center gap-1.5">
-          <ApprovalDot active={info.step >= 1} color={info.color} label="Submit" />
+          <ApprovalDot
+            active={info.step >= 1}
+            color={info.color}
+            label="Submit"
+          />
           <ApprovalConnector active={info.step >= 2} color={info.color} />
-          <ApprovalDot active={info.step >= 2} color={info.color} label="Sub-Admin" />
+          <ApprovalDot
+            active={info.step >= 2}
+            color={info.color}
+            label="Sub-Admin"
+          />
           <ApprovalConnector active={info.step >= 3} color={info.color} />
-          <ApprovalDot active={info.step >= 3} color={info.color} label="Admin" />
+          <ApprovalDot
+            active={info.step >= 3}
+            color={info.color}
+            label="Admin"
+          />
           {isRejected ? (
             <span
               className="text-[0.5rem] font-bold ml-1"
@@ -328,7 +390,10 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
         className="grid place-items-center w-14 shrink-0"
         style={{ backgroundColor: "var(--color-paper-2)" }}
       >
-        <ProgressRing pct={pct} color={isRejected ? "var(--color-stop)" : info.color} />
+        <ProgressRing
+          pct={pct}
+          color={isRejected ? "var(--color-stop)" : info.color}
+        />
       </div>
     </Link>
   );
@@ -345,7 +410,15 @@ function DprStrip({ dpr, onAction }: { dpr: DprListItem; onAction?: () => void }
 }
 
 /* ── Approval step dot ── */
-function ApprovalDot({ active, color, label }: { active: boolean; color: string; label: string }) {
+function ApprovalDot({
+  active,
+  color,
+  label,
+}: {
+  active: boolean;
+  color: string;
+  label: string;
+}) {
   return (
     <div className="flex items-center gap-1">
       <div
@@ -356,7 +429,9 @@ function ApprovalDot({ active, color, label }: { active: boolean; color: string;
       />
       <span
         className="text-[0.4375rem] font-semibold"
-        style={{ color: active ? "var(--color-ink-700)" : "var(--color-ink-400)" }}
+        style={{
+          color: active ? "var(--color-ink-700)" : "var(--color-ink-400)",
+        }}
       >
         {label}
       </span>
@@ -365,7 +440,13 @@ function ApprovalDot({ active, color, label }: { active: boolean; color: string;
 }
 
 /* ── Connector line between dots ── */
-function ApprovalConnector({ active, color }: { active: boolean; color: string }) {
+function ApprovalConnector({
+  active,
+  color,
+}: {
+  active: boolean;
+  color: string;
+}) {
   return (
     <div
       className="h-px w-3"
@@ -432,7 +513,9 @@ function newDate(): Date {
 }
 
 function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() &&
+  return (
+    a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+    a.getDate() === b.getDate()
+  );
 }

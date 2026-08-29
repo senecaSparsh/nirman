@@ -9,7 +9,9 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatDate } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { Plus, ClipboardCheck, Search, AlertTriangle, ShieldCheck, Loader2 } from "lucide-react";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -35,11 +37,6 @@ type Subcontractor = { id: string; name: string; trade: string | null };
 const CATEGORY_LABELS: Record<string, string> = {
   MATERIAL: "Material", WORKMANSHIP: "Workmanship", DESIGN: "Design",
   DOCUMENT: "Document", PROCESS: "Process", SAFETY: "Safety", OTHER: "Other",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  OPEN: "warning", UNDER_REVIEW: "warning", CAPA_REQUIRED: "warning",
-  ACCEPTED: "success", REJECTED: "danger", CLOSED: "success", CANCELLED: "default",
 };
 
 const SEVERITY_VARIANTS: Record<string, "danger" | "warning" | "default"> = {
@@ -144,7 +141,7 @@ export function QualityControlView({
               <div className="text-xs text-muted-foreground self-center truncate">{n.projectName}</div>
               <div className="text-xs self-center">{CATEGORY_LABELS[n.category] ?? n.category}</div>
               <div className="self-center"><Badge variant={SEVERITY_VARIANTS[n.severity] ?? "default"}>{n.severity}</Badge></div>
-              <div className="self-center"><Badge variant={STATUS_VARIANTS[n.status] ?? "default"}>{n.status}</Badge></div>
+              <div className="self-center"><Badge variant={statusBadgeVariant(n.status)}>{n.status}</Badge></div>
               <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(n.raisedAt)}</div>
             </button>
           ))}
@@ -178,6 +175,7 @@ function NewNcrDialog({
   onSaved: () => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",
     title: "",
@@ -213,6 +211,7 @@ function NewNcrDialog({
           location: form.location || null,
           responsibleParty: form.responsibleParty || null,
           subcontractorId: form.subcontractorId || null,
+          attachments: attachments.map((a) => a.url),
         }),
       });
       const data = await res.json();
@@ -282,6 +281,10 @@ function NewNcrDialog({
         <Field label="Location">
           <Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower A, 3rd floor, flat 302" />
         </Field>
+        <div>
+          <p className="text-sm font-medium mb-1.5">Photo Evidence</p>
+          <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" disabled={saving}>

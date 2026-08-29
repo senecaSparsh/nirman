@@ -201,7 +201,7 @@ async function InventoryContent() {
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {recentRequisitions.map((req) => {
-              const reqLabel = `REQ-${req.reqNumber ?? req.id.slice(-6)}`;
+              const reqLabel = req.reqNumber ?? `REQ-${req.id.slice(-6)}`;
               return (
                 <Link
                   key={req.id}
@@ -236,7 +236,24 @@ async function loadInventoryTree(current: {
   parentCompanyId: string | null;
   name: string;
 }): Promise<InventoryTreeData> {
-  const groupIds = await getCompanyGroupIds(current);
+  // Scope the tree based on the selected company's position in the hierarchy:
+  //   - Parent company (no parent, or has children): show the full group tree
+  //     (parent + all siblings + all children) — the "bird's eye" view.
+  //   - Child company (has a parent): show ONLY this company's subtree
+  //     (self + own subsidiaries, warehouses, projects) — no siblings,
+  //     no parent. The user drilled into a subsidiary, so they want to
+  //     see just that subsidiary's inventory, not the whole group.
+  const isChild = !!current.parentCompanyId;
+
+  let groupIds: string[];
+  if (isChild) {
+    // Just this company + its descendants (recursive children)
+    groupIds = await getDescendantCompanyIds(current.id);
+  } else {
+    // Full group (parent + siblings + children)
+    groupIds = await getCompanyGroupIds(current);
+  }
+
   const companies = await prisma.company.findMany({
     where: { id: { in: groupIds }, deletedAt: null },
     select: {
@@ -360,4 +377,29 @@ async function loadInventoryTree(current: {
     skuCount: roots.reduce((s, n) => s + n.skuCount, 0),
     companies: roots,
   };
+}
+
+/**
+ * Returns the IDs of a company and ALL its descendants (recursive children).
+ * Used to scope the inventory tree to just a subsidiary's subtree when the
+ * user has selected a child company — they don't need to see siblings or
+ * the parent, just their own branch.
+ */
+async function getDescendantCompanyIds(rootId: string): Promise<string[]> {
+  const ids = new Set<string>([rootId]);
+  let queue = [rootId];
+  while (queue.length > 0) {
+    const children = await prisma.company.findMany({
+      where: { parentCompanyId: { in: queue }, deletedAt: null },
+      select: { id: true },
+    });
+    queue = [];
+    for (const c of children) {
+      if (!ids.has(c.id)) {
+        ids.add(c.id);
+        queue.push(c.id);
+      }
+    }
+  }
+  return [...ids];
 }

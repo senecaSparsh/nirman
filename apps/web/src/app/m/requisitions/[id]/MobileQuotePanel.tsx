@@ -3,8 +3,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  Plus, Trophy, AlertTriangle, CheckCircle2, Loader2,
-  Crown, FileText, Upload, X, Trash2, ShieldCheck,
+  Plus,
+  Trophy,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Crown,
+  FileText,
+  Upload,
+  X,
+  Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -114,7 +123,10 @@ export function MobileQuotePanel({
       const res = await fetch(`/api/requisitions/${requisitionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "waiveQuotes", reason: waiveReason.trim() }),
+        body: JSON.stringify({
+          action: "waiveQuotes",
+          reason: waiveReason.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -149,7 +161,10 @@ export function MobileQuotePanel({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-6 text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
+      <div
+        className="flex items-center justify-center gap-2 py-6 text-[0.6875rem]"
+        style={{ color: "var(--color-ink-500)" }}
+      >
         <Loader2 className="size-4 animate-spin" /> Loading quotes…
       </div>
     );
@@ -157,7 +172,8 @@ export function MobileQuotePanel({
 
   if (!statement) return null;
 
-  const { nonRejectedCount, gateSatisfied, cheapestQuoteId, selectedQuoteId } = statement;
+  const { nonRejectedCount, gateSatisfied, cheapestQuoteId, selectedQuoteId } =
+    statement;
   const minRequired = statement.requisition.minQuotesRequired;
   const waived = statement.requisition.quotesWaived;
   const locked = statement.requisition.quotesLockedAt !== null;
@@ -166,14 +182,21 @@ export function MobileQuotePanel({
     <div className="mb-5">
       {/* ── Section header ── */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[0.5625rem] font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
+        <p
+          className="text-[0.5625rem] font-bold uppercase tracking-wider"
+          style={{ color: "var(--color-steel)" }}
+        >
           Vendor Quotes
         </p>
         <div className="flex items-center gap-1.5">
           {gateSatisfied ? (
             <span
               className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--color-go) 12%, transparent)",
+                color: "var(--color-go)",
+              }}
             >
               <CheckCircle2 className="size-2.5" />
               {waived ? "Waived" : `${nonRejectedCount}/${minRequired}`}
@@ -181,7 +204,11 @@ export function MobileQuotePanel({
           ) : (
             <span
               className="flex items-center gap-0.5 text-[0.5rem] font-bold uppercase px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal-dark)" }}
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--color-signal) 12%, transparent)",
+                color: "var(--color-signal-dark)",
+              }}
             >
               <AlertTriangle className="size-2.5" />
               {nonRejectedCount}/{minRequired}
@@ -202,23 +229,50 @@ export function MobileQuotePanel({
       {kpis ? (
         <div
           className="rounded-[0.5rem] border p-2.5 mb-2 grid grid-cols-3 gap-2"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
         >
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Lowest</p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p
+              className="text-[0.4375rem] font-semibold uppercase"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Lowest
+            </p>
+            <p
+              className="text-[0.6875rem] font-bold tabular-nums"
+              style={{ color: "var(--color-go)" }}
+            >
               {formatCurrency(kpis.lowest)}
             </p>
           </div>
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Highest</p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
+            <p
+              className="text-[0.4375rem] font-semibold uppercase"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Highest
+            </p>
+            <p
+              className="text-[0.6875rem] font-bold tabular-nums"
+              style={{ color: "var(--color-stop)" }}
+            >
               {formatCurrency(kpis.highest)}
             </p>
           </div>
           <div>
-            <p className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Savings</p>
-            <p className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.4375rem] font-semibold uppercase"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Savings
+            </p>
+            <p
+              className="text-[0.6875rem] font-bold tabular-nums"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               {formatCurrency(kpis.savings)}
             </p>
           </div>
@@ -237,7 +291,11 @@ export function MobileQuotePanel({
                 key={quote.id}
                 className="rounded-[0.625rem] border overflow-hidden"
                 style={{
-                  borderColor: isSelected ? "var(--color-go)" : isCheapest ? "color-mix(in srgb, var(--color-go) 40%, var(--color-line))" : "var(--color-line)",
+                  borderColor: isSelected
+                    ? "var(--color-go)"
+                    : isCheapest
+                      ? "color-mix(in srgb, var(--color-go) 40%, var(--color-line))"
+                      : "var(--color-line)",
                   backgroundColor: "var(--color-paper)",
                 }}
               >
@@ -255,13 +313,20 @@ export function MobileQuotePanel({
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                      <span
+                        className="text-[0.6875rem] font-bold truncate"
+                        style={{ color: "var(--color-ink-950)" }}
+                      >
                         {quote.supplierName}
                       </span>
                       {isCheapest ? (
                         <span
                           className="flex items-center gap-0.5 text-[0.4375rem] font-bold uppercase px-1 py-0 rounded shrink-0"
-                          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)", color: "var(--color-go)" }}
+                          style={{
+                            backgroundColor:
+                              "color-mix(in srgb, var(--color-go) 15%, transparent)",
+                            color: "var(--color-go)",
+                          }}
                         >
                           <Trophy className="size-2" /> Cheapest
                         </span>
@@ -269,41 +334,78 @@ export function MobileQuotePanel({
                       {isSelected ? (
                         <span
                           className="flex items-center gap-0.5 text-[0.4375rem] font-bold uppercase px-1 py-0 rounded shrink-0"
-                          style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                          style={{
+                            backgroundColor: "var(--color-go)",
+                            color: "#fff",
+                          }}
                         >
                           <Crown className="size-2" /> Selected
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <p
+                      className="text-[0.5rem] tabular-nums"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
                       #{idx + 1} · {quote.submittedBy?.name ?? "—"}
-                      {quote.validUntil ? ` · valid till ${formatDate(quote.validUntil)}` : ""}
+                      {quote.validUntil
+                        ? ` · valid till ${formatDate(quote.validUntil)}`
+                        : ""}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[0.75rem] font-bold tabular-nums" style={{ color: isSelected ? "var(--color-go)" : "var(--color-ink-950)" }}>
+                    <p
+                      className="text-[0.75rem] font-bold tabular-nums"
+                      style={{
+                        color: isSelected
+                          ? "var(--color-go)"
+                          : "var(--color-ink-950)",
+                      }}
+                    >
                       {formatCurrency(quote.landedTotal)}
                     </p>
-                    <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>landed total</p>
+                    <p
+                      className="text-[0.4375rem]"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      landed total
+                    </p>
                   </div>
                 </div>
 
                 {/* Card body — line breakdown */}
                 <div className="px-2.5 py-2 flex flex-col gap-1">
                   {quote.lines.map((ql) => {
-                    const reqLine = requisitionLines.find((l) => l.materialId === ql.materialId);
+                    const reqLine = requisitionLines.find(
+                      (l) => l.materialId === ql.materialId,
+                    );
                     return (
-                      <div key={ql.materialId} className="flex items-center justify-between gap-2">
+                      <div
+                        key={ql.materialId}
+                        className="flex items-center justify-between gap-2"
+                      >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[0.5625rem] font-semibold truncate" style={{ color: "var(--color-ink-700)" }}>
+                          <p
+                            className="text-[0.5625rem] font-semibold truncate"
+                            style={{ color: "var(--color-ink-700)" }}
+                          >
                             {reqLine?.materialName ?? ql.materialId}
                           </p>
-                          <p className="text-[0.4375rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                            {ql.qty} {reqLine?.unit ?? ""} × {formatCurrency(ql.unitPrice)}
-                            {ql.freightPerUnit > 0 ? ` + ${formatCurrency(ql.freightPerUnit)} frt` : ""}
+                          <p
+                            className="text-[0.4375rem] tabular-nums"
+                            style={{ color: "var(--color-ink-500)" }}
+                          >
+                            {ql.qty} {reqLine?.unit ?? ""} ×{" "}
+                            {formatCurrency(ql.unitPrice)}
+                            {ql.freightPerUnit > 0
+                              ? ` + ${formatCurrency(ql.freightPerUnit)} frt`
+                              : ""}
                           </p>
                         </div>
-                        <p className="text-[0.5625rem] font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-700)" }}>
+                        <p
+                          className="text-[0.5625rem] font-bold tabular-nums shrink-0"
+                          style={{ color: "var(--color-ink-700)" }}
+                        >
                           {formatCurrency(ql.lineTotal)}
                         </p>
                       </div>
@@ -314,7 +416,10 @@ export function MobileQuotePanel({
                 {/* Card actions */}
                 <div
                   className="flex items-center gap-1.5 px-2.5 py-1.5"
-                  style={{ borderTop: "1px solid var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+                  style={{
+                    borderTop: "1px solid var(--color-line)",
+                    backgroundColor: "var(--color-paper-2)",
+                  }}
                 >
                   <a
                     href={quote.fileUrl}
@@ -331,9 +436,16 @@ export function MobileQuotePanel({
                       onClick={() => selectWinner(quote.id)}
                       disabled={isSelecting}
                       className="flex items-center gap-1 text-[0.5625rem] font-bold px-2 py-1 rounded press disabled:opacity-50"
-                      style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                      style={{
+                        backgroundColor: "var(--color-go)",
+                        color: "#fff",
+                      }}
                     >
-                      {isSelecting ? <Loader2 className="size-3 animate-spin" /> : <Crown className="size-3" />}
+                      {isSelecting ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Crown className="size-3" />
+                      )}
                       Select Winner
                     </button>
                   ) : null}
@@ -355,12 +467,17 @@ export function MobileQuotePanel({
       ) : (
         <div
           className="rounded-[0.5rem] border border-dashed p-4 text-center mb-3"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+          style={{
+            borderColor: "var(--color-line)",
+            color: "var(--color-ink-500)",
+          }}
         >
-          <p className="text-[0.6875rem] font-semibold mb-1">No quotes uploaded yet</p>
+          <p className="text-[0.6875rem] font-semibold mb-1">
+            No quotes uploaded yet
+          </p>
           <p className="text-[0.5625rem]">
-            {minRequired} vendor quote{minRequired > 1 ? "s" : ""} required to convert to PO.
-            Upload quote files from suppliers with pricing.
+            {minRequired} vendor quote{minRequired > 1 ? "s" : ""} required to
+            convert to PO. Upload quote files from suppliers with pricing.
           </p>
         </div>
       )}
@@ -370,9 +487,15 @@ export function MobileQuotePanel({
         {canCreate && !locked ? (
           <button
             type="button"
-            onClick={() => { haptic(10); setUploadOpen(true); }}
+            onClick={() => {
+              haptic(10);
+              setUploadOpen(true);
+            }}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2.5 text-[0.6875rem] font-bold press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            style={{
+              borderColor: "var(--color-signal)",
+              color: "var(--color-signal-dark)",
+            }}
           >
             <Plus className="size-3.5" /> Upload Quote
           </button>
@@ -382,7 +505,10 @@ export function MobileQuotePanel({
             type="button"
             onClick={() => setWaiveOpen(true)}
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border py-2.5 px-3 text-[0.6875rem] font-bold press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              color: "var(--color-ink-700)",
+            }}
           >
             <ShieldCheck className="size-3.5" /> Waive
           </button>
@@ -439,7 +565,8 @@ function MobileQuoteUploadDialog({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [supplierId, setSupplierId] = useState("");
-  const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
+  const [localSuppliers, setLocalSuppliers] =
+    useState<SupplierOption[]>(suppliers);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
@@ -448,6 +575,9 @@ function MobileQuoteUploadDialog({
   const [mimeType, setMimeType] = useState("");
   const [landedTotal, setLandedTotal] = useState("");
   const [validUntil, setValidUntil] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [leadTimeDays, setLeadTimeDays] = useState("");
+  const [warranty, setWarranty] = useState("");
   const [notes, setNotes] = useState("");
   const [linePrices, setLinePrices] = useState<Record<string, string>>({});
 
@@ -471,7 +601,10 @@ function MobileQuoteUploadDialog({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setFileUrl(data.url);
@@ -495,7 +628,10 @@ function MobileQuoteUploadDialog({
     e.preventDefault();
     if (!supplierId) return toast.error("Select a supplier");
     if (!fileUrl) return toast.error("Upload a quote file (PDF/image)");
-    if (!landedTotal && computedTotal === 0) return toast.error("Enter the landed total or line prices");
+    if (!paymentTerms.trim()) return toast.error("Payment terms required (e.g. '30 days credit')");
+    if (!leadTimeDays || Number(leadTimeDays) < 0) return toast.error("Lead time (days) required");
+    if (!landedTotal && computedTotal === 0)
+      return toast.error("Enter the landed total or line prices");
 
     const total = landedTotal ? Number(landedTotal) : computedTotal;
     if (total <= 0) return toast.error("Landed total must be > 0");
@@ -519,6 +655,9 @@ function MobileQuoteUploadDialog({
           landedTotal: landedTotal ? total : undefined,
           validUntil: validUntil || null,
           notes: notes.trim() || null,
+          paymentTerms: paymentTerms.trim(),
+          leadTimeDays: Number(leadTimeDays) || 0,
+          warranty: warranty.trim() || undefined,
           deliveryTermsType: "DELIVERED_SITE",
           lines,
         }),
@@ -536,7 +675,8 @@ function MobileQuoteUploadDialog({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -546,10 +686,7 @@ function MobileQuoteUploadDialog({
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose} />
       {/* Bottom sheet */}
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
@@ -561,16 +698,36 @@ function MobileQuoteUploadDialog({
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+          <div
+            className="w-10 h-1 rounded-full"
+            style={{ backgroundColor: "var(--color-line)" }}
+          />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+        <div
+          className="flex items-center justify-between px-4 pb-2 border-b"
+          style={{ borderColor: "var(--color-line)" }}
+        >
           <div>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Upload Vendor Quote</p>
-            <p className="text-[0.5625rem] font-mono" style={{ color: "var(--color-ink-500)" }}>{reqNumber}</p>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              Upload Vendor Quote
+            </p>
+            <p
+              className="text-[0.5625rem] font-mono"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {reqNumber}
+            </p>
           </div>
-          <button onClick={onClose} className="grid place-items-center size-8 rounded-[0.5rem] press" style={{ color: "var(--color-ink-500)" }}>
+          <button
+            onClick={onClose}
+            className="touch grid place-items-center rounded-[0.5rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -578,7 +735,10 @@ function MobileQuoteUploadDialog({
         <form onSubmit={onSubmit} className="px-4 py-3 flex flex-col gap-3">
           {/* Supplier */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Supplier *
             </label>
             <button
@@ -590,52 +750,105 @@ function MobileQuoteUploadDialog({
               {selectedSupplier ? (
                 <span className="text-left">{selectedSupplier.name}</span>
               ) : (
-                <span className="text-left" style={{ color: "var(--color-ink-500)" }}>Select supplier…</span>
+                <span
+                  className="text-left"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Select supplier…
+                </span>
               )}
             </button>
           </div>
 
           {/* File upload */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Quote File (PDF/Image) *
             </label>
             {fileUrl ? (
-              <div className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2" style={inputStyle}>
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
+              <div
+                className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
+                style={inputStyle}
+              >
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 truncate text-[0.6875rem] font-semibold"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
                   {fileName}
                 </a>
-                <button type="button" onClick={clearFile} className="shrink-0" style={{ color: "var(--color-ink-500)" }}>
+                <button
+                  type="button"
+                  onClick={clearFile}
+                  className="shrink-0"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
                   <X className="size-4" />
                 </button>
               </div>
             ) : (
               <label
                 className="flex cursor-pointer items-center justify-center gap-2 rounded-[0.5rem] border border-dashed py-3 text-[0.6875rem]"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+                style={{
+                  borderColor: "var(--color-line)",
+                  color: "var(--color-ink-500)",
+                }}
               >
-                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
                 <span>{uploading ? "Uploading…" : "Choose file"}</span>
-                <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                />
               </label>
             )}
           </div>
 
           {/* Line prices */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1.5"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Line Prices (per unit)
             </label>
-            <div className="rounded-[0.5rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+            <div
+              className="rounded-[0.5rem] border overflow-hidden"
+              style={{ borderColor: "var(--color-line)" }}
+            >
               {requisitionLines.map((l, i) => (
                 <div
                   key={l.materialId}
                   className="flex items-center gap-2 px-2.5 py-2"
-                  style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                  style={
+                    i > 0
+                      ? { borderTop: "1px solid var(--color-line)" }
+                      : undefined
+                  }
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.625rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</p>
-                    <p className="text-[0.5rem] tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    <p
+                      className="text-[0.625rem] font-bold truncate"
+                      style={{ color: "var(--color-ink-950)" }}
+                    >
+                      {l.materialName}
+                    </p>
+                    <p
+                      className="text-[0.5rem] tabular-nums"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
                       {l.qtyRequested} {l.unit}
                     </p>
                   </div>
@@ -646,7 +859,12 @@ function MobileQuoteUploadDialog({
                     min="0"
                     placeholder="0"
                     value={linePrices[l.materialId] ?? ""}
-                    onChange={(e) => setLinePrices((p) => ({ ...p, [l.materialId]: e.target.value }))}
+                    onChange={(e) =>
+                      setLinePrices((p) => ({
+                        ...p,
+                        [l.materialId]: e.target.value,
+                      }))
+                    }
                     className="w-24 text-right rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
                     style={inputStyle}
                   />
@@ -654,8 +872,16 @@ function MobileQuoteUploadDialog({
               ))}
             </div>
             <div className="flex items-center justify-between px-1 mt-1.5">
-              <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>Computed total (ex-GST)</span>
-              <span className="text-[0.6875rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              <span
+                className="text-[0.5625rem]"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Computed total (ex-GST)
+              </span>
+              <span
+                className="text-[0.6875rem] font-bold tabular-nums"
+                style={{ color: "var(--color-ink-950)" }}
+              >
                 {formatCurrency(computedTotal)}
               </span>
             </div>
@@ -663,7 +889,10 @@ function MobileQuoteUploadDialog({
 
           {/* Landed total override */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Landed Total (delivered to site) *
             </label>
             <input
@@ -677,14 +906,20 @@ function MobileQuoteUploadDialog({
               className={inputClass}
               style={inputStyle}
             />
-            <p className="text-[0.5rem] mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+            <p
+              className="text-[0.5rem] mt-0.5"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Leave blank to use computed total from lines
             </p>
           </div>
 
           {/* Valid until */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Valid Until
             </label>
             <input
@@ -696,9 +931,67 @@ function MobileQuoteUploadDialog({
             />
           </div>
 
+          {/* Commercial terms */}
+          <div>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Payment Terms *
+            </label>
+            <input
+              type="text"
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value)}
+              placeholder="e.g. 30 days credit"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label
+                className="text-[0.5625rem] font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Lead Time (days) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="365"
+                inputMode="numeric"
+                value={leadTimeDays}
+                onChange={(e) => setLeadTimeDays(e.target.value)}
+                placeholder="e.g. 7"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label
+                className="text-[0.5625rem] font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Warranty (optional)
+              </label>
+              <input
+                type="text"
+                value={warranty}
+                onChange={(e) => setWarranty(e.target.value)}
+                placeholder="e.g. 12 months"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
           {/* Notes */}
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Notes (optional)
             </label>
             <textarea
@@ -716,9 +1009,16 @@ function MobileQuoteUploadDialog({
             type="submit"
             disabled={saving || uploading}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
           >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-3.5" />}
+            {saving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-3.5" />
+            )}
             {saving ? "Saving…" : "Upload Quote"}
           </button>
         </form>
@@ -731,9 +1031,15 @@ function MobileQuoteUploadDialog({
           search={supplierSearch}
           setSearch={setSupplierSearch}
           selectedId={supplierId}
-          onSelect={(id) => { setSupplierId(id); setShowSupplierPicker(false); }}
+          onSelect={(id) => {
+            setSupplierId(id);
+            setShowSupplierPicker(false);
+          }}
           onClose={() => setShowSupplierPicker(false)}
-          onCreateNew={() => { setShowSupplierPicker(false); setShowNewSupplier(true); }}
+          onCreateNew={() => {
+            setShowSupplierPicker(false);
+            setShowNewSupplier(true);
+          }}
         />
       ) : null}
 
@@ -785,11 +1091,26 @@ function SupplierPickerModal({
         }}
       >
         <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+          <div
+            className="w-10 h-1 rounded-full"
+            style={{ backgroundColor: "var(--color-line)" }}
+          />
         </div>
-        <div className="flex items-center justify-between px-4 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Select Supplier</p>
-          <button onClick={onClose} className="grid place-items-center size-8 rounded-[0.5rem] press" style={{ color: "var(--color-ink-500)" }}>
+        <div
+          className="flex items-center justify-between px-4 pb-2 border-b"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          <p
+            className="text-[0.875rem] font-bold"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            Select Supplier
+          </p>
+          <button
+            onClick={onClose}
+            className="touch grid place-items-center rounded-[0.5rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -800,7 +1121,11 @@ function SupplierPickerModal({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search suppliers…"
             className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
           />
         </div>
         <div className="px-2 pb-2 flex flex-col gap-0.5">
@@ -810,22 +1135,43 @@ function SupplierPickerModal({
               onClick={() => onSelect(s.id)}
               className="flex items-center justify-between rounded-[0.5rem] px-3 py-2.5 text-left press"
               style={{
-                backgroundColor: s.id === selectedId ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
+                backgroundColor:
+                  s.id === selectedId
+                    ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"
+                    : "transparent",
               }}
             >
-              <span className="text-[0.75rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>{s.name}</span>
-              {s.id === selectedId ? <CheckCircle2 className="size-4" style={{ color: "var(--color-go)" }} /> : null}
+              <span
+                className="text-[0.75rem] font-semibold"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                {s.name}
+              </span>
+              {s.id === selectedId ? (
+                <CheckCircle2
+                  className="size-4"
+                  style={{ color: "var(--color-go)" }}
+                />
+              ) : null}
             </button>
           ))}
           {suppliers.length === 0 ? (
-            <p className="text-[0.6875rem] text-center py-4" style={{ color: "var(--color-ink-500)" }}>No suppliers found</p>
+            <p
+              className="text-[0.6875rem] text-center py-4"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              No suppliers found
+            </p>
           ) : null}
         </div>
         <div className="px-4 pb-2">
           <button
             onClick={onCreateNew}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2.5 text-[0.6875rem] font-bold press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            style={{
+              borderColor: "var(--color-signal)",
+              color: "var(--color-signal-dark)",
+            }}
           >
             <Plus className="size-3.5" /> Create New Supplier
           </button>
@@ -863,20 +1209,42 @@ function WaiveDialog({
         }}
       >
         <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+          <div
+            className="w-10 h-1 rounded-full"
+            style={{ backgroundColor: "var(--color-line)" }}
+          />
         </div>
-        <div className="flex items-center justify-between px-4 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>Waive Quote Requirement</p>
-          <button onClick={onCancel} className="grid place-items-center size-8 rounded-[0.5rem] press" style={{ color: "var(--color-ink-500)" }}>
+        <div
+          className="flex items-center justify-between px-4 pb-2 border-b"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          <p
+            className="text-[0.875rem] font-bold"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            Waive Quote Requirement
+          </p>
+          <button
+            onClick={onCancel}
+            className="touch grid place-items-center rounded-[0.5rem] press"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             <X className="size-4" />
           </button>
         </div>
         <div className="px-4 py-3 flex flex-col gap-3">
-          <p className="text-[0.6875rem]" style={{ color: "var(--color-ink-500)" }}>
-            Waiving allows PO conversion without the minimum vendor quotes. This is logged for audit.
+          <p
+            className="text-[0.6875rem]"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            Waiving allows PO conversion without the minimum vendor quotes. This
+            is logged for audit.
           </p>
           <div>
-            <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label
+              className="text-[0.5625rem] font-semibold block mb-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               Reason *
             </label>
             <textarea
@@ -885,16 +1253,27 @@ function WaiveDialog({
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Single source supplier, emergency procurement…"
               className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem] resize-none outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
           <button
             onClick={onConfirm}
             disabled={waiving}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
           >
-            {waiving ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-3.5" />}
+            {waiving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="size-3.5" />
+            )}
             {waiving ? "Waiving…" : "Confirm Waive"}
           </button>
         </div>

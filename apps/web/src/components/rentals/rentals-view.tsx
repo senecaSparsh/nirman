@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserCog, TrendingUp, CalendarClock, FileText, ExternalLink, Upload } from "lucide-react";
+import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserCog, TrendingUp, CalendarClock, FileText, ExternalLink, Upload, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -92,6 +92,11 @@ export type TenancyRow = {
   escalationIntervalMonths: number;
   nextEscalationDate: string | null;
   lastEscalatedAt: string | null;
+  rentFreeDays: number;
+  draftDocumentUrl: string | null;
+  draftDocumentName: string | null;
+  draftNotes: string | null;
+  draftDate: string | null;
   status: string;
   notes: string | null;
   totalReceived: number;
@@ -174,6 +179,8 @@ export function RentalsView({
   const [pRef, setPRef] = useState("");
   const [pTds, setPTds] = useState("");
   const [pTdsCert, setPTdsCert] = useState("");
+  const [pPeriodStart, setPPeriodStart] = useState("");
+  const [pPeriodEnd, setPPeriodEnd] = useState("");
 
   // Escalation
   const [escalateTarget, setEscalateTarget] = useState<TenancyRow | null>(null);
@@ -195,9 +202,20 @@ export function RentalsView({
   // Create form — escalation
   const [fEscalationPct, setFEscalationPct] = useState("");
   const [fEscalationInterval, setFEscalationInterval] = useState("12");
+  // Create form — rent-free / fit-out period
+  const [fRentFreeDays, setFRentFreeDays] = useState("");
+  // Create form — SAC code + draft / LOI
+  const [fSacCode, setFSacCode] = useState("997313");
+  const [fDraftNotes, setFDraftNotes] = useState("");
+  const [fDraftDate, setFDraftDate] = useState("");
 
   // Edit form — escalation
   const [eEscalationPct, setEEscalationPct] = useState("");
+  // Edit form — rent-free + SAC + draft
+  const [eRentFreeDays, setERentFreeDays] = useState("");
+  const [eSacCode, setESacCode] = useState("");
+  const [eDraftNotes, setEDraftNotes] = useState("");
+  const [eDraftDate, setEDraftDate] = useState("");
 
   // Local copy of customers so freshly created ones appear without a refresh
   const [localCustomers, setLocalCustomers] = useState(customers);
@@ -227,8 +245,12 @@ export function RentalsView({
           monthlyRent: Number(fRent),
           securityDeposit: Number(fDeposit) || 0,
           rentAgreementNo: fAgreementNo || null,
+          sacCode: fSacCode || null,
           escalationPercent: fEscalationPct ? Number(fEscalationPct) : null,
           escalationIntervalMonths: Number(fEscalationInterval) || 12,
+          rentFreeDays: Number(fRentFreeDays) || 0,
+          draftNotes: fDraftNotes || null,
+          draftDate: fDraftDate || null,
           notes: fNotes || null,
         }),
       });
@@ -236,7 +258,7 @@ export function RentalsView({
       if (!res.ok) throw new Error(data.error ?? "Failed to create tenancy");
       toast.success("Tenancy created");
       setFormOpen(false);
-      setFAssetId(""); setFTenantName(""); setFTenantPhone(""); setFStart(""); setFEnd(""); setFRent(""); setFDeposit(""); setFAgreementNo(""); setFNotes(""); setFEscalationPct(""); setFEscalationInterval("12");
+      setFAssetId(""); setFTenantName(""); setFTenantPhone(""); setFStart(""); setFEnd(""); setFRent(""); setFDeposit(""); setFAgreementNo(""); setFNotes(""); setFEscalationPct(""); setFEscalationInterval("12"); setFRentFreeDays(""); setFSacCode("997313"); setFDraftNotes(""); setFDraftDate("");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -303,6 +325,10 @@ export function RentalsView({
     setEAgreementNo(t.rentAgreementNo ?? "");
     setENotes(t.notes ?? "");
     setEEscalationPct(t.escalationPercent != null ? String(t.escalationPercent) : "");
+    setERentFreeDays(t.rentFreeDays ? String(t.rentFreeDays) : "");
+    setESacCode(t.sacCode ?? "");
+    setEDraftNotes(t.draftNotes ?? "");
+    setEDraftDate(t.draftDate ? t.draftDate.slice(0, 10) : "");
   }
 
   async function submitEdit() {
@@ -326,6 +352,10 @@ export function RentalsView({
           rentAgreementNo: eAgreementNo || null,
           notes: eNotes || null,
           escalationPercent: eEscalationPct ? Number(eEscalationPct) : null,
+          rentFreeDays: Number(eRentFreeDays) || 0,
+          sacCode: eSacCode || null,
+          draftNotes: eDraftNotes || null,
+          draftDate: eDraftDate || null,
         }),
       });
       const data = await res.json();
@@ -355,13 +385,15 @@ export function RentalsView({
           reference: pRef || null,
           tdsAmount: pTds ? Number(pTds) : undefined,
           tdsCertificateNo: pTdsCert || null,
+          periodStart: pPeriodStart || undefined,
+          periodEnd: pPeriodEnd || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       toast.success("Rent payment recorded");
       setPayTarget(null);
-      setPAmount(""); setPDate(""); setPRef(""); setPTds(""); setPTdsCert("");
+      setPAmount(""); setPDate(""); setPRef(""); setPTds(""); setPTdsCert(""); setPPeriodStart(""); setPPeriodEnd("");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -777,6 +809,38 @@ export function RentalsView({
             </div>
           </div>
           <div>
+            <Label>Rent-free / fit-out period (days)</Label>
+            <Input type="number" value={fRentFreeDays} onChange={(e) => setFRentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
+            <p className="text-caption text-muted-foreground mt-1">Tenant moves in and sets up without paying rent. Billing starts after this many days.</p>
+          </div>
+          <div>
+            <Label>SAC Code (GST on rent)</Label>
+            <Select value={fSacCode} onChange={(e) => setFSacCode(e.target.value)}>
+              <option value="997313">997313 — Construction equipment rental (18%)</option>
+              <option value="997314">997314 — Office machinery rental (18%)</option>
+              <option value="997317">997317 — Other machinery rental (18%)</option>
+              <option value="997319">997319 — Other equipment rental (18%)</option>
+              <option value="997323">997323 — Furniture & fixtures rental (18%)</option>
+              <option value="997329">997329 — General goods rental (18%)</option>
+              <option value="997212">997212 — Non-residential property rent (18%)</option>
+              <option value="997211">997211 — Residential property rent (exempt)</option>
+              <option value="9973">9973 — Leasing/rental (parent heading, 18%)</option>
+            </Select>
+            <p className="text-caption text-muted-foreground mt-1">SAC (Service Accounting Code) determines the GST rate on rental income.</p>
+          </div>
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <p className="text-label font-semibold text-muted-foreground">Draft / LOI (optional)</p>
+            <p className="text-caption text-muted-foreground">Informal terms discussed before the formal registered agreement. Printable on company letterhead — like a PO for rentals.</p>
+            <div>
+              <Label>Draft date</Label>
+              <Input type="date" value={fDraftDate} onChange={(e) => setFDraftDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Draft / LOI notes</Label>
+              <Textarea value={fDraftNotes} onChange={(e) => setFDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed — what was agreed verbally (e.g. possession date, work tenant will do, escalation terms)…" />
+            </div>
+          </div>
+          <div>
             <Label>Notes (optional)</Label>
             <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
@@ -828,6 +892,16 @@ export function RentalsView({
             <div>
               <Label>TDS certificate no. (optional)</Label>
               <Input value={pTdsCert} onChange={(e) => setPTdsCert(e.target.value)} placeholder="Form 16C no." />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Rent period start (optional)</Label>
+              <Input type="date" value={pPeriodStart} onChange={(e) => setPPeriodStart(e.target.value)} />
+            </div>
+            <div>
+              <Label>Rent period end (optional)</Label>
+              <Input type="date" value={pPeriodEnd} onChange={(e) => setPPeriodEnd(e.target.value)} />
             </div>
           </div>
           {pTds && Number(pTds) > 0 && pAmount && (
@@ -998,6 +1072,36 @@ export function RentalsView({
             <Input type="number" value={eEscalationPct} onChange={(e) => setEEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
           </div>
           <div>
+            <Label>Rent-free / fit-out period (days)</Label>
+            <Input type="number" value={eRentFreeDays} onChange={(e) => setERentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
+          </div>
+          <div>
+            <Label>SAC Code (GST on rent)</Label>
+            <Select value={eSacCode} onChange={(e) => setESacCode(e.target.value)}>
+              <option value="">— None —</option>
+              <option value="997313">997313 — Construction equipment rental (18%)</option>
+              <option value="997314">997314 — Office machinery rental (18%)</option>
+              <option value="997317">997317 — Other machinery rental (18%)</option>
+              <option value="997319">997319 — Other equipment rental (18%)</option>
+              <option value="997323">997323 — Furniture & fixtures rental (18%)</option>
+              <option value="997329">997329 — General goods rental (18%)</option>
+              <option value="997212">997212 — Non-residential property rent (18%)</option>
+              <option value="997211">997211 — Residential property rent (exempt)</option>
+              <option value="9973">9973 — Leasing/rental (parent heading, 18%)</option>
+            </Select>
+          </div>
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <p className="text-label font-semibold text-muted-foreground">Draft / LOI (optional)</p>
+            <div>
+              <Label>Draft date</Label>
+              <Input type="date" value={eDraftDate} onChange={(e) => setEDraftDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Draft / LOI notes</Label>
+              <Textarea value={eDraftNotes} onChange={(e) => setEDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed before the formal agreement…" />
+            </div>
+          </div>
+          <div>
             <Label>Notes (optional)</Label>
             <Textarea value={eNotes} onChange={(e) => setENotes(e.target.value)} rows={2} />
           </div>
@@ -1145,6 +1249,34 @@ function TenancyDetailDialog({
           )}
         </div>
 
+        {/* Draft / LOI — print terms on company letterhead */}
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Printer className="h-4 w-4 text-muted-foreground" />
+            <p className="text-label text-muted-foreground">Draft / LOI</p>
+          </div>
+          {tenancy.draftNotes ? (
+            <div className="space-y-1">
+              {tenancy.draftDate && (
+                <p className="text-caption text-muted-foreground">Draft date: {formatDate(tenancy.draftDate)}</p>
+              )}
+              <p className="text-body leading-relaxed whitespace-pre-wrap text-foreground">{tenancy.draftNotes}</p>
+            </div>
+          ) : (
+            <p className="text-micro text-muted-foreground">
+              Print the discussed terms on company letterhead — a simple draft before the formal agreement is registered.
+            </p>
+          )}
+          <a
+            href={`/print/tenancy-draft/${tenancy.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-caption text-primary hover:underline"
+          >
+            <Printer className="h-3 w-3" /> Print Draft / LOI
+          </a>
+        </div>
+
         {/* Tenancy details */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-meta sm:grid-cols-3">
           <div><span className="text-muted-foreground">Start: </span>{formatDate(tenancy.startDate)}</div>
@@ -1152,6 +1284,12 @@ function TenancyDetailDialog({
           <div><span className="text-muted-foreground">Tenant phone: </span>{tenancy.tenantPhone ?? "—"}</div>
           <div><span className="text-muted-foreground">Customer: </span>{tenancy.customerName ?? "—"}</div>
           <div><span className="text-muted-foreground">Project: </span>{tenancy.projectName ?? "—"}</div>
+          {tenancy.rentFreeDays > 0 && (
+            <div><span className="text-muted-foreground">Rent-free: </span>{tenancy.rentFreeDays} days</div>
+          )}
+          {tenancy.sacCode && (
+            <div><span className="text-muted-foreground">SAC: </span>{tenancy.sacCode}</div>
+          )}
         </div>
 
         {/* Notes */}

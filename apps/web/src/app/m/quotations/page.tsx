@@ -2,10 +2,17 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getUserRole, getCurrentUserMembership, toNum } from "@/lib/server";
+import {
+  getCompany,
+  getCompanyGroupIds,
+  getUserRole,
+  getCurrentUserMembership,
+  toNum,
+} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileQuotationsList } from "./MobileQuotationsList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 export default function MobileQuotationsPage() {
   return (
@@ -34,7 +41,13 @@ async function MobileQuotationsContent() {
         lines: { select: { id: true, qtyRequired: true, materialId: true } },
         quotes: {
           where: { status: { not: "REJECTED" } },
-          select: { id: true, landedTotal: true, status: true, supplierId: true, isCheapest: true },
+          select: {
+            id: true,
+            landedTotal: true,
+            status: true,
+            supplierId: true,
+            isCheapest: true,
+          },
         },
         convertedPo: { select: { id: true, poNumber: true, status: true } },
       },
@@ -46,7 +59,14 @@ async function MobileQuotationsContent() {
     }),
     prisma.material.findMany({
       where: { deletedAt: null },
-      select: { id: true, name: true, code: true, unit: true, hsnCode: true, gstRate: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        unit: true,
+        hsnCode: true,
+        gstRate: true,
+      },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -85,7 +105,11 @@ async function MobileQuotationsContent() {
       cheapestLandedTotal: cheapest ? toNum(cheapest.landedTotal) : null,
       isPendingMyApproval: pendingIds.has(r.id),
       convertedPo: r.convertedPo
-        ? { id: r.convertedPo.id, poNumber: r.convertedPo.poNumber, status: r.convertedPo.status }
+        ? {
+            id: r.convertedPo.id,
+            poNumber: r.convertedPo.poNumber,
+            status: r.convertedPo.status,
+          }
         : null,
     };
   });
@@ -123,6 +147,9 @@ async function MobileQuotationsContent() {
         exportColumns={exportColumns}
         exportSummary={`${serialized.length} requests`}
       />
+      {canCreate && (
+        <MobileFab href="/m/quotations?new=1" label="New quotation" />
+      )}
     </div>
   );
 }

@@ -107,6 +107,9 @@ async function SettingsContent() {
       itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
       companyId: company.id,
       companyName: company.name,
+      lat: l.lat,
+      lng: l.lng,
+      geoRadius: l.geoRadius,
     };
   });
 
@@ -133,6 +136,9 @@ async function SettingsContent() {
         phone: company.phone,
         email: company.email,
         currency: company.currency,
+        lciThresholdDefault: company.lciThresholdDefault ? toNum(company.lciThresholdDefault) : null,
+        poApprovalThresholdManager: company.poApprovalThresholdManager ? toNum(company.poApprovalThresholdManager) : null,
+        poApprovalThresholdAdmin: company.poApprovalThresholdAdmin ? toNum(company.poApprovalThresholdAdmin) : null,
       }}
       users={users.map((u) => ({
         id: u.id,

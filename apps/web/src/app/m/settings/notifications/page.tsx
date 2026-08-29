@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, Send, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NotificationPermissionToggle } from "@/components/mobile/notification-permission-toggle";
 
 interface Template {
   id: string;
@@ -183,6 +184,9 @@ export default function MobileNotificationsPage() {
           </p>
         </div>
       </div>
+
+      {/* Push notification permission toggle */}
+      <NotificationPermissionToggle />
 
       {/* Stats banner */}
       {stats ? (

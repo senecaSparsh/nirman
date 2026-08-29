@@ -42,6 +42,13 @@ export const GET = apiHandler(async () => {
       materials: t.lines.map((l) => l.material.name),
       isInterCompany: t.isInterCompany,
       transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
+      // Vehicle / dispatch
+      vehicleNumber: t.vehicleNumber,
+      vehicleType: t.vehicleType,
+      driverName: t.driverName,
+      driverPhone: t.driverPhone,
+      transporterName: t.transporterName,
+      challanNumber: t.challanNumber,
     })),
   );
 });

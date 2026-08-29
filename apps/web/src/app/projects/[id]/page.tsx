@@ -91,6 +91,8 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
         fromLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
         toLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
         lines: { select: { materialId: true, qty: true, material: { select: { name: true } } } },
+        dispatchedBy: { select: { id: true, name: true } },
+        receivedBy: { select: { id: true, name: true } },
       },
     }),
 
@@ -159,6 +161,9 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       include: {
         fromLocation: { select: { name: true } },
         lines: { select: { qty: true, unitCost: true } },
+        builtUnit: { select: { unitNumber: true } },
+        subcontractor: { select: { name: true } },
+        phase: { select: { name: true } },
       },
     }),
 
@@ -301,6 +306,18 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     materials: t.lines.map((l) => l.material.name),
     isInterCompany: t.isInterCompany,
     transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
+    vehicleNumber: t.vehicleNumber,
+    vehicleType: t.vehicleType,
+    driverName: t.driverName,
+    driverPhone: t.driverPhone,
+    transporterName: t.transporterName,
+    challanNumber: t.challanNumber,
+    deliveryMode: t.deliveryMode,
+    packageCount: t.packageCount,
+    dispatchedAt: t.dispatchedAt ? t.dispatchedAt.toISOString() : null,
+    dispatchedByName: t.dispatchedBy?.name ?? null,
+    receivedAt: t.receivedAt ? t.receivedAt.toISOString() : null,
+    receivedByName: t.receivedBy?.name ?? null,
   }));
 
   // Map built units (with sale info from the active sale relation)
@@ -394,6 +411,8 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     refId: m.refId,
     userName: null,
     timestamp: m.timestamp.toISOString(),
+    latitude: m.latitude,
+    longitude: m.longitude,
   }));
 
   // Map project costs
@@ -431,6 +450,17 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     roundOff: toNum(i.roundOff),
     totalAmount: toNum(i.totalAmount),
     lineCount: i.lines.length,
+    builtUnitId: i.builtUnitId,
+    builtUnitName: i.builtUnit?.unitNumber ?? null,
+    subcontractorId: i.subcontractorId,
+    subcontractorName: i.subcontractor?.name ?? null,
+    phaseId: i.phaseId,
+    phaseName: i.phase?.name ?? null,
+    sourceDprId: i.sourceDprId,
+    vehicleNumber: i.vehicleNumber,
+    vehicleType: i.vehicleType,
+    driverName: i.driverName,
+    driverPhone: i.driverPhone,
   }));
 
   // Map equipment
@@ -541,6 +571,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
       reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
       reraWebsiteUrl: project.reraWebsiteUrl,
+      lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
       isPossessed: project.isPossessed,
       possessionDate: project.possessionDate?.toISOString() ?? null,
       possessionNotes: project.possessionNotes,
@@ -632,6 +663,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
     reraRegistrationDate: project.reraRegistrationDate?.toISOString().slice(0, 10) ?? "",
     reraValidityDate: project.reraValidityDate?.toISOString().slice(0, 10) ?? "",
     reraWebsiteUrl: project.reraWebsiteUrl ?? "",
+    lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : undefined,
   };
 
   return <ProjectHub data={hubData} editInitial={editInitial} />;

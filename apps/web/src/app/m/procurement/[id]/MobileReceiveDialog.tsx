@@ -282,7 +282,7 @@ export function MobileReceiveDialog({
   }
 
   // Fill a line's weight from the GRN-level weighbridge net weight
-  function useWeighbridgeForLine(lineId: string) {
+  function fillWeightFromWeighbridge(lineId: string) {
     if (!netWt) return;
     setLineWeight(lineId, netWt);
   }
@@ -1041,7 +1041,7 @@ export function MobileReceiveDialog({
                             {netWt ? (
                               <button
                                 type="button"
-                                onClick={() => { haptic(5); useWeighbridgeForLine(l.id); }}
+                                onClick={() => { haptic(5); fillWeightFromWeighbridge(l.id); }}
                                 className="ml-auto text-[0.4375rem] font-bold press rounded-[0.25rem] px-1.5 py-0.5"
                                 style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                               >

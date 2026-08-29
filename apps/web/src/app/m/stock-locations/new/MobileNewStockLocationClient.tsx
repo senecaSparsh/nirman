@@ -27,6 +27,9 @@ export default function MobileNewStockLocationClient({
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
   const [address, setAddress] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+  const [geoRadius, setGeoRadius] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +47,9 @@ export default function MobileNewStockLocationClient({
           name: name.trim(),
           projectId: type === "PROJECT_SITE" ? projectId : null,
           address: address.trim() || null,
+          lat: lat ? parseFloat(lat) : null,
+          lng: lng ? parseFloat(lng) : null,
+          geoRadius: geoRadius ? parseInt(geoRadius) : null,
         }),
       });
       const data = await res.json();
@@ -210,6 +216,50 @@ export default function MobileNewStockLocationClient({
             rows={2}
             enterKeyHint="done"
             className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] outline-none resize-none"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          />
+        </div>
+
+        {/* Geo-fence (GPS receipt validation) */}
+        <div
+          className="rounded-[0.625rem] border p-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            Geo-fence (optional)
+          </label>
+          <p className="text-[0.5rem] mb-2" style={{ color: "var(--color-ink-400)" }}>
+            Set coordinates and radius to validate GPS-tagged receipts. Receipts outside the radius are flagged as off-site.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="any"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+              placeholder="Latitude"
+              enterKeyHint="next"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+            <input
+              type="number"
+              step="any"
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
+              placeholder="Longitude"
+              enterKeyHint="next"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+          </div>
+          <input
+            type="number"
+            value={geoRadius}
+            onChange={(e) => setGeoRadius(e.target.value)}
+            placeholder="Radius (metres, default 500)"
+            enterKeyHint="done"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none mt-2"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>

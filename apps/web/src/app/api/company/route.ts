@@ -46,6 +46,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       name: c.name,
       businessType: c.businessType,
       parentName: c.parent?.name ?? null,
+      parentCompanyId: c.parentCompanyId ?? null,
       isCurrent: c.id === company.id,
     })),
   });

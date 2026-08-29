@@ -2,9 +2,8 @@
  * Production seed — runs after `prisma migrate deploy` on first deploy.
  *
  * What it does:
- *   1. Runs the full demo seed (packages/services/prisma/seed.ts) — creates
- *      the company, users, projects, materials, suppliers, stock, etc.
- *   2. Sets real passwords on all demo users so they can sign in via the
+ *   1. Seeds the chart of accounts so journal-entry posting works.
+ *   2. Sets real passwords on any demo users so they can sign in via the
  *      normal Better-Auth email+password flow (the demo-login endpoint is
  *      disabled in production).
  *
@@ -20,10 +19,9 @@
  *   SEED_PASSWORD (optional) — defaults to "nirman123". Set a stronger
  *   one via env var for real production use.
  */
-import { PrismaClient } from "@nirman/db";
+import { prisma } from "@nirman/db";
+import { seedChartOfAccounts } from "@nirman/services";
 import { hashPassword } from "better-auth/crypto";
-
-const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? "nirman123";
 
@@ -76,7 +74,11 @@ async function main() {
   console.log(`Password: ${DEMO_PASSWORD === "nirman123" ? "default (nirman123)" : "custom (from SEED_PASSWORD)"}`);
   console.log("");
 
-  // Step 1: Check if the database has any users at all
+  // Step 1: Ensure the chart of accounts is present so GL posting works
+  console.log("Seeding chart of accounts…");
+  await seedChartOfAccounts();
+
+  // Step 2: Check if the database has any users at all
   const userCount = await prisma.user.count();
   console.log(`Existing users: ${userCount}`);
 
@@ -85,7 +87,7 @@ async function main() {
     console.log("If not, run: pnpm --filter @nirman/services seed");
   }
 
-  // Step 2: Set passwords on demo users
+  // Step 3: Set passwords on demo users
   await setDemoPasswords();
 
   console.log("");

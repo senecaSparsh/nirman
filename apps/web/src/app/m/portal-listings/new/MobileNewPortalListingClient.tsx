@@ -7,6 +7,7 @@ import { Globe, ArrowLeft, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 interface UnitOption {
   id: string;
@@ -44,6 +45,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
     bathrooms: "",
     furnishing: "",
   });
+  const [photos, setPhotos] = useState<{ url: string; fileName?: string }[]>([]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -82,6 +84,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           bedrooms: form.bedrooms === "" ? undefined : Number(form.bedrooms),
           bathrooms: form.bathrooms === "" ? undefined : Number(form.bathrooms),
           furnishing: form.furnishing.trim() || undefined,
+          photos: photos.length > 0 ? photos.map((p) => p.url) : undefined,
         }),
       });
       const data = await res.json();
@@ -115,7 +118,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             No available units
           </p>
           <p className="text-[0.6875rem] mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
-            Units with status "Available" can be listed on portals
+            Units with status &quot;Available&quot; can be listed on portals
           </p>
           <Link
             href="/m/units"
@@ -274,6 +277,12 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             className={inputClass}
             style={inputStyle}
           />
+        </div>
+
+        {/* Photos */}
+        <div>
+          <label className={labelClass} style={labelStyle}>Photos</label>
+          <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={10} />
         </div>
 
         {/* Actions */}

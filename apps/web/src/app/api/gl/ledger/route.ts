@@ -5,7 +5,14 @@ import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 
 /**
  * GET /api/gl/ledger?account=1300
- * Returns all posted journal lines for a single GL account, newest first.
+ * Returns posted journal lines for a single GL account, newest first.
+ *
+ * Pagination:
+ *   - `limit` (default 100, max 500) — page size
+ *   - `cursor` — journal line ID to fetch the next page after
+ *   - `startDate` / `endDate` — filter by entry date (ISO strings)
+ *
+ * Response: { lines: [...], hasMore: boolean, nextCursor: string | null }
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
@@ -14,9 +21,20 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const accountCode = searchParams.get("account");
   if (!accountCode) return json({ error: "account query param is required" }, { status: 400 });
 
-  const lines = await accountLedger(company.id, accountCode);
-  return json(
-    lines.map((l) => ({
+  const cursor = searchParams.get("cursor") ?? undefined;
+  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : undefined;
+  const startDate = searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined;
+  const endDate = searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined;
+
+  const result = await accountLedger(company.id, accountCode, {
+    cursor,
+    limit,
+    startDate,
+    endDate,
+  });
+
+  return json({
+    lines: result.lines.map((l) => ({
       id: l.id,
       entryNumber: l.entryNumber,
       entryDate: l.entryDate.toISOString(),
@@ -27,5 +45,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       entityType: l.entityType,
       entityId: l.entityId,
     })),
-  );
+    hasMore: result.hasMore,
+    nextCursor: result.nextCursor,
+  });
 });

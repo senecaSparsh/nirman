@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,7 +57,11 @@ export function CompanySwitcher({
       });
       if (res.ok) {
         window.dispatchEvent(new CustomEvent("nirman-company-switched"));
-        router.refresh();
+        // Stay on the current page — just refresh the data so it reflects
+        // the new company context. No redirect.
+        startTransition(() => {
+          router.refresh();
+        });
       }
     } finally {
       setSwitching(null);

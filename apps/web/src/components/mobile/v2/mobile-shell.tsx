@@ -20,10 +20,17 @@ import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
+import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
 import {
   MOBILE_TABS,
+  tabsForRole,
   isModuleActive,
+  goBackFallback,
+  moduleFromPath,
+  roleToPersona,
+  ALL_BADGE_TABS,
   type ModuleTab,
+  type Persona,
 } from "@/lib/mobile-nav-v2";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -49,6 +56,7 @@ import {
 interface CompanyInfo {
   name: string;
   role: string;
+  parentCompanyId: string | null;
 }
 
 type CompanyOption = {
@@ -56,6 +64,7 @@ type CompanyOption = {
   name: string;
   businessType: string | null;
   parentName: string | null;
+  parentCompanyId: string | null;
   isCurrent: boolean;
 };
 
@@ -66,11 +75,13 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
     name: "Nirman",
     role: "PROJECT_MANAGER",
+    parentCompanyId: null,
   });
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // ── Auth guard (all envs; skip only with NEXT_PUBLIC_AUTH_BYPASS) ──
   useEffect(() => {
@@ -121,6 +132,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
           ...prev,
           role: me?.role ?? prev.role,
           name: company?.name ?? prev.name,
+          parentCompanyId: company?.parentCompanyId ?? null,
         }));
       }
       if (Array.isArray(company?.companies)) setCompanies(company.companies);
@@ -150,7 +162,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
       fetch("/api/company")
         .then((r) => (r.ok ? r.json() : null))
         .then((c) => {
-          if (c?.name) setCompanyInfo((prev) => ({ ...prev, name: c.name }));
+          if (c?.name) setCompanyInfo((prev) => ({
+            ...prev,
+            name: c.name,
+            parentCompanyId: c.parentCompanyId ?? null,
+          }));
           if (Array.isArray(c?.companies)) setCompanies(c.companies);
         })
         .catch(() => {});
@@ -168,7 +184,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     }
     // Optimistic update — close dropdown + update name instantly
     setCompanySwitcherOpen(false);
-    setCompanyInfo((prev) => ({ ...prev, name: target.name }));
+    setCompanyInfo((prev) => ({
+      ...prev,
+      name: target.name,
+      parentCompanyId: target.parentCompanyId,
+    }));
     setCompanies((prev) => prev.map((c) => ({ ...c, isCurrent: c.id === id })));
     const newTitle = target.name !== "Nirman" ? `${target.name} · Nirman OS` : "Nirman Inventory OS";
     document.title = newTitle;
@@ -193,9 +213,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   }
   useEffect(() => {
     let cancelled = false;
-    const badgeTabs = MOBILE_TABS.filter((t) => t.badge);
+    // Fetch badges from ALL tabs that carry a badge, across every persona.
+    // The old code only fetched from MOBILE_TABS (legacy 5-tab array),
+    // which missed tabs like POs, DPR, Tasks that aren't in MOBILE_TABS.
     Promise.all(
-      badgeTabs.map((tab) =>
+      ALL_BADGE_TABS.map((tab) =>
         fetch(tab.badge!.endpoint)
           .then((r) => (r.ok ? r.json() : []))
           .then((data) => ({
@@ -223,10 +245,20 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Company switcher — any user with memberships in multiple companies
+  // can switch between them. Each company is its own "world" with its own
+  // hierarchy, projects, and staff. The owner explicitly wants all staff
+  // to be able to pick which company they're working in.
+  const canSwitchCompany = companies.length > 1;
+
+  const personaTabs = tabsForRole(companyInfo.role);
+  const persona = roleToPersona(companyInfo.role);
+
   return (
     <MobileShellInner
       companyInfo={companyInfo}
       companies={companies}
+      canSwitchCompany={canSwitchCompany}
       companySwitcherOpen={companySwitcherOpen}
       switchingCompanyId={switchingCompanyId}
       onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
@@ -234,6 +266,10 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
       badgeCounts={badgeCounts}
       pathname={pathname}
       router={router}
+      personaTabs={personaTabs}
+      persona={persona}
+      searchOpen={searchOpen}
+      onSearchOpenChange={setSearchOpen}
     >
       {children}
     </MobileShellInner>
@@ -244,6 +280,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
 function MobileShellInner({
   companyInfo,
   companies,
+  canSwitchCompany,
   companySwitcherOpen,
   switchingCompanyId,
   onToggleCompanySwitcher,
@@ -251,10 +288,15 @@ function MobileShellInner({
   badgeCounts,
   pathname,
   router,
+  personaTabs,
+  persona,
+  searchOpen,
+  onSearchOpenChange,
   children,
 }: {
   companyInfo: CompanyInfo;
   companies: CompanyOption[];
+  canSwitchCompany: boolean;
   companySwitcherOpen: boolean;
   switchingCompanyId: string | null;
   onToggleCompanySwitcher: () => void;
@@ -262,6 +304,10 @@ function MobileShellInner({
   badgeCounts: Record<string, number>;
   pathname: string;
   router: ReturnType<typeof useRouter>;
+  personaTabs: ModuleTab[];
+  persona: Persona;
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const [isOffline, setIsOffline] = useState(false);
@@ -299,19 +345,12 @@ function MobileShellInner({
     () => router.refresh(),
   );
 
-  const initials = companyInfo.name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const activeTab = personaTabs.find((t) => isModuleActive(pathname, t.href));
 
-  const activeTab = MOBILE_TABS.find((t) => isModuleActive(pathname, t.href));
-
-  // A "drill-down" is any /m/* page that is NOT one of the 5 module homes.
-  // This includes pages that don't fall under any tab prefix (e.g. /m/boq,
-  // /m/projects, /m/reports) — those still need a back button.
-  const isDrillDown = !isModuleHome(pathname) && pathname !== "/m";
+  // A "drill-down" is any /m/* page that is NOT one of the persona's tab
+  // homes. This includes pages that don't fall under any tab prefix (e.g.
+  // /m/boq, /m/projects, /m/reports) — those still need a back button.
+  const isDrillDown = !isModuleHome(pathname, personaTabs) && pathname !== "/m";
 
   // ── Edge-swipe to go back (iOS-style) ──
   // Tracks a touch that starts within 28px of the left edge. If the user
@@ -361,12 +400,14 @@ function MobileShellInner({
 
   // ── Unified back navigation with fallback ──
   // If there's browser history, go back. If not (deep-link), fall back
-  // to the active module home or /m/home as a last resort.
+  // to the persona's relevant tab based on the current path's module —
+  // not always /m/home. E.g. back from /m/projects → Inventory tab
+  // (for executive/ops) or Home tab (for sales).
   function goBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      const fallback = activeTab?.href ?? "/m/home";
+      const fallback = goBackFallback(pathname, personaTabs);
       router.push(fallback);
     }
   }
@@ -393,31 +434,37 @@ function MobileShellInner({
     <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper)" }}>
       <CommandPalette userRole={companyInfo.role as string} />
 
-      {/* ── Offline banner ── */}
+      {/* ── Offline banner — subtle indicator, not an alarm ── */}
       {isOffline && (
         <div
-          className="flex items-center justify-between gap-2 px-3 py-1.5 text-[0.6875rem] font-semibold"
-          style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+          className="flex items-center justify-between gap-2 px-3 py-1 text-[0.625rem] font-semibold"
+          style={{
+            backgroundColor: "var(--color-signal-wash)",
+            color: "var(--color-signal-dark)",
+          }}
         >
-          <div className="flex items-center gap-2">
-            <WifiOff className="size-3.5" />
+          <div className="flex items-center gap-1.5">
+            <WifiOff className="size-3" />
             <span>
               Offline
-              {offlineQueueCount > 0 && ` — ${offlineQueueCount} queued`}
+              {offlineQueueCount > 0 && ` · ${offlineQueueCount} queued`}
             </span>
           </div>
           {offlineQueueCount > 0 && (
             <Link
               href="/m/queue"
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide active:opacity-80"
-              style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff" }}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide active:opacity-80"
+              style={{
+                backgroundColor: "var(--color-signal)",
+                color: "var(--color-ink-950)",
+              }}
             >
               {offlineSyncing ? (
                 <Loader2 className="size-3 animate-spin" />
               ) : (
                 <RefreshCw className="size-3" />
               )}
-              {offlineSyncing ? "Syncing…" : `${offlineQueueCount} Queued`}
+              {offlineSyncing ? "Syncing…" : "Queue"}
             </Link>
           )}
         </div>
@@ -463,13 +510,13 @@ function MobileShellInner({
             ) : (
               <div ref={companySwitcherRef} className="relative min-w-0">
                 <button
-                  onClick={() => companies.length > 1 && onToggleCompanySwitcher()}
+                  onClick={() => canSwitchCompany && onToggleCompanySwitcher()}
                   className="flex items-center gap-1 text-[0.6875rem] font-bold truncate press rounded-[0.25rem] px-0.5 py-0.5"
                   style={{ color: "var(--color-ink-950)" }}
                   aria-label="Switch company"
                 >
                   <span className="truncate">{companyInfo.name}</span>
-                  {companies.length > 1 && (
+                  {canSwitchCompany && (
                     <ChevronDown
                       className="size-3 shrink-0 transition-transform"
                       style={{
@@ -479,7 +526,7 @@ function MobileShellInner({
                     />
                   )}
                 </button>
-                {companySwitcherOpen && companies.length > 1 && (
+                {companySwitcherOpen && canSwitchCompany && (
                   <div
                     className="absolute top-full left-0 z-50 mt-1 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[180px]"
                     style={{
@@ -618,7 +665,7 @@ function MobileShellInner({
         </div>
       </main>
 
-      {/* ══ BOTTOM NAV — 3 module tabs, matches Nirman OS ══ */}
+      {/* ══ BOTTOM NAV — persona-based tabs ══ */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30 border-t"
         style={{
@@ -629,22 +676,35 @@ function MobileShellInner({
         aria-label="Module navigation"
       >
         <div className="mx-auto w-full max-w-[34rem] flex items-stretch px-2 pb-safe">
-          {MOBILE_TABS.map((tab) => (
-            <TabButton
-              key={tab.id}
-              tab={tab}
-              active={isModuleActive(pathname, tab.href)}
-              badge={badgeCounts[tab.href]}
-            />
-          ))}
+          {personaTabs.map((tab) =>
+            tab.id === "search" ? (
+              <SearchTabButton
+                key={tab.id}
+                tab={tab}
+                onClick={() => onSearchOpenChange(true)}
+              />
+            ) : (
+              <TabButton
+                key={tab.id}
+                tab={tab}
+                active={isModuleActive(pathname, tab.href)}
+                badge={badgeCounts[tab.href]}
+              />
+            ),
+          )}
         </div>
       </nav>
+
+      {/* ══ GLOBAL SEARCH OVERLAY ══ */}
+      <MobileGlobalSearch open={searchOpen} onClose={() => onSearchOpenChange(false)} />
 
       {/* ══ NAV SHEET — 3-dot overflow menu ══ */}
       <NavSheet
         open={navSheetOpen}
         onClose={() => setNavSheetOpen(false)}
-        moduleId={activeTab?.id ?? "inventory"}
+        moduleId={activeTab?.id ?? moduleFromPath(pathname)}
+        persona={persona}
+        personaTabs={personaTabs}
       />
     </div>
   );
@@ -704,9 +764,32 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
   );
 }
 
+/** Search tab button — opens the global search overlay instead of navigating. */
+function SearchTabButton({ tab, onClick }: { tab: ModuleTab; onClick: () => void }) {
+  const Icon = tab.icon;
+  return (
+    <button
+      onClick={onClick}
+      className="press flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[3rem] relative transition-colors"
+      style={{ color: "var(--color-ink-500)" }}
+      aria-label="Search"
+    >
+      <span className="relative">
+        <Icon className="size-[18px]" style={{ color: "var(--color-ink-500)" }} />
+      </span>
+      <span
+        className="text-[0.5rem] font-semibold tracking-wide"
+        style={{ color: "var(--color-ink-500)" }}
+      >
+        {tab.label}
+      </span>
+    </button>
+  );
+}
+
 /** Check if pathname is exactly a module home (not a drill-down). */
-function isModuleHome(pathname: string): boolean {
-  return MOBILE_TABS.some((t) => t.href === pathname);
+function isModuleHome(pathname: string, tabs: ModuleTab[] = MOBILE_TABS): boolean {
+  return tabs.some((t) => t.href === pathname);
 }
 
 /**
@@ -734,6 +817,7 @@ function pageTitleFromPath(pathname: string): string {
     units: "Built Units",
     land: "Land & Parcels",
     customers: "Customers",
+    leads: "Leads",
     sales: "Sales",
     rentals: "Rentals",
     "portal-listings": "Portal Listings",
@@ -741,6 +825,7 @@ function pageTitleFromPath(pathname: string): string {
     procurement: "Purchase Orders",
     requisitions: "Material Indents",
     suppliers: "Suppliers",
+    subcontractors: "Subcontractors",
     "supplier-returns": "Supplier Returns",
     materials: "Materials",
     stock: "Stock Ledger",
@@ -757,6 +842,7 @@ function pageTitleFromPath(pathname: string): string {
     tasks: "Tasks",
     books: "Books",
     finance: "Finance",
+    expenses: "Expenses",
     payroll: "Payroll",
     receipts: "Receipts",
     gl: "Trial Balance",

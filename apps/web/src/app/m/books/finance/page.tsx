@@ -32,7 +32,7 @@ async function MobileFinanceContent() {
   const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
   const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
 
-  const [expenses, projectCosts, projects] = await Promise.all([
+  const [expenses, projectCosts, projects, subcontractors] = await Promise.all([
     prisma.expense.findMany({
       where: { companyId: company.id },
       orderBy: { date: "desc" },
@@ -50,6 +50,13 @@ async function MobileFinanceContent() {
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
+        })
+      : [],
+    (canCreateExpense || canCreateProjectCost)
+      ? prisma.subcontractor.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, trade: true },
         })
       : [],
   ]);
@@ -114,6 +121,7 @@ async function MobileFinanceContent() {
       {(canCreateExpense || canCreateProjectCost) && (
         <MobileFinanceFab
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          subcontractors={subcontractors.map((s) => ({ id: s.id, name: s.name, trade: s.trade }))}
           canCreateExpense={canCreateExpense}
           canCreateProjectCost={canCreateProjectCost}
         />

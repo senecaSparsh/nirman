@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { Send, Check, Ban, Trash2, Loader2 } from "lucide-react";
 
 interface IncidentDetail {
@@ -29,9 +30,6 @@ const TYPE_LABELS: Record<string, string> = {
   ACCIDENT: "Accident", NEAR_MISS: "Near Miss", INJURY: "Injury", FATALITY: "Fatality",
   PROPERTY_DAMAGE: "Property Damage", ENVIRONMENTAL: "Environmental", FIRE: "Fire",
   STRUCTURAL: "Structural", OTHER: "Other",
-};
-const STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  REPORTED: "warning", UNDER_INVESTIGATION: "warning", INVESTIGATED: "default", CLOSED: "success", CANCELLED: "default",
 };
 const SEVERITY_VARIANTS: Record<string, "default" | "warning" | "danger"> = {
   FIRST_AID: "default", LOST_TIME: "warning", SERIOUS: "danger", FATAL: "danger", PROPERTY_ONLY: "default",
@@ -64,12 +62,24 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Badge variant={SEVERITY_VARIANTS[incident.severity] ?? "default"}>{incident.severity.replace("_", " ")}</Badge>
-            <Badge variant={STATUS_VARIANTS[incident.status] ?? "default"}>{incident.status.replace(/_/g, " ")}</Badge>
+            <Badge variant={statusBadgeVariant(incident.status)}>{incident.status.replace(/_/g, " ")}</Badge>
             <span className="text-xs text-muted-foreground">{TYPE_LABELS[incident.type] ?? incident.type}</span>
           </div>
           <span className="font-mono text-xs text-muted-foreground">{incident.incidentNumber}</span>
         </div>
         <p className="text-sm leading-relaxed">{incident.description}</p>
+        {incident.attachments.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Photo Evidence ({incident.attachments.length})</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {incident.attachments.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
+                  <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Details grid */}

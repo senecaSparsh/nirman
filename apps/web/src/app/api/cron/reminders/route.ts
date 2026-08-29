@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments } from "@nirman/services";
+import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -44,11 +44,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
   }
 
-  // 2-4. Run remaining sweeps in parallel
-  const [escalations, rentReminders, saleReminders] = await Promise.all([
+  // 2-5. Run remaining sweeps in parallel
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
+    generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
     sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
     sendPaymentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
+    processPendingNotifications().catch(() => ({ processed: 0, sent: 0, failed: 0 })),
   ]);
 
   return json({
@@ -56,7 +58,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     ranAt: new Date().toISOString(),
     milestones: { checked: milestoneChecked, triggered: milestoneTriggered },
     escalations,
+    rentSchedule,
     rentReminders,
     saleReminders,
+    notifications,
   });
 });

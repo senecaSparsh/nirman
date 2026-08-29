@@ -7,12 +7,10 @@ import {
   Monitor,
   Sun,
   Moon,
-  Settings,
   LogOut,
   Wifi,
   WifiOff,
   RefreshCw,
-  MoreHorizontal,
   ClipboardCheck,
   Pencil,
   Check,
@@ -307,23 +305,6 @@ export default function MePage() {
           icon={ClipboardCheck}
           title="Approvals Queue"
           subtitle="POs & requisitions"
-        />
-        <MobileRow
-          href="/m/settings"
-          icon={Settings}
-          title="Settings"
-          subtitle="Company, users, permissions"
-        />
-      </div>
-
-      {/* ── More ──────────────────────────────────────────────────── */}
-      <MobileSectionTitle>More</MobileSectionTitle>
-      <div className="flex flex-col gap-2.5">
-        <MobileRow
-          href="/m/settings"
-          icon={MoreHorizontal}
-          title="More"
-          subtitle="Additional settings & options"
         />
       </div>
 

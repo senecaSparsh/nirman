@@ -20,6 +20,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       supplier: true,
       project: { select: { id: true, name: true } },
       destinationLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { id: true, name: true } } } },
+      approvedBy: { select: { id: true, name: true } },
+      rejectedBy: { select: { id: true, name: true } },
       lines: {
         include: {
           material: { select: { id: true, code: true, name: true, unit: true } },
@@ -58,8 +60,18 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     id: gr.id,
     receiptDate: gr.receiptDate.toISOString(),
     inspectionStatus: gr.inspectionStatus,
+    inspectionNotes: gr.inspectionNotes,
     notes: gr.notes,
     lineCount: gr.lines.length,
+    deliveryMode: gr.deliveryMode,
+    vehicleNumber: gr.vehicleNumber,
+    driverName: gr.driverName,
+    transporterName: gr.transporterName,
+    challanNumber: gr.challanNumber,
+    invoiceNumber: gr.invoiceNumber,
+    ewayBillNumber: gr.ewayBillNumber,
+    lrNumber: gr.lrNumber,
+    packageCount: gr.packageCount,
   }));
 
   return json({
@@ -83,7 +95,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       : null,
     status: po.status,
     approvedById: po.approvedById ?? null,
+    approvedByName: po.approvedBy?.name ?? null,
     approvedAt: po.approvedAt?.toISOString() ?? null,
+    approvalNotes: po.approvalNotes ?? null,
+    rejectedAt: po.rejectedAt?.toISOString() ?? null,
+    rejectedByName: po.rejectedBy?.name ?? null,
+    rejectionReason: po.rejectionReason ?? null,
     orderDate: po.orderDate?.toISOString() ?? null,
     expectedDate: po.expectedDate?.toISOString() ?? null,
     subtotal: toNum(po.subtotal),

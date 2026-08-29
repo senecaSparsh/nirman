@@ -16,6 +16,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
@@ -98,7 +99,18 @@ const paymentColumns: Column<MaterialSalePaymentRow>[] = [
   {
     key: "referenceNo",
     label: "Reference",
-    render: (p) => p.referenceNo ? <span className="text-muted-foreground">{p.referenceNo}</span> : <span className="text-faint">—</span>,
+    render: (p) => {
+      if (p.paymentMode === "CHEQUE" && p.chequeNo) {
+        return (
+          <div className="space-y-0.5">
+            <div className="font-mono text-xs text-muted-foreground">{p.chequeNo}</div>
+            {p.chequeBank && <div className="text-micro text-muted-foreground">{p.chequeBank}</div>}
+            {p.chequePhotoUrl && <a href={p.chequePhotoUrl} target="_blank" rel="noopener noreferrer" className="text-micro text-blue-600 hover:underline">Photo</a>}
+          </div>
+        );
+      }
+      return p.referenceNo ? <span className="text-muted-foreground">{p.referenceNo}</span> : <span className="text-faint">—</span>;
+    },
   },
   {
     key: "createdByName",
@@ -121,10 +133,17 @@ export type MaterialSaleRow = {
   totalAmount: number;
   totalCost: number;
   grossProfit: number;
+  scrapSubtotal: number;
+  partyName: string | null;
   status: string;
   paymentStatus: string;
   paymentMode: string | null;
   notes: string | null;
+  // Vehicle / dispatch
+  vehicleNumber: string | null;
+  vehicleType: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
   lineCount: number;
   payments?: MaterialSalePaymentRow[];
   lines: {
@@ -152,6 +171,9 @@ export type MaterialSalePaymentRow = {
   referenceNo: string | null;
   notes: string | null;
   createdByName: string | null;
+  chequeNo: string | null;
+  chequeBank: string | null;
+  chequePhotoUrl: string | null;
 };
 
 type LineForm = {
@@ -197,8 +219,10 @@ export function MaterialSalesView({
 
   // Form state
   const [fCustomer, setFCustomer] = useState("");
+  const [fPartyName, setFPartyName] = useState("");
   const [fNotes, setFNotes] = useState("");
   const [fPaymentMode, setFPaymentMode] = useState("BANK");
+  const [fVehicle, setFVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
   const [lines, setLines] = useState<LineForm[]>([
     { key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" },
   ]);
@@ -386,7 +410,13 @@ export function MaterialSalesView({
             gstRate: Number(l.gstRate) || 0,
           })),
           paymentMode: fPaymentMode,
+          partyName: fPartyName.trim() || null,
           notes: fNotes || null,
+          vehicleNumber: fVehicle.vehicleNumber.trim() || undefined,
+          vehicleType: fVehicle.vehicleType || undefined,
+          vehiclePhotoUrl: fVehicle.photoUrl,
+          driverName: fVehicle.driverName,
+          driverPhone: fVehicle.driverPhone,
           requireGatePass: true,
         }),
       });
@@ -401,7 +431,7 @@ export function MaterialSalesView({
         toast.success(`Material sale ${data.saleNumber} created`);
       }
       setFormOpen(false);
-      setFCustomer(""); setFNotes(""); setFPaymentMode("BANK");
+      setFCustomer(""); setFPartyName(""); setFNotes(""); setFPaymentMode("BANK"); setFVehicle(EMPTY_VEHICLE);
       setLines([{ key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" }]);
       router.refresh();
     } catch (err: unknown) {
@@ -462,9 +492,19 @@ export function MaterialSalesView({
       sortable: true,
       filterable: true,
       width: "160px",
-      render: (s) => s.customerName ?? <span className="text-faint">Unknown</span>,
-      filterValue: (s) => s.customerName ?? "Unknown",
-      exportValue: (s) => s.customerName ?? "",
+      render: (s) => {
+        const name = s.partyName ?? s.customerName ?? "Unknown";
+        return (
+          <div>
+            <span>{name}</span>
+            {s.partyName && s.customerName && s.partyName !== s.customerName && (
+              <span className="ml-1 text-micro text-muted-foreground">({s.customerName})</span>
+            )}
+          </div>
+        );
+      },
+      filterValue: (s) => s.partyName ?? s.customerName ?? "Unknown",
+      exportValue: (s) => s.partyName ?? s.customerName ?? "",
     },
     {
       key: "projectName",
@@ -643,7 +683,7 @@ export function MaterialSalesView({
         onOpenChange={(o) => {
           setFormOpen(o);
           if (!o) {
-            setFCustomer(""); setFNotes(""); setFPaymentMode("BANK");
+            setFCustomer(""); setFPartyName(""); setFNotes(""); setFPaymentMode("BANK"); setFVehicle(EMPTY_VEHICLE);
             setLines([{ key: crypto.randomUUID(), materialId: "", locationId: "", qty: "", unitPrice: "", gstRate: "0" }]);
           }
         }}
@@ -663,6 +703,12 @@ export function MaterialSalesView({
                 <CustomerFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalCustomers((p) => [...p, { id: e.id, name: e.label ?? "", phone: null }]); onCreated(e); }} customer={null} />
               )}
             />
+          </div>
+
+          <div>
+            <Label>Party name (override)</Label>
+            <Input value={fPartyName} onChange={(e) => setFPartyName(e.target.value)} placeholder="Walk-in / cash customer name on invoice (optional)" />
+            <p className="text-caption text-muted-foreground mt-0.5">Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.</p>
           </div>
 
           {/* Line items — editable grid */}
@@ -689,12 +735,31 @@ export function MaterialSalesView({
             </div>
           </div>
 
-          {/* Totals */}
-          <div className="rounded-md bg-muted/30 p-3 text-meta">
-            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(formTotals.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span>{formatCurrency(formTotals.gstTotal)}</span></div>
-            <div className="flex justify-between font-medium"><span>Total</span><span>{formatCurrency(formTotals.total)}</span></div>
-          </div>
+          {/* Totals — revenue side + stock relief at MAC */}
+          {(() => {
+            const validLines = lines.filter((l) => l.materialId && l.locationId && Number(l.qty) > 0);
+            const stockCost = validLines.reduce((s, l) => s + (Number(l.qty) || 0) * macFor(l.materialId, l.locationId), 0);
+            const margin = formTotals.subtotal - stockCost;
+            return (
+              <div className="rounded-md bg-muted/30 p-3 text-meta space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tnum">{formatCurrency(formTotals.subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="tnum">{formatCurrency(formTotals.gstTotal)}</span></div>
+                <div className="flex justify-between font-medium"><span>Total</span><span className="tnum">{formatCurrency(formTotals.total)}</span></div>
+                {stockCost > 0 && (
+                  <>
+                    <div className="border-t border-border/60 my-1" />
+                    <div className="flex justify-between"><span className="text-muted-foreground">Stock at MAC</span><span className="tnum text-muted-foreground">{formatCurrency(stockCost)}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Margin</span>
+                      <span className={cn("tnum font-medium", margin >= 0 ? "text-success" : "text-danger")}>
+                        {margin >= 0 ? "+" : ""}{formatCurrency(margin)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <div>
             <Label>Payment mode</Label>
@@ -709,6 +774,8 @@ export function MaterialSalesView({
             <Label>Notes</Label>
             <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
+
+          <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
@@ -845,6 +912,29 @@ function MaterialSaleDetailDialog({
             </div>
           </div>
         </div>
+
+        {/* Vehicle / dispatch info */}
+        {(sale.vehicleNumber || sale.driverName) && (
+          <div className="rounded-lg border border-border bg-muted/20 p-3">
+            <div className="text-label font-medium text-muted-foreground mb-1.5">Dispatch Details</div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-body">
+              {sale.vehicleNumber && (
+                <div>
+                  <span className="text-muted-foreground">Vehicle: </span>
+                  <span className="font-mono font-medium">{sale.vehicleNumber}</span>
+                  {sale.vehicleType && <span className="ml-1 text-muted-foreground">({sale.vehicleType})</span>}
+                </div>
+              )}
+              {sale.driverName && (
+                <div>
+                  <span className="text-muted-foreground">Driver: </span>
+                  <span className="font-medium">{sale.driverName}</span>
+                  {sale.driverPhone && <span className="ml-1 text-muted-foreground">({sale.driverPhone})</span>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Line items table */}
         <div className="space-y-2">

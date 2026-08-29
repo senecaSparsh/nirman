@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   ShoppingCart, FileText, Wallet, Scale, CheckCircle2,
-  AlertCircle, Phone, Building2, TrendingUp, Search,
+  AlertCircle, Phone, Building2, TrendingUp, Search, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
@@ -388,6 +388,18 @@ function BbaSaleCard({
             <Scale className="h-2.5 w-2.5" /> Registry
           </span>
         )}
+      </div>
+
+      {/* Next-action hint — guides the user on how to progress this sale */}
+      <div className="mt-2 flex items-center gap-1 text-micro text-muted-foreground/70 group-hover:text-brand">
+        <ArrowRight className="h-2.5 w-2.5 shrink-0" />
+        <span className="truncate">
+          {stage === "BOOKED" && !sale.bbaNo && "Upload BBA to advance"}
+          {stage === "BBA_SIGNED" && "Record payment to advance"}
+          {stage === "PAYMENTS_PROGRESS" && "Complete payment balance"}
+          {stage === "REGISTRY_PENDING" && "Upload sale deed to complete"}
+          {stage === "COMPLETED" && "Sale completed"}
+        </span>
       </div>
     </button>
   );

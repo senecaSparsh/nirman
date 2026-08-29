@@ -24,7 +24,7 @@ async function BoqContent() {
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.BOQ_VIEW)) {
     return <NoAccess what="BOQ" />;
   }
 
@@ -45,7 +45,7 @@ async function BoqContent() {
     select: { id: true, code: true, name: true, unit: true },
   });
 
-  const canEdit = hasPermission(role, PERM.ASSETS_MANAGE);
+  const canEdit = hasPermission(role, PERM.BOQ_MANAGE);
 
   return (
     <>

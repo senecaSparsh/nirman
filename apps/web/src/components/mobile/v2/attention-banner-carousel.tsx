@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { AlertTriangle, PackageX, TrendingDown, ArrowRight, ClipboardCheck, CheckCircle2 } from "lucide-react";
+import { SnoozeButton } from "@/components/mobile/v2/snooze-button";
+import { useSnooze } from "@/lib/use-snooze";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ATTENTION BANNER CAROUSEL
@@ -51,23 +53,26 @@ export function AttentionBannerCarousel({
   approvalsCount?: number;
   approvalsHref?: string;
 }) {
-  const totalAttention = banners.length;
+  const { isSnoozed } = useSnooze();
+  // Filter out snoozed banners
+  const visibleBanners = banners.filter((b) => !isSnoozed(`attention:${b.id}`));
+  const totalAttention = visibleBanners.length;
   const [current, setCurrent] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
   const touchStart = React.useRef<{ x: number; y: number } | null>(null);
   const resumeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const goNext = React.useCallback(() => {
-    setCurrent((c) => (c + 1) % banners.length);
+    setCurrent((c) => (c + 1) % visibleBanners.length);
   }, [banners.length]);
 
   const goPrev = React.useCallback(() => {
-    setCurrent((c) => (c - 1 + banners.length) % banners.length);
+    setCurrent((c) => (c - 1 + banners.length) % visibleBanners.length);
   }, [banners.length]);
 
   // Auto-scroll every 4s, pause on touch
   React.useEffect(() => {
-    if (paused || banners.length <= 1) return;
+    if (paused || visibleBanners.length <= 1) return;
     const timer = setInterval(goNext, 4000);
     return () => clearInterval(timer);
   }, [paused, goNext, banners.length]);
@@ -95,12 +100,12 @@ export function AttentionBannerCarousel({
     resumeTimer.current = setTimeout(() => setPaused(false), 2000);
   };
 
-  if (banners.length === 0) return null;
+  if (visibleBanners.length === 0) return null;
 
   return (
     <div
       className="relative overflow-hidden rounded-[0.625rem] mb-3"
-      style={{ background: GRADIENTS[banners[0]?.severity ?? "summary"], touchAction: "pan-y" }}
+      style={{ background: GRADIENTS[visibleBanners[0]?.severity ?? "summary"], touchAction: "pan-y" }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -140,7 +145,7 @@ export function AttentionBannerCarousel({
         className="flex transition-transform duration-300 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
-        {banners.map((banner) => {
+        {visibleBanners.map((banner) => {
           const Icon =
             banner.severity === "out"
               ? PackageX
@@ -187,16 +192,21 @@ export function AttentionBannerCarousel({
                   </p>
                 </div>
 
-                {/* CTA pill */}
-                <div
-                  className="shrink-0 rounded-full px-3 py-1.5 text-[0.75rem] font-bold flex items-center gap-1"
-                  style={{
-                    backgroundColor: ACCENT_COLORS[banner.severity],
-                    color: "#1a1a1a",
-                  }}
-                >
-                  {banner.qtyText}
-                  <ArrowRight className="size-3" />
+                {/* CTA pill + Snooze */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5">
+                  <div
+                    className="rounded-full px-3 py-1.5 text-[0.75rem] font-bold flex items-center gap-1"
+                    style={{
+                      backgroundColor: ACCENT_COLORS[banner.severity],
+                      color: "#1a1a1a",
+                    }}
+                  >
+                    {banner.qtyText}
+                    <ArrowRight className="size-3" />
+                  </div>
+                  <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                    <SnoozeButton itemId={`attention:${banner.id}`} label={banner.title} size="sm" />
+                  </div>
                 </div>
               </div>
             </Link>
@@ -205,9 +215,9 @@ export function AttentionBannerCarousel({
       </div>
 
       {/* Pagination dots */}
-      {banners.length > 1 ? (
+      {visibleBanners.length > 1 ? (
         <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {banners.map((_, i) => (
+          {visibleBanners.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}

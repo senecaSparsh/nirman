@@ -24,7 +24,7 @@ async function ProjectControlContent() {
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.PROJECT_CONTROL_VIEW)) {
     return <NoAccess what="project control" />;
   }
 

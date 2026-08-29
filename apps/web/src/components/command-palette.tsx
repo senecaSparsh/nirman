@@ -108,7 +108,7 @@ const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (i
     label: "Materials",
     href: (id) => `/materials/${id}`,
     extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((m: Record<string, unknown>) => ({
+      (Array.isArray(data) ? data : (data as { rows?: Record<string, unknown>[] })?.rows ?? []).slice(0, 4).map((m: Record<string, unknown>) => ({
         id: String(m.id),
         label: String(m.name ?? ""),
         sublabel: `${m.code ?? ""} · ${m.unit ?? ""}`,

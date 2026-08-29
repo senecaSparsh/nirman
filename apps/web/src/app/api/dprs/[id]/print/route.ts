@@ -120,6 +120,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   ${dpr.workSummary ? `<div class="section"><p class="label">Work Summary</p><p>${dpr.workSummary}</p></div>` : ""}
   ${dpr.blockers ? `<div class="section"><p class="label">Blockers</p><p>${dpr.blockers}</p></div>` : ""}
   ${dpr.tomorrowPlan ? `<div class="section"><p class="label">Tomorrow's Plan</p><p>${dpr.tomorrowPlan}</p></div>` : ""}
+  ${dpr.photoUrls && dpr.photoUrls.length > 0 ? `<div class="section"><p class="label">Site Photos</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">${dpr.photoUrls.map((url: string, i: number) => `<img src="${url}" alt="Site photo ${i + 1}" style="width:100%;border-radius:6px;border:1px solid #ddd;" />`).join("")}</div></div>` : ""}
 
   <h2>Material Consumption</h2>
   <table>

@@ -39,6 +39,8 @@ import {
   GitBranch,
   ShieldAlert,
   Workflow,
+  MessageSquare,
+  Handshake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -416,6 +418,22 @@ export const WORLDS: World[] = [
             roles: OPS,
             keywords: ["reconciliation", "wastage", "consumption", "tolerance", "variance", "stock"],
           },
+          {
+            label: "Departments",
+            href: "/departments",
+            icon: Building2,
+            hint: "Operational cost centers — manufacturing lines, workshop, lab. Materials issued to a department hit Operating Expenses (not WIP).",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["department", "cost center", "cost centre", "boiler", "workshop", "lab", "manufacturing", "processing"],
+          },
+          {
+            label: "Vehicles",
+            href: "/vehicles",
+            icon: Truck,
+            hint: "Auto-built vehicle master — every goods movement (receive, issue, transfer, sale) logs a trip. Track vehicle numbers, drivers, transporters, and trip history.",
+            roles: OPS,
+            keywords: ["vehicle", "truck", "tempo", "pickup", "tractor", "transporter", "driver", "trip", "logistics", "transport"],
+          },
           // ── Stock reports (hidden from sidebar, on /reports) ──
           {
             label: "Inventory Value",
@@ -513,6 +531,14 @@ export const WORLDS: World[] = [
             keywords: ["subcontractor", "work order", "ra bill", "running account", "tds", "retention", "contractor"],
           },
           {
+            label: "Subcontractors",
+            href: "/subcontractors",
+            icon: HardHat,
+            hint: "Subcontractor master — trades, contact info, work order history, and total paid",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["subcontractor", "contractor", "vendor", "trade", "masonry", "plumbing", "electrical", "194c"],
+          },
+          {
             label: "Change Orders",
             href: "/change-orders",
             icon: GitBranch,
@@ -608,6 +634,14 @@ export const WORLDS: World[] = [
             keywords: ["booking", "sale", "deal", "agreement", "collection", "allotment", "buyer", "client", "tenant", "party", "customer"],
           },
           {
+            label: "Brokers",
+            href: "/brokers",
+            icon: Handshake,
+            hint: "Real estate brokers/agents — default commission %, contact info, deal history",
+            roles: SELLING,
+            keywords: ["broker", "agent", "commission", "deal source", "middleman", "referral"],
+          },
+          {
             label: "Rentals",
             href: "/rentals",
             icon: KeyRound,
@@ -622,6 +656,14 @@ export const WORLDS: World[] = [
             hint: "Sell surplus or scrap material — revenue recovers project cost when linked to a project",
             roles: SELLING,
             keywords: ["surplus", "scrap", "resale", "material sale", "cost recovery", "by-product"],
+          },
+          {
+            label: "Bank SMS",
+            href: "/sms",
+            icon: MessageSquare,
+            hint: "Auto-parse bank payment SMS and match them to outstanding sales/rents — paste or forward SMS to auto-create payment entries",
+            roles: SELLING,
+            keywords: ["sms", "bank", "payment", "auto", "upi", "text", "message", "parse", "credit", "received"],
           },
           // ── Sales reports (hidden from sidebar, on /reports) ──
           {
@@ -703,6 +745,14 @@ export const WORLDS: World[] = [
             hint: "The DPR — what work got done on site today, and by whom",
             roles: OPS,
             keywords: ["dpr", "daily progress report", "daily report", "progress", "site report", "work done"],
+          },
+          {
+            label: "Pending List",
+            href: "/hr/pending",
+            icon: ClipboardList,
+            hint: "Everything that needs your attention — pending approvals, leaves, payrolls, POs, and overdue tasks in one place",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["pending", "approval", "overdue", "task", "leave", "payroll", "po", "requisition", "queue", "action"],
           },
         ],
       },

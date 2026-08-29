@@ -17,10 +17,12 @@ import {
   MobileEmptyState,
   MobileStatusBadge,
   SectionHead,
+  mobileStatusColor,
 } from "@/components/mobile/v2/primitives";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
+import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -191,6 +193,8 @@ async function MobileProjectDetailContent({
 
   return (
     <div>
+      <RecordRecentItem type="project" id={project.id} label={project.name} href={`/m/projects/${project.id}`} />
+
       {/* ── Back + status ── */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <MobileStatusBadge status={project.status} />
@@ -249,6 +253,7 @@ async function MobileProjectDetailContent({
                 reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
                 reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
                 reraWebsiteUrl: project.reraWebsiteUrl,
+                lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
               }}
             />
           )}
@@ -388,7 +393,7 @@ async function MobileProjectDetailContent({
       <div className="grid grid-cols-3 gap-1.5 mb-3">
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
         <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Requisition" />
-        <QuickActionTile href={`/m/site/issue?project=${id}`} icon={PackageCheck} label="Issue" />
+        <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
       </div>
 
       {/* ── Units ── */}
@@ -517,7 +522,7 @@ async function MobileProjectDetailContent({
             {recentIssues.map((i) => (
               <Link
                 key={i.id}
-                href="/m/site/issue"
+                href="/m/stock-out?mode=issue"
                 className="flex flex-col rounded-[0.5rem] border p-1.5 press"
                 style={{
                   borderColor: "var(--color-line)",
@@ -726,14 +731,7 @@ function UnitCard({
     saleId: string | null;
   };
 }) {
-  const statusColors: Record<string, string> = {
-    AVAILABLE: "var(--color-go)",
-    UNDER_CONSTRUCTION: "var(--color-signal)",
-    SOLD: "var(--color-steel)",
-    PLANNED: "var(--color-ink-500)",
-    BOOKED: "var(--color-signal-dark)",
-  };
-  const statusColor = statusColors[unit.status] ?? "var(--color-ink-500)";
+  const statusColor = mobileStatusColor(unit.status);
 
   return (
     <Link

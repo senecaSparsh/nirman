@@ -2,17 +2,20 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { getUserRole } from "@/lib/server";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { MobileSelfCheckIn } from "@/components/mobile/mobile-self-check-in";
+import { MorningBriefing } from "@/components/mobile/morning-briefing";
 import { MobileHomeClient, type CompanyCardData } from "./home-client";
 
 /**
  * /m/home — Orbit navigation hub.
  *
- * Shows the user's companies as a 3-col grid of cards. Tapping a company
- * opens the OrbitNavigator popup, which lets the user drill down through
- * the hierarchy: Company → Projects → Built Units → Sales → Payments.
- *
- * This is the "Home" tab — a bird's-eye view of everything the user owns.
+ * Shows the orbit for the currently selected company directly (no grid).
+ * A horizontal company switcher strip at the top lets the user pick which
+ * company's orbit to explore. Switching via the header/settings company
+ * switcher also updates the orbit via the "nirman-company-switched" event.
  */
 export default function MobileHomePage() {
   return (
@@ -24,11 +27,17 @@ export default function MobileHomePage() {
 
 async function HomeContent() {
   await connection();
-  // Parallelize company + user fetches (each calls getSession internally,
-  // but the DB queries after session resolution run concurrently).
-  const [company, user] = await Promise.all([getCompany(), getCurrentUser()]);
+  const [company, user, role] = await Promise.all([
+    getCompany(),
+    getCurrentUser(),
+    getUserRole(),
+  ]);
 
-  // Fetch all companies the user has membership in
+  // Only OWNER/ADMIN at the top of the hierarchy can create new companies.
+  // A child company user shouldn't be creating siblings — only the parent
+  // owner can spawn new subsidiaries.
+  const canCreateCompany =
+    hasPermission(role, PERM.COMPANY_MANAGE) && !company.parentCompanyId;
   const isDevBypass = process.env.AUTH_BYPASS === "true";
   let memberships;
 
@@ -56,7 +65,6 @@ async function HomeContent() {
     });
     memberships = memberships.filter((m) => m.company.deletedAt === null);
   } else {
-    // Dev bypass — show all companies
     const allCompanies = await prisma.company.findMany({
       where: { deletedAt: null },
       select: {
@@ -74,13 +82,9 @@ async function HomeContent() {
       },
       orderBy: { name: "asc" },
     });
-    memberships = allCompanies.map((c) => ({
-      role: "OWNER",
-      company: c,
-    }));
+    memberships = allCompanies.map((c) => ({ role: "OWNER", company: c }));
   }
 
-  // If no memberships, show the current company at least
   if (memberships.length === 0) {
     const c = await prisma.company.findFirst({
       where: { id: company.id, deletedAt: null },
@@ -113,5 +117,58 @@ async function HomeContent() {
     employeeCount: m.company._count.employees,
   }));
 
-  return <MobileHomeClient companies={companies} />;
+  // ── Self-check-in widget: fetch the user's employee record + today's attendance ──
+  const today = new Date();
+  const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+
+  const myEmployee = user
+    ? await prisma.employee.findFirst({
+        where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
+        select: { id: true, name: true },
+      })
+    : null;
+
+  const myAttendance = myEmployee
+    ? await prisma.workerAttendance.findFirst({
+        where: {
+          employeeId: myEmployee.id,
+          date: { gte: startOfToday, lt: endOfToday },
+        },
+        select: { checkIn: true, checkOut: true, hoursWorked: true, status: true },
+      })
+    : null;
+
+  return (
+    <>
+      {/* ── Morning briefing — glanceable summary of what needs attention today ── */}
+      <MorningBriefing />
+
+      {/* ── Self-check-in widget (only for employees with an employee record) ── */}
+      {myEmployee && (
+        <div className="mb-3">
+          <MobileSelfCheckIn
+            employeeId={myEmployee.id}
+            employeeName={myEmployee.name}
+            hasCheckedIn={!!myAttendance?.checkIn}
+            checkInTime={myAttendance?.checkIn?.toTimeString().slice(0, 5) ?? null}
+            hasCheckedOut={!!myAttendance?.checkOut}
+            checkOutTime={myAttendance?.checkOut?.toTimeString().slice(0, 5) ?? null}
+            hoursWorked={myAttendance?.hoursWorked ? Number(myAttendance.hoursWorked) : null}
+          />
+        </div>
+      )}
+
+      <MobileHomeClient
+        currentCompany={{
+          id: company.id,
+          name: company.name,
+          businessType: company.businessType,
+          currency: company.currency,
+        }}
+        companies={companies}
+        canCreateCompany={canCreateCompany}
+      />
+    </>
+  );
 }

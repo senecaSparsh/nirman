@@ -9,7 +9,7 @@ import {
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
   ClipboardList, HardHat, Ruler, ListChecks,
-  ShieldCheck, KeyRound,
+  ShieldCheck, KeyRound, FileText,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,7 @@ export type ProjectHubData = {
     reraRegistrationDate: string | null;
     reraValidityDate: string | null;
     reraWebsiteUrl: string | null;
+    lciThreshold: number | null;
     // Possession tracking
     isPossessed?: boolean;
     possessionDate?: string | null;
@@ -261,6 +262,7 @@ export function ProjectHub({
           { label: "Cost", value: project.totalProjectCost ? formatCurrency(project.totalProjectCost) : "—", hint: "Actual cost incurred to date (land + material + labour + overhead)." },
           { label: "Cost/Sq.Ft", value: project.costPerSqft ? formatCurrency(project.costPerSqft) : "—", hint: "Cost per square foot of sellable area." },
           { label: "Area", value: project.totalSellableArea ? `${formatNumber(project.totalSellableArea, 0)} Sq.Ft` : "—", hint: "Total sellable area across all built units." },
+          { label: "LCI %", value: project.lciThreshold != null ? `${project.lciThreshold}%` : "Default", hint: "Low-Cost Item threshold — items below this % of budget are auto-procured without PO." },
           { label: "Revenue", value: formatCurrency(pnl.revenue), tone: "success", hint: "Revenue from unit sales and other income." },
           { label: "Profit", value: formatCurrency(pnl.profit), tone: pnl.profit >= 0 ? "success" : "danger", hint: `Net profit — ${pnl.margin.toFixed(1)}% margin.` },
         ]}
@@ -740,6 +742,12 @@ function StockTab({ data }: { data: ProjectHubData }) {
                 render: (i) => <span className="font-medium text-foreground">{i.fromLocationName}</span>,
               },
               {
+                key: "builtUnitName",
+                label: "Unit",
+                sortable: true,
+                render: (i) => i.builtUnitName ? <span className="rounded bg-brand/10 px-1.5 py-0.5 text-micro font-medium text-brand">{i.builtUnitName}</span> : <span className="text-faint">—</span>,
+              },
+              {
                 key: "lineCount",
                 label: "Lines",
                 align: "right",
@@ -759,6 +767,27 @@ function StockTab({ data }: { data: ProjectHubData }) {
                 label: "Date",
                 sortable: true,
                 render: (i) => <span className="text-caption text-muted-foreground">{formatDate(i.issueDate)}</span>,
+              },
+              {
+                key: "subcontractorName",
+                label: "Subcontractor",
+                sortable: true,
+                render: (i) => <span className="text-caption text-muted-foreground">{i.subcontractorName ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "phaseName",
+                label: "Phase",
+                sortable: true,
+                render: (i) => <span className="text-caption text-muted-foreground">{i.phaseName ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "vehicleNumber",
+                label: "Vehicle",
+                sortable: true,
+                render: (i) => i.vehicleNumber ? <span className="font-mono text-caption text-muted-foreground">{i.vehicleNumber}</span> : <span className="text-faint">—</span>,
+                defaultHidden: true,
               },
               {
                 key: "notes",
@@ -1410,6 +1439,25 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
                 label: "Notes",
                 sortable: false,
                 render: (c) => <span className="text-caption text-muted-foreground truncate">{c.notes ?? "—"}</span>,
+                defaultHidden: true,
+              },
+              {
+                key: "receiptUrl",
+                label: "Receipt",
+                sortable: false,
+                render: (c) => c.receiptUrl ? (
+                  <a
+                    href={c.receiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-brand hover:text-brand-strong"
+                    title="View receipt"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </a>
+                ) : <span className="text-faint">—</span>,
+                exportValue: (c) => c.receiptUrl ?? "",
                 defaultHidden: true,
               },
             ]}

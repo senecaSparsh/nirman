@@ -116,6 +116,7 @@ export function toNum(v: unknown): number {
 export const materialCategorySchema = z.object({
   name: z.string().min(1, "Name is required").max(80),
   unit: z.string().min(1).max(20).default("NOS"),
+  class: z.enum(["RAW_MATERIAL", "CONSUMABLE", "MRO", "TEMPORARY"]).optional(),
 });
 
 export const materialSchema = z.object({
@@ -134,6 +135,11 @@ export const materialSchema = z.object({
   volumetricDensity: z.coerce.number().min(0).optional().nullable(),
   bulkDiscountPct: z.coerce.number().min(0).max(100).optional().nullable(),
   isCorporateCommodity: z.boolean().optional().default(false),
+  isLotTracked: z.boolean().optional().default(false),
+  isScrap: z.boolean().optional().default(false),
+  baseUnit: z.string().max(20).optional(),
+  secondaryUnit: z.string().max(20).optional().nullable(),
+  uomConversionFactor: z.coerce.number().min(0).optional().nullable(),
   description: z.string().max(500).optional().nullable(),
 });
 
@@ -142,6 +148,9 @@ export const stockLocationSchema = z.object({
   name: z.string().min(1, "Name is required").max(120),
   projectId: z.string().optional().nullable(),
   address: z.string().max(300).optional().nullable(),
+  lat: z.coerce.number().min(-90).max(90).optional().nullable(),
+  lng: z.coerce.number().min(-180).max(180).optional().nullable(),
+  geoRadius: z.coerce.number().int().min(10).max(50000).optional().nullable(),
 });
 
 export const stockCountSchema = z.object({
@@ -527,6 +536,9 @@ export const landPurchasePlanSchema = z.object({
   registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
   stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  // Transfer duty (authority land — DDA, HUDCO, etc.)
+  transferDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  transferDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   // Additional acquisition costs
   brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
@@ -563,6 +575,9 @@ export const landPurchaseEditSchema = z.object({
   registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
   stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  // Transfer duty (authority land — DDA, HUDCO, etc.)
+  transferDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  transferDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
   otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
@@ -666,6 +681,10 @@ export const sellAssetSchema = z.object({
   // Sale deed / registry tracking
   saleDeedNo: z.string().max(200).optional().nullable(),
   expectedRegistryDate: z.string().optional().nullable(),
+  // ATS (Agreement to Sell) — merged with registry: either atsNo OR saleDeedNo
+  atsNo: z.string().max(200).optional().nullable(),
+  atsDate: z.string().optional().nullable(),
+  allowRegistryBeforeFullPayment: z.boolean().optional(),
   // Sale compliance documents
   allotmentLetterNo: z.string().max(200).optional().nullable(),
   allotmentDate: z.string().optional().nullable(),
@@ -723,6 +742,11 @@ export const sellAssetSchema = z.object({
   // ATS document upload (optional at booking)
   atsDocumentUrl: z.string().optional().nullable(),
   atsDocumentName: z.string().optional().nullable(),
+  // Draft / LOI (Letter of Intent)
+  draftDocumentUrl: z.string().optional().nullable(),
+  draftDocumentName: z.string().optional().nullable(),
+  draftNotes: z.string().optional().nullable(),
+  draftDate: z.string().optional().nullable(),
 });
 
 export const paymentScheduleSchema = z.object({
@@ -772,6 +796,9 @@ export const completeSaleSchema = z.object({
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
   saleDeedNo: z.string().max(200).optional().nullable(),
+  // ATS fields — either atsNo OR saleDeedNo is the registered document
+  atsNo: z.string().max(200).optional().nullable(),
+  atsDate: z.string().optional().nullable(),
   // Compliance fields that can be captured at completion
   allotmentLetterNo: z.string().max(200).optional().nullable(),
   allotmentDate: z.string().optional().nullable(),
@@ -808,6 +835,7 @@ export const materialSaleSchema = z.object({
   projectId: z.string().optional().nullable(),
   lines: z.array(materialSaleLineSchema).min(1, "At least one line item is required"),
   paymentMode: z.string().optional().nullable(),
+  partyName: z.string().max(200).optional().nullable(),
   // Vehicle — how the goods were dispatched to the customer
   vehicleNumber: z.string().max(50).optional(),
   vehicleType: z.string().max(50).optional(),
@@ -872,6 +900,11 @@ export const tenancySchema = z.object({
   sacCode: z.string().optional().nullable(),
   escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
   escalationIntervalMonths: z.coerce.number().int().positive().optional(),
+  rentFreeDays: z.coerce.number().int().nonnegative().optional(),
+  draftDocumentUrl: z.string().optional().nullable(),
+  draftDocumentName: z.string().optional().nullable(),
+  draftNotes: z.string().optional().nullable(),
+  draftDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -889,6 +922,11 @@ export const editTenancySchema = z.object({
   notes: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
   escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  rentFreeDays: z.coerce.number().int().nonnegative().optional(),
+  draftDocumentUrl: z.string().optional().nullable(),
+  draftDocumentName: z.string().optional().nullable(),
+  draftNotes: z.string().optional().nullable(),
+  draftDate: z.string().optional().nullable(),
 });
 
 export const rentPaymentSchema = z.object({
@@ -1043,6 +1081,8 @@ export const attendanceSchema = z.object({
   checkOutLng: z.number().optional().nullable(),
   checkInLocation: z.string().max(300).optional().nullable(),
   checkOutLocation: z.string().max(300).optional().nullable(),
+  geoFenceOk: z.boolean().optional().nullable(),
+  geoFenceDistance: z.number().optional().nullable(),
 });
 
 export const bulkAttendanceSchema = z.object({
@@ -1208,7 +1248,7 @@ async function getDevBypassUser() {
   const testRole = (await headers()).get("x-test-role");
   if (testRole) {
     const u = await prisma.user.findFirst({
-      where: { role: testRole as any },
+      where: { role: testRole },
       select: { id: true, email: true, name: true, role: true, companyId: true },
     });
     if (u) {

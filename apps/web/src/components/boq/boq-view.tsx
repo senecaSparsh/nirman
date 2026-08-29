@@ -264,6 +264,11 @@ function BoqTree({
                 <span className="text-muted-foreground text-xs">{node.serialNo}</span>
                 <div className="min-w-0 flex-1">
                   <span className="truncate">{node.description}</span>
+                  {node.material && (
+                    <span className="ml-1.5 inline-flex items-center rounded bg-brand/10 px-1 py-0 text-micro font-medium text-brand align-middle">
+                      {node.material.code}
+                    </span>
+                  )}
                   {node.notes && (
                     <p className="truncate text-micro text-muted-foreground/70">{node.notes}</p>
                   )}

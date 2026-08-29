@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type MbEntryStatus } from "@nirman/db";
 import { createMbEntry } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -17,7 +17,7 @@ const schema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.STOCK_ISSUE);
+  const user = await requirePermission(PERM.MB_VERIFY);
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
@@ -41,7 +41,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.MB_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
@@ -55,7 +55,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(projectId ? { projectId } : {}),
       ...(boqItemId ? { boqItemId } : {}),
       ...(wbsNodeId ? { wbsNodeId } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as MbEntryStatus } : {}),
     },
     orderBy: { measureDate: "desc" },
     include: {

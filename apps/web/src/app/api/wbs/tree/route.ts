@@ -3,7 +3,32 @@ import { getWbsTree } from "@nirman/services";
 import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-function serializeNode(node: any): any {
+interface WbsTreeNode {
+  id: string;
+  parentId: string | null;
+  code: string;
+  name: string;
+  type: string;
+  description: string | null;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+  actualStart: Date | null;
+  actualEnd: Date | null;
+  progressPct: unknown;
+  isCritical: boolean;
+  totalFloat: unknown;
+  sortOrder: number;
+  boqItem: {
+    estimatedAmount: unknown;
+    estimatedQty: unknown;
+    rate: unknown;
+    [key: string]: unknown;
+  } | null;
+  children: WbsTreeNode[];
+  _count: unknown;
+}
+
+function serializeNode(node: WbsTreeNode): Record<string, unknown> {
   return {
     id: node.id,
     parentId: node.parentId,
@@ -33,7 +58,7 @@ function serializeNode(node: any): any {
 }
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.WBS_VIEW);
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });

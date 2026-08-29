@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Truck, Loader2, Check, AlertCircle } from "lucide-react";
+import { Truck, Loader2, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 
 /**
  * Mobile supplier creation form — minimal fields for fast on-the-spot
@@ -20,6 +23,9 @@ export function MobileNewSupplierClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; name: string } | null>(null);
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<typeof form>("supplier", "supplier-new");
+  const [draftRestored, setDraftRestored] = useState(false);
   const [form, setForm] = useState({
     name: "",
     gstin: "",
@@ -48,6 +54,20 @@ export function MobileNewSupplierClient({
     }
   }
 
+  // ── Draft auto-save ──
+  useEffect(() => {
+    if (success) return;
+    saveDraft(form);
+  }, [form, success, saveDraft]);
+
+  // ── Restore draft on mount ──
+  useEffect(() => {
+    if (draft && !draftRestored && hasDraft) {
+      setForm(draft);
+      setDraftRestored(true);
+    }
+  }, [draft, hasDraft, draftRestored]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -71,11 +91,11 @@ export function MobileNewSupplierClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create supplier");
+      clearDraft();
       toast.success("Supplier created", {
         description: form.phone ? `${form.name} · ${form.phone}` : form.name,
       });
-      router.push("/m/suppliers");
-      router.refresh();
+      setSuccess({ id: data.id, name: data.name ?? form.name });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -83,25 +103,46 @@ export function MobileNewSupplierClient({
     }
   }
 
-  if (!canCreate) {
+  if (success) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          className="grid place-items-center size-14 rounded-full mb-3"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
         >
-          <Truck className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            You don&apos;t have permission to create suppliers
-          </p>
-          <p className="text-[0.6875rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-            Contact an admin or manager
-          </p>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          Supplier Created
+        </p>
+        <p className="text-[0.6875rem] mb-4" style={{ color: "var(--color-ink-500)" }}>
+          {success.name}
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/m/suppliers/${success.id}`)}
+            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            View {success.name}
+          </button>
+          <button
+            onClick={() => {
+              setSuccess(null);
+              setForm({ name: "", gstin: "", phone: "", email: "", address: "", leadTimeDays: "" });
+            }}
+            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            Add Another
+          </button>
         </div>
       </div>
     );
+  }
+
+  if (!canCreate) {
+    return <MobileNoAccess what="create suppliers" />;
   }
 
   const inputClass =
@@ -114,6 +155,14 @@ export function MobileNewSupplierClient({
 
   return (
     <div className="space-y-3">
+      {hasDraft && !draftRestored && !success ? (
+        <DraftBanner
+          formName="supplier-new"
+          updatedAt={draftUpdatedAt}
+          onRestore={() => setDraftRestored(true)}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      ) : null}
       <form onSubmit={onSubmit} className="space-y-3">
         <div
           className="rounded-[0.625rem] border p-3 space-y-2.5"

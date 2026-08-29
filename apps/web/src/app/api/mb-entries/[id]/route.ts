@@ -11,17 +11,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   try {
     if (action === "verify") {
-      const user = await requirePermission(PERM.STOCK_ISSUE);
+      const user = await requirePermission(PERM.MB_VERIFY);
       const entry = await verifyMbEntry(id, user.id);
       return json(entry);
     }
     if (action === "approve") {
-      const user = await requirePermission(PERM.ASSETS_MANAGE);
+      const user = await requirePermission(PERM.MB_APPROVE);
       const entry = await approveMbEntry(id, user.id);
       return json(entry);
     }
     if (action === "reject") {
-      const user = await requirePermission(PERM.STOCK_ISSUE);
+      const user = await requirePermission(PERM.MB_VERIFY);
       const schema = z.object({ reason: z.string().min(1) });
       const parsed = schema.safeParse({ reason: body.reason });
       if (!parsed.success) return json({ error: "Rejection reason is required" }, { status: 400 });

@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileStockCountsList } from "./MobileStockCountsList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/stock-counts — mobile stock count / physical verification list.
@@ -60,15 +61,20 @@ async function MobileStockCountsContent() {
   });
 
   return (
-    <MobileStockCountsList
-      items={serialized}
-      counts={{
-        total: counts.length,
-        draft: draft.length,
-        counted: counted.length,
-        reconciled: reconciled.length,
-      }}
-      canCreate={canCreate}
-    />
+    <div>
+      <MobileStockCountsList
+        items={serialized}
+        counts={{
+          total: counts.length,
+          draft: draft.length,
+          counted: counted.length,
+          reconciled: reconciled.length,
+        }}
+        canCreate={canCreate}
+      />
+      {canCreate && (
+        <MobileFab href="/m/stock-counts/new" label="New stock count" />
+      )}
+    </div>
   );
 }

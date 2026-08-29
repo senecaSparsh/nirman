@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { X, Loader2, Plus, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { useWbsOptions } from "@/lib/use-wbs-options";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -26,6 +28,19 @@ const SEVERITIES: { value: NcrSeverity; label: string; desc: string }[] = [
   { value: "OBSERVATION", label: "Observation", desc: "Note for improvement" },
 ];
 
+// Flatten a BOQ tree into a list of { id, label } for select options.
+function flattenBoq(nodes: unknown[], depth = 0): { id: string; label: string }[] {
+  const out: { id: string; label: string }[] = [];
+  for (const n of nodes) {
+    const node = n as Record<string, unknown>;
+    const prefix = depth > 0 ? "  ".repeat(depth) + "↳ " : "";
+    out.push({ id: String(node.id), label: `${prefix}${node.serialNo} — ${node.description}` });
+    const children = node.children;
+    if (Array.isArray(children) && children.length) out.push(...flattenBoq(children, depth + 1));
+  }
+  return out;
+}
+
 export function MobileNewNcrDialog({
   open,
   onClose,
@@ -39,6 +54,8 @@ export function MobileNewNcrDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
+  const [boqOptions, setBoqOptions] = useState<{ id: string; label: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",
     title: "",
@@ -48,7 +65,27 @@ export function MobileNewNcrDialog({
     location: "",
     responsibleParty: "",
     subcontractorId: "",
+    wbsNodeId: "",
+    boqItemId: "",
   });
+
+  const wbsOptions = useWbsOptions(open ? form.projectId : null);
+
+  // Fetch BOQ tree when the project changes.
+  useEffect(() => {
+    if (!open || !form.projectId) { setBoqOptions([]); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await globalThis.fetch(`/api/boq/tree?projectId=${form.projectId}`);
+        const data = await res.json();
+        if (!cancelled) setBoqOptions(flattenBoq(Array.isArray(data?.tree) ? data.tree : []));
+      } catch {
+        if (!cancelled) setBoqOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, form.projectId]);
 
   useEffect(() => {
     if (open) {
@@ -61,7 +98,10 @@ export function MobileNewNcrDialog({
         location: "",
         responsibleParty: "",
         subcontractorId: "",
+        wbsNodeId: "",
+        boqItemId: "",
       });
+      setAttachments([]);
     }
   }, [open, projects]);
 
@@ -88,6 +128,9 @@ export function MobileNewNcrDialog({
           location: form.location || null,
           responsibleParty: form.responsibleParty || null,
           subcontractorId: form.subcontractorId || null,
+          wbsNodeId: form.wbsNodeId || null,
+          boqItemId: form.boqItemId || null,
+          attachments: attachments.map((a) => a.url),
         }),
       });
       const data = await res.json();
@@ -203,6 +246,36 @@ export function MobileNewNcrDialog({
             />
           </div>
 
+          {/* WBS Node + BOQ Item */}
+          <div className="grid grid-cols-1 gap-2">
+            <div>
+              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
+              <select
+                value={form.wbsNodeId}
+                onChange={(e) => set("wbsNodeId", e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                disabled={wbsOptions.length === 0}
+              >
+                <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+                {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>BOQ Item (optional)</label>
+              <select
+                value={form.boqItemId}
+                onChange={(e) => set("boqItemId", e.target.value)}
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                disabled={boqOptions.length === 0}
+              >
+                <option value="">{boqOptions.length === 0 ? "No BOQ items for this project" : "— None —"}</option>
+                {boqOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+              </select>
+            </div>
+          </div>
+
           {/* Responsible party + Subcontractor */}
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -229,6 +302,14 @@ export function MobileNewNcrDialog({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Photo evidence */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+              Photo Evidence
+            </label>
+            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
           </div>
 
           {/* Actions */}

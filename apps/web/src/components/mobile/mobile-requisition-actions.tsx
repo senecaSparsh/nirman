@@ -10,6 +10,10 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Trophy,
+  ShieldCheck,
+  AlertTriangle,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -17,6 +21,17 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+
+interface WinningQuoteData {
+  id: string;
+  supplierName: string;
+  supplierId: string;
+  landedTotal: number;
+  selectedAt: string | null;
+  selectionReason: string | null;
+  isCheapest: boolean;
+  lineCosts: Record<string, number>;
+}
 
 interface ReqPayload {
   id: string;
@@ -59,6 +74,10 @@ export function MobileRequisitionActions({
   locations,
   canApprove,
   canManage,
+  quoteCount = 0,
+  minQuotesRequired = 3,
+  quotesWaived = false,
+  winningQuote = null,
 }: {
   requisition: ReqPayload;
   lines: ReqLine[];
@@ -66,6 +85,10 @@ export function MobileRequisitionActions({
   locations: LocationOpt[];
   canApprove: boolean;
   canManage: boolean;
+  quoteCount?: number;
+  minQuotesRequired?: number;
+  quotesWaived?: boolean;
+  winningQuote?: WinningQuoteData | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -143,6 +166,10 @@ export function MobileRequisitionActions({
               lines={lines}
               suppliers={suppliers}
               locations={locations}
+              quoteCount={quoteCount}
+              minQuotesRequired={minQuotesRequired}
+              quotesWaived={quotesWaived}
+              winningQuote={winningQuote}
               onDone={() => {
                 setShowConvert(false);
                 router.refresh();
@@ -160,26 +187,45 @@ function ConvertForm({
   lines,
   suppliers,
   locations,
+  quoteCount = 0,
+  minQuotesRequired = 3,
+  quotesWaived = false,
+  winningQuote = null,
   onDone,
 }: {
   requisition: ReqPayload;
   lines: ReqLine[];
   suppliers: SupplierOpt[];
   locations: LocationOpt[];
+  quoteCount?: number;
+  minQuotesRequired?: number;
+  quotesWaived?: boolean;
+  winningQuote?: WinningQuoteData | null;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [localSuppliers, setLocalSuppliers] = useState<SupplierOpt[]>(suppliers);
   const [localLocations, setLocalLocations] = useState<LocationOpt[]>(locations);
-  const [supplierId, setSupplierId] = useState(lines[0]?.preferredSupplierId ?? suppliers[0]?.id ?? "");
+  // Pre-fill supplier from winning quote if available
+  const [supplierId, setSupplierId] = useState(
+    winningQuote?.supplierId ?? lines[0]?.preferredSupplierId ?? suppliers[0]?.id ?? "",
+  );
   const [scope, setScope] = useState<"COMPANY" | "PROJECT">("COMPANY");
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
+  // Pre-fill line costs from winning quote, fall back to suggestedCost
   const [lineCosts, setLineCosts] = useState<Record<string, number>>(
-    Object.fromEntries(lines.map((l) => [l.materialId, l.suggestedCost])),
+    Object.fromEntries(
+      lines.map((l) => [
+        l.materialId,
+        winningQuote?.lineCosts[l.materialId] ?? l.suggestedCost,
+      ]),
+    ),
   );
   const [submitting, setSubmitting] = useState(false);
+
+  const gateSatisfied = quoteCount >= minQuotesRequired || quotesWaived;
 
   // Locations valid for the chosen scope.
   const scopedLocations = localLocations.filter((l) =>
@@ -221,6 +267,54 @@ function ConvertForm({
       className="flex flex-col gap-3 rounded-[0.625rem] border p-3"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
+      {/* ── Quote gate status ── */}
+      <div
+        className="flex items-center gap-2 rounded-[0.5rem] px-2.5 py-2 text-[0.625rem] font-semibold"
+        style={{
+          backgroundColor: gateSatisfied ? "var(--color-go-wash)" : "var(--color-signal-wash)",
+          color: gateSatisfied ? "var(--color-go-dark)" : "var(--color-signal-dark)",
+        }}
+      >
+        {gateSatisfied ? (
+          <ShieldCheck className="size-3.5 shrink-0" />
+        ) : (
+          <AlertTriangle className="size-3.5 shrink-0" />
+        )}
+        <span className="flex-1">
+          {quotesWaived
+            ? `Quote requirement waived (${quoteCount}/${minQuotesRequired} uploaded)`
+            : gateSatisfied
+              ? `${quoteCount}/${minQuotesRequired} quotes collected — gate satisfied`
+              : `${quoteCount}/${minQuotesRequired} quotes — need ${minQuotesRequired - quoteCount} more to convert`}
+        </span>
+      </div>
+
+      {/* ── Winning quote summary ── */}
+      {winningQuote && (
+        <div
+          className="flex items-center gap-2 rounded-[0.5rem] border px-2.5 py-2"
+          style={{
+            borderColor: "var(--color-steel)",
+            backgroundColor: "var(--color-concrete)",
+          }}
+        >
+          <Crown
+            className="size-4 shrink-0"
+            style={{ color: winningQuote.isCheapest ? "var(--color-go)" : "var(--color-steel)" }}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-[0.6875rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+              Winner: {winningQuote.supplierName}
+            </p>
+            <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-500)" }}>
+              Landed total: {formatCurrency(winningQuote.landedTotal)}
+              {!winningQuote.isCheapest && " · not cheapest"}
+              {winningQuote.selectionReason ? ` · ${winningQuote.selectionReason}` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Supplier
@@ -312,6 +406,11 @@ function ConvertForm({
       <div>
         <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Line costs
+          {winningQuote && (
+            <span className="ml-1 text-[0.5rem]" style={{ color: "var(--color-steel)" }}>
+              (auto-filled from winning quote)
+            </span>
+          )}
         </label>
         <div className="flex flex-col gap-2">
           {lines.map((l) => (

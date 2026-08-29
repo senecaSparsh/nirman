@@ -77,9 +77,12 @@ export function MobileSearchHeader({
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             placeholder={placeholder}
-            className="w-full h-8 rounded-[0.5rem] border-2 pl-8 pr-3 text-[0.75rem] focus:outline-none"
+            className="w-full h-9 rounded-[0.5rem] border-2 pl-8 pr-3 text-m-body focus:outline-none"
             style={{
-              borderColor: query || searchFocused ? "var(--color-ink-950)" : "var(--color-line)",
+              borderColor:
+                query || searchFocused
+                  ? "var(--color-ink-950)"
+                  : "var(--color-line)",
               backgroundColor: "var(--color-paper)",
               color: "var(--color-ink-950)",
             }}
@@ -106,7 +109,7 @@ export function MobileSearchHeader({
         <div className="flex items-center justify-between mt-2">
           {resultCount ? (
             <span
-              className="text-[0.6875rem] font-semibold"
+              className="text-m-caption font-semibold"
               style={{ color: "var(--color-ink-500)" }}
             >
               {resultCount}
@@ -117,7 +120,7 @@ export function MobileSearchHeader({
           {showClear && (
             <button
               onClick={onClear}
-              className="text-[0.6875rem] font-semibold flex items-center gap-1"
+              className="touch text-m-caption font-semibold flex items-center gap-1 pl-2"
               style={{ color: "var(--color-steel)" }}
             >
               <X className="size-3" /> Clear
@@ -152,23 +155,34 @@ export function MobileFilterChips<T extends string>({
 }) {
   return (
     <div className="-mx-3.5 px-3.5 overflow-x-auto scrollbar-hide">
-      <div className="flex gap-1.5 w-max items-center">
+      <div className="flex gap-2 w-max items-center">
         {chips.map((chip) => {
           const isActive = active === chip.value;
           return (
             <button
               key={chip.value}
               onClick={() => onChange(chip.value)}
-              className="press rounded-full px-2.5 py-1 shrink-0 text-[0.6875rem] font-semibold border transition-colors flex items-center gap-1"
+              className="press rounded-full px-3.5 min-h-11 shrink-0 text-m-caption font-semibold border transition-colors flex items-center gap-1.5"
               style={
                 isActive
-                  ? { backgroundColor: "var(--color-ink-950)", borderColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                  : { color: "var(--color-ink-700)", borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }
+                  ? {
+                      backgroundColor: "var(--color-ink-950)",
+                      borderColor: "var(--color-ink-950)",
+                      color: "var(--color-paper)",
+                    }
+                  : {
+                      color: "var(--color-ink-700)",
+                      borderColor: "var(--color-line)",
+                      backgroundColor: "var(--color-paper)",
+                    }
               }
             >
               {chip.label}
               {chip.count != null && (
-                <span className="text-[0.5625rem] tabular-nums" style={{ opacity: 0.6 }}>
+                <span
+                  className="text-m-caption tabular-nums"
+                  style={{ opacity: 0.6 }}
+                >
                   {chip.count}
                 </span>
               )}
@@ -204,7 +218,8 @@ export function MobileFilterDropdown<T extends string>({
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -214,9 +229,12 @@ export function MobileFilterDropdown<T extends string>({
     <div ref={ref} className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="h-9 rounded-[0.625rem] border-2 pl-3 pr-7 text-[0.75rem] font-semibold focus:outline-none cursor-pointer flex items-center"
+        className="h-11 rounded-[0.625rem] border-2 pl-3 pr-7 text-m-body font-semibold focus:outline-none cursor-pointer flex items-center"
         style={{
-          borderColor: active !== options[0]?.value ? "var(--color-ink-950)" : "var(--color-line)",
+          borderColor:
+            active !== options[0]?.value
+              ? "var(--color-ink-950)"
+              : "var(--color-line)",
           backgroundColor: "var(--color-paper)",
           color: "var(--color-ink-950)",
         }}
@@ -230,17 +248,29 @@ export function MobileFilterDropdown<T extends string>({
       {open && (
         <div
           className="absolute top-10 right-0 z-30 rounded-[0.625rem] border-2 shadow-lg overflow-hidden min-w-[8rem]"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
         >
           {options.map((opt, i) => (
             <button
               key={opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className="w-full text-left px-3 py-2 text-[0.75rem] font-semibold press"
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className="touch w-full text-left px-3 py-2 text-m-body font-semibold press"
               style={{
                 fontWeight: active === opt.value ? 700 : 500,
-                color: active === opt.value ? "var(--color-ink-950)" : "var(--color-ink-700)",
-                backgroundColor: active === opt.value ? "var(--color-concrete)" : "transparent",
+                color:
+                  active === opt.value
+                    ? "var(--color-ink-950)"
+                    : "var(--color-ink-700)",
+                backgroundColor:
+                  active === opt.value
+                    ? "var(--color-concrete)"
+                    : "transparent",
                 ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}),
               }}
             >
@@ -279,14 +309,22 @@ export function MobileFilterIcon<T extends string>({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Filter"
-        className="grid place-items-center size-8 rounded-[0.5rem] border press relative"
+        className="grid place-items-center size-9 rounded-[0.5rem] border press relative"
         style={{
-          borderColor: hasFilter || open ? "var(--color-ink-950)" : "var(--color-line)",
-          backgroundColor: hasFilter || open ? "var(--color-concrete)" : "var(--color-paper)",
+          borderColor:
+            hasFilter || open ? "var(--color-ink-950)" : "var(--color-line)",
+          backgroundColor:
+            hasFilter || open ? "var(--color-concrete)" : "var(--color-paper)",
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M3 4h18l-7 8v7l-4 2v-9L3 4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M3 4h18l-7 8v7l-4 2v-9L3 4z"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
         {hasFilter && (
           <span
@@ -297,21 +335,39 @@ export function MobileFilterIcon<T extends string>({
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
           <div
             className="absolute top-full right-0 z-20 mt-1 w-44 rounded-[0.625rem] border shadow-lg overflow-hidden"
-            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
           >
             {options.map((opt, i) => (
               <button
                 key={opt.value}
-                onClick={() => { onChange(opt.value); setOpen(false); }}
-                className="press w-full text-left px-3 py-2 text-[0.75rem]"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className="touch press w-full text-left px-3 py-2 text-m-body"
                 style={{
                   fontWeight: active === opt.value ? 600 : 400,
-                  color: active === opt.value ? "var(--color-ink-950)" : "var(--color-ink-700)",
-                  backgroundColor: active === opt.value ? "var(--color-concrete)" : "transparent",
-                  ...(i > 0 ? { borderTop: "1px solid var(--color-line)" } : {}),
+                  color:
+                    active === opt.value
+                      ? "var(--color-ink-950)"
+                      : "var(--color-ink-700)",
+                  backgroundColor:
+                    active === opt.value
+                      ? "var(--color-concrete)"
+                      : "transparent",
+                  ...(i > 0
+                    ? { borderTop: "1px solid var(--color-line)" }
+                    : {}),
                 }}
               >
                 {opt.label}
@@ -342,7 +398,7 @@ export function MobileHeaderAction({
   children: React.ReactNode;
 }) {
   const cls =
-    "flex items-center gap-1 h-9 px-3 rounded-[0.625rem] text-[0.75rem] font-bold whitespace-nowrap press active:scale-95 shrink-0";
+    "flex items-center gap-1.5 h-9 px-3 rounded-[0.5rem] text-m-body font-bold whitespace-nowrap press active:scale-95 shrink-0";
   const style: React.CSSProperties = {
     backgroundColor: "var(--color-ink-950)",
     color: "var(--color-paper)",
@@ -350,14 +406,14 @@ export function MobileHeaderAction({
   if (href) {
     return (
       <Link href={href} className={cls} style={style}>
-        {Icon && <Icon className="size-3.5" />}
+        {Icon && <Icon className="size-4" />}
         {children}
       </Link>
     );
   }
   return (
     <button onClick={onClick} className={cls} style={style}>
-      {Icon && <Icon className="size-3.5" />}
+      {Icon && <Icon className="size-4" />}
       {children}
     </button>
   );
@@ -378,7 +434,9 @@ export function MobileCardGrid({
 }) {
   return (
     <div
-      className={cols === 3 ? "grid grid-cols-3 gap-1.5" : "grid grid-cols-2 gap-2"}
+      className={
+        cols === 3 ? "grid grid-cols-3 gap-1.5" : "grid grid-cols-2 gap-2"
+      }
     >
       {children}
     </div>
@@ -404,15 +462,16 @@ export function MobileFab({
     <Link
       href={href}
       aria-label={label ?? "Create"}
-      className="fixed right-4 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+      className="fixed right-4 z-30 grid place-items-center size-14 rounded-full shadow-lg press"
       style={{
-        bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
+        bottom:
+          "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
         backgroundColor: "var(--color-ink-950)",
         color: "var(--color-paper)",
         boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
       }}
     >
-      <Icon className="size-5" />
+      <Icon className="size-6" />
     </Link>
   );
 }
@@ -441,17 +500,16 @@ export function MobileNoResults({
         backgroundColor: "var(--color-paper)",
       }}
     >
-      <p
-        className="font-semibold text-[0.875rem]"
-        style={{ color: "var(--color-ink-950)" }}
-      >
+      <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>
         {title}
       </p>
       <p
-        className="text-[0.6875rem] mt-1"
+        className="text-m-caption mt-1.5"
         style={{ color: "var(--color-ink-500)" }}
       >
-        {query ? `Nothing matches "${query}"` : hint ?? "Try a different search or filter."}
+        {query
+          ? `Nothing matches "${query}"`
+          : (hint ?? "Try a different search or filter.")}
       </p>
     </div>
   );
@@ -469,11 +527,7 @@ export interface SummaryStat {
  * Compact KPI strip for list pages. Standard: rounded-[0.625rem], border,
  * p-3, mb-3. Renders 2-4 stats in a row.
  */
-export function MobileSummaryStrip({
-  stats,
-}: {
-  stats: SummaryStat[];
-}) {
+export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
   const toneColor = (tone?: SummaryStat["tone"]) =>
     tone === "go"
       ? "var(--color-go)"
@@ -486,24 +540,35 @@ export function MobileSummaryStrip({
   return (
     <div
       className="flex items-center justify-between rounded-[0.625rem] border p-3 mb-3"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      style={{
+        borderColor: "var(--color-line)",
+        backgroundColor: "var(--color-paper)",
+      }}
     >
       {stats.map((s, i) => (
         <div
           key={s.label}
-          className={i === 0 ? "text-left flex-1" : i === stats.length - 1 ? "text-right flex-1" : "text-center flex-1"}
-          style={i > 0 ? { borderLeft: "1px solid var(--color-line)", paddingLeft: "0.75rem", marginLeft: "0.75rem" } : undefined}
+          className={
+            i === 0
+              ? "text-left flex-1"
+              : i === stats.length - 1
+                ? "text-right flex-1"
+                : "text-center flex-1"
+          }
+          style={
+            i > 0
+              ? {
+                  borderLeft: "1px solid var(--color-line)",
+                  paddingLeft: "0.75rem",
+                  marginLeft: "0.75rem",
+                }
+              : undefined
+          }
         >
-          <p
-            className="text-[0.5rem] font-semibold uppercase tracking-wide"
-            style={{ color: "var(--color-ink-500)" }}
-          >
+          <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
             {s.label}
           </p>
-          <p
-            className="text-[0.875rem] font-bold tabular-nums"
-            style={{ color: toneColor(s.tone) }}
-          >
+          <p className="text-m-figure" style={{ color: toneColor(s.tone) }}>
             {s.value}
           </p>
         </div>
@@ -531,8 +596,11 @@ export function MobileDashedCreateButton({
     <div className="mb-3">
       <Link
         href={href}
-        className="flex items-center justify-center gap-1.5 w-full rounded-[0.625rem] border-2 border-dashed py-2.5 text-[0.75rem] font-bold press"
-        style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+        className="touch-lg flex items-center justify-center gap-2 w-full rounded-[0.625rem] border-2 border-dashed text-m-body font-bold press"
+        style={{
+          borderColor: "var(--color-signal)",
+          color: "var(--color-signal-dark)",
+        }}
       >
         <Icon className="size-4" />
         {children}

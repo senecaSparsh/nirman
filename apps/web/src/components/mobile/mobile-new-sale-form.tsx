@@ -128,6 +128,7 @@ export function MobileNewSaleForm({
   parcels,
   customers: initialCustomers,
   projects,
+  brokers = [],
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
@@ -138,6 +139,7 @@ export function MobileNewSaleForm({
   parcels: ParcelOpt[];
   customers: CustomerOpt[];
   projects: ProjectOpt[];
+  brokers?: { id: string; name: string; phone: string; agency: string; defaultCommissionPercent: number | null }[];
   sellableProjects?: ProjectOpt[];
   initialBuiltUnitId?: string;
   initialLandParcelId?: string;
@@ -159,10 +161,13 @@ export function MobileNewSaleForm({
   const [initialPaymentMode, setInitialPaymentMode] = useState<string>("BANK_TRANSFER");
   const [initialCheque, setInitialCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [notes, setNotes] = useState("");
-  // Sale deed / ATS tracking
+  // Sale deed / ATS tracking — merged: either ATS no or registry no
   const [isATS, setIsATS] = useState(true); // default: booking, registry deferred
   const [saleDeedNo, setSaleDeedNo] = useState("");
   const [expectedRegistryDate, setExpectedRegistryDate] = useState("");
+  const [atsNo, setAtsNo] = useState("");
+  const [atsDate, setAtsDate] = useState("");
+  const [allowRegistryBeforeFullPayment, setAllowRegistryBeforeFullPayment] = useState(false);
   // Home loan tracking (optional)
   const [hasHomeLoan, setHasHomeLoan] = useState(false);
   const [homeLoanBank, setHomeLoanBank] = useState("");
@@ -173,6 +178,7 @@ export function MobileNewSaleForm({
   const [dealMaturityMonths, setDealMaturityMonths] = useState("");
   const [paymentCycle, setPaymentCycle] = useState("");
   const [dealSource, setDealSource] = useState<"SELF" | "BROKER">("SELF");
+  const [brokerId, setBrokerId] = useState("");
   const [brokerName, setBrokerName] = useState("");
   const [brokerPhone, setBrokerPhone] = useState("");
   const [commissionAmount, setCommissionAmount] = useState("");
@@ -269,9 +275,12 @@ export function MobileNewSaleForm({
             initialChequePhotoUrl: initialCheque.chequePhotoUrl || undefined,
           } : {}),
           notes: notes || null,
-          // Sale deed / ATS tracking
+          // Sale deed / ATS tracking — merged: either ATS no or registry no
           saleDeedNo: !isATS && saleDeedNo.trim() ? saleDeedNo.trim() : null,
           expectedRegistryDate: isATS && expectedRegistryDate ? expectedRegistryDate : null,
+          atsNo: isATS && atsNo.trim() ? atsNo.trim() : null,
+          atsDate: isATS && atsDate ? atsDate : null,
+          allowRegistryBeforeFullPayment,
           // Home loan tracking
           homeLoanBank: hasHomeLoan && homeLoanBank.trim() ? homeLoanBank.trim() : null,
           homeLoanAmount: hasHomeLoan && homeLoanAmount ? Number(homeLoanAmount) : null,
@@ -282,6 +291,7 @@ export function MobileNewSaleForm({
           paymentCycle: paymentCycle.trim() || null,
           // Broker / deal source
           dealSource,
+          brokerId: dealSource === "BROKER" && brokerId ? brokerId : null,
           brokerName: dealSource === "BROKER" && brokerName.trim() ? brokerName.trim() : null,
           brokerPhone: dealSource === "BROKER" && brokerPhone.trim() ? brokerPhone.trim() : null,
           commissionAmount: dealSource === "BROKER" && commissionAmount ? Number(commissionAmount) : null,
@@ -635,12 +645,41 @@ export function MobileNewSaleForm({
             {/* Broker details (conditional) */}
             {dealSource === "BROKER" && (
               <>
+                {brokers.length > 0 && (
+                  <FormFieldSm label="Select from Broker Master">
+                    <select
+                      value={brokerId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setBrokerId(id);
+                        const b = brokers.find((x) => x.id === id);
+                        if (b) {
+                          setBrokerName(b.name);
+                          setBrokerPhone(b.phone);
+                          const sp = Number(salePrice) || 0;
+                          if (b.defaultCommissionPercent && sp > 0) {
+                            setCommissionAmount(((sp * b.defaultCommissionPercent) / 100).toFixed(2));
+                          }
+                        }
+                      }}
+                      className={inputClassSm}
+                      style={inputStyleSm}
+                    >
+                      <option value="">— Or type manually below —</option>
+                      {brokers.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}{b.agency ? ` · ${b.agency}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </FormFieldSm>
+                )}
                 <div className="grid grid-cols-2 gap-1.5">
                   <FormFieldSm label="Broker Name">
                     <input
                       type="text"
                       value={brokerName}
-                      onChange={(e) => setBrokerName(e.target.value)}
+                      onChange={(e) => { setBrokerName(e.target.value); setBrokerId(""); }}
                       placeholder="Name"
                       className={inputClassSm}
                       style={inputStyleSm}
@@ -650,7 +689,7 @@ export function MobileNewSaleForm({
                     <input
                       type="tel"
                       value={brokerPhone}
-                      onChange={(e) => setBrokerPhone(e.target.value)}
+                      onChange={(e) => { setBrokerPhone(e.target.value); setBrokerId(""); }}
                       placeholder="Phone"
                       className={inputClassSm}
                       style={inputStyleSm}
@@ -748,10 +787,13 @@ export function MobileNewSaleForm({
               <MobileChequeFields value={initialCheque} onChange={setInitialCheque} />
             )}
 
-            {/* Sale Deed / ATS */}
+            {/* ATS / Registry — merged: either ATS or Registry */}
             <div className="pt-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
               <p className="text-[0.4375rem] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Sale Deed / Registry
+                ATS / Registry
+              </p>
+              <p className="text-[0.4375rem] mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Either ATS or Registry — one is the registered document.
               </p>
               <div className="grid grid-cols-2 gap-1">
                 <button type="button" onClick={() => { setIsATS(true); haptic(10); }}
@@ -770,17 +812,38 @@ export function MobileNewSaleForm({
                     backgroundColor: !isATS ? "var(--color-ink-950)" : "var(--color-paper)",
                     color: !isATS ? "var(--color-paper)" : "var(--color-ink-500)",
                   }}>
-                  Deed Done
+                  Registry Done
                 </button>
               </div>
               {isATS ? (
-                <FormFieldSm label="Exp. Registry">
-                  <input type="date" value={expectedRegistryDate}
-                    onChange={(e) => setExpectedRegistryDate(e.target.value)}
-                    className={inputClassSm} style={inputStyleSm} />
-                </FormFieldSm>
+                <div className="space-y-1.5 mt-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <FormFieldSm label="ATS Reg. No.">
+                      <input type="text" value={atsNo}
+                        onChange={(e) => setAtsNo(e.target.value)}
+                        placeholder="ATS-1234/2025"
+                        className={inputClassSm} style={inputStyleSm} />
+                    </FormFieldSm>
+                    <FormFieldSm label="ATS Date">
+                      <input type="date" value={atsDate}
+                        onChange={(e) => setAtsDate(e.target.value)}
+                        className={inputClassSm} style={inputStyleSm} />
+                    </FormFieldSm>
+                  </div>
+                  <FormFieldSm label="Exp. Registry">
+                    <input type="date" value={expectedRegistryDate}
+                      onChange={(e) => setExpectedRegistryDate(e.target.value)}
+                      className={inputClassSm} style={inputStyleSm} />
+                  </FormFieldSm>
+                  <label className="flex items-center gap-1.5 text-[0.5rem]" style={{ color: "var(--color-ink-600)" }}>
+                    <input type="checkbox" checked={allowRegistryBeforeFullPayment}
+                      onChange={(e) => setAllowRegistryBeforeFullPayment(e.target.checked)}
+                      className="rounded" />
+                    Allow registry before full payment
+                  </label>
+                </div>
               ) : (
-                <FormFieldSm label="Deed No.">
+                <FormFieldSm label="Deed / Registry No.">
                   <input type="text" value={saleDeedNo}
                     onChange={(e) => setSaleDeedNo(e.target.value)}
                     placeholder="SR-1234/2025"
@@ -962,7 +1025,7 @@ export function MobileNewSaleForm({
               </div>
               {terms.length === 0 && (
                 <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
-                  Add conditions like "Fire NOC by seller".
+                  Add conditions like &quot;Fire NOC by seller&quot;.
                 </p>
               )}
               {terms.map((term, i) => (
@@ -1042,7 +1105,7 @@ export function MobileNewSaleForm({
               </div>
               {schedule.length === 0 && (
                 <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
-                  Add installments like "25% every month".
+                  Add installments like &quot;25% every month&quot;.
                 </p>
               )}
               {schedule.map((item, i) => (

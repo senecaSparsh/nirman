@@ -67,11 +67,13 @@ export function MobileNewQuotationClient({
   }, []);
 
   const selectedLocation = useMemo(() => {
-    for (const g of locationGroups) {
-      const loc = g.locations.find((l) => l.id === destinationLocationId);
-      if (loc) return { ...loc, companyName: g.companyName, isCurrent: g.isCurrent, isParent: g.isParent, isChild: g.isChild };
-    }
-    return null;
+    const found = locationGroups
+      .map((g) => {
+        const loc = g.locations.find((l) => l.id === destinationLocationId);
+        return loc ? { ...loc, companyName: g.companyName, isCurrent: g.isCurrent, isParent: g.isParent, isChild: g.isChild } : null;
+      })
+      .find((x) => x !== null);
+    return found ?? null;
   }, [destinationLocationId, locationGroups]);
 
   const allMaterials = useMemo(() => [...data.materials, ...extraMaterials], [data.materials, extraMaterials]);

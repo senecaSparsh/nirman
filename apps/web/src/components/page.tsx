@@ -307,6 +307,8 @@ export function Figure({
  *   bad      — cancelled, rejected, failed
  *   alert    — needs attention now
  */
+export type StatusMeaning = "neutral" | "active" | "waiting" | "good" | "bad" | "alert";
+
 const STATUS_MEANING: Record<string, StatusMeaning> = {
   // lifecycle
   DRAFT: "neutral",
@@ -319,6 +321,7 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   ORDERED: "active",
   PARTIAL: "active",
   IN_PROGRESS: "active",
+  IN_TRANSIT: "active",
   ACTIVE: "active",
   ASSIGNED: "active",
   UNDER_CONSTRUCTION: "active",
@@ -327,14 +330,16 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   HOLD: "waiting",
   BLOCKED: "alert",
   OVERDUE: "alert",
-  LOW_STOCK: "alert",
+  LOW_STOCK: "waiting",
+  OUT_OF_STOCK: "bad",
+  IN_STOCK: "good",
   RECEIVED: "good",
   COMPLETED: "good",
   COMPLETE: "good",
   CLOSED: "good",
   PAID: "good",
   PROCESSED: "good",
-  SOLD: "bad",
+  SOLD: "good",
   AVAILABLE: "good",
   CONFIRMED: "good",
   PARTITIONED: "neutral",
@@ -375,6 +380,66 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   MEASURED: "active",
   SUPERSEDED: "neutral",
   RETURNED: "good",
+  // stock-count + reconciliation
+  COUNTED: "active",
+  RECONCILED: "good",
+  // DPR multi-tier
+  SUB_ADMIN_APPROVED: "waiting",
+  // tenancy
+  ENDED: "neutral",
+  // payment schedule
+  DUE: "alert",
+  // portal listing
+  CLEAR: "good",
+  PENDING_SYNC: "waiting",
+  // attendance
+  LATE: "alert",
+  PAID_LEAVE: "neutral",
+  NON_PAID_LEAVE: "neutral",
+  // legal docs
+  NOT_REQUIRED: "neutral",
+  RENEWAL_DUE: "alert",
+  // delivery
+  DELIVERED: "good",
+  FAILED: "bad",
+  // wage types (not lifecycle, but rendered as badges)
+  DAILY: "neutral",
+  MONTHLY: "neutral",
+  // budget variance
+  OVER: "bad",
+  UNDER: "good",
+  ON_TRACK: "good",
+  UNBUDGETED: "alert",
+  // safety — incident statuses
+  REPORTED: "active",
+  UNDER_INVESTIGATION: "active",
+  INVESTIGATED: "waiting",
+  // safety — hazard statuses
+  IDENTIFIED: "waiting",
+  MITIGATING: "active",
+  RESOLVED: "good",
+  // safety — inspection statuses
+  SCHEDULED: "neutral",
+  // safety — risk levels
+  CRITICAL: "alert",
+  // safety — severity
+  FIRST_AID: "neutral",
+  LOST_TIME: "alert",
+  SERIOUS: "alert",
+  FATAL: "bad",
+  PROPERTY_ONLY: "neutral",
+  // safety — inspection results
+  PASSED: "good",
+  PASSED_WITH_NOTES: "waiting",
+  STOP_WORK: "alert",
+  // quality control — NCR statuses
+  OPEN: "active",
+  UNDER_REVIEW: "active",
+  CAPA_REQUIRED: "alert",
+  ACCEPTED: "good",
+  // quality control — severity
+  MAJOR: "alert",
+  OBSERVATION: "neutral",
 };
 
 const STATUS_STYLES = {
@@ -392,8 +457,6 @@ const STATUS_STYLES = {
  * SAME map as `StatusPill`, so a dot and a pill for the same status can
  * never disagree.
  */
-type StatusMeaning = "neutral" | "active" | "waiting" | "good" | "bad" | "alert";
-
 const MEANING_COLOR: Record<StatusMeaning, string> = {
   neutral: "var(--color-muted-foreground)",
   active: "var(--color-info)",
@@ -411,6 +474,33 @@ export function statusColor(status: string): string {
 /** The meaning group for a status — useful when a view branches on it. */
 export function statusMeaning(status: string): string {
   return STATUS_MEANING[status.toUpperCase()] ?? "neutral";
+}
+
+/**
+ * Maps a status's meaning to a `ui/badge` variant. Use this instead of
+ * a local STATUS_VARIANT map when you need a `<Badge>` (not a
+ * `<StatusPill>`) — e.g. when you need a custom label or size.
+ *
+ *   meaning → variant:
+ *     neutral  → muted
+ *     active   → info
+ *     waiting  → warning
+ *     good     → success
+ *     bad      → danger
+ *     alert    → danger
+ */
+const MEANING_TO_BADGE_VARIANT: Record<StatusMeaning, "default" | "brand" | "success" | "warning" | "danger" | "info" | "muted"> = {
+  neutral: "muted",
+  active: "info",
+  waiting: "warning",
+  good: "success",
+  bad: "danger",
+  alert: "danger",
+};
+
+export function statusBadgeVariant(status: string): "default" | "brand" | "success" | "warning" | "danger" | "info" | "muted" {
+  const meaning = STATUS_MEANING[status.toUpperCase()] ?? "neutral";
+  return MEANING_TO_BADGE_VARIANT[meaning] ?? "muted";
 }
 
 /** Human-readable label from a SCREAMING_SNAKE status. */

@@ -222,7 +222,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         .then((c) => {
           if (c?.name) {
             setCompanyName(c.name);
-            // Set the title immediately — router.refresh() in the
+            // Set the title immediately — the navigation in the
             // switcher may re-apply Next.js metadata and overwrite it.
             const newTitle = c.name !== "Nirman" ? `${c.name} · Nirman OS` : "Nirman Inventory OS";
             document.title = newTitle;

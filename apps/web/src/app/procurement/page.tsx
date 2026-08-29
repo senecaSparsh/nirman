@@ -156,6 +156,7 @@ async function ProcurementContent() {
     balanceOwed: toNum(s.balanceOwed),
     openPOs: s._count.purchaseOrders,
     poCount: s._count.purchaseOrders,
+    leadTimeDays: s.leadTimeDays,
   }));
 
   const categoryRows: MaterialCategory[] = categories.map((c) => ({
@@ -168,7 +169,7 @@ async function ProcurementContent() {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
     const totalValue = m.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
     return {
-      id: m.id, code: m.code, name: m.name, categoryId: m.categoryId,
+      id: m.id, code: m.code, name: m.name, grade: m.grade, specification: m.specification, categoryId: m.categoryId,
       categoryName: m.category.name, unit: m.unit, hsnCode: m.hsnCode,
       gstRate: toNum(m.gstRate), standardCost: toNum(m.standardCost),
       minStock: m.minStock == null ? null : toNum(m.minStock),
@@ -177,6 +178,11 @@ async function ProcurementContent() {
       volumetricDensity: m.volumetricDensity == null ? null : toNum(m.volumetricDensity),
       bulkDiscountPct: m.bulkDiscountPct == null ? null : toNum(m.bulkDiscountPct),
       isCorporateCommodity: m.isCorporateCommodity ?? false,
+      isLotTracked: m.isLotTracked ?? false,
+      isScrap: m.isScrap ?? false,
+      baseUnit: m.baseUnit,
+      secondaryUnit: m.secondaryUnit,
+      uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
       description: m.description, totalQty, totalValue,
       lowStock: m.minStock != null && totalQty < toNum(m.minStock),
     };
@@ -189,6 +195,9 @@ async function ProcurementContent() {
     itemCount: l.stockItems.filter((i) => toNum(i.qty) > 0).length,
     companyId: l.company.id,
     companyName: l.company.name,
+    lat: l.lat,
+    lng: l.lng,
+    geoRadius: l.geoRadius,
   }));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
@@ -210,6 +219,12 @@ async function ProcurementContent() {
     billAmount: toNum(p.billAmount),
     notes: p.notes,
     lineCount: p.lines.length,
+    status: p.status,
+    cancelledAt: p.cancelledAt?.toISOString() ?? null,
+    vehicleNumber: p.vehicleNumber,
+    vehicleType: p.vehicleType,
+    driverName: p.driverName,
+    driverPhone: p.driverPhone,
     lines: p.lines.map((l) => ({
       id: l.id,
       materialId: l.materialId,

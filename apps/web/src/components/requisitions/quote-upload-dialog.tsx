@@ -50,6 +50,9 @@ export function QuoteUploadDialog({
   const [mimeType, setMimeType] = useState("");
   const [landedTotal, setLandedTotal] = useState("");
   const [validUntil, setValidUntil] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [leadTimeDays, setLeadTimeDays] = useState("");
+  const [warranty, setWarranty] = useState("");
   const [notes, setNotes] = useState("");
   // Line amounts — prefilled from requisition lines, editable
   const [linePrices, setLinePrices] = useState<Record<string, string>>({});
@@ -112,6 +115,8 @@ export function QuoteUploadDialog({
     e.preventDefault();
     if (!supplierId) return toast.error("Select a supplier");
     if (!fileUrl) return toast.error("Upload a quote file (PDF/image)");
+    if (!paymentTerms.trim()) return toast.error("Payment terms are required (e.g. '30 days credit')");
+    if (!leadTimeDays || Number(leadTimeDays) < 0) return toast.error("Lead time (days) is required");
     if (!landedTotal && computedTotal === 0) return toast.error("Enter the landed total or line prices");
 
     const total = landedTotal ? Number(landedTotal) : computedTotal;
@@ -142,6 +147,9 @@ export function QuoteUploadDialog({
           landedTotal: landedTotal ? total : undefined, // let server compute if not overridden
           validUntil: validUntil || null,
           notes: notes.trim() || null,
+          paymentTerms: paymentTerms.trim(),
+          leadTimeDays: Number(leadTimeDays) || 0,
+          warranty: warranty.trim() || undefined,
           deliveryTermsType,
           deliveryTerms: deliveryTermsType === "CUSTOM" ? deliveryTermsNote.trim() || undefined : undefined,
           lines,
@@ -153,7 +161,7 @@ export function QuoteUploadDialog({
         description: `${reqNumber} — ${suppliers.find((s) => s.id === supplierId)?.name}`,
       });
       // Reset
-      setSupplierId(""); clearFile(); setLandedTotal(""); setValidUntil(""); setNotes("");
+      setSupplierId(""); clearFile(); setLandedTotal(""); setValidUntil(""); setPaymentTerms(""); setLeadTimeDays(""); setWarranty(""); setNotes("");
       setLinePrices({}); setLineFreight({}); setLineLoading({}); setLinePacking({}); setLineInsurance({}); setLineDiscount({}); setLineBuyerTransport({});
       setShowLandedCost(false); setDeliveryTermsType("DELIVERED_SITE"); setDeliveryTermsNote("");
       onUploaded?.();
@@ -330,6 +338,39 @@ export function QuoteUploadDialog({
           <div className="space-y-1.5">
             <Label>Valid Until</Label>
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          </div>
+        </div>
+
+        {/* Commercial terms — paymentTerms + leadTimeDays are mandatory for like-for-like comparison */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label>Payment Terms *</Label>
+            <Input
+              type="text"
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value)}
+              placeholder="e.g. 30 days credit"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Lead Time (days) *</Label>
+            <Input
+              type="number"
+              min="0"
+              max="365"
+              value={leadTimeDays}
+              onChange={(e) => setLeadTimeDays(e.target.value)}
+              placeholder="e.g. 7"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Warranty (optional)</Label>
+            <Input
+              type="text"
+              value={warranty}
+              onChange={(e) => setWarranty(e.target.value)}
+              placeholder="e.g. 12 months"
+            />
           </div>
         </div>
 

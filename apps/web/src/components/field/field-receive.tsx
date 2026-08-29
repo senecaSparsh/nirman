@@ -6,13 +6,18 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
   ScanLine, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
-  RefreshCw, ChevronDown, ChevronRight,
+  RefreshCw, ChevronDown, ChevronRight, Truck, Camera, Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn, formatNumber, formatCurrency } from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import type { QueuedOperation } from "@/lib/offline/queue";
+import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
+import {
+  PhotoCapture, WeighbridgeFields, SelectField,
+  DELIVERY_MODES,
+} from "@/components/mobile/proof-capture";
 import { BarcodeScanner } from "@/components/mobile/barcode-scanner";
 
 // ── Types (mirrors the server-component payload) ────────────────
@@ -46,11 +51,25 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
   const { queue, pending, online, syncing, enqueue, sync } = useOfflineQueue();
   const [selectedPoId, setSelectedPoId] = useState<string>(initialPoId ?? "");
   const [gateEntryNumber, setGateEntryNumber] = useState<string>("");
+  const [challanNumber, setChallanNumber] = useState<string>("");
   const [receiptNotes, setReceiptNotes] = useState<string>("");
   const [receipts, setReceipts] = useState<Record<string, string>>({}); // lineId → qty
   const [scanning, setScanning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [confirmLines, setConfirmLines] = useState<{ name: string; qty: number; unit: string; cost: number }[] | null>(null);
+
+  // ── Delivery details (collapsible) ──
+  const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<string>("");
+  const [vehicle, setVehicle] = useState<VehicleData>({
+    vehicleNumber: "", vehicleType: "",
+  });
+  const [photos, setPhotos] = useState<{ url: string; fileName?: string }[]>([]);
+  // Weighbridge (kanta parchi) — for bulk materials
+  const [wbTicketNo, setWbTicketNo] = useState("");
+  const [wbGross, setWbGross] = useState("");
+  const [wbTare, setWbTare] = useState("");
+  const [wbNet, setWbNet] = useState("");
 
   const selectedPo = useMemo(
     () => purchaseOrders.find((p) => p.id === selectedPoId) ?? null,
@@ -153,18 +172,34 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       unitCost: number;
     }[];
 
-    const notesCombined = [
-      gateEntryNumber.trim() ? `Gate Entry: ${gateEntryNumber.trim()}` : "",
-      receiptNotes.trim() ? receiptNotes.trim() : "",
-    ]
-      .filter(Boolean)
-      .join(" | ");
+    const notesCombined = receiptNotes.trim() || null;
 
-    const payload = {
+    // Build payload with all delivery/transport details
+    const isHandCarry = deliveryMode === "HAND_CARRY";
+    const payload: Record<string, unknown> = {
       purchaseOrderId: selectedPo.id,
       locationId: selectedPo.destinationLocationId,
-      notes: notesCombined || null,
+      notes: notesCombined,
       lines,
+      // Gate entry — proper field, no longer stuffed into notes
+      gatePassNo: gateEntryNumber.trim() || undefined,
+      // Supplier dispatch document
+      challanNumber: challanNumber.trim() || undefined,
+      // Delivery mode (how goods arrived)
+      deliveryMode: deliveryMode || undefined,
+      // Vehicle/transport — skip for hand carry
+      vehicleType: isHandCarry ? undefined : (vehicle.vehicleType || undefined),
+      vehicleNumber: isHandCarry ? undefined : (vehicle.vehicleNumber.trim() || undefined),
+      driverName: isHandCarry ? undefined : (vehicle.driverName?.trim() || undefined),
+      driverPhone: isHandCarry ? undefined : (vehicle.driverPhone?.trim() || undefined),
+      transporterName: deliveryMode === "THIRD_PARTY" ? (vehicle.transporterName?.trim() || undefined) : undefined,
+      // Receive proof photos
+      photos: photos.length > 0 ? photos : undefined,
+      // Weighbridge (kanta parchi) — for bulk materials
+      weighbridgeTicketNo: wbTicketNo.trim() || undefined,
+      grossWeight: wbGross ? Number(wbGross) : undefined,
+      tareWeight: wbTare ? Number(wbTare) : undefined,
+      netWeight: wbNet ? Number(wbNet) : undefined,
     };
 
     haptic(30);
@@ -174,9 +209,15 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
           ? "GRN recorded — stock updated."
           : `Offline — GRN queued (${pending + 1}). Will sync when online.`,
       );
+      // Reset all form fields
       setReceipts({});
       setGateEntryNumber("");
+      setChallanNumber("");
       setReceiptNotes("");
+      setDeliveryMode("");
+      setVehicle({ vehicleNumber: "", vehicleType: "" });
+      setPhotos([]);
+      setWbTicketNo(""); setWbGross(""); setWbTare(""); setWbNet("");
       setConfirmLines(null);
       router.refresh();
     });
@@ -227,26 +268,101 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
         )}
 
         {selectedPo && (
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
-            <div>
-              <Label className="text-[11px]">Gate Entry No.</Label>
-              <Input
-                placeholder="e.g. GE-2026-081"
-                value={gateEntryNumber}
-                onChange={(e) => setGateEntryNumber(e.target.value)}
-                className="font-mono text-xs mt-1"
-              />
+          <>
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+              <div>
+                <Label className="text-[11px]">Gate Entry No.</Label>
+                <Input
+                  placeholder="e.g. GE-2026-081"
+                  value={gateEntryNumber}
+                  onChange={(e) => setGateEntryNumber(e.target.value)}
+                  className="font-mono text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Challan No.</Label>
+                <Input
+                  placeholder="Supplier dispatch no."
+                  value={challanNumber}
+                  onChange={(e) => setChallanNumber(e.target.value)}
+                  className="font-mono text-xs mt-1"
+                />
+              </div>
             </div>
+
+            {/* Collapsible delivery details */}
+            <button
+              type="button"
+              onClick={() => setShowDeliveryDetails((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground pt-1"
+            >
+              {showDeliveryDetails ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+              <Truck className="size-3.5" />
+              Delivery details
+              {(deliveryMode || vehicle.vehicleNumber || photos.length > 0 || wbTicketNo) ? (
+                <span className="ml-1 text-[10px] font-bold text-success">✓ filled</span>
+              ) : null}
+            </button>
+
+            {showDeliveryDetails && (
+              <div className="space-y-3 pt-1 border-t border-border/50">
+                {/* Delivery mode */}
+                <SelectField
+                  label="Delivery Mode"
+                  value={deliveryMode}
+                  onChange={setDeliveryMode}
+                  options={DELIVERY_MODES}
+                />
+
+                {/* Vehicle — hidden for hand carry */}
+                {deliveryMode && deliveryMode !== "HAND_CARRY" && (
+                  <div>
+                    <Label className="text-[11px] mb-1.5 block">Vehicle / Transport</Label>
+                    <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+                  </div>
+                )}
+
+                {/* Receive proof photos */}
+                <div>
+                  <PhotoCapture
+                    photos={photos}
+                    onChange={setPhotos}
+                    compact
+                  />
+                </div>
+
+                {/* Weighbridge (kanta parchi) — for bulk materials */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Scale className="size-3 text-muted-foreground" />
+                    <Label className="text-[11px]">Weighbridge (Kanta Parchi)</Label>
+                    <span className="text-[10px] text-muted-foreground">— for bulk materials</span>
+                  </div>
+                  <WeighbridgeFields
+                    ticketNo={wbTicketNo}
+                    onTicketNoChange={setWbTicketNo}
+                    grossWeight={wbGross}
+                    onGrossChange={setWbGross}
+                    tareWeight={wbTare}
+                    onTareChange={setWbTare}
+                    netWeight={wbNet}
+                    onNetChange={setWbNet}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Receipt remarks */}
             <div>
               <Label className="text-[11px]">Receipt Remarks</Label>
               <Input
-                placeholder="Vehicle / challan no."
+                placeholder="Any additional notes"
                 value={receiptNotes}
                 onChange={(e) => setReceiptNotes(e.target.value)}
                 className="text-xs mt-1"
               />
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -353,6 +469,17 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                   {formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}
                 </span>
               </div>
+
+              {/* Delivery details summary */}
+              {(gateEntryNumber || challanNumber || vehicle.vehicleNumber || photos.length > 0 || wbTicketNo) ? (
+                <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-caption text-muted-foreground">
+                  {gateEntryNumber && <div>Gate Entry: <span className="font-mono text-foreground">{gateEntryNumber}</span></div>}
+                  {challanNumber && <div>Challan: <span className="font-mono text-foreground">{challanNumber}</span></div>}
+                  {vehicle.vehicleNumber && <div>Vehicle: <span className="font-mono text-foreground">{vehicle.vehicleNumber}</span>{vehicle.vehicleType ? ` · ${vehicle.vehicleType}` : ""}</div>}
+                  {photos.length > 0 && <div>Photos: {photos.length} proof photo{photos.length !== 1 ? "s" : ""}</div>}
+                  {wbTicketNo && <div>Weighbridge: <span className="font-mono text-foreground">{wbTicketNo}</span>{wbNet ? ` · ${wbNet} kg net` : ""}</div>}
+                </div>
+              ) : null}
             </div>
             <div className="border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
               <Button onClick={confirmReceipt} className="w-full" size="lg">

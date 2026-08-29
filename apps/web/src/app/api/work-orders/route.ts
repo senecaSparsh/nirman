@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type WorkOrderStatus } from "@nirman/db";
 import { createWorkOrder } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -66,7 +66,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       ...(projectId ? { projectId } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as WorkOrderStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
     include: {

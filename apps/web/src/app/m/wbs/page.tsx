@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
@@ -11,8 +12,10 @@ import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
+  MobileNoAccess,
 } from "@/components/mobile/v2/primitives";
 import { MobileWbsProjectSelector } from "./MobileWbsProjectSelector";
+import { MobileWbsFab } from "./MobileNewWbsNodeDialog";
 
 /**
  * /m/wbs — mobile Work Breakdown Structure tree.
@@ -44,7 +47,7 @@ async function MobileWbsContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canView = hasPermission(role, PERM.ASSETS_VIEW);
+  const canView = hasPermission(role, PERM.WBS_VIEW);
   const { project: projectId } = await searchParams;
 
   // Fetch projects for the selector (PLANNED or ACTIVE only)
@@ -59,16 +62,7 @@ async function MobileWbsContent({
   });
 
   if (!canView) {
-    return (
-      <div className="p-4">
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          Work Breakdown Structure
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to view Work Breakdown Structure.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="Work Breakdown Structure" permission={PERM.WBS_VIEW} />;
   }
 
   const selectedProject = projectId
@@ -94,6 +88,24 @@ async function MobileWbsContent({
   const inProgressNodes = allNodes.filter(
     (n) => toNum(n.progressPct) > 0 && toNum(n.progressPct) < 100,
   ).length;
+
+  const canManage = hasPermission(role, PERM.WBS_MANAGE);
+
+  // Fetch BOQ line items + all WBS nodes (for parent selection) when user can manage
+  const [boqItems, parentNodes] = selectedProject && canManage
+    ? await Promise.all([
+        prisma.boqItem.findMany({
+          where: { projectId: selectedProject.id, type: "LINE_ITEM" },
+          orderBy: { serialNo: "asc" },
+          select: { id: true, serialNo: true, description: true },
+        }),
+        prisma.wbsNode.findMany({
+          where: { projectId: selectedProject.id },
+          orderBy: { code: "asc" },
+          select: { id: true, code: true, name: true, type: true },
+        }),
+      ])
+    : [[], []];
 
   return (
     <div>
@@ -150,6 +162,24 @@ async function MobileWbsContent({
           </div>
         </>
       )}
+
+      {/* FAB for adding WBS nodes */}
+      {selectedProject && canManage && (
+        <MobileWbsFab
+          projectId={selectedProject.id}
+          parentNodes={parentNodes.map((n) => ({
+            id: n.id,
+            code: n.code,
+            name: n.name,
+            type: n.type as "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE",
+          }))}
+          boqItems={boqItems.map((b) => ({
+            id: b.id,
+            serialNo: b.serialNo,
+            description: b.description,
+          }))}
+        />
+      )}
     </div>
   );
 }
@@ -169,8 +199,9 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
 
   return (
     <div>
-      <div
-        className="rounded-[0.5rem] border p-2.5"
+      <Link
+        href={`/m/wbs/${node.id}`}
+        className="rounded-[0.5rem] border p-2.5 press block"
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper)",
@@ -245,7 +276,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
             }}
           />
         </div>
-      </div>
+      </Link>
 
       {/* Children */}
       {hasChildren ? (

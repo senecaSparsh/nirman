@@ -8,6 +8,10 @@ import {
   hourlyRateFor,
   computeBasicAmount,
   computeNetPay,
+  computeStatusFromHours,
+  countLateDays,
+  computeLateHalfDayDeductions,
+  computeAttendanceTier,
 } from "./hr";
 
 describe("attendanceWeight", () => {
@@ -137,5 +141,106 @@ describe("computeNetPay", () => {
   it("can go negative if deductions exceed earnings", () => {
     const net = computeNetPay(1000, 0, 2000);
     expect(net.toNumber()).toBe(-1000);
+  });
+});
+
+describe("computeStatusFromHours (85% rule)", () => {
+  it("returns ABSENT for 0 hours", () => {
+    expect(computeStatusFromHours(0)).toBe("ABSENT");
+  });
+
+  it("returns ABSENT for null hours", () => {
+    expect(computeStatusFromHours(null)).toBe("ABSENT");
+  });
+
+  it("returns HALF_DAY for < 85% of standard hours", () => {
+    // 8h standard, 6h worked = 75% → HALF_DAY
+    expect(computeStatusFromHours(6, 8)).toBe("HALF_DAY");
+  });
+
+  it("returns LATE for ≥ 85% but < 100%", () => {
+    // 8h standard, 7h worked = 87.5% → LATE
+    expect(computeStatusFromHours(7, 8)).toBe("LATE");
+    // Exactly 85% → LATE
+    expect(computeStatusFromHours(6.8, 8)).toBe("LATE");
+  });
+
+  it("returns PRESENT for exactly 100%", () => {
+    expect(computeStatusFromHours(8, 8)).toBe("PRESENT");
+  });
+
+  it("returns OVERTIME for > 100%", () => {
+    expect(computeStatusFromHours(9, 8)).toBe("OVERTIME");
+  });
+});
+
+describe("countLateDays + computeLateHalfDayDeductions", () => {
+  it("counts LATE records", () => {
+    const attendances = [
+      { status: "PRESENT" },
+      { status: "LATE" },
+      { status: "LATE" },
+      { status: "ABSENT" },
+      { status: "LATE" },
+    ];
+    expect(countLateDays(attendances)).toBe(3);
+  });
+
+  it("4 lates → 1 half-day deduction", () => {
+    const attendances = [
+      { status: "LATE" },
+      { status: "LATE" },
+      { status: "LATE" },
+      { status: "LATE" },
+    ];
+    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
+  });
+
+  it("7 lates → 1 half-day deduction (floor)", () => {
+    const attendances = Array(7).fill({ status: "LATE" });
+    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
+  });
+
+  it("8 lates → 2 half-day deductions", () => {
+    const attendances = Array(8).fill({ status: "LATE" });
+    expect(computeLateHalfDayDeductions(attendances)).toBe(2);
+  });
+
+  it("0 lates → 0 deductions", () => {
+    expect(computeLateHalfDayDeductions([{ status: "PRESENT" }])).toBe(0);
+  });
+});
+
+describe("computeAttendanceTier", () => {
+  it("RED for ABSENT", () => {
+    expect(computeAttendanceTier({ status: "ABSENT" })).toBe("RED");
+  });
+
+  it("RED for NON_PAID_LEAVE", () => {
+    expect(computeAttendanceTier({ status: "NON_PAID_LEAVE" })).toBe("RED");
+  });
+
+  it("GREEN for PAID_LEAVE", () => {
+    expect(computeAttendanceTier({ status: "PAID_LEAVE" })).toBe("GREEN");
+  });
+
+  it("YELLOW for PRESENT without DPR approval", () => {
+    expect(computeAttendanceTier({ status: "PRESENT", dprApproved: false })).toBe("YELLOW");
+  });
+
+  it("GREEN for PRESENT with DPR approval", () => {
+    expect(computeAttendanceTier({ status: "PRESENT", dprApproved: true })).toBe("GREEN");
+  });
+
+  it("RED for PRESENT but outside geofence", () => {
+    expect(computeAttendanceTier({ status: "PRESENT", geoFenceOk: false })).toBe("RED");
+  });
+
+  it("YELLOW for LATE without DPR approval", () => {
+    expect(computeAttendanceTier({ status: "LATE", dprApproved: false })).toBe("YELLOW");
+  });
+
+  it("GREEN for LATE with DPR approval", () => {
+    expect(computeAttendanceTier({ status: "LATE", dprApproved: true })).toBe("GREEN");
   });
 });

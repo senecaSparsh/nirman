@@ -33,7 +33,7 @@ async function MobileEmployeesContent() {
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.HR_MANAGE);
 
-  const [employees, projects] = await Promise.all([
+  const [employees, projects, stockLocations] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: company.id, active: true },
       orderBy: { name: "asc" },
@@ -55,6 +55,13 @@ async function MobileEmployeesContent() {
           where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
+        })
+      : [],
+    canManage
+      ? prisma.stockLocation.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, type: true },
         })
       : [],
   ]);
@@ -111,7 +118,7 @@ async function MobileEmployeesContent() {
 
       {/* FAB: New Employee */}
       {canManage && (
-        <MobileEmployeesFab projects={projects} />
+        <MobileEmployeesFab projects={projects} stockLocations={stockLocations} />
       )}
 
       {employees.length === 0 && (

@@ -1,7 +1,25 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { createSupplierInvoice, getSupplierInvoices } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+
+const invoiceSchema = z.object({
+  invoiceNumber: z.string().min(1, "invoiceNumber is required"),
+  supplierId: z.string().min(1, "supplierId is required"),
+  purchaseOrderId: z.string().optional(),
+  invoiceDate: z.string().min(1, "invoiceDate is required"),
+  dueDate: z.string().optional(),
+  subtotal: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().min(0, "subtotal must be >= 0")),
+  gstAmount: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  totalAmount: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().min(0, "totalAmount must be >= 0")),
+  lines: z.array(z.object({
+    materialId: z.string().min(1),
+    quantity: z.union([z.number(), z.string()]).transform(Number),
+    unitPrice: z.union([z.number(), z.string()]).transform(Number),
+    gstRate: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  })).optional(),
+});
 
 /**
  * GET /api/supplier-invoices?supplierId=...&purchaseOrderId=...&status=...
@@ -56,29 +74,24 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
-
-  if (!body?.invoiceNumber) return json({ error: "invoiceNumber is required" }, { status: 400 });
-  if (!body?.supplierId) return json({ error: "supplierId is required" }, { status: 400 });
-  if (!body?.invoiceDate) return json({ error: "invoiceDate is required" }, { status: 400 });
-  if (body?.subtotal == null || Number(body.subtotal) < 0) {
-    return json({ error: "subtotal must be >= 0" }, { status: 400 });
+  const parsed = invoiceSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  if (body?.totalAmount == null || Number(body.totalAmount) < 0) {
-    return json({ error: "totalAmount must be >= 0" }, { status: 400 });
-  }
+  const data = parsed.data;
 
   try {
     const invoice = await createSupplierInvoice({
-      invoiceNumber: body.invoiceNumber,
+      invoiceNumber: data.invoiceNumber,
       companyId: company.id,
-      supplierId: body.supplierId,
-      purchaseOrderId: body.purchaseOrderId ?? undefined,
-      invoiceDate: new Date(body.invoiceDate),
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      subtotal: Number(body.subtotal),
-      gstAmount: body.gstAmount ? Number(body.gstAmount) : undefined,
-      totalAmount: Number(body.totalAmount),
-      lines: body.lines ?? undefined,
+      supplierId: data.supplierId,
+      purchaseOrderId: data.purchaseOrderId,
+      invoiceDate: new Date(data.invoiceDate),
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      subtotal: data.subtotal,
+      gstAmount: data.gstAmount,
+      totalAmount: data.totalAmount,
+      lines: data.lines,
       receivedById: user.id,
       userId: user.id,
     });

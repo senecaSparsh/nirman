@@ -5,6 +5,7 @@ import { getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import MobileNewMaterialClient from "../../new/MobileNewMaterialClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/materials/[id]/edit — edit an existing material from mobile.
@@ -18,18 +19,7 @@ export default async function EditMaterialPage({
   const role = await getUserRole();
 
   if (!hasPermission(role, PERM.INVENTORY_MANAGE)) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          Edit Material
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to edit materials. Only managers and admins can edit materials.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="edit materials" permission="inventory.manage" />;
   }
 
   await connection();

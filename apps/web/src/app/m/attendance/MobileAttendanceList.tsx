@@ -32,6 +32,9 @@ export type AttendanceListItem = {
   projectId: string | null;
   date: string;
   status: string;
+  /** Traffic-light tier: RED = absent, YELLOW = present+DPR pending, GREEN = present+DPR approved */
+  tier?: "RED" | "YELLOW" | "GREEN";
+  dprApproved?: boolean;
   checkIn: string | null;
   checkOut: string | null;
 };
@@ -203,11 +206,32 @@ export function MobileAttendanceList({
               title={r.employeeName ?? "Worker"}
               subtitle={`${r.projectName ?? "—"} · ${formatDate(r.date)}${r.checkIn ? ` · ${r.checkIn}${r.checkOut ? `–${r.checkOut}` : ""}` : ""}`}
               meta=""
-              badge={<MobileStatusBadge status={r.status} />}
+              badge={
+                <div className="flex items-center gap-1.5">
+                  {r.tier && <TierDot tier={r.tier} />}
+                  <MobileStatusBadge status={r.status} />
+                </div>
+              }
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** Traffic-light tier dot — 🔴 RED / 🟡 YELLOW / 🟢 GREEN */
+function TierDot({ tier }: { tier: "RED" | "YELLOW" | "GREEN" }) {
+  const colors: Record<string, string> = {
+    RED: "var(--color-stop)",
+    YELLOW: "var(--color-signal)",
+    GREEN: "var(--color-go)",
+  };
+  return (
+    <span
+      className="inline-block h-2 w-2 rounded-full shrink-0"
+      style={{ backgroundColor: colors[tier] }}
+      title={tier === "RED" ? "Absent" : tier === "YELLOW" ? "Present — DPR pending" : "Present — DPR approved"}
+    />
   );
 }

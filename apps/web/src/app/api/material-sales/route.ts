@@ -49,7 +49,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
       status: s.status,
       paymentStatus: s.paymentStatus,
       paymentMode: s.paymentMode,
+      partyName: s.partyName,
+      scrapSubtotal: toNum(s.scrapSubtotal),
       notes: s.notes,
+      // Vehicle / dispatch
+      vehicleNumber: s.vehicleNumber,
+      vehicleType: s.vehicleType,
+      driverName: s.driverName,
+      driverPhone: s.driverPhone,
       lineCount: s.lines.length,
       lines: s.lines.map((l) => ({
         id: l.id,
@@ -93,6 +100,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         gstRate: l.gstRate ?? 0,
       })),
       paymentMode: parsed.data.paymentMode ?? undefined,
+      partyName: parsed.data.partyName ?? undefined,
       vehicleNumber: parsed.data.vehicleNumber ?? undefined,
       vehicleType: parsed.data.vehicleType ?? undefined,
       vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,

@@ -11,7 +11,7 @@ import { Field } from "@/components/field";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatCurrency } from "@/lib/utils";
 import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
 
 type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
@@ -279,6 +279,7 @@ export function TransferFormDialog({
                 No stock at this location.
               </p>
             ) : (
+              <>
               <div className="rounded-lg border border-border overflow-hidden">
                 <EditableGrid
                   rows={lines}
@@ -289,6 +290,37 @@ export function TransferFormDialog({
                   className="max-h-[40vh]"
                 />
               </div>
+              {/* Compact impact strip — source after, destination gains */}
+              {(() => {
+                const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
+                if (validLines.length === 0) return null;
+                const shortCount = validLines.filter((l) => Number(l.qty) > l.availableQty).length;
+                const totalQty = validLines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+                return (
+                  <div className="flex items-center justify-end gap-2 text-caption text-muted-foreground">
+                    <span className="tnum">{validLines.length} line{validLines.length !== 1 ? "s" : ""}</span>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="tnum">{formatNumber(totalQty, 3)} units</span>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-muted-foreground">{fromLocation?.name ?? "Source"} → {toLocation?.name ?? "Dest"}</span>
+                    {shortCount > 0 && (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span className="font-medium text-warning">{shortCount} exceed available</span>
+                      </>
+                    )}
+                    {isInterCompany && (freight || handlingFee || markupPct) && (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span className="tnum font-semibold text-foreground">
+                          +{formatCurrency((Number(freight) || 0) + (Number(handlingFee) || 0))} STO cost
+                        </span>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+              </>
             )}
           </div>
         )}

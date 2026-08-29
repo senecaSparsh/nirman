@@ -19,6 +19,12 @@ interface ProjectOption {
   name: string;
 }
 
+interface StockLocationOption {
+  id: string;
+  name: string;
+  type: string;
+}
+
 interface FormState {
   name: string;
   trade: string;
@@ -30,6 +36,8 @@ interface FormState {
   monthlySalary: string;
   joinDate: string;
   activeProjectId: string;
+  hierarchyLevel: string;
+  reportingLocationId: string;
 }
 
 /**
@@ -41,11 +49,13 @@ export function MobileNewEmployeeDialog({
   open,
   onClose,
   projects,
+  stockLocations,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   projects: ProjectOption[];
+  stockLocations: StockLocationOption[];
   onCreated?: (employee: { id: string; name: string }) => void;
 }) {
   const router = useRouter();
@@ -61,6 +71,8 @@ export function MobileNewEmployeeDialog({
     monthlySalary: "",
     joinDate: "",
     activeProjectId: "",
+    hierarchyLevel: "",
+    reportingLocationId: "",
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -87,9 +99,14 @@ export function MobileNewEmployeeDialog({
           email: form.email.trim() || null,
           wageType: form.wageType,
           dailyRate: form.dailyRate === "" ? 0 : Number(form.dailyRate),
-          monthlySalary: form.wageType !== "DAILY" && form.monthlySalary !== "" ? Number(form.monthlySalary) : null,
+          monthlySalary:
+            form.wageType !== "DAILY" && form.monthlySalary !== ""
+              ? Number(form.monthlySalary)
+              : null,
           joinDate: form.joinDate || null,
           activeProjectId: form.activeProjectId || null,
+          hierarchyLevel: form.hierarchyLevel ? Number(form.hierarchyLevel) : null,
+          reportingLocationId: form.reportingLocationId || null,
           active: true,
         }),
       });
@@ -112,7 +129,8 @@ export function MobileNewEmployeeDialog({
 
   if (!open) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
+  const inputClass =
+    "w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -142,15 +160,21 @@ export function MobileNewEmployeeDialog({
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
-              <UserPlus className="size-3.5" style={{ color: "var(--color-ink-600)" }} />
+              <UserPlus
+                className="size-3.5"
+                style={{ color: "var(--color-ink-600)" }}
+              />
             </span>
-            <p className="text-[0.875rem] font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.875rem] font-bold"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               New Employee
             </p>
           </div>
           <button
             onClick={onClose}
-            className="grid place-items-center size-7 rounded-[0.375rem] press"
+            className="touch grid place-items-center rounded-[0.375rem] press"
             style={{ color: "var(--color-ink-500)" }}
             aria-label="Close"
           >
@@ -179,7 +203,9 @@ export function MobileNewEmployeeDialog({
           {/* Trade + Designation */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Trade / Skill</label>
+              <label className={labelClass} style={labelStyle}>
+                Trade / Skill
+              </label>
               <input
                 type="text"
                 value={form.trade}
@@ -191,7 +217,9 @@ export function MobileNewEmployeeDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Designation</label>
+              <label className={labelClass} style={labelStyle}>
+                Designation
+              </label>
               <input
                 type="text"
                 value={form.designation}
@@ -204,10 +232,44 @@ export function MobileNewEmployeeDialog({
             </div>
           </div>
 
+          {/* Hierarchy Level (H1-H6) */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Hierarchy Level
+            </label>
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { value: "", label: "Unassigned" },
+                { value: "1", label: "H1 — Management" },
+                { value: "2", label: "H2 — Manager" },
+                { value: "3", label: "H3 — Engineer" },
+                { value: "4", label: "H4 — Supervisor" },
+                { value: "5", label: "H5 — Skilled" },
+                { value: "6", label: "H6 — Labor" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { set("hierarchyLevel", opt.value); haptic(10); }}
+                  className="rounded-[0.375rem] border px-2.5 py-1.5 text-[0.5625rem] font-bold press"
+                  style={{
+                    borderColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-line)",
+                    backgroundColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-paper)",
+                    color: form.hierarchyLevel === opt.value ? "var(--color-paper)" : "var(--color-ink-500)",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Phone</label>
+              <label className={labelClass} style={labelStyle}>
+                Phone
+              </label>
               <input
                 type="tel"
                 value={form.phone}
@@ -219,7 +281,9 @@ export function MobileNewEmployeeDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Email</label>
+              <label className={labelClass} style={labelStyle}>
+                Email
+              </label>
               <input
                 type="email"
                 value={form.email}
@@ -234,18 +298,32 @@ export function MobileNewEmployeeDialog({
 
           {/* Wage Type */}
           <div>
-            <label className={labelClass} style={labelStyle}>Wage Type</label>
+            <label className={labelClass} style={labelStyle}>
+              Wage Type
+            </label>
             <div className="flex gap-2">
               {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
                 <button
                   key={w}
                   type="button"
-                  onClick={() => { set("wageType", w); haptic(10); }}
+                  onClick={() => {
+                    set("wageType", w);
+                    haptic(10);
+                  }}
                   className="flex-1 h-10 rounded-[0.5rem] border-2 text-[0.6875rem] font-bold press"
                   style={{
-                    borderColor: form.wageType === w ? "var(--color-ink-950)" : "var(--color-line)",
-                    backgroundColor: form.wageType === w ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: form.wageType === w ? "var(--color-paper)" : "var(--color-ink-500)",
+                    borderColor:
+                      form.wageType === w
+                        ? "var(--color-ink-950)"
+                        : "var(--color-line)",
+                    backgroundColor:
+                      form.wageType === w
+                        ? "var(--color-ink-950)"
+                        : "var(--color-paper)",
+                    color:
+                      form.wageType === w
+                        ? "var(--color-paper)"
+                        : "var(--color-ink-500)",
                   }}
                 >
                   {WAGE_TYPE_LABELS[w]}
@@ -257,7 +335,9 @@ export function MobileNewEmployeeDialog({
           {/* Rate / Salary (conditional) */}
           {form.wageType === "DAILY" ? (
             <div>
-              <label className={labelClass} style={labelStyle}>Daily Rate (₹)</label>
+              <label className={labelClass} style={labelStyle}>
+                Daily Rate (₹)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -272,7 +352,9 @@ export function MobileNewEmployeeDialog({
             </div>
           ) : (
             <div>
-              <label className={labelClass} style={labelStyle}>Monthly Salary (₹)</label>
+              <label className={labelClass} style={labelStyle}>
+                Monthly Salary (₹)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -290,7 +372,9 @@ export function MobileNewEmployeeDialog({
           {/* Join Date + Project */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass} style={labelStyle}>Join Date</label>
+              <label className={labelClass} style={labelStyle}>
+                Join Date
+              </label>
               <input
                 type="date"
                 value={form.joinDate}
@@ -300,7 +384,9 @@ export function MobileNewEmployeeDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Active Project</label>
+              <label className={labelClass} style={labelStyle}>
+                Active Project
+              </label>
               <select
                 value={form.activeProjectId}
                 onChange={(e) => set("activeProjectId", e.target.value)}
@@ -309,10 +395,35 @@ export function MobileNewEmployeeDialog({
               >
                 <option value="">— None —</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Reporting Location (geo-fence attendance) */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Reporting Location
+            </label>
+            <select
+              value={form.reportingLocationId}
+              onChange={(e) => set("reportingLocationId", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">— None (manual attendance) —</option>
+              {stockLocations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[0.5625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
+              When set, attendance auto-marks as PRESENT when the employee enters this location&apos;s geo-fence.
+            </p>
           </div>
 
           {/* Actions */}

@@ -6,6 +6,7 @@ import { getCompany, getCompanyGroupIds, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
 import { FieldReceive } from "@/components/field/field-receive";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * Mobile field receiving — the FieldReceive component (barcode scanning,
@@ -50,17 +51,7 @@ async function MobileFieldReceiveContent({
   const { po: preselectPoId } = await searchParams;
   const role = await getUserRole();
   if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
-    return (
-      <div className="flex flex-col items-center text-center px-4 py-7">
-        <div className="grid place-items-center size-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
-          <PackageCheck className="size-5" style={{ color: "var(--color-ink-300)" }} />
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>No access</p>
-        <p className="text-[0.625rem] mt-1" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to receive materials.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="receive materials" permission="procurement.view" />;
   }
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);

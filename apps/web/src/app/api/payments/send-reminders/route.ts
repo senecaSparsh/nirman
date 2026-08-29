@@ -20,9 +20,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
-  const type = (body as any)?.type ?? "ALL";
-  const daysAhead = (body as any)?.daysAhead ?? 7;
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const type = (body.type as string) ?? "ALL";
+  const daysAhead = (body.daysAhead as number) ?? 7;
 
   const now = new Date();
   const cutoff = new Date(now);

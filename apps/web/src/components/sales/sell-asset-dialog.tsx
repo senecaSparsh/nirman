@@ -39,6 +39,57 @@ type SectionKey = "party" | "asset" | "deal" | "payment" | "expenses" | "terms" 
 
 const SECTION_ORDER: SectionKey[] = ["party", "asset", "deal", "payment", "expenses", "terms", "broker", "compliance"];
 
+function SectionHeader({ icon: Icon, title, subtitle, sectionKey, required, isExpanded, onToggle }: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle?: string;
+  sectionKey: SectionKey;
+  required?: boolean;
+  isExpanded: boolean;
+  onToggle: (key: SectionKey) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(sectionKey)}
+      className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <div className="text-body font-medium text-foreground flex items-center gap-1">
+          {title}
+          {required && <span className="text-danger">*</span>}
+        </div>
+        {subtitle && <div className="text-caption text-muted-foreground">{subtitle}</div>}
+      </div>
+      <svg
+        className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-180")}
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+  );
+}
+
+function NextSectionButton({ current, onToggle }: { current: SectionKey; onToggle: (key: SectionKey) => void }) {
+  const idx = SECTION_ORDER.indexOf(current);
+  const next = SECTION_ORDER[idx + 1];
+  if (!next) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(next)}
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-caption font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+    >
+      Continue to {next === "payment" ? "Payment Plan" : next === "expenses" ? "Expense Heads" : next === "terms" ? "Terms & Conditions" : next === "broker" ? "Deal Source" : next.charAt(0).toUpperCase() + next.slice(1)}
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+  );
+}
+
 export function SellAssetDialog({
   open,
   onOpenChange,
@@ -78,10 +129,13 @@ export function SellAssetDialog({
     initialPayment: "",
     initialPaymentMode: "BANK_TRANSFER",
     notes: "",
-    // Sale deed / ATS tracking
+    // Sale deed / ATS tracking — merged: either ATS no or registry no
     isATS: true,
     saleDeedNo: "",
     expectedRegistryDate: "",
+    atsNo: "",
+    atsDate: "",
+    allowRegistryBeforeFullPayment: false,
     // Home loan tracking
     homeLoanBank: "",
     homeLoanAmount: "",
@@ -275,6 +329,10 @@ export function SellAssetDialog({
         notes: form.notes.trim() || null,
         saleDeedNo: !form.isATS && form.saleDeedNo.trim() ? form.saleDeedNo.trim() : null,
         expectedRegistryDate: form.isATS && form.expectedRegistryDate ? form.expectedRegistryDate : null,
+        // ATS fields — merged with registry: either atsNo OR saleDeedNo
+        atsNo: form.isATS && form.atsNo.trim() ? form.atsNo.trim() : null,
+        atsDate: form.isATS && form.atsDate ? form.atsDate : null,
+        allowRegistryBeforeFullPayment: form.allowRegistryBeforeFullPayment,
         homeLoanBank: form.homeLoanBank.trim() || null,
         homeLoanAmount: form.homeLoanAmount ? Number(form.homeLoanAmount) : null,
         homeLoanSanctionNo: form.homeLoanSanctionNo.trim() || null,
@@ -381,56 +439,6 @@ export function SellAssetDialog({
     }
   }
 
-  function SectionHeader({ icon: Icon, title, subtitle, sectionKey, required }: {
-    icon: React.ComponentType<{ className?: string }>;
-    title: string;
-    subtitle?: string;
-    sectionKey: SectionKey;
-    required?: boolean;
-  }) {
-    const isExpanded = expandedSection === sectionKey;
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSection(sectionKey)}
-        className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
-      >
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="text-body font-medium text-foreground flex items-center gap-1">
-            {title}
-            {required && <span className="text-danger">*</span>}
-          </div>
-          {subtitle && <div className="text-caption text-muted-foreground">{subtitle}</div>}
-        </div>
-        <svg
-          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-180")}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-    );
-  }
-
-  function NextSectionButton({ current }: { current: SectionKey }) {
-    const idx = SECTION_ORDER.indexOf(current);
-    const next = SECTION_ORDER[idx + 1];
-    if (!next) return null;
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSection(next)}
-        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-caption font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-      >
-        Continue to {next === "payment" ? "Payment Plan" : next === "expenses" ? "Expense Heads" : next === "terms" ? "Terms & Conditions" : next === "broker" ? "Deal Source" : next.charAt(0).toUpperCase() + next.slice(1)}
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-    );
-  }
-
   return (
     <Dialog
       open={open}
@@ -441,7 +449,7 @@ export function SellAssetDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         {/* ── Section: Party ── */}
-        <SectionHeader icon={UserCircle} title="Party" subtitle="Who are you selling to?" sectionKey="party" required />
+        <SectionHeader icon={UserCircle} title="Party" subtitle="Who are you selling to?" sectionKey="party" required isExpanded={expandedSection === "party"} onToggle={toggleSection} />
         {expandedSection === "party" && (
           <>
           <div className="space-y-3 px-1 pb-2">
@@ -466,12 +474,12 @@ export function SellAssetDialog({
               )}
             </div>
           </div>
-          <NextSectionButton current="party" />
+          <NextSectionButton current="party" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Asset ── */}
-        <SectionHeader icon={Building2} title="Asset" subtitle="What are you selling?" sectionKey="asset" required />
+        <SectionHeader icon={Building2} title="Asset" subtitle="What are you selling?" sectionKey="asset" required isExpanded={expandedSection === "asset"} onToggle={toggleSection} />
         {expandedSection === "asset" && (
           <>
           <div className="space-y-3 px-1 pb-2">
@@ -553,12 +561,12 @@ export function SellAssetDialog({
               </div>
             )}
           </div>
-          <NextSectionButton current="asset" />
+          <NextSectionButton current="asset" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Deal ── */}
-        <SectionHeader icon={IndianRupee} title="Deal" subtitle="Price, advance, and timeline" sectionKey="deal" required />
+        <SectionHeader icon={IndianRupee} title="Deal" subtitle="Price, advance, and timeline" sectionKey="deal" required isExpanded={expandedSection === "deal"} onToggle={toggleSection} />
         {expandedSection === "deal" && (
           <>
           <div className="space-y-3 px-1 pb-2">
@@ -645,12 +653,12 @@ export function SellAssetDialog({
               </div>
             </div>
           </div>
-          <NextSectionButton current="deal" />
+          <NextSectionButton current="deal" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Payment Plan ── */}
-        <SectionHeader icon={CalendarClock} title="Payment Plan" subtitle="Installment schedule" sectionKey="payment" />
+        <SectionHeader icon={CalendarClock} title="Payment Plan" subtitle="Installment schedule" sectionKey="payment" isExpanded={expandedSection === "payment"} onToggle={toggleSection} />
         {expandedSection === "payment" && (
           <>
           <div className="px-1 pb-2">
@@ -665,34 +673,34 @@ export function SellAssetDialog({
               dealMaturityMonths={dealMaturityNum}
             />
           </div>
-          <NextSectionButton current="payment" />
+          <NextSectionButton current="payment" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Expenses ── */}
-        <SectionHeader icon={ScrollText} title="Expense Heads" subtitle="Registry, stamp duty, transfer, etc." sectionKey="expenses" />
+        <SectionHeader icon={ScrollText} title="Expense Heads" subtitle="Registry, stamp duty, transfer, etc." sectionKey="expenses" isExpanded={expandedSection === "expenses"} onToggle={toggleSection} />
         {expandedSection === "expenses" && (
           <>
           <div className="px-1 pb-2">
             <SaleExpenseGrid expenses={expenses} onChange={setExpenses} />
           </div>
-          <NextSectionButton current="expenses" />
+          <NextSectionButton current="expenses" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Terms & Conditions ── */}
-        <SectionHeader icon={FileText} title="Terms & Conditions" subtitle="Custom conditions (NOC, possession, etc.)" sectionKey="terms" />
+        <SectionHeader icon={FileText} title="Terms & Conditions" subtitle="Custom conditions (NOC, possession, etc.)" sectionKey="terms" isExpanded={expandedSection === "terms"} onToggle={toggleSection} />
         {expandedSection === "terms" && (
           <>
           <div className="px-1 pb-2">
             <SaleTermsEditor terms={terms} onChange={setTerms} />
           </div>
-          <NextSectionButton current="terms" />
+          <NextSectionButton current="terms" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Broker ── */}
-        <SectionHeader icon={Users} title="Deal Source" subtitle="Broker or direct sale + commission" sectionKey="broker" />
+        <SectionHeader icon={Users} title="Deal Source" subtitle="Broker or direct sale + commission" sectionKey="broker" isExpanded={expandedSection === "broker"} onToggle={toggleSection} />
         {expandedSection === "broker" && (
           <>
           <div className="space-y-3 px-1 pb-2">
@@ -762,22 +770,22 @@ export function SellAssetDialog({
               </>
             )}
           </div>
-          <NextSectionButton current="broker" />
+          <NextSectionButton current="broker" onToggle={toggleSection} />
           </>
         )}
 
         {/* ── Section: Compliance ── */}
-        <SectionHeader icon={Banknote} title="Compliance" subtitle="Sale deed, home loan (optional)" sectionKey="compliance" />
+        <SectionHeader icon={Banknote} title="Compliance" subtitle="Sale deed, home loan (optional)" sectionKey="compliance" isExpanded={expandedSection === "compliance"} onToggle={toggleSection} />
         {expandedSection === "compliance" && (
           <div className="space-y-3 px-1 pb-2">
-            {/* Sale Deed / ATS */}
+            {/* ATS / Registry — merged: either ATS or Registry, one is the registered document */}
             <div className="rounded-md border border-border p-3 space-y-3">
               <div className="flex items-start gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <div className="text-body font-semibold">Sale Deed / Registry</div>
+                  <div className="text-body font-semibold">ATS / Registry</div>
                   <div className="text-caption text-muted-foreground">
-                    Booking (ATS — registry deferred) or completed sale (sale deed registered)?
+                    Either Agreement to Sell (ATS) or Registry — one of the two is the registered document. If ATS is done, registry is pending.
                   </div>
                 </div>
               </div>
@@ -795,14 +803,36 @@ export function SellAssetDialog({
                   onClick={() => set("isATS", false)}
                   className={cn("rounded-md border p-2 text-center transition-colors", !form.isATS ? "border-brand bg-brand/5" : "border-border hover:border-border-strong")}
                 >
-                  <div className="text-caption font-medium">Sale Deed Done</div>
-                  <div className="text-caption text-muted-foreground">Registry completed</div>
+                  <div className="text-caption font-medium">Registry Done</div>
+                  <div className="text-caption text-muted-foreground">Sale deed registered</div>
                 </button>
               </div>
               {form.isATS ? (
-                <div className="space-y-1.5 pt-1">
-                  <Label htmlFor="sa-exp-reg">Expected Registry Date</Label>
-                  <Input id="sa-exp-reg" type="date" value={form.expectedRegistryDate} onChange={(e) => set("expectedRegistryDate", e.target.value)} />
+                <div className="space-y-2 pt-1">
+                  {/* ATS number — like registry number, ATS is also registered */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sa-ats-no">ATS Registration No.</Label>
+                      <Input id="sa-ats-no" value={form.atsNo} onChange={(e) => set("atsNo", e.target.value)} placeholder="e.g. ATS-1234/2025" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sa-ats-date">ATS Date</Label>
+                      <Input id="sa-ats-date" type="date" value={form.atsDate} onChange={(e) => set("atsDate", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sa-exp-reg">Expected Registry Date</Label>
+                    <Input id="sa-exp-reg" type="date" value={form.expectedRegistryDate} onChange={(e) => set("expectedRegistryDate", e.target.value)} />
+                  </div>
+                  <label className="flex items-center gap-2 text-caption text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={form.allowRegistryBeforeFullPayment}
+                      onChange={(e) => set("allowRegistryBeforeFullPayment", e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    Allow registry before full payment
+                  </label>
                 </div>
               ) : (
                 <div className="space-y-1.5 pt-1">

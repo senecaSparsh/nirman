@@ -6,17 +6,22 @@ import { X, Loader2, Plus, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { computeRiskLevel } from "@nirman/services/safety";
+import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { useWbsOptions } from "@/lib/use-wbs-options";
 
 export function MobileNewHazardDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2",
-    location: "", mitigationPlan: "", targetResolutionDate: "",
+    location: "", mitigationPlan: "", targetResolutionDate: "", wbsNodeId: "",
   });
 
+  const wbsOptions = useWbsOptions(open ? form.projectId : null);
+
   useEffect(() => {
-    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2", location: "", mitigationPlan: "", targetResolutionDate: "" });
+    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2", location: "", mitigationPlan: "", targetResolutionDate: "", wbsNodeId: "" });
   }, [open, projects]);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
@@ -33,7 +38,9 @@ export function MobileNewHazardDialog({ open, onClose, projects }: { open: boole
       const res = await fetch("/api/safety/hazards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         projectId: form.projectId, title: form.title.trim(), description: form.description.trim(),
         likelihood: lk, severity: sv, location: form.location || null,
+        wbsNodeId: form.wbsNodeId || null,
         mitigationPlan: form.mitigationPlan || null, targetResolutionDate: form.targetResolutionDate || null,
+        attachments: attachments.map((a) => a.url),
       }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -90,6 +97,13 @@ export function MobileNewHazardDialog({ open, onClose, projects }: { open: boole
             <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
           <div>
+            <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
+            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
+              <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+              {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan (optional)</label>
             <textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
@@ -97,6 +111,15 @@ export function MobileNewHazardDialog({ open, onClose, projects }: { open: boole
             <label className="text-[0.625rem] font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Target Resolution Date</label>
             <input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem]" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
           </div>
+
+          {/* Photo evidence */}
+          <div>
+            <label className="text-[0.5625rem] font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
+              Photo Evidence
+            </label>
+            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+          </div>
+
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 h-11 rounded-[0.5rem] border text-[0.75rem] font-bold press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
             <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-[0.75rem] font-bold press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>

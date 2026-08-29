@@ -104,6 +104,7 @@ async function RequisitionsContent() {
     quoteCount: r.vendorQuotes.length,
     minQuotesRequired: r.minQuotesRequired,
     quotesWaived: r.quotesWaived,
+    lciDecision: r.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null,
   }));
 
   const draftCount = rows.filter((r) => r.status === "DRAFT").length;

@@ -4,11 +4,13 @@ import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
+import { ScanButton } from "@/components/mobile/v2/scan-button";
 import {
   MobileSearchHeader,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { mobileStatusColor } from "@/components/mobile/v2/primitives";
 
 export type MaterialItem = {
   id: string;
@@ -111,6 +113,7 @@ export function MobileMaterialsList({
         placeholder="Search materials…"
         action={
           <div className="flex items-center gap-1 shrink-0">
+            <ScanButton onScan={setQuery} label="" />
             <FilterDropdown
               categories={categories}
               activeCategory={activeCategory}
@@ -200,15 +203,10 @@ export function MobileMaterialsList({
    Square-ish icon area, category label, name, stock qty, status badge.
    ═══════════════════════════════════════════════════════════════════════════ */
 function MaterialCard({ material }: { material: MaterialItem }) {
-  const status = material.isOut ? "critical" : material.isLow ? "low" : "ok";
-  const statusColor =
-    status === "critical"
-      ? "var(--color-stop)"
-      : status === "low"
-        ? "var(--color-signal)"
-        : "var(--color-go)";
+  const stockStatus = material.isOut ? "OUT_OF_STOCK" : material.isLow ? "LOW_STOCK" : "IN_STOCK";
+  const statusColor = mobileStatusColor(stockStatus);
   const statusLabel =
-    status === "critical" ? "Out" : status === "low" ? "Low" : "In stock";
+    material.isOut ? "Out" : material.isLow ? "Low" : "In stock";
 
   return (
     <Link

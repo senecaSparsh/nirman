@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
   TrendingUp, Loader2, IndianRupee, X,
-  CheckCircle2, ExternalLink,
+  CheckCircle2, ExternalLink, MessageCircle,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
@@ -29,6 +29,10 @@ type PaymentItem = {
   reference: string | null;
   status: string;
   chequeStatus: string | null;
+  chequeNo: string | null;
+  chequeBank: string | null;
+  chequeDate: string | null;
+  chequePhotoUrl: string | null;
 };
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -66,6 +70,8 @@ export function MobileSaleDetailClient({
   totalPaid,
   // Sale deed / ATS
   saleDeedNo,
+  atsNo,
+  atsDate,
   expectedRegistryDate,
   // Compliance documents
   allotmentLetterNo,
@@ -103,6 +109,11 @@ export function MobileSaleDetailClient({
   registryDocumentName,
   allotmentDocumentUrl,
   allotmentDocumentName,
+  // Draft / LOI
+  draftDocumentUrl,
+  draftDocumentName,
+  draftNotes,
+  draftDate,
 }: {
   saleId: string;
   saleNumber: string;
@@ -123,6 +134,8 @@ export function MobileSaleDetailClient({
   notes: string | null;
   totalPaid: number;
   saleDeedNo: string | null;
+  atsNo?: string | null;
+  atsDate?: string | null;
   expectedRegistryDate: string | null;
   allotmentLetterNo: string | null;
   allotmentDate: string | null;
@@ -171,6 +184,11 @@ export function MobileSaleDetailClient({
   registryDocumentName?: string | null;
   allotmentDocumentUrl?: string | null;
   allotmentDocumentName?: string | null;
+  // Draft / LOI
+  draftDocumentUrl?: string | null;
+  draftDocumentName?: string | null;
+  draftNotes?: string | null;
+  draftDate?: string | null;
 }) {
   const router = useRouter();
   const [showPayment, setShowPayment] = useState(false);
@@ -410,6 +428,23 @@ export function MobileSaleDetailClient({
     }
   }
 
+  async function sendWhatsAppConfirmation(paymentId: string) {
+    try {
+      const res = await fetch(`/api/sales/${saleId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resendConfirmation", paymentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send confirmation");
+      toast.success("WhatsApp confirmation sent", {
+        description: "Payment receipt sent to customer's WhatsApp.",
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send confirmation");
+    }
+  }
+
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     const amount = Number(depAmount);
@@ -520,6 +555,27 @@ export function MobileSaleDetailClient({
           </div>
         ) : null}
       </div>
+
+      {/* ── Sale lifecycle timeline ──
+          Visual progression: Sale Order → ATS/BBA → Registry → Complete
+          Each step shows done/pending/current state + document upload status. */}
+      {!isCancelled && (
+        <SaleLifecycleTimeline
+          saleStage={saleStage}
+          saleDate={saleDate}
+          atsNo={atsNo}
+          atsDate={atsDate}
+          atsDocumentUrl={atsDocumentUrl}
+          bbaNo={bbaNo}
+          bbaDate={bbaDate}
+          bbaDocumentUrl={bbaDocumentUrl}
+          saleDeedNo={saleDeedNo}
+          registryDocumentUrl={registryDocumentUrl}
+          allotmentLetterNo={allotmentLetterNo}
+          allotmentDate={allotmentDate}
+          allotmentDocumentUrl={allotmentDocumentUrl}
+        />
+      )}
 
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-3 gap-1.5 mb-2">
@@ -729,6 +785,42 @@ export function MobileSaleDetailClient({
               <p className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>{notes}</p>
             </div>
           ) : null}
+
+          {/* Draft / LOI info */}
+          {draftNotes ? (
+            <div className="px-2 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+              <p className="text-[0.4375rem] font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                Draft / LOI {draftDate ? `· ${formatDate(draftDate)}` : ""}
+              </p>
+              <p className="text-[0.5625rem] whitespace-pre-wrap" style={{ color: "var(--color-ink-700)" }}>
+                {draftNotes}
+              </p>
+              {draftDocumentUrl ? (
+                <a
+                  href={draftDocumentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[0.5rem] font-semibold mt-1"
+                  style={{ color: "var(--color-brand)" }}
+                >
+                  <ExternalLink className="size-2.5" /> {draftDocumentName ?? "View draft document"}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Print Draft / LOI */}
+          <div className="px-2 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <a
+              href={`/print/sale-draft/${saleId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[0.5625rem] font-semibold"
+              style={{ color: "var(--color-brand)" }}
+            >
+              <Printer className="size-3" /> Print Draft / LOI
+            </a>
+          </div>
         </div>
 
         {/* Deal Details column */}
@@ -919,12 +1011,28 @@ export function MobileSaleDetailClient({
                       {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cheque Cleared</span>}
                       {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Cheque Bounced</span>}
                     </p>
+                    {p.mode === "CHEQUE" && (p.chequeNo || p.chequeBank) && (
+                      <p className="text-[0.4375rem] font-mono" style={{ color: "var(--color-ink-500)" }}>
+                        {p.chequeNo && `Chq: ${p.chequeNo}`}
+                        {p.chequeBank && `${p.chequeNo ? " · " : ""}${p.chequeBank}`}
+                        {p.chequePhotoUrl && <span style={{ color: "var(--color-steel)" }}> · 📷 Photo</span>}
+                      </p>
+                    )}
                   </div>
                   <p className="text-[0.625rem] font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
                     {formatCurrencyCompact(p.amount)}
                   </p>
                   <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 </a>
+                {canManage && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); sendWhatsAppConfirmation(p.id); }}
+                    className="shrink-0 press"
+                    title="Send WhatsApp confirmation"
+                  >
+                    <MessageCircle className="size-3" style={{ color: "var(--color-go)" }} />
+                  </button>
+                )}
                 {canManage && p.chequeStatus === "PENDING" ? (
                   <div className="flex gap-1 shrink-0">
                     <button
@@ -1499,6 +1607,163 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+/* ─── Sale Lifecycle Timeline ───
+   Visual progression: Sale Order → ATS/BBA → Registry → Complete
+   Each step shows done/pending/current state + document upload status.
+   Enforces the sequence: you can't complete without registry doc. */
+function SaleLifecycleTimeline({
+  saleStage,
+  saleDate,
+  atsNo,
+  atsDate,
+  atsDocumentUrl,
+  bbaNo,
+  bbaDate,
+  bbaDocumentUrl,
+  saleDeedNo,
+  registryDocumentUrl,
+  allotmentLetterNo,
+  allotmentDate,
+  allotmentDocumentUrl,
+}: {
+  saleStage: string;
+  saleDate: string;
+  atsNo?: string | null;
+  atsDate?: string | null;
+  atsDocumentUrl?: string | null;
+  bbaNo?: string | null;
+  bbaDate?: string | null;
+  bbaDocumentUrl?: string | null;
+  saleDeedNo: string | null;
+  registryDocumentUrl?: string | null;
+  allotmentLetterNo?: string | null;
+  allotmentDate?: string | null;
+  allotmentDocumentUrl?: string | null;
+}) {
+  const isCompleted = saleStage === "COMPLETED";
+  const hasDeposit = saleStage === "DEPOSIT_RECEIVED" || isCompleted;
+
+  // Step states: "done" | "current" | "pending"
+  const steps = [
+    {
+      label: "Sale Order",
+      sub: formatDate(saleDate),
+      state: "done" as const,
+      docLabel: allotmentLetterNo ? `Allotment #${allotmentLetterNo}` : null,
+      docUrl: allotmentDocumentUrl,
+      docDate: allotmentDate,
+    },
+    {
+      label: "Deposit",
+      sub: hasDeposit ? "Received" : "Pending",
+      state: hasDeposit ? ("done" as const) : saleStage === "PENDING" ? ("current" as const) : ("pending" as const),
+      docLabel: null,
+      docUrl: null,
+      docDate: null,
+    },
+    {
+      label: "ATS / BBA",
+      sub: atsNo || bbaNo ? (atsNo ? `ATS ${atsNo}` : `BBA ${bbaNo}`) : "Pending",
+      state: atsNo || bbaNo ? ("done" as const) : hasDeposit && !isCompleted ? ("current" as const) : ("pending" as const),
+      docLabel: atsDocumentUrl ? "ATS doc" : bbaDocumentUrl ? "BBA doc" : null,
+      docUrl: atsDocumentUrl || bbaDocumentUrl,
+      docDate: atsDate || bbaDate,
+    },
+    {
+      label: "Registry",
+      sub: saleDeedNo ? `Deed ${saleDeedNo}` : "Pending",
+      state: saleDeedNo ? ("done" as const) : isCompleted ? ("done" as const) : ("pending" as const),
+      docLabel: registryDocumentUrl ? "Registry doc" : null,
+      docUrl: registryDocumentUrl,
+      docDate: null,
+    },
+  ];
+
+  const stepColor = (state: "done" | "current" | "pending") =>
+    state === "done"
+      ? "var(--color-go)"
+      : state === "current"
+        ? "var(--color-signal)"
+        : "var(--color-ink-300)";
+
+  return (
+    <div
+      className="rounded-[0.5rem] border p-3 mb-2"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
+      <p className="text-[0.5rem] font-bold uppercase tracking-wider mb-2.5" style={{ color: "var(--color-steel)" }}>
+        Sale Lifecycle
+      </p>
+      <div className="flex items-center">
+        {steps.map((step, i) => (
+          <div key={step.label} className="flex items-center flex-1 last:flex-none">
+            {/* Step circle + label */}
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <div
+                className="size-5 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: stepColor(step.state),
+                  border: step.state === "current" ? "2px solid var(--color-paper)" : "none",
+                  boxShadow: step.state === "current" ? `0 0 0 2px ${stepColor(step.state)}` : "none",
+                }}
+              >
+                {step.state === "done" ? (
+                  <CheckCircle2 className="size-3" style={{ color: "#fff" }} />
+                ) : step.state === "current" ? (
+                  <div className="size-1.5 rounded-full" style={{ backgroundColor: "#fff" }} />
+                ) : (
+                  <div className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
+                )}
+              </div>
+              <span
+                className="text-[0.4375rem] font-bold text-center leading-tight"
+                style={{ color: step.state === "pending" ? "var(--color-ink-400)" : "var(--color-ink-950)" }}
+              >
+                {step.label}
+              </span>
+              {step.sub && step.state !== "pending" ? (
+                <span className="text-[0.375rem] text-center leading-tight" style={{ color: "var(--color-ink-500)" }}>
+                  {step.sub}
+                </span>
+              ) : null}
+              {step.docLabel && step.docUrl ? (
+                <a
+                  href={step.docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[0.375rem] font-semibold flex items-center gap-0.5 press"
+                  style={{ color: "var(--color-steel)" }}
+                >
+                  <ExternalLink className="size-2" />
+                  {step.docLabel}
+                </a>
+              ) : null}
+            </div>
+            {/* Connector line */}
+            {i < steps.length - 1 ? (
+              <div
+                className="flex-1 h-0.5 mx-1 rounded-full"
+                style={{
+                  backgroundColor:
+                    step.state === "done" && steps[i + 1]!.state !== "pending"
+                      ? "var(--color-go)"
+                      : "var(--color-line)",
+                }}
+              />
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {/* Registry gate warning */}
+      {!saleDeedNo && !registryDocumentUrl && !isCompleted && (
+        <p className="text-[0.4375rem] mt-2 pt-2" style={{ borderTop: "1px solid var(--color-line)", color: "var(--color-signal)" }}>
+          Registry document required to complete the sale.
+        </p>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import { getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import MobileNewSupplierReturnClient from "./MobileNewSupplierReturnClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/supplier-returns/new — mobile supplier return creation.
@@ -13,18 +14,7 @@ export default async function MobileNewSupplierReturnPage() {
   const role = await getUserRole();
 
   if (!hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
-    return (
-      <div className="p-4">
-        <div className="mb-4">
-        </div>
-        <p className="text-[0.875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
-          New Supplier Return
-        </p>
-        <p className="mt-2 text-[0.75rem]" style={{ color: "var(--color-ink-500)" }}>
-          You don&apos;t have permission to create supplier returns.
-        </p>
-      </div>
-    );
+    return <MobileNoAccess what="create supplier returns" permission="procurement.manage" />;
   }
 
   // Fetch dropdown data directly from Prisma (company-scoped, non-deleted)

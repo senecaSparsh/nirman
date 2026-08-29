@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Trophy, AlertTriangle, Upload } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
+import { QuoteUploadDialog } from "./quote-upload-dialog";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { RequisitionDetail } from "@/lib/types";
 
@@ -45,9 +48,45 @@ export function ConvertToPoDialog({
   const [localSuppliers, setLocalSuppliers] = useState<SupplierOption[]>(suppliers);
   useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
 
+  // Quote gate state
+  const [quoteUploadOpen, setQuoteUploadOpen] = useState(false);
+  const [waiving, setWaiving] = useState(false);
+  const [waiveReason, setWaiveReason] = useState("");
+  const [showWaiveInput, setShowWaiveInput] = useState(false);
+
+  const quotes = requisition?.quotes;
+  const quoteGateMet = quotes ? (quotes.gateSatisfied || quotes.waived) : true;
+
+  async function onWaiveQuotes() {
+    if (!requisition) return;
+    if (!waiveReason.trim()) return toast.error("Enter a reason for waiving the quote requirement");
+    setWaiving(true);
+    try {
+      const res = await fetch(`/api/requisitions/${requisition.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "waiveQuotes", waiveReason: waiveReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to waive quotes");
+      toast.success("Quote requirement waived");
+      setShowWaiveInput(false);
+      setWaiveReason("");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setWaiving(false);
+    }
+  }
+
   // Auto-fill line costs from last purchase rate when dialog opens
   useEffect(() => {
     if (open && requisition) {
+      // Auto-set scope from LCI recommendation if available
+      if (requisition.lciDecision?.recommendedScope) {
+        setScope(requisition.lciDecision.recommendedScope);
+      }
       const prefilled: Record<string, string> = {};
       for (const line of requisition.lines) {
         if (line.lastRate && line.lastRate > 0) {
@@ -151,6 +190,64 @@ export function ConvertToPoDialog({
       className="max-w-3xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
+        {/* LCI recommendation banner */}
+        {requisition.lciDecision && (
+          <div className="rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-caption">
+            <span className="font-medium text-brand">Logistics Recommendation:</span>{" "}
+            Ship to{" "}
+            <span className="font-semibold">
+              {requisition.lciDecision.recommendedScope === "PROJECT" ? "Project Site" : "Central Warehouse"}
+            </span>
+            {" "}(threshold: {requisition.lciDecision.threshold}). You can override this below.
+          </div>
+        )}
+
+        {/* Quote gate — show status + inline unblock paths */}
+        {quotes && !quoteGateMet && (
+          <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2.5 space-y-2">
+            <div className="flex items-center gap-2 text-caption">
+              <AlertTriangle className="size-3.5 text-warning shrink-0" />
+              <span className="font-medium text-warning">Quote gate not met</span>
+              <Badge variant="warning">{quotes.count}/{quotes.minRequired} quotes</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setQuoteUploadOpen(true)}>
+                <Upload className="size-3.5" /> Upload quotes
+              </Button>
+              {!showWaiveInput ? (
+                <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowWaiveInput(true)}>
+                  Waive with reason
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 w-full">
+                  <Input
+                    placeholder="Reason for waiving quote requirement…"
+                    value={waiveReason}
+                    onChange={(e) => setWaiveReason(e.target.value)}
+                    className="text-caption"
+                  />
+                  <Button type="button" size="sm" onClick={onWaiveQuotes} disabled={waiving}>
+                    {waiving ? "Waiving…" : "Confirm waive"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setShowWaiveInput(false); setWaiveReason(""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {quotes && quoteGateMet && quotes.count > 0 && (
+          <div className="flex items-center gap-2 text-caption text-muted-foreground">
+            <Trophy className="size-3.5 text-warning" />
+            <span>{quotes.count}/{quotes.minRequired} quotes collected</span>
+            {quotes.waived && <span className="text-muted-foreground">· waived: {quotes.waivedReason ?? "no reason"}</span>}
+            {quotes.selected && (
+              <span>· selected: <span className="font-medium text-foreground">{quotes.selected.supplierName}</span> ({formatCurrency(quotes.selected.landedTotal)})</span>
+            )}
+          </div>
+        )}
+
         {/* Header fields */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -267,6 +364,24 @@ export function ConvertToPoDialog({
           </Button>
         </div>
       </form>
+
+      {/* Quote upload — opened from the quote gate banner */}
+      <QuoteUploadDialog
+        open={quoteUploadOpen}
+        onOpenChange={setQuoteUploadOpen}
+        requisitionId={requisition.id}
+        reqNumber={requisition.reqNumber}
+        requisitionLines={requisition.lines.map((l) => ({
+          materialId: l.materialId,
+          materialCode: l.materialCode,
+          materialName: l.materialName,
+          unit: l.unit,
+          qtyRequested: l.qtyRequested,
+        }))}
+        suppliers={localSuppliers}
+        materials={requisition.lines.map((l) => ({ id: l.materialId, code: l.materialCode, name: l.materialName, unit: l.unit }))}
+        onUploaded={() => router.refresh()}
+      />
     </Dialog>
   );
 }

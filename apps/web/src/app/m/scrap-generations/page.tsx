@@ -7,6 +7,7 @@ import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { MobileScrapGenerationsList } from "./MobileScrapGenerationsList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/scrap-generations — mobile scrap generation list. Supervisors and
@@ -50,7 +51,8 @@ async function MobileScrapGenerationsContent() {
   });
 
   const totalValue = scraps.reduce(
-    (s, sc) => s + sc.lines.reduce((ls, l) => ls + toNum(l.qty) * toNum(l.unitCost), 0),
+    (s, sc) =>
+      s + sc.lines.reduce((ls, l) => ls + toNum(l.qty) * toNum(l.unitCost), 0),
     0,
   );
 
@@ -63,7 +65,10 @@ async function MobileScrapGenerationsContent() {
     projectName: sc.project?.name ?? null,
     isAuto: !!sc.dprAutoScrap,
     lineCount: sc.lines.length,
-    totalValue: sc.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
+    totalValue: sc.lines.reduce(
+      (s, l) => s + toNum(l.qty) * toNum(l.unitCost),
+      0,
+    ),
     materials: sc.lines.map((l) => l.material.name).slice(0, 2),
   }));
 
@@ -77,14 +82,22 @@ async function MobileScrapGenerationsContent() {
   ];
 
   return (
-    <MobileScrapGenerationsList
-      items={serialized}
-      totalValue={totalValue}
-      canCreate={canCreate}
-      exportTitle="Scrap Generations"
-      exportRows={serialized as unknown as Record<string, unknown>[]}
-      exportColumns={exportColumns}
-      exportSummary={`${serialized.length} slips · ${formatCurrency(totalValue)}`}
-    />
+    <div>
+      <MobileScrapGenerationsList
+        items={serialized}
+        totalValue={totalValue}
+        canCreate={canCreate}
+        exportTitle="Scrap Generations"
+        exportRows={serialized as unknown as Record<string, unknown>[]}
+        exportColumns={exportColumns}
+        exportSummary={`${serialized.length} slips · ${formatCurrency(totalValue)}`}
+      />
+      {canCreate && (
+        <MobileFab
+          href="/m/scrap-generations/new"
+          label="New scrap generation"
+        />
+      )}
+    </div>
   );
 }

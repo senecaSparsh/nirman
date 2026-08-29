@@ -4,7 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Settings, type LucideIcon } from "lucide-react";
-import { NAV_GROUPS, MOBILE_TABS, type NavLink } from "@/lib/mobile-nav-v2";
+import {
+  navGroupsForPersona,
+  type NavLink,
+  type Persona,
+  type ModuleTab,
+} from "@/lib/mobile-nav-v2";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV PANEL — 3-dot overflow side panel (compact)
@@ -24,9 +29,13 @@ interface NavSheetProps {
   open: boolean;
   onClose: () => void;
   moduleId: string;
+  /** Current persona — used to filter NavGroups (hide irrelevant sections). */
+  persona: Persona;
+  /** Persona's tab bar — shown in the module switcher grid at the top. */
+  personaTabs: ModuleTab[];
 }
 
-export function NavSheet({ open, onClose, moduleId }: NavSheetProps) {
+export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavSheetProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(open);
   const [exiting, setExiting] = React.useState(false);
@@ -65,7 +74,32 @@ export function NavSheet({ open, onClose, moduleId }: NavSheetProps) {
 
   if (!mounted) return null;
 
-  const groups = NAV_GROUPS[moduleId] ?? [];
+  // Map persona tab IDs to the most appropriate NAV_GROUPS key.
+  // New persona tabs (site, dpr, tasks, stock, etc.) map to the module
+  // that contains their links. Unknown IDs fall back to "home" which
+  // has links to everything.
+  const MODULE_GROUP_MAP: Record<string, string> = {
+    home: "home",
+    inventory: "inventory",
+    hr: "hr",
+    accounts: "accounts",
+    settings: "settings",
+    site: "home",
+    dpr: "hr",
+    tasks: "hr",
+    stock: "inventory",
+    procurement: "inventory",
+    transfers: "inventory",
+    sales: "home",
+    customers: "home",
+    approvals: "home",
+    reports: "home",
+    attendance: "hr",
+  };
+  const resolvedModuleId = MODULE_GROUP_MAP[moduleId] ?? "home";
+  // Filter groups by persona — hides irrelevant sections (e.g. a store
+  // keeper doesn't see Real Estate, Construction, Safety, or Books).
+  const groups = navGroupsForPersona(resolvedModuleId, persona);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-start">
@@ -127,9 +161,27 @@ export function NavSheet({ open, onClose, moduleId }: NavSheetProps) {
               Modules
             </h3>
             <div className="grid grid-cols-5 gap-1">
-              {MOBILE_TABS.map((tab) => {
+              {personaTabs.map((tab) => {
                 const Icon = tab.icon as LucideIcon;
                 const active = moduleId === tab.id;
+                // Search tab doesn't navigate — it opens the search overlay.
+                // We can't trigger that from here, so skip it in the grid.
+                if (tab.id === "search") {
+                  return (
+                    <div
+                      key={tab.id}
+                      className="flex flex-col items-center gap-0.5 rounded-[0.375rem] py-1.5 opacity-40"
+                    >
+                      <Icon className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                      <span
+                        className="text-[0.4375rem] font-semibold leading-tight"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        {tab.label}
+                      </span>
+                    </div>
+                  );
+                }
                 return (
                   <Link
                     key={tab.id}

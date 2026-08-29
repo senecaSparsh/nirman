@@ -40,6 +40,8 @@ async function MobileSaleDetailContent({
           id: true, amount: true, paymentDate: true,
           mode: true, reference: true, status: true,
           chequeStatus: true,
+          chequeNo: true, chequeBank: true, chequeDate: true,
+          chequePhotoUrl: true,
         },
       },
       expenses: { orderBy: { sortOrder: "asc" } },
@@ -80,6 +82,8 @@ async function MobileSaleDetailContent({
         notes={null}
         totalPaid={0}
         saleDeedNo={null}
+        atsNo={null}
+        atsDate={null}
         expectedRegistryDate={null}
         allotmentLetterNo={null}
         allotmentDate={null}
@@ -113,6 +117,10 @@ async function MobileSaleDetailContent({
         registryDocumentName={null}
         allotmentDocumentUrl={null}
         allotmentDocumentName={null}
+        draftDocumentUrl={null}
+        draftDocumentName={null}
+        draftNotes={null}
+        draftDate={null}
       />
     );
   }
@@ -163,6 +171,8 @@ async function MobileSaleDetailContent({
       totalPaid={totalPaid}
       // Sale deed / ATS
       saleDeedNo={sale.saleDeedNo}
+      atsNo={sale.atsNo}
+      atsDate={sale.atsDate ? sale.atsDate.toISOString() : null}
       expectedRegistryDate={sale.expectedRegistryDate ? sale.expectedRegistryDate.toISOString() : null}
       // Compliance documents
       allotmentLetterNo={sale.allotmentLetterNo}
@@ -185,6 +195,10 @@ async function MobileSaleDetailContent({
         reference: p.reference,
         status: p.status,
         chequeStatus: p.chequeStatus,
+        chequeNo: p.chequeNo,
+        chequeBank: p.chequeBank,
+        chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
+        chequePhotoUrl: p.chequePhotoUrl,
       }))}
       canManage={canManage}
       // New sales-module fields
@@ -233,6 +247,10 @@ async function MobileSaleDetailContent({
       registryDocumentName={sale.registryDocumentName}
       allotmentDocumentUrl={sale.allotmentDocumentUrl}
       allotmentDocumentName={sale.allotmentDocumentName}
+      draftDocumentUrl={sale.draftDocumentUrl}
+      draftDocumentName={sale.draftDocumentName}
+      draftNotes={sale.draftNotes}
+      draftDate={sale.draftDate ? sale.draftDate.toISOString() : null}
     />
   );
 }

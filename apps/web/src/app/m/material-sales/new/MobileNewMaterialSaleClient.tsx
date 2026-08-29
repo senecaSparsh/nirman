@@ -3,26 +3,66 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Trash2, Loader2, CheckCircle2, IndianRupee,
-  Search, X, ChevronRight, User, MapPin, Package, Building2,
-  Wallet, Send, WifiOff,
+  Plus,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  IndianRupee,
+  Search,
+  X,
+  ChevronRight,
+  User,
+  MapPin,
+  Package,
+  Building2,
+  Wallet,
+  Send,
+  WifiOff,
+  ShieldCheck,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
-import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
+import {
+  MobileChequeFields,
+  EMPTY_MOBILE_CHEQUE,
+  type MobileChequeState,
+} from "../../sales/MobileChequeFields";
 import { haptic } from "@/lib/haptic";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
-import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
+import {
+  VehicleCapture,
+  type VehicleData,
+} from "@/components/mobile/vehicle-capture";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 
-interface CustomerItem { id: string; name: string; phone?: string | null; }
-interface LocationItem { id: string; name: string; type: string; }
-interface MaterialItem { id: string; name: string; code: string; unit: string; gstRate: number; }
-interface ProjectItem { id: string; name: string; }
+interface CustomerItem {
+  id: string;
+  name: string;
+  phone?: string | null;
+}
+interface LocationItem {
+  id: string;
+  name: string;
+  type: string;
+}
+interface MaterialItem {
+  id: string;
+  name: string;
+  code: string;
+  unit: string;
+  gstRate: number;
+}
+interface ProjectItem {
+  id: string;
+  name: string;
+}
 
 interface SaleLine {
   materialId: string;
@@ -32,7 +72,7 @@ interface SaleLine {
 }
 
 const PAYMENT_MODES = ["CASH", "BANK", "UPI", "CHEQUE"] as const;
-type PaymentMode = typeof PAYMENT_MODES[number];
+type PaymentMode = (typeof PAYMENT_MODES)[number];
 type PaymentType = "credit" | "paid";
 
 interface PaymentSplit {
@@ -48,6 +88,7 @@ interface SaleDraft {
   paymentType: PaymentType;
   paymentSplits: PaymentSplit[];
   notes: string;
+  partyName: string;
   lines: SaleLine[];
 }
 
@@ -72,17 +113,30 @@ export default function MobileNewMaterialSaleClient() {
     { id: crypto.randomUUID(), amount: "", mode: "CASH" },
   ]);
   const [notes, setNotes] = useState("");
-  const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
-  const [lines, setLines] = useState<SaleLine[]>([{ materialId: "", locationId: "", qty: "", unitPrice: "" }]);
+  const [partyName, setPartyName] = useState("");
+  const [vehicle, setVehicle] = useState<VehicleData>({
+    vehicleNumber: "",
+    vehicleType: "",
+  });
+  const [lines, setLines] = useState<SaleLine[]>([
+    { materialId: "", locationId: "", qty: "", unitPrice: "" },
+  ]);
 
-  const [success, setSuccess] = useState<{ saleNumber: string; totalAmount: number; amountPaid?: number } | null>(null);
+  const [success, setSuccess] = useState<{
+    saleId?: string;
+    saleNumber: string;
+    totalAmount: number;
+    amountPaid?: number;
+  } | null>(null);
 
   // ── Draft auto-save (IndexedDB) — survives interruptions / offline ──
-  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<SaleDraft>(
-    "material-sale",
-    "material-sale-new",
-  );
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } =
+    useDrafts<SaleDraft>("material-sale", "material-sale-new");
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // ── Smart defaults — pre-fill customer from last-used (if no draft) ──
+  const { getDefault, recordDefaults } = useSmartDefaults("material-sale");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,22 +145,40 @@ export default function MobileNewMaterialSaleClient() {
         const [custRes, locRes, matRes, projRes, salesRes] = await Promise.all([
           fetch("/api/customers").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/materials").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
           fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/material-sales?limit=20").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/material-sales?limit=20").then((r) =>
+            r.ok ? r.json() : [],
+          ),
         ]);
         if (cancelled) return;
         if (Array.isArray(custRes)) {
           setCustomers(custRes);
-          if (custRes.length > 0) setCustomerId(custRes[0].id);
+          if (custRes.length > 0) {
+            // Smart default: last-used customer (if no draft)
+            const defCustomer = getDefault("customerId");
+            if (!hasDraft && defCustomer && custRes.some((c) => c.id === defCustomer)) {
+              setCustomerId(defCustomer);
+              setDefaultsApplied(true);
+            } else {
+              setCustomerId(custRes[0].id);
+            }
+          }
         }
         if (Array.isArray(locRes)) {
           setLocations(locRes);
-          if (locRes.length > 0 && Array.isArray(matRes) && matRes.length > 0) {
-            setLines([{ materialId: matRes[0].id, locationId: locRes[0].id, qty: "", unitPrice: "" }]);
+          if (locRes.length > 0 && matRes?.rows?.length > 0) {
+            setLines([
+              {
+                materialId: matRes.rows[0].id,
+                locationId: locRes[0].id,
+                qty: "",
+                unitPrice: "",
+              },
+            ]);
           }
         }
-        if (Array.isArray(matRes)) setMaterials(matRes);
+        if (matRes?.rows) setMaterials(matRes.rows);
         if (Array.isArray(projRes)) setProjects(projRes);
 
         // ── Build last-known price map from recent sales ──
@@ -116,7 +188,11 @@ export default function MobileNewMaterialSaleClient() {
           for (const sale of salesRes) {
             const lines = sale.lines ?? sale.items ?? [];
             for (const line of lines) {
-              if (line.materialId && line.unitPrice && !priceMap[line.materialId]) {
+              if (
+                line.materialId &&
+                line.unitPrice &&
+                !priceMap[line.materialId]
+              ) {
                 priceMap[line.materialId] = Number(line.unitPrice);
               }
             }
@@ -135,17 +211,21 @@ export default function MobileNewMaterialSaleClient() {
 
     // ── Read last-used payment mode from localStorage ──
     try {
-      const savedMode = localStorage.getItem("nirman.last-payment-mode") as PaymentMode | null;
+      const savedMode = localStorage.getItem(
+        "nirman.last-payment-mode",
+      ) as PaymentMode | null;
       if (savedMode && PAYMENT_MODES.includes(savedMode)) {
         setPaymentSplits((prev) =>
-          prev.map((s, i) => i === 0 ? { ...s, mode: savedMode } : s),
+          prev.map((s, i) => (i === 0 ? { ...s, mode: savedMode } : s)),
         );
       }
     } catch {
       // localStorage may be blocked — ignore
     }
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ── Auto-save draft whenever form state changes (debounced 2s) ──
@@ -154,13 +234,40 @@ export default function MobileNewMaterialSaleClient() {
     if (loading) return;
     // Don't save after successful submit
     if (success) return;
-    saveDraft({ customerId, projectId, paymentType, paymentSplits, notes, lines });
-  }, [customerId, projectId, paymentType, paymentSplits, notes, lines, loading, success, saveDraft]);
+    saveDraft({
+      customerId,
+      projectId,
+      paymentType,
+      paymentSplits,
+      notes,
+      partyName,
+      lines,
+    });
+  }, [
+    customerId,
+    projectId,
+    paymentType,
+    paymentSplits,
+    notes,
+    partyName,
+    lines,
+    loading,
+    success,
+    saveDraft,
+  ]);
 
   const handleAddLine = () => {
     const defaultMatId = materials.length > 0 ? materials[0]!.id : "";
     const defaultLocId = locations.length > 0 ? locations[0]!.id : "";
-    setLines([...lines, { materialId: defaultMatId, locationId: defaultLocId, qty: "", unitPrice: "" }]);
+    setLines([
+      ...lines,
+      {
+        materialId: defaultMatId,
+        locationId: defaultLocId,
+        qty: "",
+        unitPrice: "",
+      },
+    ]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -168,7 +275,11 @@ export default function MobileNewMaterialSaleClient() {
     setLines(lines.filter((_, i) => i !== index));
   };
 
-  const handleLineChange = (index: number, field: keyof SaleLine, val: string) => {
+  const handleLineChange = (
+    index: number,
+    field: keyof SaleLine,
+    val: string,
+  ) => {
     const updated = [...lines];
     updated[index] = { ...updated[index]!, [field]: val };
     // ── Smart default: auto-fill unit price from last sale when material changes ──
@@ -181,11 +292,14 @@ export default function MobileNewMaterialSaleClient() {
     setLines(updated);
   };
 
-  const subtotal = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0), 0);
+  const subtotal = lines.reduce(
+    (s, l) => s + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0),
+    0,
+  );
   const gstTotal = lines.reduce((s, l) => {
     const mat = materials.find((m) => m.id === l.materialId);
     const rate = mat?.gstRate ?? 0;
-    return s + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0) * rate / 100;
+    return s + ((Number(l.qty) || 0) * (Number(l.unitPrice) || 0) * rate) / 100;
   }, 0);
   const total = subtotal + gstTotal;
 
@@ -193,24 +307,40 @@ export default function MobileNewMaterialSaleClient() {
   const selectedProject = projects.find((p) => p.id === projectId);
 
   // ── Unsaved-changes guard — warns on accidental back/navigation ──
-  const isDirty = !success && (
-    lines.some((l) => Number(l.qty) > 0 || Number(l.unitPrice) > 0) ||
-    paymentSplits.some((s) => Number(s.amount) > 0) ||
-    notes.trim().length > 0
-  );
+  const isDirty =
+    !success &&
+    (lines.some((l) => Number(l.qty) > 0 || Number(l.unitPrice) > 0) ||
+      paymentSplits.some((s) => Number(s.amount) > 0) ||
+      notes.trim().length > 0);
   useUnsavedGuard(isDirty);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId) { toast.error("Please select a customer"); return; }
-    const validLines = lines.filter((l) => l.materialId && l.locationId && Number(l.qty) > 0 && Number(l.unitPrice) > 0);
-    if (validLines.length === 0) { toast.error("Add at least one line item with qty and price"); return; }
+    if (!customerId) {
+      toast.error("Please select a customer");
+      return;
+    }
+    const validLines = lines.filter(
+      (l) =>
+        l.materialId &&
+        l.locationId &&
+        Number(l.qty) > 0 &&
+        Number(l.unitPrice) > 0,
+    );
+    if (validLines.length === 0) {
+      toast.error("Add at least one line item with qty and price");
+      return;
+    }
 
     // Validate payment splits
-    const validSplits = paymentType === "paid"
-      ? paymentSplits.filter((s) => Number(s.amount) > 0)
-      : [];
-    const totalPaid = validSplits.reduce((s, sp) => s + (Number(sp.amount) || 0), 0);
+    const validSplits =
+      paymentType === "paid"
+        ? paymentSplits.filter((s) => Number(s.amount) > 0)
+        : [];
+    const totalPaid = validSplits.reduce(
+      (s, sp) => s + (Number(sp.amount) || 0),
+      0,
+    );
 
     if (paymentType === "paid") {
       if (validSplits.length === 0) {
@@ -218,28 +348,38 @@ export default function MobileNewMaterialSaleClient() {
         return;
       }
       if (totalPaid > total + 0.01) {
-        toast.error(`Total payments (${formatCurrency(totalPaid)}) exceed sale total (${formatCurrency(total)})`);
+        toast.error(
+          `Total payments (${formatCurrency(totalPaid)}) exceed sale total (${formatCurrency(total)})`,
+        );
         return;
       }
     }
 
     setSubmitting(true);
     try {
+      // Record smart defaults for next time
+      recordDefaults({ customerId, projectId });
+
       const salePayload = {
         customerId,
         projectId: projectId || null,
-        paymentMode: paymentType === "credit" ? null : validSplits[0]?.mode ?? null,
+        paymentMode:
+          paymentType === "credit" ? null : (validSplits[0]?.mode ?? null),
         vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
         vehicleType: vehicle.vehicleType || undefined,
         vehiclePhotoUrl: vehicle.photoUrl,
         driverName: vehicle.driverName,
         driverPhone: vehicle.driverPhone,
+        partyName: partyName.trim() || null,
         notes: notes || null,
+        requireGatePass: true,
         lines: validLines.map((l) => {
           const mat = materials.find((m) => m.id === l.materialId);
           return {
-            materialId: l.materialId, locationId: l.locationId,
-            qty: Number(l.qty), unitPrice: Number(l.unitPrice),
+            materialId: l.materialId,
+            locationId: l.locationId,
+            qty: Number(l.qty),
+            unitPrice: Number(l.unitPrice),
             gstRate: mat?.gstRate ?? 0,
           };
         }),
@@ -274,6 +414,28 @@ export default function MobileNewMaterialSaleClient() {
       const data = await res.json();
       const saleId = data.id;
 
+      // Gate pass pending flow: sale is PENDING, stock hasn't moved yet.
+      // Payments are recorded after the gate pass is approved and the sale executes.
+      if (data.pending) {
+        haptic([10, 40, 80]);
+        clearDraft();
+        setSuccess({
+          saleNumber: "GATE PASS",
+          totalAmount: total,
+          amountPaid: undefined,
+        });
+        toast.success("Gate pass created — awaiting approval", {
+          description:
+            data.message ??
+            "Items cannot leave the gate until the gate pass is approved.",
+          action: {
+            label: "View Gate Passes",
+            onClick: () => router.push("/m/gate-pass"),
+          },
+        });
+        return;
+      }
+
       // 2. Record each payment split sequentially
       //    Backend tracks previouslyPaid and prevents overpayment
       let paymentFailed = false;
@@ -284,23 +446,28 @@ export default function MobileNewMaterialSaleClient() {
           body: JSON.stringify({
             amount: Number(split.amount),
             paymentMode: split.mode,
-            ...(split.mode === "CHEQUE" && split.cheque ? {
-              chequeNo: split.cheque.chequeNo.trim() || undefined,
-              chequeDate: split.cheque.chequeDate || undefined,
-              chequeBank: split.cheque.chequeBank.trim() || undefined,
-              chequePhotoUrl: split.cheque.chequePhotoUrl || undefined,
-            } : {}),
+            ...(split.mode === "CHEQUE" && split.cheque
+              ? {
+                  chequeNo: split.cheque.chequeNo.trim() || undefined,
+                  chequeDate: split.cheque.chequeDate || undefined,
+                  chequeBank: split.cheque.chequeBank.trim() || undefined,
+                  chequePhotoUrl: split.cheque.chequePhotoUrl || undefined,
+                }
+              : {}),
           }),
         });
         if (!payRes.ok) {
           const err = await payRes.json().catch(() => ({}));
-          toast.warning(`Payment of ${formatCurrency(Number(split.amount))} via ${split.mode} failed: ${err.error ?? "unknown"}`);
+          toast.warning(
+            `Payment of ${formatCurrency(Number(split.amount))} via ${split.mode} failed: ${err.error ?? "unknown"}`,
+          );
           paymentFailed = true;
           break;
         }
       }
 
       setSuccess({
+        saleId: data.id,
         saleNumber: data.saleNumber,
         totalAmount: total,
         amountPaid: paymentFailed ? undefined : totalPaid,
@@ -311,7 +478,10 @@ export default function MobileNewMaterialSaleClient() {
       // ── Persist last-used payment mode for next sale ──
       if (validSplits.length > 0) {
         try {
-          localStorage.setItem("nirman.last-payment-mode", validSplits[0]!.mode);
+          localStorage.setItem(
+            "nirman.last-payment-mode",
+            validSplits[0]!.mode,
+          );
         } catch {
           // ignore
         }
@@ -327,67 +497,171 @@ export default function MobileNewMaterialSaleClient() {
   /* ── Success state ── */
   if (success) {
     const isQueued = success.saleNumber === "QUEUED";
-    const isPaid = !isQueued && success.amountPaid !== undefined && success.amountPaid >= success.totalAmount - 0.01;
-    const isPartial = !isQueued && success.amountPaid !== undefined && success.amountPaid < success.totalAmount - 0.01;
+    const isGatePass = success.saleNumber === "GATE PASS";
+    const isPending = isQueued || isGatePass;
+    const isPaid =
+      !isPending &&
+      success.amountPaid !== undefined &&
+      success.amountPaid >= success.totalAmount - 0.01;
+    const isPartial =
+      !isPending &&
+      success.amountPaid !== undefined &&
+      success.amountPaid < success.totalAmount - 0.01;
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div
           className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: isQueued ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+          style={{
+            backgroundColor: isPending
+              ? "color-mix(in srgb, var(--color-signal) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+          }}
         >
           {isQueued ? (
-            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+            <WifiOff
+              className="size-7"
+              style={{ color: "var(--color-signal)" }}
+            />
+          ) : isGatePass ? (
+            <ShieldCheck
+              className="size-7"
+              style={{ color: "var(--color-signal)" }}
+            />
           ) : (
-            <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+            <CheckCircle2
+              className="size-7"
+              style={{ color: "var(--color-go)" }}
+            />
           )}
         </div>
-        <p className="text-[0.875rem] font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {isQueued ? "Sale Queued Offline" : "Sale Created"}
+        <p
+          className="text-[0.875rem] font-bold mb-1"
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          {isQueued
+            ? "Sale Queued Offline"
+            : isGatePass
+              ? "Gate Pass Created"
+              : "Sale Created"}
         </p>
-        <p className="text-[0.6875rem] font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
-          {isQueued ? "Pending sync" : success.saleNumber}
+        <p
+          className="text-[0.6875rem] font-mono mb-3"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {isQueued
+            ? "Pending sync"
+            : isGatePass
+              ? "Gate pass pending"
+              : success.saleNumber}
         </p>
-        <p className="text-[1rem] font-bold tabular-nums mb-1" style={{ color: "var(--color-go)" }}>
+        <p
+          className="text-[1rem] font-bold tabular-nums mb-1"
+          style={{ color: "var(--color-go)" }}
+        >
           {formatCurrency(success.totalAmount)}
         </p>
         {/* Payment status badge */}
         {isQueued ? (
-          <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-signal)" }}>
+          <p
+            className="text-[0.5625rem] font-bold uppercase mb-4"
+            style={{ color: "var(--color-signal)" }}
+          >
             Record Payments After Sync
           </p>
+        ) : isGatePass ? (
+          <p
+            className="text-[0.5625rem] font-bold uppercase mb-4"
+            style={{ color: "var(--color-signal)" }}
+          >
+            Awaiting Gate Pass Approval
+          </p>
         ) : isPaid ? (
-          <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-go)" }}>
+          <p
+            className="text-[0.5625rem] font-bold uppercase mb-4"
+            style={{ color: "var(--color-go)" }}
+          >
             Fully Paid
           </p>
         ) : isPartial ? (
-          <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-signal)" }}>
-            Partial · {formatCurrency(success.totalAmount - (success.amountPaid ?? 0))} Due
+          <p
+            className="text-[0.5625rem] font-bold uppercase mb-4"
+            style={{ color: "var(--color-signal)" }}
+          >
+            Partial ·{" "}
+            {formatCurrency(success.totalAmount - (success.amountPaid ?? 0))}{" "}
+            Due
           </p>
         ) : (
-          <p className="text-[0.5625rem] font-bold uppercase mb-4" style={{ color: "var(--color-signal)" }}>
+          <p
+            className="text-[0.5625rem] font-bold uppercase mb-4"
+            style={{ color: "var(--color-signal)" }}
+          >
             Unpaid · Credit
           </p>
         )}
         <div className="flex gap-2">
-          <button
-            onClick={() => {
-              router.refresh();
-              router.push("/m/material-sales");
-            }}
-            className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-          >
-            View All Sales
-          </button>
+          {isGatePass ? (
+            <button
+              onClick={() => router.push("/m/gate-pass")}
+              className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              View Gate Passes
+            </button>
+          ) : (
+            <>
+              {!isQueued && success.saleId ? (
+                <button
+                  onClick={() => router.push(`/m/material-sales/${success.saleId}`)}
+                  className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+                  style={{
+                    backgroundColor: "var(--color-ink-950)",
+                    color: "var(--color-paper)",
+                  }}
+                >
+                  View {success.saleNumber}
+                </button>
+              ) : null}
+              <button
+                onClick={() => {
+                  router.refresh();
+                  router.push("/m/material-sales");
+                }}
+                className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold press"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                View All Sales
+              </button>
+            </>
+          )}
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", locationId: locations[0]?.id ?? "", qty: "", unitPrice: "" }]);
-              setPaymentSplits([{ id: crypto.randomUUID(), amount: "", mode: "CASH" }]);
+              setLines([
+                {
+                  materialId: materials[0]?.id ?? "",
+                  locationId: locations[0]?.id ?? "",
+                  qty: "",
+                  unitPrice: "",
+                },
+              ]);
+              setPaymentSplits([
+                { id: crypto.randomUUID(), amount: "", mode: "CASH" },
+              ]);
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-[0.6875rem] font-bold border press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
           >
             Add Another
           </button>
@@ -400,8 +674,16 @@ export default function MobileNewMaterialSaleClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-[0.6875rem] mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
+        <Loader2
+          className="size-6 animate-spin"
+          style={{ color: "var(--color-ink-500)" }}
+        />
+        <p
+          className="text-[0.6875rem] mt-2"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          Loading form…
+        </p>
       </div>
     );
   }
@@ -414,6 +696,7 @@ export default function MobileNewMaterialSaleClient() {
     setPaymentType(draft.paymentType);
     setPaymentSplits(draft.paymentSplits);
     setNotes(draft.notes);
+    setPartyName(draft.partyName ?? "");
     setLines(draft.lines);
     setDraftRestored(true);
     haptic(10);
@@ -426,8 +709,14 @@ export default function MobileNewMaterialSaleClient() {
           formName="Material Sale"
           updatedAt={draftUpdatedAt}
           onRestore={handleRestoreDraft}
-          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+          onDiscard={() => {
+            clearDraft();
+            setDraftRestored(true);
+          }}
         />
+      )}
+      {defaultsApplied && !hasDraft && !success && (
+        <SmartDefaultsBadge onDismiss={() => setDefaultsApplied(false)} />
       )}
       <SaleForm
         customers={customers}
@@ -438,6 +727,8 @@ export default function MobileNewMaterialSaleClient() {
         setCustomerId={setCustomerId}
         projectId={projectId}
         setProjectId={setProjectId}
+        partyName={partyName}
+        setPartyName={setPartyName}
         paymentType={paymentType}
         setPaymentType={setPaymentType}
         paymentSplits={paymentSplits}
@@ -458,7 +749,7 @@ export default function MobileNewMaterialSaleClient() {
         total={total}
         selectedCustomer={selectedCustomer}
         selectedProject={selectedProject}
-    />
+      />
     </>
   );
 }
@@ -467,18 +758,36 @@ export default function MobileNewMaterialSaleClient() {
  * Main form component — holds the selector modal state
  * ═══════════════════════════════════════════════════════════ */
 function SaleForm({
-  customers, locations, materials, projects,
-  customerId, setCustomerId,
-  projectId, setProjectId,
-  paymentType, setPaymentType,
-  paymentSplits, setPaymentSplits,
-  notes, setNotes,
-  vehicle, setVehicle,
-  lines, setLines: _setLines,
-  onAddLine, onRemoveLine, onLineChange,
-  onSubmit, submitting,
-  subtotal: _subtotal, gstTotal: _gstTotal, total,
-  selectedCustomer, selectedProject,
+  customers,
+  locations,
+  materials,
+  projects,
+  customerId,
+  setCustomerId,
+  projectId,
+  setProjectId,
+  partyName,
+  setPartyName,
+  paymentType,
+  setPaymentType,
+  paymentSplits,
+  setPaymentSplits,
+  notes,
+  setNotes,
+  vehicle,
+  setVehicle,
+  lines,
+  setLines: _setLines,
+  onAddLine,
+  onRemoveLine,
+  onLineChange,
+  onSubmit,
+  submitting,
+  subtotal: _subtotal,
+  gstTotal: _gstTotal,
+  total,
+  selectedCustomer,
+  selectedProject,
 }: {
   customers: CustomerItem[];
   locations: LocationItem[];
@@ -488,6 +797,8 @@ function SaleForm({
   setCustomerId: (v: string) => void;
   projectId: string;
   setProjectId: (v: string) => void;
+  partyName: string;
+  setPartyName: (v: string) => void;
   paymentType: PaymentType;
   setPaymentType: (v: PaymentType) => void;
   paymentSplits: PaymentSplit[];
@@ -518,9 +829,16 @@ function SaleForm({
   const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false);
   const [extraCustomers, setExtraCustomers] = useState<CustomerItem[]>([]);
   const [extraMaterials, setExtraMaterials] = useState<MaterialItem[]>([]);
+  const submitLongPress = useLongPressNav("/m/material-sales", "Sales list");
 
-  const allCustomers = useMemo(() => [...customers, ...extraCustomers], [customers, extraCustomers]);
-  const allMaterials = useMemo(() => [...materials, ...extraMaterials], [materials, extraMaterials]);
+  const allCustomers = useMemo(
+    () => [...customers, ...extraCustomers],
+    [customers, extraCustomers],
+  );
+  const allMaterials = useMemo(
+    () => [...materials, ...extraMaterials],
+    [materials, extraMaterials],
+  );
 
   const closeModal = () => setModal(null);
 
@@ -538,7 +856,6 @@ function SaleForm({
 
   return (
     <div className="pb-32">
-
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
         <SectionHeader icon={User} label="Customer" />
@@ -562,26 +879,65 @@ function SaleForm({
           placeholder="No project linkage"
         />
 
+        {/* Party name override — for walk-in / cash customers without a CRM record */}
+        <div>
+          <label
+            className="text-[0.5625rem] font-semibold block mb-1"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            Party name (override, optional)
+          </label>
+          <input
+            type="text"
+            value={partyName}
+            onChange={(e) => setPartyName(e.target.value)}
+            placeholder="Walk-in customer name on invoice"
+            className="w-full h-9 rounded-[0.5rem] border px-2.5 text-[0.75rem] outline-none"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
+          />
+          <p className="text-[0.4375rem] mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+            Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.
+          </p>
+        </div>
+
         {/* ══════ SECTION: WHAT ══════ */}
         <SectionHeader icon={Package} label="Line Items" />
 
-        <div className={lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
+        <div
+          className={
+            lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"
+          }
+        >
           {lines.map((line, idx) => {
             const mat = materials.find((m) => m.id === line.materialId);
             const loc = locations.find((l) => l.id === line.locationId);
-            const lineTotal = (Number(line.qty) || 0) * (Number(line.unitPrice) || 0);
+            const lineTotal =
+              (Number(line.qty) || 0) * (Number(line.unitPrice) || 0);
             return (
               <div
                 key={idx}
                 className="rounded-[0.625rem] border overflow-hidden flex flex-col"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "var(--color-paper)",
+                }}
               >
                 {/* Line header with number + remove */}
                 <div
                   className="flex items-center justify-between px-2 py-1"
-                  style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
+                  style={{
+                    backgroundColor: "var(--color-paper-2)",
+                    borderBottom: "1px solid var(--color-line)",
+                  }}
                 >
-                  <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <span
+                    className="text-[0.4375rem] font-bold uppercase tracking-wide"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
                     Item {idx + 1}
                   </span>
                   {lines.length > 1 ? (
@@ -599,7 +955,9 @@ function SaleForm({
                 <div className="p-1.5 flex flex-col gap-1.5 flex-1">
                   {/* Material selector */}
                   <SelectorRow
-                    onClick={() => setModal({ type: "material", lineIndex: idx })}
+                    onClick={() =>
+                      setModal({ type: "material", lineIndex: idx })
+                    }
                     icon={Package}
                     label="Material"
                     value={mat ? mat.name : undefined}
@@ -610,7 +968,9 @@ function SaleForm({
 
                   {/* Location selector */}
                   <SelectorRow
-                    onClick={() => setModal({ type: "location", lineIndex: idx })}
+                    onClick={() =>
+                      setModal({ type: "location", lineIndex: idx })
+                    }
                     icon={MapPin}
                     label="From"
                     value={loc?.name}
@@ -620,35 +980,55 @@ function SaleForm({
                   {/* Qty + Price inputs */}
                   <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                     <div>
-                      <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      <label
+                        className="text-[0.375rem] font-semibold uppercase block mb-0.5"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
-                        type="text" inputMode="decimal"
+                        type="text"
+                        inputMode="decimal"
                         enterKeyHint="next"
                         step="any"
                         min="0"
                         value={line.qty}
-                        onChange={(e) => onLineChange(idx, "qty", e.target.value)}
+                        onChange={(e) =>
+                          onLineChange(idx, "qty", e.target.value)
+                        }
                         placeholder="0"
                         className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                        style={{
+                          borderColor: "var(--color-line)",
+                          backgroundColor: "var(--color-paper)",
+                          color: "var(--color-ink-950)",
+                        }}
                       />
                     </div>
                     <div>
-                      <label className="text-[0.375rem] font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      <label
+                        className="text-[0.375rem] font-semibold uppercase block mb-0.5"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
                         Price
                       </label>
                       <input
-                        type="text" inputMode="decimal"
+                        type="text"
+                        inputMode="decimal"
                         enterKeyHint="next"
                         step="any"
                         min="0"
                         value={line.unitPrice}
-                        onChange={(e) => onLineChange(idx, "unitPrice", e.target.value)}
+                        onChange={(e) =>
+                          onLineChange(idx, "unitPrice", e.target.value)
+                        }
                         placeholder="0"
                         className="w-full rounded-[0.375rem] border px-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                        style={{
+                          borderColor: "var(--color-line)",
+                          backgroundColor: "var(--color-paper)",
+                          color: "var(--color-ink-950)",
+                        }}
                       />
                     </div>
                   </div>
@@ -656,17 +1036,29 @@ function SaleForm({
                   {/* Line total — pinned to bottom */}
                   <div
                     className="flex items-center justify-between rounded-[0.375rem] px-1.5 py-1 mt-auto"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 6%, transparent)" }}
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--color-go) 6%, transparent)",
+                    }}
                   >
-                    <span className="text-[0.4375rem] font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                    <span
+                      className="text-[0.4375rem] font-semibold uppercase"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
                       Total
                     </span>
                     <div className="flex items-center gap-1">
-                      <span className="text-[0.625rem] font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      <span
+                        className="text-[0.625rem] font-bold tabular-nums"
+                        style={{ color: "var(--color-ink-950)" }}
+                      >
                         {formatCurrency(lineTotal)}
                       </span>
                       {mat && mat.gstRate > 0 ? (
-                        <span className="text-[0.375rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                        <span
+                          className="text-[0.375rem] font-semibold"
+                          style={{ color: "var(--color-ink-500)" }}
+                        >
                           +{mat.gstRate}%
                         </span>
                       ) : null}
@@ -683,7 +1075,10 @@ function SaleForm({
           type="button"
           onClick={onAddLine}
           className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 press"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          style={{
+            borderColor: "var(--color-line)",
+            color: "var(--color-ink-700)",
+          }}
         >
           <Plus className="size-3.5" />
           <span className="text-[0.6875rem] font-bold">Add another item</span>
@@ -725,17 +1120,27 @@ function SaleForm({
                 <div
                   key={split.id}
                   className="rounded-[0.5rem] border p-2"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                  style={{
+                    borderColor: "var(--color-line)",
+                    backgroundColor: "var(--color-paper)",
+                  }}
                 >
                   {/* Split header */}
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[0.4375rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                    <span
+                      className="text-[0.4375rem] font-bold uppercase tracking-wide"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
                       Payment {idx + 1}
                     </span>
                     {paymentSplits.length > 1 ? (
                       <button
                         type="button"
-                        onClick={() => setPaymentSplits((prev) => prev.filter((s) => s.id !== split.id))}
+                        onClick={() =>
+                          setPaymentSplits((prev) =>
+                            prev.filter((s) => s.id !== split.id),
+                          )
+                        }
                         className="flex items-center gap-0.5 text-[0.4375rem] font-semibold press"
                         style={{ color: "var(--color-stop)" }}
                       >
@@ -753,19 +1158,28 @@ function SaleForm({
                         style={{ color: "var(--color-ink-500)" }}
                       />
                       <input
-                        type="text" inputMode="decimal"
+                        type="text"
+                        inputMode="decimal"
                         enterKeyHint="done"
                         step="any"
                         min="0"
                         value={split.amount}
                         onChange={(e) =>
                           setPaymentSplits((prev) =>
-                            prev.map((s) => s.id === split.id ? { ...s, amount: e.target.value } : s),
+                            prev.map((s) =>
+                              s.id === split.id
+                                ? { ...s, amount: e.target.value }
+                                : s,
+                            ),
                           )
                         }
                         placeholder="0"
                         className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-[0.6875rem] font-bold tabular-nums outline-none"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                        style={{
+                          borderColor: "var(--color-line)",
+                          backgroundColor: "var(--color-paper)",
+                          color: "var(--color-ink-950)",
+                        }}
                       />
                     </div>
                   </div>
@@ -780,14 +1194,33 @@ function SaleForm({
                           type="button"
                           onClick={() =>
                             setPaymentSplits((prev) =>
-                              prev.map((s) => s.id === split.id ? { ...s, mode, ...(mode !== "CHEQUE" ? { cheque: undefined } : !s.cheque ? { cheque: EMPTY_MOBILE_CHEQUE } : {}) } : s),
+                              prev.map((s) =>
+                                s.id === split.id
+                                  ? {
+                                      ...s,
+                                      mode,
+                                      ...(mode !== "CHEQUE"
+                                        ? { cheque: undefined }
+                                        : !s.cheque
+                                          ? { cheque: EMPTY_MOBILE_CHEQUE }
+                                          : {}),
+                                    }
+                                  : s,
+                              ),
                             )
                           }
                           className="rounded-[0.375rem] py-1 text-[0.5rem] font-bold transition-colors press"
                           style={
                             active
-                              ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                              : { backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
+                              ? {
+                                  backgroundColor: "var(--color-ink-950)",
+                                  color: "var(--color-paper)",
+                                }
+                              : {
+                                  backgroundColor: "var(--color-paper-2)",
+                                  color: "var(--color-ink-700)",
+                                  border: "1px solid var(--color-line)",
+                                }
                           }
                         >
                           {mode}
@@ -802,7 +1235,9 @@ function SaleForm({
                       value={split.cheque ?? EMPTY_MOBILE_CHEQUE}
                       onChange={(v) =>
                         setPaymentSplits((prev) =>
-                          prev.map((s) => s.id === split.id ? { ...s, cheque: v } : s),
+                          prev.map((s) =>
+                            s.id === split.id ? { ...s, cheque: v } : s,
+                          ),
                         )
                       }
                     />
@@ -821,15 +1256,23 @@ function SaleForm({
                 ])
               }
               className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-1.5 press"
-              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                color: "var(--color-ink-700)",
+              }}
             >
               <Plus className="size-3" />
-              <span className="text-[0.5625rem] font-semibold">Add another payment</span>
+              <span className="text-[0.5625rem] font-semibold">
+                Add another payment
+              </span>
             </button>
 
             {/* Payment summary */}
             {(() => {
-              const totalPaid = paymentSplits.reduce((s, sp) => s + (Number(sp.amount) || 0), 0);
+              const totalPaid = paymentSplits.reduce(
+                (s, sp) => s + (Number(sp.amount) || 0),
+                0,
+              );
               const balance = total - totalPaid;
               const overpaid = totalPaid > total + 0.01;
               return (
@@ -844,14 +1287,23 @@ function SaleForm({
                   }}
                 >
                   <div className="flex items-center justify-between text-[0.5625rem]">
-                    <span style={{ color: "var(--color-ink-500)" }}>Total paying</span>
-                    <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
+                      Total paying
+                    </span>
+                    <span
+                      className="font-bold tabular-nums"
+                      style={{ color: "var(--color-ink-950)" }}
+                    >
                       {formatCurrency(totalPaid)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[0.5625rem]">
                     <span style={{ color: "var(--color-ink-500)" }}>
-                      {overpaid ? "Overpaid by" : balance > 0.01 ? "Balance due" : "Status"}
+                      {overpaid
+                        ? "Overpaid by"
+                        : balance > 0.01
+                          ? "Balance due"
+                          : "Status"}
                     </span>
                     <span
                       className="font-bold tabular-nums"
@@ -879,20 +1331,34 @@ function SaleForm({
           <div
             className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
             style={{
-              borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-              backgroundColor: "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
+              borderColor:
+                "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+              backgroundColor:
+                "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
             }}
           >
-            <span className="text-[0.5625rem]" style={{ color: "var(--color-ink-700)" }}>
-              Sale will be created as <span className="font-bold" style={{ color: "var(--color-signal)" }}>unpaid</span>.
-              Record payment later from the sale detail page.
+            <span
+              className="text-[0.5625rem]"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              Sale will be created as{" "}
+              <span
+                className="font-bold"
+                style={{ color: "var(--color-signal)" }}
+              >
+                unpaid
+              </span>
+              . Record payment later from the sale detail page.
             </span>
           </div>
         )}
 
         {/* Vehicle / Carrier — how goods are dispatched */}
         <div>
-          <label className="text-[0.5625rem] font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <label
+            className="text-[0.5625rem] font-semibold block mb-1.5"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             Vehicle / Carrier
           </label>
           <VehicleCapture value={vehicle} onChange={setVehicle} compact />
@@ -900,7 +1366,10 @@ function SaleForm({
 
         {/* Notes */}
         <div>
-          <label className="text-[0.5625rem] font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label
+            className="text-[0.5625rem] font-semibold block mb-1"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             Notes (optional)
           </label>
           <textarea
@@ -909,7 +1378,11 @@ function SaleForm({
             placeholder="e.g. Surplus cement sold to local contractor"
             rows={2}
             className="w-full rounded-[0.375rem] border px-2.5 py-2 text-[0.75rem] font-medium outline-none resize-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
           />
         </div>
       </form>
@@ -920,30 +1393,48 @@ function SaleForm({
         className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
         style={{
           bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          backgroundColor:
+            "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
         }}
       >
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
           {/* Total + payment status */}
           <div className="shrink-0">
-            <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p
+              className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+              style={{ color: "var(--color-ink-500)" }}
+            >
               {paymentType === "paid"
                 ? `${formatCurrency(total)} · ${paymentSplits.length} ${paymentSplits.length === 1 ? "payment" : "payments"}`
                 : `${formatCurrency(total)} · Credit`}
             </p>
-            <p className="text-[0.875rem] font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <p
+              className="text-[0.875rem] font-bold tabular-nums"
+              style={{ color: "var(--color-go)" }}
+            >
               {paymentType === "paid"
-                ? formatCurrency(paymentSplits.reduce((s, sp) => s + (Number(sp.amount) || 0), 0))
-                : formatCurrency(total)
-              }
+                ? formatCurrency(
+                    paymentSplits.reduce(
+                      (s, sp) => s + (Number(sp.amount) || 0),
+                      0,
+                    ),
+                  )
+                : formatCurrency(total)}
             </p>
             {paymentType === "paid" ? (
-              <p className="text-[0.4375rem]" style={{ color: "var(--color-ink-500)" }}>
+              <p
+                className="text-[0.4375rem]"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 {(() => {
-                  const paid = paymentSplits.reduce((s, sp) => s + (Number(sp.amount) || 0), 0);
+                  const paid = paymentSplits.reduce(
+                    (s, sp) => s + (Number(sp.amount) || 0),
+                    0,
+                  );
                   const bal = total - paid;
-                  if (paid > total + 0.01) return `overpaid ${formatCurrency(paid - total)}`;
+                  if (paid > total + 0.01)
+                    return `overpaid ${formatCurrency(paid - total)}`;
                   if (bal > 0.01) return `${formatCurrency(bal)} on credit`;
                   return "fully paid";
                 })()}
@@ -954,10 +1445,15 @@ function SaleForm({
           {/* Submit */}
           <button
             type="button"
-            onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
+            onClick={(e) => { if (submitLongPress.wasLongPress()) return; onSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-[0.75rem] font-bold press disabled:opacity-50 select-none"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+              touchAction: "none",
+            }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -976,34 +1472,66 @@ function SaleForm({
         <SelectorModal
           type={modal.type}
           title={
-            modal.type === "customer" ? "Select Customer" :
-            modal.type === "project" ? "Select Project" :
-            modal.type === "material" ? "Select Material" :
-            "Select Location"
+            modal.type === "customer"
+              ? "Select Customer"
+              : modal.type === "project"
+                ? "Select Project"
+                : modal.type === "material"
+                  ? "Select Material"
+                  : "Select Location"
           }
           items={
-            modal.type === "customer" ? allCustomers.map((c) => ({ id: c.id, label: c.name, sub: c.phone ?? undefined })) :
-            modal.type === "project" ? [{ id: "", label: "No project linkage", sub: undefined }, ...projects.map((p) => ({ id: p.id, label: p.name }))] :
-            modal.type === "material" ? allMaterials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST` })) :
-            locations.map((l) => ({ id: l.id, label: l.name, sub: l.type.replace(/_/g, " ").toLowerCase() }))
+            modal.type === "customer"
+              ? allCustomers.map((c) => ({
+                  id: c.id,
+                  label: c.name,
+                  sub: c.phone ?? undefined,
+                }))
+              : modal.type === "project"
+                ? [
+                    { id: "", label: "No project linkage", sub: undefined },
+                    ...projects.map((p) => ({ id: p.id, label: p.name })),
+                  ]
+                : modal.type === "material"
+                  ? allMaterials.map((m) => ({
+                      id: m.id,
+                      label: m.name,
+                      sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST`,
+                    }))
+                  : locations.map((l) => ({
+                      id: l.id,
+                      label: l.name,
+                      sub: l.type.replace(/_/g, " ").toLowerCase(),
+                    }))
           }
           selectedId={
-            modal.type === "customer" ? customerId :
-            modal.type === "project" ? projectId :
-            modal.type === "material" ? (lines[modal.lineIndex ?? 0]?.materialId ?? "") :
-            (lines[modal.lineIndex ?? 0]?.locationId ?? "")
+            modal.type === "customer"
+              ? customerId
+              : modal.type === "project"
+                ? projectId
+                : modal.type === "material"
+                  ? (lines[modal.lineIndex ?? 0]?.materialId ?? "")
+                  : (lines[modal.lineIndex ?? 0]?.locationId ?? "")
           }
           onSelect={handleSelect}
           onClose={closeModal}
           onCreate={
-            modal.type === "customer" ? () => { setShowNewCustomerDialog(true); } :
-            modal.type === "material" ? () => { setShowNewMaterialDialog(true); } :
-            undefined
+            modal.type === "customer"
+              ? () => {
+                  setShowNewCustomerDialog(true);
+                }
+              : modal.type === "material"
+                ? () => {
+                    setShowNewMaterialDialog(true);
+                  }
+                : undefined
           }
           createLabel={
-            modal.type === "customer" ? "Create new customer" :
-            modal.type === "material" ? "Create new material" :
-            undefined
+            modal.type === "customer"
+              ? "Create new customer"
+              : modal.type === "material"
+                ? "Create new material"
+                : undefined
           }
         />
       ) : null}
@@ -1013,7 +1541,10 @@ function SaleForm({
         open={showNewCustomerDialog}
         onClose={() => setShowNewCustomerDialog(false)}
         onCreated={(c) => {
-          setExtraCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: null }]);
+          setExtraCustomers((prev) => [
+            ...prev,
+            { id: c.id, name: c.name, phone: null },
+          ]);
           setCustomerId(c.id);
           setShowNewCustomerDialog(false);
           closeModal();
@@ -1026,7 +1557,13 @@ function SaleForm({
         onClose={() => setShowNewMaterialDialog(false)}
         categories={[]}
         onCreated={(m) => {
-          const newMat: MaterialItem = { id: m.id, name: m.name, code: m.code, unit: m.unit, gstRate: m.gstRate };
+          const newMat: MaterialItem = {
+            id: m.id,
+            name: m.name,
+            code: m.code,
+            unit: m.unit,
+            gstRate: m.gstRate,
+          };
           setExtraMaterials((prev) => [...prev, newMat]);
           if (modal?.lineIndex !== undefined) {
             onLineChange(modal.lineIndex, "materialId", m.id);
@@ -1042,14 +1579,29 @@ function SaleForm({
 /* ═══════════════════════════════════════════════════════════
  * Section header — divides the form into purpose-driven sections
  * ═══════════════════════════════════════════════════════════ */
-function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string }) {
+function SectionHeader({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
+  label: string;
+}) {
   return (
     <div className="flex items-center gap-1.5 mt-1">
       <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
-      <span className="text-[0.5625rem] font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+      <span
+        className="text-[0.5625rem] font-bold uppercase tracking-wide"
+        style={{ color: "var(--color-steel)" }}
+      >
         {label}
       </span>
-      <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
+      <div
+        className="flex-1 h-px"
+        style={{ backgroundColor: "var(--color-line)" }}
+      />
     </div>
   );
 }
@@ -1058,7 +1610,10 @@ function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ clas
  * Payment type card — 3-way selector (Credit / Full / Partial)
  * ═══════════════════════════════════════════════════════════ */
 function PaymentTypeCard({
-  active, onClick, label, sublabel,
+  active,
+  onClick,
+  label,
+  sublabel,
 }: {
   active: boolean;
   onClick: () => void;
@@ -1072,15 +1627,27 @@ function PaymentTypeCard({
       className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center press transition-colors"
       style={
         active
-          ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-          : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
+          ? {
+              borderColor: "var(--color-ink-950)",
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }
+          : {
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-700)",
+            }
       }
     >
       <span className="text-[0.6875rem] font-bold">{label}</span>
       {sublabel ? (
         <span
           className="text-[0.4375rem] font-semibold truncate w-full text-center"
-          style={active ? { color: "color-mix(in srgb, #fff 70%, transparent)" } : { color: "var(--color-ink-500)" }}
+          style={
+            active
+              ? { color: "color-mix(in srgb, #fff 70%, transparent)" }
+              : { color: "var(--color-ink-500)" }
+          }
         >
           {sublabel}
         </span>
@@ -1093,10 +1660,19 @@ function PaymentTypeCard({
  * Selector card — prominent tappable card for customer/project
  * ═══════════════════════════════════════════════════════════ */
 function SelectorCard({
-  onClick, icon: Icon, label, value, subvalue, placeholder, required,
+  onClick,
+  icon: Icon,
+  label,
+  value,
+  subvalue,
+  placeholder,
+  required,
 }: {
   onClick: () => void;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
   label: string;
   value?: string;
   subvalue?: string | null;
@@ -1110,41 +1686,67 @@ function SelectorCard({
       onClick={onClick}
       className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press text-left"
       style={{
-        borderColor: hasValue ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+        borderColor: hasValue
+          ? "var(--color-line)"
+          : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
         backgroundColor: "var(--color-paper)",
       }}
     >
       <span
         className="grid place-items-center size-8 rounded-[0.5rem] shrink-0"
-        style={{ backgroundColor: hasValue ? "var(--color-paper-2)" : "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
+        style={{
+          backgroundColor: hasValue
+            ? "var(--color-paper-2)"
+            : "color-mix(in srgb, var(--color-signal) 8%, transparent)",
+        }}
       >
         <Icon
           className="size-4"
-          style={{ color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)" }}
+          style={{
+            color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)",
+          }}
         />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.4375rem] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-          {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+        <p
+          className="text-[0.4375rem] font-semibold uppercase tracking-wide"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {label}
+          {required ? (
+            <span style={{ color: "var(--color-stop)" }}> *</span>
+          ) : null}
         </p>
         {hasValue ? (
           <>
-            <p className="text-[0.75rem] font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+            <p
+              className="text-[0.75rem] font-bold truncate"
+              style={{ color: "var(--color-ink-950)" }}
+            >
               {value}
             </p>
             {subvalue ? (
-              <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+              <p
+                className="text-[0.5625rem] truncate"
+                style={{ color: "var(--color-ink-500)" }}
+              >
                 {subvalue}
               </p>
             ) : null}
           </>
         ) : (
-          <p className="text-[0.75rem] font-medium" style={{ color: "var(--color-ink-500)" }}>
+          <p
+            className="text-[0.75rem] font-medium"
+            style={{ color: "var(--color-ink-500)" }}
+          >
             {placeholder ?? "Tap to select…"}
           </p>
         )}
       </div>
-      <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+      <ChevronRight
+        className="size-4 shrink-0"
+        style={{ color: "var(--color-ink-500)" }}
+      />
     </button>
   );
 }
@@ -1153,10 +1755,19 @@ function SelectorCard({
  * Selector row — compact tappable row for line item selectors
  * ═══════════════════════════════════════════════════════════ */
 function SelectorRow({
-  onClick, icon: Icon, label, value, subvalue, required, compact,
+  onClick,
+  icon: Icon,
+  label,
+  value,
+  subvalue,
+  required,
+  compact,
 }: {
   onClick: () => void;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
   label: string;
   value?: string;
   subvalue?: string;
@@ -1170,24 +1781,59 @@ function SelectorRow({
       onClick={onClick}
       className={`w-full flex items-center gap-1.5 rounded-[0.375rem] border press text-left ${compact ? "px-1.5 py-1" : "px-2 py-1.5"}`}
       style={{
-        borderColor: hasValue ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-        backgroundColor: hasValue ? "var(--color-paper)" : "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))",
+        borderColor: hasValue
+          ? "var(--color-line)"
+          : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+        backgroundColor: hasValue
+          ? "var(--color-paper)"
+          : "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))",
       }}
     >
-      <Icon className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`} style={{ color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)" }} />
+      <Icon
+        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
+        style={{
+          color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)",
+        }}
+      />
       <div className="min-w-0 flex-1">
-        <span className={`font-semibold uppercase ${compact ? "text-[0.375rem]" : "text-[0.4375rem]"}`} style={{ color: "var(--color-ink-500)" }}>
-          {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+        <span
+          className={`font-semibold uppercase ${compact ? "text-[0.375rem]" : "text-[0.4375rem]"}`}
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {label}
+          {required ? (
+            <span style={{ color: "var(--color-stop)" }}> *</span>
+          ) : null}
         </span>
         {hasValue ? (
-          <p className={`font-bold truncate ${compact ? "text-[0.5625rem]" : "text-[0.6875rem]"}`} style={{ color: "var(--color-ink-950)" }}>
-            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-500)" }}> · {subvalue}</span> : null}
+          <p
+            className={`font-bold truncate ${compact ? "text-[0.5625rem]" : "text-[0.6875rem]"}`}
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {value}
+            {subvalue ? (
+              <span
+                className="font-normal"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {" "}
+                · {subvalue}
+              </span>
+            ) : null}
           </p>
         ) : (
-          <p className={`text-[0.5625rem]`} style={{ color: "var(--color-ink-500)" }}>Tap to select…</p>
+          <p
+            className={`text-[0.5625rem]`}
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            Tap to select…
+          </p>
         )}
       </div>
-      <ChevronRight className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`} style={{ color: "var(--color-ink-500)" }} />
+      <ChevronRight
+        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
+        style={{ color: "var(--color-ink-500)" }}
+      />
     </button>
   );
 }
@@ -1196,7 +1842,13 @@ function SelectorRow({
  * Selector modal — bottom-sheet with searchable list
  * ═══════════════════════════════════════════════════════════ */
 function SelectorModal({
-  title, items, selectedId, onSelect, onClose, onCreate, createLabel,
+  title,
+  items,
+  selectedId,
+  onSelect,
+  onClose,
+  onCreate,
+  createLabel,
 }: {
   type: "customer" | "project" | "material" | "location";
   title: string;
@@ -1222,7 +1874,10 @@ function SelectorModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      style={{
+        backgroundColor:
+          "color-mix(in srgb, var(--color-ink-950) 50%, transparent)",
+      }}
       onClick={onClose}
     >
       <div
@@ -1231,15 +1886,26 @@ function SelectorModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-[0.75rem] font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+        <div
+          className="flex items-center justify-between p-3 border-b"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          <p
+            className="text-[0.75rem] font-bold"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {title}
+          </p>
           <button onClick={onClose} className="press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+        <div
+          className="p-2 border-b"
+          style={{ borderColor: "var(--color-line)" }}
+        >
           <div className="relative">
             <Search
               className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
@@ -1252,7 +1918,11 @@ function SelectorModal({
               placeholder="Search…"
               autoFocus
               className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-[0.75rem] outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper-2)",
+                color: "var(--color-ink-950)",
+              }}
             />
           </div>
         </div>
@@ -1261,8 +1931,16 @@ function SelectorModal({
         <div className="flex-1 overflow-y-auto overscroll-contain">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+              <Search
+                className="size-5 mb-1.5"
+                style={{ color: "var(--color-ink-300)" }}
+              />
+              <p
+                className="text-[0.6875rem] font-semibold"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                No results
+              </p>
             </div>
           ) : (
             filtered.map((item, i) => {
@@ -1273,25 +1951,37 @@ function SelectorModal({
                   onClick={() => onSelect(item.id)}
                   className="w-full flex items-center gap-2 px-3 py-2.5 press text-left"
                   style={{
-                    backgroundColor: isSelected ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
+                    backgroundColor: isSelected
+                      ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"
+                      : "transparent",
                     borderBottom: "1px solid var(--color-line)",
                   }}
                 >
                   <div className="min-w-0 flex-1">
                     <p
                       className="text-[0.75rem] font-bold truncate"
-                      style={{ color: isSelected ? "var(--color-ink-950)" : "var(--color-ink-900)" }}
+                      style={{
+                        color: isSelected
+                          ? "var(--color-ink-950)"
+                          : "var(--color-ink-900)",
+                      }}
                     >
                       {item.label}
                     </p>
                     {item.sub ? (
-                      <p className="text-[0.5625rem] truncate" style={{ color: "var(--color-ink-500)" }}>
+                      <p
+                        className="text-[0.5625rem] truncate"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
                         {item.sub}
                       </p>
                     ) : null}
                   </div>
                   {isSelected ? (
-                    <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+                    <CheckCircle2
+                      className="size-4 shrink-0"
+                      style={{ color: "var(--color-go)" }}
+                    />
                   ) : null}
                 </button>
               );
@@ -1301,12 +1991,18 @@ function SelectorModal({
 
         {/* Create new button */}
         {onCreate ? (
-          <div className="border-t p-2" style={{ borderColor: "var(--color-line)" }}>
+          <div
+            className="border-t p-2"
+            style={{ borderColor: "var(--color-line)" }}
+          >
             <button
               type="button"
               onClick={onCreate}
               className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-[0.6875rem] font-bold press"
-              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+              style={{
+                borderColor: "var(--color-signal)",
+                color: "var(--color-signal-dark)",
+              }}
             >
               <Plus className="size-3.5" />
               {createLabel ?? "Create new"}

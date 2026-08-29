@@ -14,6 +14,9 @@ import {
   Download,
   Calendar,
   Building2,
+  Shield,
+  Monitor,
+  type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import {
@@ -22,11 +25,9 @@ import {
   getTallySyncStats,
 } from "@nirman/services";
 import { getCompany, getCurrentUser, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, humanizeAuditAction } from "@/lib/utils";
 import {
-  MobileSectionTitle,
   MobileRow,
-  SectionHead,
   Badge,
 } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
@@ -38,14 +39,17 @@ import { CompanySwitcher } from "./company-switcher";
 /**
  * /m/settings — Settings & Portfolio hub.
  *
- * This is the 4th bottom-nav tab. It consolidates:
- *   1. Company portfolio (overview, last-month summary, dues analysis)
- *   2. Company switcher (for owners with multiple companies)
- *   3. User profile + account
- *   4. Team & permissions (admin/owner)
- *   5. Bulk export
- *   6. Notification settings
- *   7. Sign out
+ * This is the 4th bottom-nav tab. It's a settings + owner-dashboard hybrid,
+ * organized into clear conceptual zones with visual separation:
+ *
+ *   1. Company context — header + switcher (the anchor)
+ *   2. Business overview (owner only) — last month summary + dues
+ *   3. Profile — user info, my activity
+ *   4. Administration (owner only) — company, team, export, permissions
+ *   5. Notifications — alert preferences
+ *   6. App — theme, currency, install
+ *   7. Recent activity — audit log feed
+ *   8. Sign out + version
  */
 export default function SettingsPage() {
   return (
@@ -70,7 +74,6 @@ async function SettingsContent() {
     userCompanies,
     teamMembers,
     recentActivity,
-    lastMonthRevenue,
     , // pendingDues (unused)
     receivableDues,
   ] = await Promise.all([
@@ -104,7 +107,7 @@ async function SettingsContent() {
           take: 20,
         })
       : [],
-    // Recent audit activity (last 10)
+    // Recent audit activity (last 8)
     prisma.auditLog.findMany({
       where: { companyId: company.id },
       orderBy: { timestamp: "desc" },
@@ -117,14 +120,6 @@ async function SettingsContent() {
         user: { select: { name: true } },
       },
     }).catch(() => []),
-    // Last month revenue (asset sale payments + material sale payments)
-    prisma.assetSalePayment.aggregate({
-      where: {
-        paymentDate: { gte: new Date(new Date().setMonth(new Date().getMonth() - 1)) },
-        assetSale: { companyId: company.id },
-      },
-      _sum: { amount: true },
-    }).catch(() => ({ _sum: { amount: 0 } })),
     // Pending payables (overdue POs)
     prisma.purchaseOrder.count({
       where: {
@@ -146,100 +141,43 @@ async function SettingsContent() {
     0,
   );
   const payableVendorCount = supplierOutstanding.filter((o) => toNum(o.balanceOwed) > 0).length;
-  const lastMonthRev = toNum(lastMonthRevenue._sum?.amount ?? 0);
 
-  // Last month date range
   const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const monthName = lastMonth.toLocaleString("en-IN", { month: "long" });
 
   return (
     <div>
-      {/* ── Company header ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 mb-3"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <div className="flex items-center gap-2.5">
-          <span
-            className="grid place-items-center w-10 h-10 rounded-[0.5rem] shrink-0 text-[1.125rem] font-bold"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-            }}
-          >
-            {company.name.slice(0, 2).toUpperCase()}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p
-              className="font-bold text-[0.875rem] truncate"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {company.name}
-            </p>
-            <p
-              className="text-[0.5625rem] mt-0.5"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              {company.currency} · {user?.role ?? "—"}
-            </p>
-          </div>
-        </div>
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 1 — COMPANY CONTEXT
+          The anchor: who am I and which company am I in.
+          Merged header + switcher — tappable to switch when multiple.
+          ════════════════════════════════════════════════════════════════════ */}
+      <div className="mb-4">
+        <CompanySwitcher
+          currentCompanyId={company.id}
+          currency={company.currency}
+          role={user?.role ?? "—"}
+          parentCompanyId={company.parentCompanyId}
+          companies={userCompanies.map((m) => ({
+            id: m.company.id,
+            name: m.company.name,
+            role: m.role,
+          }))}
+        />
       </div>
 
-      {/* ── Company switcher (if multiple companies) ── */}
-      {userCompanies.length > 1 ? (
-        <div className="mb-3">
-          <CompanySwitcher
-            currentCompanyId={company.id}
-            companies={userCompanies.map((m) => ({
-              id: m.company.id,
-              name: m.company.name,
-              role: m.role,
-            }))}
-          />
-        </div>
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 2 — BUSINESS OVERVIEW (owner/admin only)
+          A mini-dashboard: last month's numbers + dues that need attention.
+          Clearly separated as "business" not "settings".
+          ════════════════════════════════════════════════════════════════════ */}
+      {isOwner ? (
+        <ZoneDivider label="Business overview" />
       ) : null}
 
-      {/* ── Last month summary ── */}
-      <SectionHead title={`${monthName} summary`} />
-      <div
-        className="rounded-[0.625rem] border p-2.5 mb-3"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <SummaryStat
-            label="Revenue"
-            value={formatCurrency(lastMonthRev)}
-            tone="go"
-          />
-          <SummaryStat
-            label="Payables"
-            value={formatCurrency(totalPayables)}
-            tone="stop"
-          />
-          <SummaryStat
-            label="Units sold"
-            value={formatNumber(portfolio.soldUnits, 0)}
-          />
-          <SummaryStat
-            label="Active projects"
-            value={formatNumber(portfolio.activeProjectCount, 0)}
-          />
-        </div>
-      </div>
-
-      {/* ── Dues & analysis (owner) ── */}
       {isOwner ? (
         <>
-          <SectionHead title="Dues & analysis" />
-          <div className="flex flex-col gap-2 mb-3">
+          {/* Dues & analysis — colored-border rows */}
+          <div className="flex flex-col gap-2 mb-4">
             <DuesRow
               icon={Receipt}
               label="Pending payables"
@@ -276,14 +214,18 @@ async function SettingsContent() {
         </>
       ) : null}
 
-      {/* ── Account & profile ── */}
-      <SectionHead title="Account" />
-      <div className="flex flex-col gap-2 mb-3">
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 3 — PROFILE
+          Who am I and what am I doing here.
+          ════════════════════════════════════════════════════════════════════ */}
+      <ZoneDivider label="Profile" />
+      <div className="flex flex-col gap-2 mb-4">
         <MobileRow
           href="/m/me"
           icon={User}
           title={user?.name ?? "Profile"}
           subtitle={user?.email ?? "—"}
+          meta="Edit"
           badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
         />
         <MobileRow
@@ -295,11 +237,14 @@ async function SettingsContent() {
         />
       </div>
 
-      {/* ── Administration (owner/admin) ── */}
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 4 — ADMINISTRATION (owner/admin only)
+          Company config, team management, data export, permissions.
+          ════════════════════════════════════════════════════════════════════ */}
       {isOwner ? (
         <>
-          <SectionHead title="Administration" />
-          <div className="flex flex-col gap-2 mb-3">
+          <ZoneDivider label="Administration" />
+          <div className="flex flex-col gap-2 mb-4">
             <MobileRow
               href="/m/settings/company"
               icon={Building2}
@@ -315,6 +260,13 @@ async function SettingsContent() {
               meta="Manage"
             />
             <MobileRow
+              href="/m/permissions"
+              icon={Shield}
+              title="Permission matrix"
+              subtitle="Role-based access control"
+              meta="View"
+            />
+            <MobileRow
               href="/m/settings/export"
               icon={Download}
               title="Bulk export"
@@ -325,9 +277,12 @@ async function SettingsContent() {
         </>
       ) : null}
 
-      {/* ── Notifications ── */}
-      <SectionHead title="Notifications" />
-      <div className="flex flex-col gap-2 mb-3">
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 5 — NOTIFICATIONS
+          Alert preferences and delivery settings.
+          ════════════════════════════════════════════════════════════════════ */}
+      <ZoneDivider label="Notifications" />
+      <div className="flex flex-col gap-2 mb-4">
         <MobileRow
           href="/m/settings/notifications"
           icon={Bell}
@@ -337,11 +292,41 @@ async function SettingsContent() {
         />
       </div>
 
-      {/* ── Recent activity ── */}
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 6 — APP
+          Theme, currency, install — personal device preferences.
+          ════════════════════════════════════════════════════════════════════ */}
+      <ZoneDivider label="App" />
+      <div className="flex flex-col gap-2 mb-4">
+        <ThemeToggleRow />
+        <CurrencyToggleRow />
+        <InstallAppRow />
+        <Link
+          href="/?desktop=1"
+          className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <Monitor className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[0.6875rem] font-semibold" style={{ color: "var(--color-ink-950)" }}>
+              View desktop site
+            </p>
+            <p className="text-[0.5rem]" style={{ color: "var(--color-ink-500)" }}>
+              Switch to the full desktop ERP interface
+            </p>
+          </div>
+          <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+        </Link>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 7 — RECENT ACTIVITY
+          Audit log feed — informational, at the bottom.
+          ════════════════════════════════════════════════════════════════════ */}
       {recentActivity.length > 0 ? (
         <>
-          <MobileSectionTitle>Recent activity</MobileSectionTitle>
-          <div className="flex flex-col gap-1.5 mb-3">
+          <ZoneDivider label="Recent activity" />
+          <div className="flex flex-col gap-1.5 mb-4">
             {recentActivity.map((log) => (
               <div
                 key={log.id}
@@ -360,7 +345,7 @@ async function SettingsContent() {
                     className="text-[0.625rem] font-semibold truncate"
                     style={{ color: "var(--color-ink-950)" }}
                   >
-                    {log.action}
+                    {humanizeAuditAction(log.action)}
                   </p>
                   <p
                     className="text-[0.5rem] mt-0.5"
@@ -375,20 +360,14 @@ async function SettingsContent() {
         </>
       ) : null}
 
-      {/* ── Sign out ── */}
-      <div className="mt-4 mb-4">
+      {/* ════════════════════════════════════════════════════════════════════
+          ZONE 8 — SIGN OUT + VERSION
+          The exit, at the very bottom.
+          ════════════════════════════════════════════════════════════════════ */}
+      <div className="mt-2 mb-4">
         <SignOutButton />
       </div>
 
-      {/* ── App ── */}
-      <SectionHead title="App" />
-      <div className="flex flex-col gap-2 mb-3">
-        <ThemeToggleRow />
-        <CurrencyToggleRow />
-        <InstallAppRow />
-      </div>
-
-      {/* ── App info ── */}
       <p
         className="text-center text-[0.5rem] mb-4"
         style={{ color: "var(--color-ink-300)" }}
@@ -399,39 +378,26 @@ async function SettingsContent() {
   );
 }
 
-/* ── Summary stat tile (compact, for the monthly summary) ── */
-function SummaryStat({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "go" | "stop" | "signal";
-}) {
-  const color = {
-    neutral: "var(--color-ink-950)",
-    go: "var(--color-go)",
-    stop: "var(--color-stop)",
-    signal: "var(--color-signal-dark)",
-  }[tone];
+/* ═══════════════════════════════════════════════════════════════════════════
+   ZONE DIVIDER — a subtle label that separates conceptual groups.
+   Replaces SectionHead with a lighter, more spaced treatment that reads
+   as a zone boundary rather than a section title.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function ZoneDivider({ label }: { label: string }) {
   return (
     <div
-      className="rounded-[0.5rem] p-2"
-      style={{ backgroundColor: "var(--color-paper-2)" }}
+      className="flex items-center gap-2 mb-2 mt-1"
     >
-      <p
-        className="text-[0.5rem] uppercase tracking-wide font-semibold"
-        style={{ color: "var(--color-ink-500)" }}
+      <span
+        className="text-[0.5625rem] font-bold uppercase tracking-[0.1em]"
+        style={{ color: "var(--color-ink-300)" }}
       >
         {label}
-      </p>
-      <p
-        className="text-[0.8125rem] font-bold numeric mt-0.5"
-        style={{ color }}
-      >
-        {value}
-      </p>
+      </span>
+      <span
+        className="flex-1 h-px"
+        style={{ backgroundColor: "var(--color-line)" }}
+      />
     </div>
   );
 }
@@ -445,7 +411,7 @@ function DuesRow({
   tone,
   href,
 }: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   label: string;
   value: string;
   hint?: string;
@@ -490,7 +456,7 @@ function DuesRow({
         ) : null}
       </div>
       <span
-        className="text-[0.75rem] font-bold numeric shrink-0"
+        className="text-[0.75rem] font-bold tabular-nums shrink-0"
         style={{ color }}
       >
         {value}

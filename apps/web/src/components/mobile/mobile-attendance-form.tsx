@@ -8,6 +8,8 @@ import { formatCurrencyCompact } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { useNearestProject } from "@/lib/use-nearest-project";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
 
@@ -59,11 +61,13 @@ export function MobileAttendanceForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const today = new Date().toISOString().split("T")[0];
+  const { getDefault, recordDefaults } = useSmartDefaults("attendance");
+  const { nearestProjectId, nearestProjectName, distanceMeters, loading: gpsLoading, request: requestGps } = useNearestProject();
   const [fProject, setFProject] = useState("");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number; label: string } | null>(null);
-  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsFetching, setGpsFetching] = useState(false);
 
   const [records, setRecords] = useState<Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }>>(() => {
     const init: Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }> = {};
@@ -89,6 +93,27 @@ export function MobileAttendanceForm({
   const draftKey = `attendance:${today}`;
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<AttendanceDraft>("attendance", draftKey);
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // ── Smart defaults: pre-select last-used project if no draft ──
+  useEffect(() => {
+    if (!fProject && !hasDraft) {
+      const lastProject = getDefault("project");
+      if (lastProject && projects.some((p) => p.id === lastProject)) {
+        setFProject(lastProject);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getDefault, hasDraft, projects]);
+
+  // ── GPS auto-select: when nearest project is found, auto-select it ──
+  useEffect(() => {
+    if (nearestProjectId && projects.some((p) => p.id === nearestProjectId)) {
+      setFProject(nearestProjectId);
+      haptic(10);
+      toast.success(`Auto-selected ${nearestProjectName} (${Math.round(distanceMeters ?? 0)}m away)`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearestProjectId, nearestProjectName, distanceMeters, projects]);
 
   // Auto-save form state (debounced via the hook's internal timer)
   useEffect(() => {
@@ -169,7 +194,7 @@ export function MobileAttendanceForm({
       toast.error("GPS not available on this device");
       return;
     }
-    setGpsLoading(true);
+    setGpsFetching(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGps({
@@ -177,12 +202,12 @@ export function MobileAttendanceForm({
           lng: pos.coords.longitude,
           label: `Site check-in (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`,
         });
-        setGpsLoading(false);
+        setGpsFetching(false);
         haptic(20);
         toast.success("GPS location captured");
       },
       (err) => {
-        setGpsLoading(false);
+        setGpsFetching(false);
         haptic([50, 20, 50]);
         toast.error(`GPS error: ${err.message}`);
       },
@@ -218,6 +243,8 @@ export function MobileAttendanceForm({
       if (!res.ok) throw new Error(data.error ?? "Failed to save attendance");
       haptic([10, 40, 80]);
       toast.success(`Attendance saved for ${employees.length} workers`);
+      // Record smart defaults for next time
+      if (fProject) recordDefaults({ project: fProject });
       clearDraft();
       router.push("/m/site");
     } catch (err) {
@@ -304,15 +331,27 @@ export function MobileAttendanceForm({
           <label className="block text-[0.5625rem] font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Project (optional)
           </label>
-          <select
-            value={fProject}
-            onChange={(e) => setFProject(e.target.value)}
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
-            style={inputStyle}
-          >
-            <option value="">All workers</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <div className="flex gap-1.5">
+            <select
+              value={fProject}
+              onChange={(e) => setFProject(e.target.value)}
+              className="flex-1 h-10 rounded-[0.5rem] border px-3 text-[0.75rem] outline-none"
+              style={inputStyle}
+            >
+              <option value="">All workers</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={requestGps}
+              disabled={gpsLoading}
+              className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border press disabled:opacity-50"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              title="Use my location to auto-select project"
+            >
+              {gpsLoading ? <Loader2 className="size-4 animate-spin" /> : <MapPin className="size-4" />}
+            </button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
@@ -343,7 +382,7 @@ export function MobileAttendanceForm({
         <button
           type="button"
           onClick={captureGps}
-          disabled={gpsLoading}
+          disabled={gpsFetching}
           className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-[0.6875rem] font-bold press disabled:opacity-50"
           style={
             gps
@@ -351,7 +390,7 @@ export function MobileAttendanceForm({
               : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }
           }
         >
-          {gpsLoading ? (
+          {gpsFetching ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <MapPin className="size-3.5" style={{ color: gps ? "var(--color-go)" : "var(--color-ink-500)" }} />

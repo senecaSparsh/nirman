@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatDate } from "@/lib/utils";
+import { statusBadgeVariant } from "@/components/page";
 import { Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
 
 interface NcrDetail {
@@ -51,11 +52,6 @@ interface NcrDetail {
 const CATEGORY_LABELS: Record<string, string> = {
   MATERIAL: "Material", WORKMANSHIP: "Workmanship", DESIGN: "Design",
   DOCUMENT: "Document", PROCESS: "Process", SAFETY: "Safety", OTHER: "Other",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
-  OPEN: "warning", UNDER_REVIEW: "warning", CAPA_REQUIRED: "warning",
-  ACCEPTED: "success", REJECTED: "danger", CLOSED: "success", CANCELLED: "default",
 };
 
 const SEVERITY_VARIANTS: Record<string, "danger" | "warning" | "default"> = {
@@ -133,7 +129,7 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
           <div className="flex items-center gap-3">
             <span className="font-mono text-sm text-muted-foreground">{ncr.ncrNumber}</span>
             <Badge variant={SEVERITY_VARIANTS[ncr.severity] ?? "default"}>{ncr.severity}</Badge>
-            <Badge variant={STATUS_VARIANTS[ncr.status] ?? "default"}>{ncr.status}</Badge>
+            <Badge variant={statusBadgeVariant(ncr.status)}>{ncr.status}</Badge>
           </div>
           <div className="text-sm text-muted-foreground">{CATEGORY_LABELS[ncr.category] ?? ncr.category}</div>
         </div>
@@ -146,6 +142,18 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
           {ncr.wbsNodeName && <span>WBS: <span className="font-medium text-foreground">{ncr.wbsNodeName}</span></span>}
           {ncr.boqItemSerial && <span>BOQ: <span className="font-medium text-foreground">{ncr.boqItemSerial} — {ncr.boqItemDescription}</span></span>}
         </div>
+        {ncr.attachments.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Photo Evidence</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {ncr.attachments.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
+                  <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Timeline */}
@@ -255,7 +263,7 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
         <Dialog open={showReview} onOpenChange={setShowReview} title="Review NCR" description="Record your review findings and decision.">
           <div className="space-y-3">
             <Field label="Outcome" required>
-              <select className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm" value={reviewForm.outcome} onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as any }))}>
+              <select className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm" value={reviewForm.outcome} onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED" }))}>
                 <option value="CAPA_REQUIRED">CAPA Required</option>
                 <option value="ACCEPTED">Accepted (with concession)</option>
                 <option value="REJECTED">Rejected (rework required)</option>
@@ -371,7 +379,7 @@ function CapaSection({ capa }: { capa: NonNullable<NcrDetail["capa"]> }) {
           <ShieldCheck className="h-4 w-4 text-success" />
           <span className="font-mono text-sm font-medium">{capa.capaNumber}</span>
         </div>
-        <Badge variant={STATUS_VARIANTS[capa.status] ?? "default"}>{capa.status}</Badge>
+        <Badge variant={statusBadgeVariant(capa.status)}>{capa.status}</Badge>
       </div>
       <div className="p-4 space-y-4">
         <CapaField label="Root Cause" value={capa.rootCause} />

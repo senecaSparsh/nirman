@@ -603,6 +603,7 @@ export {
   computeDaysWorked,
   computeOvertimeHours,
   computeWorkingDays,
+  computeStatusFromHours,
   hourlyRateFor,
   computeBasicAmount,
   computeGrossPay,
@@ -626,6 +627,11 @@ export {
   resubmitDpr,
   generateMaterialIssueFromDPR,
   combineTimeWithDate,
+  computeAttendanceTier,
+  type AttendanceTier,
+  type AttendanceWithTier,
+  getAttendanceWithTiers,
+  getAttendanceTierCounts,
 } from "./hr";
 
 // Leave Management — requests with approval workflow
@@ -638,6 +644,19 @@ export {
   type ApproveLeaveInput,
 } from "./leave";
 
+// SMS Parser — auto payment entry from bank SMS notifications
+export {
+  parseSms,
+  ingestSms,
+  ingestSmsBatch,
+  manualMatchSms,
+  getSmsStats,
+  type ParsedSms,
+  type IngestSmsInput,
+  type IngestSmsResult,
+  type ManualMatchInput,
+} from "./sms-parser";
+
 // Tenancy — rent/lease agreements for land parcels and built units
 export {
   createTenancy,
@@ -649,8 +668,10 @@ export {
   processDueEscalations,
   changeTenant,
   generateRentSchedule,
+  generateDueRentSchedules,
   sendRentDueReminders,
   uploadRentAgreement,
+  uploadDraft,
   type CreateTenancyInput,
   type UpdateTenancyInput,
   type RecordRentInput,
@@ -658,6 +679,7 @@ export {
   type ChangeTenantInput,
   type GenerateRentScheduleInput,
   type UploadAgreementInput,
+  type UploadDraftInput,
 } from "./tenancy";
 
 // Daily Report — site operations log (separate from DPR)
@@ -952,3 +974,6 @@ export {
   type GatePassLineInput,
   type ConfirmExitInput,
 } from "./gate-pass";
+
+// Web Push notifications
+export { sendPushToUser, sendPushToApprovers, type PushPayload } from "./push";

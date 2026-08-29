@@ -131,3 +131,60 @@ self.addEventListener("sync", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
+
+// ── Push notifications ──────────────────────────────────────────
+// Listens for push events from the server (web push API) and displays
+// a notification. The notification payload is JSON: { title, body, icon, href }.
+self.addEventListener("push", (event) => {
+  let payload = { title: "Nirman", body: "New update", href: "/m/home" };
+  try {
+    if (event.data) {
+      const text = event.data.text();
+      payload = JSON.parse(text);
+    }
+  } catch {
+    // If JSON parse fails, use the raw text as body
+    if (event.data) {
+      payload.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: payload.body,
+    icon: payload.icon || "/icon.svg",
+    badge: "/icon.svg",
+    data: { href: payload.href || "/m/home" },
+    vibrate: [100, 50, 100],
+    tag: payload.tag || "nirman-notification",
+    requireInteraction: payload.requireInteraction || false,
+  };
+
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+// ── Notification click — focus/open the app and navigate ─────────
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = event.notification.data?.href || "/m/home";
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      // If a client is already open, focus it and navigate
+      for (const client of allClients) {
+        if (client.url.includes(self.location.origin)) {
+          client.focus();
+          client.postMessage({ type: "NAVIGATE", href });
+          return;
+        }
+      }
+
+      // Otherwise open a new window
+      await self.clients.openWindow(href);
+    })(),
+  );
+});
