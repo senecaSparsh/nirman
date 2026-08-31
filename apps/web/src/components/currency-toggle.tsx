@@ -1,21 +1,29 @@
 "use client";
 
 import { Coins } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCurrencyMode } from "@/components/currency-provider";
 import { cn } from "@/lib/utils";
 
 /**
  * Currency precision toggle — switches between compact (₹1.2L) and
- * detailed (₹1,23,456.78) modes. Persists to localStorage via the
- * CurrencyProvider. Shows a small "L" or "₹" indicator.
+ * detailed (₹1,23,456.78) modes. Persists to localStorage + cookie via
+ * the CurrencyProvider, then refreshes server components so all
+ * server-rendered currency values update instantly.
  */
 export function CurrencyToggle({ tone = "default" }: { tone?: "default" | "surface" }) {
   const { mode, toggle } = useCurrencyMode();
+  const router = useRouter();
   const isCompact = mode === "compact";
 
   return (
     <button
-      onClick={toggle}
+      onClick={() => {
+        toggle();
+        // Re-render server components so server-side formatCurrency calls
+        // pick up the new cookie value.
+        router.refresh();
+      }}
       title={isCompact ? "Compact mode (₹1.2L). Click for detailed (₹1,23,456.78)" : "Detailed mode (₹1,23,456.78). Click for compact (₹1.2L)"}
       aria-label={`Currency display: ${isCompact ? "compact" : "detailed"} mode. Click to switch to ${isCompact ? "detailed" : "compact"} mode.`}
       className={cn(
