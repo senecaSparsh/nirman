@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
@@ -86,6 +87,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return wf;
   });
 
+  revalidatePath("/workflows");
+  revalidatePath("/m/workflows");
   return json({ ok: true, id: updated.id });
 });
 
@@ -117,5 +120,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     });
   });
 
+  revalidatePath("/workflows");
+  revalidatePath("/m/workflows");
   return json({ ok: true });
 });

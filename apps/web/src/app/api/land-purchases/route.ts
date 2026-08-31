@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum } from "@/lib/server";
@@ -121,6 +122,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         leaseEndDate: leaseEndDate ? new Date(leaseEndDate) : null,
         createdById: user.id,
       });
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({
         id: result.landPurchase.id,
         mode: result.landPurchase.mode,
@@ -134,6 +137,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }, { status: 201 });
     } catch (err: unknown) {
       if (err instanceof ServiceError) {
+        revalidatePath("/land");
+        revalidatePath("/m/land");
         return json({ error: err.message }, { status: err.status ?? 400 });
       }
       return json({ error: "Failed to record land purchase" }, { status: 400 });
@@ -173,6 +178,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         partialRegistryAllowed: d.partialRegistryAllowed ?? undefined,
         createdById: user.id,
       });
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({
         id: result.landPurchase.id,
         purchaseStage: result.landPurchase.purchaseStage,
@@ -184,6 +191,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }, { status: 201 });
     } catch (err: unknown) {
       if (err instanceof ServiceError) {
+        revalidatePath("/land");
+        revalidatePath("/m/land");
         return json({ error: err.message }, { status: err.status ?? 400 });
       }
       return json({ error: "Failed to record land purchase order" }, { status: 400 });
@@ -210,9 +219,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
       purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
       createdById: user.id,
     });
+    revalidatePath("/land");
+    revalidatePath("/m/land");
     return json({ id: result.landPurchase.id, rootParcelId: result.parcel.id, rootParcelNumber: result.parcel.number, rootParcelArea: toNum(result.parcel.area), rootParcelAreaUnit: result.parcel.areaUnit, rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost) }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({ error: err.message }, { status: err.status ?? 400 });
     }
     return json({ error: "Failed to record land purchase" }, { status: 400 });

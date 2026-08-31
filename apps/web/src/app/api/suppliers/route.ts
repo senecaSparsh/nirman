@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -60,6 +61,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return supplier;
   });
+  revalidatePath("/suppliers");
+  revalidatePath("/m/suppliers");
   return json(created, { status: 201 });
 });
 
@@ -110,5 +113,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     }
   }
 
+  revalidatePath("/suppliers");
+  revalidatePath("/m/suppliers");
   return json(results);
 });

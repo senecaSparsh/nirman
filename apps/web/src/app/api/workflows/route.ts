@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, workflowSchema } from "@/lib/server";
@@ -71,5 +72,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return wf;
   });
 
+  revalidatePath("/workflows");
+  revalidatePath("/m/workflows");
   return json({ ok: true, id: created.id }, { status: 201 });
 });

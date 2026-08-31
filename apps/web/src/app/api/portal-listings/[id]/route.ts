@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { syncListingToPortal, delistPortalListing, updatePortalListing, deletePortalListing } from "@nirman/services";
 import { prisma } from "@nirman/db";
@@ -84,11 +85,15 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   if (action === "delist") {
     const listing = await delistPortalListing(id, user.id);
+    revalidatePath("/portal-listings");
+    revalidatePath("/m/portal-listings");
     return json({ id: listing.id, status: listing.status });
   }
 
   // Default: sync (push to portal)
   const listing = await syncListingToPortal(id, user.id);
+  revalidatePath("/portal-listings");
+  revalidatePath("/m/portal-listings");
   return json({
     id: listing.id,
     status: listing.status,
@@ -143,6 +148,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     photos: parsed.photos,
   }, user.id);
 
+  revalidatePath("/portal-listings");
+  revalidatePath("/m/portal-listings");
   return json({ id: listing.id });
 });
 
@@ -163,9 +170,13 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
 
   try {
     await deletePortalListing(id, user.id);
+    revalidatePath("/portal-listings");
+    revalidatePath("/m/portal-listings");
     return json({ ok: true });
   } catch (err: unknown) {
     const status = err instanceof Error && err.message.includes("LISTED") ? 400 : 500;
+    revalidatePath("/portal-listings");
+    revalidatePath("/m/portal-listings");
     return json({ error: err instanceof Error ? err.message : "Failed to delete listing" }, { status });
   }
 });

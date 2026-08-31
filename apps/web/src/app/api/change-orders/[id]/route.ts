@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   getChangeOrder,
@@ -78,18 +79,30 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     try {
       switch (parsed.data.action) {
         case "submit":
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json(await submitChangeOrder(id, user.id));
         case "approve":
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json(await approveChangeOrder(id, user.id, parsed.data.clientApprovedBy));
         case "reject":
           if (!parsed.data.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json(await rejectChangeOrder(id, user.id, parsed.data.reason));
         case "cancel":
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json(await cancelChangeOrder(id, user.id));
         case "implement":
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json(await implementChangeOrder(id, user.id));
         case "delete":
           await deleteChangeOrder(id, user.id);
+          revalidatePath("/change-orders");
+          revalidatePath("/m/change-orders");
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -115,6 +128,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       lines: parsed.data.lines,
       userId: user.id,
     });
+    revalidatePath("/change-orders");
+    revalidatePath("/m/change-orders");
     return json(updated);
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
@@ -138,6 +153,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
 
   try {
     await deleteChangeOrder(id, user.id);
+    revalidatePath("/change-orders");
+    revalidatePath("/m/change-orders");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

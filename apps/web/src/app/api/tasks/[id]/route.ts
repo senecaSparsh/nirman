@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateTaskStatus, reassignTask } from "@nirman/services";
 import { apiHandler, json, requirePermission, requireUser, taskStatusSchema } from "@/lib/server";
@@ -61,12 +62,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "Invalid status" }, { status: 400 });
     }
     const updated = await updateTaskStatus({ taskId, status: statusParsed.data, userId: user.id });
+    revalidatePath("/my-tasks");
+    revalidatePath("/m/site/tasks");
     return json({ ok: true, id: updated.id, status: updated.status });
   }
 
   // Reassignment goes through the service (activity log).
   if (body.assignedToId !== undefined && isManager) {
     const updated = await reassignTask({ taskId, assignedToId: body.assignedToId, userId: user.id });
+    revalidatePath("/my-tasks");
+    revalidatePath("/m/site/tasks");
     return json({ ok: true, id: updated.id, status: updated.status });
   }
 
@@ -82,6 +87,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   if (Object.keys(update).length === 0) {
+    revalidatePath("/my-tasks");
+    revalidatePath("/m/site/tasks");
     return json({ ok: true, id: existing.id, status: existing.status });
   }
 
@@ -90,6 +97,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     data: update,
   });
 
+  revalidatePath("/my-tasks");
+  revalidatePath("/m/site/tasks");
   return json({ ok: true, id: updated.id, status: updated.status });
 });
 
@@ -106,5 +115,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   }
 
   await prisma.task.delete({ where: { id: taskId } });
+  revalidatePath("/my-tasks");
+  revalidatePath("/m/site/tasks");
   return json({ ok: true });
 });

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -76,5 +77,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return proj;
   });
 
+  revalidatePath("/land");
+  revalidatePath("/m/land");
+  revalidatePath("/projects");
   return json({ ok: true, id: project.id, name: project.name }, { status: 201 });
 });

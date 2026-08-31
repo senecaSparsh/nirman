@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, extractVersion, ConcurrentEditError, logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -55,6 +56,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     });
     return sup;
   });
+  revalidatePath("/suppliers");
+  revalidatePath("/m/suppliers");
   return json(updated);
 });
 
@@ -67,6 +70,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   if (!existing) return json({ error: "Supplier not found" }, { status: 404 });
   try {
     await softDelete("Supplier", id);
+    revalidatePath("/suppliers");
+    revalidatePath("/m/suppliers");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete supplier") }, { status: 400 });

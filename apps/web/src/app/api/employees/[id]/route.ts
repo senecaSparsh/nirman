@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, softDelete } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission } from "@/lib/server";
@@ -56,6 +57,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
   });
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
   return json({ ok: true, id: updated.id });
 });
 
@@ -64,6 +67,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   try {
     await softDelete("Employee", id);
+    revalidatePath("/hr/employees");
+    revalidatePath("/m/hr/employees");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete employee") }, { status: 400 });

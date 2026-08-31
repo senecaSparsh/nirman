@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, brokerSchema, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -58,6 +59,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return broker;
   });
 
+  revalidatePath("/brokers");
+  revalidatePath("/m/brokers");
   return json({ ok: true, id: updated.id, name: updated.name });
 });
 
@@ -86,5 +89,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     });
   });
 
+  revalidatePath("/brokers");
+  revalidatePath("/m/brokers");
   return json({ ok: true });
 });

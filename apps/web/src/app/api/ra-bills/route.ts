@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, Prisma, type RaBillStatus } from "@nirman/db";
 import { createRaBill, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
@@ -30,8 +31,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: d.notes ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/finance");
+    revalidatePath("/m/accounts");
     return json(bill, { status: 201 });
   } catch (err: unknown) {
+    revalidatePath("/finance");
+    revalidatePath("/m/accounts");
     return json({ error: err instanceof ServiceError ? err.message : "Failed to create RA bill" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

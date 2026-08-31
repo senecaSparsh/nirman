@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -41,6 +42,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       ...(parsed.data.trade !== undefined ? { trade: parsed.data.trade ?? null } : {}),
     },
   });
+  revalidatePath("/subcontractors");
+  revalidatePath("/m/subcontractors");
   return json({ ok: true, id: updated.id });
 });
 
@@ -52,6 +55,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (!existing) return json({ error: "Subcontractor not found" }, { status: 404 });
   try {
     await softDelete("Subcontractor", id);
+    revalidatePath("/subcontractors");
+    revalidatePath("/m/subcontractors");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete subcontractor") }, { status: 400 });

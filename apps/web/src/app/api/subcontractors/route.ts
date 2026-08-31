@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -55,5 +56,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return sub;
   });
+  revalidatePath("/subcontractors");
+  revalidatePath("/m/subcontractors");
   return json({ ok: true, id: created.id }, { status: 201 });
 });

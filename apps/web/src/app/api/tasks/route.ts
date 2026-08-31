@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTask } from "@nirman/services";
 import { apiHandler, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
@@ -91,5 +92,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
   });
 
+  revalidatePath("/my-tasks");
+  revalidatePath("/m/site/tasks");
   return json({ ok: true, id: created.id }, { status: 201 });
 });

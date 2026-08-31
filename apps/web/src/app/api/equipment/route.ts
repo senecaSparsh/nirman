@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { EquipmentStatus } from "@nirman/db";
 import { createEquipment } from "@nirman/services";
@@ -84,6 +85,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/equipment");
+    revalidatePath("/m/equipment");
     return json({ ok: true, id: eq.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create equipment") }, { status: 400 });

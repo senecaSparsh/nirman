@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createCrew } from "@nirman/services";
 import { apiHandler, getCompany, json, crewSchema, requirePermission } from "@/lib/server";
@@ -52,5 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     memberIds: parsed.data.memberIds,
     userId: user.id,
   });
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
   return json({ ok: true, id: crew.id }, { status: 201 });
 });

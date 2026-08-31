@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum } from "@/lib/server";
@@ -83,5 +84,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
   });
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
   return json({ ok: true, id: created.id, name: created.name, trade: created.trade }, { status: 201 });
 });

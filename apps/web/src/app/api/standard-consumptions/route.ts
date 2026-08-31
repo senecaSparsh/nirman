@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createStandardConsumption, listStandardConsumptions, listWorkTypes } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -63,5 +64,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
   });
 
+  revalidatePath("/standard-consumptions");
+  revalidatePath("/m/standard-consumptions");
   return json({ id: sc.id }, { status: 201 });
 });

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
@@ -59,23 +60,33 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     if (action === "issue") {
       const wo = await issueWorkOrder(id, user.id);
+      revalidatePath("/work-orders");
+      revalidatePath("/m/work-orders");
       return json(wo);
     }
     if (action === "complete") {
       const wo = await completeWorkOrder(id, user.id);
+      revalidatePath("/work-orders");
+      revalidatePath("/m/work-orders");
       return json(wo);
     }
     if (action === "pay-advance") {
       const result = await payAdvance(id, body?.amount, user.id, body?.paymentMode, body?.paymentReference);
+      revalidatePath("/work-orders");
+      revalidatePath("/m/work-orders");
       return json(result);
     }
     if (action === "release-retention") {
       const override = body?.overrideReason ? { reason: body.overrideReason } : undefined;
       const result = await releaseRetention(id, user.id, body?.paymentMode, body?.paymentReference, override);
+      revalidatePath("/work-orders");
+      revalidatePath("/m/work-orders");
       return json(result);
     }
     return json({ error: "Unknown action. Use: issue | complete | pay-advance | release-retention" }, { status: 400 });
   } catch (err: unknown) {
+    revalidatePath("/work-orders");
+    revalidatePath("/m/work-orders");
     return json({ error: err instanceof ServiceError ? err.message : "Failed to update work order" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
@@ -98,5 +109,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   // Delete lines first, then the work order
   await prisma.subcontractorWorkOrderLine.deleteMany({ where: { workOrderId: id } });
   await prisma.subcontractorWorkOrder.delete({ where: { id } });
+  revalidatePath("/work-orders");
+  revalidatePath("/m/work-orders");
   return json({ ok: true });
 });

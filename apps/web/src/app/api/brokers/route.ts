@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, toNum, brokerSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -49,5 +50,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       createdById: user.id,
     },
   });
+  revalidatePath("/brokers");
+  revalidatePath("/m/brokers");
   return json({ ok: true, id: broker.id, name: broker.name }, { status: 201 });
 });

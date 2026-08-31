@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateCrew, deleteCrew, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum } from "@/lib/server";
@@ -44,6 +45,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     active: parsed.data.active,
     userId: user.id,
   });
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
   return json({ ok: true, id: crew.id });
 });
 
@@ -52,8 +55,12 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   try {
     await deleteCrew(id, user.id);
+    revalidatePath("/hr/employees");
+    revalidatePath("/m/hr/employees");
     return json({ ok: true });
   } catch (err: unknown) {
+    revalidatePath("/hr/employees");
+    revalidatePath("/m/hr/employees");
     return json({ error: (err instanceof ServiceError ? err.message : "Failed to delete crew") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

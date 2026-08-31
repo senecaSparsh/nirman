@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateStandardConsumption, deleteStandardConsumption } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -60,6 +61,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     notes: parsed.notes,
   }, user.id);
 
+  revalidatePath("/standard-consumptions");
+  revalidatePath("/m/standard-consumptions");
   return json({ id: sc.id });
 });
 
@@ -71,5 +74,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const { id } = await params;
   await deleteStandardConsumption(id, user.id);
+  revalidatePath("/standard-consumptions");
+  revalidatePath("/m/standard-consumptions");
   return json({ ok: true });
 });

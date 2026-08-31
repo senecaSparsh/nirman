@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getScrapGeneration, cancelScrapGeneration } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
@@ -45,6 +46,9 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
   if (action === "cancel") {
     try {
       const result = await cancelScrapGeneration(id, user.id);
+      revalidatePath("/scrap-generations");
+      revalidatePath("/m/scrap-generations");
+      revalidatePath("/stock");
       return json({ id: result.id, status: result.status });
     } catch (err: unknown) {
       return json({ error: err instanceof Error ? err.message : "Failed to cancel scrap generation" }, { status: 400 });
@@ -77,5 +81,8 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   // Delete lines first (cascade), then the scrap generation
   await prisma.scrapGenerationLine.deleteMany({ where: { scrapGenerationId: id } });
   await prisma.scrapGeneration.delete({ where: { id } });
+  revalidatePath("/scrap-generations");
+  revalidatePath("/m/scrap-generations");
+  revalidatePath("/stock");
   return json({ ok: true });
 });

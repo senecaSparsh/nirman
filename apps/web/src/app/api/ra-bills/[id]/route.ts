@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
@@ -68,24 +69,34 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     if (action === "submit") {
       const bill = await submitRaBill(id, user.id);
+      revalidatePath("/finance");
+      revalidatePath("/m/accounts");
       return json(bill);
     }
     if (action === "approve") {
       const bill = await approveRaBill(id, user.id);
+      revalidatePath("/finance");
+      revalidatePath("/m/accounts");
       return json(bill);
     }
     if (action === "reject") {
       const schema = { reason: body.reason };
       if (!schema.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
       const bill = await rejectRaBill(id, body.reason, user.id);
+      revalidatePath("/finance");
+      revalidatePath("/m/accounts");
       return json(bill);
     }
     if (action === "pay") {
       const bill = await payRaBill(id, user.id, body?.paymentMode, body?.paymentReference);
+      revalidatePath("/finance");
+      revalidatePath("/m/accounts");
       return json(bill);
     }
     return json({ error: "Unknown action. Use: submit | approve | reject | pay" }, { status: 400 });
   } catch (err: unknown) {
+    revalidatePath("/finance");
+    revalidatePath("/m/accounts");
     return json({ error: err instanceof ServiceError ? err.message : "Failed to update RA bill" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

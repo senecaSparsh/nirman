@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, type ChangeOrderStatus } from "@nirman/db";
 import { createChangeOrder } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -80,6 +81,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       lines: parsed.data.lines,
       userId: user.id,
     });
+    revalidatePath("/change-orders");
+    revalidatePath("/m/change-orders");
     return json(co, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

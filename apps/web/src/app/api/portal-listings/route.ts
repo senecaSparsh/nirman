@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createPortalListing, listPortalListings, getPortalListingStats, syncListingToPortal } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
@@ -94,6 +95,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.length - succeeded;
 
+    revalidatePath("/portal-listings");
+    revalidatePath("/m/portal-listings");
     return json({ total: results.length, succeeded, failed, results });
   }
 
@@ -119,5 +122,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
   });
 
+  revalidatePath("/portal-listings");
+  revalidatePath("/m/portal-listings");
   return json({ id: listing.id }, { status: 201 });
 });
