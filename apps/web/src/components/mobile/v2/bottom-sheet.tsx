@@ -35,13 +35,13 @@ export function BottomSheet({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
         onClick={onClose}
       />
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t max-h-[85vh] overflow-y-auto"
+        className="relative w-full max-w-md rounded-t-[1rem] border-t max-h-[85vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         {/* Drag handle + header */}

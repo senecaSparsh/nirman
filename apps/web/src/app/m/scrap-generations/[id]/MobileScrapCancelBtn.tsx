@@ -48,7 +48,7 @@ export function MobileScrapCancelBtn({ scrapId, scrapNumber }: { scrapId: string
       {show ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => setShow(false)}
         >
           <div

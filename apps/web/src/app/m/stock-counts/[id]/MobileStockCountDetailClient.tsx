@@ -389,7 +389,7 @@ export function MobileStockCountDetailClient({
                   onClick={handleDelete}
                   disabled={acting === "delete"}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                  style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
                   {acting === "delete" ? (
                     <Loader2 className="size-4 animate-spin" />

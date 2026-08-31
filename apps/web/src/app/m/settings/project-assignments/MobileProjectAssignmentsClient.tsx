@@ -278,7 +278,7 @@ export function MobileProjectAssignmentsClient({
                 onClick={() => handleDelete(delTarget.id)}
                 disabled={submitting}
                 className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "white" }}
+                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "var(--color-paper)" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                 {submitting ? "Removing…" : "Remove"}
@@ -449,7 +449,7 @@ function AssignmentFormDialog({
               onClick={handleSubmit}
               disabled={submitting}
               className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-              style={{ backgroundColor: "var(--color-steel)", color: "white" }}
+              style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
               {submitting ? "Assigning…" : "Assign"}

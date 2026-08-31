@@ -483,7 +483,7 @@ async function MobileProjectDetailContent({
                     </p>
                     <span
                       className="text-m-caption font-bold uppercase px-1 py-px rounded shrink-0"
-                      style={{ backgroundColor: poTone, color: "#fff" }}
+                      style={{ backgroundColor: poTone, color: "var(--color-paper)" }}
                     >
                       {poStatusShort}
                     </span>
@@ -601,7 +601,7 @@ async function MobileProjectDetailContent({
                     color: a.status === "PRESENT" ? "var(--color-go)" : a.status === "ABSENT" ? "var(--color-stop)" : "var(--color-signal-dark)",
                   }}
                 >
-                  {a.status}
+                  {a.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </Link>
             ))}

@@ -296,14 +296,14 @@ export function MobileQuotationDetail({
         </h1>
         <span
           className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: style.color, color: "#fff" }}
+          style={{ backgroundColor: style.color, color: "var(--color-paper)" }}
         >
           {style.label}
         </span>
         {request.isUrgent ? (
           <span
             className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5"
-            style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
           >
             <AlertCircle className="size-2.5" />
             URGENT
@@ -432,7 +432,7 @@ export function MobileQuotationDetail({
               setShowApproveDialog(true);
             }}
             className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press active:scale-95"
-            style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
           >
             <Trophy className="size-4" />
             Approve & Select Winner
@@ -1864,14 +1864,14 @@ function AddQuoteDialog({
     }
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onClose} className="p-1" style={{ color: "var(--color-ink-700) press" }}>
+        <button onClick={onClose} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
         <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -2408,7 +2408,7 @@ function ApproveDialog({
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onCancel} className="p-1" style={{ color: "var(--color-ink-700) press" }}>
+        <button onClick={onCancel} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
         <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -2475,7 +2475,7 @@ function ApproveDialog({
               onChange={(e) => onReasonChange(e.target.value)}
               rows={3}
               placeholder="e.g. Better delivery time, better payment terms, quality preference…"
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2 resize-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2 resize-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>
@@ -2488,7 +2488,7 @@ function ApproveDialog({
           onClick={onConfirm}
           disabled={approving || !selectedQuoteId || (!!isOverride && !reason.trim())}
           className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
         >
           {approving ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}
           {approving ? "Approving…" : "Approve & Select Winner"}

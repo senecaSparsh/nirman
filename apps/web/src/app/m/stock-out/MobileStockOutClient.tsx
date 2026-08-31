@@ -47,7 +47,7 @@ interface StockOutDraft {
 }
 
 const inputClass =
-  "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
@@ -924,7 +924,7 @@ export function MobileStockOutClient({
                 ? "e.g. Moving excess cement to Site B"
                 : "e.g. Issued for Tower A foundation concreting"}
               rows={2}
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none resize-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
               style={inputStyle}
             />
           </div>

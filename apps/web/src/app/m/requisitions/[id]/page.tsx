@@ -7,7 +7,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
-import { MobileEmptyState, mobileStatusColor, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, MobileStatusBadge, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
@@ -149,9 +149,6 @@ async function MobileRequisitionDetailContent({
       }
     : null;
 
-  // Status color — derived from the single source of truth in @/components/page
-  const statusColor = mobileStatusColor(req.status);
-
   // Needed-by urgency
   const today = new Date(); today.setHours(0, 0, 0, 0);
   let neededText = "";
@@ -201,12 +198,7 @@ async function MobileRequisitionDetailContent({
           <h1 className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
             {req.reqNumber}
           </h1>
-          <span
-            className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.375rem]"
-            style={{ backgroundColor: statusColor, color: "#fff" }}
-          >
-            {req.status}
-          </span>
+          <MobileStatusBadge status={req.status} />
           <a
             href={`/print/requisition/${req.id}`}
             className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press"

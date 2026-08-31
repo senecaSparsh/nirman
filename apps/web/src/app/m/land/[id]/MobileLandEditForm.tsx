@@ -172,7 +172,7 @@ export function MobileLandEditForm({
   };
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const labelClass = "block text-m-caption font-semibold mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };

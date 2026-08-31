@@ -150,7 +150,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                       key={chip.value}
                       type="button"
                       onClick={() => { setStatusFilter(chip.value); haptic(10); }}
-                      className="h-7 shrink-0 rounded-full border px-3 text-m-caption font-bold text-m-body press"
+                      className="h-7 shrink-0 rounded-full border px-3 text-m-caption font-bold press"
                       style={{
                         borderColor: isActive ? "var(--color-ink-950)" : "var(--color-line)",
                         backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",

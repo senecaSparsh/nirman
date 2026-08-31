@@ -454,7 +454,7 @@ export function MobileLeadDetailClient({
       {showStageSheet ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => setShowStageSheet(false)}
         >
           <div
@@ -508,7 +508,7 @@ export function MobileLeadDetailClient({
                     value={lostReason}
                     onChange={(e) => setLostReason(e.target.value)}
                     placeholder="Budget, location, competitor…"
-                    className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none"
+                    className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   />
                 </div>

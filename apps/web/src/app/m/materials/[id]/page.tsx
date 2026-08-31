@@ -126,7 +126,7 @@ async function MobileMaterialDetailContent({
           </div>
           <span
             className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-            style={{ backgroundColor: stockTone, color: "#fff" }}
+            style={{ backgroundColor: stockTone, color: "var(--color-paper)" }}
           >
             {isOut ? "Out" : isLow ? "Low" : "OK"}
           </span>

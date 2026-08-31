@@ -9,6 +9,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CategoryFormDialog } from "@/components/materials/category-form-dialog";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
 import type { MaterialCategory, MaterialRow } from "@/lib/types";
 
 type FormState = {
@@ -311,10 +312,11 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="HSN/SAC Code">
-            <Input
+            <HsnSacSearch
               value={form.hsnCode}
-              onChange={(e) => set("hsnCode", e.target.value)}
-              placeholder="25232900"
+              onCodeChange={(code) => set("hsnCode", code)}
+              onGstRateChange={(rate) => set("gstRate", String(rate))}
+              placeholder="Search or type HSN/SAC code…"
             />
           </Field>
           <Field label="GST Rate (%)">

@@ -108,7 +108,7 @@ export function NavSheet({ open, onClose, moduleId, persona, personaTabs }: NavS
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: "rgba(18, 17, 13, 0.4)",
+          backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)",
         }}
         onClick={onClose}
       />

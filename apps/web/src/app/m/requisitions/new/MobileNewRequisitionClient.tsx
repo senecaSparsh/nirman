@@ -42,7 +42,7 @@ interface ReqDraft {
 }
 
 const inputClass =
-  "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
+  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",

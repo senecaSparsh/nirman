@@ -440,7 +440,7 @@ export function MobileEquipmentDetailClient({
               onClick={() => handleAction("complete-maintenance")}
               disabled={acting !== null}
               className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {acting === "complete-maintenance" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -542,7 +542,7 @@ export function MobileEquipmentDetailClient({
                   onClick={() => handleAction("retire")}
                   disabled={acting === "retire"}
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                  style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
                   {acting === "retire" ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -888,7 +888,7 @@ function AssignModal({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. Deployed for foundation work"
                 rows={2}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
               />
             </div>
@@ -1182,7 +1182,7 @@ function MaintenanceModal({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Oil change + filter replacement"
               rows={2}
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             />
           </div>

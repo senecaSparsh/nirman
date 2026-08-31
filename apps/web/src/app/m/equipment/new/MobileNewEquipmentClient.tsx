@@ -194,7 +194,7 @@ export default function MobileNewEquipmentClient() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="e.g. Mixer, Vehicle, Tool"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -210,7 +210,7 @@ export default function MobileNewEquipmentClient() {
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="e.g. BMX-500"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -255,7 +255,7 @@ export default function MobileNewEquipmentClient() {
             type="date"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </Field>
@@ -270,7 +270,7 @@ export default function MobileNewEquipmentClient() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
           rows={3}
-          className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
+          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
         />
       </div>

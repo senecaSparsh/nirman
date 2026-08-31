@@ -190,7 +190,7 @@ export function MobileUnitActions({
     patch(body, "Valuation updated", () => setShowValuation(false));
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
   const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
@@ -215,7 +215,7 @@ export function MobileUnitActions({
 
       {/* Edit sheet */}
       {showEdit ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowEdit(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowEdit(false)}>
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Edit Unit" onClose={() => setShowEdit(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
@@ -281,7 +281,7 @@ export function MobileUnitActions({
 
       {/* Status sheet */}
       {showStatus ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowStatus(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowStatus(false)}>
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Update Status" onClose={() => setShowStatus(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
@@ -296,7 +296,7 @@ export function MobileUnitActions({
 
       {/* Valuation sheet */}
       {showValuation ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowValuation(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowValuation(false)}>
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Update Valuation" onClose={() => setShowValuation(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
@@ -316,7 +316,7 @@ export function MobileUnitActions({
 
       {/* Delete confirmation */}
       {showDelete ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowDelete(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowDelete(false)}>
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Archive Unit?" onClose={() => setShowDelete(false)} />
             <div className="px-3 pb-4">

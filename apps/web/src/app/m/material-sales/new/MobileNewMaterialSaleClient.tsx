@@ -892,7 +892,7 @@ function SaleForm({
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
             placeholder="Walk-in customer name on invoice"
-            className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -1377,7 +1377,7 @@ function SaleForm({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Surplus cement sold to local contractor"
             rows={2}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin } from "lucide-react";
+import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
@@ -286,6 +286,103 @@ export function MobileDprForm({
   function quickAddMaterial(materialId: string, qty: string, unitCost: string) {
     haptic(10);
     setMaterialLines((prev) => [...prev, { materialId, qty, unitCost }]);
+  }
+
+  // ── OCR: extract DPR data from a site photo ──────────────────
+  const [ocrLoading, setOcrLoading] = useState(false);
+
+  async function runOcr() {
+    if (fPhotos.length === 0) {
+      toast.error("Add a site photo first, then tap Scan");
+      return;
+    }
+    setOcrLoading(true);
+    haptic(15);
+    try {
+      // Convert the first photo URL to base64
+      const photoUrl = fPhotos[0]!.url;
+      let base64: string | undefined;
+      if (photoUrl.startsWith("data:")) {
+        base64 = photoUrl.split(",")[1];
+      } else {
+        const res = await fetch(photoUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        base64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        base64 = base64.split(",")[1];
+      }
+
+      const res = await fetch("/api/ocr/dpr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "OCR failed");
+      }
+      const data = await res.json();
+      const result = data.result;
+
+      // Populate form fields from OCR result
+      if (result.workType) setFWorkType(result.workType);
+      if (result.workQty != null) setFWorkQty(String(result.workQty));
+      if (result.workUnit) setFWorkUnit(result.workUnit);
+      if (result.notes) setFNotes(result.notes);
+      if (result.progressPercent != null) setFProgress(String(result.progressPercent));
+
+      // Match material lines to known materials by name
+      if (result.materials?.length > 0) {
+        const matched: MaterialLine[] = [];
+        for (const ml of result.materials) {
+          const mat = materials.find(
+            (m) => m.name.toLowerCase().includes(ml.materialName.toLowerCase()) ||
+                   ml.materialName.toLowerCase().includes(m.name.toLowerCase()),
+          );
+          if (mat) {
+            matched.push({
+              materialId: mat.id,
+              qty: String(ml.quantity),
+              unitCost: String(mat.standardCost),
+            });
+          }
+        }
+        if (matched.length > 0) {
+          setMaterialLines(matched);
+          toast.success(`OCR: filled ${matched.length} material lines from photo`);
+        }
+      }
+
+      // Match labor lines by trade
+      if (result.labor?.length > 0) {
+        const matched: LaborLine[] = [];
+        for (const ll of result.labor) {
+          const emp = employees.find((e) => e.trade?.toLowerCase() === ll.trade.toLowerCase());
+          matched.push({
+            employeeId: emp?.id ?? "",
+            crewId: "",
+            hoursWorked: "8",
+            taskDescription: ll.trade,
+          });
+        }
+        if (matched.length > 0) {
+          setLaborLines(matched);
+        }
+      }
+
+      if (result.materials?.length === 0 && result.labor?.length === 0) {
+        toast.info("OCR completed but no lines detected. The photo may need to be clearer.");
+      } else {
+        haptic(20);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "OCR failed — fill manually");
+    } finally {
+      setOcrLoading(false);
+    }
   }
 
   function addMaterialLine() {
@@ -683,9 +780,23 @@ export function MobileDprForm({
       </FormField>
 
       <div>
-        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-          Site photos
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            Site photos
+          </label>
+          {fPhotos.length > 0 && (
+            <button
+              type="button"
+              onClick={runOcr}
+              disabled={ocrLoading}
+              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold press disabled:opacity-50"
+              style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}
+            >
+              {ocrLoading ? <Loader2 className="size-2.5 animate-spin" /> : <ScanLine className="size-2.5" />}
+              {ocrLoading ? "Scanning…" : "Scan Photo"}
+            </button>
+          )}
+        </div>
         <PhotoUploader photos={fPhotos} onChange={setFPhotos} maxPhotos={8} label="Add Site Photo" />
       </div>
 

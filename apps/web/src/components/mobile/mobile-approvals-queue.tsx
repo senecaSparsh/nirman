@@ -663,11 +663,11 @@ export function MobileApprovalsQueue({
  {rejectGp && (
  <div
  className="fixed inset-0 z-50 flex items-end justify-center"
- style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+ style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
  onClick={() => setRejectGp(null)}
  >
  <div
- className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-3"
+ className="w-full max-w-md rounded-t-[1rem] p-4 space-y-3"
  style={{ backgroundColor: "var(--color-paper)" }}
  onClick={(e) => e.stopPropagation()}
  >

@@ -87,7 +87,7 @@ export function MobileNewCategoryDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
     >
       <div
         className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
@@ -136,7 +136,7 @@ export function MobileNewCategoryDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Cement & Binding"
               autoFocus
-              className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
+              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",

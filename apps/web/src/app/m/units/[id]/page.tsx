@@ -13,6 +13,7 @@ import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileCta,
+  MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
@@ -83,13 +84,6 @@ async function MobileUnitDetailContent({
   const profit = askingPrice != null ? askingPrice - productionCost : null;
   const marginPct = askingPrice != null && productionCost > 0 && profit != null ? (profit / productionCost) * 100 : null;
 
-  const statusTone =
-    unit.status === "AVAILABLE" ? "var(--color-go)" :
-    unit.status === "SOLD" ? "var(--color-steel)" :
-    unit.status === "UNDER_CONSTRUCTION" ? "var(--color-signal)" :
-    unit.status === "RESERVED" ? "var(--color-signal-dark)" :
-    "var(--color-ink-500)";
-
   const typeLabel = unit.unitType.replace(/_/g, " ").toLowerCase();
   const sale = unit.assetSales[0];
 
@@ -131,12 +125,7 @@ async function MobileUnitDetailContent({
               {typeLabel} · {formatNumber(toNum(unit.area), 0)} {unit.areaUnit}
             </p>
           </div>
-          <span
-            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-            style={{ backgroundColor: statusTone, color: "#fff" }}
-          >
-            {unit.status.replace(/_/g, " ")}
-          </span>
+          <MobileStatusBadge status={unit.status} />
         </div>
 
         {/* Project link */}
@@ -260,7 +249,7 @@ async function MobileUnitDetailContent({
               className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0"
               style={{ backgroundColor: unit.status === "SOLD" ? "var(--color-go)" : "var(--color-signal)" }}
             >
-              <TrendingUp className="size-3.5" style={{ color: "#fff" }} />
+              <TrendingUp className="size-3.5" style={{ color: "var(--color-paper)" }} />
             </span>
             <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
               {unit.status === "SOLD" ? "Sold" : "Sale in progress"}
@@ -272,8 +261,8 @@ async function MobileUnitDetailContent({
             <KpiRow label="Sale price" value={formatCurrency(toNum(sale.salePrice))} />
             <KpiRow label="Profit" value={formatCurrency(toNum(sale.profit))} tone={toNum(sale.profit) >= 0 ? "go" : "stop"} />
             <KpiRow label="Date" value={formatDate(sale.saleDate)} />
-            <KpiRow label="Payment" value={sale.paymentStatus} tone={sale.paymentStatus === "PAID" ? "go" : sale.paymentStatus === "PENDING" ? "signal" : undefined} />
-            <KpiRow label="Stage" value={sale.saleStage} />
+            <KpiRow label="Payment" value={sale.paymentStatus.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())} tone={sale.paymentStatus === "PAID" ? "go" : sale.paymentStatus === "PENDING" ? "signal" : undefined} />
+            <KpiRow label="Stage" value={sale.saleStage.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())} />
           </div>
         </div>
       ) : null}

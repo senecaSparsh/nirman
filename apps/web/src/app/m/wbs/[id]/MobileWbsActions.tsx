@@ -135,7 +135,7 @@ export function MobileWbsEditDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
       onClick={onClose}
     >
       <div
@@ -386,7 +386,7 @@ export function MobileWbsDeleteConfirm({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center "
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={onClose}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={onClose}
     >
       <div
         className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
@@ -443,7 +443,7 @@ export function MobileWbsDeleteConfirm({
             className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
             style={{
               backgroundColor: "var(--color-stop)",
-              color: "#fff",
+              color: "var(--color-paper)",
             }}
           >
             {deleteAction.isPending ? (

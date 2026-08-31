@@ -644,11 +644,11 @@ export function VoiceAgentButton() {
       {pendingAction && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => !executing && setPendingAction(null)}
         >
           <div
-            className="w-full max-w-[30rem] rounded-t-2xl p-4 pb-safe animate-in slide-in-from-bottom"
+            className="w-full max-w-[30rem] rounded-t-[1rem] p-4 pb-safe animate-in slide-in-from-bottom"
             style={{
               backgroundColor: "var(--color-paper)",
               border: "1px solid var(--color-line)",

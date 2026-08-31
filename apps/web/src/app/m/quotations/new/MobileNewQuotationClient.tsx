@@ -178,7 +178,7 @@ export function MobileNewQuotationClient({
   }
 
   const inputClass =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none focus:ring-2";
+    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -189,7 +189,7 @@ export function MobileNewQuotationClient({
     <div className="space-y-3">
       {onClose ? (
         <div className="flex items-center gap-2 mb-2">
-          <button type="button" onClick={onClose} className="p-1 -ml-1" style={{ color: "var(--color-ink-700) press" }}>
+          <button type="button" onClick={onClose} className="p-1 -ml-1 press" style={{ color: "var(--color-ink-700)" }}>
             <X className="size-5" />
           </button>
           <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -327,7 +327,7 @@ export function MobileNewQuotationClient({
 
           {/* Location picker overlay */}
           {showLocationPicker ? (
-            <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={() => setShowLocationPicker(false)}>
+            <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowLocationPicker(false)}>
               <div
                 className="w-full max-h-[80vh] overflow-y-auto rounded-t-[1rem] p-3 space-y-2"
                 style={{ backgroundColor: "var(--color-canvas)" }}
@@ -336,7 +336,7 @@ export function MobileNewQuotationClient({
                 <div className="flex items-center justify-between sticky top-0 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
                   <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select delivery location</p>
                   <button type="button" onClick={() => setShowLocationPicker(false)}>
-                    <X className="size-4" style={{ color: "var(--color-ink-500) press" }} />
+                    <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
                   </button>
                 </div>
                 {locationGroups.map((g) => (

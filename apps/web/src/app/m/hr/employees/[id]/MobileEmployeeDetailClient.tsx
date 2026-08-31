@@ -164,7 +164,7 @@ export function MobileEmployeeDetailClient({
                 key={a.id}
                 icon={Calendar}
                 title={formatDate(a.date)}
-                subtitle={a.status}
+                subtitle={a.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
               />
             ))}
           </div>
@@ -211,7 +211,7 @@ export function MobileEmployeeDetailClient({
       {showDelete ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => setShowDelete(false)}
         >
           <div
@@ -307,7 +307,7 @@ function EmployeeEditSheet({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -319,7 +319,7 @@ function EmployeeEditSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
       onClick={onClose}
     >
       <div

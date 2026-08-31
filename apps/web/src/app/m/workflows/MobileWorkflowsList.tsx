@@ -271,7 +271,7 @@ export function MobileWorkflowsList({
                 onClick={() => handleRun(runTarget.id)}
                 disabled={running}
                 className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-                style={{ backgroundColor: "var(--color-steel)", color: "white" }}
+                style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
               >
                 {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
                 {running ? "Running…" : "Run now"}
@@ -315,7 +315,7 @@ export function MobileWorkflowsList({
                 onClick={() => handleDelete(delTarget.id)}
                 disabled={deleting}
                 className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "white" }}
+                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "var(--color-paper)" }}
               >
                 {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                 {deleting ? "Deleting…" : "Delete"}

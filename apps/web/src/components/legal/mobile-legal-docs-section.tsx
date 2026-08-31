@@ -21,12 +21,12 @@ import {
 } from "@/lib/legal-doc-flow";
 
 const STATUS_STYLE: Record<LegalDocStatus, { bg: string; fg: string; label: string }> = {
-  NOT_REQUIRED: { bg: "rgba(107,114,128,0.12)", fg: "#4b5563", label: "N/A" },
-  PENDING: { bg: "rgba(245,158,11,0.12)", fg: "#b45309", label: "Pending" },
-  APPROVED: { bg: "rgba(34,197,94,0.12)", fg: "#15803d", label: "Approved" },
-  REJECTED: { bg: "rgba(239,68,68,0.12)", fg: "#b91c1c", label: "Rejected" },
-  EXPIRED: { bg: "rgba(239,68,68,0.12)", fg: "#b91c1c", label: "Expired" },
-  RENEWAL_DUE: { bg: "rgba(249,115,22,0.12)", fg: "#c2410c", label: "Renewal Due" },
+  NOT_REQUIRED: { bg: "var(--color-concrete)", fg: "var(--color-ink-700)", label: "N/A" },
+  PENDING: { bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)", label: "Pending" },
+  APPROVED: { bg: "var(--color-go-wash)", fg: "var(--color-go)", label: "Approved" },
+  REJECTED: { bg: "var(--color-stop-wash)", fg: "var(--color-stop)", label: "Rejected" },
+  EXPIRED: { bg: "var(--color-stop-wash)", fg: "var(--color-stop)", label: "Expired" },
+  RENEWAL_DUE: { bg: "var(--color-stop-wash)", fg: "var(--color-stop)", label: "Renewal Due" },
 };
 
 const STAGE_ICONS: Record<string, typeof MapPin> = {
@@ -181,7 +181,7 @@ export function MobileLegalDocsSection({
           <button
             onClick={() => { setEditing(null); setShowForm(true); }}
             className="flex items-center gap-1 text-m-body font-semibold rounded-full px-2.5 py-1"
-            style={{ backgroundColor: "var(--color-brand)", color: "white" }}
+            style={{ backgroundColor: "var(--color-brand)", color: "var(--color-paper)" }}
           >
             <Plus className="size-3.5" /> Add
           </button>
@@ -321,7 +321,7 @@ function MobileChecklistRow({
           ) : isNotRequired ? (
             <CircleDot className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
           ) : isPending ? (
-            <Clock className="size-3.5" style={{ color: "#b45309" }} />
+            <Clock className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
           ) : (
             <div className="size-3.5 rounded-full border-2" style={{ borderColor: "var(--color-line)" }} />
           )}
@@ -334,7 +334,7 @@ function MobileChecklistRow({
               {step.label}
             </p>
             {!step.isOptional && !isObtained && !isNotRequired && !isLocked && (
-              <span className="rounded px-1 text-m-caption font-bold" style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#b91c1c" }}>REQ</span>
+              <span className="rounded px-1 text-m-caption font-bold" style={{ backgroundColor: "var(--color-stop-wash)", color: "var(--color-stop)" }}>REQ</span>
             )}
             {statusStyle && doc && (
               <span className="rounded-full px-1.5 py-0.5 text-m-caption font-semibold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}>
@@ -354,7 +354,7 @@ function MobileChecklistRow({
             </p>
           )}
           {expiryStatus === "expiring" && (
-            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "#c2410c" }}>
+            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "var(--color-stop)" }}>
               Expires in {expiryDays}d
             </p>
           )}
@@ -375,7 +375,7 @@ function MobileChecklistRow({
               className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
               style={{
                 backgroundColor: isObtained ? "rgba(34,197,94,0.15)" : "var(--color-paper-2)",
-                color: isObtained ? "#15803d" : "var(--color-ink-500)",
+                color: isObtained ? "var(--color-go)" : "var(--color-ink-500)",
               }}
             >Yes</button>
             <button

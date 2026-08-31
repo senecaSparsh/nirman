@@ -99,7 +99,7 @@ export function MobileMbActions({
             className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-go)",
-              color: "#fff",
+              color: "var(--color-paper)",
             }}
           >
             {approveBusy ? (
@@ -116,7 +116,7 @@ export function MobileMbActions({
       {showRejectConfirm ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center "
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={() => setShowRejectConfirm(false)}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowRejectConfirm(false)}
         >
           <div
             className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
@@ -188,7 +188,7 @@ export function MobileMbActions({
                 className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
                 style={{
                   backgroundColor: "var(--color-stop)",
-                  color: "#fff",
+                  color: "var(--color-paper)",
                 }}
               >
                 {rejectAction.isPending ? (

@@ -26,7 +26,7 @@ type ButtonSize = "md" | "lg" | "xl";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
   primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
-  signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "#e09a10", fontWeight: 700 },
+  signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "var(--color-signal-active)", fontWeight: 700 },
   secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
   ghost: { backgroundColor: "transparent", color: "var(--color-ink-700)", borderColor: "transparent" },
   danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
@@ -450,7 +450,7 @@ export function MobileCta({
 }) {
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
-    signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "#e09a10" },
+    signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "var(--color-signal-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
     danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
   };

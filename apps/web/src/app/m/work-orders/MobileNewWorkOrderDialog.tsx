@@ -225,7 +225,7 @@ export function MobileNewWorkOrderDialog({
   const labelStyle = { color: "var(--color-ink-500)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={onClose}>
       <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
@@ -438,7 +438,7 @@ export function MobileNewWorkOrderDialog({
 
         {/* BOQ Picker Sheet */}
         {showBoqPicker && (
-          <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={() => setShowBoqPicker(false)}>
+          <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowBoqPicker(false)}>
             <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>

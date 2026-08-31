@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Building } from "lucide-react";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -177,7 +177,7 @@ function UnitCard({ u, showProject }: { u: UnitListItem; showProject: boolean })
         </p>
         <span
           className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-          style={{ backgroundColor: tone, color: "#fff" }}
+          style={{ backgroundColor: tone, color: "var(--color-paper)" }}
         >
           {STATUS_LABEL[u.status] ?? u.status}
         </span>
@@ -194,7 +194,7 @@ function UnitCard({ u, showProject }: { u: UnitListItem; showProject: boolean })
           className="text-m-label font-bold tabular-nums"
           style={{ color: u.askingPrice != null ? "var(--color-steel)" : "var(--color-stop)" }}
         >
-          {u.askingPrice != null ? formatCurrency(u.askingPrice) : "—"}
+          {u.askingPrice != null ? formatCurrencyCompact(u.askingPrice) : "—"}
         </span>
       </div>
     </Link>

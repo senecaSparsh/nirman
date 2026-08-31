@@ -203,7 +203,7 @@ export function MobileTransferReceiveDialog({
           setOpen(true);
         }}
         className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
-        style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+        style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
       >
         <CheckCircle2 className="size-4" />
         Receive at destination
@@ -369,7 +369,7 @@ export function MobileTransferReceiveDialog({
 
         {/* Footer */}
         <div className="border-t p-3 space-y-2" style={{ borderColor: "var(--color-line)" }}>
-          <button type="button" onClick={confirmReceive} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+          <button type="button" onClick={confirmReceive} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
             {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Receiving…</>) : (<><CheckCircle2 className="size-4" />Confirm — update stock</>)}
           </button>
           <button
@@ -403,7 +403,7 @@ export function MobileTransferReceiveDialog({
               <TextField label="Reason" value={returnReason} onChange={setReturnReason} placeholder="e.g. Goods damaged in transit" required />
               <div className="flex flex-col gap-2">
                 <button onClick={() => setShowReturn(false)} disabled={submitting} className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>Cancel</button>
-                <button onClick={() => void confirmReturnToSource()} disabled={submitting} className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+                <button onClick={() => void confirmReturnToSource()} disabled={submitting} className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {submitting ? <Loader2 className="size-4 animate-spin" /> : <><RotateCcw className="size-3.5" /><span>Return to Source</span></>}
                 </button>
               </div>

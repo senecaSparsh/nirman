@@ -926,7 +926,7 @@ export function MobileLandDetailClient({
       {cadastreZoom && sortedParcels.length > 0 ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-6"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
           onClick={() => setCadastreZoom(false)}
         >
           <div
@@ -1165,7 +1165,7 @@ export function MobileLandDetailClient({
                         onClick={() => handleChequeAction(p.id, "clear")}
                         disabled={submitting}
                         className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
-                        style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                        style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                       >
                         Clear
                       </button>
@@ -1173,7 +1173,7 @@ export function MobileLandDetailClient({
                         onClick={() => handleChequeAction(p.id, "bounce")}
                         disabled={submitting}
                         className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
-                        style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                        style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                       >
                         Bounce
                       </button>
@@ -1263,7 +1263,7 @@ export function MobileLandDetailClient({
               <button
                 onClick={() => setShowComplete(true)}
                 className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.5rem] text-m-body press"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
               >
                 <CheckCircle2 className="size-3.5" />
                 <span className="text-m-body font-bold">Complete</span>
@@ -1410,7 +1410,7 @@ export function MobileLandDetailClient({
               <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Mode</label>
               <select
                 value={payMode} onChange={(e) => setPayMode(e.target.value)}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
@@ -1423,7 +1423,7 @@ export function MobileLandDetailClient({
               <input
                 type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
                 placeholder="Cheque / UTR no."
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
@@ -1436,7 +1436,7 @@ export function MobileLandDetailClient({
               </button>
               <button type="submit" disabled={submitting}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
               </button>
             </div>
@@ -1456,7 +1456,7 @@ export function MobileLandDetailClient({
               <input
                 type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
                 placeholder="e.g. SR-1234/2025"
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
@@ -1499,7 +1499,7 @@ export function MobileLandDetailClient({
               </button>
               <button type="submit" disabled={submitting}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Complete"}
               </button>
             </div>
@@ -2092,7 +2092,7 @@ function SaleCard({ sale: s }: { sale: Sale }) {
           {s.saleNumber}
         </span>
         <span className="text-m-caption font-semibold px-1.5 py-0.5 rounded-full" style={{ color: "var(--color-go)", backgroundColor: `color-mix(in srgb, var(--color-go) 12%, transparent)` }}>
-          {s.saleStage}
+          {s.saleStage.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -2648,7 +2648,7 @@ function BottomSheet({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
         onClick={onClose}
       />
       {/* Sheet */}

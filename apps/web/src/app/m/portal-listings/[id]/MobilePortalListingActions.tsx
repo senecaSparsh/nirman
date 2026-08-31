@@ -122,7 +122,7 @@ export function MobilePortalListingActions({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
   const labelClass = "text-m-caption font-semibold block mb-1";
   const labelStyle = { color: "var(--color-ink-500)" };
@@ -195,7 +195,7 @@ export function MobilePortalListingActions({
 
       {/* Delist confirmation modal */}
       {showDelistConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center " style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={() => setShowDelistConfirm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center " style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowDelistConfirm(false)}>
           <div
             className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
             style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
@@ -233,7 +233,7 @@ export function MobilePortalListingActions({
                 }}
                 disabled={busy !== null}
                 className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
               >
                 {busy === "delist" ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Delist"}
               </button>
@@ -246,7 +246,7 @@ export function MobilePortalListingActions({
       {showEdit ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => setShowEdit(false)}
         >
           <div
@@ -305,7 +305,7 @@ export function MobilePortalListingActions({
       {showDelete ? (
         <div
           className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
           onClick={() => setShowDelete(false)}
         >
           <div

@@ -281,7 +281,7 @@ function MobilePayDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
         style={{
@@ -535,7 +535,7 @@ function MobileAddLineDialog({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       {/* Bottom sheet */}
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"

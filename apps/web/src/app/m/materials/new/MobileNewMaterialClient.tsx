@@ -218,7 +218,7 @@ export default function MobileNewMaterialClient({
     );
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" } as React.CSSProperties;
   const costValue = Number(standardCost) || 0;
   const totalWithGst = costValue * (1 + (Number(gstRate) || 0) / 100);

@@ -313,7 +313,7 @@ function QuotationCard({
           </span>
           <span
             className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
-            style={{ backgroundColor: accentColor, color: "#fff" }}
+            style={{ backgroundColor: accentColor, color: "var(--color-paper)" }}
           >
             {style.label}
           </span>

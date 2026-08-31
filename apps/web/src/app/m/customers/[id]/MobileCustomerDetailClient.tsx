@@ -466,7 +466,7 @@ function DeleteConfirm({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       <div
         className="relative w-full max-w-md rounded-t-[0.75rem] border-t"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}

@@ -364,7 +364,7 @@ function ActionCard({
         {badge ? (
           <span
             className="absolute -top-1 -right-1.5 text-m-caption font-bold tabular-nums px-1 py-0 rounded-full leading-none min-w-[1rem] text-center"
-            style={{ backgroundColor: badgeColor, color: "#fff" }}
+            style={{ backgroundColor: badgeColor, color: "var(--color-paper)" }}
           >
             {badge}
           </span>

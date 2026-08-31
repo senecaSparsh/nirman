@@ -219,7 +219,7 @@ export function MobileRequisitionActions({
         <>
           <div
             className="fixed inset-0 z-50"
-            style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+            style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
             onClick={() => !busy && setShowDeleteConfirm(false)}
           />
           <div
@@ -584,7 +584,7 @@ function ConvertForm({
         type="button"
         onClick={convert}
         disabled={submitting}
-        className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold press disabled:opacity-50"
         style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
       >
         {submitting ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-3.5" />}

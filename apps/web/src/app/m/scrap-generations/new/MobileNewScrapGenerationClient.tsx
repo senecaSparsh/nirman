@@ -206,7 +206,7 @@ export default function MobileNewScrapGenerationClient() {
     );
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
 
   return (
     <div>

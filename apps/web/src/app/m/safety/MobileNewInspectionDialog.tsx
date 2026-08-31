@@ -35,7 +35,7 @@ export function MobileNewInspectionDialog({ open, onClose, projects }: { open: b
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
       <div className="mt-auto rounded-t-[1rem] max-h-[60vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-2"><ClipboardCheck className="size-4" style={{ color: "var(--color-ink-950)" }} /><h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Schedule Inspection</h2></div>

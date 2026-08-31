@@ -865,7 +865,7 @@ function PoForm({
             type="date"
             value={expectedDate}
             onChange={(e) => setExpectedDate(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>
@@ -880,7 +880,7 @@ function PoForm({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Urgent delivery for foundation work"
             rows={2}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none resize-none"
+            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
         </div>

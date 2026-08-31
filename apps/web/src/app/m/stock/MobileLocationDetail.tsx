@@ -265,7 +265,7 @@ export function MobileLocationDetail({
             className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold transition-colors press"
             style={
               tab === "transit"
-                ? { backgroundColor: "var(--color-signal)", color: "#fff" }
+                ? { backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }
                 : { backgroundColor: "var(--color-paper)", color: "var(--color-signal-dark)", border: "1px solid var(--color-line)" }
             }
           >

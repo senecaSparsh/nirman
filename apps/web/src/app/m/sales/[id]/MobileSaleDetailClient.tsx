@@ -1094,7 +1094,7 @@ export function MobileSaleDetailClient({
                       onClick={(e) => { e.preventDefault(); handleChequeAction(p.id, "clear"); }}
                       disabled={submitting}
                       className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
-                      style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                      style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                     >
                       Clear
                     </button>
@@ -1102,7 +1102,7 @@ export function MobileSaleDetailClient({
                       onClick={(e) => { e.preventDefault(); handleChequeAction(p.id, "bounce"); }}
                       disabled={submitting}
                       className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
-                      style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+                      style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                     >
                       Bounce
                     </button>
@@ -1262,7 +1262,7 @@ export function MobileSaleDetailClient({
           <button
             onClick={() => setShowComplete(true)}
             className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 mb-2 text-m-body press"
-            style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+            style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
           >
             <CheckCircle2 className="size-3.5" />
             <span className="text-m-body font-bold">Complete Sale</span>
@@ -1312,7 +1312,7 @@ export function MobileSaleDetailClient({
               onClick={handleCancel}
               disabled={submitting}
               className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Cancel Sale"}
             </button>
@@ -1378,7 +1378,7 @@ export function MobileSaleDetailClient({
               <select
                 value={payMode}
                 onChange={(e) => setPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none focus:ring-2"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 {PAYMENT_MODES.map((m) => (
@@ -1395,7 +1395,7 @@ export function MobileSaleDetailClient({
                 value={payRef}
                 onChange={(e) => setPayRef(e.target.value)}
                 placeholder="Cheque / UTR no."
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none focus:ring-2"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
@@ -1413,7 +1413,7 @@ export function MobileSaleDetailClient({
                 type="submit"
                 disabled={submitting}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
               </button>
@@ -1497,7 +1497,7 @@ export function MobileSaleDetailClient({
                 value={compSaleDeedNo}
                 onChange={(e) => setCompSaleDeedNo(e.target.value)}
                 placeholder="e.g. SR-1234/2025"
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none focus:ring-2"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
@@ -1509,7 +1509,7 @@ export function MobileSaleDetailClient({
               <select
                 value={compPayMode}
                 onChange={(e) => setCompPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none focus:ring-2"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 {PAYMENT_MODES.map((m) => (
@@ -1527,7 +1527,7 @@ export function MobileSaleDetailClient({
                 value={compRef}
                 onChange={(e) => setCompRef(e.target.value)}
                 placeholder="Cheque / UTR no."
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none focus:ring-2"
+                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
             </div>
@@ -1690,7 +1690,7 @@ export function MobileSaleDetailClient({
                 type="submit"
                 disabled={submitting}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Complete"}
               </button>
@@ -1719,7 +1719,7 @@ export function MobileSaleDetailClient({
               onClick={handlePayCommission}
               disabled={payingCommission}
               className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {payingCommission ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Pay Commission"}
             </button>
@@ -1856,9 +1856,9 @@ function SaleLifecycleTimeline({
                 }}
               >
                 {step.state === "done" ? (
-                  <CheckCircle2 className="size-3" style={{ color: "#fff" }} />
+                  <CheckCircle2 className="size-3" style={{ color: "var(--color-paper)" }} />
                 ) : step.state === "current" ? (
-                  <div className="size-1.5 rounded-full" style={{ backgroundColor: "#fff" }} />
+                  <div className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
                 ) : (
                   <div className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
                 )}

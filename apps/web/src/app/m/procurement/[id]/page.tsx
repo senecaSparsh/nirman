@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import { getCompany, getCompanyGroupIds, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobilePipelineStepper,
+  MobileStatusBadge,
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -191,13 +192,6 @@ async function MobilePoDetailContent({
   const gstTotal = toNum(po.gstTotal);
   const total = toNum(po.total);
 
-  const statusTone =
-    po.status === "RECEIVED" ? "var(--color-go)" :
-    po.status === "CANCELLED" ? "var(--color-stop)" :
-    po.status === "DRAFT" ? "var(--color-ink-500)" :
-    po.status === "PARTIAL" ? "var(--color-signal)" :
-    "var(--color-steel)";
-
   // Overdue calculation for inline alert
   const now = Date.now();
   let overdueDays = 0;
@@ -267,12 +261,7 @@ async function MobilePoDetailContent({
               {po.supplier.name}
             </Link>
           </div>
-          <span
-            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-            style={{ backgroundColor: statusTone, color: "#fff" }}
-          >
-            {po.status}
-          </span>
+          <MobileStatusBadge status={po.status} />
           <a
             href={`/print/purchase-order/${po.id}`}
             target="_blank"
@@ -518,9 +507,9 @@ async function MobilePoDetailContent({
             <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Financials</p>
           </div>
           <div className="space-y-1.5">
-            <KpiRow label="Total" value={formatCurrency(total)} />
-            <KpiRow label="Subtotal" value={formatCurrency(subtotal)} />
-            <KpiRow label="GST" value={formatCurrency(gstTotal)} />
+            <KpiRow label="Total" value={formatCurrencyCompact(total)} />
+            <KpiRow label="Subtotal" value={formatCurrencyCompact(subtotal)} />
+            <KpiRow label="GST" value={formatCurrencyCompact(gstTotal)} />
             {freightTotal > 0 ? <KpiRow label="Freight" value={formatCurrency(freightTotal)} /> : null}
             {loadingTotal > 0 ? <KpiRow label="Loading" value={formatCurrency(loadingTotal)} /> : null}
             {packingTotal > 0 ? <KpiRow label="Packing" value={formatCurrency(packingTotal)} /> : null}
@@ -776,7 +765,7 @@ async function MobilePoDetailContent({
                 Total Paid
               </p>
               <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                {formatCurrency(totalPaid)} / {formatCurrency(total)}
+                {formatCurrencyCompact(totalPaid)} / {formatCurrencyCompact(total)}
               </span>
             </div>
           </div>

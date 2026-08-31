@@ -633,7 +633,7 @@ export function MobileMaterialSaleDetailClient({
               onClick={handleCancel}
               disabled={submitting}
               className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Cancel Sale"}
             </button>
@@ -697,7 +697,7 @@ export function MobileMaterialSaleDetailClient({
                 type="submit"
                 disabled={submitting}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
               >
                 {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
               </button>
@@ -746,4 +746,4 @@ function FormField({ label, required, children }: { label: string; required?: bo
   );
 }
 
-const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-medium outline-none";
+const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";

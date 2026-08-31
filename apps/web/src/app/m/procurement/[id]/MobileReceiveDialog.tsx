@@ -916,8 +916,8 @@ export function MobileReceiveDialog({
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold border" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500) press" }}>Cancel</button>
-                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold" style={{ backgroundColor: "var(--color-signal)", color: "#fff press" }}>
+                    <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold border press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}>Cancel</button>
+                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}>
                       {quickAddLoading ? "Creating…" : "Create + auto-fill HSN/GST"}
                     </button>
                   </div>
@@ -1219,7 +1219,7 @@ export function MobileReceiveDialog({
         {/* Footer */}
         <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
           {mode === "reject" ? (
-            <button type="button" onClick={prepareReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+            <button type="button" onClick={prepareReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
               {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Review rejection</>)}
             </button>
           ) : (
@@ -1265,7 +1265,7 @@ export function MobileReceiveDialog({
                 </div>
               </div>
               <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
-                <button type="button" onClick={confirmReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "#fff" }}>
+                <button type="button" onClick={confirmReceipt} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><CheckCircle2 className="size-4" />Confirm — update stock</>)}
                 </button>
               </div>
@@ -1301,7 +1301,7 @@ export function MobileReceiveDialog({
                 </div>
               </div>
               <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
-                <button type="button" onClick={confirmReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}>
+                <button type="button" onClick={confirmReject} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Confirm — reject delivery</>)}
                 </button>
               </div>

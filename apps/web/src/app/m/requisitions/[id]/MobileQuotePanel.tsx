@@ -220,7 +220,7 @@ export function MobileQuotePanel({
           {selectedQuoteId ? (
             <span
               className="flex items-center gap-0.5 text-m-caption font-bold uppercase px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               <Crown className="size-2.5" /> Winner
             </span>
@@ -339,7 +339,7 @@ export function MobileQuotePanel({
                           className="flex items-center gap-0.5 text-m-caption font-bold uppercase px-1 py-0 rounded shrink-0"
                           style={{
                             backgroundColor: "var(--color-go)",
-                            color: "#fff",
+                            color: "var(--color-paper)",
                           }}
                         >
                           <Crown className="size-2" /> Selected
@@ -441,7 +441,7 @@ export function MobileQuotePanel({
                       className="flex items-center gap-1 text-m-caption font-bold px-2 py-1 rounded text-m-body press disabled:opacity-50"
                       style={{
                         backgroundColor: "var(--color-go)",
-                        color: "#fff",
+                        color: "var(--color-paper)",
                       }}
                     >
                       {isSelecting ? (
@@ -711,7 +711,7 @@ function MobileQuoteUploadDialog({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       {/* Bottom sheet */}
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
@@ -1106,7 +1106,7 @@ function SupplierPickerModal({
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-[1rem] border-t"
         style={{
@@ -1224,7 +1224,7 @@ function WaiveDialog({
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onCancel} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onCancel} />
       <div
         className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
         style={{
@@ -1367,7 +1367,7 @@ function MobileEditQuoteDialog({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }} onClick={onClose} />
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
       {/* Bottom sheet */}
       <div
         className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"

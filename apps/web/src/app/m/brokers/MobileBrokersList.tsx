@@ -233,7 +233,7 @@ function BrokerEditSheet({
     }
   }
 
-  const inputClass = "w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -245,7 +245,7 @@ function BrokerEditSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
       onClick={onClose}
     >
       <div
@@ -288,7 +288,7 @@ function BrokerEditSheet({
                   onClick={del}
                   disabled={saving}
                   className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
-                  style={{ backgroundColor: "var(--color-danger, #dc2626)", color: "white" }}
+                  style={{ backgroundColor: "var(--color-danger, #dc2626)", color: "var(--color-paper)" }}
                 >
                   {saving ? "Deleting…" : "Delete"}
                 </button>

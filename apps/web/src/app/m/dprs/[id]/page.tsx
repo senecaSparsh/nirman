@@ -177,7 +177,7 @@ async function MobileDprDetailContent({
               ) : null}
               <span
                 className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
-                style={{ backgroundColor: statusColor, color: "#fff" }}
+                style={{ backgroundColor: statusColor, color: "var(--color-paper)" }}
               >
                 {dpr.approvalStatus.replace(/_/g, " ")}
               </span>
@@ -411,9 +411,9 @@ async function MobileDprDetailContent({
                 >
                   {step.done ? (
                     status === "rejected" && i > 0 ? (
-                      <XCircle className="size-3.5" style={{ color: "#fff" }} />
+                      <XCircle className="size-3.5" style={{ color: "var(--color-paper)" }} />
                     ) : (
-                      <CheckCircle2 className="size-3.5" style={{ color: "#fff" }} />
+                      <CheckCircle2 className="size-3.5" style={{ color: "var(--color-paper)" }} />
                     )
                   ) : (
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />

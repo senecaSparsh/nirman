@@ -156,7 +156,7 @@ export function MobileLandPurchaseOrderDialog({
     }
   }
 
-  const inputClass = "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section outline-none";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
   const labelClass = "text-m-caption font-semibold uppercase tracking-wide block mb-0.5";
   const labelStyle = { color: "var(--color-ink-500)" };
@@ -483,7 +483,7 @@ export function MobileLandPurchaseOrderDialog({
               type="submit"
               disabled={saving}
               className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-signal)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Book Land"}
             </button>

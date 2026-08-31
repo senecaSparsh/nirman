@@ -300,7 +300,7 @@ export function MobileNewWorkflowClient() {
             onClick={() => setStep("schedule")}
             disabled={!name.trim()}
             className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 press"
-            style={{ backgroundColor: "var(--color-steel)", color: "white" }}
+            style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
           >
             Continue <ChevronRight className="size-4" />
           </button>
@@ -351,7 +351,7 @@ export function MobileNewWorkflowClient() {
             onClick={handleCreate}
             disabled={creating}
             className="w-full h-12 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-2 press"
-            style={{ backgroundColor: "var(--color-go)", color: "white" }}
+            style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
           >
             {creating ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
             {creating ? "Creating…" : "Create Workflow"}

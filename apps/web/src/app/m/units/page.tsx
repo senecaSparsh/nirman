@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { Home } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileCta,
@@ -157,7 +157,7 @@ async function MobileUnitsContent({
 
           {/* Row 3: inline financial stats — 3 key numbers only */}
           <div className="flex items-center justify-between gap-2">
-            <Stat label="Stock" value={formatCurrency(inventoryValue)} />
+            <Stat label="Stock" value={formatCurrencyCompact(inventoryValue)} />
             <Divider />
             <Stat label="₹/sqft" value={avgPricePerSqft > 0 ? formatNumber(avgPricePerSqft, 0) : "—"} />
             <Divider />
@@ -183,7 +183,7 @@ async function MobileUnitsContent({
         exportTitle="Built Units"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={csvColumns}
-        exportSummary={`${units.length} units · Stock value: ${formatCurrency(inventoryValue)}`}
+        exportSummary={`${units.length} units · Stock value: ${formatCurrencyCompact(inventoryValue)}`}
       />
 
       {/* ── FAB: New Unit ── */}

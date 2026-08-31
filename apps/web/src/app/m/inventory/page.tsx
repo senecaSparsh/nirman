@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getCompanyGroupIds, toNum } from "@/lib/server";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   Badge,
@@ -158,7 +158,7 @@ async function InventoryContent() {
     attentionBanners.push({
       id: "clear",
       title: "All caught up!",
-      subtitle: `${materialRows.length} materials healthy · ${formatCurrency(totalStockValue)} in stock · no pending approvals`,
+      subtitle: `${materialRows.length} materials healthy · ${formatCurrencyCompact(totalStockValue)} in stock · no pending approvals`,
       href: "/m/materials",
       severity: "clear",
       qtyText: "✓",

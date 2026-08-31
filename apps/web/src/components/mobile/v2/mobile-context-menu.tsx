@@ -51,7 +51,7 @@ export function MobileContextMenu({
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-[70]"
-        style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
         onClick={onClose}
       />
 

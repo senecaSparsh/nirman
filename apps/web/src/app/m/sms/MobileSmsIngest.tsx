@@ -73,7 +73,7 @@ export function MobileSmsIngest() {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
       onClick={() => !saving && setOpen(false)}
     >
       <div
@@ -86,7 +86,7 @@ export function MobileSmsIngest() {
             Paste Bank SMS
           </h2>
           <button onClick={() => !saving && setOpen(false)}>
-            <X className="size-4" style={{ color: "var(--color-ink-500) press" }} />
+            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>
 

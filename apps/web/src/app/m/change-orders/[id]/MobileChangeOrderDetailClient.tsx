@@ -398,7 +398,7 @@ export function MobileChangeOrderDetailClient({
               }}
               disabled={acting === "reject"}
               className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
-              style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {acting === "reject" ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
               Confirm Rejection
@@ -574,7 +574,7 @@ function ActionButton({
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
-    danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
+    danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };
   return (
@@ -592,7 +592,7 @@ function ActionButton({
 
 function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
       <div
         className="mt-auto rounded-t-[1rem] max-h-[60vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}

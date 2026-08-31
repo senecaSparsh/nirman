@@ -96,7 +96,7 @@ export function PhotoCapture({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt={p.fileName ?? "proof"} className="w-full h-full object-cover" />
             {p.lat != null && p.lng != null ? (
-              <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}>
+              <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}>
                 <MapPin className="size-2 shrink-0" style={{ color: "var(--color-paper)" }} />
                 <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-paper)" }}>
                   {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
@@ -567,7 +567,7 @@ export function ReceivingPhotoUpload({
         >
           <X className="size-2.5" style={{ color: "var(--color-paper)" }} />
         </button>
-        <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5" style={{ backgroundColor: "rgba(18, 17, 13, 0.6)" }}>
+        <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}>
           <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-paper)" }}>✓ Receiving photo</span>
         </div>
       </div>

@@ -1363,7 +1363,7 @@ export function MobileTransferDetailClient({
                   className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                   style={{
                     backgroundColor: "var(--color-signal)",
-                    color: "#fff",
+                    color: "var(--color-paper)",
                   }}
                 >
                   Switch
@@ -1631,7 +1631,7 @@ export function MobileTransferDetailClient({
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{
                     backgroundColor: "var(--color-stop)",
-                    color: "#fff",
+                    color: "var(--color-paper)",
                   }}
                 >
                   {acting === "cancel" ? (
@@ -1737,7 +1737,7 @@ export function MobileTransferDetailClient({
                   className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                   style={{
                     backgroundColor: "var(--color-stop)",
-                    color: "#fff",
+                    color: "var(--color-paper)",
                   }}
                 >
                   {acting === "return" ? (
@@ -1806,7 +1806,7 @@ export function MobileTransferDetailClient({
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{
                   backgroundColor: "var(--color-go)",
-                  color: "#fff",
+                  color: "var(--color-paper)",
                 }}
               >
                 {acting === "complete" ? (

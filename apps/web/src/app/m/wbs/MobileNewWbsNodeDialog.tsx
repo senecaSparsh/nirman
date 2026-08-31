@@ -168,7 +168,7 @@ export function MobileNewWbsNodeDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
       onClick={onClose}
     >
       <div

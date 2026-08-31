@@ -378,7 +378,7 @@ function DepartmentFormDialog({
               type="submit"
               disabled={saving}
               className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-              style={{ backgroundColor: "var(--color-steel)", color: "white" }}
+              style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
             >
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
               {saving ? "Creating…" : "Create"}

@@ -164,7 +164,7 @@ export function MobileNewChangeOrderDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
       <div
         className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}

@@ -241,7 +241,7 @@ export function MobileNewMaterialDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
     >
       <div
         className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
@@ -613,7 +613,7 @@ export function MobileNewMaterialDialog({
         {showHsnPicker && (
           <div
             className="fixed inset-0 z-[60] flex items-end justify-center"
-            style={{ backgroundColor: "rgba(18, 17, 13, 0.4)" }}
+            style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
             onClick={() => setShowHsnPicker(false)}
           >
             <div

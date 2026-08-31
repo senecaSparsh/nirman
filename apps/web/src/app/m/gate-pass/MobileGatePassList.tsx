@@ -465,7 +465,7 @@ export function MobileGatePassList({
       {rejectTarget && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
           onClick={() => setRejectTarget(null)}
         >
           <div
@@ -509,7 +509,7 @@ export function MobileGatePassList({
       {cancelTarget && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
           onClick={() => setCancelTarget(null)}
         >
           <div
@@ -550,7 +550,7 @@ export function MobileGatePassList({
       {exitTarget && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
           onClick={() => setExitTarget(null)}
         >
           <div
@@ -726,7 +726,7 @@ export function MobileGatePassFormDialog({
       <MobileFab onClick={() => setOpen(true)} label="New gate pass" />
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center " style={{ backgroundColor: "rgba(18, 17, 13, 0.5)" }} onClick={handleClose}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center " style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={handleClose}>
           <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-[0.75rem] p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between">
