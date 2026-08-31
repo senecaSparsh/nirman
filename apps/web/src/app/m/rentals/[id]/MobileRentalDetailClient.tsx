@@ -875,6 +875,7 @@ function PaymentSheet({
       onSuccess();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
       setSaving(false);
     }
   };
