@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronDown,
@@ -183,6 +184,9 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     }
     // Optimistic update — close dropdown + update name instantly
     setCompanySwitcherOpen(false);
+    const prevName = companyInfo.name;
+    const prevParentId = companyInfo.parentCompanyId;
+    const prevCompanies = companies;
     setCompanyInfo((prev) => ({
       ...prev,
       name: target.name,
@@ -205,7 +209,19 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
         requestAnimationFrame(() => {
           document.title = newTitle;
         });
+      } else {
+        // Revert optimistic update on failure
+        setCompanyInfo((prev) => ({ ...prev, name: prevName, parentCompanyId: prevParentId }));
+        setCompanies(prevCompanies);
+        document.title = prevName !== "Nirman" ? `${prevName} · Nirman OS` : "Nirman Inventory OS";
+        toast.error("Failed to switch company. Please try again.");
       }
+    } catch {
+      // Revert optimistic update on network error
+      setCompanyInfo((prev) => ({ ...prev, name: prevName, parentCompanyId: prevParentId }));
+      setCompanies(prevCompanies);
+      document.title = prevName !== "Nirman" ? `${prevName} · Nirman OS` : "Nirman Inventory OS";
+      toast.error("Network error. Please try again.");
     } finally {
       setSwitchingCompanyId(null);
     }

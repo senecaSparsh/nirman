@@ -461,6 +461,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 "w-8 justify-center sm:w-56 sm:justify-start lg:w-64",
               )}
               title="Search anything (⌘K)"
+              aria-label="Search anything"
             >
               <Search className="size-3.5 shrink-0" />
               <span className="hidden sm:inline">Search or jump to…</span>
@@ -557,6 +558,7 @@ function WorldRail({
           "text-brand-foreground shadow-raised transition-transform hover:scale-105",
         )}
         title={companyName}
+        aria-label={`${companyName} — home`}
       >
         {brandMark}
       </Link>
@@ -637,6 +639,7 @@ function WorldRail({
           onClick={() => authSignOut().then(() => (window.location.href = "/sign-in"))}
           className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           title="Sign out"
+          aria-label="Sign out"
         >
           <LogOut className="size-4" />
         </button>

@@ -476,6 +476,9 @@ export default function MobileNewMaterialSaleClient() {
       // Haptic + clear draft on success
       haptic(paymentFailed ? [10, 40, 10] : [10, 40, 80]);
       clearDraft();
+      // Refresh server-rendered cache so the material sales list
+      // shows the new sale when the user navigates back.
+      router.refresh();
       // ── Persist last-used payment mode for next sale ──
       if (validSplits.length > 0) {
         try {

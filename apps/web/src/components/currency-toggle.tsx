@@ -17,6 +17,7 @@ export function CurrencyToggle({ tone = "default" }: { tone?: "default" | "surfa
     <button
       onClick={toggle}
       title={isCompact ? "Compact mode (₹1.2L). Click for detailed (₹1,23,456.78)" : "Detailed mode (₹1,23,456.78). Click for compact (₹1.2L)"}
+      aria-label={`Currency display: ${isCompact ? "compact" : "detailed"} mode. Click to switch to ${isCompact ? "detailed" : "compact"} mode.`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-caption font-medium transition-colors",
         tone === "surface"
