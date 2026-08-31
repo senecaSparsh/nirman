@@ -598,9 +598,21 @@ export function MobileApprovalsQueue({
 
  {/* ── DPRs ─────────────────────────────────────────────── */}
  {dprs.length > 0 && (
- <h2 className="px-4 pb-1.5 pt-5 text-m-caption " style={{ color: "var(--color-ink-500)" }}>
+ <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
+ <h2 className="text-m-caption " style={{ color: "var(--color-ink-500)" }}>
  DPRs ({visibleDprs.length})
  </h2>
+ {visibleDprs.length > 1 && (
+ <button
+ disabled={batchApproving}
+ onClick={() => batchApprove("dpr")}
+ className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+ >
+ {batchApproving ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+ Approve All
+ </button>
+ )}
+ </div>
  )}
  {visibleDprs.map((dpr) => {
  const state = dprStates[dpr.id] ?? "pending";

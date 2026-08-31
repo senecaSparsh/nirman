@@ -132,7 +132,7 @@ export function MobileNewSaleForm({
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
-  _existingPhones = [],
+  existingPhones = [],
   sellableProjects = [],
 }: {
   units: UnitOpt[];

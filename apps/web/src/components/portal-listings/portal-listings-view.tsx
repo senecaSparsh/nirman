@@ -110,7 +110,7 @@ function StatusBadge({ status }: { status: ListingStatus }) {
 export function PortalListingsView({
   listings,
   unitOptions,
-  _projects = [],
+  projects = [],
   permissions,
 }: {
   listings: ListingRow[];

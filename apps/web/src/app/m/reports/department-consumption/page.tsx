@@ -120,7 +120,7 @@ async function MobileDepartmentConsumptionContent() {
       deptRow.total += lineCost;
       deptRow.totalQty += lineQty;
       grandTotal += lineCost;
-      _grandQty += lineQty;
+      grandQty += lineQty;
     }
   }
 

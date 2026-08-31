@@ -82,7 +82,7 @@ async function MobileInventoryValueContent({
 
   for (const item of items) {
     grandTotal += item.value;
-    _totalQty += item.qty;
+    totalQty += item.qty;
     if (!byLocation.has(item.locationId)) byLocation.set(item.locationId, { name: item.locationName, type: item.locationType, value: 0, qty: 0 });
     const locRow = byLocation.get(item.locationId)!;
     locRow.value += item.value;

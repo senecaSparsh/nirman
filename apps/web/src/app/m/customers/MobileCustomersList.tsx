@@ -231,8 +231,8 @@ export function MobileCustomersList({
 /* ─── Customer card ─── */
 function CustomerCard({
   customer: c,
-  _canEdit = false,
-  _canDelete = false,
+  canEdit = false,
+  canDelete = false,
 }: {
   customer: CustomerListItem;
   canEdit?: boolean;
