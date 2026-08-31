@@ -53,8 +53,8 @@ For each capability:
 | RFQ + quote comparison (≥3 quotes) | HAVE | HAVE | — | — | — |
 | Comparative statement (landed cost) | HAVE | HAVE | — | — | — |
 | PO approval workflow | HAVE | HAVE | — | HAVE | — |
-| 3-way match (PO vs GRN vs invoice) | GAP | HAVE | — | — | P1 |
-| Vendor evaluation (rating) | GAP | HAVE | HAVE | — | P2 |
+| 3-way match (PO vs GRN vs invoice) | HAVE | HAVE | — | — | — |
+| Vendor evaluation (rating) | HAVE | HAVE | HAVE | — | — |
 | Auto-requisition (reorder point + EOQ) | HAVE | HAVE | HAVE | HAVE | — |
 | QC on receipt | GAP | HAVE | — | — | P1 |
 
@@ -77,18 +77,18 @@ For each capability:
 
 | Capability | Nirman | 4QT | Tally | Zoho | Priority |
 |---|---|---|---|---|---|
-| BOQ + rate analysis | GAP | HAVE | — | — | P0 |
-| WBS + scheduling + Gantt | GAP | HAVE | — | HAVE | P1 |
+| BOQ + rate analysis | HAVE | HAVE | — | — | — |
+| WBS + scheduling + Gantt | HAVE | HAVE | — | HAVE | — |
 | Critical path (CPM) | GAP | HAVE | — | — | P2 |
 | DPR (multi-tier approval) | HAVE | HAVE | — | — | — |
 | Standard consumption benchmarks | HAVE | HAVE | — | — | — |
 | Auto-scrap from DPR variance | HAVE | HAVE | — | — | — |
-| Contractor work order | GAP | HAVE | ⚠️ | — | P1 |
+| Contractor work order | HAVE | HAVE | ⚠️ | — | — |
 | RA bill (with retention/TDS) | HAVE | HAVE | — | — | — |
-| Change order (with impact analysis) | GAP | HAVE | — | — | P1 |
+| Change order (with impact analysis) | HAVE | HAVE | — | — | — |
 | EVM (PV/EV/AC/CPI/SPI/EAC) | GAP | HAVE | — | — | P2 |
-| Quality control (NCR/CAPA) | GAP | HAVE | — | — | P1 |
-| Safety management (incidents) | GAP | HAVE | — | — | P1 |
+| Quality control (NCR/CAPA) | HAVE | HAVE | — | — | — |
+| Safety management (incidents) | HAVE | HAVE | — | — | — |
 | Equipment management (tracking + maintenance) | HAVE | HAVE | — | — | — |
 | Document management (versioning + approval) | GAP | HAVE | — | HAVE | P2 |
 
@@ -187,7 +187,7 @@ For each capability:
 2. ~~**Construction-linked payment schedule (auto)**~~ ✅ DONE — `PaymentSchedule` + `PaymentScheduleItem` with CLP type, WBS milestone triggers
 3. **GST calc (CGST/SGST/IGST auto) + GSTR-1/2B/3B filing** (Tally gold standard)
 4. **e-Invoicing (IRN + QR)** (regulatory mandate)
-5. **BOQ + rate analysis** (4QT core, construction-specific)
+5. ~~**BOQ + rate analysis**~~ ✅ DONE — `/boq` page with hierarchical BOQ, rate analysis dialog, mobile BOQ pages
 6. **Customer portal** (4QT CP, Zoho CRM portal — table stakes for real estate)
 
 ## Top 10 priority gaps (P1)
@@ -197,7 +197,7 @@ For each capability:
 9. Payment reminders (pre-due/due/post-due) + interest on overdue
 10. Cancellation/transfer/registration/possession workflows
 11. Broker portal + commission management
-12. 3-way match (PO vs GRN vs invoice) + QC on receipt
+12. ~~3-way match (PO vs GRN vs invoice)~~ ✅ DONE + QC on receipt
 13. Contractor work order + change order
 14. Quality control (NCR/CAPA) + safety management
 15. TDS + e-Way Bill + GST reconciliation
