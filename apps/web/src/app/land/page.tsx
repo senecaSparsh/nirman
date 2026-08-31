@@ -256,7 +256,7 @@ async function LandContent() {
           { label: "Area", value: `${formatNumber(portfolio.totalArea, 0)} ${parcelRows[0]?.areaUnit ?? "sqft"}`, hint: "Total area across all land purchases." },
           { label: "Parcels", value: sellableParcels.length, hint: "Sellable parcels only — partitioned parents are excluded. A whole plot counts as 1; after subdivision it counts as the number of sub-plots." },
           { label: "Available", value: portfolio.availableCount, tone: portfolio.availableCount > 0 ? "success" as const : "muted" as const, hint: "Parcels ready to sell — not on hold, not sold, not partitioned." },
-          { label: "Held", value: formatCurrency(portfolio.unsoldValue), hint: "Current valuation of all unsold parcels (available + hold). This is what the land is worth on paper today." },
+          { label: "Unsold value", value: formatCurrency(portfolio.unsoldValue), hint: "Current valuation of all unsold parcels (available + on hold). This is what the land is worth on paper today." },
           { label: "Unrealized", value: `${portfolio.unrealizedGain >= 0 ? "+" : ""}${formatCurrency(portfolio.unrealizedGain)}`, tone: portfolio.unrealizedGain >= 0 ? "success" as const : "danger" as const, hint: "Paper gain on land you still hold = current valuation − acquisition cost. Not booked until sold." },
           ...(portfolio.soldRevenue > 0 ? [
             { label: "Sold", value: formatCurrency(portfolio.soldRevenue), hint: "Total revenue from parcels already sold." },

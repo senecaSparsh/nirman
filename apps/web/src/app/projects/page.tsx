@@ -81,6 +81,8 @@ async function ProjectsContent() {
   const pnlMap = new Map(pnlResults.map((r) => [r.projectId, r]));
 
   const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
+  const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
+  const onHoldCount = projects.filter((p) => p.status === "ON_HOLD").length;
 
   // Serialize for client component — with health data
   const projectRows = projects.map((p) => {
@@ -122,6 +124,8 @@ async function ProjectsContent() {
         stats={[
           { label: "Total", value: projects.length, hint: "All projects in the company, including completed and on-hold." },
           { label: "Active", value: activeCount, hint: "Projects currently in ACTIVE status." },
+          { label: "Completed", value: completedCount, hint: "Projects marked as COMPLETED." },
+          { label: "On hold", value: onHoldCount, hint: "Projects paused or on hold." },
         ]}
       />
       <ProjectsView

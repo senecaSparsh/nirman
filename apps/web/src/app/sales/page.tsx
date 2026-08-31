@@ -292,7 +292,10 @@ async function SalesContent() {
     canManage: hasPermission(role, PERM.SALES_MANAGE),
   };
 
-  const revenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.salePrice, 0);
+  // "Booked revenue" = sum of sale prices for non-cancelled sales.
+  // This includes RESERVED (deposit only) — it's the total contract value,
+  // not realized revenue. "Collected" is what's actually been received.
+  const bookedRevenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.salePrice, 0);
   const collected = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.totalPaid, 0);
 
   // Unit inventory summary — "kitni unit bachi, kitni bik gayi"
@@ -315,8 +318,8 @@ async function SalesContent() {
           { label: "Sold", value: soldUnits, tone: "success", hint: "Units with a completed sale (registry done). Booked units with deposit are in 'Reserved' below." },
           { label: "Reserved", value: reservedUnits, tone: "warning", hint: "Units with a deposit received but sale not yet completed." },
           { label: "Open Leads", value: leadRows.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length, hint: "Leads still moving through qualification and follow-up." },
-          { label: "Revenue", value: formatCurrency(revenue), tone: "success", hint: "Sum of sale prices across all non-cancelled sales." },
-          { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales." },
+          { label: "Booked", value: formatCurrency(bookedRevenue), tone: "success", hint: "Total contract value across all non-cancelled sales (includes reserved deposits). Not all of this is collected yet." },
+          { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales. The gap between Booked and Collected is outstanding." },
         ]}
       />
       <SalesView

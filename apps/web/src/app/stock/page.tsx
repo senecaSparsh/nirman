@@ -67,6 +67,7 @@ async function StockContent() {
     companyLocations,
     groupLocations,
     movements,
+    totalMovementCount,
     projects,
     departments,
     transfers,
@@ -125,6 +126,11 @@ async function StockContent() {
         toLocation: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
       },
+    }),
+    // ── Total movement count (the list is capped at 200, but the stat
+    //    should show the real total, not the truncated list length) ──
+    prisma.stockMovement.count({
+      where: { OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
     }),
     // ── Projects / departments (shared by movements, issues) ──
     prisma.project.findMany({
@@ -505,7 +511,7 @@ async function StockContent() {
         stats={[
           { label: "On-hand value", value: formatCurrency(stockValue), hint: "Total value of all stock currently on hand, valued at moving average cost per location." },
           { label: "Locations", value: companyLocationRows.length, hint: "Number of active stock locations (warehouses, project sites) in this company." },
-          { label: "Movements", value: movementRows.length, hint: "Recent stock movements (receipts, transfers, issues, adjustments) shown in the list." },
+          { label: "Movements", value: totalMovementCount, hint: "Total stock movements (receipts, transfers, issues, adjustments). The list shows the 200 most recent." },
         ]}
       />
       <StockHubView

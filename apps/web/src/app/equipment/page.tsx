@@ -73,6 +73,10 @@ async function EquipmentContent() {
 
   const equipmentRows: EquipmentRow[] = equipment.map((e) => {
     const active = e.assignments[0] ?? null;
+    // Derive display status: if there's an active assignment, the equipment
+    // is effectively "in use" regardless of what the raw status field says.
+    // This prevents showing "Available" while simultaneously showing an assignment.
+    const displayStatus = active ? "ASSIGNED" : e.status;
     return {
       id: e.id,
       assetTag: e.assetTag,
@@ -80,7 +84,7 @@ async function EquipmentContent() {
       model: e.model,
       serialNumber: e.serialNumber,
       category: e.category,
-      status: e.status,
+      status: displayStatus,
       acquisitionCost: toNum(e.acquisitionCost),
       currentValue: toNum(e.currentValue),
       purchaseDate: e.purchaseDate?.toISOString() ?? null,
